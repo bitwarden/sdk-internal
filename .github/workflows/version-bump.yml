@@ -11,15 +11,6 @@ on:
         type: choice
         options:
           - bitwarden
-          - bws
-          - napi
-          - python-sdk
-          - ruby-sdk
-          - go-sdk
-          - dotnet-sdk
-          - php-sdk
-          - java-sdk
-          - cpp-sdk
       version_number:
         description: "New version (example: '2024.1.0')"
         required: true
@@ -90,72 +81,10 @@ jobs:
       # VERSION BUMP SECTION #
       ########################
 
-      ### napi
-      - name: Bump @bitwarden/sdk-napi Version
-        if: ${{ inputs.project == 'napi' }}
-        working-directory: "crates/bitwarden-napi"
-        run: |
-          npm ci
-          npm version ${{ inputs.version_number }}
-
-      - name: Bump napi crate Version
-        if: ${{ inputs.project == 'napi' }}
-        run: cargo set-version -p bitwarden-napi ${{ inputs.version_number }}
-
       ### bitwarden
       - name: Bump bitwarden crate Version
         if: ${{ inputs.project == 'bitwarden' }}
         run: cargo set-version -p bitwarden ${{ inputs.version_number }}
-
-      ### bws
-      - name: Bump bws Version
-        if: ${{ inputs.project == 'bws' }}
-        run: |
-          cargo set-version -p bws ${{ inputs.version_number }}
-          # bump the version in install.sh
-          sed -i 's/DEFAULT_BWS_VERSION="[0-9]\+\.[0-9]\+\.[0-9]\+"/DEFAULT_BWS_VERSION="${{ inputs.version_number }}"/' ./crates/bws/scripts/install.sh
-          # bump the version in install.ps1
-          sed -i 's/\$defaultBwsVersion = "[0-9]\+\.[0-9]\+\.[0-9]\+"/\$defaultBwsVersion = "${{ inputs.version_number }}"/' ./crates/bws/scripts/install.ps1
-
-      ### python
-      - name: Bump python-sdk Version
-        if: ${{ inputs.project == 'python-sdk' }}
-        run: |
-          sed -i 's/version = "[0-9]\.[0-9]\.[0-9]"/version = "${{ inputs.version_number }}"/' ./languages/python/pyproject.toml
-          sed -i 's/__version__ = "[0-9]\.[0-9]\.[0-9]"/__version__ = "${{ inputs.version_number }}"/' ./languages/python/bitwarden_sdk/__init__.py
-
-      ### ruby sdk
-      - name: Bump ruby-sdk Version
-        if: ${{ inputs.project == 'ruby-sdk' }}
-        run: sed -i "s/VERSION = '[0-9]\.[0-9]\.[0-9]'/VERSION = '${{ inputs.version_number }}'/" ./languages/ruby/bitwarden_sdk_secrets/lib/version.rb
-
-      ### go sdk
-      - name: Bump go-sdk Version
-        if: ${{ inputs.project == 'go-sdk' }}
-        run: sed -i 's/[0-9]\.[0-9]\.[0-9]/${{ inputs.version_number }}/' ./languages/go/.version
-
-      ### dotnet sdk
-      - name: Bump dotnet-sdk Version
-        if: ${{ inputs.project == 'dotnet-sdk' }}
-        run: sed -i 's/<Version>[0-9]\.[0-9]\.[0-9]<\/Version>/<Version>${{ inputs.version_number }}<\/Version>/' languages/csharp/Bitwarden.Sdk/Bitwarden.Sdk.csproj
-
-      ### php sdk
-      - name: Bump php-sdk Version
-        if: ${{ inputs.project == 'php-sdk' }}
-        run: |
-          sed -i 's/"version": "[0-9]\.[0-9]\.[0-9]"/"version": "${{ inputs.version_number }}"/' ./languages/php/composer.json
-
-      ### java sdk
-      - name: Bump java-sdk Version
-        if: ${{ inputs.project == 'java-sdk' }}
-        run: |
-          sed -i 's/version = "[0-9]\.[0-9]\.[0-9]"/version = "${{ inputs.version_number }}"/' ./languages/java/build.gradle
-
-      ### cpp sdk
-      - name: Bump C++ SDK Version
-        if: ${{ inputs.project == 'cpp-sdk' }}
-        run: |
-          sed -i 's/"version": "[0-9]\.[0-9]\.[0-9]"/"version": "${{ inputs.version_number }}"/' ./languages/cpp/vcpkg.json
 
       ############################
       # VERSION BUMP SECTION END #

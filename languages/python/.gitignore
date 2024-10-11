@@ -1,4 +1,0 @@
-*.egg-info
-bitwarden_py*.so
-__pycache__
-.venv

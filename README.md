@@ -1,8 +1,7 @@
-# Bitwarden SDK
+# Bitwarden Internal SDK
 
-This repository houses the Bitwarden SDKs. We currently provide a public Secrets Manager SDK and an
-internal SDK for the Bitwarden Password Manager which is used for the native mobile applications.
-The SDK is written in Rust and provides a Rust API, CLI and various language bindings.
+This repository houses the internal Bitwarden SDKs. We also provide a public
+[Secrets Manager SDK](https://github.com/bitwarden/sdk-sm).
 
 ### Disclaimer
 
@@ -58,27 +57,6 @@ are:
   server.
 - [`bitwarden-api-identity`](./crates/bitwarden-api-identity/): Auto-generated API bindings for the
   Identity server.
-- [`bitwarden-c`](./crates/bitwarden-c/): C bindings for FFI interop.
-- [`bitwarden-json`](./crates/bitwarden-json/): JSON wrapper around the `bitwarden` crate. Powers
-  the other language bindings.
-- [`bitwarden-napi`](./crates/bitwarden-napi/): Node-API bindings.
-- [`bws`](./crates/bws/): CLI for interacting with the [Bitwarden Secrets Manager][secrets-manager].
-  Review the [CLI documentation][bws-help].
-- [`sdk-schemas`](./crates/sdk-schemas/): Generator for the _json schemas_.
-
-## Schemas
-
-To minimize the amount of work required to support additional bindings the project is structured
-around a `json` based API. With every binding only needing to implement one method, namely
-`run_command`.
-
-To ensure type safety in the API, _json schemas_ are generated from the rust structs in `bitwarden`
-using [schemars](https://crates.io/crates/schemars). The _json schemas_ are later used to generate
-the API bindings for each language using [QuickType](https://github.com/quicktype/quicktype).
-
-```bash
-npm run schemas
-```
 
 ## API Bindings
 
@@ -131,9 +109,6 @@ The list of developer tools is:
   much nicer output compared to `cargo test`. This tool needs to be installed separately by running
   `cargo install cargo-nextest --locked`. It can be manually run using
   `cargo nextest run --all-features`
-
-[secrets-manager]: https://bitwarden.com/products/secrets-manager/
-[bws-help]: https://bitwarden.com/help/secrets-manager-cli/
 
 ## Cargo fmt
 

@@ -46,7 +46,7 @@ jobs:
 
       - name: Test
         # Termporarily exclude NAPI due to a test error on windows
-        run: cargo test --workspace --exclude bitwarden-napi --all-features
+        run: cargo test --workspace --all-features
 
   coverage:
     name: Coverage

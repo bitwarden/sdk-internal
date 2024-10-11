@@ -1,14 +1,14 @@
 {
-  "name": "@bitwarden/sdk",
+  "name": "@bitwarden/sdk-internal",
   "version": "0.0.0",
   "description": "",
-  "homepage": "https://github.com/bitwarden/sdk#readme",
+  "homepage": "https://github.com/bitwarden/sdk-internal#readme",
   "bugs": {
-    "url": "https://github.com/bitwarden/sdk/issues"
+    "url": "https://github.com/bitwarden/sdk-internal/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bitwarden/sdk.git"
+    "url": "git+https://github.com/bitwarden/sdk-internal.git"
   },
   "license": "SEE LICENSE IN LICENSE",
   "author": "Bitwarden Inc. <hello@bitwarden.com> (https://bitwarden.com)",
@@ -16,15 +16,10 @@
   "scripts": {
     "lint": "prettier --check .",
     "prettier": "prettier --write .",
-    "schemas": "rimraf ./support/schemas && cargo run --bin sdk-schemas --all-features && ts-node ./support/scripts/schemas.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
     "@openapitools/openapi-generator-cli": "2.13.4",
-    "prettier": "3.3.3",
-    "quicktype-core": "23.0.170",
-    "rimraf": "6.0.1",
-    "ts-node": "10.9.2",
-    "typescript": "5.5.4"
+    "prettier": "3.3.3"
   }
 }
