@@ -45,7 +45,7 @@ publishing {
     publications {
         maven(MavenPublication) {
             groupId = 'com.bitwarden'
-            artifactId = 'sdk-android'
+            artifactId = 'sdk-android-temp'
 
             if (findProperty('version') == 'unspecified') {
                 // Determine the version from the git history.
