@@ -58,6 +58,7 @@ mod tests {
             external_id: None,
             hide_passwords: false,
             read_only: false,
+            manage: false,
         }]).unwrap();
 
         assert_eq!(dec[0].name, "Default collection");
@@ -74,6 +75,7 @@ mod tests {
             external_id: None,
             hide_passwords: false,
             read_only: false,
+            manage: false,
         }).unwrap();
 
         assert_eq!(dec.name, "Default collection");

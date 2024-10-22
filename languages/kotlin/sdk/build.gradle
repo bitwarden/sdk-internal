@@ -45,7 +45,7 @@ publishing {
     publications {
         maven(MavenPublication) {
             groupId = 'com.bitwarden'
-            artifactId = 'sdk-android'
+            artifactId = 'sdk-android-temp'
 
             if (findProperty('version') == 'unspecified') {
                 // Determine the version from the git history.
@@ -76,7 +76,7 @@ publishing {
     repositories {
         maven {
             name = 'GitHubPackages'
-            url = 'https://maven.pkg.github.com/bitwarden/sdk'
+            url = 'https://maven.pkg.github.com/bitwarden/sdk-internal'
             credentials {
                 username = System.getenv('GITHUB_ACTOR')
                 password = System.getenv('GITHUB_TOKEN')
@@ -96,12 +96,12 @@ File findRustlsPlatformVerifierClassesJar() {
     }.standardOutput.asText.get()
 
     def dependencyJson = new groovy.json.JsonSlurper().parseText(dependencyText)
-    def manifestPath = file(dependencyJson.packages.find { it.name == "rustls-platform-verifier-android" }.manifest_path)
+    def manifestPath = file(dependencyJson.packages.find { it.name == 'rustls-platform-verifier-android' }.manifest_path)
 
     def aar = fileTree(manifestPath.parentFile).matching {
-        include "maven/rustls/rustls-platform-verifier/*/rustls-platform-verifier-*.aar"
+        include 'maven/rustls/rustls-platform-verifier/*/rustls-platform-verifier-*.aar'
     }.getSingleFile()
-    return zipTree(aar).matching { include 'classes.jar'}.getSingleFile()
+    return zipTree(aar).matching { include 'classes.jar' }.getSingleFile()
 }
 
 dependencies {

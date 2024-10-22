@@ -1,7 +1,0 @@
-module BitwardenSDKSecrets
-  module BitwardenLib
-    extend FFI::Library
-
-    def self.mac_with_intel?: () -> untyped
-  end
-end

@@ -21,6 +21,7 @@ pub struct Collection {
     pub external_id: Option<String>,
     pub hide_passwords: bool,
     pub read_only: bool,
+    pub manage: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
@@ -35,6 +36,7 @@ pub struct CollectionView {
     pub external_id: Option<String>,
     pub hide_passwords: bool,
     pub read_only: bool,
+    pub manage: bool,
 }
 
 impl LocateKey for Collection {
@@ -57,6 +59,7 @@ impl KeyDecryptable<SymmetricCryptoKey, CollectionView> for Collection {
             external_id: self.external_id.clone(),
             hide_passwords: self.hide_passwords,
             read_only: self.read_only,
+            manage: self.manage,
         })
     }
 }
@@ -72,6 +75,7 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
             external_id: collection.external_id,
             hide_passwords: collection.hide_passwords.unwrap_or(false),
             read_only: collection.read_only.unwrap_or(false),
+            manage: collection.manage.unwrap_or(false),
         })
     }
 }

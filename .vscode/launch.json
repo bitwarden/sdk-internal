@@ -5,28 +5,6 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": ".NET Core Launch (console)",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "buildCsharp",
-      "program": "${workspaceFolder}/languages/csharp/Bitwarden.Sdk/bin/Debug/net6.0/BitwardenSdk.dll",
-      "args": [],
-      "env": {
-        "RUST_LOG": "debug"
-      },
-      "cwd": "${workspaceFolder}",
-      "stopAtEntry": false,
-      "console": "internalConsole"
-    },
-    {
-      "name": "Python: Current File",
-      "type": "python",
-      "request": "launch",
-      "program": "${file}",
-      "console": "integratedTerminal",
-      "preLaunchTask": "build python"
-    },
-    {
       "type": "lldb",
       "request": "launch",
       "name": "Debug unit tests in library 'bitwardensdk'",
