@@ -11,12 +11,15 @@ fn main() {
 }
 
 fn run(args: &[&str]) -> Result<String, std::io::Error> {
+    use std::io::{Error, ErrorKind};
     let out = Command::new(args[0]).args(&args[1..]).output()?;
     if !out.status.success() {
-        use std::io::{Error, ErrorKind};
         return Err(Error::new(ErrorKind::Other, "Command not successful"));
     }
-    Ok(String::from_utf8(out.stdout).unwrap().trim().to_string())
+    Ok(String::from_utf8(out.stdout)
+        .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))?
+        .trim()
+        .to_string())
 }
 
 /// This method reads info from Git, namely tags, branch, and revision
