@@ -44,9 +44,7 @@ fn version_from_git_info() -> Result<String, std::io::Error> {
     // Combined version
     if let Some(exact) = exact_tag {
         Ok(exact)
-    } else if &branch != "main" && &branch != "master" && &branch != "HEAD" {
-        Ok(format!("{rev_short} ({branch})"))
     } else {
-        Ok(format!("{rev_short}"))
+        Ok(format!("{branch} ({rev_short})"))
     }
 }
