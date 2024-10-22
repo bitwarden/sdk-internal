@@ -1,5 +1,6 @@
+use bitwarden_core::key_management::{AsymmetricKeyRef, SymmetricKeyRef};
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+    service::CryptoServiceContext, CryptoError, Decryptable, EncString, Encryptable,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -28,22 +29,30 @@ pub struct SshKeyView {
     pub fingerprint: Option<String>,
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, SshKey> for SshKeyView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<SshKey, CryptoError> {
+impl Encryptable<SymmetricKeyRef, AsymmetricKeyRef, SymmetricKeyRef, SshKey> for SshKeyView {
+    fn encrypt(
+        &self,
+        ctx: &mut CryptoServiceContext<SymmetricKeyRef, AsymmetricKeyRef>,
+        key: SymmetricKeyRef,
+    ) -> Result<SshKey, CryptoError> {
         Ok(SshKey {
-            private_key: self.private_key.encrypt_with_key(key)?,
-            public_key: self.public_key.encrypt_with_key(key)?,
-            fingerprint: self.fingerprint.encrypt_with_key(key)?,
+            private_key: self.private_key.encrypt(ctx, key).ok().flatten(),
+            public_key: self.public_key.encrypt(ctx, key).ok().flatten(),
+            fingerprint: self.fingerprint.encrypt(ctx, key).ok().flatten(),
         })
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, SshKeyView> for SshKey {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<SshKeyView, CryptoError> {
+impl Decryptable<SymmetricKeyRef, AsymmetricKeyRef, SymmetricKeyRef, SshKeyView> for SshKey {
+    fn decrypt(
+        &self,
+        ctx: &mut CryptoServiceContext<SymmetricKeyRef, AsymmetricKeyRef>,
+        key: SymmetricKeyRef,
+    ) -> Result<SshKeyView, CryptoError> {
         Ok(SshKeyView {
-            private_key: self.private_key.decrypt_with_key(key).ok().flatten(),
-            public_key: self.public_key.decrypt_with_key(key).ok().flatten(),
-            fingerprint: self.fingerprint.decrypt_with_key(key).ok().flatten(),
+            private_key: self.private_key.decrypt(ctx, key).ok().flatten(),
+            public_key: self.public_key.decrypt(ctx, key).ok().flatten(),
+            fingerprint: self.fingerprint.decrypt(ctx, key).ok().flatten(),
         })
     }
 }
