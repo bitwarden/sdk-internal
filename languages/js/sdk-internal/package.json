@@ -13,11 +13,12 @@
     "node/bitwarden_wasm_internal_bg.wasm",
     "node/bitwarden_wasm_internal_bg.wasm.d.ts",
     "node/bitwarden_wasm_internal.d.ts",
-    "node/bitwarden_wasm_internal.js"
+    "node/bitwarden_wasm_internal.js",
+    "types.d.ts"
   ],
   "main": "node/bitwarden_wasm_internal.js",
   "module": "index.js",
-  "types": "bitwarden_wasm_internal.d.ts",
+  "types": "types.d.ts",
   "scripts": {},
   "sideEffects": [
     "./bitwarden_wasm_internal.js"
