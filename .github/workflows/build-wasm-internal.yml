@@ -23,6 +23,23 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
 
+      - name: Set version (PR)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          echo REF_NAME="${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+          echo SHA="${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
+
+      - name: Set env variables (Branch/Tag)
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          echo REF_NAME="${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          echo SHA="${GITHUB_SHA}" >> $GITHUB_ENV
+
+      - name: Set version
+        run: |
+          echo SDK_VERSION="${REF_NAME} (${SHA:0:7})" >> $GITHUB_ENV
+          echo "SDK_VERSION=${SDK_VERSION}"
+
       - name: Setup Node
         uses: actions/setup-node@0a44ba7841725637a19e28fa30b79a866c81b0a6 # v4.0.4
         with:

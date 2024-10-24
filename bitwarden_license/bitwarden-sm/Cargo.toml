@@ -10,7 +10,7 @@ edition.workspace = true
 rust-version.workspace = true
 homepage.workspace = true
 repository.workspace = true
-license-file.workspace = true
+license-file = "../../LICENSE_SDK.txt"
 keywords.workspace = true
 
 [dependencies]
