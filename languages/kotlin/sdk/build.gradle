@@ -41,10 +41,6 @@ android {
             withSourcesJar()
         }
     }
-
-    packagingOptions {
-        merge '**/LICENSE_GPL.txt'
-    }
 }
 
 publishing {
