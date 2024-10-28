@@ -41,9 +41,21 @@ impl KeyEncryptable<SymmetricCryptoKey, SshKey> for SshKeyView {
 impl KeyDecryptable<SymmetricCryptoKey, SshKeyView> for SshKey {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<SshKeyView, CryptoError> {
         Ok(SshKeyView {
-            private_key: Some(self.private_key.clone()).decrypt_with_key(key).ok().flatten().ok_or(CryptoError::MissingField("private_key"))?,
-            public_key: Some(self.public_key.clone()).decrypt_with_key(key).ok().flatten().ok_or(CryptoError::MissingField("public_key"))?,
-            fingerprint: Some(self.fingerprint.clone()).decrypt_with_key(key).ok().flatten().ok_or(CryptoError::MissingField("fingerprint"))?,
+            private_key: Some(self.private_key.clone())
+                .decrypt_with_key(key)
+                .ok()
+                .flatten()
+                .ok_or(CryptoError::MissingField("private_key"))?,
+            public_key: Some(self.public_key.clone())
+                .decrypt_with_key(key)
+                .ok()
+                .flatten()
+                .ok_or(CryptoError::MissingField("public_key"))?,
+            fingerprint: Some(self.fingerprint.clone())
+                .decrypt_with_key(key)
+                .ok()
+                .flatten()
+                .ok_or(CryptoError::MissingField("fingerprint"))?,
         })
     }
 }
