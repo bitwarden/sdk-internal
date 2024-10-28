@@ -77,9 +77,9 @@ impl TryFrom<CipherView> for crate::Cipher {
             CipherType::SshKey => {
                 let s = require!(value.ssh_key);
                 crate::CipherType::SshKey(Box::new(crate::SshKey {
-                    private_key: Some(s.private_key),
-                    public_key: Some(s.public_key),
-                    fingerprint: Some(s.fingerprint),
+                    private_key: s.private_key,
+                    public_key: s.public_key,
+                    fingerprint: s.fingerprint,
                 }))
             }
         };

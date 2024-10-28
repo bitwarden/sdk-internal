@@ -137,9 +137,9 @@ pub struct Identity {
 
 pub struct SshKey {
     /// [OpenSSH private key](https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key), in PEM encoding.
-    pub private_key: Option<String>,
+    pub private_key: String,
     /// Ssh public key (ed25519/rsa) according to [RFC4253](https://datatracker.ietf.org/doc/html/rfc4253#section-6.6)
-    pub public_key: Option<String>,
+    pub public_key: String,
     /// SSH fingerprint using SHA256 in the format: `SHA256:BASE64_ENCODED_FINGERPRINT`
-    pub fingerprint: Option<String>,
+    pub fingerprint: String,
 }
