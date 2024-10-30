@@ -271,17 +271,22 @@ impl<'a> Fido2Authenticator<'a> {
         let enc = self.client.internal.get_encryption_settings()?;
         let all_credentials = self.credential_store.all_credentials().await?;
 
-        all_credentials
+        Ok(all_credentials
             .into_iter()
-            .map(
-                |cipher| -> Result<Vec<Fido2CredentialAutofillView>, CredentialsForAutofillError> {
-                    Ok(Fido2CredentialAutofillView::from_cipher_view(
-                        &cipher, &*enc,
-                    )?)
-                },
-            )
-            .flatten_ok()
-            .collect()
+            .filter_map(|cipher| -> Option<Vec<Fido2CredentialAutofillView>> {
+                match Fido2CredentialAutofillView::from_cipher_view(&cipher, &*enc) {
+                    Ok(view) => Some(view),
+                    Err(e) => {
+                        error!(
+                            "Error converting credential to autofill view for cipher {:?}: {e:?}",
+                            cipher.id
+                        );
+                        None
+                    }
+                }
+            })
+            .flatten()
+            .collect())
     }
 
     pub(super) fn get_authenticator(
