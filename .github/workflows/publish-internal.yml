@@ -44,7 +44,8 @@ jobs:
         id: version-output
         run: |
           if [ -z ${{ inputs.version }} ]; then
-            VERSION=0.2.0-${{ github.head_ref || github.ref_name }}.${{ github.run_number }}
+            BRANCH=${{ github.head_ref || github.ref_name }}
+            VERSION=0.2.0-${BRANCH/\//-}.${{ github.run_number }}
             echo "version=$VERSION" >> $GITHUB_OUTPUT
           else
             echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
