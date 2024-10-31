@@ -86,7 +86,7 @@ jobs:
 
       - name: Set version
         run: |
-          npm version --no-git-tag-version ${{ inputs.version }}
+          npm version --no-git-tag-version $VERSION
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{needs.setup.outputs.release-version}}
