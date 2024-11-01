@@ -51,4 +51,24 @@ impl ClientCrypto {
         let result: Vec<u8> = nonce.into_iter().chain(ciphertext.into_iter()).collect();
         Ok(result)
     }
+
+    pub fn decrypt_aes_256_gcm_siv(data: &[u8], key: &[u8]) -> Result<Vec<u8>> {
+        let nonce = data[..12].try_into().unwrap();
+        let ciphertext = &data[12..];
+        let key_len32 = key[..32].try_into().unwrap();
+        let plaintext = chacha20::decrypt_aes_256_gcm_siv(&nonce, &[], key_len32, ciphertext)?;
+        Ok(plaintext)
+    }
+
+    pub fn encrypt_aes_256_gcm_siv(
+        secret_data: &[u8],
+        authenticated_data: &[u8],
+        key: &[u8],
+    ) -> Result<Vec<u8>> {
+        let key_len32 = key[..32].try_into().unwrap();
+        let (nonce, ciphertext) =
+            chacha20::encrypt_aes_256_gcm_siv(secret_data, authenticated_data, key_len32)?;
+        let result: Vec<u8> = nonce.into_iter().chain(ciphertext.into_iter()).collect();
+        Ok(result)
+    }
 }
