@@ -21,5 +21,5 @@ npx prettier --write ./languages/js/sdk-internal
 wasm-opt -Os ./languages/js/sdk-internal/bitwarden_wasm_internal_bg.wasm -o ./languages/js/sdk-internal/bitwarden_wasm_internal_bg.wasm
 
 # Transpile to JS
-wasm2js ./languages/js/sdk-internal/bitwarden_wasm_internal_bg.wasm -o ./languages/js/sdk-internal/bitwarden_wasm_internal_bg.wasm.js
-npx terser ./languages/js/sdk-internal/bitwarden_wasm_internal_bg.wasm.js -o ./languages/js/sdk-internal/bitwarden_wasm_internal_bg.wasm.js
+# wasm2js ./languages/js/sdk-internal/bitwarden_wasm_internal_bg.wasm -o ./languages/js/sdk-internal/bitwarden_wasm_internal_bg.wasm.js
+# npx terser ./languages/js/sdk-internal/bitwarden_wasm_internal_bg.wasm.js -o ./languages/js/sdk-internal/bitwarden_wasm_internal_bg.wasm.js
