@@ -34,17 +34,11 @@ impl ClientCrypto {
 
     pub fn decrypt_loop_xchacha(data: &[u8], key: &[u8], iterations: u32) -> Result<Vec<u8>> {
         let mut data = data.to_vec();
-        let mut counter: u32 = 0;
         for n in 0..iterations {
             let iter_data = Self::decrypt_xchacha20_poly1305(&data, key)?;
-            // get nth value
-            let n = iter_data[(n % iter_data.len() as u32) as usize];
             data = iter_data;
-            counter += 1;
         }
-
-        data.append(&mut counter.to_be_bytes().to_vec());
-        Ok(data)
+        Ok(data);
     }
 
     pub fn decrypt_loop_aes(data: &[u8], key: &[u8], iterations: u32) -> Result<Vec<u8>> {
