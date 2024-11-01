@@ -9,7 +9,7 @@ if [ "$1" != "-r" ]; then
   wasm-bindgen --target nodejs --out-dir languages/js/sdk-internal/node ./target/wasm32-unknown-unknown/debug/bitwarden_wasm_internal.wasm
 else
   # Release
-  cargo build -p bitwarden-wasm-internal --target wasm32-unknown-unknown --release
+  RUSTFLAGS=-Ctarget-feature=+simd128 cargo build -p bitwarden-wasm-internal --target wasm32-unknown-unknown --release
   wasm-bindgen --target bundler --out-dir languages/js/sdk-internal ./target/wasm32-unknown-unknown/release/bitwarden_wasm_internal.wasm
   wasm-bindgen --target nodejs --out-dir languages/js/sdk-internal/node ./target/wasm32-unknown-unknown/release/bitwarden_wasm_internal.wasm
 fi
