@@ -80,6 +80,13 @@ jobs:
     runs-on: ubuntu-22.04
     needs: build
     steps:
+      - name: Wait for Tests
+        uses: lewagon/wait-on-check-action@ccfb013c15c8afb7bf2b7c028fb74dc5a068cccc # v1.3.4
+        with:
+          ref: ${{ github.ref }}
+          check-name: "Rust tests / CI is green"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Login to Azure - CI Subscription
         uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
         with:
