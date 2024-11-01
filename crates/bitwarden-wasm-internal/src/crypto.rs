@@ -38,7 +38,7 @@ impl ClientCrypto {
             let iter_data = Self::decrypt_xchacha20_poly1305(&data, key)?;
             data = iter_data;
         }
-        Ok(data);
+        Ok(data)
     }
 
     pub fn decrypt_loop_aes(data: &[u8], key: &[u8], iterations: u32) -> Result<Vec<u8>> {
