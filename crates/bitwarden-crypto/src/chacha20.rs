@@ -18,23 +18,23 @@ pub fn encrypt_xchacha20_poly1305(
     let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
     // to dyn buf
     let mut buffer = secret_data.to_vec();
-    let ciphertext = cipher.encrypt_in_place(&nonce, &authenticated_data, &mut buffer);
+    let ciphertext = cipher.encrypt_in_place(&nonce, &[], &mut buffer);
     match ciphertext {
         Ok(_) => Ok((nonce.into(), buffer)),
         Err(_) => Err(CryptoError::InvalidKey),
     }
 }
 
-pub fn decrypt_xchacha_poly1305(
+pub fn decrypt_xchacha20_poly1305(
     nonce: &[u8; 24],
     authenticated_data: &[u8],
     key: &GenericArray<u8, U32>,
-    data: Vec<u8>,
+    data: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
     let cipher = XChaCha20Poly1305::new(&key);
     let nonce = GenericArray::from_slice(nonce);
-    let mut buffer = data;
-    let plaintext = cipher.decrypt_in_place(&nonce, &authenticated_data, &mut buffer);
+    let mut buffer = data.to_vec();
+    let plaintext = cipher.decrypt_in_place(&nonce, &[], &mut buffer);
     match plaintext {
         Ok(_) => Ok(buffer),
         Err(_) => Err(CryptoError::InvalidKey),
