@@ -213,9 +213,9 @@ impl From<Identity> for JsonIdentity {
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct JsonSshKey {
-    private_key: Option<String>,
-    public_key: Option<String>,
-    fingerprint: Option<String>,
+    private_key: String,
+    public_key: String,
+    fingerprint: String,
 }
 
 impl From<SshKey> for JsonSshKey {
@@ -629,9 +629,9 @@ mod tests {
             notes: None,
 
             r#type: CipherType::SshKey(Box::new(SshKey {
-                private_key: Some("private".to_string()),
-                public_key: Some("public".to_string()),
-                fingerprint: Some("fingerprint".to_string()),
+                private_key: "private".to_string(),
+                public_key: "public".to_string(),
+                fingerprint: "fingerprint".to_string(),
             })),
 
             favorite: false,
@@ -837,9 +837,9 @@ mod tests {
                     notes: None,
 
                     r#type: CipherType::SshKey(Box::new(SshKey {
-                        private_key: Some("-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACBinNE5chMtCHh3BV0H1+CpPlEQBwR5cD+Xb9i8MaHGiwAAAKAy48fwMuPH\n8AAAAAtzc2gtZWQyNTUxOQAAACBinNE5chMtCHh3BV0H1+CpPlEQBwR5cD+Xb9i8MaHGiw\nAAAEAYUCIdfLI14K3XIy9V0FDZLQoZ9gcjOnvFjb4uA335HmKc0TlyEy0IeHcFXQfX4Kk+\nURAHBHlwP5dv2LwxocaLAAAAHHF1ZXh0ZW5ATWFjQm9vay1Qcm8tMTYubG9jYWwB\n-----END OPENSSH PRIVATE KEY-----".to_string()),
-                        public_key: Some("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGKc0TlyEy0IeHcFXQfX4Kk+URAHBHlwP5dv2LwxocaL".to_string()),
-                        fingerprint: Some("SHA256:1JjFjvPRkj1Gbf2qRP1dgHiIzEuNAEvp+92x99jw3K0".to_string()),
+                        private_key: "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACBinNE5chMtCHh3BV0H1+CpPlEQBwR5cD+Xb9i8MaHGiwAAAKAy48fwMuPH\n8AAAAAtzc2gtZWQyNTUxOQAAACBinNE5chMtCHh3BV0H1+CpPlEQBwR5cD+Xb9i8MaHGiw\nAAAEAYUCIdfLI14K3XIy9V0FDZLQoZ9gcjOnvFjb4uA335HmKc0TlyEy0IeHcFXQfX4Kk+\nURAHBHlwP5dv2LwxocaLAAAAHHF1ZXh0ZW5ATWFjQm9vay1Qcm8tMTYubG9jYWwB\n-----END OPENSSH PRIVATE KEY-----".to_string(),
+                        public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGKc0TlyEy0IeHcFXQfX4Kk+URAHBHlwP5dv2LwxocaL".to_string(),
+                        fingerprint: "SHA256:1JjFjvPRkj1Gbf2qRP1dgHiIzEuNAEvp+92x99jw3K0".to_string(),
                     })),
 
                     favorite: false,

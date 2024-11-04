@@ -104,7 +104,7 @@ jobs:
           script: |
             await github.rest.actions.createWorkflowDispatch({
               owner: 'bitwarden',
-              repo: 'sdk',
+              repo: 'sdk-internal',
               workflow_id: 'release-swift.yml',
               ref: 'main',
               inputs: {

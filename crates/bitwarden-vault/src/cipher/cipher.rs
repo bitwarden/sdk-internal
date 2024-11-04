@@ -340,8 +340,7 @@ impl Cipher {
                     return Ok(String::new());
                 };
 
-                ssh_key
-                    .fingerprint
+                Some(ssh_key.fingerprint.clone())
                     .as_ref()
                     .map(|c| c.decrypt_with_key(key))
                     .transpose()?
@@ -1191,6 +1190,8 @@ mod tests {
         let key = SymmetricCryptoKey::try_from(key).unwrap();
         let original_subtitle = "SHA256:1JjFjvPRkj1Gbf2qRP1dgHiIzEuNAEvp+92x99jw3K0".to_string();
         let fingerprint_encrypted = original_subtitle.to_owned().encrypt_with_key(&key).unwrap();
+        let private_key_encrypted = "".to_string().encrypt_with_key(&key).unwrap();
+        let public_key_encrypted = "".to_string().encrypt_with_key(&key).unwrap();
         let ssh_key_cipher = Cipher {
             id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
             organization_id: None,
@@ -1208,9 +1209,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: Some(SshKey {
-                private_key: None,
-                public_key: None,
-                fingerprint: Some(fingerprint_encrypted),
+                private_key: private_key_encrypted,
+                public_key: public_key_encrypted,
+                fingerprint: fingerprint_encrypted,
             }),
             favorite: false,
             reprompt: CipherRepromptType::None,
