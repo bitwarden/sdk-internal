@@ -76,17 +76,10 @@ jobs:
 
   trigger-wasm-publish:
     name: Trigger WASM publish
-
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     needs: build
     steps:
-      - name: Wait for Tests
-        uses: lewagon/wait-on-check-action@ccfb013c15c8afb7bf2b7c028fb74dc5a068cccc # v1.3.4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          check-name: "Rust tests / CI is green"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Login to Azure - CI Subscription
         uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
         with:
@@ -98,3 +91,15 @@ jobs:
         with:
           keyvault: "bitwarden-ci"
           secrets: "github-pat-bitwarden-devops-bot-repo-scope"
+
+      - name: Trigger WASM publish
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: 'bitwarden',
+              repo: 'sdk-internal',
+              workflow_id: 'publish-wasm-internal.yml',
+              ref: 'main',
+            })
