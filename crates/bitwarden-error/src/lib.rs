@@ -1,6 +1,6 @@
-pub mod metadata;
+pub mod variant;
 
 pub mod prelude {
-    pub use crate::metadata::{AsErrorMetadata, ErrorMetadata};
-    pub use bitwarden_error_macro::{bitwarden_error, AsErrorMetadata};
+    pub use crate::variant::ErrorVariant;
+    pub use bitwarden_error_macro::*;
 }

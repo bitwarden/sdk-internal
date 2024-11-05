@@ -11,41 +11,33 @@ pub fn bitwarden_error(
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
 
     quote! {
-        #[derive(AsErrorMetadata)]
+        #[derive(ErrorVariant)]
         #input
     }
     .into()
 }
 
-#[proc_macro_derive(AsErrorMetadata)]
-pub fn as_error_metadata(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+#[proc_macro_derive(ErrorVariant)]
+pub fn error_variant(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
-    let struct_identifier = &input.ident;
+    let type_identifier = &input.ident;
 
     match &input.data {
         Data::Enum(data) => {
-            let field_identifiers = data
-                .variants
-                .iter()
-                .map(|item| item.ident.clone())
-                .collect::<Vec<_>>();
-
-            let variant_names: Vec<_> = field_identifiers
-                .iter()
-                .map(|ident| format!("{}::{}", struct_identifier, ident))
-                .collect();
+            let match_arms = data.variants.iter().map(|variant| {
+                let variant_ident = &variant.ident;
+                let variant_name = format!("{}::{}", type_identifier, variant_ident);
+                quote! {
+                    #type_identifier::#variant_ident => #variant_name
+                }
+            });
 
             quote! {
                 #[automatically_derived]
-                impl AsErrorMetadata for #struct_identifier {
-                    fn as_metadata(&self) -> ErrorMetadata {
+                impl ErrorVariant for #type_identifier {
+                    fn error_variant(&self) -> &'static str {
                         match &self {
-                            #(
-                                #struct_identifier::#field_identifiers => ErrorMetadata {
-                                    name: #variant_names,
-                                    message: concat!("An error occurred in the ", stringify!(#field_identifiers), " variant"),
-                                },
-                            )*
+                            #(#match_arms), *
                         }
                     }
                 }
