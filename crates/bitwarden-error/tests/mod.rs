@@ -2,7 +2,7 @@ use bitwarden_error::prelude::*;
 
 #[test]
 fn variant_for_basic_enum() {
-    #[derive(AsErrorMetadata)]
+    #[bitwarden_error]
     enum SimpleError {
         Foo,
         Bar,
