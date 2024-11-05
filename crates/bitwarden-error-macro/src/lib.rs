@@ -24,6 +24,10 @@ pub fn error_variant(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     match &input.data {
         Data::Enum(data) => {
+            let variant_names = data.variants.iter().map(|variant| {
+                let variant_ident = &variant.ident;
+                format!("{}::{}", type_identifier, variant_ident)
+            });
             let match_arms = data.variants.iter().map(|variant| match variant.fields {
                 syn::Fields::Unit => {
                     let variant_ident = &variant.ident;
@@ -51,6 +55,10 @@ pub fn error_variant(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
             quote! {
                 #[automatically_derived]
                 impl ErrorVariant for #type_identifier {
+                    fn error_variants() -> &'static [&'static str] {
+                        &[#(#variant_names), *]
+                    }
+
                     fn error_variant(&self) -> &'static str {
                         match &self {
                             #(#match_arms), *
@@ -67,6 +75,10 @@ pub fn error_variant(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
             quote! {
                 #[automatically_derived]
                 impl ErrorVariant for #type_identifier {
+                    fn error_variants() -> &'static [&'static str] {
+                        &[#variant_name]
+                    }
+
                     fn error_variant(&self) -> &'static str {
                         #variant_name
                     }

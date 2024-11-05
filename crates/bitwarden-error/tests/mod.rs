@@ -46,3 +46,27 @@ fn variant_for_struct() {
 
     assert_eq!(simple.error_variant(), "SimpleStruct");
 }
+
+#[test]
+fn variant_names_for_enum() {
+    #[allow(dead_code)]
+    #[bitwarden_error]
+    enum SimpleError {
+        Foo,
+        Bar,
+        Baz,
+    }
+
+    assert_eq!(
+        SimpleError::error_variants(),
+        &["SimpleError::Foo", "SimpleError::Bar", "SimpleError::Baz"]
+    );
+}
+
+#[test]
+fn variant_names_for_struct() {
+    #[bitwarden_error]
+    struct SimpleStruct;
+
+    assert_eq!(SimpleStruct::error_variants(), &["SimpleStruct"]);
+}
