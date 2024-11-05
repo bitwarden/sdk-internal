@@ -24,11 +24,27 @@ pub fn error_variant(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     match &input.data {
         Data::Enum(data) => {
-            let match_arms = data.variants.iter().map(|variant| {
-                let variant_ident = &variant.ident;
-                let variant_name = format!("{}::{}", type_identifier, variant_ident);
-                quote! {
-                    #type_identifier::#variant_ident => #variant_name
+            let match_arms = data.variants.iter().map(|variant| match variant.fields {
+                syn::Fields::Unit => {
+                    let variant_ident = &variant.ident;
+                    let variant_name = format!("{}::{}", type_identifier, variant_ident);
+                    quote! {
+                        #type_identifier::#variant_ident => #variant_name
+                    }
+                }
+                syn::Fields::Named(_) => {
+                    let variant_ident = &variant.ident;
+                    let variant_name = format!("{}::{}", type_identifier, variant_ident);
+                    quote! {
+                        #type_identifier::#variant_ident { .. } => #variant_name
+                    }
+                }
+                syn::Fields::Unnamed(_) => {
+                    let variant_ident = &variant.ident;
+                    let variant_name = format!("{}::{}", type_identifier, variant_ident);
+                    quote! {
+                        #type_identifier::#variant_ident(..) => #variant_name
+                    }
                 }
             });
 
