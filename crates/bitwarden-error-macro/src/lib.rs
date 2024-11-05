@@ -22,11 +22,6 @@ pub fn as_error_metadata(item: proc_macro::TokenStream) -> proc_macro::TokenStre
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
     let struct_identifier = &input.ident;
 
-    // let mut implementation = {quote, format_ident}!{
-    //     match &self {
-    //     };
-    // };
-
     match &input.data {
         Data::Enum(data) => {
             let field_identifiers = data
