@@ -74,6 +74,10 @@ pub fn error_variant(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
             }
             .into()
         }
-        _ => unimplemented!(),
+        Data::Union(_) => {
+            syn::Error::new_spanned(input, "bitwarden_error cannot be used with unions")
+                .to_compile_error()
+                .into()
+        }
     }
 }
