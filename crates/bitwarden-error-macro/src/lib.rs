@@ -60,6 +60,20 @@ pub fn error_variant(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
             }
             .into()
         }
+        Data::Struct(_) => {
+            let type_identifier = &input.ident;
+            let variant_name = format!("{}", type_identifier);
+
+            quote! {
+                #[automatically_derived]
+                impl ErrorVariant for #type_identifier {
+                    fn error_variant(&self) -> &'static str {
+                        #variant_name
+                    }
+                }
+            }
+            .into()
+        }
         _ => unimplemented!(),
     }
 }

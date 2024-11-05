@@ -36,3 +36,13 @@ fn variant_for_enum_with_fields() {
     assert_eq!(bar.error_variant(), "ComplexError::Bar");
     assert_eq!(baz.error_variant(), "ComplexError::Baz");
 }
+
+#[test]
+fn variant_for_struct() {
+    #[bitwarden_error]
+    struct SimpleStruct;
+
+    let simple = SimpleStruct;
+
+    assert_eq!(simple.error_variant(), "SimpleStruct");
+}
