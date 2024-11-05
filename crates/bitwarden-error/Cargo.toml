@@ -10,6 +10,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [dependencies]
+bitwarden-error-macro = { version = "1.0.0", path = "../bitwarden-error-macro" }
 
 [lints]
 workspace = true
