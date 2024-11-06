@@ -53,8 +53,18 @@ impl BitwardenClient {
         env!("SDK_VERSION").to_owned()
     }
 
-    pub fn throw(&self, msg: String) -> Result<(), crate::error::GenericError> {
-        Err(crate::error::GenericError(msg))
+    pub fn echo_complex(
+        &self,
+        args: bitwarden_core::mobile::crypto::InitUserCryptoRequest,
+    ) -> Result<String, crate::error::GenericError> {
+        Ok(args.email)
+    }
+
+    pub async fn echo_complex_async(
+        &self,
+        args: bitwarden_core::mobile::crypto::InitUserCryptoRequest,
+    ) -> Result<String, crate::error::GenericError> {
+        Ok(args.email)
     }
 
     /// Test method, calls http endpoint
