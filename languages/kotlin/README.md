@@ -3,8 +3,10 @@
 Android builds needs vendored OpenSSL to function correctly. The easiest way to build this is by
 using [cross](https://github.com/cross-rs/cross).
 
+Note that the latest published version is very old, so we need to use a newer Git commit instead.
+
 ```bash
-cargo install cross
+cargo install cross --locked --git https://github.com/cross-rs/cross.git --rev 185398b1b885820515a212de720a306b08e2c8c9
 ```
 
 ## Building

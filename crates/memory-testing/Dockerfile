@@ -10,6 +10,9 @@ COPY Cargo.toml Cargo.lock /app/
 COPY crates/bitwarden-crypto/Cargo.toml /app/crates/bitwarden-crypto/
 COPY crates/memory-testing/Cargo.toml   /app/crates/memory-testing/
 
+# Patch Cargo.toml to remove `, "bitwarden_license/*"` from the members array
+RUN sed -i 's/, "bitwarden_license\/\*"\(,\?\)/\1/' Cargo.toml
+
 RUN mkdir -p /app/crates/bitwarden-crypto/src \
     /app/crates/bitwarden-crypto/benches \
     /app/crates/memory-testing/src \

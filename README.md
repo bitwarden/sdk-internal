@@ -44,7 +44,7 @@ You can also browse the latest published documentation:
 
 - [docs.rs](https://docs.rs/bitwarden/latest/bitwarden/) for the public SDK.
 - Or for developers of the SDK, view the internal
-  [API documentation](https://sdk-api-docs.bitwarden.com/bitwarden/index.html) which includes
+  [API documentation](https://sdk-api-docs.bitwarden.com/bitwarden_core/index.html) which includes
   private items.
 
 ## Crates
