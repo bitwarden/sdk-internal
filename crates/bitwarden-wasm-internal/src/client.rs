@@ -5,7 +5,7 @@ use bitwarden_core::{Client, ClientSettings};
 use log::{set_max_level, Level};
 use wasm_bindgen::prelude::*;
 
-use crate::{vault::ClientVault, ClientCrypto};
+use crate::{error::WasmError, vault::ClientVault, ClientCrypto};
 
 #[wasm_bindgen]
 pub enum LogLevel {
@@ -53,8 +53,19 @@ impl BitwardenClient {
         env!("SDK_VERSION").to_owned()
     }
 
-    pub fn throw(&self, msg: String) -> Result<(), crate::error::GenericError> {
-        Err(crate::error::GenericError(msg))
+    pub async fn throw(&self, msg: String) -> Result<(), WasmError> {
+        use bitwarden_error::prelude::*;
+
+        #[bitwarden_error]
+        struct TestError(String);
+
+        impl ToString for TestError {
+            fn to_string(&self) -> String {
+                self.0.clone()
+            }
+        }
+
+        Err(TestError(msg).into())
     }
 
     /// Test method, calls http endpoint

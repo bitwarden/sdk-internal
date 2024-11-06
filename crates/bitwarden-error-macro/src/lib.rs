@@ -9,10 +9,13 @@ pub fn bitwarden_error(
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
+    let type_identifier = &input.ident;
 
     quote! {
         #[derive(ErrorVariant)]
         #input
+
+        impl BitwardenError for #type_identifier {}
     }
     .into()
 }

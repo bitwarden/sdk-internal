@@ -21,8 +21,16 @@ impl ClientCrypto {
 impl ClientCrypto {
     /// Initialization method for the user crypto. Needs to be called before any other crypto
     /// operations.
-    pub async fn initialize_user_crypto(&self, req: InitUserCryptoRequest) -> Result<()> {
-        Ok(self.0.crypto().initialize_user_crypto(req).await?)
+    pub async fn initialize_user_crypto(
+        &self,
+        req: InitUserCryptoRequest,
+    ) -> Result<(), crate::error::WasmError> {
+        Ok(self
+            .0
+            .crypto()
+            .initialize_user_crypto(req)
+            .await
+            .map_err(|e| crate::error::WasmError::from(e))?)
     }
 
     /// Initialization method for the organization crypto. Needs to be called after
