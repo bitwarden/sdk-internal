@@ -1,5 +1,3 @@
-mod metadata;
-
 use quote::quote;
 use syn::Data;
 
