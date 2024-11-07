@@ -2,6 +2,7 @@ target
 languages/*
 schemas
 about.hbs
+crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.js
 
 # Test fixtures
 crates/bitwarden-exporters/resources/*
