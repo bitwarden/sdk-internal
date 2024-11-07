@@ -6,8 +6,12 @@ use bitwarden_api_api::apis::Error as ApiError;
 use bitwarden_api_identity::apis::Error as IdentityError;
 use log::debug;
 use reqwest::StatusCode;
+use serde::Serialize;
 use thiserror::Error;
 use validator::ValidationErrors;
+
+#[cfg(feature = "wasm")]
+use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 #[cfg(feature = "internal")]
 use crate::client::encryption_settings::EncryptionSettingsError;
@@ -132,8 +136,9 @@ pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 #[error("The response received was missing a required field: {0}")]
 pub struct MissingFieldError(pub &'static str);
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Serialize)]
 #[error("The client vault is locked and needs to be unlocked before use")]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
 pub struct VaultLocked;
 
 /// This macro is used to require that a value is present or return an error otherwise.

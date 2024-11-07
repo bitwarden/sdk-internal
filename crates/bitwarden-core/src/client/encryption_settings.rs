@@ -3,22 +3,33 @@ use std::collections::HashMap;
 use bitwarden_crypto::{AsymmetricCryptoKey, CryptoError, KeyContainer, SymmetricCryptoKey};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{AsymmetricEncString, EncString, MasterKey};
-use bitwarden_error::prelude::*;
+// use bitwarden_error::prelude::*;
+use serde::Serialize;
 use thiserror::Error;
 use uuid::Uuid;
+
+#[cfg(feature = "wasm")]
+use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 #[cfg(feature = "internal")]
 use crate::error::Result;
 use crate::VaultLocked;
 
-#[bitwarden_error]
-#[derive(Debug, Error)]
+// #[bitwarden_error]
+#[derive(Debug, Error, Serialize)]
+#[serde(rename_all = "camelCase")]
+// #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
 pub enum EncryptionSettingsError {
     #[error("Cryptography error, {0}")]
     Crypto(#[from] bitwarden_crypto::CryptoError),
 
     #[error(transparent)]
-    InvalidBase64(#[from] base64::DecodeError),
+    InvalidBase64(
+        #[from]
+        #[serde(skip)]
+        base64::DecodeError,
+    ),
 
     #[error(transparent)]
     VaultLocked(#[from] VaultLocked),

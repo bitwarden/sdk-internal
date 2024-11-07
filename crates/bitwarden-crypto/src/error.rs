@@ -1,11 +1,16 @@
 use std::fmt::Debug;
 
+use serde::Serialize;
 use thiserror::Error;
 use uuid::Uuid;
 
+#[cfg(feature = "wasm")]
+use {tsify_next::Tsify, wasm_bindgen::prelude::*};
+
 use crate::fingerprint::FingerprintError;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Serialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
 pub enum CryptoError {
     #[error("The provided key is not the expected type")]
     InvalidKey,
@@ -28,16 +33,32 @@ pub enum CryptoError {
     InsufficientKdfParameters,
 
     #[error("EncString error, {0}")]
-    EncString(#[from] EncStringParseError),
+    EncString(
+        #[from]
+        #[serde(skip)]
+        EncStringParseError,
+    ),
 
     #[error("Rsa error, {0}")]
-    RsaError(#[from] RsaError),
+    RsaError(
+        #[from]
+        #[serde(skip)]
+        RsaError,
+    ),
 
     #[error("Fingerprint error, {0}")]
-    FingerprintError(#[from] FingerprintError),
+    FingerprintError(
+        #[from]
+        #[serde(skip)]
+        FingerprintError,
+    ),
 
     #[error("Argon2 error, {0}")]
-    ArgonError(#[from] argon2::Error),
+    ArgonError(
+        #[from]
+        #[serde(skip)]
+        argon2::Error,
+    ),
 
     #[error("Number is zero")]
     ZeroNumber,

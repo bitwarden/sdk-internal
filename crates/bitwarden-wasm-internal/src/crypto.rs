@@ -24,13 +24,9 @@ impl ClientCrypto {
     pub async fn initialize_user_crypto(
         &self,
         req: InitUserCryptoRequest,
-    ) -> Result<(), crate::error::WasmError> {
-        Ok(self
-            .0
-            .crypto()
-            .initialize_user_crypto(req)
-            .await
-            .map_err(|e| crate::error::WasmError::from(e))?)
+    ) -> Result<(), bitwarden_core::client::encryption_settings::EncryptionSettingsError> {
+        Ok(self.0.crypto().initialize_user_crypto(req).await?)
+        // .map_err(|e| crate::error::WasmError::from(e))?)
     }
 
     /// Initialization method for the organization crypto. Needs to be called after
