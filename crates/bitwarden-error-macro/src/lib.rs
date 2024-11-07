@@ -25,10 +25,11 @@ pub fn error_variant(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     match &input.data {
         Data::Enum(data) => {
-            let variant_names = data.variants.iter().map(|variant| {
-                let variant_ident = &variant.ident;
-                format!("{}::{}", type_identifier, variant_ident)
-            });
+            let variant_names = data.variants.iter().map(|variant| &variant.ident);
+            // let variant_names = data.variants.iter().map(|variant| {
+            //     let variant_ident = &variant.ident;
+            //     format!("{}::{}", type_identifier, variant_ident)
+            // });
             let match_arms = data.variants.iter().map(|variant| match variant.fields {
                 syn::Fields::Unit => {
                     let variant_ident = &variant.ident;
@@ -53,13 +54,13 @@ pub fn error_variant(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 }
             });
 
+            let types = types(&type_identifier, &variant_names.collect::<Vec<_>>());
+
             quote! {
+                #types
+
                 #[automatically_derived]
                 impl ErrorVariant for #type_identifier {
-                    fn error_variants() -> &'static [&'static str] {
-                        &[#(#variant_names), *]
-                    }
-
                     fn error_variant(&self) -> &'static str {
                         match &self {
                             #(#match_arms), *
@@ -76,10 +77,6 @@ pub fn error_variant(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
             quote! {
                 #[automatically_derived]
                 impl ErrorVariant for #type_identifier {
-                    fn error_variants() -> &'static [&'static str] {
-                        &[#variant_name]
-                    }
-
                     fn error_variant(&self) -> &'static str {
                         #variant_name
                     }
@@ -93,4 +90,41 @@ pub fn error_variant(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 .into()
         }
     }
+}
+
+#[cfg(feature = "wasm")]
+fn types(
+    type_identifier: &proc_macro2::Ident,
+    variant_names: &[&proc_macro2::Ident],
+) -> proc_macro2::TokenStream {
+    let ts_identifier = quote::format_ident!("TS_TYPES_{}", type_identifier);
+    let ts_code_str = format!(
+        r##"r#"
+            export interface {} extends Error {{
+                name: "{}";
+                variant: {};
+            }};
+        "#"##,
+        type_identifier,
+        type_identifier,
+        variant_names
+            .iter()
+            .map(|vn| format!(r#""{vn}""#))
+            .collect::<Vec<String>>()
+            .join("|")
+    );
+    let ts_code: proc_macro2::TokenStream = ts_code_str.parse().unwrap();
+
+    quote! {
+        #[wasm_bindgen(typescript_custom_section)]
+        const #ts_identifier: &'static str = #ts_code;
+    }
+}
+
+#[cfg(not(feature = "wasm"))]
+fn types(
+    type_identifier: &proc_macro2::Ident,
+    variant_names: &[&proc_macro2::Ident],
+) -> proc_macro2::TokenStream {
+    quote! {}
 }

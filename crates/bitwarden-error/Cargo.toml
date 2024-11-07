@@ -9,8 +9,12 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
+[features]
+wasm = ["bitwarden-error-macro/wasm", "wasm-bindgen"]
+
 [dependencies]
 bitwarden-error-macro = { version = "1.0.0", path = "../bitwarden-error-macro" }
+wasm-bindgen = { workspace = true, optional = true }
 
 [lints]
 workspace = true

@@ -419,6 +419,7 @@ name = "bitwarden-error"
 version = "1.0.0"
 dependencies = [
  "bitwarden-error-macro",
+ "wasm-bindgen",
 ]
 
 [[package]]

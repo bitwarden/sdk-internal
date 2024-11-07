@@ -9,6 +9,9 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
+[features]
+wasm = []
+
 [dependencies]
 proc-macro2 = "1.0.89"
 quote = "1.0.37"

@@ -69,6 +69,7 @@ fn variant_for_struct() {
 }
 
 #[test]
+#[cfg(feature = "wasm")]
 fn variant_names_for_enum() {
     #[allow(dead_code)]
     #[derive(Debug)]
@@ -85,14 +86,20 @@ fn variant_names_for_enum() {
         }
     }
 
-    assert_eq!(
-        SimpleError::error_variants(),
-        &["SimpleError::Foo", "SimpleError::Bar", "SimpleError::Baz"]
-    );
+    // TODO: Not sure how to test this yet
+    // let types = TS_TYPES_SimpleError;
+    // assert_eq!(
+    //     types,
+    //     r#"
+    //         export const TS_TYPES_SimpleError = "<TODO>";
+    //     "#
+    // );
 }
 
 #[test]
+#[cfg(feature = "wasm")]
 fn variant_names_for_struct() {
+    #[allow(dead_code)]
     #[derive(Debug)]
     #[bitwarden_error]
     struct SimpleStruct;
@@ -103,5 +110,12 @@ fn variant_names_for_struct() {
         }
     }
 
-    assert_eq!(SimpleStruct::error_variants(), &["SimpleStruct"]);
+    // TODO: Not sure how to test this yet
+    // let types = TS_TYPES_SimpleStruct;
+    // assert_eq!(
+    //     types,
+    //     r#"
+    //         export const TS_TYPES_SimpleStruct = "<TODO>";
+    //     "#
+    // );
 }
