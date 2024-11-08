@@ -10,7 +10,7 @@ pub fn bitwarden_error(
     let type_identifier = &input.ident;
 
     quote! {
-        #[derive(ErrorVariant)]
+        #[derive(FlatError)]
         #input
 
         impl BitwardenError for #type_identifier {}
@@ -18,8 +18,8 @@ pub fn bitwarden_error(
     .into()
 }
 
-#[proc_macro_derive(ErrorVariant)]
-pub fn error_variant(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+#[proc_macro_derive(FlatError)]
+pub fn flat_error(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
     let type_identifier = &input.ident;
 
@@ -60,7 +60,7 @@ pub fn error_variant(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 #types
 
                 #[automatically_derived]
-                impl ErrorVariant for #type_identifier {
+                impl FlatError for #type_identifier {
                     fn error_variant(&self) -> &'static str {
                         match &self {
                             #(#match_arms), *
@@ -76,7 +76,7 @@ pub fn error_variant(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
             quote! {
                 #[automatically_derived]
-                impl ErrorVariant for #type_identifier {
+                impl FlatError for #type_identifier {
                     fn error_variant(&self) -> &'static str {
                         #variant_name
                     }

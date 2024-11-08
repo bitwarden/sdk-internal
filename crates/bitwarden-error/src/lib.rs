@@ -1,7 +1,7 @@
-pub mod variant;
+pub mod flat_error;
 
 pub mod prelude {
-    pub use crate::variant::ErrorVariant;
+    pub use crate::flat_error::FlatError;
     pub use crate::BitwardenError;
     pub use bitwarden_error_macro::*;
 
@@ -9,4 +9,4 @@ pub mod prelude {
     pub use wasm_bindgen::prelude::*;
 }
 
-pub trait BitwardenError: variant::ErrorVariant + ToString {}
+pub trait BitwardenError: flat_error::FlatError + ToString {}
