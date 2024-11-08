@@ -5,5 +5,5 @@ mod error;
 mod vault;
 
 pub use client::BitwardenClient;
-pub use crypto::ClientCrypto;
-pub use vault::{folders::ClientFolders, ClientVault};
+pub use crypto::CryptoClient;
+pub use vault::{folders::ClientFolders, VaultClient};

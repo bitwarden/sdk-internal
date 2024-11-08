@@ -6,6 +6,6 @@ mod uniffi_support;
 mod error;
 pub use error::SendParseError;
 mod client_sends;
-pub use client_sends::{ClientSends, ClientSendsExt};
+pub use client_sends::{SendClients, SendClientsExt};
 mod send;
 pub use send::{Send, SendListView, SendView};

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use bitwarden_exporters::{ClientExportersExt, ExportFormat};
+use bitwarden_exporters::{ExportFormat, ExporterClientsExt};
 use bitwarden_generators::{
-    ClientGeneratorExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
+    GeneratorClientsExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
     UsernameGeneratorRequest,
 };
 use bitwarden_vault::{Cipher, Collection, Folder};
@@ -13,13 +13,13 @@ use crate::{
 };
 
 mod sends;
-pub use sends::ClientSends;
+pub use sends::SendClients;
 
 #[derive(uniffi::Object)]
-pub struct ClientGenerators(pub(crate) Arc<Client>);
+pub struct GeneratorClients(pub(crate) Arc<Client>);
 
 #[uniffi::export(async_runtime = "tokio")]
-impl ClientGenerators {
+impl GeneratorClients {
     /// **API Draft:** Generate Password
     pub fn password(&self, settings: PasswordGeneratorRequest) -> Result<String> {
         Ok(self
@@ -53,10 +53,10 @@ impl ClientGenerators {
 }
 
 #[derive(uniffi::Object)]
-pub struct ClientExporters(pub(crate) Arc<Client>);
+pub struct ExporterClients(pub(crate) Arc<Client>);
 
 #[uniffi::export]
-impl ClientExporters {
+impl ExporterClients {
     /// **API Draft:** Export user vault
     pub fn export_vault(
         &self,

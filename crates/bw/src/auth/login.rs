@@ -6,7 +6,7 @@ use bitwarden_core::{
     },
     Client,
 };
-use bitwarden_vault::{ClientVaultExt, SyncRequest};
+use bitwarden_vault::{SyncRequest, VaultClientExt};
 use color_eyre::eyre::{bail, Result};
 use inquire::{Password, Text};
 use log::{debug, error, info};

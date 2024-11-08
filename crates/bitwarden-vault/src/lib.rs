@@ -18,7 +18,7 @@ pub use totp::{generate_totp, generate_totp_cipher_view, TotpError, TotpResponse
 mod error;
 pub use error::VaultParseError;
 mod client_vault;
-pub use client_vault::{ClientVault, ClientVaultExt};
+pub use client_vault::{VaultClient, VaultClientExt};
 mod client_totp;
 mod mobile;
 mod sync;

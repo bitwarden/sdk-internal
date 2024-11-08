@@ -5,11 +5,11 @@ use super::{
 };
 use crate::{error::Result, Client};
 
-pub struct ClientPlatform<'a> {
+pub struct PlatformClient<'a> {
     pub(crate) client: &'a Client,
 }
 
-impl<'a> ClientPlatform<'a> {
+impl<'a> PlatformClient<'a> {
     pub fn fingerprint(&self, input: &FingerprintRequest) -> Result<FingerprintResponse> {
         generate_fingerprint(input)
     }
@@ -27,7 +27,7 @@ impl<'a> ClientPlatform<'a> {
 }
 
 impl<'a> Client {
-    pub fn platform(&'a self) -> ClientPlatform<'a> {
-        ClientPlatform { client: self }
+    pub fn platform(&'a self) -> PlatformClient<'a> {
+        PlatformClient { client: self }
     }
 }

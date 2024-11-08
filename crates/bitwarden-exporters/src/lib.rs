@@ -12,7 +12,7 @@ mod csv;
 mod encrypted_json;
 mod json;
 mod models;
-pub use client_exporter::{ClientExporters, ClientExportersExt};
+pub use client_exporter::{ExporterClients, ExporterClientsExt};
 mod error;
 mod export;
 pub use error::ExportError;
