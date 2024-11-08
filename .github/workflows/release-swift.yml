@@ -171,7 +171,7 @@ jobs:
           workflow_conclusion: success
           artifacts: "BitwardenSdk-${{ env._PKG_VERSION }}-${{ needs.validate.outputs.short_sha }}-sources"
           run_id: ${{ env._BUILD_RUN_ID }}
-          path: sdk/languages/swift/Sources/BitwardenSdk
+          path: sdk/crates/bitwarden-uniffi/swift/Sources/BitwardenSdk
 
       - name: Install Swift formatter
         run: |
@@ -186,21 +186,21 @@ jobs:
           sed -i 's|.binaryTarget(name: "BitwardenFFI", path: "BitwardenFFI.xcframework")|.binaryTarget(\
             name: "BitwardenFFI",\
             url: "https://github.com/bitwarden/sdk-swift/releases/download/v${{ env._RELEASE_NAME }}/BitwardenFFI-${{ env._PKG_VERSION }}-${{ needs.validate.outputs.short_sha }}.xcframework.zip",\
-            checksum: "${{ env._SWIFT_CHECKSUM }}" )|' sdk/languages/swift/Package.swift
+            checksum: "${{ env._SWIFT_CHECKSUM }}" )|' sdk/crates/bitwarden-uniffi/swift/Package.swift
 
           # Run swiftformat
-          swiftformat sdk/languages/swift/Package.swift
+          swiftformat sdk/crates/bitwarden-uniffi/swift/Package.swift
 
-          find sdk/languages/swift/Sources/ -name ".gitignore" -exec rm -f {} \;
+          find sdk/crates/bitwarden-uniffi/swift/Sources/ -name ".gitignore" -exec rm -f {} \;
 
           rm -rf sdk-swift/Sources
           rm -rf sdk-swift/Tests
 
           # Copy files to local sdk-swift repo path
-          cp --verbose -rf sdk/languages/swift/README.md sdk-swift/README.md
-          cp --verbose -rf sdk/languages/swift/Package.swift sdk-swift/Package.swift
-          cp --verbose -rf sdk/languages/swift/Sources sdk-swift
-          cp --verbose -rf sdk/languages/swift/Tests sdk-swift
+          cp --verbose -rf sdk/crates/bitwarden-uniffi/swift/README.md sdk-swift/README.md
+          cp --verbose -rf sdk/crates/bitwarden-uniffi/swift/Package.swift sdk-swift/Package.swift
+          cp --verbose -rf sdk/crates/bitwarden-uniffi/swift/Sources sdk-swift
+          cp --verbose -rf sdk/crates/bitwarden-uniffi/swift/Tests sdk-swift
 
       - name: Push changes
         working-directory: sdk-swift
