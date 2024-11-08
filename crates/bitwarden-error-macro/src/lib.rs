@@ -88,7 +88,21 @@ pub fn basic_error(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 #[cfg(feature = "wasm")]
 fn basic_error_js_value(type_identifier: &proc_macro2::Ident) -> proc_macro2::TokenStream {
+    let ts_identifier = quote::format_ident!("TS_TYPES_{}", type_identifier);
+    let ts_code_str = format!(
+        r##"r#"
+            export interface {} extends Error {{
+                name: "{}";
+            }};
+        "#"##,
+        type_identifier, type_identifier
+    );
+    let ts_code: proc_macro2::TokenStream = ts_code_str.parse().unwrap();
+
     quote! {
+        #[wasm_bindgen(typescript_custom_section)]
+        const #ts_identifier: &'static str = #ts_code;
+
         #[automatically_derived]
         impl From<#type_identifier> for JsValue {
             fn from(error: #type_identifier) -> Self {
