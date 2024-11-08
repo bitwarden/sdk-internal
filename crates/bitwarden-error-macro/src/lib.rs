@@ -43,6 +43,22 @@ pub fn bitwarden_error(
     };
 
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
+    match error_type {
+        BitwardenErrorType::Basic => basic_error_impl(&input),
+        BitwardenErrorType::Flat => flat_error_impl(&input),
+        BitwardenErrorType::Full => full_error_impl(&input),
+    }
+}
+
+fn basic_error_impl(input: &syn::DeriveInput) -> proc_macro::TokenStream {
+    quote! {
+        #[derive(BasicError)]
+        #input
+    }
+    .into()
+}
+
+fn flat_error_impl(input: &syn::DeriveInput) -> proc_macro::TokenStream {
     let type_identifier = &input.ident;
 
     quote! {
@@ -54,6 +70,41 @@ pub fn bitwarden_error(
     .into()
 }
 
+fn full_error_impl(input: &syn::DeriveInput) -> proc_macro::TokenStream {
+    quote! {}.into()
+}
+
+#[proc_macro_derive(BasicError)]
+pub fn basic_error(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = syn::parse_macro_input!(item as syn::DeriveInput);
+    let type_identifier = &input.ident;
+
+    let js_value = basic_error_js_value(&type_identifier);
+    quote! {
+        #js_value
+    }
+    .into()
+}
+
+#[cfg(feature = "wasm")]
+fn basic_error_js_value(type_identifier: &proc_macro2::Ident) -> proc_macro2::TokenStream {
+    quote! {
+        #[automatically_derived]
+        impl From<#type_identifier> for JsValue {
+            fn from(error: #type_identifier) -> Self {
+                let js_error = JsError::new(error.to_string());
+                js_error.set_name(stringify!(#type_identifier).to_owned());
+                js_error.into()
+            }
+        }
+    }
+}
+
+#[cfg(not(feature = "wasm"))]
+fn basic_error_js_value(type_identifier: &proc_macro2::Ident) -> proc_macro2::TokenStream {
+    quote! {}
+}
+
 #[proc_macro_derive(FlatError)]
 pub fn flat_error(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
@@ -62,10 +113,7 @@ pub fn flat_error(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     match &input.data {
         Data::Enum(data) => {
             let variant_names = data.variants.iter().map(|variant| &variant.ident);
-            // let variant_names = data.variants.iter().map(|variant| {
-            //     let variant_ident = &variant.ident;
-            //     format!("{}::{}", type_identifier, variant_ident)
-            // });
+
             let match_arms = data.variants.iter().map(|variant| match variant.fields {
                 syn::Fields::Unit => {
                     let variant_ident = &variant.ident;
