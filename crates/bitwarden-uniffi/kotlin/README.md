@@ -9,6 +9,15 @@ Note that the latest published version is very old, so we need to use a newer Gi
 cargo install cross --locked --git https://github.com/cross-rs/cross.git --rev 185398b1b885820515a212de720a306b08e2c8c9
 ```
 
+## Development
+
+When building the Android SDK using Android Studio on MacOS you will need access to the local
+`$PATH`, where cargo is installed. This can be done by starting Android Studio from the terminal.
+
+```bash
+open -a /Applications/Android\ Studio.app
+```
+
 ## Building
 
 Depending on which CPU architecture you will need to specify different targets. Please refer to the
