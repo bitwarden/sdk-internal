@@ -3,7 +3,7 @@ use bitwarden_error::prelude::*;
 #[test]
 fn variant_for_basic_enum() {
     #[derive(Debug)]
-    #[bitwarden_error]
+    #[bitwarden_error(flat)]
     enum SimpleError {
         Foo,
         Bar,
@@ -29,7 +29,7 @@ fn variant_for_basic_enum() {
 fn variant_for_enum_with_fields() {
     #[allow(dead_code)]
     #[derive(Debug)]
-    #[bitwarden_error]
+    #[bitwarden_error(flat)]
     enum ComplexError {
         Foo(String),
         Bar { x: i32, y: i32 },
@@ -54,7 +54,7 @@ fn variant_for_enum_with_fields() {
 #[test]
 fn variant_for_struct() {
     #[derive(Debug)]
-    #[bitwarden_error]
+    #[bitwarden_error(flat)]
     struct SimpleStruct;
 
     impl ToString for SimpleStruct {
@@ -73,7 +73,7 @@ fn variant_for_struct() {
 fn variant_names_for_enum() {
     #[allow(dead_code)]
     #[derive(Debug)]
-    #[bitwarden_error]
+    #[bitwarden_error(flat)]
     enum SimpleError {
         Foo,
         Bar,
@@ -101,7 +101,7 @@ fn variant_names_for_enum() {
 fn variant_names_for_struct() {
     #[allow(dead_code)]
     #[derive(Debug)]
-    #[bitwarden_error]
+    #[bitwarden_error(flat)]
     struct SimpleStruct;
 
     impl ToString for SimpleStruct {

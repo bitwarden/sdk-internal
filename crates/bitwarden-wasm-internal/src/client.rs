@@ -56,7 +56,7 @@ impl BitwardenClient {
     pub async fn throw(&self, msg: String) -> Result<(), WasmError> {
         use bitwarden_error::prelude::*;
 
-        #[bitwarden_error]
+        #[bitwarden_error(flat)]
         struct TestError(String);
 
         impl ToString for TestError {
