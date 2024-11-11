@@ -83,6 +83,9 @@ pub use wordlist::EFF_LONG_WORD_LIST;
 mod allocator;
 pub use allocator::ZeroizingAllocator;
 pub mod chacha20;
+pub mod xwing;
+pub mod x25519;
+pub mod ed25519;
 
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();

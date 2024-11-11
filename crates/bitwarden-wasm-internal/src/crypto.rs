@@ -4,7 +4,7 @@ use bitwarden_core::{
     mobile::crypto::{InitOrgCryptoRequest, InitUserCryptoRequest},
     Client,
 };
-use bitwarden_crypto::chacha20;
+use bitwarden_crypto::{chacha20, xwing};
 use wasm_bindgen::prelude::*;
 
 use crate::error::Result;
@@ -95,4 +95,40 @@ impl ClientCrypto {
         let result: Vec<u8> = nonce.into_iter().chain(ciphertext.into_iter()).collect();
         Ok(result)
     }
+
+    pub fn generate_xwing_keypair() -> Result<Vec<u8>> {
+        let (sk, pk) = xwing::generate_keypair()?;
+        // concat
+        let concat = sk.to_vec().into_iter().chain(pk.to_vec().into_iter()).collect();
+        Ok(concat)
+    }
+
+    pub fn encapsulate_xwing(vec: Vec<u8>) -> Result<Vec<u8>> {
+        let (ct, ss_sender) = xwing::encapsulate(&vec)?;
+        let concat = ct.to_vec().into_iter().chain(ss_sender.to_vec().into_iter()).collect();
+        Ok(concat)
+    }
+
+    pub fn decapsulate_xwing(sk: &[u8], ct: &[u8]) -> Result<Vec<u8>> {
+        let ss_receiver = xwing::decapsulate(sk, ct)?;
+        Ok(ss_receiver.to_vec())
+    }
+
+    pub fn generate_ed25519_keypair() -> Result<Vec<u8>> {
+        let (sk, pk) = bitwarden_crypto::ed25519::generate_ed25519_keypair()?;
+        // concat
+        let concat = sk.to_vec().into_iter().chain(pk.to_vec().into_iter()).collect();
+        Ok(concat)
+    }
+
+    pub fn sign_ed25519(data: Vec<u8>, secret: Vec<u8>) -> Result<Vec<u8>> {
+        let signature = bitwarden_crypto::ed25519::sign(data, secret)?;
+        Ok(signature)
+    }
+
+    pub fn verify_ed25519(data: Vec<u8>, signature: Vec<u8>, public: Vec<u8>) -> Result<bool> {
+        let res = bitwarden_crypto::ed25519::verify(data, signature, public)?;
+        Ok(res)
+    }
+
 }
