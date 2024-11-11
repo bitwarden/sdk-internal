@@ -33,7 +33,8 @@ pub(crate) fn flat_error(item: proc_macro::TokenStream) -> proc_macro::TokenStre
                 }
             });
 
-            let wasm = flat_error_wasm(&type_identifier, &variant_names.collect::<Vec<_>>());
+            let wasm = cfg!(feature = "wasm")
+                .then(|| flat_error_wasm(&type_identifier, &variant_names.collect::<Vec<_>>()));
 
             quote! {
                 #wasm
@@ -55,7 +56,6 @@ pub(crate) fn flat_error(item: proc_macro::TokenStream) -> proc_macro::TokenStre
     }
 }
 
-#[cfg(feature = "wasm")]
 fn flat_error_wasm(
     type_identifier: &proc_macro2::Ident,
     variant_names: &[&proc_macro2::Ident],
@@ -92,12 +92,4 @@ fn flat_error_wasm(
             }
         }
     }
-}
-
-#[cfg(not(feature = "wasm"))]
-fn flat_error_wasm(
-    type_identifier: &proc_macro2::Ident,
-    variant_names: &[&proc_macro2::Ident],
-) -> proc_macro2::TokenStream {
-    quote! {}
 }
