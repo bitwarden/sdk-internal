@@ -79,15 +79,15 @@ pub fn basic_error(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
     let type_identifier = &input.ident;
 
-    let js_value = basic_error_js_value(&type_identifier);
+    let wasm = basic_error_wasm(&type_identifier);
     quote! {
-        #js_value
+        #wasm
     }
     .into()
 }
 
 #[cfg(feature = "wasm")]
-fn basic_error_js_value(type_identifier: &proc_macro2::Ident) -> proc_macro2::TokenStream {
+fn basic_error_wasm(type_identifier: &proc_macro2::Ident) -> proc_macro2::TokenStream {
     let ts_identifier = quote::format_ident!("TS_TYPES_{}", type_identifier);
     let ts_code_str = format!(
         r##"r#"
@@ -115,7 +115,7 @@ fn basic_error_js_value(type_identifier: &proc_macro2::Ident) -> proc_macro2::To
 }
 
 #[cfg(not(feature = "wasm"))]
-fn basic_error_js_value(type_identifier: &proc_macro2::Ident) -> proc_macro2::TokenStream {
+fn basic_error_wasm(type_identifier: &proc_macro2::Ident) -> proc_macro2::TokenStream {
     quote! {}
 }
 
@@ -131,31 +131,31 @@ pub fn flat_error(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let match_arms = data.variants.iter().map(|variant| match variant.fields {
                 syn::Fields::Unit => {
                     let variant_ident = &variant.ident;
-                    let variant_name = format!("{}::{}", type_identifier, variant_ident);
+                    let variant_name = format!("{}", variant_ident);
                     quote! {
                         #type_identifier::#variant_ident => #variant_name
                     }
                 }
                 syn::Fields::Named(_) => {
                     let variant_ident = &variant.ident;
-                    let variant_name = format!("{}::{}", type_identifier, variant_ident);
+                    let variant_name = format!("{}", variant_ident);
                     quote! {
                         #type_identifier::#variant_ident { .. } => #variant_name
                     }
                 }
                 syn::Fields::Unnamed(_) => {
                     let variant_ident = &variant.ident;
-                    let variant_name = format!("{}::{}", type_identifier, variant_ident);
+                    let variant_name = format!("{}", variant_ident);
                     quote! {
                         #type_identifier::#variant_ident(..) => #variant_name
                     }
                 }
             });
 
-            let types = types(&type_identifier, &variant_names.collect::<Vec<_>>());
+            let wasm = flat_error_wasm(&type_identifier, &variant_names.collect::<Vec<_>>());
 
             quote! {
-                #types
+                #wasm
 
                 #[automatically_derived]
                 impl FlatError for #type_identifier {
@@ -191,7 +191,7 @@ pub fn flat_error(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 }
 
 #[cfg(feature = "wasm")]
-fn types(
+fn flat_error_wasm(
     type_identifier: &proc_macro2::Ident,
     variant_names: &[&proc_macro2::Ident],
 ) -> proc_macro2::TokenStream {
@@ -216,11 +216,21 @@ fn types(
     quote! {
         #[wasm_bindgen(typescript_custom_section)]
         const #ts_identifier: &'static str = #ts_code;
+
+        #[automatically_derived]
+        impl From<#type_identifier> for JsValue {
+            fn from(error: #type_identifier) -> Self {
+                let js_error = JsError::new(error.to_string());
+                js_error.set_name(stringify!(#type_identifier).to_owned());
+                js_error.set_variant(error.error_variant().to_owned());
+                js_error.into()
+            }
+        }
     }
 }
 
 #[cfg(not(feature = "wasm"))]
-fn types(
+fn flat_error_wasm(
     type_identifier: &proc_macro2::Ident,
     variant_names: &[&proc_macro2::Ident],
 ) -> proc_macro2::TokenStream {

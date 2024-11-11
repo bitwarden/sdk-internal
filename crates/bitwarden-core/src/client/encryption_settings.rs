@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::error::Result;
 use crate::VaultLocked;
 
-#[bitwarden_error(basic)]
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum EncryptionSettingsError {
     #[error("Cryptography error, {0}")]

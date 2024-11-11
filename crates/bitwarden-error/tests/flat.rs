@@ -1,4 +1,5 @@
 use bitwarden_error::prelude::*;
+use wasm_bindgen_test::*;
 
 #[test]
 fn variant_for_basic_enum() {
@@ -118,4 +119,29 @@ fn variant_names_for_struct() {
     //         export const TS_TYPES_SimpleStruct = "<TODO>";
     //     "#
     // );
+}
+
+#[wasm_bindgen_test]
+#[cfg(feature = "wasm")]
+#[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
+fn converts_to_js_error_using_to_string() {
+    #[derive(Debug, FlatError)]
+    enum SomeError {
+        Foo,
+        Bar,
+        Baz,
+    }
+    impl ToString for SomeError {
+        fn to_string(&self) -> String {
+            "This is an error".to_string()
+        }
+    }
+
+    let simple = SomeError::Baz;
+    let js_value: JsValue = simple.into();
+
+    let js_error = JsError::from(js_value);
+    assert_eq!(js_error.name(), "SomeError");
+    assert_eq!(js_error.message(), "This is an error");
+    assert_eq!(js_error.variant(), "Baz");
 }
