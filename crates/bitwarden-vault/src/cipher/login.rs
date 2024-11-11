@@ -273,6 +273,7 @@ pub struct LoginView {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct LoginListView {
     pub has_fido2: bool,
+    /// The TOTP key is not decrypted. Useable as is with [`crate::generate_totp_cipher_view`].
     pub totp: Option<EncString>,
     pub uris: Option<Vec<LoginUriView>>,
 }
