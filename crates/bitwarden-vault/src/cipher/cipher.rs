@@ -14,6 +14,7 @@ use uuid::Uuid;
 use super::{
     attachment, card, field, identity,
     local_data::{LocalData, LocalDataView},
+    login::LoginListView,
     secure_note, ssh_key,
 };
 use crate::{
@@ -133,10 +134,7 @@ pub struct CipherView {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum CipherListViewType {
-    Login {
-        has_fido2: bool,
-        totp: Option<EncString>,
-    },
+    Login(LoginListView),
     SecureNote,
     Card,
     Identity,
@@ -182,10 +180,11 @@ impl CipherListView {
         let cipher_key = Cipher::get_cipher_key(key, &self.key)?;
         let key = cipher_key.as_ref().unwrap_or(key);
 
-        let totp = if let CipherListViewType::Login { totp, .. } = self.r#type {
-            totp.decrypt_with_key(key)?
-        } else {
-            None
+        let totp = match self.r#type {
+            CipherListViewType::Login(LoginListView { totp, .. }) => {
+                totp.map(|t| t.decrypt_with_key(key)).transpose()?
+            }
+            _ => None,
         };
 
         Ok(totp)
@@ -562,10 +561,7 @@ impl KeyDecryptable<SymmetricCryptoKey, CipherListView> for Cipher {
                         .login
                         .as_ref()
                         .ok_or(CryptoError::MissingField("login"))?;
-                    CipherListViewType::Login {
-                        has_fido2: login.fido2_credentials.is_some(),
-                        totp: login.totp.clone(),
-                    }
+                    CipherListViewType::Login(login.decrypt_with_key(key)?)
                 }
                 CipherType::SecureNote => CipherListViewType::SecureNote,
                 CipherType::Card => CipherListViewType::Card,
@@ -803,10 +799,11 @@ mod tests {
                 key: cipher.key,
                 name: "My test login".to_string(),
                 sub_title: "test_username".to_string(),
-                r#type: CipherListViewType::Login {
+                r#type: CipherListViewType::Login(LoginListView {
                     has_fido2: true,
-                    totp: cipher.login.as_ref().unwrap().totp.clone()
-                },
+                    totp: cipher.login.as_ref().unwrap().totp.clone(),
+                    uris: None,
+                }),
                 favorite: cipher.favorite,
                 reprompt: cipher.reprompt,
                 edit: cipher.edit,

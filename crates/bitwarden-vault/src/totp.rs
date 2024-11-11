@@ -266,7 +266,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::{cipher::cipher::CipherListViewType, CipherRepromptType};
+    use crate::{cipher::cipher::CipherListViewType, login::LoginListView, CipherRepromptType};
 
     #[test]
     fn test_decode_b32() {
@@ -377,10 +377,11 @@ mod tests {
             key: None,
             name: "My test login".to_string(),
             sub_title: "test_username".to_string(),
-            r#type: CipherListViewType::Login {
+            r#type: CipherListViewType::Login(LoginListView{
                 has_fido2: true,
                 totp: Some("2.hqdioUAc81FsKQmO1XuLQg==|oDRdsJrQjoFu9NrFVy8tcJBAFKBx95gHaXZnWdXbKpsxWnOr2sKipIG43pKKUFuq|3gKZMiboceIB5SLVOULKg2iuyu6xzos22dfJbvx0EHk=".parse().unwrap()),
-            },
+                uris: None,
+            }),
             favorite: false,
             reprompt: CipherRepromptType::None,
             edit: true,
