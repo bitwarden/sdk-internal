@@ -126,8 +126,8 @@ impl ClientCrypto {
         Ok(signature)
     }
 
-    pub fn verify_ed25519(data: Vec<u8>, signature: Vec<u8>, public: Vec<u8>) -> Result<bool> {
-        let res = bitwarden_crypto::ed25519::verify(data, signature, public)?;
+    pub fn verify_ed25519(data: Vec<u8>, signature: Vec<u8>, public_key: Vec<u8>) -> Result<bool> {
+        let res = bitwarden_crypto::ed25519::verify(data, signature, public_key)?;
         Ok(res)
     }
 

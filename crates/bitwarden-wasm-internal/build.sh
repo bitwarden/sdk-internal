@@ -4,12 +4,12 @@ cd ../../
 
 if [ "$1" != "-r" ]; then
   # Dev
-  cargo build -p bitwarden-wasm-internal --target wasm32-unknown-unknown -Ctarget-feature=+simd128
+  cargo build -p bitwarden-wasm-internal --target wasm32-unknown-unknown
   wasm-bindgen --target bundler --out-dir languages/js/sdk-internal ./target/wasm32-unknown-unknown/debug/bitwarden_wasm_internal.wasm
   wasm-bindgen --target nodejs --out-dir languages/js/sdk-internal/node ./target/wasm32-unknown-unknown/debug/bitwarden_wasm_internal.wasm
 else
   # Release
-  RUSTFLAGS=-Ctarget-feature=+simd128 cargo build -p bitwarden-wasm-internal --target wasm32-unknown-unknown --release
+  cargo build -p bitwarden-wasm-internal --target wasm32-unknown-unknown --release
   wasm-bindgen --target bundler --out-dir languages/js/sdk-internal ./target/wasm32-unknown-unknown/release/bitwarden_wasm_internal.wasm
   wasm-bindgen --target nodejs --out-dir languages/js/sdk-internal/node ./target/wasm32-unknown-unknown/release/bitwarden_wasm_internal.wasm
 fi
