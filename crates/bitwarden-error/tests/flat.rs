@@ -124,7 +124,7 @@ fn variant_names_for_struct() {
 #[wasm_bindgen_test]
 #[cfg(feature = "wasm")]
 #[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
-fn converts_to_js_error_using_to_string() {
+fn converts_to_js_error() {
     #[derive(Debug, FlatError)]
     enum SomeError {
         Foo,
