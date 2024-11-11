@@ -160,6 +160,7 @@ pub struct CipherListView {
 
     pub favorite: bool,
     pub reprompt: CipherRepromptType,
+    pub organization_use_totp: bool,
     pub edit: bool,
     pub view_password: bool,
 
@@ -570,6 +571,7 @@ impl KeyDecryptable<SymmetricCryptoKey, CipherListView> for Cipher {
             },
             favorite: self.favorite,
             reprompt: self.reprompt,
+            organization_use_totp: self.organization_use_totp,
             edit: self.edit,
             view_password: self.view_password,
             attachments: self
@@ -806,6 +808,7 @@ mod tests {
                 }),
                 favorite: cipher.favorite,
                 reprompt: cipher.reprompt,
+                organization_use_totp: cipher.organization_use_totp,
                 edit: cipher.edit,
                 view_password: cipher.view_password,
                 attachments: 0,

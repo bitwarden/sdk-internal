@@ -384,6 +384,7 @@ mod tests {
             }),
             favorite: false,
             reprompt: CipherRepromptType::None,
+            organization_use_totp: true,
             edit: true,
             view_password: true,
             attachments: 0,
