@@ -49,25 +49,9 @@ pub(crate) fn flat_error(item: proc_macro::TokenStream) -> proc_macro::TokenStre
             }
             .into()
         }
-        Data::Struct(_) => {
-            let type_identifier = &input.ident;
-            let variant_name = format!("{}", type_identifier);
-
-            quote! {
-                #[automatically_derived]
-                impl FlatError for #type_identifier {
-                    fn error_variant(&self) -> &'static str {
-                        #variant_name
-                    }
-                }
-            }
-            .into()
-        }
-        Data::Union(_) => {
-            syn::Error::new_spanned(input, "bitwarden_error cannot be used with unions")
-                .to_compile_error()
-                .into()
-        }
+        _ => syn::Error::new_spanned(input, "bitwarden_error can only be used with enums")
+            .to_compile_error()
+            .into(),
     }
 }
 
