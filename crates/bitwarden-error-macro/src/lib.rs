@@ -1,3 +1,5 @@
+mod basic;
+
 use darling::{ast::NestedMeta, FromMeta};
 use quote::quote;
 use syn::Data;
@@ -44,18 +46,10 @@ pub fn bitwarden_error(
 
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
     match error_type {
-        BitwardenErrorType::Basic => basic_error_impl(&input),
+        BitwardenErrorType::Basic => basic::attribute::bitwarden_error_basic(&input),
         BitwardenErrorType::Flat => flat_error_impl(&input),
         BitwardenErrorType::Full => full_error_impl(&input),
     }
-}
-
-fn basic_error_impl(input: &syn::DeriveInput) -> proc_macro::TokenStream {
-    quote! {
-        #[derive(BasicError)]
-        #input
-    }
-    .into()
 }
 
 fn flat_error_impl(input: &syn::DeriveInput) -> proc_macro::TokenStream {
@@ -88,47 +82,7 @@ fn full_error_impl(input: &syn::DeriveInput) -> proc_macro::TokenStream {
 
 #[proc_macro_derive(BasicError)]
 pub fn basic_error(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = syn::parse_macro_input!(item as syn::DeriveInput);
-    let type_identifier = &input.ident;
-
-    let wasm = basic_error_wasm(&type_identifier);
-    quote! {
-        #wasm
-    }
-    .into()
-}
-
-#[cfg(feature = "wasm")]
-fn basic_error_wasm(type_identifier: &proc_macro2::Ident) -> proc_macro2::TokenStream {
-    let ts_identifier = quote::format_ident!("TS_TYPES_{}", type_identifier);
-    let ts_code_str = format!(
-        r##"r#"
-            export interface {} extends Error {{
-                name: "{}";
-            }};
-        "#"##,
-        type_identifier, type_identifier
-    );
-    let ts_code: proc_macro2::TokenStream = ts_code_str.parse().unwrap();
-
-    quote! {
-        #[wasm_bindgen(typescript_custom_section)]
-        const #ts_identifier: &'static str = #ts_code;
-
-        #[automatically_derived]
-        impl From<#type_identifier> for JsValue {
-            fn from(error: #type_identifier) -> Self {
-                let js_error = JsError::new(error.to_string());
-                js_error.set_name(stringify!(#type_identifier).to_owned());
-                js_error.into()
-            }
-        }
-    }
-}
-
-#[cfg(not(feature = "wasm"))]
-fn basic_error_wasm(type_identifier: &proc_macro2::Ident) -> proc_macro2::TokenStream {
-    quote! {}
+    basic::derive::basic_error(item)
 }
 
 #[proc_macro_derive(FlatError)]
