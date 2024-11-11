@@ -19,7 +19,7 @@ enum BitwardenErrorType {
     Flat,
 
     /// The entire error stack is going to be made available using `serde`
-    #[darling(rename = "basic")]
+    #[darling(rename = "full")]
     Full,
 }
 
@@ -71,7 +71,19 @@ fn flat_error_impl(input: &syn::DeriveInput) -> proc_macro::TokenStream {
 }
 
 fn full_error_impl(input: &syn::DeriveInput) -> proc_macro::TokenStream {
-    quote! {}.into()
+    let wasm_attributes = cfg!(feature = "wasm").then(|| {
+        quote! {
+            #[derive(tsify_next::Tsify)]
+            #[tsify(into_wasm_abi)]
+        }
+    });
+
+    quote! {
+        #[derive(serde::Serialize)]
+        #wasm_attributes
+        #input
+    }
+    .into()
 }
 
 #[proc_macro_derive(BasicError)]
