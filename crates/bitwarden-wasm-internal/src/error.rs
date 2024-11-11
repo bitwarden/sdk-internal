@@ -13,6 +13,7 @@ extern "C" {
 
 pub type Result<T, E = GenericError> = std::result::Result<T, E>;
 
+#[derive(Debug)]
 pub struct GenericError(pub String);
 
 impl<T: ToString> From<T> for GenericError {
