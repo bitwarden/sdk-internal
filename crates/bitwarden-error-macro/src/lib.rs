@@ -1,8 +1,8 @@
 mod basic;
 mod flat;
+mod full;
 
 use darling::{ast::NestedMeta, FromMeta};
-use quote::quote;
 
 #[derive(FromMeta)]
 struct BitwardenErrorArgs {
@@ -48,24 +48,8 @@ pub fn bitwarden_error(
     match error_type {
         BitwardenErrorType::Basic => basic::attribute::bitwarden_error_basic(&input),
         BitwardenErrorType::Flat => flat::attribute::bitwarden_error_flat(&input),
-        BitwardenErrorType::Full => full_error_impl(&input),
+        BitwardenErrorType::Full => full::attribute::bitwarden_error_full(&input),
     }
-}
-
-fn full_error_impl(input: &syn::DeriveInput) -> proc_macro::TokenStream {
-    let wasm_attributes = cfg!(feature = "wasm").then(|| {
-        quote! {
-            #[derive(tsify_next::Tsify)]
-            #[tsify(into_wasm_abi)]
-        }
-    });
-
-    quote! {
-        #[derive(serde::Serialize)]
-        #wasm_attributes
-        #input
-    }
-    .into()
 }
 
 #[proc_macro_derive(BasicError)]
