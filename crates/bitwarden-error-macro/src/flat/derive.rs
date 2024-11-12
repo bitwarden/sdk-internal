@@ -60,7 +60,6 @@ fn flat_error_wasm(
     type_identifier: &proc_macro2::Ident,
     variant_names: &[&proc_macro2::Ident],
 ) -> proc_macro2::TokenStream {
-    let ts_identifier = quote::format_ident!("TS_TYPES_{}", type_identifier);
     let ts_code_str = format!(
         r##"r#"
             export interface {} extends Error {{
@@ -79,17 +78,19 @@ fn flat_error_wasm(
     let ts_code: proc_macro2::TokenStream = ts_code_str.parse().unwrap();
 
     quote! {
-        #[wasm_bindgen(typescript_custom_section)]
-        const #ts_identifier: &'static str = #ts_code;
+        const _: () = {
+            #[wasm_bindgen(typescript_custom_section)]
+            const TS_APPEND_CONTENT: &'static str = #ts_code;
 
-        #[automatically_derived]
-        impl From<#type_identifier> for JsValue {
-            fn from(error: #type_identifier) -> Self {
-                let js_error = JsError::new(error.to_string());
-                js_error.set_name(stringify!(#type_identifier).to_owned());
-                js_error.set_variant(error.error_variant().to_owned());
-                js_error.into()
+            #[automatically_derived]
+            impl From<#type_identifier> for JsValue {
+                fn from(error: #type_identifier) -> Self {
+                    let js_error = JsError::new(error.to_string());
+                    js_error.set_name(stringify!(#type_identifier).to_owned());
+                    js_error.set_variant(error.error_variant().to_owned());
+                    js_error.into()
+                }
             }
-        }
+        };
     }
 }
