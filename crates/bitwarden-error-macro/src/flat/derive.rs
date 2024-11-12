@@ -85,7 +85,7 @@ fn flat_error_wasm(
         #[automatically_derived]
         impl From<#type_identifier> for JsValue {
             fn from(error: #type_identifier) -> Self {
-                let js_error = JsError::new(error.to_string());
+                let js_error = SdkJsError::new(error.to_string());
                 js_error.set_name(stringify!(#type_identifier).to_owned());
                 js_error.set_variant(error.error_variant().to_owned());
                 js_error.into()

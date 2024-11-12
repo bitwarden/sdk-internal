@@ -10,5 +10,5 @@ pub mod prelude {
     pub use bitwarden_error_macro::*;
 
     #[cfg(feature = "wasm")]
-    pub use {crate::wasm::JsError, wasm_bindgen::prelude::*};
+    pub use {crate::wasm::SdkJsError, wasm_bindgen::prelude::*};
 }
