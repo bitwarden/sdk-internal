@@ -9,6 +9,7 @@ uniffi::setup_scaffolding!();
 
 mod client_exporter;
 mod csv;
+mod cxp;
 mod encrypted_json;
 mod json;
 mod models;
@@ -38,6 +39,7 @@ pub struct Folder {
 ///
 /// These are mostly duplicated from the `bitwarden` vault models to facilitate a stable export API
 /// that is not tied to the internal vault models. We may revisit this in the future.
+#[derive(Clone)]
 pub struct Cipher {
     pub id: Uuid,
     pub folder_id: Option<Uuid>,
@@ -65,6 +67,7 @@ pub struct Field {
     pub linked_id: Option<u32>,
 }
 
+#[derive(Clone)]
 pub enum CipherType {
     Login(Box<Login>),
     SecureNote(Box<SecureNote>),
@@ -85,6 +88,7 @@ impl fmt::Display for CipherType {
     }
 }
 
+#[derive(Clone)]
 pub struct Login {
     pub username: Option<String>,
     pub password: Option<String>,
@@ -92,11 +96,13 @@ pub struct Login {
     pub totp: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct LoginUri {
     pub uri: Option<String>,
     pub r#match: Option<u8>,
 }
 
+#[derive(Clone)]
 pub struct Card {
     pub cardholder_name: Option<String>,
     pub exp_month: Option<String>,
@@ -106,14 +112,17 @@ pub struct Card {
     pub number: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct SecureNote {
     pub r#type: SecureNoteType,
 }
 
+#[derive(Clone)]
 pub enum SecureNoteType {
     Generic = 0,
 }
 
+#[derive(Clone)]
 pub struct Identity {
     pub title: Option<String>,
     pub first_name: Option<String>,
@@ -135,6 +144,7 @@ pub struct Identity {
     pub license_number: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct SshKey {
     /// [OpenSSH private key](https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key), in PEM encoding.
     pub private_key: String,
