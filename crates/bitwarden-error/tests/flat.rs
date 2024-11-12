@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use bitwarden_error::prelude::*;
 #[cfg(feature = "wasm")]
 use wasm_bindgen_test::*;
@@ -12,9 +14,9 @@ fn variant_for_basic_enum() {
         Baz,
     }
 
-    impl ToString for SimpleError {
-        fn to_string(&self) -> String {
-            format!("{:?}", self)
+    impl Display for SimpleError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "This is an error")
         }
     }
 
@@ -37,10 +39,9 @@ fn variant_for_enum_with_fields() {
         Bar { x: i32, y: i32 },
         Baz(bool, bool),
     }
-
-    impl ToString for ComplexError {
-        fn to_string(&self) -> String {
-            format!("{:?}", self)
+    impl Display for ComplexError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "This is an error")
         }
     }
 
@@ -64,10 +65,9 @@ fn variant_names_for_enum() {
         Bar,
         Baz,
     }
-
-    impl ToString for SimpleError {
-        fn to_string(&self) -> String {
-            format!("{:?}", self)
+    impl Display for SimpleError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "This is an error")
         }
     }
 
@@ -93,9 +93,9 @@ fn converts_to_js_error() {
         Bar,
         Baz,
     }
-    impl ToString for SomeError {
-        fn to_string(&self) -> String {
-            "This is an error".to_string()
+    impl Display for SomeError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "This is an error")
         }
     }
 

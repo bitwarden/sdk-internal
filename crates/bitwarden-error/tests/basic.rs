@@ -5,14 +5,16 @@ use wasm_bindgen_test::*;
 #[cfg(feature = "wasm")]
 #[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
 fn converts_to_js_error_using_to_string() {
+    use std::fmt::Display;
+
     use bitwarden_error::prelude::*;
     use wasm_bindgen::JsValue;
 
     #[derive(Debug, BasicError)]
     struct SomeError;
-    impl ToString for SomeError {
-        fn to_string(&self) -> String {
-            "This is an error".to_string()
+    impl Display for SomeError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "This is an error")
         }
     }
 
