@@ -1,10 +1,38 @@
 use bitwarden_crypto::generate_random_bytes;
+use chrono::Utc;
 use credential_exchange_types::{
-    format::{BasicAuthCredential, Credential, EditableField, FieldType, Item, ItemType},
+    format::{
+        Account, BasicAuthCredential, Credential, EditableField, FieldType, Header, Item, ItemType,
+    },
     B64Url,
 };
 
-use crate::{Cipher, CipherType, Login, LoginUri};
+use crate::{Cipher, CipherType, Login};
+
+mod error;
+pub use error::CxpError;
+
+pub(crate) fn build_cxf(ciphers: Vec<Cipher>) -> Result<String, CxpError> {
+    let items: Vec<Item> = ciphers.into_iter().map(|cipher| cipher.into()).collect();
+
+    let header = Header {
+        version: 0,
+        exporter: "Bitwarden".to_string(),
+        timestamp: Utc::now().timestamp() as u64,
+        accounts: vec![Account {
+            id: todo!(),
+            user_name: todo!(),
+            email: todo!(),
+            full_name: todo!(),
+            icon: todo!(),
+            collections: todo!(),
+            items,
+            extensions: todo!(),
+        }],
+    };
+
+    Ok(serde_json::to_string(&header)?)
+}
 
 impl From<Cipher> for Item {
     fn from(value: Cipher) -> Self {

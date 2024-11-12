@@ -86,4 +86,17 @@ impl ClientExporters {
             .export_organization_vault(collections, ciphers, format)
             .map_err(Error::ExportError)?)
     }
+
+    /// Credential Exchange Format (CXF)
+    ///
+    /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
+    /// Ideally the output should be immediately deserialized to [ASExportedCredentialData](https://developer.apple.com/documentation/authenticationservices/asexportedcredentialdata).
+    pub fn export_cxf(&self, ciphers: Vec<Cipher>) -> Result<String> {
+        Ok(self
+            .0
+             .0
+            .exporters()
+            .export_cxf(ciphers)
+            .map_err(Error::ExportError)?)
+    }
 }
