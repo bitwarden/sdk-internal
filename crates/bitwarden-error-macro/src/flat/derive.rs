@@ -34,7 +34,7 @@ pub(crate) fn flat_error(item: proc_macro::TokenStream) -> proc_macro::TokenStre
             });
 
             let wasm = cfg!(feature = "wasm")
-                .then(|| flat_error_wasm(&type_identifier, &variant_names.collect::<Vec<_>>()));
+                .then(|| flat_error_wasm(type_identifier, &variant_names.collect::<Vec<_>>()));
 
             quote! {
                 #wasm
@@ -77,7 +77,9 @@ fn flat_error_wasm(
             export function {is_error_function_name}(error: any): error is {type_identifier};
         "#"##,
     );
-    let ts_code: proc_macro2::TokenStream = ts_code_str.parse().unwrap();
+    let ts_code: proc_macro2::TokenStream = ts_code_str
+        .parse()
+        .expect("Could not generate TypeScript code");
 
     quote! {
         const _: () = {

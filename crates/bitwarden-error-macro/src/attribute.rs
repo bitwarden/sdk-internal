@@ -35,7 +35,7 @@ pub(crate) fn bitwarden_error(
     let BitwardenErrorArgs { error_type } = match BitwardenErrorArgs::from_list(&attr_args) {
         Ok(params) => params,
         Err(error) => {
-            return proc_macro::TokenStream::from(darling::Error::from(error).write_errors());
+            return proc_macro::TokenStream::from(error.write_errors());
         }
     };
 

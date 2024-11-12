@@ -4,7 +4,7 @@ pub(crate) fn basic_error(item: proc_macro::TokenStream) -> proc_macro::TokenStr
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
     let type_identifier = &input.ident;
 
-    let wasm = cfg!(feature = "wasm").then(|| basic_error_wasm(&type_identifier));
+    let wasm = cfg!(feature = "wasm").then(|| basic_error_wasm(type_identifier));
     quote! {
         #wasm
     }
@@ -23,7 +23,9 @@ fn basic_error_wasm(type_identifier: &proc_macro2::Ident) -> proc_macro2::TokenS
             export function {is_error_function_name}(error: any): error is {type_identifier};
         "#"##
     );
-    let ts_code: proc_macro2::TokenStream = ts_code_str.parse().unwrap();
+    let ts_code: proc_macro2::TokenStream = ts_code_str
+        .parse()
+        .expect("Could not generate TypeScript code");
 
     quote! {
         const _: () = {
