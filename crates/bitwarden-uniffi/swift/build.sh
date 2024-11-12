@@ -15,13 +15,13 @@ cargo build --package bitwarden-uniffi --target aarch64-apple-ios --release
 cargo build --package bitwarden-uniffi --target x86_64-apple-ios --release
 
 # Create universal libraries
-lipo -create ../../target/aarch64-apple-ios-sim/release/libbitwarden_uniffi.a \
-  ../../target/x86_64-apple-ios/release/libbitwarden_uniffi.a \
+lipo -create ../../../target/aarch64-apple-ios-sim/release/libbitwarden_uniffi.a \
+  ../../../target/x86_64-apple-ios/release/libbitwarden_uniffi.a \
   -output ./tmp/target/universal-ios-sim/release/libbitwarden_uniffi.a
 
 # Generate swift bindings
 cargo run -p uniffi-bindgen generate \
-  ../../target/aarch64-apple-ios-sim/release/libbitwarden_uniffi.dylib \
+  ../../../target/aarch64-apple-ios-sim/release/libbitwarden_uniffi.dylib \
   --library \
   --language swift \
   --no-format \
@@ -37,7 +37,7 @@ cat ./tmp/bindings/*.modulemap > ./tmp/Headers/module.modulemap
 
 # Build xcframework
 xcodebuild -create-xcframework \
-  -library ../../target/aarch64-apple-ios/release/libbitwarden_uniffi.a \
+  -library ../../../target/aarch64-apple-ios/release/libbitwarden_uniffi.a \
   -headers ./tmp/Headers \
   -library ./tmp/target/universal-ios-sim/release/libbitwarden_uniffi.a \
   -headers ./tmp/Headers \

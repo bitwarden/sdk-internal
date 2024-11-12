@@ -52,7 +52,7 @@ jobs:
 
       - name: Build
         shell: bash
-        working-directory: languages/swift
+        working-directory: crates/bitwarden-uniffi/swift
         id: build
         run: |
           ./build.sh
@@ -63,7 +63,7 @@ jobs:
       - name: Zip BitwardenFFI.xcframework
         run: |
           mkdir artifacts
-          cp -rf languages/swift/BitwardenFFI.xcframework artifacts
+          cp -rf crates/bitwarden-uniffi/swift/BitwardenFFI.xcframework artifacts
 
       - name: Upload BitwardenFFI.xcframework artifact
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
@@ -76,7 +76,7 @@ jobs:
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: BitwardenSdk-${{ env._VERSION }}-${{ steps.build.outputs.short-sha }}-sources
-          path: languages/swift/Sources/BitwardenSdk
+          path: crates/bitwarden-uniffi/swift/Sources/BitwardenSdk
           if-no-files-found: error
 
   trigger-swift-release:

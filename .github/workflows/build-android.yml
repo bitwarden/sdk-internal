@@ -88,7 +88,7 @@ jobs:
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
 
       - name: Move artifacts
-        working-directory: languages/kotlin/sdk/src/main/jniLibs
+        working-directory: crates/bitwarden-uniffi/kotlin/sdk/src/main/jniLibs
         run: |
           mkdir armeabi-v7a arm64-v8a x86 x86_64
           mv /home/runner/work/sdk-internal/sdk-internal/android-armv7-linux-androideabi/libbitwarden_uniffi.so ./armeabi-v7a/libbitwarden_uniffi.so
@@ -97,7 +97,7 @@ jobs:
           mv /home/runner/work/sdk-internal/sdk-internal/android-x86_64-linux-android/libbitwarden_uniffi.so ./x86_64/libbitwarden_uniffi.so
 
       - name: Generate bindings
-        working-directory: languages/kotlin
+        working-directory: crates/bitwarden-uniffi/kotlin
         run: ./build-schemas.sh
 
       - name: Setup gradle
@@ -105,6 +105,6 @@ jobs:
 
       - name: Publish
         run: ./gradlew sdk:publish
-        working-directory: languages/kotlin
+        working-directory: crates/bitwarden-uniffi/kotlin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -58,7 +58,7 @@ publishing {
                 def branchName = 'git branch --show-current'.execute().text.trim()
 
                 if (branchName == 'main') {
-                    def content = ['grep', '-o', '^version = ".*"', '../../Cargo.toml'].execute().text.trim()
+                    def content = ['grep', '-o', '^version = ".*"', rootDir.toString() + '/../../../Cargo.toml'].execute().text.trim()
                     def match = ~/version = "(.*)"/
                     def matcher = match.matcher(content)
                     matcher.find()
@@ -94,7 +94,7 @@ publishing {
 File findRustlsPlatformVerifierClassesJar() {
     def dependencyText = providers.exec {
         it.workingDir = new File('../../')
-        commandLine('cargo', 'metadata', '--format-version', '1', '--manifest-path', 'crates/bitwarden-uniffi/Cargo.toml')
+        commandLine('cargo', 'metadata', '--format-version', '1')
     }.standardOutput.asText.get()
 
     def dependencyJson = new groovy.json.JsonSlurper().parseText(dependencyText)
