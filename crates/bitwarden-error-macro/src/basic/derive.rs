@@ -12,28 +12,33 @@ pub(crate) fn basic_error(item: proc_macro::TokenStream) -> proc_macro::TokenStr
 }
 
 fn basic_error_wasm(type_identifier: &proc_macro2::Ident) -> proc_macro2::TokenStream {
-    let ts_identifier = quote::format_ident!("TS_TYPES_{}", type_identifier);
-    let ts_code_str = format!(
-        r##"r#"
-            export interface {} extends Error {{
-                name: "{}";
-            }};
-        "#"##,
-        type_identifier, type_identifier
-    );
-    let ts_code: proc_macro2::TokenStream = ts_code_str.parse().unwrap();
+    let error_struct_identifier = quote::format_ident!("JS{}", type_identifier);
 
     quote! {
-        #[wasm_bindgen(typescript_custom_section)]
-        const #ts_identifier: &'static str = #ts_code;
-
-        #[automatically_derived]
-        impl From<#type_identifier> for JsValue {
-            fn from(error: #type_identifier) -> Self {
-                let js_error = SdkJsError::new(error.to_string());
-                js_error.set_name(stringify!(#type_identifier).to_owned());
-                js_error.into()
+        const _ : () = {
+            #[wasm_bindgen(js_name = #type_identifier, inspectable)]
+            struct #error_struct_identifier {
+                #[wasm_bindgen(getter_with_clone)]
+                pub message: String,
+                #[wasm_bindgen(getter_with_clone)]
+                pub name: String,
             }
-        }
+
+            #[automatically_derived]
+            impl From<#type_identifier> for JsValue {
+                fn from(error: #type_identifier) -> Self {
+                    let sdk_error = #error_struct_identifier {
+                        message: error.to_string(),
+                        name: stringify!(#type_identifier).to_owned(),
+                    };
+
+                    let js_error = SdkJsError::new(error.to_string());
+                    js_error.set_name(format!("SdkError({})", stringify!(#type_identifier)).to_owned());
+                    js_error.set_sdk_error(sdk_error.into());
+
+                    js_error.into()
+                }
+            }
+        };
     }
 }
