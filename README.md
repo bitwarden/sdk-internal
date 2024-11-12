@@ -52,11 +52,16 @@ You can also browse the latest published documentation:
 The project is structured as a monorepo using cargo workspaces. Some of the more noteworthy crates
 are:
 
-- [`bitwarden`](./crates/bitwarden/): Rust friendly API for interacting with the secrets manager.
 - [`bitwarden-api-api`](./crates/bitwarden-api-api/): Auto-generated API bindings for the API
   server.
 - [`bitwarden-api-identity`](./crates/bitwarden-api-identity/): Auto-generated API bindings for the
   Identity server.
+- [`bitwarden-core`](./crates/bitwarden-core/): The core functionality consumed by the other crates.
+- [`bitwarden-crypto`](./crates/bitwarden-crypto/): Crypto library.
+- [`bitwarden-wasm-internal`](./crates/bitwarden-wasm-internal/): WASM bindings for the internal
+  SDK.
+- [`bitwarden-uniffi`](./crates/bitwarden-uniffi/): Mobile bindings for swift and kotlin using
+  [UniFFI](https://github.com/mozilla/uniffi-rs/).
 
 ## API Bindings
 
