@@ -60,20 +60,22 @@ fn flat_error_wasm(
     type_identifier: &proc_macro2::Ident,
     variant_names: &[&proc_macro2::Ident],
 ) -> proc_macro2::TokenStream {
+    let type_identifier_str = type_identifier.to_string();
+    let is_error_function_name = format!("is{}", type_identifier);
+    let ts_variant_names = variant_names
+        .iter()
+        .map(|vn| format!(r#""{vn}""#))
+        .collect::<Vec<String>>()
+        .join("|");
     let ts_code_str = format!(
         r##"r#"
-            export interface {} extends Error {{
-                name: "{}";
-                variant: {};
+            export interface {type_identifier} extends Error {{
+                name: "{type_identifier}";
+                variant: {ts_variant_names};
             }};
+
+            export function {is_error_function_name}(error: any): error is {type_identifier};
         "#"##,
-        type_identifier,
-        type_identifier,
-        variant_names
-            .iter()
-            .map(|vn| format!(r#""{vn}""#))
-            .collect::<Vec<String>>()
-            .join("|")
     );
     let ts_code: proc_macro2::TokenStream = ts_code_str.parse().unwrap();
 
@@ -83,6 +85,13 @@ fn flat_error_wasm(
 
             #[wasm_bindgen(typescript_custom_section)]
             const TS_APPEND_CONTENT: &'static str = #ts_code;
+
+            #[wasm_bindgen(js_name = #is_error_function_name, skip_typescript)]
+            pub fn is_error(error: &JsValue) -> bool {
+                let name_js_value = js_sys::Reflect::get(&error, &JsValue::from_str("name")).unwrap_or(JsValue::NULL);
+                let name = name_js_value.as_string().unwrap_or_default();
+                name == #type_identifier_str
+            }
 
             #[automatically_derived]
             impl From<#type_identifier> for JsValue {
