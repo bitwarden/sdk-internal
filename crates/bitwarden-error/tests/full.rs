@@ -22,6 +22,6 @@ fn converts_to_js() {
 
     // Errors only natively support rust -> js and so we use Reflect to get the value straight from
     // the JSValue
-    let value = js_sys::Reflect::get(&js_value, &JsValue::from("Baz")).unwrap();
-    assert_eq!(value.as_string().unwrap(), "This is an error");
+    let value = js_sys::Reflect::get(&js_value, &JsValue::from("Baz")).unwrap_or(JsValue::NULL);
+    assert_eq!(value.as_string().unwrap_or_default(), "This is an error");
 }

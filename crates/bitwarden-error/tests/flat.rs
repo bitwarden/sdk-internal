@@ -60,12 +60,12 @@ fn variant_names_for_enum() {
     #[allow(dead_code)]
     #[derive(Debug)]
     #[bitwarden_error(flat)]
-    enum SimpleError {
+    enum SimpleEnum {
         Foo,
         Bar,
         Baz,
     }
-    impl Display for SimpleError {
+    impl Display for SimpleEnum {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "This is an error")
         }
@@ -88,22 +88,22 @@ fn converts_to_js_error() {
     use wasm_bindgen::JsValue;
 
     #[derive(Debug, FlatError)]
-    enum SomeError {
+    enum FlatEnum {
         Foo,
         Bar,
         Baz,
     }
-    impl Display for SomeError {
+    impl Display for FlatEnum {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "This is an error")
         }
     }
 
-    let simple = SomeError::Baz;
+    let simple = FlatEnum::Baz;
     let js_value: JsValue = simple.into();
 
     let js_error = SdkJsError::from(js_value);
-    assert_eq!(js_error.name(), "SomeError");
+    assert_eq!(js_error.name(), "FlatEnum");
     assert_eq!(js_error.message(), "This is an error");
     assert_eq!(js_error.variant(), "Baz");
 }
