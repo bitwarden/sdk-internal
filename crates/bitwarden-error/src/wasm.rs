@@ -3,23 +3,23 @@ use wasm_bindgen::prelude::*;
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 extern "C" {
     #[wasm_bindgen(js_name = Error)]
-    pub type JsError;
+    pub type SdkJsError;
 
     #[wasm_bindgen(constructor, js_class = Error)]
-    pub fn new(message: String) -> JsError;
+    pub fn new(message: String) -> SdkJsError;
 
     #[wasm_bindgen(method, getter, structural)]
-    pub fn message(this: &JsError) -> String;
+    pub fn message(this: &SdkJsError) -> String;
 
     #[wasm_bindgen(method, getter, structural)]
-    pub fn name(this: &JsError) -> String;
+    pub fn name(this: &SdkJsError) -> String;
 
     #[wasm_bindgen(method, setter, structural)]
-    pub fn set_name(this: &JsError, name: String);
+    pub fn set_name(this: &SdkJsError, name: String);
 
     #[wasm_bindgen(method, getter, structural)]
-    pub fn variant(this: &JsError) -> String;
+    pub fn variant(this: &SdkJsError) -> String;
 
     #[wasm_bindgen(method, setter, structural)]
-    pub fn set_variant(this: &JsError, variant: String);
+    pub fn set_variant(this: &SdkJsError, variant: String);
 }

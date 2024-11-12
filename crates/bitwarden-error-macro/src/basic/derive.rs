@@ -24,13 +24,15 @@ fn basic_error_wasm(type_identifier: &proc_macro2::Ident) -> proc_macro2::TokenS
 
     quote! {
         const _: () = {
+            use wasm_bindgen::prelude::*;
+
             #[wasm_bindgen(typescript_custom_section)]
             const TS_APPEND_CONTENT: &'static str = #ts_code;
 
             #[automatically_derived]
             impl From<#type_identifier> for JsValue {
                 fn from(error: #type_identifier) -> Self {
-                    let js_error = JsError::new(error.to_string());
+                    let js_error = SdkJsError::new(error.to_string());
                     js_error.set_name(stringify!(#type_identifier).to_owned());
                     js_error.into()
                 }

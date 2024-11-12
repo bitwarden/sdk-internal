@@ -1,4 +1,4 @@
-use bitwarden_error::prelude::*;
+#[cfg(feature = "wasm")]
 use wasm_bindgen_test::*;
 
 #[allow(dead_code)]
@@ -7,6 +7,9 @@ use wasm_bindgen_test::*;
 #[cfg(feature = "wasm")]
 // `full` errors are just forwarded to TSify and Serde so this is just a smoke test
 fn converts_to_js() {
+    use bitwarden_error::prelude::*;
+    use wasm_bindgen::JsValue;
+
     #[bitwarden_error(full)]
     enum SomeError {
         Foo(String),
