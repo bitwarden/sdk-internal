@@ -357,6 +357,7 @@ dependencies = [
  "chrono",
  "getrandom",
  "hmac",
+ "js-sys",
  "log",
  "rand",
  "rand_chacha",
