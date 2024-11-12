@@ -13,7 +13,7 @@ keywords.workspace = true
 wasm = ["bitwarden-error-macro/wasm", "dep:wasm-bindgen"]
 
 [dependencies]
-bitwarden-error-macro = { version = "1.0.0", path = "../bitwarden-error-macro" }
+bitwarden-error-macro = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 
 [lints]
