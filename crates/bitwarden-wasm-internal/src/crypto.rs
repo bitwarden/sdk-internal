@@ -7,8 +7,6 @@ use bitwarden_core::{
 };
 use wasm_bindgen::prelude::*;
 
-use crate::error::Result;
-
 #[wasm_bindgen]
 pub struct ClientCrypto(Rc<Client>);
 
