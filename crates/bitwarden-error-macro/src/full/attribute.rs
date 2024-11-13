@@ -1,10 +1,17 @@
+use darling::Error;
 use quote::quote;
 
 pub(crate) fn bitwarden_error_full(
     input: &syn::DeriveInput,
-    _type_identifier: &proc_macro2::Ident,
-    _export_as_identifier: &proc_macro2::Ident,
+    type_identifier: &proc_macro2::Ident,
+    export_as_identifier: &proc_macro2::Ident,
 ) -> proc_macro::TokenStream {
+    if type_identifier != export_as_identifier {
+        return Error::custom("`bitwarden_error(full)` does not currently support `export_as`")
+            .write_errors()
+            .into();
+    }
+
     let wasm_attributes = cfg!(feature = "wasm").then(|| {
         quote! {
             #[derive(tsify_next::Tsify)]
