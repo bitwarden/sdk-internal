@@ -10,7 +10,7 @@ fn converts_to_js_error_using_to_string() {
     use bitwarden_error::prelude::*;
     use wasm_bindgen::JsValue;
 
-    #[derive(Debug, BasicError)]
+    #[bitwarden_error(basic)]
     struct SomeError;
     impl Display for SomeError {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

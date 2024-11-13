@@ -6,7 +6,6 @@ use wasm_bindgen_test::*;
 
 #[test]
 fn variant_for_basic_enum() {
-    #[derive(Debug)]
     #[bitwarden_error(flat)]
     enum SimpleError {
         Foo,
@@ -32,7 +31,6 @@ fn variant_for_basic_enum() {
 #[test]
 fn variant_for_enum_with_fields() {
     #[allow(dead_code)]
-    #[derive(Debug)]
     #[bitwarden_error(flat)]
     enum ComplexError {
         Foo(String),
@@ -58,7 +56,6 @@ fn variant_for_enum_with_fields() {
 #[cfg(feature = "wasm")]
 fn variant_names_for_enum() {
     #[allow(dead_code)]
-    #[derive(Debug)]
     #[bitwarden_error(flat)]
     enum SimpleEnum {
         Foo,
@@ -87,7 +84,7 @@ fn variant_names_for_enum() {
 fn converts_to_js_error() {
     use wasm_bindgen::JsValue;
 
-    #[derive(Debug, FlatError)]
+    #[bitwarden_error(flat)]
     enum FlatEnum {
         Foo,
         Bar,
