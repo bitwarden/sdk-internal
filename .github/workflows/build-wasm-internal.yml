@@ -72,7 +72,7 @@ jobs:
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: sdk-internal
-          path: ${{ github.workspace }}/languages/js/sdk-internal/*
+          path: ${{ github.workspace }}/crates/bitwarden-wasm-internal/npm/*
           if-no-files-found: error
 
   trigger-wasm-publish:
