@@ -13,7 +13,7 @@ use validator::ValidationErrors;
 #[cfg(feature = "internal")]
 use crate::client::encryption_settings::EncryptionSettingsError;
 
-#[bitwarden_error(flat)]
+#[bitwarden_error(flat, export_as = "CoreError")]
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
