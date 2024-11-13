@@ -104,3 +104,30 @@ fn converts_to_js_error() {
     assert_eq!(js_error.message(), "This is an error");
     assert_eq!(js_error.variant(), "Baz");
 }
+
+#[wasm_bindgen_test]
+#[cfg(feature = "wasm")]
+#[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
+fn outputs_different_name_when_given_export_as() {
+    use wasm_bindgen::JsValue;
+
+    #[bitwarden_error(flat, export_as = "SomeOtherEnum")]
+    enum FlatEnum {
+        Foo,
+        Bar,
+        Baz,
+    }
+    impl Display for FlatEnum {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "This is an error")
+        }
+    }
+
+    let simple = FlatEnum::Baz;
+    let js_value: JsValue = simple.into();
+
+    let js_error = SdkJsError::from(js_value);
+    assert_eq!(js_error.name(), "SomeOtherEnum");
+    assert_eq!(js_error.message(), "This is an error");
+    assert_eq!(js_error.variant(), "Baz");
+}

@@ -1,25 +1,7 @@
 use darling::{ast::NestedMeta, FromMeta};
+use quote::format_ident;
 
-#[derive(FromMeta)]
-struct BitwardenErrorArgs {
-    #[darling(flatten)]
-    error_type: BitwardenErrorType,
-}
-
-#[derive(FromMeta)]
-enum BitwardenErrorType {
-    /// The error is going to be converted into a string using the `ToString` trait
-    #[darling(rename = "basic")]
-    Basic,
-
-    /// The error is going to be converted into a flat error using the `FlatError` trait
-    #[darling(rename = "flat")]
-    Flat,
-
-    /// The entire error stack is going to be made available using `serde`
-    #[darling(rename = "full")]
-    Full,
-}
+use crate::args::{BitwardenErrorArgs, BitwardenErrorType};
 
 pub(crate) fn bitwarden_error(
     args: proc_macro::TokenStream,
@@ -32,7 +14,7 @@ pub(crate) fn bitwarden_error(
         }
     };
 
-    let BitwardenErrorArgs { error_type } = match BitwardenErrorArgs::from_list(&attr_args) {
+    let args = match BitwardenErrorArgs::from_list(&attr_args) {
         Ok(params) => params,
         Err(error) => {
             return proc_macro::TokenStream::from(error.write_errors());
@@ -40,9 +22,28 @@ pub(crate) fn bitwarden_error(
     };
 
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
-    match error_type {
-        BitwardenErrorType::Basic => crate::basic::attribute::bitwarden_error_basic(&input),
-        BitwardenErrorType::Flat => crate::flat::attribute::bitwarden_error_flat(&input),
-        BitwardenErrorType::Full => crate::full::attribute::bitwarden_error_full(&input),
+    let type_identifier = &input.ident;
+    let export_as_identifier = &args
+        .export_as
+        .as_ref()
+        .map(|export_as| format_ident!("{}", export_as))
+        .unwrap_or(input.ident.clone());
+
+    match args.error_type {
+        BitwardenErrorType::Basic => crate::basic::attribute::bitwarden_error_basic(
+            &input,
+            type_identifier,
+            export_as_identifier,
+        ),
+        BitwardenErrorType::Flat => crate::flat::attribute::bitwarden_error_flat(
+            &input,
+            type_identifier,
+            export_as_identifier,
+        ),
+        BitwardenErrorType::Full => crate::full::attribute::bitwarden_error_full(
+            &input,
+            type_identifier,
+            export_as_identifier,
+        ),
     }
 }
