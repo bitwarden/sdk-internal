@@ -60,15 +60,15 @@ impl<'a> ClientCrypto<'a> {
         derive_key_connector(request)
     }
 
-    pub fn make_key_pair(&self) -> Result<MakeKeyPairResponse> {
-        make_key_pair(self.client)
+    pub fn make_key_pair(&self, user_key: String) -> Result<MakeKeyPairResponse> {
+        make_key_pair(user_key)
     }
 
     pub fn verify_asymmetric_keys(
         &self,
         request: VerifyAsymmetricKeysRequest,
     ) -> Result<VerifyAsymmetricKeysResponse> {
-        verify_asymmetric_keys(self.client, request)
+        verify_asymmetric_keys(request)
     }
 }
 
