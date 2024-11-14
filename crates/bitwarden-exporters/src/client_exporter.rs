@@ -3,7 +3,7 @@ use bitwarden_vault::{Cipher, Collection, Folder};
 
 use crate::{
     export::{export_cxf, export_organization_vault, export_vault},
-    ExportError, ExportFormat,
+    Account, ExportError, ExportFormat,
 };
 
 pub struct ClientExporters<'a> {
@@ -33,8 +33,12 @@ impl<'a> ClientExporters<'a> {
         export_organization_vault(collections, ciphers, format)
     }
 
-    pub fn export_cxf(&self, ciphers: Vec<Cipher>) -> Result<String, ExportError> {
-        export_cxf(self.client, ciphers)
+    pub fn export_cxf(
+        &self,
+        account: Account,
+        ciphers: Vec<Cipher>,
+    ) -> Result<String, ExportError> {
+        export_cxf(self.client, account, ciphers)
     }
 }
 

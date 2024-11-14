@@ -3,7 +3,10 @@ use bitwarden_crypto::KeyDecryptable;
 use bitwarden_vault::{Cipher, CipherView, Collection, Folder, FolderView};
 
 use crate::{
-    csv::export_csv, cxp::build_cxf, encrypted_json::export_encrypted_json, json::export_json,
+    csv::export_csv,
+    cxp::{build_cxf, Account},
+    encrypted_json::export_encrypted_json,
+    json::export_json,
     ExportError, ExportFormat,
 };
 
@@ -42,12 +45,16 @@ pub(crate) fn export_organization_vault(
     todo!();
 }
 
-pub(crate) fn export_cxf(client: &Client, ciphers: Vec<Cipher>) -> Result<String, ExportError> {
+pub(crate) fn export_cxf(
+    client: &Client,
+    account: Account,
+    ciphers: Vec<Cipher>,
+) -> Result<String, ExportError> {
     let enc = client.internal.get_encryption_settings()?;
     let key = enc.get_key(&None)?;
 
     let ciphers: Vec<CipherView> = ciphers.decrypt_with_key(key)?;
     let ciphers: Vec<crate::Cipher> = ciphers.into_iter().flat_map(|c| c.try_into()).collect();
 
-    Ok(build_cxf(ciphers)?)
+    Ok(build_cxf(account, ciphers)?)
 }

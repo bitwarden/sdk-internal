@@ -2,32 +2,42 @@ use bitwarden_crypto::generate_random_bytes;
 use chrono::Utc;
 use credential_exchange_types::{
     format::{
-        Account, BasicAuthCredential, Credential, EditableField, FieldType, Header, Item, ItemType,
+        Account as CxpAccount, BasicAuthCredential, Credential, EditableField, FieldType, Header,
+        Item, ItemType,
     },
     B64Url,
 };
+use uuid::Uuid;
 
 use crate::{Cipher, CipherType, Login};
 
 mod error;
 pub use error::CxpError;
 
-pub(crate) fn build_cxf(ciphers: Vec<Cipher>) -> Result<String, CxpError> {
+#[derive(Debug)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct Account {
+    id: Uuid,
+    email: String,
+    name: Option<String>,
+}
+
+pub(crate) fn build_cxf(account: Account, ciphers: Vec<Cipher>) -> Result<String, CxpError> {
     let items: Vec<Item> = ciphers.into_iter().map(|cipher| cipher.into()).collect();
 
     let header = Header {
         version: 0,
         exporter: "Bitwarden".to_string(),
         timestamp: Utc::now().timestamp() as u64,
-        accounts: vec![Account {
-            id: todo!(),
-            user_name: todo!(),
-            email: todo!(),
-            full_name: todo!(),
-            icon: todo!(),
-            collections: todo!(),
+        accounts: vec![CxpAccount {
+            id: account.id.as_bytes().as_slice().into(),
+            user_name: "".to_owned(),
+            email: account.email,
+            full_name: account.name,
+            icon: None,
+            collections: vec![],
             items,
-            extensions: todo!(),
+            extensions: None,
         }],
     };
 

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bitwarden_exporters::{ClientExportersExt, ExportFormat};
+use bitwarden_exporters::{Account, ClientExportersExt, ExportFormat};
 use bitwarden_generators::{
     ClientGeneratorExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
     UsernameGeneratorRequest,
@@ -91,12 +91,12 @@ impl ClientExporters {
     ///
     /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
     /// Ideally the output should be immediately deserialized to [ASExportedCredentialData](https://developer.apple.com/documentation/authenticationservices/asexportedcredentialdata).
-    pub fn export_cxf(&self, ciphers: Vec<Cipher>) -> Result<String> {
+    pub fn export_cxf(&self, account: Account, ciphers: Vec<Cipher>) -> Result<String> {
         Ok(self
             .0
              .0
             .exporters()
-            .export_cxf(ciphers)
+            .export_cxf(account, ciphers)
             .map_err(Error::ExportError)?)
     }
 }

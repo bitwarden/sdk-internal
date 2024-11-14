@@ -6,10 +6,13 @@ use uuid::Uuid;
 
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
+#[cfg(feature = "uniffi")]
+mod uniffi_support;
 
 mod client_exporter;
 mod csv;
 mod cxp;
+pub use cxp::Account;
 mod encrypted_json;
 mod json;
 mod models;
