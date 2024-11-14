@@ -195,7 +195,7 @@ mod tests {
         assert_eq!(item.id.to_string(), "JcjEFLRGSOmhvbEHALvXQA");
         assert_eq!(item.creation_at, 1706613834);
         assert_eq!(item.modified_at, 1706623773);
-        assert!(matches!(item.ty, ItemType::Login));
+        assert_eq!(item.ty, ItemType::Login);
         assert_eq!(item.title, "Bitwarden");
         assert_eq!(item.subtitle, None);
         assert_eq!(item.credentials.len(), 1);
@@ -207,12 +207,12 @@ mod tests {
         match credential {
             Credential::BasicAuth(basic_auth) => {
                 let username = basic_auth.username.as_ref().unwrap();
-                assert!(matches!(username.field_type, FieldType::String));
+                assert_eq!(username.field_type, FieldType::String);
                 assert_eq!(username.value, "test@bitwarden.com");
                 assert!(username.label.is_none());
 
                 let password = basic_auth.password.as_ref().unwrap();
-                assert!(matches!(password.field_type, FieldType::ConcealedString));
+                assert_eq!(password.field_type, FieldType::ConcealedString);
                 assert_eq!(password.value, "asdfasdfasdf");
                 assert!(password.label.is_none());
 
