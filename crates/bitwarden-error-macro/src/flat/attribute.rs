@@ -9,27 +9,25 @@ pub(crate) fn bitwarden_error_flat(
     match &input.data {
         Data::Enum(data) => {
             let variant_names = data.variants.iter().map(|variant| &variant.ident);
+            let match_arms = data.variants.iter().map(|variant| {
+                let variant_ident = &variant.ident;
+                let variant_str = variant_ident.to_string();
 
-            let match_arms = data.variants.iter().map(|variant| match variant.fields {
-                syn::Fields::Unit => {
-                    let variant_ident = &variant.ident;
-                    let variant_name = format!("{}", variant_ident);
-                    quote! {
-                        #type_identifier::#variant_ident => #variant_name
+                match variant.fields {
+                    syn::Fields::Unit => {
+                        quote! {
+                            #type_identifier::#variant_ident => #variant_str
+                        }
                     }
-                }
-                syn::Fields::Named(_) => {
-                    let variant_ident = &variant.ident;
-                    let variant_name = format!("{}", variant_ident);
-                    quote! {
-                        #type_identifier::#variant_ident { .. } => #variant_name
+                    syn::Fields::Named(_) => {
+                        quote! {
+                            #type_identifier::#variant_ident { .. } => #variant_str
+                        }
                     }
-                }
-                syn::Fields::Unnamed(_) => {
-                    let variant_ident = &variant.ident;
-                    let variant_name = format!("{}", variant_ident);
-                    quote! {
-                        #type_identifier::#variant_ident(..) => #variant_name
+                    syn::Fields::Unnamed(_) => {
+                        quote! {
+                            #type_identifier::#variant_ident(..) => #variant_str
+                        }
                     }
                 }
             });
