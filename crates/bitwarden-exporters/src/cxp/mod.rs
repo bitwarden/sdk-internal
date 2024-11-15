@@ -1,5 +1,4 @@
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-
 use bitwarden_core::MissingFieldError;
 use bitwarden_crypto::generate_random_bytes;
 use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
