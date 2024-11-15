@@ -23,3 +23,8 @@ workspace = true
 
 [lib]
 proc-macro = true
+
+[dev-dependencies]
+bitwarden-error.workspace = true
+serde.workspace = true
+thiserror.workspace = true
