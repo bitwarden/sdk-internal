@@ -45,7 +45,7 @@ pub(crate) fn bitwarden_error_flat(
                 #wasm
 
                 #[automatically_derived]
-                impl FlatError for #type_identifier {
+                impl ::bitwarden_error::prelude::FlatError for #type_identifier {
                     fn error_variant(&self) -> &'static str {
                         match &self {
                             #(#match_arms), *
