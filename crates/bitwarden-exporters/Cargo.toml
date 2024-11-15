@@ -21,6 +21,7 @@ uniffi = ["dep:uniffi"] # Uniffi bindings
 base64 = ">=0.22.1, <0.23"
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
+bitwarden-fido = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
 credential-exchange-types = { git = "https://github.com/bitwarden/credential-exchange.git", rev = "b5b5fa3faab7a1aab4efba779f5f74c7ec0f3b35" }
@@ -31,6 +32,9 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
+
+[dev-dependencies]
+rand = ">=0.8.5, <0.9"
 
 [lints]
 workspace = true

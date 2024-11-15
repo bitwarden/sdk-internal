@@ -20,4 +20,6 @@ pub enum ExportError {
     BitwardenError(#[from] bitwarden_core::Error),
     #[error(transparent)]
     BitwardenCryptoError(#[from] bitwarden_crypto::CryptoError),
+    #[error(transparent)]
+    CipherError(#[from] bitwarden_vault::CipherError),
 }

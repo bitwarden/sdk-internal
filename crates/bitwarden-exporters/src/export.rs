@@ -1,6 +1,6 @@
 use bitwarden_core::Client;
 use bitwarden_crypto::KeyDecryptable;
-use bitwarden_vault::{Cipher, CipherView, Collection, Folder, FolderView};
+use bitwarden_vault::{Cipher, Collection, Folder, FolderView};
 
 use crate::{
     csv::export_csv,
@@ -22,8 +22,10 @@ pub(crate) fn export_vault(
     let folders: Vec<FolderView> = folders.decrypt_with_key(key)?;
     let folders: Vec<crate::Folder> = folders.into_iter().flat_map(|f| f.try_into()).collect();
 
-    let ciphers: Vec<CipherView> = ciphers.decrypt_with_key(key)?;
-    let ciphers: Vec<crate::Cipher> = ciphers.into_iter().flat_map(|c| c.try_into()).collect();
+    let ciphers: Vec<crate::Cipher> = ciphers
+        .into_iter()
+        .flat_map(|c| crate::Cipher::from_cipher(&enc, c))
+        .collect();
 
     match format {
         ExportFormat::Csv => Ok(export_csv(folders, ciphers)?),
@@ -51,10 +53,11 @@ pub(crate) fn export_cxf(
     ciphers: Vec<Cipher>,
 ) -> Result<String, ExportError> {
     let enc = client.internal.get_encryption_settings()?;
-    let key = enc.get_key(&None)?;
 
-    let ciphers: Vec<CipherView> = ciphers.decrypt_with_key(key)?;
-    let ciphers: Vec<crate::Cipher> = ciphers.into_iter().flat_map(|c| c.try_into()).collect();
+    let ciphers: Vec<crate::Cipher> = ciphers
+        .into_iter()
+        .flat_map(|c| crate::Cipher::from_cipher(&enc, c))
+        .collect();
 
     Ok(build_cxf(account, ciphers)?)
 }

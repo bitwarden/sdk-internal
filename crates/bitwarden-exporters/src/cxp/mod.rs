@@ -1,14 +1,19 @@
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+
+use bitwarden_core::MissingFieldError;
 use bitwarden_crypto::generate_random_bytes;
+use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
 use credential_exchange_types::{
     format::{
         Account as CxpAccount, BasicAuthCredential, Credential, EditableField, FieldType, Item,
-        ItemType,
+        ItemType, PasskeyCredential,
     },
     B64Url,
 };
+use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{Cipher, CipherType, Login};
+use crate::{Cipher, CipherType, Fido2Credential, Login};
 
 mod error;
 pub use error::CxpError;
@@ -70,7 +75,26 @@ impl From<CipherType> for ItemType {
 
 impl From<Login> for Vec<Credential> {
     fn from(login: Login) -> Self {
-        vec![Credential::BasicAuth(BasicAuthCredential {
+        let mut credentials = vec![];
+
+        credentials.push(Credential::BasicAuth(login.clone().into()));
+
+        if let Some(fido2_credentials) = login.fido2_credentials {
+            for fido2_credential in fido2_credentials {
+                let c = fido2_credential.try_into();
+                if let Ok(c) = c {
+                    credentials.push(Credential::Passkey(c))
+                }
+            }
+        }
+
+        credentials
+    }
+}
+
+impl From<Login> for BasicAuthCredential {
+    fn from(login: Login) -> Self {
+        BasicAuthCredential {
             urls: login
                 .login_uris
                 .into_iter()
@@ -88,7 +112,46 @@ impl From<Login> for Vec<Credential> {
                 value,
                 label: None,
             }),
-        })]
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum PasskeyError {
+    #[error("Counter is not zero")]
+    CounterNotZero,
+    #[error(transparent)]
+    InvalidGuid(InvalidGuid),
+    #[error(transparent)]
+    MissingField(MissingFieldError),
+    #[error(transparent)]
+    InvalidBase64(#[from] base64::DecodeError),
+}
+
+impl TryFrom<Fido2Credential> for PasskeyCredential {
+    type Error = PasskeyError;
+
+    fn try_from(value: Fido2Credential) -> Result<Self, Self::Error> {
+        if value.counter > 0 {
+            return Err(PasskeyError::CounterNotZero);
+        }
+
+        Ok(PasskeyCredential {
+            credential_id: string_to_guid_bytes(&value.credential_id)
+                .map_err(PasskeyError::InvalidGuid)?
+                .into(),
+            rp_id: value.rp_id,
+            user_name: value.user_name.unwrap_or("".to_string()),
+            user_display_name: value.user_display_name.unwrap_or("".to_string()),
+            user_handle: value
+                .user_handle
+                .map(|v| URL_SAFE_NO_PAD.decode(v))
+                .transpose()?
+                .map(|v| v.into())
+                .ok_or(PasskeyError::MissingField(MissingFieldError("user_handle")))?,
+            key: URL_SAFE_NO_PAD.decode(value.key_value)?.into(),
+            fido2_extensions: vec![],
+        })
     }
 }
 
@@ -114,7 +177,7 @@ mod tests {
     use chrono::{DateTime, Utc};
 
     use super::*;
-    use crate::{CipherType, Field, Login, LoginUri};
+    use crate::{CipherType, Fido2Credential, Field, Login, LoginUri};
 
     #[test]
     fn test_login_to_item() {
@@ -133,6 +196,21 @@ mod tests {
                     r#match: None,
                 }],
                 totp: Some("ABC".to_string()),
+                fido2_credentials: Some(vec![Fido2Credential {
+                    credential_id: "52217b91-73f1-4fea-b3f2-54a7959fd5aa".to_string(),
+                    key_type: "public-key".to_string(),
+                    key_algorithm: "ECDSA".to_string(),
+                    key_curve: "P-256".to_string(),
+                    key_value: URL_SAFE_NO_PAD.encode([0, 1, 2, 3, 4, 5, 6]),
+                    rp_id: "123".to_string(),
+                    user_handle: Some(URL_SAFE_NO_PAD.encode([0, 1, 2, 3, 4, 5, 6])),
+                    user_name: None,
+                    counter: 0,
+                    rp_name: None,
+                    user_display_name: None,
+                    discoverable: "true".to_string(),
+                    creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
+                }]),
             })),
 
             favorite: true,
@@ -192,7 +270,7 @@ mod tests {
         assert_eq!(item.ty, ItemType::Login);
         assert_eq!(item.title, "Bitwarden");
         assert_eq!(item.subtitle, None);
-        assert_eq!(item.credentials.len(), 1);
+        assert_eq!(item.credentials.len(), 2);
         assert_eq!(item.tags, None);
         assert!(item.extensions.is_none());
 
@@ -216,6 +294,15 @@ mod tests {
                 );
             }
             _ => panic!("Expected Credential::BasicAuth"),
+        }
+
+        let credential = &item.credentials[1];
+
+        match credential {
+            Credential::Passkey(passkey) => {
+                assert_eq!(passkey.credential_id.to_string(), "UiF7kXPxT-qz8lSnlZ_Vqg");
+            }
+            _ => panic!("Expected Credential::Passkey"),
         }
     }
 }

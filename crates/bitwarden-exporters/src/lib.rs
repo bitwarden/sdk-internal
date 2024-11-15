@@ -97,12 +97,31 @@ pub struct Login {
     pub password: Option<String>,
     pub login_uris: Vec<LoginUri>,
     pub totp: Option<String>,
+
+    pub fido2_credentials: Option<Vec<Fido2Credential>>,
 }
 
 #[derive(Clone)]
 pub struct LoginUri {
     pub uri: Option<String>,
     pub r#match: Option<u8>,
+}
+
+#[derive(Clone)]
+pub struct Fido2Credential {
+    pub credential_id: String,
+    pub key_type: String,
+    pub key_algorithm: String,
+    pub key_curve: String,
+    pub key_value: String,
+    pub rp_id: String,
+    pub user_handle: Option<String>,
+    pub user_name: Option<String>,
+    pub counter: u32,
+    pub rp_name: Option<String>,
+    pub user_display_name: Option<String>,
+    pub discoverable: String,
+    pub creation_date: DateTime<Utc>,
 }
 
 #[derive(Clone)]
