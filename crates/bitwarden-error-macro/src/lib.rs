@@ -16,8 +16,9 @@ mod full;
 ///
 /// ## Export as
 ///
-/// `export_as`: The name of the exported TypeScript type. If not provided, the name of the Rust type is used.
-/// Note: This attribute is only available when using the `basic` and `flat` error types.
+/// `export_as`: The name of the exported TypeScript type. If not provided, the name of the Rust
+/// type is used. Note: This attribute is only available when using the `basic` and `flat` error
+/// types.
 ///
 /// # Examples
 ///
@@ -100,7 +101,8 @@ mod full;
 /// export interface VaultLocked { }
 /// ```
 ///
-/// All the general interopability rules apply such as external types needing to be defined as custom types.
+/// All the general interopability rules apply such as external types needing to be defined as
+/// custom types.
 #[proc_macro_attribute]
 pub fn bitwarden_error(
     args: proc_macro::TokenStream,
