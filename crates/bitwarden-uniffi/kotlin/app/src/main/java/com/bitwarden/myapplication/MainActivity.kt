@@ -66,7 +66,7 @@ import javax.net.ssl.X509TrustManager
  *
  *   Note that this SDK uses the system trust store to perform TLS certificate validation. If you want to use this SDK with
  *   self hosted servers using self-signed certificates, make sure to configure the Android Network Security Config correctly.
- *   We provide an example configuration in `languages/kotlin/app/src/main/res/xml/network_security_config.xml`
+ *   We provide an example configuration in `crates/bitwarden-uniffi/kotlin/app/src/main/res/xml/network_security_config.xml`
  *   https://developer.android.com/privacy-and-security/security-config
  */
 
