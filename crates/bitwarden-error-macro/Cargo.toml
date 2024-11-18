@@ -28,3 +28,4 @@ proc-macro = true
 bitwarden-error.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+tsify-next.workspace = true

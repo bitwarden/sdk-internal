@@ -23,5 +23,5 @@ workspace = true
 js-sys = "0.3.72"
 serde.workspace = true
 trybuild = "1.0.101"
-tsify-next = "0.5.4"
+tsify-next.workspace = true
 wasm-bindgen-test = "0.3.45"

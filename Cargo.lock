@@ -439,6 +439,7 @@ dependencies = [
  "serde",
  "syn 2.0.87",
  "thiserror",
+ "tsify-next",
 ]
 
 [[package]]
@@ -1522,19 +1523,6 @@ name = "glob"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
-
-[[package]]
-name = "gloo-utils"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b5555354113b18c547c1d3a98fbf7fb32a9ff4f6fa112ce823a21641a0ba3aa"
-dependencies = [
- "js-sys",
- "serde",
- "serde_json",
- "wasm-bindgen",
- "web-sys",
-]
 
 [[package]]
 name = "goblin"
@@ -3610,10 +3598,8 @@ version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f4a645dca4ee0800f5ab60ce166deba2db6a0315de795a2691e138a3d55d756"
 dependencies = [
- "gloo-utils",
  "serde",
  "serde-wasm-bindgen",
- "serde_json",
  "tsify-next-macros",
  "wasm-bindgen",
 ]
