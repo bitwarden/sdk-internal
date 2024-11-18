@@ -27,10 +27,14 @@ mod full;
 ///
 /// ```rust
 /// use bitwarden_error::prelude::*;
+/// use thiserror::Error;
 ///
+/// #[derive(Debug, Error)]
 /// #[bitwarden_error(basic)]
 /// enum MyError {
+///     #[error("Not found")]
 ///     NotFound,
+///     #[error("Permission denied")]
 ///     PermissionDenied,
 /// }
 /// ```
@@ -49,10 +53,14 @@ mod full;
 ///
 /// ```rust
 /// use bitwarden_error::prelude::*;
+/// use thiserror::Error;
 ///
+/// #[derive(Debug, Error)]
 /// #[bitwarden_error(basic)]
 /// enum MyError {
+///     #[error("Not found")]
 ///     NotFound,
+///     #[error("Permission denied")]
 ///     PermissionDenied,
 /// }
 /// ```

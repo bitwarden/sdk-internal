@@ -434,12 +434,14 @@ version = "1.0.0"
 dependencies = [
  "bitwarden-error",
  "darling",
+ "js-sys",
  "proc-macro2",
  "quote",
  "serde",
  "syn 2.0.87",
  "thiserror",
  "tsify-next",
+ "wasm-bindgen",
 ]
 
 [[package]]

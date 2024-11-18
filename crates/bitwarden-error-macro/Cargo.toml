@@ -10,7 +10,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-wasm = []
+wasm = ["bitwarden-error/wasm"]
 
 [dependencies]
 darling = "0.20.10"
@@ -29,3 +29,5 @@ bitwarden-error.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tsify-next.workspace = true
+js-sys.workspace = true
+wasm-bindgen.workspace = true
