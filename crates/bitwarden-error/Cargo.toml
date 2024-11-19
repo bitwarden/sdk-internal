@@ -1,0 +1,27 @@
+[package]
+name = "bitwarden-error"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[features]
+wasm = ["bitwarden-error-macro/wasm", "dep:wasm-bindgen"]
+
+[dependencies]
+bitwarden-error-macro = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+js-sys = "0.3.72"
+serde.workspace = true
+trybuild = "1.0.101"
+tsify-next.workspace = true
+wasm-bindgen-test = "0.3.45"

@@ -4,6 +4,7 @@ use std::{borrow::Cow, fmt::Debug};
 
 use bitwarden_api_api::apis::Error as ApiError;
 use bitwarden_api_identity::apis::Error as IdentityError;
+use bitwarden_error::prelude::*;
 use log::debug;
 use reqwest::StatusCode;
 use thiserror::Error;
@@ -12,6 +13,7 @@ use validator::ValidationErrors;
 #[cfg(feature = "internal")]
 use crate::client::encryption_settings::EncryptionSettingsError;
 
+#[bitwarden_error(flat, export_as = "CoreError")]
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
