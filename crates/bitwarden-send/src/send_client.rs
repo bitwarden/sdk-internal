@@ -5,11 +5,11 @@ use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable};
 
 use crate::{Send, SendListView, SendView};
 
-pub struct SendClients<'a> {
+pub struct SendClient<'a> {
     client: &'a Client,
 }
 
-impl<'a> SendClients<'a> {
+impl<'a> SendClient<'a> {
     fn new(client: &'a Client) -> Self {
         Self { client }
     }
@@ -84,12 +84,12 @@ impl<'a> SendClients<'a> {
     }
 }
 
-pub trait SendClientsExt<'a> {
-    fn sends(&'a self) -> SendClients<'a>;
+pub trait SendClientExt<'a> {
+    fn sends(&'a self) -> SendClient<'a>;
 }
 
-impl<'a> SendClientsExt<'a> for Client {
-    fn sends(&'a self) -> SendClients<'a> {
-        SendClients::new(self)
+impl<'a> SendClientExt<'a> for Client {
+    fn sends(&'a self) -> SendClient<'a> {
+        SendClient::new(self)
     }
 }

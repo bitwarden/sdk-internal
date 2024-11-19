@@ -7,12 +7,12 @@ use uuid::Uuid;
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
 
-mod client_exporter;
 mod csv;
 mod encrypted_json;
+mod exporter_client;
 mod json;
 mod models;
-pub use client_exporter::{ExporterClients, ExporterClientsExt};
+pub use exporter_client::{ExporterClient, ExporterClientExt};
 mod error;
 mod export;
 pub use error::ExportError;

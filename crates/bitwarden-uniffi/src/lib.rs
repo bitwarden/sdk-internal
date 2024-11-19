@@ -19,7 +19,7 @@ mod android_support;
 use crypto::CryptoClient;
 use error::Result;
 use platform::PlatformClient;
-use tool::{ExporterClients, GeneratorClients, SendClients};
+use tool::{ExporterClient, GeneratorClients, SendClient};
 use vault::VaultClient;
 
 #[derive(uniffi::Object)]
@@ -58,13 +58,13 @@ impl Client {
     }
 
     /// Exporters
-    pub fn exporters(self: Arc<Self>) -> Arc<ExporterClients> {
-        Arc::new(ExporterClients(self))
+    pub fn exporters(self: Arc<Self>) -> Arc<ExporterClient> {
+        Arc::new(ExporterClient(self))
     }
 
     /// Sends operations
-    pub fn sends(self: Arc<Self>) -> Arc<SendClients> {
-        Arc::new(SendClients(self))
+    pub fn sends(self: Arc<Self>) -> Arc<SendClient> {
+        Arc::new(SendClient(self))
     }
 
     /// Auth operations
