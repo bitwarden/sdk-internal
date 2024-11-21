@@ -9,9 +9,9 @@ pub enum KeyAlgorithm {
 }
 
 // impl conversion
-impl Into<bitwarden_ssh::KeyAlgorithm> for KeyAlgorithm {
-    fn into(self) -> bitwarden_ssh::KeyAlgorithm {
-        match self {
+impl From<KeyAlgorithm> for bitwarden_ssh::KeyAlgorithm {
+    fn from(key_algorithm: KeyAlgorithm) -> Self {
+        match key_algorithm {
             KeyAlgorithm::Ed25519 => bitwarden_ssh::KeyAlgorithm::Ed25519,
             KeyAlgorithm::Rsa3072 => bitwarden_ssh::KeyAlgorithm::Rsa3072,
             KeyAlgorithm::Rsa4096 => bitwarden_ssh::KeyAlgorithm::Rsa4096,
@@ -54,5 +54,5 @@ impl SshKey {
 pub fn generate_ssh_key(
     key_algorithm: KeyAlgorithm,
 ) -> Result<SshKey, bitwarden_ssh::error::KeyGenerationError> {
-    bitwarden_ssh::generate_keypair(key_algorithm.into()).map(|key| SshKey::from(key))
+    bitwarden_ssh::generate_keypair(key_algorithm.into()).map(SshKey::from)
 }
