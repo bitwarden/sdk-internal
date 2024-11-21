@@ -14,7 +14,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-uniffi = ["dep:uniffi", "bitwarden-core/uniffi", "bitwarden-vault/uniffi"]
+uniffi = ["dep:uniffi", "bitwarden-vault/uniffi"]
 wasm = [
     "bitwarden-error/wasm",
     "dep:wasm-bindgen",
@@ -23,25 +23,17 @@ wasm = [
 ] # WASM support
 
 [dependencies]
-async-trait = ">=0.1.80, <0.2"
-base64 = ">=0.22.1, <0.23"
-bitwarden-core = { workspace = true }
-bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-vault = { workspace = true }
-chrono = { workspace = true }
-coset = { version = "0.3.7" }
-itertools = "0.13.0"
-log = ">=0.4.18, <0.5"
-p256 = { version = ">=0.13.2, <0.14" }
 rand = "0.8.5"
 rand_chacha = "0.3.1"
-reqwest = { workspace = true }
-schemars = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
 ssh-encoding = "0.2.0"
-ssh-key = { version = "0.6.7", features = ["ed25519", "encryption", "rsa", "getrandom"] }
+ssh-key = { version = "0.6.7", features = [
+    "ed25519",
+    "encryption",
+    "rsa",
+    "getrandom",
+] }
 thiserror = { workspace = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
