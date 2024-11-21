@@ -51,7 +51,8 @@ impl SshKey {
 }
 
 #[wasm_bindgen]
-pub fn generate_ssh_key(key_algorithm: KeyAlgorithm) -> Result<SshKey, bitwarden_ssh::error::KeyGenerationError> {
-    bitwarden_ssh::generate_keypair(key_algorithm.into())
-        .map(|key| SshKey::from(key))
+pub fn generate_ssh_key(
+    key_algorithm: KeyAlgorithm,
+) -> Result<SshKey, bitwarden_ssh::error::KeyGenerationError> {
+    bitwarden_ssh::generate_keypair(key_algorithm.into()).map(|key| SshKey::from(key))
 }

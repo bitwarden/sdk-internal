@@ -1,5 +1,5 @@
-use thiserror::Error;
 use bitwarden_error::prelude::*;
+use thiserror::Error;
 
 #[bitwarden_error(flat)]
 #[derive(Error, Debug)]
