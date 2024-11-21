@@ -15,7 +15,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-uniffi = ["dep:uniffi"] # Uniffi bindings
+uniffi = ["dep:uniffi", "bitwarden-core/uniffi"] # Uniffi bindings
 
 [dependencies]
 base64 = ">=0.22.1, <0.23"
@@ -24,7 +24,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
-credential-exchange-types = { git = "https://github.com/bitwarden/credential-exchange.git", rev = "b5b5fa3faab7a1aab4efba779f5f74c7ec0f3b35" }
+credential-exchange-types = { git = "https://github.com/bitwarden/credential-exchange.git", rev = "28c947a776f727334598e4ef070292204d4e71d4" }
 csv = "1.3.0"
 schemars = { workspace = true }
 serde = { workspace = true }

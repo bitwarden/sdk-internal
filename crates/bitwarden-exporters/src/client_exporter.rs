@@ -2,7 +2,7 @@ use bitwarden_core::Client;
 use bitwarden_vault::{Cipher, Collection, Folder};
 
 use crate::{
-    export::{export_cxf, export_organization_vault, export_vault},
+    export::{export_cxf, export_organization_vault, export_vault, import_cxf},
     Account, ExportError, ExportFormat,
 };
 
@@ -39,6 +39,10 @@ impl<'a> ClientExporters<'a> {
         ciphers: Vec<Cipher>,
     ) -> Result<String, ExportError> {
         export_cxf(self.client, account, ciphers)
+    }
+
+    pub fn import_cxf(&self, payload: String) -> Result<Vec<Cipher>, ExportError> {
+        import_cxf(self.client, payload)
     }
 }
 

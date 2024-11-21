@@ -2,6 +2,7 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::MissingFieldError;
 use bitwarden_crypto::generate_random_bytes;
 use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
+use chrono::{DateTime, Utc};
 use credential_exchange_types::{
     format::{
         Account as CxpAccount, BasicAuthCredential, Credential, EditableField, FieldType, Item,
@@ -12,7 +13,7 @@ use credential_exchange_types::{
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{Cipher, CipherType, Fido2Credential, Login};
+use crate::{Cipher, CipherType, Fido2Credential, ImportingCipher, Login, LoginUri};
 
 mod error;
 pub use error::CxpError;
@@ -42,6 +43,74 @@ pub(crate) fn build_cxf(account: Account, ciphers: Vec<Cipher>) -> Result<String
     Ok(serde_json::to_string(&account)?)
 }
 
+pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxpError> {
+    let account: CxpAccount = serde_json::from_str(&payload)?;
+
+    let items: Vec<ImportingCipher> = account.items.into_iter().flat_map(parse_item).collect();
+
+    Ok(items)
+}
+
+fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials {
+    GroupedCredentials {
+        basic_auth: credentials
+            .iter()
+            .filter_map(|c| match c {
+                Credential::BasicAuth(basic_auth) => Some(basic_auth.clone()),
+                _ => None,
+            })
+            .collect(),
+    }
+}
+
+struct GroupedCredentials {
+    basic_auth: Vec<BasicAuthCredential>,
+}
+
+fn parse_item(value: Item) -> Vec<ImportingCipher> {
+    let grouped = group_credentials_by_type(value.credentials);
+
+    match value.ty {
+        ItemType::Login => {
+            let basic_auth = grouped.basic_auth.first();
+
+            let login = Login {
+                username: basic_auth.and_then(|v| v.username.as_ref().map(|u| u.value.clone())),
+                password: basic_auth.and_then(|v| v.password.as_ref().map(|u| u.value.clone())),
+                login_uris: basic_auth
+                    .map(|v| {
+                        v.urls
+                            .iter()
+                            .map(|u| LoginUri {
+                                uri: Some(u.clone()),
+                                r#match: None,
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                totp: None,
+                fido2_credentials: None,
+            };
+
+            vec![ImportingCipher {
+                folder_id: None, // TODO: Handle folders
+                name: value.title,
+                notes: None,
+                r#type: CipherType::Login(Box::new(login)),
+                favorite: false,
+                reprompt: 0,
+                fields: vec![],
+                revision_date: DateTime::from_timestamp(value.modified_at as i64, 0)
+                    .unwrap_or(Utc::now()),
+                creation_date: DateTime::from_timestamp(value.creation_at as i64, 0)
+                    .unwrap_or(Utc::now()),
+                deleted_date: None,
+            }]
+        }
+        _ => vec![],
+    }
+}
+
 impl From<Cipher> for Item {
     fn from(value: Cipher) -> Self {
         let credentials = value.r#type.clone().into();
@@ -52,6 +121,7 @@ impl From<Cipher> for Item {
             ty: value.r#type.into(),
             title: value.name,
             subtitle: None,
+            favorite: Some(value.favorite),
             credentials,
             tags: None,
             extensions: None,
@@ -149,7 +219,7 @@ impl TryFrom<Fido2Credential> for PasskeyCredential {
                 .map(|v| v.into())
                 .ok_or(PasskeyError::MissingField(MissingFieldError("user_handle")))?,
             key: URL_SAFE_NO_PAD.decode(value.key_value)?.into(),
-            fido2_extensions: vec![],
+            fido2_extensions: None,
         })
     }
 }
@@ -196,7 +266,7 @@ mod tests {
                 }],
                 totp: Some("ABC".to_string()),
                 fido2_credentials: Some(vec![Fido2Credential {
-                    credential_id: "52217b91-73f1-4fea-b3f2-54a7959fd5aa".to_string(),
+                    credential_id: "e8d88789-e916-e196-3cbd-81dafae71bbc".to_string(),
                     key_type: "public-key".to_string(),
                     key_algorithm: "ECDSA".to_string(),
                     key_curve: "P-256".to_string(),
@@ -299,9 +369,27 @@ mod tests {
 
         match credential {
             Credential::Passkey(passkey) => {
-                assert_eq!(passkey.credential_id.to_string(), "UiF7kXPxT-qz8lSnlZ_Vqg");
+                assert_eq!(passkey.credential_id.to_string(), "6NiHiekW4ZY8vYHa-ucbvA");
             }
             _ => panic!("Expected Credential::Passkey"),
         }
+    }
+
+    #[test]
+    fn test_parse_item() {
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: 1706613834,
+            modified_at: 1706623773,
+            ty: ItemType::Login,
+            title: "Bitwarden".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![],
+            tags: None,
+            extensions: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
     }
 }

@@ -1,13 +1,13 @@
 use bitwarden_core::Client;
-use bitwarden_crypto::KeyDecryptable;
-use bitwarden_vault::{Cipher, Collection, Folder, FolderView};
+use bitwarden_crypto::{KeyContainer, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey};
+use bitwarden_vault::{Cipher, CipherView, Collection, Folder, FolderView};
 
 use crate::{
     csv::export_csv,
-    cxp::{build_cxf, Account},
+    cxp::{build_cxf, parse_cxf, Account},
     encrypted_json::export_encrypted_json,
     json::export_json,
-    ExportError, ExportFormat,
+    ExportError, ExportFormat, ImportingCipher,
 };
 
 pub(crate) fn export_vault(
@@ -60,4 +60,27 @@ pub(crate) fn export_cxf(
         .collect();
 
     Ok(build_cxf(account, ciphers)?)
+}
+
+fn encrypt_import(
+    key: &SymmetricCryptoKey,
+    cipher: ImportingCipher,
+) -> Result<Cipher, ExportError> {
+    let view: CipherView = cipher.into();
+
+    let cipher = view.encrypt_with_key(key)?;
+    Ok(cipher)
+}
+
+pub(crate) fn import_cxf(client: &Client, payload: String) -> Result<Vec<Cipher>, ExportError> {
+    let enc = client.internal.get_encryption_settings()?;
+    let key = enc.get_key(&None)?;
+
+    let ciphers = parse_cxf(payload)?;
+    let ciphers: Result<Vec<Cipher>, _> = ciphers
+        .into_iter()
+        .map(|c| encrypt_import(key, c))
+        .collect();
+
+    Ok(ciphers?)
 }

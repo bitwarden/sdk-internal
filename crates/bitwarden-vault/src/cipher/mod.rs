@@ -19,7 +19,7 @@ pub use field::FieldView;
 pub use identity::IdentityView;
 pub use login::{
     Fido2Credential, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView, Login,
-    LoginUriView, LoginView,
+    LoginUriView, LoginView, UriMatchType,
 };
 pub use secure_note::{SecureNoteType, SecureNoteView};
 pub use ssh_key::SshKeyView;

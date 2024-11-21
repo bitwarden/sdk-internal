@@ -1,5 +1,6 @@
 use std::fmt;
 
+use bitwarden_vault::{CipherRepromptType, CipherView, LoginUriView, UriMatchType};
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use uuid::Uuid;
@@ -60,6 +61,103 @@ pub struct Cipher {
     pub revision_date: DateTime<Utc>,
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
+}
+
+/// Import representation of a Bitwarden cipher.
+///
+/// These are mostly duplicated from the `bitwarden` vault models to facilitate a stable export API
+/// that is not tied to the internal vault models. We may revisit this in the future.
+#[derive(Clone)]
+pub struct ImportingCipher {
+    pub folder_id: Option<Uuid>,
+
+    pub name: String,
+    pub notes: Option<String>,
+
+    pub r#type: CipherType,
+
+    pub favorite: bool,
+    pub reprompt: u8,
+
+    pub fields: Vec<Field>,
+
+    pub revision_date: DateTime<Utc>,
+    pub creation_date: DateTime<Utc>,
+    pub deleted_date: Option<DateTime<Utc>>,
+}
+
+impl From<ImportingCipher> for CipherView {
+    fn from(value: ImportingCipher) -> Self {
+        let login = match value.r#type {
+            CipherType::Login(login) => {
+                let l: Vec<LoginUriView> = login
+                    .login_uris
+                    .into_iter()
+                    .map(|uri| LoginUriView::from(uri))
+                    .collect();
+
+                Some(bitwarden_vault::LoginView {
+                    username: login.username,
+                    password: login.password,
+                    password_revision_date: None,
+                    uris: if l.is_empty() { None } else { Some(l) },
+                    totp: login.totp,
+                    autofill_on_page_load: None,
+                    fido2_credentials: None,
+                })
+            }
+            _ => None,
+        };
+
+        Self {
+            id: None,
+            organization_id: None,
+            folder_id: value.folder_id,
+            collection_ids: vec![],
+            key: None,
+            name: value.name,
+            notes: None,
+            r#type: bitwarden_vault::CipherType::Login,
+            login,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            favorite: value.favorite,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: true,
+            edit: true,
+            view_password: true,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: value.creation_date,
+            deleted_date: None,
+            revision_date: value.revision_date,
+        }
+    }
+}
+
+impl From<LoginUri> for bitwarden_vault::LoginUriView {
+    fn from(value: LoginUri) -> Self {
+        Self {
+            uri: value.uri,
+            r#match: value
+                .r#match
+                .map(|m| match m {
+                    0 => Some(UriMatchType::Domain),
+                    1 => Some(UriMatchType::Host),
+                    2 => Some(UriMatchType::StartsWith),
+                    3 => Some(UriMatchType::Exact),
+                    4 => Some(UriMatchType::RegularExpression),
+                    5 => Some(UriMatchType::Never),
+                    _ => None,
+                })
+                .flatten(),
+            uri_checksum: None,
+        }
+    }
 }
 
 #[derive(Clone)]
