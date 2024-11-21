@@ -93,7 +93,7 @@ impl From<ImportingCipher> for CipherView {
                 let l: Vec<LoginUriView> = login
                     .login_uris
                     .into_iter()
-                    .map(|uri| LoginUriView::from(uri))
+                    .map(LoginUriView::from)
                     .collect();
 
                 Some(bitwarden_vault::LoginView {
@@ -143,18 +143,15 @@ impl From<LoginUri> for bitwarden_vault::LoginUriView {
     fn from(value: LoginUri) -> Self {
         Self {
             uri: value.uri,
-            r#match: value
-                .r#match
-                .map(|m| match m {
-                    0 => Some(UriMatchType::Domain),
-                    1 => Some(UriMatchType::Host),
-                    2 => Some(UriMatchType::StartsWith),
-                    3 => Some(UriMatchType::Exact),
-                    4 => Some(UriMatchType::RegularExpression),
-                    5 => Some(UriMatchType::Never),
-                    _ => None,
-                })
-                .flatten(),
+            r#match: value.r#match.and_then(|m| match m {
+                0 => Some(UriMatchType::Domain),
+                1 => Some(UriMatchType::Host),
+                2 => Some(UriMatchType::StartsWith),
+                3 => Some(UriMatchType::Exact),
+                4 => Some(UriMatchType::RegularExpression),
+                5 => Some(UriMatchType::Never),
+                _ => None,
+            }),
             uri_checksum: None,
         }
     }
