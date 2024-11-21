@@ -1,0 +1,33 @@
+[package]
+name = "bitwarden-error-macro"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[features]
+wasm = ["bitwarden-error/wasm"]
+
+[dependencies]
+darling = "0.20.10"
+proc-macro2 = "1.0.89"
+quote = "1.0.37"
+syn = "2.0.87"
+
+[lints]
+workspace = true
+
+[lib]
+proc-macro = true
+
+[dev-dependencies]
+bitwarden-error.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tsify-next.workspace = true
+js-sys.workspace = true
+wasm-bindgen.workspace = true

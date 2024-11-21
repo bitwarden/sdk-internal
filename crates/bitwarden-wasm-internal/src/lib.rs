@@ -1,7 +1,6 @@
 mod client;
 mod crypto;
 mod custom_types;
-mod error;
 pub mod ssh;
 mod vault;
 
