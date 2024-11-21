@@ -1,8 +1,6 @@
 use bitwarden_ssh;
 use wasm_bindgen::prelude::*;
 
-use crate::error::{GenericError, Result};
-
 #[wasm_bindgen]
 pub enum KeyAlgorithm {
     Ed25519,
@@ -53,9 +51,7 @@ impl SshKey {
 }
 
 #[wasm_bindgen]
-pub async fn generate_ssh_key(key_algorithm: KeyAlgorithm) -> Result<SshKey> {
+pub fn generate_ssh_key(key_algorithm: KeyAlgorithm) -> Result<SshKey, bitwarden_ssh::error::KeyGenerationError> {
     bitwarden_ssh::generate_keypair(key_algorithm.into())
-        .await
         .map(|key| SshKey::from(key))
-        .map_err(|e| GenericError(e.to_string()))
 }

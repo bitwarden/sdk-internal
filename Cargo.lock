@@ -583,10 +583,12 @@ dependencies = [
  "base64",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-error",
  "bitwarden-vault",
  "chrono",
  "coset",
  "itertools 0.13.0",
+ "js-sys",
  "log",
  "p256",
  "rand",
@@ -598,8 +600,10 @@ dependencies = [
  "ssh-encoding",
  "ssh-key",
  "thiserror",
+ "tsify-next",
  "uniffi",
  "uuid",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -660,8 +664,8 @@ version = "0.1.0"
 dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
- "bitwarden-ssh",
  "bitwarden-error",
+ "bitwarden-ssh",
  "bitwarden-vault",
  "console_error_panic_hook",
  "console_log",
@@ -1214,7 +1218,7 @@ checksum = "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]

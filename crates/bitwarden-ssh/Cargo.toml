@@ -15,12 +15,19 @@ keywords.workspace = true
 
 [features]
 uniffi = ["dep:uniffi", "bitwarden-core/uniffi", "bitwarden-vault/uniffi"]
+wasm = [
+    "bitwarden-error/wasm",
+    "dep:wasm-bindgen",
+    "dep:js-sys",
+    "dep:tsify-next",
+] # WASM support
 
 [dependencies]
 async-trait = ">=0.1.80, <0.2"
 base64 = ">=0.22.1, <0.23"
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
+bitwarden-error = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
 coset = { version = "0.3.7" }
@@ -38,6 +45,9 @@ ssh-key = { version = "0.6.7", features = ["ed25519", "encryption", "rsa", "getr
 thiserror = { workspace = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
+tsify-next = { workspace = true, optional = true }
+js-sys = { workspace = true, optional = true }
 
 [lints]
 workspace = true
