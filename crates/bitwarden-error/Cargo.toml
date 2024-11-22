@@ -10,10 +10,11 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-wasm = ["bitwarden-error-macro/wasm", "dep:wasm-bindgen"]
+wasm = ["bitwarden-error-macro/wasm", "dep:js-sys", "dep:wasm-bindgen"]
 
 [dependencies]
 bitwarden-error-macro = { workspace = true }
+js-sys = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 
 [lints]
