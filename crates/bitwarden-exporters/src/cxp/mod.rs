@@ -60,11 +60,19 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
                 _ => None,
             })
             .collect(),
+        passkey: credentials
+            .iter()
+            .filter_map(|c| match c {
+                Credential::Passkey(passkey) => Some(passkey.clone()),
+                _ => None,
+            })
+            .collect(),
     }
 }
 
 struct GroupedCredentials {
     basic_auth: Vec<BasicAuthCredential>,
+    passkey: Vec<PasskeyCredential>,
 }
 
 fn parse_item(value: Item) -> Vec<ImportingCipher> {
@@ -73,6 +81,7 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
     match value.ty {
         ItemType::Login => {
             let basic_auth = grouped.basic_auth.first();
+            let passkey = grouped.passkey.first();
 
             let login = Login {
                 username: basic_auth.and_then(|v| v.username.as_ref().map(|u| u.value.clone())),
@@ -89,7 +98,24 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
                     })
                     .unwrap_or_default(),
                 totp: None,
-                fido2_credentials: None,
+                fido2_credentials: passkey.map(|p| {
+                    vec![Fido2Credential {
+                        credential_id: format!("b64.{}", p.credential_id),
+                        key_type: "public-key".to_string(),
+                        key_algorithm: "ECDSA".to_string(),
+                        key_curve: "P-256".to_string(),
+                        key_value: URL_SAFE_NO_PAD.encode(&p.key),
+                        rp_id: p.rp_id.clone(),
+                        user_handle: Some(p.user_handle.to_string()),
+                        user_name: Some(p.user_name.clone()),
+                        counter: 0,
+                        rp_name: Some(p.rp_id.clone()),
+                        user_display_name: Some(p.user_display_name.clone()),
+                        discoverable: "true".to_string(),
+                        creation_date: DateTime::from_timestamp(value.creation_at as i64, 0)
+                            .unwrap_or(Utc::now()),
+                    }]
+                }),
             };
 
             vec![ImportingCipher {
@@ -243,7 +269,9 @@ fn random_id() -> B64Url {
 
 #[cfg(test)]
 mod tests {
+    use base64::prelude::BASE64_STANDARD_NO_PAD;
     use chrono::{DateTime, Utc};
+    use credential_exchange_types::protocol::CredentialType;
 
     use super::*;
     use crate::{CipherType, Fido2Credential, Field, Login, LoginUri};
@@ -390,6 +418,69 @@ mod tests {
             extensions: None,
         };
 
-        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        let _ciphers: Vec<ImportingCipher> = parse_item(item);
+    }
+
+    #[test]
+    fn test_parse_passkey() {
+        let item = Item {
+            id: URL_SAFE_NO_PAD
+                .decode("Njk1RERENTItNkQ0Ny00NERBLTlFN0EtNDM1MjNEQjYzNjVF")
+                .unwrap()
+                .as_slice()
+                .into(),
+            creation_at: 1732181986,
+            modified_at: 1732182026,
+            ty: ItemType::Login,
+            title: "opotonniee.github.io".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![Credential::Passkey(PasskeyCredential {
+                credential_id: URL_SAFE_NO_PAD
+                    .decode("6NiHiekW4ZY8vYHa-ucbvA")
+                    .unwrap()
+                    .as_slice()
+                    .into(),
+                rp_id: "opotonniee.github.io".to_string(),
+                user_name: "alex muller".to_string(),
+                user_display_name: "alex muller".to_string(),
+                user_handle: URL_SAFE_NO_PAD
+                    .decode("YWxleCBtdWxsZXI")
+                    .unwrap()
+                    .as_slice()
+                    .into(),
+                key: URL_SAFE_NO_PAD
+                    .decode("MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgPzvtWYWmIsvqqr3LsZB0K-cbjuhJSGTGziL1LksHAPShRANCAAT-vqHTyEDS9QBNNi2BNLyu6TunubJT_L3G3i7KLpEDhMD15hi24IjGBH0QylJIrvlT4JN2tdRGF436XGc-VoAl")
+                    .unwrap()
+                    .as_slice()
+                    .into(),
+                fido2_extensions: None,
+            })],
+            tags: None,
+            extensions: None,
+        };
+
+        let _ciphers: Vec<ImportingCipher> = parse_item(item);
+
+        /*
+        {
+            "id": "Njk1RERENTItNkQ0Ny00NERBLTlFN0EtNDM1MjNEQjYzNjVF",
+            "title": "opotonniee.github.io",
+            "modifiedAt": 1732182026,
+            "type": "login",
+            "credentials": [
+              {
+                "key": "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgPzvtWYWmIsvqqr3LsZB0K-cbjuhJSGTGziL1LksHAPShRANCAAT-vqHTyEDS9QBNNi2BNLyu6TunubJT_L3G3i7KLpEDhMD15hi24IjGBH0QylJIrvlT4JN2tdRGF436XGc-VoAl",
+                "userName": "alex muller",
+                "userHandle": "YWxleCBtdWxsZXI",
+                "credentialID": "6NiHiekW4ZY8vYHa-ucbvA",
+                "userDisplayName": "alex muller",
+                "rpID": "opotonniee.github.io",
+                "type": "passkey"
+              }
+            ],
+            "creationAt": 1732181986
+          },
+           */
     }
 }

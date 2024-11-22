@@ -1,6 +1,8 @@
 use bitwarden_core::Client;
 use bitwarden_crypto::{KeyContainer, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey};
-use bitwarden_vault::{Cipher, CipherView, Collection, Folder, FolderView};
+use bitwarden_vault::{
+    Cipher, CipherView, Collection, Fido2CredentialFullView, Folder, FolderView,
+};
 
 use crate::{
     csv::export_csv,
@@ -66,10 +68,48 @@ fn encrypt_import(
     key: &SymmetricCryptoKey,
     cipher: ImportingCipher,
 ) -> Result<Cipher, ExportError> {
-    let view: CipherView = cipher.into();
+    let view: CipherView = cipher.clone().into();
 
-    let cipher = view.encrypt_with_key(key)?;
-    Ok(cipher)
+    let mut new_cipher = view.encrypt_with_key(key)?;
+
+    //  Get passkey from cipher
+    // if cipher is typpe login
+    let passkey = match cipher.r#type {
+        crate::CipherType::Login(login) => login.fido2_credentials,
+        _ => None,
+    };
+
+    if let Some(passkey) = passkey {
+        let psk: Vec<bitwarden_vault::Fido2Credential> = passkey
+            .into_iter()
+            .map(|p| {
+                Fido2CredentialFullView {
+                    credential_id: p.credential_id,
+                    key_type: p.key_type,
+                    key_algorithm: p.key_algorithm,
+                    key_curve: p.key_curve,
+                    key_value: p.key_value,
+                    rp_id: p.rp_id,
+                    user_handle: p.user_handle,
+                    user_name: p.user_name,
+                    counter: p.counter.to_string(),
+                    rp_name: p.rp_name,
+                    user_display_name: p.user_display_name,
+                    discoverable: p.discoverable,
+                    creation_date: p.creation_date,
+                }
+                .encrypt_with_key(key)
+                .unwrap()
+            })
+            .collect();
+
+        let login = new_cipher.login.as_mut().unwrap();
+        login.fido2_credentials = Some(psk);
+
+        new_cipher.login = Some(login.clone());
+    }
+
+    Ok(new_cipher)
 }
 
 pub(crate) fn import_cxf(client: &Client, payload: String) -> Result<Vec<Cipher>, ExportError> {
@@ -82,5 +122,5 @@ pub(crate) fn import_cxf(client: &Client, payload: String) -> Result<Vec<Cipher>
         .map(|c| encrypt_import(key, c))
         .collect();
 
-    Ok(ciphers?)
+    ciphers
 }
