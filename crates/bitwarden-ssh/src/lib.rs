@@ -12,17 +12,17 @@ pub enum KeyAlgorithm {
     Rsa4096,
 }
 
-pub fn generate_keypair(
+pub fn generate_sshkey(
     key_algorithm: KeyAlgorithm,
-) -> Result<GenerateKeypairResult, error::KeyGenerationError> {
+) -> Result<GenerateSshKeyResult, error::KeyGenerationError> {
     let rng = rand::thread_rng();
-    generate_keypair_internal(key_algorithm, rng)
+    generate_sshkey_internal(key_algorithm, rng)
 }
 
-fn generate_keypair_internal(
+fn generate_sshkey_internal(
     key_algorithm: KeyAlgorithm,
     mut rng: impl CryptoRngCore,
-) -> Result<GenerateKeypairResult, error::KeyGenerationError> {
+) -> Result<GenerateSshKeyResult, error::KeyGenerationError> {
     let key = match key_algorithm {
         KeyAlgorithm::Ed25519 => ssh_key::PrivateKey::random(&mut rng, Algorithm::Ed25519),
         KeyAlgorithm::Rsa3072 | KeyAlgorithm::Rsa4096 => {
@@ -46,7 +46,7 @@ fn generate_keypair_internal(
     let private_key_openssh = key
         .to_openssh(LineEnding::LF)
         .map_err(|e| KeyGenerationError::KeyConversionError(e.to_string()))?;
-    Ok(GenerateKeypairResult {
+    Ok(GenerateSshKeyResult {
         private_key: private_key_openssh.to_string(),
         public_key: key.public_key().to_string(),
         key_fingerprint: key.fingerprint(HashAlg::Sha256).to_string(),
@@ -56,7 +56,7 @@ fn generate_keypair_internal(
 
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct GenerateKeypairResult {
+pub struct GenerateSshKeyResult {
     pub private_key: String,
     pub public_key: String,
     pub key_fingerprint: String,

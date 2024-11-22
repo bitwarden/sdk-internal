@@ -22,6 +22,6 @@ impl From<KeyAlgorithm> for bitwarden_ssh::KeyAlgorithm {
 #[wasm_bindgen]
 pub fn generate_ssh_key(
     key_algorithm: KeyAlgorithm,
-) -> Result<bitwarden_ssh::GenerateKeypairResult, bitwarden_ssh::error::KeyGenerationError> {
-    bitwarden_ssh::generate_keypair(key_algorithm.into())
+) -> Result<bitwarden_ssh::GenerateSshKeyResult, bitwarden_ssh::error::KeyGenerationError> {
+    bitwarden_ssh::generate_sshkey(key_algorithm.into())
 }
