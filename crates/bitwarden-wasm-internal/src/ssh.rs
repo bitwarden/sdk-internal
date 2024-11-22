@@ -19,40 +19,10 @@ impl From<KeyAlgorithm> for bitwarden_ssh::KeyAlgorithm {
     }
 }
 
-#[wasm_bindgen]
-pub struct SshKey {
-    private_key: String,
-    public_key: String,
-    key_fingerprint: String,
-}
-
-impl From<bitwarden_ssh::GenerateKeypairResult> for SshKey {
-    fn from(key: bitwarden_ssh::GenerateKeypairResult) -> Self {
-        SshKey {
-            private_key: key.private_key,
-            public_key: key.public_key,
-            key_fingerprint: key.key_fingerprint,
-        }
-    }
-}
-
-impl SshKey {
-    pub fn private_key(&self) -> &str {
-        &self.private_key
-    }
-
-    pub fn public_key(&self) -> &str {
-        &self.public_key
-    }
-
-    pub fn key_fingerprint(&self) -> &str {
-        &self.key_fingerprint
-    }
-}
 
 #[wasm_bindgen]
 pub fn generate_ssh_key(
     key_algorithm: KeyAlgorithm,
-) -> Result<SshKey, bitwarden_ssh::error::KeyGenerationError> {
-    bitwarden_ssh::generate_keypair(key_algorithm.into()).map(SshKey::from)
+) -> Result<bitwarden_ssh::GenerateKeypairResult, bitwarden_ssh::error::KeyGenerationError> {
+    bitwarden_ssh::generate_keypair(key_algorithm.into())
 }

@@ -584,8 +584,10 @@ dependencies = [
  "js-sys",
  "rand",
  "rand_chacha",
+ "serde",
  "ssh-key",
  "thiserror",
+ "tsify-next",
  "uniffi",
  "wasm-bindgen",
 ]

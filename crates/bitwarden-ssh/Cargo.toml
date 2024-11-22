@@ -32,6 +32,8 @@ thiserror = { workspace = true }
 uniffi = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
+tsify-next.workspace = true
+serde.workspace = true
 
 [lints]
 workspace = true

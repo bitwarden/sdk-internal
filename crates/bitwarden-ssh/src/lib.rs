@@ -3,6 +3,9 @@ use ssh_key::{rand_core::CryptoRngCore, Algorithm, HashAlg, LineEnding};
 
 pub mod error;
 
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
+use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 pub enum KeyAlgorithm {
     Ed25519,
     Rsa3072,
@@ -50,6 +53,9 @@ fn generate_keypair_internal(
     })
 }
 
+
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct GenerateKeypairResult {
     pub private_key: String,
     pub public_key: String,
