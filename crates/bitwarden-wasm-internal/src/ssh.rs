@@ -26,8 +26,8 @@ pub struct SshKey {
     key_fingerprint: String,
 }
 
-impl From<bitwarden_ssh::models::SshKey> for SshKey {
-    fn from(key: bitwarden_ssh::models::SshKey) -> Self {
+impl From<bitwarden_ssh::GenerateKeypairResult> for SshKey {
+    fn from(key: bitwarden_ssh::GenerateKeypairResult) -> Self {
         SshKey {
             private_key: key.private_key,
             public_key: key.public_key,
