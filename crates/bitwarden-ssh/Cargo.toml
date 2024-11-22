@@ -15,19 +15,13 @@ keywords.workspace = true
 
 [features]
 uniffi = ["dep:uniffi", "bitwarden-vault/uniffi"]
-wasm = [
-    "bitwarden-error/wasm",
-    "dep:wasm-bindgen",
-    "dep:js-sys",
-    "dep:tsify-next",
-] # WASM support
+wasm = ["bitwarden-error/wasm", "dep:wasm-bindgen", "dep:js-sys"] # WASM support
 
 [dependencies]
 bitwarden-error = { workspace = true }
 bitwarden-vault = { workspace = true }
 rand = "0.8.5"
 rand_chacha = "0.3.1"
-ssh-encoding = "0.2.0"
 ssh-key = { version = "0.6.7", features = [
     "ed25519",
     "encryption",
@@ -36,9 +30,7 @@ ssh-key = { version = "0.6.7", features = [
 ] }
 thiserror = { workspace = true }
 uniffi = { workspace = true, optional = true }
-uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
-tsify-next = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
 
 [lints]
