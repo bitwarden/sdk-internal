@@ -19,7 +19,6 @@ impl From<KeyAlgorithm> for bitwarden_ssh::KeyAlgorithm {
     }
 }
 
-
 #[wasm_bindgen]
 pub fn generate_ssh_key(
     key_algorithm: KeyAlgorithm,
