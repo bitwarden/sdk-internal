@@ -82,7 +82,7 @@ fn encrypt_import(
     if let Some(passkey) = passkey {
         let psk: Vec<bitwarden_vault::Fido2Credential> = passkey
             .into_iter()
-            .map(|p| {
+            .flat_map(|p| {
                 Fido2CredentialFullView {
                     credential_id: p.credential_id,
                     key_type: p.key_type,
@@ -99,7 +99,6 @@ fn encrypt_import(
                     creation_date: p.creation_date,
                 }
                 .encrypt_with_key(key)
-                .unwrap()
             })
             .collect();
 

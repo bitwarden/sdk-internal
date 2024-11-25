@@ -18,7 +18,7 @@ type HmacSha512 = Hmac<sha2::Sha512>;
 const BASE32_CHARS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 const STEAM_CHARS: &str = "23456789BCDFGHJKMNPQRTVWXY";
 
-const DEFAULT_ALGORITHM: Algorithm = Algorithm::Sha1;
+const DEFAULT_ALGORITHM: TotpAlgorithm = TotpAlgorithm::Sha1;
 const DEFAULT_DIGITS: u32 = 6;
 const DEFAULT_PERIOD: u32 = 30;
 
@@ -86,14 +86,14 @@ pub fn generate_totp_cipher_view(
 }
 
 #[derive(Clone, Copy, Debug)]
-enum Algorithm {
+pub enum TotpAlgorithm {
     Sha1,
     Sha256,
     Sha512,
     Steam,
 }
 
-impl Algorithm {
+impl TotpAlgorithm {
     // Derive the HMAC hash for the given algorithm
     fn derive_hash(&self, key: &[u8], time: &[u8]) -> Vec<u8> {
         fn compute_digest<D: Mac>(digest: D, time: &[u8]) -> Vec<u8> {
@@ -101,19 +101,19 @@ impl Algorithm {
         }
 
         match self {
-            Algorithm::Sha1 => compute_digest(
+            TotpAlgorithm::Sha1 => compute_digest(
                 HmacSha1::new_from_slice(key).expect("hmac new_from_slice should not fail"),
                 time,
             ),
-            Algorithm::Sha256 => compute_digest(
+            TotpAlgorithm::Sha256 => compute_digest(
                 HmacSha256::new_from_slice(key).expect("hmac new_from_slice should not fail"),
                 time,
             ),
-            Algorithm::Sha512 => compute_digest(
+            TotpAlgorithm::Sha512 => compute_digest(
                 HmacSha512::new_from_slice(key).expect("hmac new_from_slice should not fail"),
                 time,
             ),
-            Algorithm::Steam => compute_digest(
+            TotpAlgorithm::Steam => compute_digest(
                 HmacSha1::new_from_slice(key).expect("hmac new_from_slice should not fail"),
                 time,
             ),
@@ -121,12 +121,17 @@ impl Algorithm {
     }
 }
 
+/// TOTP representation broken down into its components.
+///
+/// Should generally be considered internal to the bitwarden-vault crate. Consumers should use one
+/// of the generate functions if they want to generate a TOTP code. Credential Exchange requires
+/// access to the individual components.
 #[derive(Debug)]
-struct Totp {
-    algorithm: Algorithm,
-    digits: u32,
-    period: u32,
-    secret: Vec<u8>,
+pub struct Totp {
+    pub algorithm: TotpAlgorithm,
+    pub digits: u32,
+    pub period: u32,
+    pub secret: Vec<u8>,
 }
 
 impl Totp {
@@ -138,7 +143,7 @@ impl Totp {
             .derive_hash(&self.secret, time.to_be_bytes().as_ref());
         let binary = derive_binary(hash);
 
-        if let Algorithm::Steam = self.algorithm {
+        if let TotpAlgorithm::Steam = self.algorithm {
             derive_steam_otp(binary, self.digits)
         } else {
             let otp = binary % 10_u32.pow(self.digits);
@@ -167,9 +172,9 @@ impl FromStr for Totp {
                 algorithm: parts
                     .get("algorithm")
                     .and_then(|v| match v.as_ref() {
-                        "sha1" => Some(Algorithm::Sha1),
-                        "sha256" => Some(Algorithm::Sha256),
-                        "sha512" => Some(Algorithm::Sha512),
+                        "sha1" => Some(TotpAlgorithm::Sha1),
+                        "sha256" => Some(TotpAlgorithm::Sha256),
+                        "sha512" => Some(TotpAlgorithm::Sha512),
                         _ => None,
                     })
                     .unwrap_or(DEFAULT_ALGORITHM),
@@ -192,7 +197,7 @@ impl FromStr for Totp {
             }
         } else if let Some(secret) = key.strip_prefix("steam://") {
             Totp {
-                algorithm: Algorithm::Steam,
+                algorithm: TotpAlgorithm::Steam,
                 digits: 5,
                 period: DEFAULT_PERIOD,
                 secret: decode_b32(secret),
