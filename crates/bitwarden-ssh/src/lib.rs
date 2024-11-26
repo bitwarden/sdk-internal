@@ -4,6 +4,7 @@ use ssh_key::{rand_core::CryptoRngCore, Algorithm, HashAlg, LineEnding};
 pub mod error;
 
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
 #[derive(Serialize, Deserialize)]
@@ -61,4 +62,40 @@ pub struct GenerateSshKeyResult {
     pub private_key: String,
     pub public_key: String,
     pub key_fingerprint: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use rand::SeedableRng;
+
+    use crate::generate_sshkey_internal;
+
+    use super::KeyAlgorithm;
+
+    #[test]
+    fn generate_ssh_key_ed25519() {
+        let rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
+        let key_algorithm = KeyAlgorithm::Ed25519;
+        let result = generate_sshkey_internal(key_algorithm, rng);
+        let target = include_str!("../tests/ed25519_key");
+        assert_eq!(result.unwrap().private_key, target);
+    }
+
+    #[test]
+    fn generate_ssh_key_rsa3072() {
+        let rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
+        let key_algorithm = KeyAlgorithm::Rsa3072;
+        let result = generate_sshkey_internal(key_algorithm, rng);
+        let target = include_str!("../tests/rsa3072_key");
+        assert_eq!(result.unwrap().private_key, target);
+    }
+
+    #[test]
+    fn generate_ssh_key_rsa4096() {
+        let rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
+        let key_algorithm = KeyAlgorithm::Rsa4096;
+        let result = generate_sshkey_internal(key_algorithm, rng);
+        let target = include_str!("../tests/rsa4096_key");
+        assert_eq!(result.unwrap().private_key, target);
+    }
 }
