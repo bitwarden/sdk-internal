@@ -20,7 +20,7 @@ pub struct ClientGenerators(pub(crate) Arc<Client>);
 
 #[uniffi::export(async_runtime = "tokio")]
 impl ClientGenerators {
-    /// **API Draft:** Generate Password
+    /// Generate Password
     pub fn password(&self, settings: PasswordGeneratorRequest) -> Result<String> {
         Ok(self
             .0
@@ -30,7 +30,7 @@ impl ClientGenerators {
             .map_err(Error::PasswordError)?)
     }
 
-    /// **API Draft:** Generate Passphrase
+    /// Generate Passphrase
     pub fn passphrase(&self, settings: PassphraseGeneratorRequest) -> Result<String> {
         Ok(self
             .0
@@ -40,7 +40,7 @@ impl ClientGenerators {
             .map_err(Error::PassphraseError)?)
     }
 
-    /// **API Draft:** Generate Username
+    /// Generate Username
     pub async fn username(&self, settings: UsernameGeneratorRequest) -> Result<String> {
         Ok(self
             .0
@@ -57,7 +57,7 @@ pub struct ClientExporters(pub(crate) Arc<Client>);
 
 #[uniffi::export]
 impl ClientExporters {
-    /// **API Draft:** Export user vault
+    /// Export user vault
     pub fn export_vault(
         &self,
         folders: Vec<Folder>,
@@ -72,7 +72,7 @@ impl ClientExporters {
             .map_err(Error::ExportError)?)
     }
 
-    /// **API Draft:** Export organization vault
+    /// Export organization vault
     pub fn export_organization_vault(
         &self,
         collections: Vec<Collection>,
@@ -89,6 +89,8 @@ impl ClientExporters {
 
     /// Credential Exchange Format (CXF)
     ///
+    /// *Warning:* Expect this API to be unstable, and it will change in the future.
+    ///
     /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
     /// Ideally the output should be immediately deserialized to [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
     pub fn export_cxf(&self, account: Account, ciphers: Vec<Cipher>) -> Result<String> {
@@ -101,6 +103,8 @@ impl ClientExporters {
     }
 
     /// Credential Exchange Format (CXF)
+    ///
+    /// *Warning:* Expect this API to be unstable, and it will change in the future.
     ///
     /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
     /// Ideally the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
