@@ -36,7 +36,7 @@ fn generate_sshkey_internal(
             };
 
             let rsa_keypair = ssh_key::private::RsaKeypair::random(&mut rng, bits)
-                .map_err( KeyGenerationError::KeyGenerationError)?;
+                .map_err(KeyGenerationError::KeyGenerationError)?;
 
             let private_key =
                 ssh_key::PrivateKey::new(ssh_key::private::KeypairData::from(rsa_keypair), "")
@@ -44,7 +44,7 @@ fn generate_sshkey_internal(
             Ok(private_key)
         }
     }
-    .map_err( KeyGenerationError::KeyGenerationError)?;
+    .map_err(KeyGenerationError::KeyGenerationError)?;
 
     let private_key_openssh = key
         .to_openssh(LineEnding::LF)
