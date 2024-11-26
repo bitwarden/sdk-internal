@@ -1,7 +1,8 @@
 extern crate console_error_panic_hook;
-use std::rc::Rc;
+use std::{fmt::Display, rc::Rc};
 
 use bitwarden_core::{Client, ClientSettings};
+use bitwarden_error::prelude::*;
 use log::{set_max_level, Level};
 use wasm_bindgen::prelude::*;
 
@@ -53,8 +54,8 @@ impl BitwardenClient {
         env!("SDK_VERSION").to_owned()
     }
 
-    pub fn throw(&self, msg: String) -> Result<(), crate::error::GenericError> {
-        Err(crate::error::GenericError(msg))
+    pub async fn throw(&self, msg: String) -> Result<(), TestError> {
+        Err(TestError(msg))
     }
 
     /// Test method, calls http endpoint
@@ -71,5 +72,14 @@ impl BitwardenClient {
 
     pub fn vault(&self) -> ClientVault {
         ClientVault::new(self.0.clone())
+    }
+}
+
+#[bitwarden_error(basic)]
+pub struct TestError(String);
+
+impl Display for TestError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }

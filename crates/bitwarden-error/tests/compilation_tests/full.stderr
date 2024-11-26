@@ -1,0 +1,7 @@
+error: `bitwarden_error(full)` does not currently support `export_as`
+ --> tests/compilation_tests/full.rs:4:1
+  |
+4 | #[bitwarden_error(full, export_as = "SomeOtherError")]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `bitwarden_error` (in Nightly builds, run with -Z macro-backtrace for more info)
