@@ -90,7 +90,7 @@ impl ClientExporters {
     /// Credential Exchange Format (CXF)
     ///
     /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
-    /// Ideally the output should be immediately deserialized to [ASExportedCredentialData](https://developer.apple.com/documentation/authenticationservices/asexportedcredentialdata).
+    /// Ideally the output should be immediately deserialized to [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
     pub fn export_cxf(&self, account: Account, ciphers: Vec<Cipher>) -> Result<String> {
         Ok(self
             .0
@@ -103,7 +103,7 @@ impl ClientExporters {
     /// Credential Exchange Format (CXF)
     ///
     /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
-    /// Ideally the input should be immediately serialized from [ASExportedCredentialData](https://developer.apple.com/documentation/authenticationservices/asexportedcredentialdata).
+    /// Ideally the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
     pub fn import_cxf(&self, payload: String) -> Result<Vec<Cipher>> {
         Ok(self
             .0
