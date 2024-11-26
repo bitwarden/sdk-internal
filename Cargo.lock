@@ -588,7 +588,6 @@ dependencies = [
  "ssh-key",
  "thiserror",
  "tsify-next",
- "uniffi",
  "wasm-bindgen",
 ]
 
