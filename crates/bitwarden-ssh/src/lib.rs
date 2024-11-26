@@ -76,7 +76,7 @@ mod tests {
         let rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
         let key_algorithm = KeyAlgorithm::Ed25519;
         let result = generate_sshkey_internal(key_algorithm, rng);
-        let target = include_str!("../tests/ed25519_key");
+        let target = include_str!("../tests/ed25519_key").replace("\r\n", "\n");
         assert_eq!(result.unwrap().private_key, target);
     }
 
@@ -85,7 +85,7 @@ mod tests {
         let rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
         let key_algorithm = KeyAlgorithm::Rsa3072;
         let result = generate_sshkey_internal(key_algorithm, rng);
-        let target = include_str!("../tests/rsa3072_key");
+        let target = include_str!("../tests/rsa3072_key").replace("\r\n", "\n");
         assert_eq!(result.unwrap().private_key, target);
     }
 
@@ -94,7 +94,7 @@ mod tests {
         let rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
         let key_algorithm = KeyAlgorithm::Rsa4096;
         let result = generate_sshkey_internal(key_algorithm, rng);
-        let target = include_str!("../tests/rsa4096_key");
+        let target = include_str!("../tests/rsa4096_key").replace("\r\n", "\n");
         assert_eq!(result.unwrap().private_key, target);
     }
 }
