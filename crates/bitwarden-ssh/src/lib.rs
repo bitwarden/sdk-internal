@@ -36,19 +36,19 @@ fn generate_sshkey_internal(
             };
 
             let rsa_keypair = ssh_key::private::RsaKeypair::random(&mut rng, bits)
-                .map_err(|e| KeyGenerationError::KeyGenerationError(e.to_string()))?;
+                .map_err( KeyGenerationError::KeyGenerationError)?;
 
             let private_key =
                 ssh_key::PrivateKey::new(ssh_key::private::KeypairData::from(rsa_keypair), "")
-                    .map_err(|e| KeyGenerationError::KeyGenerationError(e.to_string()))?;
+                    .map_err(KeyGenerationError::KeyGenerationError)?;
             Ok(private_key)
         }
     }
-    .map_err(|e| KeyGenerationError::KeyGenerationError(e.to_string()))?;
+    .map_err( KeyGenerationError::KeyGenerationError)?;
 
     let private_key_openssh = key
         .to_openssh(LineEnding::LF)
-        .map_err(|e| KeyGenerationError::KeyConversionError(e.to_string()))?;
+        .map_err(KeyGenerationError::KeyConversionError)?;
     Ok(GenerateSshKeyResult {
         private_key: private_key_openssh.to_string(),
         public_key: key.public_key().to_string(),
