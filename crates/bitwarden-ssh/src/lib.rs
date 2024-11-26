@@ -4,8 +4,10 @@ use ssh_key::{rand_core::CryptoRngCore, Algorithm, HashAlg, LineEnding};
 pub mod error;
 
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use {tsify_next::Tsify, wasm_bindgen::prelude::*};
+use tsify_next::Tsify;
+
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum KeyAlgorithm {
     Ed25519,
     Rsa3072,
