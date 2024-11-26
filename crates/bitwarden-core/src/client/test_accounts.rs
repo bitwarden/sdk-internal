@@ -12,6 +12,12 @@ use crate::{
 };
 
 impl Client {
+    /// Creates a client initialized with a hard coded test account.
+    /// Useful for examples.
+    pub async fn test_account() -> Self {
+        Self::init_test_account(test_bitwarden_com_account()).await
+    }
+
     pub async fn init_test_account(account: TestAccount) -> Self {
         let client = Client::new(None);
 

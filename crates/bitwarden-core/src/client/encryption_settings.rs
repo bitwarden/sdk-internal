@@ -30,10 +30,20 @@ pub enum EncryptionSettingsError {
     MissingPrivateKey,
 }
 
+/// A struct containing the core keys of a Bitwarden user.
 #[derive(Clone)]
 pub struct EncryptionSettings {
+    /// The users symmetric key, stored on the server after being
+    /// encrypted with another key.
     user_key: SymmetricCryptoKey,
+    /// The users private key, stored on the server
+    /// encrypted with the users symmetric key.
     pub(crate) private_key: Option<AsymmetricCryptoKey>,
+    /// A map of the users organization keys with the key being
+    /// the ID of the organization and the value being the symmetric
+    /// key. This map may be empty if the user is not a part of
+    /// any organizations. These keys are stored on the server
+    /// encrypted with the users private key.
     org_keys: HashMap<Uuid, SymmetricCryptoKey>,
 }
 
