@@ -43,7 +43,12 @@ pub(crate) fn build_cxf(account: Account, ciphers: Vec<Cipher>) -> Result<String
 
 impl From<Cipher> for Item {
     fn from(value: Cipher) -> Self {
-        let credentials = value.r#type.clone().into();
+        let mut credentials: Vec<Credential> = value.r#type.clone().into();
+
+        if let Some(note) = value.notes {
+            credentials.push(Credential::Note { content: note });
+        }
+
         Self {
             id: value.id.as_bytes().as_slice().into(),
             creation_at: value.creation_date.timestamp() as u64,
@@ -88,11 +93,13 @@ impl From<Login> for Vec<Credential> {
     fn from(login: Login) -> Self {
         let mut credentials = vec![];
 
-        credentials.push(Credential::BasicAuth(login.clone().into()));
+        if login.username.is_some() || login.password.is_some() || !login.login_uris.is_empty() {
+            credentials.push(Credential::BasicAuth(login.clone().into()));
+        }
 
         if let Some(totp) = login.totp {
             if let Ok(totp) = totp.parse::<Totp>() {
-                // TODO: We should add username and issuer.
+                // TODO(PM-15389): Properly set username/issuer.
                 credentials.push(Credential::Totp {
                     secret: totp.secret.into(),
                     period: totp.period as u8,
