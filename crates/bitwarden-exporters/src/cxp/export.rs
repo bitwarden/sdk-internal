@@ -220,15 +220,15 @@ mod tests {
                     uri: Some("https://vault.bitwarden.com".to_string()),
                     r#match: None,
                 }],
-                totp: Some("ABC".to_string()),
+                totp: Some("JBSWY3DPEHPK3PXP".to_string()),
                 fido2_credentials: Some(vec![Fido2Credential {
                     credential_id: "e8d88789-e916-e196-3cbd-81dafae71bbc".to_string(),
                     key_type: "public-key".to_string(),
                     key_algorithm: "ECDSA".to_string(),
                     key_curve: "P-256".to_string(),
-                    key_value: URL_SAFE_NO_PAD.encode([0, 1, 2, 3, 4, 5, 6]),
+                    key_value: "AAECAwQFBg".to_string(),
                     rp_id: "123".to_string(),
-                    user_handle: Some(URL_SAFE_NO_PAD.encode([0, 1, 2, 3, 4, 5, 6])),
+                    user_handle: Some("AAECAwQFBg".to_string()),
                     user_name: None,
                     counter: 0,
                     rp_name: None,
@@ -295,9 +295,10 @@ mod tests {
         assert_eq!(item.ty, ItemType::Login);
         assert_eq!(item.title, "Bitwarden");
         assert_eq!(item.subtitle, None);
-        assert_eq!(item.credentials.len(), 2);
         assert_eq!(item.tags, None);
         assert!(item.extensions.is_none());
+
+        assert_eq!(item.credentials.len(), 4);
 
         let credential = &item.credentials[0];
 
@@ -324,8 +325,44 @@ mod tests {
         let credential = &item.credentials[1];
 
         match credential {
+            Credential::Totp {
+                secret,
+                period,
+                digits,
+                username,
+                algorithm,
+                issuer,
+            } => {
+                assert_eq!(String::from(secret.clone()), "JBSWY3DPEHPK3PXP");
+                assert_eq!(*period, 30);
+                assert_eq!(*digits, 6);
+                assert_eq!(username, "");
+                assert_eq!(*algorithm, OTPHashAlgorithm::Sha1);
+                assert!(issuer.is_none());
+            }
+            _ => panic!("Expected Credential::Passkey"),
+        }
+
+        let credential = &item.credentials[2];
+
+        match credential {
             Credential::Passkey(passkey) => {
                 assert_eq!(passkey.credential_id.to_string(), "6NiHiekW4ZY8vYHa-ucbvA");
+                assert_eq!(passkey.rp_id, "123");
+                assert_eq!(passkey.user_name, "");
+                assert_eq!(passkey.user_display_name, "");
+                assert_eq!(String::from(passkey.user_handle.clone()), "AAECAwQFBg");
+                assert_eq!(String::from(passkey.key.clone()), "AAECAwQFBg");
+                assert!(passkey.fido2_extensions.is_none());
+            }
+            _ => panic!("Expected Credential::Passkey"),
+        }
+
+        let credential = &item.credentials[3];
+
+        match credential {
+            Credential::Note { content } => {
+                assert_eq!(content, "My note");
             }
             _ => panic!("Expected Credential::Passkey"),
         }
