@@ -68,9 +68,8 @@ pub struct GenerateSshKeyResult {
 mod tests {
     use rand::SeedableRng;
 
-    use crate::generate_sshkey_internal;
-
     use super::KeyAlgorithm;
+    use crate::generate_sshkey_internal;
 
     #[test]
     fn generate_ssh_key_ed25519() {
