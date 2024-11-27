@@ -16,19 +16,23 @@ impl<'a> ClientPlatform<'a> {
     ///
     /// # Examples
     /// ```rust
+    /// # use bitwarden_core::client::test_accounts::PUBLIC_KEY;
+    /// use base64::{engine::general_purpose::STANDARD, Engine};
     /// use bitwarden_core::{Client, platform::FingerprintRequest};
     ///
-    /// async fn test() {
-    ///     let client = Client::test_account().await;
+    /// fn test(client: Client) {
     ///     let fingerprint_response = client.platform()
     ///         .fingerprint(&FingerprintRequest {
     ///             fingerprint_material: "my_material".to_owned(),
-    ///             public_key: "...public key...".to_owned(),
+    ///             public_key: STANDARD.encode(PUBLIC_KEY),
     ///         })
     ///         .unwrap();
     ///
-    ///     println!("{}", fingerprint_response.fingerprint);
+    ///     assert_eq!(fingerprint_response.fingerprint, "unsure-unethical-bruising-semester-subscript");
     /// }
+    ///
+    /// # tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(
+    /// #   async { test(Client::test_account().await) });
     /// ```
     pub fn fingerprint(&self, input: &FingerprintRequest) -> Result<FingerprintResponse> {
         generate_fingerprint(input)

@@ -193,3 +193,13 @@ pub fn test_legacy_user_key_account() -> TestAccount {
 org: None,
     }
 }
+
+pub const PUBLIC_KEY: &str = "-----BEGIN PUBLIC KEY-----
+MIIBITANBgkqhkiG9w0BAQEFAAOCAQ4AMIIBCQKCAQB6x0WIywZ7ys/5lFBNOWqP
+uwtnCuX58vPVOOUttuaK1AfgZnCIpTbkaJUPKqZbeEi2uWlrDBQ5K0gEX9ASTXCw
+i3ij1mVifAJgjI698VTS2Xn9vitYhBT8V0EQstUW0jIlng7qRyrHQ9owBzGUsv4s
+1pGHKhgJcbQkh+hagu0s8cpA0BQl6L2BFi/H4DjD94m3LcJVj+z6FepQYJlLte+W
+T3DjuHhwXWWRXiYP0/d/QeCBMMP72N4Xw25LmXOxN035JlKHuRazg0lHDj5C1BDY
+nH4lWuWbVrLUBNzETLUAGJX6JEuVbwLWEb4R1yJHXecUueyPSCSxksY4rUedSGoP
+AgMBAAE=
+-----END PUBLIC KEY-----";
