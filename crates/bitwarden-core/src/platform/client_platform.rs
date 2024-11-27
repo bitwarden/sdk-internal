@@ -12,7 +12,7 @@ pub struct ClientPlatform<'a> {
 
 impl<'a> ClientPlatform<'a> {
     /// Will generate a fingerprint based on the `input`. Given the same `input` This
-    /// method will result in the exact same output.
+    /// method will always result in the exact same output.
     ///
     /// # Examples
     /// ```rust
@@ -40,7 +40,7 @@ impl<'a> ClientPlatform<'a> {
 
     /// Will generate a fingerprint based on the given `fingerprint_material`
     /// and the users public key. Given the same `fingerprint_material` and
-    /// the same user. This method will result in the exact same output.
+    /// the same user this method will always result in the exact same output.
     ///
     /// The returned fingerprint is a string of 5 words seperated by hyphens.
     ///
