@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use bitwarden_crypto::{AsymmetricCryptoKey, CryptoError, KeyContainer, SymmetricCryptoKey};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{AsymmetricEncString, EncString, MasterKey};
+use bitwarden_error::prelude::*;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -10,6 +11,7 @@ use uuid::Uuid;
 use crate::error::Result;
 use crate::VaultLocked;
 
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum EncryptionSettingsError {
     #[error("Cryptography error, {0}")]
