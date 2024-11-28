@@ -49,6 +49,12 @@ pub(crate) fn export_organization_vault(
     todo!();
 }
 
+/// Credential Exchange Format (CXF)
+///
+/// *Warning:* Expect this API to be unstable, and it will change in the future.
+///
+/// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
+/// Ideally the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
 pub(crate) fn export_cxf(
     client: &Client,
     account: Account,
@@ -111,6 +117,12 @@ fn encrypt_import(
     Ok(new_cipher)
 }
 
+/// Credential Exchange Format (CXF)
+///
+/// *Warning:* Expect this API to be unstable, and it will change in the future.
+///
+/// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
+/// Ideally the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
 pub(crate) fn import_cxf(client: &Client, payload: String) -> Result<Vec<Cipher>, ExportError> {
     let enc = client.internal.get_encryption_settings()?;
     let key = enc.get_key(&None)?;

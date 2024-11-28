@@ -33,6 +33,7 @@ impl<'a> ClientExporters<'a> {
         export_organization_vault(collections, ciphers, format)
     }
 
+    /// See [export_cxf] for more documentation.
     pub fn export_cxf(
         &self,
         account: Account,
@@ -41,6 +42,7 @@ impl<'a> ClientExporters<'a> {
         export_cxf(self.client, account, ciphers)
     }
 
+    /// See [import_cxf] for more documentation.
     pub fn import_cxf(&self, payload: String) -> Result<Vec<Cipher>, ExportError> {
         import_cxf(self.client, payload)
     }

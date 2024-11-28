@@ -154,6 +154,8 @@ impl From<Login> for BasicAuthCredential {
 }
 
 /// Generate a 32 byte random ID
+///
+/// TODO: This should be removed shortly.
 fn random_id() -> B64Url {
     generate_random_bytes::<[u8; 32]>().as_slice().into()
 }
