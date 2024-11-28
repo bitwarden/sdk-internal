@@ -33,7 +33,12 @@ impl<'a> ClientExporters<'a> {
         export_organization_vault(collections, ciphers, format)
     }
 
-    /// See [export_cxf] for more documentation.
+    /// Credential Exchange Format (CXF)
+    ///
+    /// *Warning:* Expect this API to be unstable, and it will change in the future.
+    ///
+    /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
+    /// Ideally the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
     pub fn export_cxf(
         &self,
         account: Account,
@@ -42,7 +47,12 @@ impl<'a> ClientExporters<'a> {
         export_cxf(self.client, account, ciphers)
     }
 
-    /// See [import_cxf] for more documentation.
+    /// Credential Exchange Format (CXF)
+    ///
+    /// *Warning:* Expect this API to be unstable, and it will change in the future.
+    ///
+    /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
+    /// Ideally the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
     pub fn import_cxf(&self, payload: String) -> Result<Vec<Cipher>, ExportError> {
         import_cxf(self.client, payload)
     }
