@@ -119,7 +119,12 @@ mod tests {
             extensions: None,
         };
 
-        let _ciphers: Vec<ImportingCipher> = parse_item(item);
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        assert_eq!(cipher.folder_id, None);
+        assert_eq!(cipher.name, "Bitwarden");
     }
 
     #[test]
@@ -162,26 +167,5 @@ mod tests {
         };
 
         let _ciphers: Vec<ImportingCipher> = parse_item(item);
-
-        /*
-        {
-            "id": "Njk1RERENTItNkQ0Ny00NERBLTlFN0EtNDM1MjNEQjYzNjVF",
-            "title": "opotonniee.github.io",
-            "modifiedAt": 1732182026,
-            "type": "login",
-            "credentials": [
-              {
-                "key": "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgPzvtWYWmIsvqqr3LsZB0K-cbjuhJSGTGziL1LksHAPShRANCAAT-vqHTyEDS9QBNNi2BNLyu6TunubJT_L3G3i7KLpEDhMD15hi24IjGBH0QylJIrvlT4JN2tdRGF436XGc-VoAl",
-                "userName": "alex muller",
-                "userHandle": "YWxleCBtdWxsZXI",
-                "credentialID": "6NiHiekW4ZY8vYHa-ucbvA",
-                "userDisplayName": "alex muller",
-                "rpID": "opotonniee.github.io",
-                "type": "passkey"
-              }
-            ],
-            "creationAt": 1732181986
-          },
-           */
     }
 }

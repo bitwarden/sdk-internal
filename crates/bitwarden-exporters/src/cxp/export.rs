@@ -16,6 +16,8 @@ use uuid::Uuid;
 use crate::{cxp::CxpError, Cipher, CipherType, Fido2Credential, Login};
 
 /// Temporary struct to hold metadata related to current account
+///
+/// Eventually the SDK itself should have this state and we get rid of this struct.
 #[derive(Debug)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct Account {
@@ -24,8 +26,12 @@ pub struct Account {
     name: Option<String>,
 }
 
+/// Builds a Credential Exchange Format (CXF) payload
 pub(crate) fn build_cxf(account: Account, ciphers: Vec<Cipher>) -> Result<String, CxpError> {
-    let items: Vec<Item> = ciphers.into_iter().map(|cipher| cipher.into()).collect();
+    let items: Vec<Item> = ciphers
+        .into_iter()
+        .flat_map(|cipher| cipher.try_into())
+        .collect();
 
     let account = CxpAccount {
         id: account.id.as_bytes().as_slice().into(),
@@ -33,7 +39,7 @@ pub(crate) fn build_cxf(account: Account, ciphers: Vec<Cipher>) -> Result<String
         email: account.email,
         full_name: account.name,
         icon: None,
-        collections: vec![],
+        collections: vec![], // TODO: Add support for folders
         items,
         extensions: None,
     };
@@ -41,38 +47,44 @@ pub(crate) fn build_cxf(account: Account, ciphers: Vec<Cipher>) -> Result<String
     Ok(serde_json::to_string(&account)?)
 }
 
-impl From<Cipher> for Item {
-    fn from(value: Cipher) -> Self {
+impl TryFrom<Cipher> for Item {
+    type Error = CxpError;
+
+    fn try_from(value: Cipher) -> Result<Self, Self::Error> {
         let mut credentials: Vec<Credential> = value.r#type.clone().into();
 
         if let Some(note) = value.notes {
             credentials.push(Credential::Note { content: note });
         }
 
-        Self {
+        Ok(Self {
             id: value.id.as_bytes().as_slice().into(),
             creation_at: value.creation_date.timestamp() as u64,
             modified_at: value.revision_date.timestamp() as u64,
-            ty: value.r#type.into(),
+            ty: value.r#type.try_into()?,
             title: value.name,
             subtitle: None,
             favorite: Some(value.favorite),
             credentials,
             tags: None,
             extensions: None,
-        }
+        })
     }
 }
 
-impl From<CipherType> for ItemType {
-    // TODO: We should probably change this to try_from, so we can ignore types
-    fn from(value: CipherType) -> Self {
+impl TryFrom<CipherType> for ItemType {
+    type Error = CxpError;
+
+    fn try_from(value: CipherType) -> Result<Self, Self::Error> {
         match value {
-            CipherType::Login(_) => ItemType::Login,
-            CipherType::Card(_) => ItemType::Login,
-            CipherType::Identity(_) => ItemType::Identity,
-            CipherType::SecureNote(_) => ItemType::Document,
-            CipherType::SshKey(_) => todo!(),
+            CipherType::Login(_) => Ok(ItemType::Login),
+            CipherType::Card(_) => Ok(ItemType::Login),
+            CipherType::Identity(_) => Ok(ItemType::Identity),
+            CipherType::SecureNote(_) => Ok(ItemType::Document),
+            CipherType::SshKey(_) => {
+                // TODO(PM-15448): Add support for SSH Keys
+                Err(CxpError::Internal("Unsupported CipherType: SshKey".into()))
+            }
         }
     }
 }
@@ -81,9 +93,13 @@ impl From<CipherType> for Vec<Credential> {
     fn from(value: CipherType) -> Self {
         match value {
             CipherType::Login(login) => (*login).into(),
+            // TODO(PM-15450): Add support for credit cards.
             CipherType::Card(_) => vec![],
+            // TODO(PM-15451): Add support for identities.
             CipherType::Identity(_) => vec![],
+            // Secure Notes only contains a note field which is handled by `TryFrom<Cipher> for Item`.
             CipherType::SecureNote(_) => vec![],
+            // TODO(PM-15448): Add support for SSH Keys.
             CipherType::SshKey(_) => vec![],
         }
     }
@@ -281,7 +297,7 @@ mod tests {
             deleted_date: None,
         };
 
-        let item: Item = cipher.into();
+        let item: Item = cipher.try_into().unwrap();
 
         assert_eq!(
             item.creation_at,
