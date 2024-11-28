@@ -14,11 +14,14 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-wasm = [ "bitwarden-error/wasm", "dep:js-sys", "dep:tsify-next", "dep:wasm-bindgen"] # WASM support
+wasm = [
+    "bitwarden-error/wasm",
+    "dep:tsify-next",
+    "dep:wasm-bindgen"
+] # WASM support
 
 [dependencies]
 bitwarden-error = { workspace = true }
-bitwarden-vault = { workspace = true }
 rand = "0.8.5"
 serde.workspace = true
 ssh-key = { version = "0.6.7", features = [
@@ -28,9 +31,8 @@ ssh-key = { version = "0.6.7", features = [
     "getrandom",
 ] }
 thiserror = { workspace = true }
-wasm-bindgen = { workspace = true, optional = true }
-js-sys = { workspace = true, optional = true }
 tsify-next = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 rand_chacha = "0.3.1"
