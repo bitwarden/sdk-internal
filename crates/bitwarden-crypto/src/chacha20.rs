@@ -17,7 +17,7 @@ use subtle::ConstantTimeEq;
  */
 use crate::CryptoError;
 
-pub struct XChaCha20Poly1305Blake3CTXCiphetext {
+pub struct XChaCha20Poly1305Blake3CTXCiphertext {
     nonce: [u8; 24],
     tag: [u8; 32],
     ciphertext: Vec<u8>,
@@ -29,7 +29,7 @@ pub fn encrypt_xchacha20_poly1305_blake3_ctx(
     key: &[u8; 32],
     plaintext_secret_data: &[u8],
     authenticated_data: &[u8],
-) -> Result<XChaCha20Poly1305Blake3CTXCiphetext, CryptoError> {
+) -> Result<XChaCha20Poly1305Blake3CTXCiphertext, CryptoError> {
     encrypt_xchacha20_poly1305_blake3_ctx_internal(
         rand::thread_rng(),
         key,
@@ -44,7 +44,7 @@ fn encrypt_xchacha20_poly1305_blake3_ctx_internal(
     key: &[u8; 32],
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
-) -> Result<XChaCha20Poly1305Blake3CTXCiphetext, CryptoError> {
+) -> Result<XChaCha20Poly1305Blake3CTXCiphertext, CryptoError> {
     let mut buffer = Vec::from(plaintext_secret_data);
     let cipher = XChaCha20Poly1305::new(&GenericArray::from_slice(key));
     let nonce = XChaCha20Poly1305::generate_nonce(rng);
@@ -65,7 +65,7 @@ fn encrypt_xchacha20_poly1305_blake3_ctx_internal(
     );
     let ctx_tag = ctx_tag.as_bytes();
 
-    Ok(XChaCha20Poly1305Blake3CTXCiphetext {
+    Ok(XChaCha20Poly1305Blake3CTXCiphertext {
         nonce: nonce.as_slice().try_into().unwrap(),
         ciphertext: buffer,
         authenticated_data: associated_data.to_vec(),
@@ -76,7 +76,7 @@ fn encrypt_xchacha20_poly1305_blake3_ctx_internal(
 #[allow(dead_code)]
 pub fn decrypt_xchacha20_poly1305_blake3_ctx(
     key: &[u8; 32],
-    ctx: &XChaCha20Poly1305Blake3CTXCiphetext,
+    ctx: &XChaCha20Poly1305Blake3CTXCiphertext,
 ) -> Result<Vec<u8>, CryptoError> {
     let buffer = ctx.ciphertext.clone();
     let associated_data = ctx.authenticated_data.as_slice();
