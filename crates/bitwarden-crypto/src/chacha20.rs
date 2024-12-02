@@ -11,9 +11,9 @@ use subtle::ConstantTimeEq;
  * Note:
  * XChaCha20Poly1305 encrypts data, and authenticates associated data using
  * XChaCha20Poly1305 Specifically, this uses the CTX construction, proposed here: https://par.nsf.gov/servlets/purl/10391723
- * using blake3 as the cryptographic hash function. The entire construction is called XChaCha20Poly1305Blake3CTX.
- * This provides not only key-commitment, but full-commitment. In total, this scheme prevents attacks such as invisible
- * salamanders.
+ * using blake3 as the cryptographic hash function. The entire construction is called
+ * XChaCha20Poly1305Blake3CTX. This provides not only key-commitment, but full-commitment.
+ * In total, this scheme prevents attacks such as invisible salamanders.
  */
 use crate::CryptoError;
 
