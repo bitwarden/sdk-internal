@@ -9,15 +9,15 @@ use subtle::ConstantTimeEq;
 
 /**
  * Note:
- * XChaCha20Poly1305-CTX encrypts data, and authenticates associated data using
+ * XChaCha20Poly1305 encrypts data, and authenticates associated data using
  * XChaCha20Poly1305 Specifically, this uses the CTX construction, proposed here: https://par.nsf.gov/servlets/purl/10391723
- * using blake3 as the cryptographic hash function. This provides not only key-commitment,
- * but full-commitment. In total, this scheme prevents attacks such as invisible
+ * using blake3 as the cryptographic hash function. The entire construction is called XChaCha20Poly1305Blake3CTX.
+ * This provides not only key-commitment, but full-commitment. In total, this scheme prevents attacks such as invisible
  * salamanders.
  */
 use crate::CryptoError;
 
-pub struct XChaCha20Poly1305CTXCiphetext {
+pub struct XChaCha20Poly1305Blake3CTXCiphetext {
     nonce: [u8; 24],
     tag: [u8; 32],
     ciphertext: Vec<u8>,
@@ -29,7 +29,7 @@ pub fn encrypt_xchacha20_poly1305_blake3_ctx(
     key: &[u8; 32],
     plaintext_secret_data: &[u8],
     authenticated_data: &[u8],
-) -> Result<XChaCha20Poly1305CTXCiphetext, CryptoError> {
+) -> Result<XChaCha20Poly1305Blake3CTXCiphetext, CryptoError> {
     encrypt_xchacha20_poly1305_blake3_ctx_internal(
         rand::thread_rng(),
         key,
@@ -44,7 +44,7 @@ fn encrypt_xchacha20_poly1305_blake3_ctx_internal(
     key: &[u8; 32],
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
-) -> Result<XChaCha20Poly1305CTXCiphetext, CryptoError> {
+) -> Result<XChaCha20Poly1305Blake3CTXCiphetext, CryptoError> {
     let mut buffer = Vec::from(plaintext_secret_data);
     let cipher = XChaCha20Poly1305::new(&GenericArray::from_slice(key));
     let nonce = XChaCha20Poly1305::generate_nonce(rng);
@@ -65,7 +65,7 @@ fn encrypt_xchacha20_poly1305_blake3_ctx_internal(
     );
     let ctx_tag = ctx_tag.as_bytes();
 
-    Ok(XChaCha20Poly1305CTXCiphetext {
+    Ok(XChaCha20Poly1305Blake3CTXCiphetext {
         nonce: nonce.as_slice().try_into().unwrap(),
         ciphertext: buffer,
         authenticated_data: associated_data.to_vec(),
@@ -76,7 +76,7 @@ fn encrypt_xchacha20_poly1305_blake3_ctx_internal(
 #[allow(dead_code)]
 pub fn decrypt_xchacha20_poly1305_blake3_ctx(
     key: &[u8; 32],
-    ctx: &XChaCha20Poly1305CTXCiphetext,
+    ctx: &XChaCha20Poly1305Blake3CTXCiphetext,
 ) -> Result<Vec<u8>, CryptoError> {
     let buffer = ctx.ciphertext.clone();
     let associated_data = ctx.authenticated_data.as_slice();
@@ -141,7 +141,8 @@ fn authenticate_lengths(associated_data: &[u8], buffer: &[u8], mac: &mut Poly130
 }
 
 mod tests {
-    use super::*;
+    #[cfg(test)]
+    use crate::chacha20::*;
 
     #[test]
     fn test_encrypt_decrypt_xchacha20_poly1305_ctx() {
