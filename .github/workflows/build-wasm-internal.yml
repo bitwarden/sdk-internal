@@ -17,7 +17,7 @@ defaults:
 jobs:
   build:
     name: Building @bitwarden/sdk-wasm-internal
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout repo
@@ -78,7 +78,7 @@ jobs:
   trigger-wasm-publish:
     name: Trigger WASM publish
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     steps:
       - name: Login to Azure - CI Subscription
