@@ -21,7 +21,7 @@ on:
 
 jobs:
   setup:
-    name: setup
+    name: Setup
     runs-on: ubuntu-24.04
     outputs:
       release-version: ${{ steps.version-output.outputs.version }}

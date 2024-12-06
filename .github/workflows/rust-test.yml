@@ -12,18 +12,17 @@ env:
 
 jobs:
   ci-pass:
-    name: CI is green
+    name: Check if tests passed
     runs-on: ubuntu-24.04
     needs:
       - test
     steps:
-      - run: exit 0
+      - name: Check if tests passed
+        run: exit 0
 
   test:
     name: ${{ matrix.os }} / default
-
     runs-on: ${{ matrix.os || 'ubuntu-24.04' }}
-
     strategy:
       matrix:
         os:

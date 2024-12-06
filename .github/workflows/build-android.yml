@@ -13,6 +13,7 @@ defaults:
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -52,6 +53,7 @@ jobs:
           if-no-files-found: error
 
   combine:
+    name: Combine
     runs-on: ubuntu-24.04
     needs: build
     steps:

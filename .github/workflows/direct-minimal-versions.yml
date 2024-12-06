@@ -48,5 +48,5 @@ jobs:
         with:
           key: dmv-${{ matrix.settings.target }}-cargo-${{ matrix.settings.os }}
 
-      - name: cargo check direct-minimal-versions
+      - name: Cargo check direct-minimal-versions
         run: cargo check -Z direct-minimal-versions --all-features
