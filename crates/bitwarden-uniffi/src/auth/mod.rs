@@ -12,10 +12,10 @@ use bitwarden_crypto::{AsymmetricEncString, EncString, HashPurpose, Kdf, TrustDe
 use crate::{error::Result, Client};
 
 #[derive(uniffi::Object)]
-pub struct ClientAuth(pub(crate) Arc<Client>);
+pub struct AuthClient(pub(crate) Arc<Client>);
 
 #[uniffi::export(async_runtime = "tokio")]
-impl ClientAuth {
+impl AuthClient {
     /// **API Draft:** Calculate Password Strength
     pub fn password_strength(
         &self,
@@ -94,7 +94,7 @@ impl ClientAuth {
 
     /// Validate the user password
     ///
-    /// To retrieve the user's password hash, use [`ClientAuth::hash_password`] with
+    /// To retrieve the user's password hash, use [`AuthClient::hash_password`] with
     /// `HashPurpose::LocalAuthentication` during login and persist it. If the login method has no
     /// password, use the email OTP.
     pub fn validate_password(&self, password: String, password_hash: String) -> Result<bool> {

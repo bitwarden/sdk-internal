@@ -6,11 +6,11 @@ use crate::{
     ExportError, ExportFormat,
 };
 
-pub struct ClientExporters<'a> {
+pub struct ExporterClient<'a> {
     client: &'a Client,
 }
 
-impl<'a> ClientExporters<'a> {
+impl<'a> ExporterClient<'a> {
     fn new(client: &'a Client) -> Self {
         Self { client }
     }
@@ -34,12 +34,12 @@ impl<'a> ClientExporters<'a> {
     }
 }
 
-pub trait ClientExportersExt<'a> {
-    fn exporters(&'a self) -> ClientExporters<'a>;
+pub trait ExporterClientExt<'a> {
+    fn exporters(&'a self) -> ExporterClient<'a>;
 }
 
-impl<'a> ClientExportersExt<'a> for Client {
-    fn exporters(&'a self) -> ClientExporters<'a> {
-        ClientExporters::new(self)
+impl<'a> ExporterClientExt<'a> for Client {
+    fn exporters(&'a self) -> ExporterClient<'a> {
+        ExporterClient::new(self)
     }
 }

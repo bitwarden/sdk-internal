@@ -3,7 +3,7 @@ use bitwarden_crypto::{HashPurpose, Kdf, MasterKey};
 
 mod access_token;
 pub(super) mod api;
-pub mod client_auth;
+pub mod auth_client;
 mod jwt_token;
 pub mod login;
 #[cfg(feature = "internal")]
