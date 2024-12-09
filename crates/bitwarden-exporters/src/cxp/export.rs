@@ -114,35 +114,38 @@ impl From<Login> for Vec<Credential> {
             credentials.push(Credential::BasicAuth(Box::new(login.clone().into())));
         }
 
-        if let Some(totp) = login.totp {
-            if let Ok(totp) = totp.parse::<Totp>() {
-                // TODO(PM-15389): Properly set username/issuer.
-                credentials.push(Credential::Totp(Box::new(TotpCredential {
-                    secret: totp.secret.into(),
-                    period: totp.period as u8,
-                    digits: totp.digits as u8,
-                    username: "".to_string(),
-                    algorithm: match totp.algorithm {
-                        TotpAlgorithm::Sha1 => OTPHashAlgorithm::Sha1,
-                        TotpAlgorithm::Sha256 => OTPHashAlgorithm::Sha256,
-                        TotpAlgorithm::Sha512 => OTPHashAlgorithm::Sha512,
-                        TotpAlgorithm::Steam => OTPHashAlgorithm::Unknown("steam".to_string()),
-                    },
-                    issuer: None,
-                })))
-            }
+        if let Some(totp) = login.totp.and_then(|t| t.parse::<Totp>().ok()) {
+            credentials.push(Credential::Totp(Box::new(convert_totp(totp))));
         }
 
         if let Some(fido2_credentials) = login.fido2_credentials {
-            for fido2_credential in fido2_credentials {
-                let c = fido2_credential.try_into();
-                if let Ok(c) = c {
-                    credentials.push(Credential::Passkey(Box::new(c)))
-                }
-            }
+            credentials.extend(
+                fido2_credentials
+                    .into_iter()
+                    .filter_map(|fido2_credential| fido2_credential.try_into().ok())
+                    .map(|c| Credential::Passkey(Box::new(c))),
+            );
         }
 
         credentials
+    }
+}
+
+/// Convert a `Totp` struct into a `TotpCredential` struct
+fn convert_totp(totp: Totp) -> TotpCredential {
+    // TODO(PM-15389): Properly set username/issuer.
+    TotpCredential {
+        secret: totp.secret.into(),
+        period: totp.period as u8,
+        digits: totp.digits as u8,
+        username: "".to_string(),
+        algorithm: match totp.algorithm {
+            TotpAlgorithm::Sha1 => OTPHashAlgorithm::Sha1,
+            TotpAlgorithm::Sha256 => OTPHashAlgorithm::Sha256,
+            TotpAlgorithm::Sha512 => OTPHashAlgorithm::Sha512,
+            TotpAlgorithm::Steam => OTPHashAlgorithm::Unknown("steam".to_string()),
+        },
+        issuer: None,
     }
 }
 
@@ -220,6 +223,24 @@ impl TryFrom<Fido2Credential> for PasskeyCredential {
 mod tests {
     use super::*;
     use crate::{Field, LoginUri};
+
+    #[test]
+    fn test_convert_totp() {
+        let totp = Totp {
+            algorithm: TotpAlgorithm::Sha1,
+            digits: 4,
+            period: 60,
+            secret: "secret".as_bytes().to_vec(),
+        };
+
+        let credential = convert_totp(totp);
+        assert_eq!(String::from(credential.secret), "ONSWG4TFOQ");
+        assert_eq!(credential.period, 60);
+        assert_eq!(credential.digits, 4);
+        assert_eq!(credential.username, "");
+        assert_eq!(credential.algorithm, OTPHashAlgorithm::Sha1);
+        assert_eq!(credential.issuer, None);
+    }
 
     #[test]
     fn test_login_to_item() {
