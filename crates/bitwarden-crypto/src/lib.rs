@@ -63,7 +63,6 @@
 #[cfg(not(feature = "no-memory-hardening"))]
 #[global_allocator]
 static ALLOC: ZeroizingAllocator<std::alloc::System> = ZeroizingAllocator(std::alloc::System);
-
 mod aes;
 mod enc_string;
 pub use enc_string::{AsymmetricEncString, EncString};
@@ -82,6 +81,7 @@ mod wordlist;
 pub use wordlist::EFF_LONG_WORD_LIST;
 mod allocator;
 pub use allocator::ZeroizingAllocator;
+pub mod blake3;
 pub mod chacha20;
 
 #[cfg(feature = "uniffi")]

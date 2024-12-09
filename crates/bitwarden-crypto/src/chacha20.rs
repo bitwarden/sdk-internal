@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use chacha20::{
     cipher::{KeyIvInit, StreamCipher},
     XChaCha20,
@@ -15,7 +17,7 @@ use subtle::ConstantTimeEq;
  * XChaCha20Poly1305Blake3CTX. This provides not only key-commitment, but full-commitment.
  * In total, this scheme prevents attacks such as invisible salamanders.
  */
-use crate::CryptoError;
+use crate::{blake3::hash_blake3_tuple, CryptoError};
 
 pub struct XChaCha20Poly1305Blake3CTXCiphertext {
     nonce: [u8; 24],
@@ -54,22 +56,13 @@ fn encrypt_xchacha20_poly1305_blake3_ctx_internal(
         .map_err(|_| CryptoError::InvalidKey)?;
 
     // T* = H(K, N, A, T )
-    let ctx_tag = blake3::hash(
-        &[
-            key,
-            nonce.as_slice(),
-            associated_data,
-            poly1305_tag.as_slice(),
-        ]
-        .concat(),
-    );
-    let ctx_tag = ctx_tag.as_bytes();
+    let ctx_tag = hash_blake3_tuple(&[key, &nonce, associated_data, &poly1305_tag]);
 
     Ok(XChaCha20Poly1305Blake3CTXCiphertext {
         nonce: nonce.as_slice().try_into().unwrap(),
         ciphertext: buffer,
         authenticated_data: associated_data.to_vec(),
-        tag: *ctx_tag,
+        tag: ctx_tag,
     })
 }
 
@@ -85,16 +78,7 @@ pub fn decrypt_xchacha20_poly1305_blake3_ctx(
     let poly1305_tag =
         get_tag_expected_for_xchacha20_poly1305_ctx(key, &ctx.nonce, associated_data, &buffer);
 
-    let ctx_tag = blake3::hash(
-        &[
-            key,
-            ctx.nonce.as_slice(),
-            associated_data,
-            poly1305_tag.as_slice(),
-        ]
-        .concat(),
-    );
-    let ctx_tag = ctx_tag.as_bytes();
+    let ctx_tag = hash_blake3_tuple(&[key, &ctx.nonce, associated_data, &poly1305_tag]);
 
     if ctx_tag.ct_eq(&ctx.tag).into() {
         // At this point the commitment is verified, so we can decrypt the data using regular
