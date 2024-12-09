@@ -13,7 +13,7 @@ else
 fi
 
 # Build normally
-cargo build -p bitwarden-wasm-internal --target wasm32-unknown-unknown 
+cargo build -p bitwarden-wasm-internal --target wasm32-unknown-unknown ${RELEASE_FLAG}
 wasm-bindgen --target bundler --out-dir crates/bitwarden-wasm-internal/npm ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 wasm-bindgen --target nodejs --out-dir crates/bitwarden-wasm-internal/npm/node ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 
@@ -21,7 +21,7 @@ wasm-bindgen --target nodejs --out-dir crates/bitwarden-wasm-internal/npm/node .
 # Note that this requirest build-std which is an unstable feature,
 # this normally requires a nightly build, but we can also use the 
 # RUSTC_BOOTSTRAP hack to use the same stable version as the normal build
-RUSTFLAGS=-Ctarget-cpu=mvp RUSTC_BOOTSTRAP=1 cargo build -p bitwarden-wasm-internal -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown 
+RUSTFLAGS=-Ctarget-cpu=mvp RUSTC_BOOTSTRAP=1 cargo build -p bitwarden-wasm-internal -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown ${RELEASE_FLAG}
 cp ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm ./crates/bitwarden-wasm-internal/npm/node/bitwarden_wasm_internal_bg.mvp.wasm
 
 # Format
