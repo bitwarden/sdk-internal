@@ -7,10 +7,10 @@ use crate::{error::Result, Client};
 mod fido2;
 
 #[derive(uniffi::Object)]
-pub struct ClientPlatform(pub(crate) Arc<Client>);
+pub struct PlatformClient(pub(crate) Arc<Client>);
 
 #[uniffi::export]
-impl ClientPlatform {
+impl PlatformClient {
     /// Fingerprint (public key)
     pub fn fingerprint(&self, req: FingerprintRequest) -> Result<String> {
         Ok(self.0 .0.platform().fingerprint(&req)?.fingerprint)

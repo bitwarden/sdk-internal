@@ -12,10 +12,10 @@ use bitwarden_crypto::{AsymmetricEncString, EncString};
 use crate::{error::Result, Client};
 
 #[derive(uniffi::Object)]
-pub struct ClientCrypto(pub(crate) Arc<Client>);
+pub struct CryptoClient(pub(crate) Arc<Client>);
 
 #[uniffi::export(async_runtime = "tokio")]
-impl ClientCrypto {
+impl CryptoClient {
     /// Initialization method for the user crypto. Needs to be called before any other crypto
     /// operations.
     pub async fn initialize_user_crypto(&self, req: InitUserCryptoRequest) -> Result<()> {

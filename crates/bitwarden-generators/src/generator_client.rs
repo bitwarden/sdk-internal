@@ -6,11 +6,11 @@ use crate::{
     UsernameGeneratorRequest,
 };
 
-pub struct ClientGenerator<'a> {
+pub struct GeneratorClient<'a> {
     client: &'a Client,
 }
 
-impl<'a> ClientGenerator<'a> {
+impl<'a> GeneratorClient<'a> {
     fn new(client: &'a Client) -> Self {
         Self { client }
     }
@@ -23,7 +23,7 @@ impl<'a> ClientGenerator<'a> {
     ///
     /// ```
     /// use bitwarden_core::Client;
-    /// use bitwarden_generators::{ClientGeneratorExt, PassphraseError, PasswordGeneratorRequest};
+    /// use bitwarden_generators::{GeneratorClientsExt, PassphraseError, PasswordGeneratorRequest};
     ///
     /// async fn test() -> Result<(), PassphraseError> {
     ///     let input = PasswordGeneratorRequest {
@@ -53,7 +53,7 @@ impl<'a> ClientGenerator<'a> {
     ///
     /// ```
     /// use bitwarden_core::Client;
-    /// use bitwarden_generators::{ClientGeneratorExt, PassphraseError, PassphraseGeneratorRequest};
+    /// use bitwarden_generators::{GeneratorClientsExt, PassphraseError, PassphraseGeneratorRequest};
     ///
     /// async fn test() -> Result<(), PassphraseError> {
     ///     let input = PassphraseGeneratorRequest {
@@ -78,7 +78,7 @@ impl<'a> ClientGenerator<'a> {
     ///
     /// ```
     /// use bitwarden_core::Client;
-    /// use bitwarden_generators::{ClientGeneratorExt, UsernameError, UsernameGeneratorRequest};
+    /// use bitwarden_generators::{GeneratorClientsExt, UsernameError, UsernameGeneratorRequest};
     ///
     /// async fn test() -> Result<(), UsernameError> {
     ///     let input = UsernameGeneratorRequest::Word {
@@ -95,12 +95,12 @@ impl<'a> ClientGenerator<'a> {
     }
 }
 
-pub trait ClientGeneratorExt<'a> {
-    fn generator(&'a self) -> ClientGenerator<'a>;
+pub trait GeneratorClientsExt<'a> {
+    fn generator(&'a self) -> GeneratorClient<'a>;
 }
 
-impl<'a> ClientGeneratorExt<'a> for Client {
-    fn generator(&'a self) -> ClientGenerator<'a> {
-        ClientGenerator::new(self)
+impl<'a> GeneratorClientsExt<'a> for Client {
+    fn generator(&'a self) -> GeneratorClient<'a> {
+        GeneratorClient::new(self)
     }
 }
