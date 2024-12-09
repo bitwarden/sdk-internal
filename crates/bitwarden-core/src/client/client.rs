@@ -18,6 +18,19 @@ pub struct Client {
 }
 
 impl Client {
+    /// Constructs a new `Client` with the given `settings_input`.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use bitwarden_core::{Client, ClientSettings, DeviceType};
+    ///
+    /// let client = Client::new(Some(ClientSettings {
+    ///     identity_url: "https://identity.bitwarden.com".to_owned(),
+    ///     api_url: "https://api.bitwarden.com".to_owned(),
+    ///     user_agent: "Bitwarden Rust-SDK".to_owned(),
+    ///     device_type: DeviceType::ChromeBrowser,
+    /// }));
+    /// ```
     pub fn new(settings_input: Option<ClientSettings>) -> Self {
         let settings = settings_input.unwrap_or_default();
 
