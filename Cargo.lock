@@ -1026,7 +1026,7 @@ dependencies = [
 [[package]]
 name = "credential-exchange-types"
 version = "0.1.0"
-source = "git+https://github.com/bitwarden/credential-exchange.git?rev=28c947a776f727334598e4ef070292204d4e71d4#28c947a776f727334598e4ef070292204d4e71d4"
+source = "git+https://github.com/bitwarden/credential-exchange.git?rev=60bf99f097af72144b0eaa757ccb50fd46049f24#60bf99f097af72144b0eaa757ccb50fd46049f24"
 dependencies = [
  "data-encoding",
  "jose-jwk",

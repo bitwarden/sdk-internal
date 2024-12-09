@@ -6,7 +6,7 @@ use bitwarden_vault::{Totp, TotpAlgorithm};
 use credential_exchange_types::{
     format::{
         Account as CxpAccount, BasicAuthCredential, Credential, EditableField, FieldType, Item,
-        ItemType, OTPHashAlgorithm, PasskeyCredential,
+        ItemType, NoteCredential, OTPHashAlgorithm, PasskeyCredential, TotpCredential,
     },
     B64Url,
 };
@@ -54,13 +54,13 @@ impl TryFrom<Cipher> for Item {
         let mut credentials: Vec<Credential> = value.r#type.clone().into();
 
         if let Some(note) = value.notes {
-            credentials.push(Credential::Note { content: note });
+            credentials.push(Credential::Note(Box::new(NoteCredential { content: note })));
         }
 
         Ok(Self {
             id: value.id.as_bytes().as_slice().into(),
-            creation_at: value.creation_date.timestamp() as u64,
-            modified_at: value.revision_date.timestamp() as u64,
+            creation_at: Some(value.creation_date.timestamp() as u64),
+            modified_at: Some(value.revision_date.timestamp() as u64),
             ty: value.r#type.try_into()?,
             title: value.name,
             subtitle: None,
@@ -97,7 +97,8 @@ impl From<CipherType> for Vec<Credential> {
             CipherType::Card(_) => vec![],
             // TODO(PM-15451): Add support for identities.
             CipherType::Identity(_) => vec![],
-            // Secure Notes only contains a note field which is handled by `TryFrom<Cipher> for Item`.
+            // Secure Notes only contains a note field which is handled by `TryFrom<Cipher> for
+            // Item`.
             CipherType::SecureNote(_) => vec![],
             // TODO(PM-15448): Add support for SSH Keys.
             CipherType::SshKey(_) => vec![],
@@ -110,13 +111,13 @@ impl From<Login> for Vec<Credential> {
         let mut credentials = vec![];
 
         if login.username.is_some() || login.password.is_some() || !login.login_uris.is_empty() {
-            credentials.push(Credential::BasicAuth(login.clone().into()));
+            credentials.push(Credential::BasicAuth(Box::new(login.clone().into())));
         }
 
         if let Some(totp) = login.totp {
             if let Ok(totp) = totp.parse::<Totp>() {
                 // TODO(PM-15389): Properly set username/issuer.
-                credentials.push(Credential::Totp {
+                credentials.push(Credential::Totp(Box::new(TotpCredential {
                     secret: totp.secret.into(),
                     period: totp.period as u8,
                     digits: totp.digits as u8,
@@ -128,7 +129,7 @@ impl From<Login> for Vec<Credential> {
                         TotpAlgorithm::Steam => OTPHashAlgorithm::Unknown("steam".to_string()),
                     },
                     issuer: None,
-                })
+                })))
             }
         }
 
@@ -136,7 +137,7 @@ impl From<Login> for Vec<Credential> {
             for fido2_credential in fido2_credentials {
                 let c = fido2_credential.try_into();
                 if let Ok(c) = c {
-                    credentials.push(Credential::Passkey(c))
+                    credentials.push(Credential::Passkey(Box::new(c)))
                 }
             }
         }
@@ -217,8 +218,6 @@ impl TryFrom<Fido2Credential> for PasskeyCredential {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{DateTime, Utc};
-
     use super::*;
     use crate::{Field, LoginUri};
 
@@ -299,17 +298,9 @@ mod tests {
 
         let item: Item = cipher.try_into().unwrap();
 
-        assert_eq!(
-            item.creation_at,
-            "2024-01-30T11:23:54.416Z"
-                .parse::<DateTime<Utc>>()
-                .unwrap()
-                .timestamp() as u64
-        );
-
         assert_eq!(item.id.to_string(), "JcjEFLRGSOmhvbEHALvXQA");
-        assert_eq!(item.creation_at, 1706613834);
-        assert_eq!(item.modified_at, 1706623773);
+        assert_eq!(item.creation_at, Some(1706613834));
+        assert_eq!(item.modified_at, Some(1706623773));
         assert_eq!(item.ty, ItemType::Login);
         assert_eq!(item.title, "Bitwarden");
         assert_eq!(item.subtitle, None);
@@ -343,20 +334,13 @@ mod tests {
         let credential = &item.credentials[1];
 
         match credential {
-            Credential::Totp {
-                secret,
-                period,
-                digits,
-                username,
-                algorithm,
-                issuer,
-            } => {
-                assert_eq!(String::from(secret.clone()), "JBSWY3DPEHPK3PXP");
-                assert_eq!(*period, 30);
-                assert_eq!(*digits, 6);
-                assert_eq!(username, "");
-                assert_eq!(*algorithm, OTPHashAlgorithm::Sha1);
-                assert!(issuer.is_none());
+            Credential::Totp(totp) => {
+                assert_eq!(String::from(totp.secret.clone()), "JBSWY3DPEHPK3PXP");
+                assert_eq!(totp.period, 30);
+                assert_eq!(totp.digits, 6);
+                assert_eq!(totp.username, "");
+                assert_eq!(totp.algorithm, OTPHashAlgorithm::Sha1);
+                assert!(totp.issuer.is_none());
             }
             _ => panic!("Expected Credential::Passkey"),
         }
@@ -379,8 +363,8 @@ mod tests {
         let credential = &item.credentials[3];
 
         match credential {
-            Credential::Note { content } => {
-                assert_eq!(content, "My note");
+            Credential::Note(n) => {
+                assert_eq!(n.content, "My note");
             }
             _ => panic!("Expected Credential::Passkey"),
         }

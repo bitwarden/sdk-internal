@@ -17,6 +17,15 @@ pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxpErro
 fn parse_item(value: Item) -> Vec<ImportingCipher> {
     let grouped = group_credentials_by_type(value.credentials);
 
+    let creation_date = value
+        .creation_at
+        .and_then(|ts| DateTime::from_timestamp(ts as i64, 0))
+        .unwrap_or(Utc::now());
+    let revision_date = value
+        .modified_at
+        .and_then(|ts| DateTime::from_timestamp(ts as i64, 0))
+        .unwrap_or(Utc::now());
+
     match value.ty {
         ItemType::Login => {
             let basic_auth = grouped.basic_auth.first();
@@ -51,8 +60,7 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
                         rp_name: Some(p.rp_id.clone()),
                         user_display_name: Some(p.user_display_name.clone()),
                         discoverable: "true".to_string(),
-                        creation_date: DateTime::from_timestamp(value.creation_at as i64, 0)
-                            .unwrap_or(Utc::now()),
+                        creation_date,
                     }]
                 }),
             };
@@ -65,10 +73,8 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
                 favorite: false,
                 reprompt: 0,
                 fields: vec![],
-                revision_date: DateTime::from_timestamp(value.modified_at as i64, 0)
-                    .unwrap_or(Utc::now()),
-                creation_date: DateTime::from_timestamp(value.creation_at as i64, 0)
-                    .unwrap_or(Utc::now()),
+                revision_date,
+                creation_date,
                 deleted_date: None,
             }]
         }
@@ -81,14 +87,14 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
         basic_auth: credentials
             .iter()
             .filter_map(|c| match c {
-                Credential::BasicAuth(basic_auth) => Some(basic_auth.clone()),
+                Credential::BasicAuth(basic_auth) => Some(*basic_auth.clone()),
                 _ => None,
             })
             .collect(),
         passkey: credentials
             .iter()
             .filter_map(|c| match c {
-                Credential::Passkey(passkey) => Some(passkey.clone()),
+                Credential::Passkey(passkey) => Some(*passkey.clone()),
                 _ => None,
             })
             .collect(),
@@ -108,8 +114,8 @@ mod tests {
     fn test_parse_item() {
         let item = Item {
             id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
-            creation_at: 1706613834,
-            modified_at: 1706623773,
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
             ty: ItemType::Login,
             title: "Bitwarden".to_string(),
             subtitle: None,
@@ -135,13 +141,13 @@ mod tests {
                 .unwrap()
                 .as_slice()
                 .into(),
-            creation_at: 1732181986,
-            modified_at: 1732182026,
+            creation_at: Some(1732181986),
+            modified_at: Some(1732182026),
             ty: ItemType::Login,
             title: "opotonniee.github.io".to_string(),
             subtitle: None,
             favorite: None,
-            credentials: vec![Credential::Passkey(PasskeyCredential {
+            credentials: vec![Credential::Passkey(Box::new(PasskeyCredential {
                 credential_id: URL_SAFE_NO_PAD
                     .decode("6NiHiekW4ZY8vYHa-ucbvA")
                     .unwrap()
@@ -161,7 +167,7 @@ mod tests {
                     .as_slice()
                     .into(),
                 fido2_extensions: None,
-            })],
+            }))],
             tags: None,
             extensions: None,
         };
