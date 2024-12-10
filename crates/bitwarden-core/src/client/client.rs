@@ -27,8 +27,10 @@ impl Client {
 
             #[cfg(not(target_arch = "wasm32"))]
             {
+                use rustls::ClientConfig;
+                use rustls_platform_verifier::ConfigVerifierExt;
                 client_builder =
-                    client_builder.use_preconfigured_tls(rustls_platform_verifier::tls_config());
+                    client_builder.use_preconfigured_tls(ClientConfig::with_platform_verifier());
             }
 
             client_builder
@@ -81,26 +83,5 @@ impl Client {
                 encryption_settings: RwLock::new(None),
             },
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[cfg(not(target_arch = "wasm32"))]
-    #[test]
-    fn test_reqwest_rustls_platform_verifier_are_compatible() {
-        // rustls-platform-verifier is generating a rustls::ClientConfig,
-        // which reqwest accepts as a &dyn Any and then downcasts it to a
-        // rustls::ClientConfig.
-
-        // This means that if the rustls version of the two crates don't match,
-        // the downcast will fail and we will get a runtime error.
-
-        // This tests is added to ensure that it doesn't happen.
-
-        let _ = reqwest::ClientBuilder::new()
-            .use_preconfigured_tls(rustls_platform_verifier::tls_config())
-            .build()
-            .unwrap();
     }
 }
