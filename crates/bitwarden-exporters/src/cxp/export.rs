@@ -106,6 +106,7 @@ impl From<CipherType> for Vec<Credential> {
     }
 }
 
+/// Convert a `Login` struct into the appropriate `Credential`s.
 impl From<Login> for Vec<Credential> {
     fn from(login: Login) -> Self {
         let mut credentials = vec![];
@@ -240,6 +241,66 @@ mod tests {
         assert_eq!(credential.username, "");
         assert_eq!(credential.algorithm, OTPHashAlgorithm::Sha1);
         assert_eq!(credential.issuer, None);
+    }
+
+    #[test]
+    fn test_basic_auth() {
+        let login = Login {
+            username: Some("test@bitwarden.com".to_string()),
+            password: Some("asdfasdfasdf".to_string()),
+            login_uris: vec![LoginUri {
+                uri: Some("https://vault.bitwarden.com".to_string()),
+                r#match: None,
+            }],
+            totp: None,
+            fido2_credentials: None,
+        };
+
+        let basic_auth: BasicAuthCredential = login.into();
+
+        let username = basic_auth.username.as_ref().unwrap();
+        assert_eq!(username.field_type, FieldType::String);
+        assert_eq!(username.value, "test@bitwarden.com");
+        assert!(username.label.is_none());
+
+        let password = basic_auth.password.as_ref().unwrap();
+        assert_eq!(password.field_type, FieldType::ConcealedString);
+        assert_eq!(password.value, "asdfasdfasdf");
+        assert!(password.label.is_none());
+
+        assert_eq!(
+            basic_auth.urls,
+            vec!["https://vault.bitwarden.com".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_passkey() {
+        let credential = Fido2Credential {
+            credential_id: "e8d88789-e916-e196-3cbd-81dafae71bbc".to_string(),
+            key_type: "public-key".to_string(),
+            key_algorithm: "ECDSA".to_string(),
+            key_curve: "P-256".to_string(),
+            key_value: "AAECAwQFBg".to_string(),
+            rp_id: "123".to_string(),
+            user_handle: Some("AAECAwQFBg".to_string()),
+            user_name: None,
+            counter: 0,
+            rp_name: None,
+            user_display_name: None,
+            discoverable: "true".to_string(),
+            creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
+        };
+
+        let passkey: PasskeyCredential = credential.try_into().unwrap();
+
+        assert_eq!(passkey.credential_id.to_string(), "6NiHiekW4ZY8vYHa-ucbvA");
+        assert_eq!(passkey.rp_id, "123");
+        assert_eq!(passkey.user_name, "");
+        assert_eq!(passkey.user_display_name, "");
+        assert_eq!(String::from(passkey.user_handle.clone()), "AAECAwQFBg");
+        assert_eq!(String::from(passkey.key.clone()), "AAECAwQFBg");
+        assert!(passkey.fido2_extensions.is_none());
     }
 
     #[test]
