@@ -1,7 +1,7 @@
 # Bitwarden Internal SDK
 
 This repository houses the internal Bitwarden SDKs. We also provide a public
-[Secrets Manager SDK](https://github.com/bitwarden/sdk-sm).
+[Secrets Manager SDK](https://github.com/bitwarden/sdk).
 
 ### Disclaimer
 
