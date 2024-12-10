@@ -396,6 +396,7 @@ dependencies = [
  "rand",
  "rand_chacha",
  "reqwest",
+ "rustls",
  "rustls-platform-verifier",
  "schemars",
  "serde",
