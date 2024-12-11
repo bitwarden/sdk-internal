@@ -1,86 +1,58 @@
-name: Build Swift Package
+name: Build @bitwarden/sdk-internal
 
 on:
+  pull_request:
   push:
     branches:
+      - "main"
       - "rc"
       - "hotfix-rc"
-      - "main"
   workflow_dispatch:
 
+defaults:
+  run:
+    shell: bash
+    working-directory: crates/bitwarden-wasm-internal
+
 jobs:
-  version:
-    name: Get Version
-    runs-on: ubuntu-24.04
-    outputs:
-      package_version: ${{ steps.retrieve-version.outputs.package_version }}
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Get Package Version
-        id: retrieve-version
-        run: |
-          VERSION=$(grep -o '^version = ".*"' Cargo.toml | grep -Eo "[0-9]+\.[0-9]+\.[0-9]+")
-          echo "package_version=$VERSION" >> $GITHUB_OUTPUT
-
   build:
-    name: Build
-    runs-on: macos-14
-    needs: version
-    env:
-      _VERSION: ${{ needs.version.outputs.package_version }}
+    name: Building @bitwarden/sdk-wasm-internal
+    runs-on: ubuntu-24.04
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Install rust
-        uses: dtolnay/rust-toolchain@315e265cd78dad1e1dcf3a5074f6d6c47029d5aa # stable
-        with:
-          toolchain: stable
-
-      - name: Cache cargo registry
-        uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab # v2.7.5
-        with:
-          key: sdk-swift-cargo
-
-      - name: Rustup target
+      - name: Set version (PR)
+        if: ${{ github.event_name == 'pull_request' }}
         run: |
-          rustup target install aarch64-apple-ios-sim
-          rustup target install aarch64-apple-ios
-          rustup target install x86_64-apple-ios
+          echo REF_NAME="${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+          echo SHA="${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
 
-      - name: Build
-        shell: bash
-        working-directory: crates/bitwarden-uniffi/swift
-        id: build
+      - name: Set env variables (Branch/Tag)
+        if: ${{ github.event_name == 'push' }}
         run: |
-          ./build.sh
+          echo REF_NAME="${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          echo SHA="${GITHUB_SHA}" >> $GITHUB_ENV
 
-          # SHA Short
-          echo "short-sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Zip BitwardenFFI.xcframework
+      - name: Set version
         run: |
-          mkdir artifacts
-          cp -rf crates/bitwarden-uniffi/swift/BitwardenFFI.xcframework artifacts
+          export SDK_VERSION="${REF_NAME} (${SHA:0:7})"
+          echo "SDK_VERSION='${SDK_VERSION}'" >> $GITHUB_ENV
+          echo "SDK_VERSION='${SDK_VERSION}'"
 
-      - name: Upload BitwardenFFI.xcframework artifact
+      - name: Enter Nix Shell
+        run: nix develop --command build-wasm
+
+      - name: Upload artifact
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: BitwardenFFI-${{ env._VERSION }}-${{ steps.build.outputs.short-sha }}.xcframework
-          path: artifacts
+          name: sdk-internal
+          path: ${{ github.workspace }}/crates/bitwarden-wasm-internal/npm/*
           if-no-files-found: error
 
-      - name: Upload BitwardenSdk sources
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
-        with:
-          name: BitwardenSdk-${{ env._VERSION }}-${{ steps.build.outputs.short-sha }}-sources
-          path: crates/bitwarden-uniffi/swift/Sources/BitwardenSdk
-          if-no-files-found: error
-
-  trigger-swift-release:
-    name: Trigger Swift release
+  trigger-wasm-publish:
+    name: Trigger WASM publish
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     needs: build
@@ -97,7 +69,7 @@ jobs:
           keyvault: "bitwarden-ci"
           secrets: "github-pat-bitwarden-devops-bot-repo-scope"
 
-      - name: Trigger Swift release
+      - name: Trigger WASM publish
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           github-token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
@@ -105,10 +77,6 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
               owner: 'bitwarden',
               repo: 'sdk-internal',
-              workflow_id: 'release-swift.yml',
+              workflow_id: 'publish-wasm-internal.yml',
               ref: 'main',
-              inputs: {
-                'build-run-id': '${{ github.run_id }}',
-                'pre-release': 'true'
-              }
             })

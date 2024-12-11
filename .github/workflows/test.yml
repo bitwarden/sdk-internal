@@ -1,0 +1,60 @@
+name: Run Tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+  pull_request:
+
+jobs:
+  test-unix:
+    name: ${{ matrix.os }} / default
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-24.04
+          - macOS-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+      - name: Test
+        run: nix develop --command run-tests
+
+  # Nix is used to run the tests on unix systems, enabling near 1:1 local CI
+  # runs and identical dev/release environments on those systems. Windows is
+  # a special case, being not supported by nix.
+  test-windows:
+    name: windows
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - name: Cache Cargo Registry
+        uses: Swatinem/rust-cache@v2.7.5
+      - name: Test
+        run: cargo test --workspace --all-features
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+      - name: Generate Coverage
+        run: nix develop --command generate-test-coverage
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5.1.1
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
