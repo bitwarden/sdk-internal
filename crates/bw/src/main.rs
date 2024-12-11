@@ -1,7 +1,7 @@
 use bitwarden_cli::{install_color_eyre, text_prompt_when_none, Color};
 use bitwarden_core::{auth::RegisterRequest, ClientSettings};
 use bitwarden_generators::{
-    ClientGeneratorExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
+    GeneratorClientsExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
 };
 use clap::{command, Args, CommandFactory, Parser, Subcommand};
 use color_eyre::eyre::Result;

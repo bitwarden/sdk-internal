@@ -1,14 +1,14 @@
 use std::{path::Path, sync::Arc};
 
-use bitwarden_send::{ClientSendsExt, Send, SendListView, SendView};
+use bitwarden_send::{Send, SendClientExt, SendListView, SendView};
 
 use crate::{Client, Result};
 
 #[derive(uniffi::Object)]
-pub struct ClientSends(pub Arc<Client>);
+pub struct SendClient(pub Arc<Client>);
 
 #[uniffi::export]
-impl ClientSends {
+impl SendClient {
     /// Encrypt send
     pub fn encrypt(&self, send: SendView) -> Result<Send> {
         Ok(self.0 .0.sends().encrypt(send)?)

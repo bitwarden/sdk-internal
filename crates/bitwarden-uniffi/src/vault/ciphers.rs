@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bitwarden_vault::{Cipher, CipherListView, CipherView, ClientVaultExt, Fido2CredentialView};
+use bitwarden_vault::{Cipher, CipherListView, CipherView, Fido2CredentialView, VaultClientExt};
 use uuid::Uuid;
 
 use crate::{error::Error, Client, Result};
