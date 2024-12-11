@@ -11,7 +11,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::VaultParseError;
 
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, JsonSchema)]
+#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, JsonSchema, PartialEq)]
 #[repr(u8)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
@@ -33,7 +33,7 @@ pub struct LoginUri {
     pub uri_checksum: Option<EncString>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct LoginUriView {
@@ -268,6 +268,16 @@ pub struct LoginView {
     pub fido2_credentials: Option<Vec<Fido2Credential>>,
 }
 
+#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct LoginListView {
+    pub has_fido2: bool,
+    /// The TOTP key is not decrypted. Useable as is with [`crate::generate_totp_cipher_view`].
+    pub totp: Option<EncString>,
+    pub uris: Option<Vec<LoginUriView>>,
+}
+
 impl KeyEncryptable<SymmetricCryptoKey, LoginUri> for LoginUriView {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<LoginUri, CryptoError> {
         Ok(LoginUri {
@@ -312,6 +322,16 @@ impl KeyDecryptable<SymmetricCryptoKey, LoginView> for Login {
             totp: self.totp.decrypt_with_key(key).ok().flatten(),
             autofill_on_page_load: self.autofill_on_page_load,
             fido2_credentials: self.fido2_credentials.clone(),
+        })
+    }
+}
+
+impl KeyDecryptable<SymmetricCryptoKey, LoginListView> for Login {
+    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<LoginListView, CryptoError> {
+        Ok(LoginListView {
+            has_fido2: self.fido2_credentials.is_some(),
+            totp: self.totp.clone(),
+            uris: self.uris.decrypt_with_key(key).ok().flatten(),
         })
     }
 }

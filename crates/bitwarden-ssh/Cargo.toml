@@ -1,0 +1,41 @@
+[package]
+name = "bitwarden-ssh"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[features]
+wasm = [
+    "bitwarden-error/wasm",
+    "dep:tsify-next",
+    "dep:wasm-bindgen"
+] # WASM support
+
+[dependencies]
+bitwarden-error = { workspace = true }
+rand = "0.8.5"
+serde.workspace = true
+ssh-key = { version = "0.6.7", features = [
+    "ed25519",
+    "encryption",
+    "rsa",
+    "getrandom",
+] }
+thiserror = { workspace = true }
+tsify-next = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
+
+[dev-dependencies]
+rand_chacha = "0.3.1"
+
+[lints]
+workspace = true

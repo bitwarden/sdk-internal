@@ -14,6 +14,7 @@ use uuid::Uuid;
 use super::{
     attachment, card, field, identity,
     local_data::{LocalData, LocalDataView},
+    login::LoginListView,
     secure_note, ssh_key,
 };
 use crate::{
@@ -133,10 +134,7 @@ pub struct CipherView {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum CipherListViewType {
-    Login {
-        has_fido2: bool,
-        totp: Option<EncString>,
-    },
+    Login(LoginListView),
     SecureNote,
     Card,
     Identity,
@@ -156,12 +154,13 @@ pub struct CipherListView {
     pub key: Option<EncString>,
 
     pub name: String,
-    pub sub_title: String,
+    pub subtitle: String,
 
     pub r#type: CipherListViewType,
 
     pub favorite: bool,
     pub reprompt: CipherRepromptType,
+    pub organization_use_totp: bool,
     pub edit: bool,
     pub view_password: bool,
 
@@ -182,10 +181,11 @@ impl CipherListView {
         let cipher_key = Cipher::get_cipher_key(key, &self.key)?;
         let key = cipher_key.as_ref().unwrap_or(key);
 
-        let totp = if let CipherListViewType::Login { totp, .. } = self.r#type {
-            totp.decrypt_with_key(key)?
-        } else {
-            None
+        let totp = match self.r#type {
+            CipherListViewType::Login(LoginListView { totp, .. }) => {
+                totp.map(|t| t.decrypt_with_key(key)).transpose()?
+            }
+            _ => None,
         };
 
         Ok(totp)
@@ -353,18 +353,18 @@ impl Cipher {
 /// Builds the subtitle for a card cipher
 fn build_subtitle_card(brand: Option<String>, number: Option<String>) -> String {
     // Attempt to pre-allocate the string with the expected max-size
-    let mut sub_title =
+    let mut subtitle =
         String::with_capacity(brand.as_ref().map(|b| b.len()).unwrap_or_default() + 8);
 
     if let Some(brand) = brand {
-        sub_title.push_str(&brand);
+        subtitle.push_str(&brand);
     }
 
     if let Some(number) = number {
         let number_len = number.len();
         if number_len > 4 {
-            if !sub_title.is_empty() {
-                sub_title.push_str(", ");
+            if !subtitle.is_empty() {
+                subtitle.push_str(", ");
             }
 
             // On AMEX cards we show 5 digits instead of 4
@@ -373,12 +373,12 @@ fn build_subtitle_card(brand: Option<String>, number: Option<String>) -> String 
                 _ => 4,
             };
 
-            sub_title.push('*');
-            sub_title.push_str(&number[(number_len - digit_count)..]);
+            subtitle.push('*');
+            subtitle.push_str(&number[(number_len - digit_count)..]);
         }
     }
 
-    sub_title
+    subtitle
 }
 
 /// Builds the subtitle for a card cipher
@@ -390,20 +390,20 @@ fn build_subtitle_identity(first_name: Option<String>, last_name: Option<String>
         (None, None) => 0,
     };
 
-    let mut sub_title = String::with_capacity(len);
+    let mut subtitle = String::with_capacity(len);
 
     if let Some(first_name) = &first_name {
-        sub_title.push_str(first_name);
+        subtitle.push_str(first_name);
     }
 
     if let Some(last_name) = &last_name {
-        if !sub_title.is_empty() {
-            sub_title.push(' ');
+        if !subtitle.is_empty() {
+            subtitle.push(' ');
         }
-        sub_title.push_str(last_name);
+        subtitle.push_str(last_name);
     }
 
-    sub_title
+    subtitle
 }
 
 impl CipherView {
@@ -555,17 +555,14 @@ impl KeyDecryptable<SymmetricCryptoKey, CipherListView> for Cipher {
             collection_ids: self.collection_ids.clone(),
             key: self.key.clone(),
             name: self.name.decrypt_with_key(key).ok().unwrap_or_default(),
-            sub_title: self.get_decrypted_subtitle(key).ok().unwrap_or_default(),
+            subtitle: self.get_decrypted_subtitle(key).ok().unwrap_or_default(),
             r#type: match self.r#type {
                 CipherType::Login => {
                     let login = self
                         .login
                         .as_ref()
                         .ok_or(CryptoError::MissingField("login"))?;
-                    CipherListViewType::Login {
-                        has_fido2: login.fido2_credentials.is_some(),
-                        totp: login.totp.clone(),
-                    }
+                    CipherListViewType::Login(login.decrypt_with_key(key)?)
                 }
                 CipherType::SecureNote => CipherListViewType::SecureNote,
                 CipherType::Card => CipherListViewType::Card,
@@ -574,6 +571,7 @@ impl KeyDecryptable<SymmetricCryptoKey, CipherListView> for Cipher {
             },
             favorite: self.favorite,
             reprompt: self.reprompt,
+            organization_use_totp: self.organization_use_totp,
             edit: self.edit,
             view_password: self.view_password,
             attachments: self
@@ -802,13 +800,15 @@ mod tests {
                 collection_ids: cipher.collection_ids,
                 key: cipher.key,
                 name: "My test login".to_string(),
-                sub_title: "test_username".to_string(),
-                r#type: CipherListViewType::Login {
+                subtitle: "test_username".to_string(),
+                r#type: CipherListViewType::Login(LoginListView {
                     has_fido2: true,
-                    totp: cipher.login.as_ref().unwrap().totp.clone()
-                },
+                    totp: cipher.login.as_ref().unwrap().totp.clone(),
+                    uris: None,
+                }),
                 favorite: cipher.favorite,
                 reprompt: cipher.reprompt,
+                organization_use_totp: cipher.organization_use_totp,
                 edit: cipher.edit,
                 view_password: cipher.view_password,
                 attachments: 0,
