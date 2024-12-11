@@ -1,5 +1,7 @@
+/// A struct containing fields of all known feature flags and their values.
 #[derive(Debug, Default, Clone, serde::Deserialize)]
 pub struct Flags {
+    /// A `bool` indicating whether or not cipher key encryption is enabled.
     #[serde(default, rename = "enableCipherKeyEncryption")]
     pub enable_cipher_key_encryption: bool,
 }
