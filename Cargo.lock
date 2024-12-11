@@ -545,6 +545,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-ipc"
+version = "1.0.0"
+
+[[package]]
 name = "bitwarden-send"
 version = "1.0.0"
 dependencies = [
