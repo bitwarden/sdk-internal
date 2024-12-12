@@ -26,7 +26,7 @@ pub enum CryptoError {
     #[error("Missing Key for Ref. {0}")]
     MissingKey2(String),
     #[error("Crypto store is read-only")]
-    ReadOnlyCryptoStore,
+    ReadOnlyKeyStore,
 
     #[error("Insufficient KDF parameters")]
     InsufficientKdfParameters,

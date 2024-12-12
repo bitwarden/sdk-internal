@@ -3,8 +3,7 @@ pub use key_encryptable::{CryptoKey, KeyContainer, KeyDecryptable, KeyEncryptabl
 mod encryptable;
 pub use encryptable::{Decryptable, Encryptable, UsesKey};
 pub mod key_ref;
-pub(crate) use key_ref::KeyRef;
-pub use key_ref::{AsymmetricKeyRef, SymmetricKeyRef};
+pub use key_ref::{KeyRef, KeyRefs};
 mod master_key;
 pub use master_key::{
     default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,

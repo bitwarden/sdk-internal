@@ -2,17 +2,18 @@ use std::marker::PhantomData;
 
 use zeroize::ZeroizeOnDrop;
 
-use super::KeyStore;
+use super::StoreBackend;
 use crate::KeyRef;
 
-/// This trait represents some data stored sequentially in memory, with a fixed size.
+/// This trait represents some data stored sequentially in memory, with a fixed size,
+/// that can be represented as a (Key, Value) slice.
 /// We use this to abstract the implementation over Vec/Box<[u8]/NonNull<[u8]>, which
 /// helps contain any unsafe code to the implementations of this trait.
 /// Implementations of this trait should ensure that the initialized data is protected
 /// as much as possible. The data is already Zeroized on Drop, so implementations should
 /// only need to worry about removing any protections they've added, or releasing any resources.
 #[allow(drop_bounds)]
-pub(crate) trait KeyData<Key: KeyRef>: Send + Sync + Sized + Drop {
+pub(crate) trait SliceLike<Key: KeyRef>: Send + Sync + Sized + Drop {
     /// Check if the data store is available on this platform.
     fn is_available() -> bool;
 
@@ -33,7 +34,7 @@ pub(crate) trait KeyData<Key: KeyRef>: Send + Sync + Sized + Drop {
 /// This represents a key store over an arbitrary fixed size slice.
 /// This is meant to abstract over the different ways to store keys in memory,
 /// whether we're using a Vec, a Box<[u8]> or a NonNull<u8>.
-pub(crate) struct SliceKeyStore<Key: KeyRef, Data: KeyData<Key>> {
+pub(crate) struct SliceBackend<Key: KeyRef, Slice: SliceLike<Key>> {
     // This represents the number of elements in the container, it's always less than or equal to
     // the length of `data`.
     length: usize,
@@ -44,20 +45,20 @@ pub(crate) struct SliceKeyStore<Key: KeyRef, Data: KeyData<Key>> {
 
     // This is the actual data that stores the keys, optional as we can have it not yet
     // uninitialized
-    data: Option<Data>,
+    slice: Option<Slice>,
 
     _key: PhantomData<Key>,
 }
 
-impl<Key: KeyRef, Data: KeyData<Key>> ZeroizeOnDrop for SliceKeyStore<Key, Data> {}
+impl<Key: KeyRef, Data: SliceLike<Key>> ZeroizeOnDrop for SliceBackend<Key, Data> {}
 
-impl<Key: KeyRef, Data: KeyData<Key>> Drop for SliceKeyStore<Key, Data> {
+impl<Key: KeyRef, Data: SliceLike<Key>> Drop for SliceBackend<Key, Data> {
     fn drop(&mut self) {
         self.clear();
     }
 }
 
-impl<Key: KeyRef, Data: KeyData<Key>> KeyStore<Key> for SliceKeyStore<Key, Data> {
+impl<Key: KeyRef, Data: SliceLike<Key>> StoreBackend<Key> for SliceBackend<Key, Data> {
     fn insert(&mut self, key_ref: Key, key: Key::KeyValue) {
         match self.find_by_key_ref(&key_ref) {
             Ok(idx) => {
@@ -140,7 +141,7 @@ impl<Key: KeyRef, Data: KeyData<Key>> KeyStore<Key> for SliceKeyStore<Key, Data>
     }
 }
 
-impl<Key: KeyRef, Data: KeyData<Key>> SliceKeyStore<Key, Data> {
+impl<Key: KeyRef, Data: SliceLike<Key>> SliceBackend<Key, Data> {
     pub(crate) fn new() -> Option<Self> {
         Self::with_capacity(0)
     }
@@ -152,19 +153,11 @@ impl<Key: KeyRef, Data: KeyData<Key>> SliceKeyStore<Key, Data> {
 
         // If the capacity is 0, we don't need to allocate any memory.
         // This allows us to initialize the container lazily.
-        if capacity == 0 {
-            return Some(Self {
-                length: 0,
-                capacity: 0,
-                data: None,
-                _key: PhantomData,
-            });
-        }
-
+        let slice = (capacity != 0).then(|| Data::with_capacity(capacity));
         Some(Self {
             length: 0,
             capacity,
-            data: Some(Data::with_capacity(capacity)),
+            slice,
             _key: PhantomData,
         })
     }
@@ -213,10 +206,10 @@ impl<Key: KeyRef, Data: KeyData<Key>> SliceKeyStore<Key, Data> {
     // These two are just helper functions to avoid having to deal with the optional Data
     // When Data is None we just return empty slices, which don't allow any operations
     fn get_key_data(&self) -> &[Option<(Key, Key::KeyValue)>] {
-        self.data.as_ref().map(|d| d.get_key_data()).unwrap_or(&[])
+        self.slice.as_ref().map(|d| d.get_key_data()).unwrap_or(&[])
     }
     fn get_key_data_mut(&mut self) -> &mut [Option<(Key, Key::KeyValue)>] {
-        self.data
+        self.slice
             .as_mut()
             .map(|d| d.get_key_data_mut())
             .unwrap_or(&mut [])
@@ -271,7 +264,7 @@ pub(crate) mod tests {
     use zeroize::Zeroize;
 
     use super::*;
-    use crate::{service::key_store::implementation::rust_slice::RustKeyStore, CryptoKey, KeyRef};
+    use crate::{store::backend::implementation::rust::RustBackend, CryptoKey, KeyRef};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub enum TestKey {
@@ -309,7 +302,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_slice_container_insertion() {
-        let mut container = RustKeyStore::<TestKey>::with_capacity(5).unwrap();
+        let mut container = RustBackend::<TestKey>::with_capacity(5).unwrap();
 
         assert_eq!(container.get_key_data(), [None, None, None, None, None]);
 
@@ -420,7 +413,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_slice_container_get() {
-        let mut container = RustKeyStore::<TestKey>::with_capacity(5).unwrap();
+        let mut container = RustBackend::<TestKey>::with_capacity(5).unwrap();
 
         for (key, value) in [
             (TestKey::A, TestKeyValue::new(1)),
@@ -438,7 +431,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_slice_container_clear() {
-        let mut container = RustKeyStore::<TestKey>::with_capacity(5).unwrap();
+        let mut container = RustBackend::<TestKey>::with_capacity(5).unwrap();
 
         for (key, value) in [
             (TestKey::A, TestKeyValue::new(1)),
@@ -468,7 +461,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_slice_container_ensure_capacity() {
-        let mut container = RustKeyStore::<TestKey>::with_capacity(5).unwrap();
+        let mut container = RustBackend::<TestKey>::with_capacity(5).unwrap();
 
         assert_eq!(container.capacity, 5);
         assert_eq!(container.length, 0);
@@ -498,7 +491,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_slice_container_removal() {
-        let mut container = RustKeyStore::<TestKey>::with_capacity(5).unwrap();
+        let mut container = RustBackend::<TestKey>::with_capacity(5).unwrap();
 
         for (key, value) in [
             (TestKey::A, TestKeyValue::new(1)),
@@ -584,7 +577,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_slice_container_retain_removes_one() {
-        let mut container = RustKeyStore::<TestKey>::with_capacity(5).unwrap();
+        let mut container = RustBackend::<TestKey>::with_capacity(5).unwrap();
 
         for (key, value) in [
             (TestKey::A, TestKeyValue::new(1)),
@@ -670,7 +663,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_slice_container_retain_removes_none() {
-        let mut container = RustKeyStore::<TestKey>::with_capacity(5).unwrap();
+        let mut container = RustBackend::<TestKey>::with_capacity(5).unwrap();
 
         for (key, value) in [
             (TestKey::A, TestKeyValue::new(1)),
@@ -697,7 +690,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_slice_container_retain_removes_some() {
-        let mut container = RustKeyStore::<TestKey>::with_capacity(5).unwrap();
+        let mut container = RustBackend::<TestKey>::with_capacity(5).unwrap();
 
         for (key, value) in [
             (TestKey::A, TestKeyValue::new(1)),
@@ -724,7 +717,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_slice_container_retain_removes_all() {
-        let mut container = RustKeyStore::<TestKey>::with_capacity(5).unwrap();
+        let mut container = RustBackend::<TestKey>::with_capacity(5).unwrap();
 
         for (key, value) in [
             (TestKey::A, TestKeyValue::new(1)),

@@ -1,7 +1,7 @@
 use std::{mem::MaybeUninit, ptr::NonNull, sync::OnceLock};
 
 use super::{
-    slice::{KeyData, SliceKeyStore},
+    slice_backend::{SliceBackend, SliceLike},
     KeyRef,
 };
 
@@ -9,7 +9,7 @@ use super::{
 // This should be secure against memory dumps from anything except a malicious kernel driver.
 // Note that not all 5.14+ systems have support for memfd_secret enabled, so
 // LinuxMemfdSecretKeyStore::new returns an Option.
-pub(crate) type LinuxMemfdSecretKeyStore<Key> = SliceKeyStore<Key, MemfdSecretImplKeyData>;
+pub(crate) type LinuxMemfdSecretBackend<Key> = SliceBackend<Key, MemfdSecretImplKeyData>;
 
 pub(crate) struct MemfdSecretImplKeyData {
     ptr: std::ptr::NonNull<[u8]>,
@@ -31,7 +31,7 @@ impl Drop for MemfdSecretImplKeyData {
     }
 }
 
-impl<Key: KeyRef> KeyData<Key> for MemfdSecretImplKeyData {
+impl<Key: KeyRef> SliceLike<Key> for MemfdSecretImplKeyData {
     fn is_available() -> bool {
         static IS_SUPPORTED: OnceLock<bool> = OnceLock::new();
 
@@ -82,11 +82,11 @@ impl<Key: KeyRef> KeyData<Key> for MemfdSecretImplKeyData {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::service::key_store::{util::tests::*, KeyStore as _};
+    use crate::store::backend::{slice_backend::tests::*, StoreBackend as _};
 
     #[test]
     fn test_resize() {
-        let mut store = LinuxMemfdSecretKeyStore::<TestKey>::with_capacity(1).unwrap();
+        let mut store = LinuxMemfdSecretBackend::<TestKey>::with_capacity(1).unwrap();
 
         for (idx, key) in [
             TestKey::A,

@@ -3,82 +3,51 @@ use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 use rsa::Oaep;
 use zeroize::Zeroizing;
 
-use super::Keys;
+use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key,
-    service::{key_store::KeyStore, AsymmetricKeyRef, SymmetricKeyRef},
-    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, Result, SymmetricCryptoKey,
+    derive_shareable_key, store::backend::StoreBackend, AsymmetricCryptoKey, AsymmetricEncString,
+    CryptoError, EncString, KeyRef, KeyRefs, Result, SymmetricCryptoKey,
 };
 
-// This is to abstract over the read-only and read-write access to the global keys
-// inside the CryptoServiceContext. The read-write access should only be used internally
-// in this crate to avoid users leaving the crypto store in an inconsistent state,
-// but for the moment we have some operations that require access to it.
-pub trait GlobalAccessMode<'a, SymmKeyRef: SymmetricKeyRef, AsymmKeyRef: AsymmetricKeyRef> {
-    fn get(&self) -> &Keys<SymmKeyRef, AsymmKeyRef>;
-    fn get_mut(&mut self) -> Result<&mut Keys<SymmKeyRef, AsymmKeyRef>>;
-}
+pub struct KeyStoreContext<'a, Refs: KeyRefs> {
+    pub(super) global_keys: GlobalKeys<'a, Refs>,
 
-pub struct ReadOnlyGlobal<'a, SymmKeyRef: SymmetricKeyRef, AsymmKeyRef: AsymmetricKeyRef>(
-    pub(super) RwLockReadGuard<'a, Keys<SymmKeyRef, AsymmKeyRef>>,
-);
-
-impl<'a, SymmKeyRef: SymmetricKeyRef, AsymmKeyRef: AsymmetricKeyRef>
-    GlobalAccessMode<'a, SymmKeyRef, AsymmKeyRef> for ReadOnlyGlobal<'a, SymmKeyRef, AsymmKeyRef>
-{
-    fn get(&self) -> &Keys<SymmKeyRef, AsymmKeyRef> {
-        &self.0
-    }
-
-    fn get_mut(&mut self) -> Result<&mut Keys<SymmKeyRef, AsymmKeyRef>> {
-        Err(crate::CryptoError::ReadOnlyCryptoStore)
-    }
-}
-
-pub struct ReadWriteGlobal<'a, SymmKeyRef: SymmetricKeyRef, AsymmKeyRef: AsymmetricKeyRef>(
-    pub(super) RwLockWriteGuard<'a, Keys<SymmKeyRef, AsymmKeyRef>>,
-);
-
-impl<'a, SymmKeyRef: SymmetricKeyRef, AsymmKeyRef: AsymmetricKeyRef>
-    GlobalAccessMode<'a, SymmKeyRef, AsymmKeyRef> for ReadWriteGlobal<'a, SymmKeyRef, AsymmKeyRef>
-{
-    fn get(&self) -> &Keys<SymmKeyRef, AsymmKeyRef> {
-        &self.0
-    }
-
-    fn get_mut(&mut self) -> Result<&mut Keys<SymmKeyRef, AsymmKeyRef>> {
-        Ok(&mut self.0)
-    }
-}
-
-pub struct CryptoServiceContext<
-    'a,
-    SymmKeyRef: SymmetricKeyRef,
-    AsymmKeyRef: AsymmetricKeyRef,
-    AccessMode: GlobalAccessMode<'a, SymmKeyRef, AsymmKeyRef> = ReadOnlyGlobal<
-        'a,
-        SymmKeyRef,
-        AsymmKeyRef,
-    >,
-> {
-    pub(super) global: AccessMode,
-
-    pub(super) local_symmetric_keys: Box<dyn KeyStore<SymmKeyRef>>,
-    pub(super) local_asymmetric_keys: Box<dyn KeyStore<AsymmKeyRef>>,
+    pub(super) local_symmetric_keys: Box<dyn StoreBackend<Refs::Symmetric>>,
+    pub(super) local_asymmetric_keys: Box<dyn StoreBackend<Refs::Asymmetric>>,
 
     pub(super) _phantom: std::marker::PhantomData<&'a ()>,
 }
 
-impl<
-        'a,
-        SymmKeyRef: SymmetricKeyRef,
-        AsymmKeyRef: AsymmetricKeyRef,
-        AccessMode: GlobalAccessMode<'a, SymmKeyRef, AsymmKeyRef>,
-    > CryptoServiceContext<'a, SymmKeyRef, AsymmKeyRef, AccessMode>
-{
+// A KeyStoreContext is usually limited to a read only access to the global keys,
+// which allows us to have multiple read only contexts at the same time and do multitheaded
+// encryption/decryption. We also have the option to create a read/write context, which allows us to
+// modify the global keys, but only allows one context at a time. This is controlled by a RWLock on
+// the global keys, and this struct stores both types of guards.
+pub(crate) enum GlobalKeys<'a, Refs: KeyRefs> {
+    ReadOnly(RwLockReadGuard<'a, KeyStoreInner<Refs>>),
+    ReadWrite(RwLockWriteGuard<'a, KeyStoreInner<Refs>>),
+}
+
+impl<Refs: KeyRefs> GlobalKeys<'_, Refs> {
+    pub fn get(&self) -> &KeyStoreInner<Refs> {
+        match self {
+            GlobalKeys::ReadOnly(keys) => keys,
+            GlobalKeys::ReadWrite(keys) => keys,
+        }
+    }
+
+    pub fn get_mut(&mut self) -> Result<&mut KeyStoreInner<Refs>> {
+        match self {
+            GlobalKeys::ReadOnly(_) => Err(CryptoError::ReadOnlyKeyStore),
+            GlobalKeys::ReadWrite(keys) => Ok(keys),
+        }
+    }
+}
+
+impl<Refs: KeyRefs> KeyStoreContext<'_, Refs> {
     pub fn clear(&mut self) {
         // Clear global keys if we have write access
-        if let Ok(keys) = self.global.get_mut() {
+        if let Ok(keys) = self.global_keys.get_mut() {
             keys.symmetric_keys.clear();
             keys.asymmetric_keys.clear();
         }
@@ -87,29 +56,29 @@ impl<
         self.local_asymmetric_keys.clear();
     }
 
-    pub fn retain_symmetric_keys(&mut self, f: fn(SymmKeyRef) -> bool) {
-        if let Ok(keys) = self.global.get_mut() {
+    pub fn retain_symmetric_keys(&mut self, f: fn(Refs::Symmetric) -> bool) {
+        if let Ok(keys) = self.global_keys.get_mut() {
             keys.symmetric_keys.retain(f);
         }
         self.local_symmetric_keys.retain(f);
     }
 
-    pub fn retain_asymmetric_keys(&mut self, f: fn(AsymmKeyRef) -> bool) {
-        if let Ok(keys) = self.global.get_mut() {
+    pub fn retain_asymmetric_keys(&mut self, f: fn(Refs::Asymmetric) -> bool) {
+        if let Ok(keys) = self.global_keys.get_mut() {
             keys.asymmetric_keys.retain(f);
         }
         self.local_asymmetric_keys.retain(f);
     }
 
-    /// TODO: All these encrypt x key with x key look like they need to be made generic,
-    /// but I haven't found the best way to do that yet.
+    // TODO: All these encrypt x key with x key look like they need to be made generic,
+    // but I haven't found the best way to do that yet.
 
     pub fn decrypt_symmetric_key_with_symmetric_key(
         &mut self,
-        encryption_key: SymmKeyRef,
-        new_key_ref: SymmKeyRef,
+        encryption_key: Refs::Symmetric,
+        new_key_ref: Refs::Symmetric,
         encrypted_key: &EncString,
-    ) -> Result<SymmKeyRef> {
+    ) -> Result<Refs::Symmetric> {
         let mut new_key_material =
             self.decrypt_data_with_symmetric_key(encryption_key, encrypted_key)?;
 
@@ -125,8 +94,8 @@ impl<
 
     pub fn encrypt_symmetric_key_with_symmetric_key(
         &self,
-        encryption_key: SymmKeyRef,
-        key_to_encrypt: SymmKeyRef,
+        encryption_key: Refs::Symmetric,
+        key_to_encrypt: Refs::Symmetric,
     ) -> Result<EncString> {
         let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
         self.encrypt_data_with_symmetric_key(encryption_key, &key_to_encrypt.to_vec())
@@ -134,10 +103,10 @@ impl<
 
     pub fn decrypt_symmetric_key_with_asymmetric_key(
         &mut self,
-        encryption_key: AsymmKeyRef,
-        new_key_ref: SymmKeyRef,
+        encryption_key: Refs::Asymmetric,
+        new_key_ref: Refs::Symmetric,
         encrypted_key: &AsymmetricEncString,
-    ) -> Result<SymmKeyRef> {
+    ) -> Result<Refs::Symmetric> {
         let mut new_key_material =
             self.decrypt_data_with_asymmetric_key(encryption_key, encrypted_key)?;
 
@@ -153,8 +122,8 @@ impl<
 
     pub fn encrypt_symmetric_key_with_asymmetric_key(
         &self,
-        encryption_key: AsymmKeyRef,
-        key_to_encrypt: SymmKeyRef,
+        encryption_key: Refs::Asymmetric,
+        key_to_encrypt: Refs::Symmetric,
     ) -> Result<AsymmetricEncString> {
         let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
         self.encrypt_data_with_asymmetric_key(encryption_key, &key_to_encrypt.to_vec())
@@ -162,10 +131,10 @@ impl<
 
     pub fn decrypt_asymmetric_key(
         &mut self,
-        encryption_key: AsymmKeyRef,
-        new_key_ref: AsymmKeyRef,
+        encryption_key: Refs::Asymmetric,
+        new_key_ref: Refs::Asymmetric,
         encrypted_key: &AsymmetricEncString,
-    ) -> Result<AsymmKeyRef> {
+    ) -> Result<Refs::Asymmetric> {
         let new_key_material =
             self.decrypt_data_with_asymmetric_key(encryption_key, encrypted_key)?;
 
@@ -181,8 +150,8 @@ impl<
 
     pub fn encrypt_asymmetric_key(
         &self,
-        encryption_key: AsymmKeyRef,
-        key_to_encrypt: AsymmKeyRef,
+        encryption_key: Refs::Asymmetric,
+        key_to_encrypt: Refs::Asymmetric,
     ) -> Result<AsymmetricEncString> {
         let encryption_key = self.get_asymmetric_key(encryption_key)?;
         let key_to_encrypt = self.get_asymmetric_key(key_to_encrypt)?;
@@ -193,15 +162,15 @@ impl<
         )
     }
 
-    pub fn has_symmetric_key(&self, key_ref: SymmKeyRef) -> bool {
+    pub fn has_symmetric_key(&self, key_ref: Refs::Symmetric) -> bool {
         self.get_symmetric_key(key_ref).is_ok()
     }
 
-    pub fn has_asymmetric_key(&self, key_ref: AsymmKeyRef) -> bool {
+    pub fn has_asymmetric_key(&self, key_ref: Refs::Asymmetric) -> bool {
         self.get_asymmetric_key(key_ref).is_ok()
     }
 
-    pub fn generate_symmetric_key(&mut self, key_ref: SymmKeyRef) -> Result<SymmKeyRef> {
+    pub fn generate_symmetric_key(&mut self, key_ref: Refs::Symmetric) -> Result<Refs::Symmetric> {
         let key = SymmetricCryptoKey::generate(rand::thread_rng());
         #[allow(deprecated)]
         self.set_symmetric_key(key_ref, key)?;
@@ -210,43 +179,46 @@ impl<
 
     pub fn derive_shareable_key(
         &mut self,
-        key_ref: SymmKeyRef,
+        key_ref: Refs::Symmetric,
         secret: Zeroizing<[u8; 16]>,
         name: &str,
         info: Option<&str>,
-    ) -> Result<SymmKeyRef> {
+    ) -> Result<Refs::Symmetric> {
         #[allow(deprecated)]
         self.set_symmetric_key(key_ref, derive_shareable_key(secret, name, info))?;
         Ok(key_ref)
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
-    pub fn dangerous_get_symmetric_key(&self, key_ref: SymmKeyRef) -> Result<&SymmetricCryptoKey> {
+    pub fn dangerous_get_symmetric_key(
+        &self,
+        key_ref: Refs::Symmetric,
+    ) -> Result<&SymmetricCryptoKey> {
         self.get_symmetric_key(key_ref)
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn dangerous_get_asymmetric_key(
         &self,
-        key_ref: AsymmKeyRef,
+        key_ref: Refs::Asymmetric,
     ) -> Result<&AsymmetricCryptoKey> {
         self.get_asymmetric_key(key_ref)
     }
 
-    fn get_symmetric_key(&self, key_ref: SymmKeyRef) -> Result<&SymmetricCryptoKey> {
+    fn get_symmetric_key(&self, key_ref: Refs::Symmetric) -> Result<&SymmetricCryptoKey> {
         if key_ref.is_local() {
             self.local_symmetric_keys.get(key_ref)
         } else {
-            self.global.get().symmetric_keys.get(key_ref)
+            self.global_keys.get().symmetric_keys.get(key_ref)
         }
         .ok_or_else(|| crate::CryptoError::MissingKey2(format!("{key_ref:?}")))
     }
 
-    fn get_asymmetric_key(&self, key_ref: AsymmKeyRef) -> Result<&AsymmetricCryptoKey> {
+    fn get_asymmetric_key(&self, key_ref: Refs::Asymmetric) -> Result<&AsymmetricCryptoKey> {
         if key_ref.is_local() {
             self.local_asymmetric_keys.get(key_ref)
         } else {
-            self.global.get().asymmetric_keys.get(key_ref)
+            self.global_keys.get().asymmetric_keys.get(key_ref)
         }
         .ok_or_else(|| crate::CryptoError::MissingKey2(format!("{key_ref:?}")))
     }
@@ -254,13 +226,16 @@ impl<
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn set_symmetric_key(
         &mut self,
-        key_ref: SymmKeyRef,
+        key_ref: Refs::Symmetric,
         key: SymmetricCryptoKey,
     ) -> Result<()> {
         if key_ref.is_local() {
             self.local_symmetric_keys.insert(key_ref, key);
         } else {
-            self.global.get_mut()?.symmetric_keys.insert(key_ref, key);
+            self.global_keys
+                .get_mut()?
+                .symmetric_keys
+                .insert(key_ref, key);
         }
         Ok(())
     }
@@ -268,20 +243,23 @@ impl<
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn set_asymmetric_key(
         &mut self,
-        key_ref: AsymmKeyRef,
+        key_ref: Refs::Asymmetric,
         key: AsymmetricCryptoKey,
     ) -> Result<()> {
         if key_ref.is_local() {
             self.local_asymmetric_keys.insert(key_ref, key);
         } else {
-            self.global.get_mut()?.asymmetric_keys.insert(key_ref, key);
+            self.global_keys
+                .get_mut()?
+                .asymmetric_keys
+                .insert(key_ref, key);
         }
         Ok(())
     }
 
     pub(crate) fn decrypt_data_with_symmetric_key(
         &self,
-        key: SymmKeyRef,
+        key: Refs::Symmetric,
         data: &EncString,
     ) -> Result<Vec<u8>> {
         let key = self.get_symmetric_key(key)?;
@@ -312,7 +290,7 @@ impl<
 
     pub(crate) fn encrypt_data_with_symmetric_key(
         &self,
-        key: SymmKeyRef,
+        key: Refs::Symmetric,
         data: &[u8],
     ) -> Result<EncString> {
         let key = self.get_symmetric_key(key)?;
@@ -325,7 +303,7 @@ impl<
 
     pub(crate) fn decrypt_data_with_asymmetric_key(
         &self,
-        key: AsymmKeyRef,
+        key: Refs::Asymmetric,
         data: &AsymmetricEncString,
     ) -> Result<Vec<u8>> {
         let key = self.get_asymmetric_key(key)?;
@@ -348,7 +326,7 @@ impl<
 
     pub(crate) fn encrypt_data_with_asymmetric_key(
         &self,
-        key: AsymmKeyRef,
+        key: Refs::Asymmetric,
         data: &[u8],
     ) -> Result<AsymmetricEncString> {
         let key = self.get_asymmetric_key(key)?;

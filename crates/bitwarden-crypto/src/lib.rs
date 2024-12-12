@@ -48,7 +48,7 @@
 //! introduce conventions in how we name things, improve best practices and abstracting away
 //! internal complexity.
 //!
-//! - `CryptoService.makeSendKey` & `AccessService.createAccessToken` are replaced by the generic
+//! - `KeyStore.makeSendKey` & `AccessService.createAccessToken` are replaced by the generic
 //!   `derive_shareable_key`
 //! - MasterKey operations such as `makeMasterKey` and `hashMasterKey` are moved to the MasterKey
 //!   struct.
@@ -80,7 +80,7 @@ mod util;
 pub use util::{generate_random_alphanumeric, generate_random_bytes, pbkdf2};
 mod wordlist;
 pub use wordlist::EFF_LONG_WORD_LIST;
-pub mod service;
+pub mod store;
 
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
 

@@ -50,10 +50,8 @@ wasm-bindgen = { workspace = true, optional = true }
 zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
 zeroizing-alloc = ">=0.1.0, <0.2"
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-memsec = { version = "0.7.0", features = [
-    "alloc_ext",
-], git = "https://github.com/dani-garcia/memsec", rev = "3d2e272d284442637bac0a7d94f76883960db7e2" }
+[target.'cfg(all(not(target_arch = "wasm32"), not(windows)))'.dependencies]
+memsec = { version = "0.7.0", features = ["alloc_ext"] }
 
 [dev-dependencies]
 criterion = "0.5.1"
