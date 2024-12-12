@@ -134,7 +134,7 @@ mod tests {
     fn test_convert_date_none() {
         let datetime = convert_date(None);
         assert!(datetime > Utc::now() - Duration::seconds(1));
-        assert!(datetime < Utc::now());
+        assert!(datetime <= Utc::now());
     }
 
     #[test]
