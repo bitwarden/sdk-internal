@@ -8,7 +8,7 @@ use crate::{AsymmetricCryptoKey, CryptoKey, SymmetricCryptoKey};
 /// key store. It is used to avoid exposing the key material directly in the public API.
 ///
 /// This trait is user-implemented, and our recommended implementation is using enums with variants
-/// for each expected key purpose. We provide a macro ([key_refs]) that simplifies the trait
+/// for each expected key purpose. We provide a macro ([crate::key_refs]) that simplifies the trait
 /// implementation
 ///
 /// To implement it manually, note that you need a few types:
