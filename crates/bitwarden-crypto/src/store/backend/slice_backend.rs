@@ -5,10 +5,8 @@ use zeroize::ZeroizeOnDrop;
 use super::StoreBackend;
 use crate::KeyRef;
 
-/// This trait represents some data stored sequentially in memory, with a fixed size,
-/// that can be represented as a (Key, Value) slice.
-/// We use this to abstract the implementation over Vec/Box<[u8]/NonNull<[u8]>, which
-/// helps contain any unsafe code to the implementations of this trait.
+/// This trait represents some data stored sequentially in memory that can be interpreted as a
+/// slice.
 /// Implementations of this trait should ensure that the initialized data is protected
 /// as much as possible. The data is already Zeroized on Drop, so implementations should
 /// only need to worry about removing any protections they've added, or releasing any resources.
@@ -32,8 +30,18 @@ pub(crate) trait SliceLike<Key: KeyRef>: Send + Sync + Sized + Drop {
 }
 
 /// This represents a key store over an arbitrary fixed size slice.
-/// This is meant to abstract over the different ways to store keys in memory,
-/// whether we're using a Vec, a Box<[u8]> or a NonNull<u8>.
+/// This is meant to abstract over the different ways to store keys in memory, whether we're
+/// using a Box<[u8]> or a NonNull<u8>, regardless of if that memory was allocated by Rust or not.
+///
+/// Internally this is represented as a slice of `Option<(Key, Key::KeyValue)>`
+/// and elements are sorted based on Key for performance. In essence, this is almost a homegrown
+/// `HashMap`.
+///
+/// The reason why we're not using a Rust collection like `Vec` or `HashMap` is that those types
+/// expect their memory to be allocated by Rust, and they will deallocate/reallocate it as needed.
+/// That will not work for our usecases where we want to have control over allocations/deallocations
+/// and where some of our strategies rely on using system-allocated secure memory for the storage,
+/// like the Linux-only `memfd_secret` API.
 pub(crate) struct SliceBackend<Key: KeyRef, Slice: SliceLike<Key>> {
     // This represents the number of elements in the container, it's always less than or equal to
     // the length of `data`.
