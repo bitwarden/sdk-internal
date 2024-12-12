@@ -80,8 +80,7 @@ mod util;
 pub use util::{generate_random_alphanumeric, generate_random_bytes, pbkdf2};
 mod wordlist;
 pub use wordlist::EFF_LONG_WORD_LIST;
-mod allocator;
-pub use allocator::ZeroizingAllocator;
+pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
 
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();

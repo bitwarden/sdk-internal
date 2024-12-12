@@ -48,6 +48,7 @@ uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
+zeroizing-alloc = ">=0.1.0, <0.2"
 
 [dev-dependencies]
 criterion = "0.5.1"
