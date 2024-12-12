@@ -1,5 +1,5 @@
 use bitwarden_core::Client;
-use bitwarden_crypto::{KeyContainer, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey};
+use bitwarden_crypto::{KeyContainer, KeyDecryptable, KeyEncryptable, LocateKey};
 use bitwarden_vault::{
     Cipher, CipherView, Collection, Fido2CredentialFullView, Folder, FolderView,
 };
@@ -65,49 +65,40 @@ pub(crate) fn export_cxf(
     Ok(build_cxf(account, ciphers)?)
 }
 
-fn encrypt_import(
-    key: &SymmetricCryptoKey,
-    cipher: ImportingCipher,
-) -> Result<Cipher, ExportError> {
-    let view: CipherView = cipher.clone().into();
+fn encrypt_import(enc: &dyn KeyContainer, cipher: ImportingCipher) -> Result<Cipher, ExportError> {
+    let mut view: CipherView = cipher.clone().into();
 
-    let mut new_cipher = view.encrypt_with_key(key)?;
-
-    //  Get passkey from cipher
-    // if cipher is typpe login
+    // Get passkey from cipher if cipher is type login
     let passkey = match cipher.r#type {
         crate::CipherType::Login(login) => login.fido2_credentials,
         _ => None,
     };
 
     if let Some(passkey) = passkey {
-        let psk: Vec<bitwarden_vault::Fido2Credential> = passkey
+        let passkeys: Vec<Fido2CredentialFullView> = passkey
             .into_iter()
-            .flat_map(|p| {
-                Fido2CredentialFullView {
-                    credential_id: p.credential_id,
-                    key_type: p.key_type,
-                    key_algorithm: p.key_algorithm,
-                    key_curve: p.key_curve,
-                    key_value: p.key_value,
-                    rp_id: p.rp_id,
-                    user_handle: p.user_handle,
-                    user_name: p.user_name,
-                    counter: p.counter.to_string(),
-                    rp_name: p.rp_name,
-                    user_display_name: p.user_display_name,
-                    discoverable: p.discoverable,
-                    creation_date: p.creation_date,
-                }
-                .encrypt_with_key(key)
+            .map(|p| Fido2CredentialFullView {
+                credential_id: p.credential_id,
+                key_type: p.key_type,
+                key_algorithm: p.key_algorithm,
+                key_curve: p.key_curve,
+                key_value: p.key_value,
+                rp_id: p.rp_id,
+                user_handle: p.user_handle,
+                user_name: p.user_name,
+                counter: p.counter.to_string(),
+                rp_name: p.rp_name,
+                user_display_name: p.user_display_name,
+                discoverable: p.discoverable,
+                creation_date: p.creation_date,
             })
             .collect();
 
-        let login = new_cipher.login.as_mut().unwrap();
-        login.fido2_credentials = Some(psk);
-
-        new_cipher.login = Some(login.clone());
+        view.set_new_fido2_credentials(enc, passkeys)?;
     }
+
+    let key = view.locate_key(enc, &None)?;
+    let new_cipher = view.encrypt_with_key(key)?;
 
     Ok(new_cipher)
 }
@@ -115,12 +106,11 @@ fn encrypt_import(
 /// See [crate::ClientExporters::import_cxf] for more documentation.
 pub(crate) fn import_cxf(client: &Client, payload: String) -> Result<Vec<Cipher>, ExportError> {
     let enc = client.internal.get_encryption_settings()?;
-    let key = enc.get_key(&None)?;
 
     let ciphers = parse_cxf(payload)?;
     let ciphers: Result<Vec<Cipher>, _> = ciphers
         .into_iter()
-        .map(|c| encrypt_import(key, c))
+        .map(|c| encrypt_import(&enc, c))
         .collect();
 
     ciphers

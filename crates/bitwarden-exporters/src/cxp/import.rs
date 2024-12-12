@@ -14,17 +14,19 @@ pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxpErro
     Ok(items)
 }
 
+/// Convert a CXP timestamp to a DateTime<Utc>.
+///
+/// If the timestamp is None, the current time is used.
+fn convert_date(ts: Option<u64>) -> DateTime<Utc> {
+    ts.and_then(|ts| DateTime::from_timestamp(ts as i64, 0))
+        .unwrap_or(Utc::now())
+}
+
 fn parse_item(value: Item) -> Vec<ImportingCipher> {
     let grouped = group_credentials_by_type(value.credentials);
 
-    let creation_date = value
-        .creation_at
-        .and_then(|ts| DateTime::from_timestamp(ts as i64, 0))
-        .unwrap_or(Utc::now());
-    let revision_date = value
-        .modified_at
-        .and_then(|ts| DateTime::from_timestamp(ts as i64, 0))
-        .unwrap_or(Utc::now());
+    let creation_date = convert_date(value.creation_at);
+    let revision_date = convert_date(value.modified_at);
 
     match value.ty {
         ItemType::Login => {
@@ -82,6 +84,12 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
     }
 }
 
+/// Group credentials by type.
+///
+/// The Credential Exchange protocol allows multiple identical credentials to be stored in a single
+/// item. Currently we only support one of each type and grouping allows an easy way to fetch the
+/// first of each type. Eventually we should add support for handling multiple credentials of the
+/// same type.
 fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials {
     GroupedCredentials {
         basic_auth: credentials
@@ -108,7 +116,26 @@ struct GroupedCredentials {
 
 #[cfg(test)]
 mod tests {
+    use chrono::Duration;
+
     use super::*;
+
+    #[test]
+    fn test_convert_date() {
+        let timestamp: u64 = 1706613834;
+        let datetime = convert_date(Some(timestamp));
+        assert_eq!(
+            datetime,
+            "2024-01-30T11:23:54Z".parse::<DateTime<Utc>>().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_convert_date_none() {
+        let datetime = convert_date(None);
+        assert!(datetime > Utc::now() - Duration::seconds(1));
+        assert!(datetime < Utc::now());
+    }
 
     #[test]
     fn test_parse_item() {

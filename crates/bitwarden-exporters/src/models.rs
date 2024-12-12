@@ -25,33 +25,7 @@ impl crate::Cipher {
         let view: CipherView = cipher.decrypt_with_key(key)?;
 
         let r = match view.r#type {
-            CipherType::Login => {
-                let l = require!(view.login.clone());
-
-                crate::CipherType::Login(Box::new(crate::Login {
-                    username: l.username,
-                    password: l.password,
-                    login_uris: l
-                        .uris
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(|u| u.into())
-                        .collect(),
-                    totp: l.totp,
-                    fido2_credentials: {
-                        if l.fido2_credentials.is_some() {
-                            let credentials = view.get_fido2_credentials(enc)?;
-                            if credentials.is_empty() {
-                                None
-                            } else {
-                                Some(credentials.into_iter().map(|c| c.into()).collect())
-                            }
-                        } else {
-                            None
-                        }
-                    },
-                }))
-            }
+            CipherType::Login => crate::CipherType::Login(Box::new(from_login(&view, enc)?)),
             CipherType::SecureNote => {
                 let s = require!(view.secure_note);
                 crate::CipherType::SecureNote(Box::new(s.into()))
@@ -89,6 +63,34 @@ impl crate::Cipher {
             deleted_date: view.deleted_date,
         })
     }
+}
+
+/// Convert a `LoginView` into a `crate::Login`.
+fn from_login(
+    view: &CipherView,
+    enc: &dyn KeyContainer,
+) -> Result<crate::Login, MissingFieldError> {
+    let l = require!(view.login.clone());
+
+    Ok(crate::Login {
+        username: l.username,
+        password: l.password,
+        login_uris: l
+            .uris
+            .unwrap_or_default()
+            .into_iter()
+            .map(|u| u.into())
+            .collect(),
+        totp: l.totp,
+        fido2_credentials: l.fido2_credentials.as_ref().and_then(|_| {
+            let credentials = view.get_fido2_credentials(enc).ok()?;
+            if credentials.is_empty() {
+                None
+            } else {
+                Some(credentials.into_iter().map(|c| c.into()).collect())
+            }
+        }),
+    })
 }
 
 impl From<LoginUriView> for crate::LoginUri {
@@ -229,7 +231,55 @@ mod tests {
     }
 
     #[test]
-    fn test_try_from_cipher_view_login() {
+    fn test_from_login() {
+        let enc = MockKeyContainer(SymmetricCryptoKey::generate(rand::thread_rng()));
+
+        let view = CipherView {
+            r#type: CipherType::Login,
+            login: Some(LoginView {
+                username: Some("test_username".to_string()),
+                password: Some("test_password".to_string()),
+                password_revision_date: None,
+                uris: None,
+                totp: None,
+                autofill_on_page_load: None,
+                fido2_credentials: None,
+            }),
+            id: "fd411a1a-fec8-4070-985d-0e6560860e69".parse().ok(),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: "My login".to_string(),
+            notes: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: true,
+            edit: true,
+            view_password: true,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+        };
+
+        let login = from_login(&view, &enc).unwrap();
+
+        assert_eq!(login.username, Some("test_username".to_string()));
+        assert_eq!(login.password, Some("test_password".to_string()));
+        assert!(login.login_uris.is_empty());
+        assert_eq!(login.totp, None);
+    }
+
+    #[test]
+    fn test_from_cipher_login() {
         let enc = MockKeyContainer(SymmetricCryptoKey::generate(rand::thread_rng()));
 
         let cipher_view = CipherView {
