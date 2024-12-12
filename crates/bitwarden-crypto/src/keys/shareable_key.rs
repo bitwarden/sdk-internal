@@ -12,7 +12,7 @@ use crate::{
 
 /// Derive a shareable key using hkdf from secret and name.
 ///
-/// A specialized variant of this function was called `KeyStore.makeSendKey` in the Bitwarden
+/// A specialized variant of this function was called `CryptoService.makeSendKey` in the Bitwarden
 /// `clients` repository.
 pub fn derive_shareable_key(
     secret: Zeroizing<[u8; 16]>,

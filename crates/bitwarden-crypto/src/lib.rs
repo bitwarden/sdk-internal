@@ -48,7 +48,7 @@
 //! introduce conventions in how we name things, improve best practices and abstracting away
 //! internal complexity.
 //!
-//! - `KeyStore.makeSendKey` & `AccessService.createAccessToken` are replaced by the generic
+//! - `CryptoService.makeSendKey` & `AccessService.createAccessToken` are replaced by the generic
 //!   `derive_shareable_key`
 //! - MasterKey operations such as `makeMasterKey` and `hashMasterKey` are moved to the MasterKey
 //!   struct.
