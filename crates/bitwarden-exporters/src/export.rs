@@ -1,8 +1,6 @@
 use bitwarden_core::Client;
 use bitwarden_crypto::{KeyContainer, KeyDecryptable, KeyEncryptable, LocateKey};
-use bitwarden_vault::{
-    Cipher, CipherView, Collection, Fido2CredentialFullView, Folder, FolderView,
-};
+use bitwarden_vault::{Cipher, CipherView, Collection, Folder, FolderView};
 
 use crate::{
     csv::export_csv,
@@ -75,24 +73,7 @@ fn encrypt_import(enc: &dyn KeyContainer, cipher: ImportingCipher) -> Result<Cip
     };
 
     if let Some(passkey) = passkey {
-        let passkeys: Vec<Fido2CredentialFullView> = passkey
-            .into_iter()
-            .map(|p| Fido2CredentialFullView {
-                credential_id: p.credential_id,
-                key_type: p.key_type,
-                key_algorithm: p.key_algorithm,
-                key_curve: p.key_curve,
-                key_value: p.key_value,
-                rp_id: p.rp_id,
-                user_handle: p.user_handle,
-                user_name: p.user_name,
-                counter: p.counter.to_string(),
-                rp_name: p.rp_name,
-                user_display_name: p.user_display_name,
-                discoverable: p.discoverable,
-                creation_date: p.creation_date,
-            })
-            .collect();
+        let passkeys = passkey.into_iter().map(|p| p.into()).collect();
 
         view.set_new_fido2_credentials(enc, passkeys)?;
     }

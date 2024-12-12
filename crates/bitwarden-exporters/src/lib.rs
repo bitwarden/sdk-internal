@@ -1,6 +1,8 @@
 use std::fmt;
 
-use bitwarden_vault::{CipherRepromptType, CipherView, LoginUriView, UriMatchType};
+use bitwarden_vault::{
+    CipherRepromptType, CipherView, Fido2CredentialFullView, LoginUriView, UriMatchType,
+};
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use uuid::Uuid;
@@ -217,6 +219,26 @@ pub struct Fido2Credential {
     pub user_display_name: Option<String>,
     pub discoverable: String,
     pub creation_date: DateTime<Utc>,
+}
+
+impl From<Fido2Credential> for Fido2CredentialFullView {
+    fn from(value: Fido2Credential) -> Self {
+        Fido2CredentialFullView {
+            credential_id: value.credential_id,
+            key_type: value.key_type,
+            key_algorithm: value.key_algorithm,
+            key_curve: value.key_curve,
+            key_value: value.key_value,
+            rp_id: value.rp_id,
+            user_handle: value.user_handle,
+            user_name: value.user_name,
+            counter: value.counter.to_string(),
+            rp_name: value.rp_name,
+            user_display_name: value.user_display_name,
+            discoverable: value.discoverable,
+            creation_date: value.creation_date,
+        }
+    }
 }
 
 #[derive(Clone)]

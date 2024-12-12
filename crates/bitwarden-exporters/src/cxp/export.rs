@@ -206,8 +206,8 @@ impl TryFrom<Fido2Credential> for PasskeyCredential {
                 .map_err(PasskeyError::InvalidGuid)?
                 .into(),
             rp_id: value.rp_id,
-            user_name: value.user_name.unwrap_or("".to_string()),
-            user_display_name: value.user_display_name.unwrap_or("".to_string()),
+            user_name: value.user_name.unwrap_or_default(),
+            user_display_name: value.user_display_name.unwrap_or_default(),
             user_handle: value
                 .user_handle
                 .map(|v| URL_SAFE_NO_PAD.decode(v))
