@@ -359,11 +359,6 @@ struct ContentView: View {
         ))
 
         let _ = try await authenticator.silentlyDiscoverCredentials(rpId: "")
-
-        // Only on android!
-        let client = clientFido.client(userInterface: ui, credentialStore: cs)
-        let _ = try await client.authenticate(origin: "test", request: "test", clientData: ClientData.defaultWithExtraData(androidPackageName: "abc"))
-        let _ = try await client.register(origin: "test", request: "test", clientData: ClientData.defaultWithExtraData(androidPackageName: "abc"))
     }
 
 }

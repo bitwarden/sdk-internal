@@ -20,6 +20,6 @@
   },
   "devDependencies": {
     "@openapitools/openapi-generator-cli": "2.13.4",
-    "prettier": "3.3.3"
+    "prettier": "3.4.2"
   }
 }
