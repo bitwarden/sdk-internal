@@ -199,6 +199,45 @@ mod tests {
             extensions: None,
         };
 
-        let _ciphers: Vec<ImportingCipher> = parse_item(item);
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        assert_eq!(cipher.folder_id, None);
+        assert_eq!(cipher.name, "opotonniee.github.io");
+
+        let login = match &cipher.r#type {
+            CipherType::Login(login) => login,
+            _ => panic!("Expected login"),
+        };
+
+        assert_eq!(login.username, None);
+        assert_eq!(login.password, None);
+        assert_eq!(login.login_uris.len(), 0);
+        assert_eq!(login.totp, None);
+
+        let passkey = login.fido2_credentials.as_ref().unwrap().first().unwrap();
+        assert_eq!(passkey.credential_id, "b64.6NiHiekW4ZY8vYHa-ucbvA");
+        assert_eq!(passkey.key_type, "public-key");
+        assert_eq!(passkey.key_algorithm, "ECDSA");
+        assert_eq!(passkey.key_curve, "P-256");
+        assert_eq!(
+            passkey.key_value,
+            "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgPzvtWYWmIsvqqr3LsZB0K-cbjuhJSGTGziL1LksHAPShRANCAAT-vqHTyEDS9QBNNi2BNLyu6TunubJT_L3G3i7KLpEDhMD15hi24IjGBH0QylJIrvlT4JN2tdRGF436XGc-VoAl"
+        );
+        assert_eq!(passkey.rp_id, "opotonniee.github.io");
+        assert_eq!(
+            passkey.user_handle.as_ref().map(|h| h.to_string()).unwrap(),
+            "YWxleCBtdWxsZXI"
+        );
+        assert_eq!(passkey.user_name, Some("alex muller".to_string()));
+        assert_eq!(passkey.counter, 0);
+        assert_eq!(passkey.rp_name, Some("opotonniee.github.io".to_string()));
+        assert_eq!(passkey.user_display_name, Some("alex muller".to_string()));
+        assert_eq!(passkey.discoverable, "true");
+        assert_eq!(
+            passkey.creation_date,
+            "2024-11-21T09:39:46Z".parse::<DateTime<Utc>>().unwrap()
+        );
     }
 }
