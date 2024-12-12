@@ -49,6 +49,7 @@ pub trait KeyRefs {
 ///     pub enum AsymmKeyRef {
 ///         PrivateKey,
 ///     }
+///     pub Refs => SymmKeyRef, AsymmKeyRef;
 /// }
 #[macro_export]
 macro_rules! key_refs {

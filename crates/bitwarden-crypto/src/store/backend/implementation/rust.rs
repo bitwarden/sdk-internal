@@ -40,6 +40,7 @@ impl<Key: KeyRef> SliceLike<Key> for RustBackendImpl<Key> {
     }
 }
 
+#[allow(unused_variables)]
 fn mlock_data<T>(data: &mut [T]) {
     #[cfg(all(
         not(target_arch = "wasm32"),
@@ -53,6 +54,7 @@ fn mlock_data<T>(data: &mut [T]) {
     }
 }
 
+#[allow(unused_variables)]
 fn munlock_data<T: Default>(data: &mut [T]) {
     #[cfg(all(
         not(target_arch = "wasm32"),
