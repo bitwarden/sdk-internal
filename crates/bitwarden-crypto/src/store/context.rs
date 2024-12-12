@@ -9,6 +9,54 @@ use crate::{
     CryptoError, EncString, KeyRef, KeyRefs, Result, SymmetricCryptoKey,
 };
 
+/// The context of a crypto operation using [super::KeyStore]
+///
+/// This will usually be accessed from an implementation of [crate::Decryptable] or
+/// [crate::Encryptable], but can also be obtained through [super::KeyStore::context]
+///
+/// This context contains access to the user keys stored in the [super::KeyStore] (sometimes refered
+/// to as `global keys`) and it also contains it's own individual secure backend for key storage.
+/// Keys stored in this individual backend are usually refered to as `local keys`, they will be
+/// cleared when this context goes out of scope and is dropped and they do not affect either the
+/// global [super::KeyStore] or other instances of contexts.
+///
+/// This context-local storage is recommended for ephemeral and temporary keys that are decrypted
+/// during the course of a decrypt/encrypt operation, but won't be used after the operation itself
+/// is complete.
+///
+/// ```rust
+/// # use bitwarden_crypto::{*, store::*};
+/// # key_refs! {
+/// #     #[symmetric]
+/// #     pub enum SymmKeyRef {
+/// #         User,
+/// #         Local(&'static str),
+/// #     }
+/// #     #[asymmetric]
+/// #     pub enum AsymmKeyRef {
+/// #         UserPrivate,
+/// #     }
+/// #     pub Refs => SymmKeyRef, AsymmKeyRef;
+/// # }
+/// struct Data {
+///     key: EncString,
+///     name: String,
+/// }
+/// # impl UsesKey<SymmKeyRef> for Data {
+/// #    fn uses_key(&self) -> SymmKeyRef {
+/// #        SymmKeyRef::User
+/// #    }
+/// # }
+///
+/// const LOCAL_KEY: SymmKeyRef = SymmKeyRef::Local("local_key_id");
+///
+/// impl Encryptable<Refs, SymmKeyRef, EncString> for Data {
+///     fn encrypt(&self, ctx: &mut KeyStoreContext<Refs>, key: SymmKeyRef) -> Result<EncString, CryptoError> {
+///         let local_key_ref = ctx.decrypt_symmetric_key_with_symmetric_key(key, LOCAL_KEY, &self.key)?;
+///         self.name.encrypt(ctx, local_key_ref)
+///     }
+/// }
+/// ```
 pub struct KeyStoreContext<'a, Refs: KeyRefs> {
     pub(super) global_keys: GlobalKeys<'a, Refs>,
 
