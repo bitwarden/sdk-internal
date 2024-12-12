@@ -7,7 +7,8 @@ pub trait UsesKey<Key: KeyRef> {
 }
 
 /// An encryption operation that takes the input value and encrypts it into the output value.
-/// Implementations should generally consist of calling [Encryptable::encrypt] for all the fields of the type.
+/// Implementations should generally consist of calling [Encryptable::encrypt] for all the fields of
+/// the type.
 pub trait Encryptable<Refs: KeyRefs, Key: KeyRef, Output> {
     fn encrypt(
         &self,
@@ -17,7 +18,8 @@ pub trait Encryptable<Refs: KeyRefs, Key: KeyRef, Output> {
 }
 
 /// A decryption operation that takes the input value and decrypts it into the output value.
-/// Implementations should generally consist of calling [Decryptable::decrypt] for all the fields of the type.
+/// Implementations should generally consist of calling [Decryptable::decrypt] for all the fields of
+/// the type.
 pub trait Decryptable<Refs: KeyRefs, Key: KeyRef, Output> {
     fn decrypt(
         &self,
