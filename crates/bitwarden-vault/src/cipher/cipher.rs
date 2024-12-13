@@ -668,7 +668,7 @@ impl From<bitwarden_api_api::models::CipherType> for CipherType {
             bitwarden_api_api::models::CipherType::SecureNote => CipherType::SecureNote,
             bitwarden_api_api::models::CipherType::Card => CipherType::Card,
             bitwarden_api_api::models::CipherType::Identity => CipherType::Identity,
-            // TODO: add ssh_key when api bindings have been updated
+            bitwarden_api_api::models::CipherType::SSHKey => CipherType::SshKey,
         }
     }
 }

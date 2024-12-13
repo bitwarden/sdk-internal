@@ -510,7 +510,10 @@ pub async fn organization_sponsorship_sync_post(
 pub async fn organization_sponsorship_validate_token_post(
     configuration: &configuration::Configuration,
     sponsorship_token: Option<&str>,
-) -> Result<bool, Error<OrganizationSponsorshipValidateTokenPostError>> {
+) -> Result<
+    models::PreValidateSponsorshipResponseModel,
+    Error<OrganizationSponsorshipValidateTokenPostError>,
+> {
     let local_var_configuration = configuration;
 
     let local_var_client = &local_var_configuration.client;

@@ -38,6 +38,7 @@ pub enum PolicyType {
     DisablePersonalVaultExport = 10, // Disable personal vault export
     ActivateAutofill = 11,           // Activates autofill with page load on the browser extension
     AutomaticAppLogIn = 12,
+    FreeFamiliesSponsorshipPolicy = 13,
 }
 
 impl TryFrom<PolicyResponseModel> for Policy {
@@ -81,6 +82,9 @@ impl From<bitwarden_api_api::models::PolicyType> for PolicyType {
             bitwarden_api_api::models::PolicyType::ActivateAutofill => PolicyType::ActivateAutofill,
             bitwarden_api_api::models::PolicyType::AutomaticAppLogIn => {
                 PolicyType::AutomaticAppLogIn
+            }
+            bitwarden_api_api::models::PolicyType::FreeFamiliesSponsorshipPolicy => {
+                PolicyType::FreeFamiliesSponsorshipPolicy
             }
         }
     }
