@@ -238,3 +238,79 @@ fn batch_chunk_size(len: usize) -> usize {
     // but it seems to work well in practice.
     usize::max(1 + len / rayon::current_num_threads(), 50)
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        key_ref::tests::{TestRefs, TestSymmKey},
+        store::{KeyStore, KeyStoreContext},
+        EncString, SymmetricCryptoKey,
+    };
+
+    pub struct DataView(pub String,pub TestSymmKey);
+    pub struct Data(pub EncString, pub TestSymmKey);
+
+    impl crate::UsesKey<TestSymmKey> for DataView {
+        fn uses_key(&self) -> TestSymmKey {
+            self.1
+        }
+    }
+
+    impl crate::UsesKey<TestSymmKey> for Data {
+        fn uses_key(&self) -> TestSymmKey {
+            self.1
+        }
+    }
+
+    impl crate::Encryptable<TestRefs, TestSymmKey, Data> for DataView {
+        fn encrypt(
+            &self,
+            ctx: &mut KeyStoreContext<TestRefs>,
+            key: TestSymmKey,
+        ) -> Result<Data, crate::CryptoError> {
+            Ok(Data(self.0.encrypt(ctx, key)?, key))
+        }
+    }
+
+    impl crate::Decryptable<TestRefs, TestSymmKey, DataView> for Data {
+        fn decrypt(
+            &self,
+            ctx: &mut KeyStoreContext<TestRefs>,
+            key: TestSymmKey,
+        ) -> Result<DataView, crate::CryptoError> {
+            Ok(DataView(self.0.decrypt(ctx, key)?, key))
+        }
+    }
+
+    #[test]
+    fn test_multithread_decrypt_keeps_order() {
+        let mut rng = rand::thread_rng();
+        let store: KeyStore<TestRefs> = KeyStore::new();
+
+        // Create a bunch of random keys
+        for n in 0..15 {
+            #[allow(deprecated)]
+            store
+                .context_mut()
+                .set_symmetric_key(TestSymmKey::A(n), SymmetricCryptoKey::generate(&mut rng))
+                .unwrap();
+        }
+
+        // Create some test data
+        let data: Vec<_> = (0..200)
+            .map(|n| DataView(format!("Test {}", n), TestSymmKey::A(n % 15)))
+            .collect();
+
+        // Encrypt the data
+        let encrypted: Vec<_> = store.encrypt_list(&data).unwrap();
+
+        // Decrypt the data
+        let decrypted: Vec<_> = store.decrypt_list(&encrypted).unwrap();
+
+        // Check that the data is the same, and in the same order as the original
+        for (orig, dec) in data.iter().zip(decrypted.iter()) {
+            assert_eq!(orig.0, dec.0);
+            assert_eq!(orig.1, dec.1);
+        }
+    }
+}

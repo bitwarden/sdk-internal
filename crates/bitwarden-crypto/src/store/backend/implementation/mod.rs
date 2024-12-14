@@ -14,3 +14,23 @@ pub fn create_store<Key: KeyRef>() -> Box<dyn StoreBackend<Key>> {
 
     Box::new(rust::RustBackend::new().expect("RustKeyStore should always be available"))
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{key_ref::tests::TestSymmKey, SymmetricCryptoKey};
+
+    use super::*;
+
+    #[test]
+    fn test_creates_a_valid_store() {
+        let mut store = create_store::<TestSymmKey>();
+
+        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        store.insert(TestSymmKey::A(0), key.clone());
+
+        assert_eq!(
+            store.get(TestSymmKey::A(0)).unwrap().to_base64(),
+            key.to_base64()
+        );
+    }
+}

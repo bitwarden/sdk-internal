@@ -100,3 +100,43 @@ macro_rules! key_refs {
     ( @variant_value local ) => { true };
     ( @variant_value ) => { false };
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use crate::KeyRef;
+
+    key_refs! {
+        #[symmetric]
+        pub enum TestSymmKey {
+            A(u8),
+
+            // We only support one variant value,
+            // but that value can be a tuple
+            B((u8, u8)),
+
+            #[local]
+            C(u8),
+        }
+
+        #[asymmetric]
+        pub enum TestAsymmKey {
+            A(u8),
+            B,
+            #[local]
+            C(&'static str),
+        }
+
+       pub TestRefs => TestSymmKey, TestAsymmKey;
+    }
+
+    #[test]
+    fn test_local() {
+        assert!(!TestSymmKey::A(0).is_local());
+        assert!(!TestSymmKey::B((4, 10)).is_local());
+        assert!(TestSymmKey::C(8).is_local());
+
+        assert!(!TestAsymmKey::A(0).is_local());
+        assert!(!TestAsymmKey::B.is_local());
+        assert!(TestAsymmKey::C("test").is_local());
+    }
+}

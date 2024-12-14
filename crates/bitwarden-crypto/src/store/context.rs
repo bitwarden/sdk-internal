@@ -1,4 +1,7 @@
-use std::sync::{RwLockReadGuard, RwLockWriteGuard};
+use std::{
+    cell::Cell,
+    sync::{RwLockReadGuard, RwLockWriteGuard},
+};
 
 use rsa::Oaep;
 use zeroize::Zeroizing;
@@ -57,13 +60,15 @@ use crate::{
 ///     }
 /// }
 /// ```
+#[must_use]
 pub struct KeyStoreContext<'a, Refs: KeyRefs> {
     pub(super) global_keys: GlobalKeys<'a, Refs>,
 
     pub(super) local_symmetric_keys: Box<dyn StoreBackend<Refs::Symmetric>>,
     pub(super) local_asymmetric_keys: Box<dyn StoreBackend<Refs::Asymmetric>>,
 
-    pub(super) _phantom: std::marker::PhantomData<&'a ()>,
+    // Make sure the context is !Send & !Sync
+    pub(super) _phantom: std::marker::PhantomData<(Cell<()>, RwLockReadGuard<'static, ()>)>,
 }
 
 // A KeyStoreContext is usually limited to a read only access to the global keys,
@@ -379,5 +384,82 @@ impl<Refs: KeyRefs> KeyStoreContext<'_, Refs> {
     ) -> Result<AsymmetricEncString> {
         let key = self.get_asymmetric_key(key)?;
         AsymmetricEncString::encrypt_rsa2048_oaep_sha1(data, key)
+    }
+}
+
+#[cfg(test)]
+#[allow(deprecated)]
+mod tests {
+    use crate::{
+        key_ref::tests::{TestRefs, TestSymmKey},
+        store::{tests::DataView, KeyStore},
+        Decryptable, Encryptable, SymmetricCryptoKey,
+    };
+
+    #[test]
+    fn test_set_keys_for_encryption() {
+        let mut rng = rand::thread_rng();
+        let store: KeyStore<TestRefs> = KeyStore::new();
+
+        // Generate and insert a key
+        let key_a0_ref = TestSymmKey::A(0);
+        let key_a0 = SymmetricCryptoKey::generate(&mut rng);
+
+        store
+            .context_mut()
+            .set_symmetric_key(TestSymmKey::A(0), key_a0.clone())
+            .unwrap();
+
+        assert!(store.context().has_symmetric_key(key_a0_ref));
+
+        // Encrypt some data with the key
+        let data = DataView("Hello, World!".to_string(), key_a0_ref);
+        let _encrypted = data.encrypt(&mut store.context(), key_a0_ref).unwrap();
+    }
+
+    #[test]
+    fn test_key_encryption() {
+        let mut rng = rand::thread_rng();
+        let store: KeyStore<TestRefs> = KeyStore::new();
+
+        let mut ctx = store.context();
+
+        // Generate and insert a key
+        let key_1_ref = TestSymmKey::C(1);
+        let key_1 = SymmetricCryptoKey::generate(&mut rng);
+
+        ctx.set_symmetric_key(key_1_ref, key_1.clone()).unwrap();
+
+        assert!(store.context().has_symmetric_key(key_1_ref));
+
+        // Generate and insert a new key
+        let key_2_ref = TestSymmKey::C(2);
+        let key_2 = SymmetricCryptoKey::generate(&mut rng);
+
+        ctx.set_symmetric_key(key_2_ref, key_2.clone()).unwrap();
+
+        assert!(store.context().has_symmetric_key(key_2_ref));
+
+        // Encrypt the new key with the old key
+        let key_2_enc = ctx
+            .encrypt_symmetric_key_with_symmetric_key(key_1_ref, key_2_ref)
+            .unwrap();
+
+        // Decrypt the new key with the old key in a different reference
+        let new_key_ref = TestSymmKey::C(3);
+
+        ctx.decrypt_symmetric_key_with_symmetric_key(key_1_ref, new_key_ref, &key_2_enc)
+            .unwrap();
+
+        // Now `key_2_ref` and `new_key_ref` contain the same key, so we should be able to encrypt with one and decrypt with the other
+
+        let data = DataView("Hello, World!".to_string(), key_2_ref);
+        let encrypted = data.encrypt(&mut ctx, key_2_ref).unwrap();
+
+        let decrypted1 = encrypted.decrypt(&mut ctx, key_2_ref).unwrap();
+        let decrypted2 = encrypted.decrypt(&mut ctx, new_key_ref).unwrap();
+
+        // Assert that the decrypted data is the same
+        assert_eq!(decrypted1.0, decrypted2.0);
     }
 }
