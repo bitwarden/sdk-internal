@@ -17,9 +17,8 @@ pub fn create_store<Key: KeyRef>() -> Box<dyn StoreBackend<Key>> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{key_ref::tests::TestSymmKey, SymmetricCryptoKey};
-
     use super::*;
+    use crate::{key_ref::tests::TestSymmKey, SymmetricCryptoKey};
 
     #[test]
     fn test_creates_a_valid_store() {

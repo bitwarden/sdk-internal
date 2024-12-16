@@ -247,7 +247,7 @@ mod tests {
         EncString, SymmetricCryptoKey,
     };
 
-    pub struct DataView(pub String,pub TestSymmKey);
+    pub struct DataView(pub String, pub TestSymmKey);
     pub struct Data(pub EncString, pub TestSymmKey);
 
     impl crate::UsesKey<TestSymmKey> for DataView {
