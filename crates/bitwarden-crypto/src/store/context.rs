@@ -495,7 +495,7 @@ mod tests {
 
         ctx.set_symmetric_key(key_1_ref, key_1.clone()).unwrap();
 
-        assert!(store.context().has_symmetric_key(key_1_ref));
+        assert!(ctx.has_symmetric_key(key_1_ref));
 
         // Generate and insert a new key
         let key_2_ref = TestSymmKey::C(2);
@@ -503,7 +503,7 @@ mod tests {
 
         ctx.set_symmetric_key(key_2_ref, key_2.clone()).unwrap();
 
-        assert!(store.context().has_symmetric_key(key_2_ref));
+        assert!(ctx.has_symmetric_key(key_2_ref));
 
         // Encrypt the new key with the old key
         let key_2_enc = ctx
