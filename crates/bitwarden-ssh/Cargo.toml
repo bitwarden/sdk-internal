@@ -32,7 +32,9 @@ ssh-key = { version = "0.6.7", features = [
     "encryption",
     "rsa",
     "getrandom",
-] }
+    "rand_core",
+    "std",
+], default-features = false }
 thiserror = { workspace = true }
 tsify-next = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }

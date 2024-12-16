@@ -59,8 +59,9 @@ fn generate_sshkey_internal(
 mod tests {
     use rand::SeedableRng;
 
+    use crate::generator::generate_sshkey_internal;
+
     use super::KeyAlgorithm;
-    use crate::generate_sshkey_internal;
 
     #[test]
     fn generate_ssh_key_ed25519() {
