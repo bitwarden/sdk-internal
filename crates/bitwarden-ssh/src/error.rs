@@ -9,3 +9,16 @@ pub enum KeyGenerationError {
     #[error("Failed to convert key: {0}")]
     KeyConversionError(ssh_key::Error),
 }
+
+#[bitwarden_error(flat)]
+#[derive(Error, Debug, PartialEq)]
+pub enum SshKeyImportError {
+    #[error("Failed to parse key")]
+    ParsingError,
+    #[error("Password required")]
+    PasswordRequired,
+    #[error("Wrong password")]
+    WrongPassword,
+    #[error("Unsupported key type")]
+    UnsupportedKeyType,
+}
