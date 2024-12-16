@@ -41,6 +41,28 @@ pub struct RegisterFinishRequestModel {
     pub organization_user_id: Option<uuid::Uuid>,
     #[serde(rename = "orgInviteToken", skip_serializing_if = "Option::is_none")]
     pub org_invite_token: Option<String>,
+    #[serde(
+        rename = "orgSponsoredFreeFamilyPlanToken",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub org_sponsored_free_family_plan_token: Option<String>,
+    #[serde(
+        rename = "acceptEmergencyAccessInviteToken",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub accept_emergency_access_invite_token: Option<String>,
+    #[serde(
+        rename = "acceptEmergencyAccessId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub accept_emergency_access_id: Option<uuid::Uuid>,
+    #[serde(
+        rename = "providerInviteToken",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub provider_invite_token: Option<String>,
+    #[serde(rename = "providerUserId", skip_serializing_if = "Option::is_none")]
+    pub provider_user_id: Option<uuid::Uuid>,
 }
 
 impl RegisterFinishRequestModel {
@@ -65,6 +87,11 @@ impl RegisterFinishRequestModel {
             kdf_parallelism: None,
             organization_user_id: None,
             org_invite_token: None,
+            org_sponsored_free_family_plan_token: None,
+            accept_emergency_access_invite_token: None,
+            accept_emergency_access_id: None,
+            provider_invite_token: None,
+            provider_user_id: None,
         }
     }
 }

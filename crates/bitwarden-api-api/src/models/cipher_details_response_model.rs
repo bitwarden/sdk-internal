@@ -36,6 +36,8 @@ pub struct CipherDetailsResponseModel {
     pub identity: Option<Box<models::CipherIdentityModel>>,
     #[serde(rename = "secureNote", skip_serializing_if = "Option::is_none")]
     pub secure_note: Option<Box<models::CipherSecureNoteModel>>,
+    #[serde(rename = "sshKey", skip_serializing_if = "Option::is_none")]
+    pub ssh_key: Option<Box<models::CipherSshKeyModel>>,
     #[serde(rename = "fields", skip_serializing_if = "Option::is_none")]
     pub fields: Option<Vec<models::CipherFieldModel>>,
     #[serde(rename = "passwordHistory", skip_serializing_if = "Option::is_none")]
@@ -83,6 +85,7 @@ impl CipherDetailsResponseModel {
             card: None,
             identity: None,
             secure_note: None,
+            ssh_key: None,
             fields: None,
             password_history: None,
             attachments: None,

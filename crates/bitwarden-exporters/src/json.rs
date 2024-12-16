@@ -314,6 +314,7 @@ mod tests {
                     r#match: None,
                 }],
                 totp: Some("ABC".to_string()),
+                fido2_credentials: None,
             })),
 
             favorite: true,
@@ -705,6 +706,7 @@ mod tests {
                             r#match: None,
                         }],
                         totp: Some("ABC".to_string()),
+                        fido2_credentials: None,
                     })),
 
                     favorite: true,
