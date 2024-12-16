@@ -44,7 +44,7 @@ jobs:
         env:
           RUSTFLAGS: "-D warnings"
 
-      # Run it again but this time with the sarif output so that the
+      # Run it again but this time without the sarif output so that the
       # status code of the command is caught and reported as failed in GitHub.
       # This should be cached from the previous step and should be fast.
       - name: Cargo clippy
