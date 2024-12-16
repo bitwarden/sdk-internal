@@ -4,6 +4,7 @@ description = """
 Internal crate for the bitwarden crate. Do not use.
 """
 
+exclude = ["/resources"]
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -32,8 +33,6 @@ ssh-key = { version = "0.6.7", features = [
     "encryption",
     "rsa",
     "getrandom",
-    "rand_core",
-    "std",
 ], default-features = false }
 thiserror = { workspace = true }
 tsify-next = { workspace = true, optional = true }
