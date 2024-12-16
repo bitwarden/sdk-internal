@@ -588,6 +588,7 @@ dependencies = [
  "rand",
  "rand_chacha",
  "rsa",
+ "serde",
  "ssh-key",
  "thiserror 1.0.69",
  "tsify-next",
