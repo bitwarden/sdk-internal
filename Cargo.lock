@@ -588,7 +588,6 @@ dependencies = [
  "rand",
  "rand_chacha",
  "rsa",
- "serde",
  "ssh-key",
  "thiserror 1.0.69",
  "tsify-next",
@@ -2575,6 +2574,16 @@ dependencies = [
  "elliptic-curve",
  "primeorder",
  "sha2",
+]
+
+[[package]]
+name = "p384"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70786f51bcc69f6a4c0360e063a4cac5419ef7c5cd5b3c99ad70f3be5ba79209"
+dependencies = [
+ "elliptic-curve",
+ "primeorder",
 ]
 
 [[package]]
