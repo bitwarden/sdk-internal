@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use super::utils::{derive_kdf_key, stretch_kdf_key};
-use crate::{util, CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey};
+use crate::{
+    enc_string::aead_encoding, util, CryptoError, EncString, KeyDecryptable, Result,
+    SymmetricCryptoKey, UserKey,
+};
 
 /// Key Derivation Function for Bitwarden Account
 ///
@@ -144,7 +147,7 @@ pub(super) fn decrypt_user_key(
     key: &SymmetricCryptoKey,
     user_key: EncString,
 ) -> Result<SymmetricCryptoKey> {
-    let mut dec: Vec<u8> = match user_key {
+    let (mut dec, _): (Vec<u8>, aead_encoding::AdditionalData) = match user_key {
         // Legacy. user_keys were encrypted using `AesCbc256_B64` a long time ago. We've since
         // moved to using `AesCbc256_HmacSha256_B64`. However, we still need to support
         // decrypting these old keys.

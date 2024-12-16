@@ -1,6 +1,6 @@
 use crate::{
-    error::Result, AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString,
-    KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+    enc_string::aead_encoding, error::Result, AsymmetricCryptoKey, AsymmetricEncString,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
 };
 
 /// Device Key
@@ -62,7 +62,8 @@ impl DeviceKey {
         protected_device_private_key: EncString,
         protected_user_key: AsymmetricEncString,
     ) -> Result<SymmetricCryptoKey> {
-        let device_private_key: Vec<u8> = protected_device_private_key.decrypt_with_key(&self.0)?;
+        let (device_private_key, _): (Vec<u8>, aead_encoding::AdditionalData) =
+            protected_device_private_key.decrypt_with_key(&self.0)?;
         let device_private_key = AsymmetricCryptoKey::from_der(&device_private_key)?;
 
         let dec: Vec<u8> = protected_user_key.decrypt_with_key(&device_private_key)?;

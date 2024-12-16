@@ -285,7 +285,8 @@ pub fn derive_pin_user_key(client: &Client, encrypted_pin: EncString) -> Result<
     let enc = client.internal.get_encryption_settings()?;
     let user_key = enc.get_key(&None)?;
 
-    let pin: String = encrypted_pin.decrypt_with_key(user_key)?;
+    let (pin, _): (String, bitwarden_crypto::AdditionalData) =
+        encrypted_pin.decrypt_with_key(user_key)?;
     let login_method = client
         .internal
         .get_login_method()

@@ -6,6 +6,7 @@
 //! [SymmetricCryptoKey][crate::SymmetricCryptoKey] and
 //! [AsymmetricCryptoKey][crate::AsymmetricCryptoKey]s.
 
+pub mod aead_encoding;
 mod asymmetric;
 mod symmetric;
 

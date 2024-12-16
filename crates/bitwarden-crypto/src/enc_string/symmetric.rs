@@ -5,7 +5,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::GenericArray;
 use serde::Deserialize;
 
-use super::{check_length, from_b64, from_b64_vec, split_enc_string};
+use super::{aead_encoding, check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result},
     KeyDecryptable, KeyEncryptable, LocateKey, SymmetricCryptoKey,
@@ -66,6 +66,13 @@ pub enum EncString {
         iv: [u8; 16],
         mac: [u8; 32],
         data: Vec<u8>,
+    },
+    /// 7
+    XChaCha20Poly1305Blake3CTX_B64 {
+        nonce: [u8; 24],
+        tag: [u8; 32],
+        ciphertext: Vec<u8>,
+        authenticated_data: Vec<u8>,
     },
 }
 
@@ -168,6 +175,19 @@ impl EncString {
                 buf.extend_from_slice(mac);
                 buf.extend_from_slice(data);
             }
+            EncString::XChaCha20Poly1305Blake3CTX_B64 {
+                nonce,
+                tag,
+                ciphertext,
+                authenticated_data,
+            } => {
+                buf = Vec::with_capacity(1 + 24 + 32 + ciphertext.len() + authenticated_data.len());
+                buf.push(self.enc_type());
+                buf.extend_from_slice(nonce);
+                buf.extend_from_slice(tag);
+                buf.extend_from_slice(ciphertext);
+                buf.extend_from_slice(authenticated_data);
+            }
         }
 
         Ok(buf)
@@ -180,6 +200,14 @@ impl Display for EncString {
             EncString::AesCbc256_B64 { iv, data } => vec![iv, data],
             EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
             EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
+            EncString::XChaCha20Poly1305Blake3CTX_B64 {
+                nonce,
+                tag,
+                ciphertext,
+                authenticated_data,
+            } => {
+                vec![nonce, ciphertext, authenticated_data, tag]
+            }
         };
 
         let encoded_parts: Vec<String> = parts.iter().map(|part| STANDARD.encode(part)).collect();
@@ -224,6 +252,7 @@ impl EncString {
             EncString::AesCbc256_B64 { .. } => 0,
             EncString::AesCbc128_HmacSha256_B64 { .. } => 1,
             EncString::AesCbc256_HmacSha256_B64 { .. } => 2,
+            EncString::XChaCha20Poly1305Blake3CTX_B64 { .. } => 7,
         }
     }
 }
@@ -241,6 +270,16 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
 
 impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
+        let (dec, _): (Vec<u8>, aead_encoding::AdditionalData) = self.decrypt_with_key(key)?;
+        Ok(dec)
+    }
+}
+
+impl KeyDecryptable<SymmetricCryptoKey, (Vec<u8>, aead_encoding::AdditionalData)> for EncString {
+    fn decrypt_with_key(
+        &self,
+        key: &SymmetricCryptoKey,
+    ) -> Result<(Vec<u8>, aead_encoding::AdditionalData)> {
         match self {
             EncString::AesCbc256_B64 { iv, data } => {
                 if key.mac_key.is_some() {
@@ -248,7 +287,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 }
 
                 let dec = crate::aes::decrypt_aes256(iv, data.clone(), &key.key)?;
-                Ok(dec)
+                Ok((dec, aead_encoding::AdditionalData::new()))
             }
             EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } => {
                 // TODO: SymmetricCryptoKey is designed to handle 32 byte keys only, but this
@@ -258,13 +297,33 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 let enc_key = key.key[0..16].into();
                 let mac_key = key.key[16..32].into();
                 let dec = crate::aes::decrypt_aes128_hmac(iv, mac, data.clone(), mac_key, enc_key)?;
-                Ok(dec)
+                Ok((dec, aead_encoding::AdditionalData::new()))
             }
             EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
                 let mac_key = key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?;
                 let dec =
                     crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), mac_key, &key.key)?;
-                Ok(dec)
+                Ok((dec, aead_encoding::AdditionalData::new()))
+            }
+            EncString::XChaCha20Poly1305Blake3CTX_B64 {
+                nonce,
+                tag,
+                ciphertext,
+                authenticated_data,
+            } => {
+                let enc_key = key.key[0..32].try_into().unwrap();
+                let dec = crate::chacha20::decrypt_xchacha20_poly1305_blake3_ctx(
+                    &enc_key,
+                    &crate::chacha20::XChaCha20Poly1305Blake3CTXCiphertext {
+                        nonce: nonce.clone(),
+                        tag: *tag,
+                        ciphertext: ciphertext.clone(),
+                        authenticated_data: authenticated_data.clone(),
+                    },
+                )?;
+                let ad = aead_encoding::decode_aead(authenticated_data).unwrap();
+
+                Ok((dec, ad))
             }
         }
     }
@@ -284,8 +343,19 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
 
 impl KeyDecryptable<SymmetricCryptoKey, String> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<String> {
-        let dec: Vec<u8> = self.decrypt_with_key(key)?;
-        String::from_utf8(dec).map_err(|_| CryptoError::InvalidUtf8String)
+        let (dec, _): (String, aead_encoding::AdditionalData) = self.decrypt_with_key(key)?;
+        Ok(dec)
+    }
+}
+
+impl KeyDecryptable<SymmetricCryptoKey, (String, aead_encoding::AdditionalData)> for EncString {
+    fn decrypt_with_key(
+        &self,
+        key: &SymmetricCryptoKey,
+    ) -> Result<(String, aead_encoding::AdditionalData)> {
+        let (dec, ad): (Vec<u8>, aead_encoding::AdditionalData) = self.decrypt_with_key(key)?;
+        let dec_str = String::from_utf8(dec).map_err(|_| CryptoError::InvalidUtf8String)?;
+        Ok((dec_str, ad))
     }
 }
 
@@ -307,7 +377,8 @@ mod tests {
 
     use super::EncString;
     use crate::{
-        derive_symmetric_key, CryptoError, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+        derive_symmetric_key, enc_string::aead_encoding, CryptoError, KeyDecryptable,
+        KeyEncryptable, SymmetricCryptoKey,
     };
 
     #[test]
@@ -317,7 +388,8 @@ mod tests {
         let test_string = "encrypted_test_string";
         let cipher = test_string.to_owned().encrypt_with_key(&key).unwrap();
 
-        let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
+        let (decrypted_str, _): (String, aead_encoding::AdditionalData) =
+            cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);
     }
 
@@ -328,7 +400,8 @@ mod tests {
         let test_string = "encrypted_test_string";
         let cipher = test_string.encrypt_with_key(&key).unwrap();
 
-        let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
+        let (decrypted_str, _): (String, aead_encoding::AdditionalData) =
+            cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);
     }
 
@@ -426,7 +499,8 @@ mod tests {
         let enc_string: EncString = enc_str.parse().unwrap();
         assert_eq!(enc_string.enc_type(), 0);
 
-        let dec_str: String = enc_string.decrypt_with_key(&key).unwrap();
+        let (dec_str, _): (String, aead_encoding::AdditionalData) =
+            enc_string.decrypt_with_key(&key).unwrap();
         assert_eq!(dec_str, "EncryptMe!");
     }
 
@@ -444,7 +518,8 @@ mod tests {
         let enc_string: EncString = enc_str.parse().unwrap();
         assert_eq!(enc_string.enc_type(), 0);
 
-        let result: Result<String, CryptoError> = enc_string.decrypt_with_key(&key);
+        let result: Result<(String, aead_encoding::AdditionalData), CryptoError> =
+            enc_string.decrypt_with_key(&key);
         assert!(matches!(result, Err(CryptoError::MacNotProvided)));
     }
 
@@ -457,7 +532,8 @@ mod tests {
         let enc_string: EncString = enc_str.parse().unwrap();
         assert_eq!(enc_string.enc_type(), 1);
 
-        let dec_str: String = enc_string.decrypt_with_key(&key).unwrap();
+        let (dec_str, _): (String, aead_encoding::AdditionalData) =
+            enc_string.decrypt_with_key(&key).unwrap();
         assert_eq!(dec_str, "EncryptMe!");
     }
 
