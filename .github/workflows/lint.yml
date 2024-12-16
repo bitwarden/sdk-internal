@@ -49,6 +49,12 @@ jobs:
         with:
           sarif_file: clippy_result.sarif
 
+      - name: Install cargo-udeps
+        run: cargo install cargo-udeps --version 0.1.53 --locked
+
+      - name: Cargo udeps
+        run: cargo +nightly udeps --workspace --all-features
+
       - name: Set up Node
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
