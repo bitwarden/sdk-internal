@@ -7,7 +7,7 @@ pub struct ClientPasswordHistory<'a> {
     pub(crate) client: &'a Client,
 }
 
-impl<'a> ClientPasswordHistory<'a> {
+impl ClientPasswordHistory<'_> {
     pub fn encrypt(&self, history_view: PasswordHistoryView) -> Result<PasswordHistory, Error> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = enc.get_key(&None)?;

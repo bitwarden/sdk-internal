@@ -48,11 +48,11 @@ pub enum Error {
 
     // Generators
     #[error(transparent)]
-    UsernameError(#[from] UsernameError),
+    Username(#[from] UsernameError),
     #[error(transparent)]
-    PassphraseError(#[from] PassphraseError),
+    Passphrase(#[from] PassphraseError),
     #[error(transparent)]
-    PasswordError(#[from] PasswordError),
+    Password(#[from] PasswordError),
 
     // Vault
     #[error(transparent)]
@@ -61,7 +61,7 @@ pub enum Error {
     Totp(#[from] bitwarden_vault::TotpError),
 
     #[error(transparent)]
-    ExportError(#[from] ExportError),
+    Export(#[from] ExportError),
 
     // Fido
     #[error(transparent)]
@@ -71,11 +71,9 @@ pub enum Error {
     #[error(transparent)]
     SilentlyDiscoverCredentials(#[from] bitwarden_fido::SilentlyDiscoverCredentialsError),
     #[error(transparent)]
-    CredentialsForAutofillError(#[from] bitwarden_fido::CredentialsForAutofillError),
+    CredentialsForAutofill(#[from] bitwarden_fido::CredentialsForAutofillError),
     #[error(transparent)]
-    DecryptFido2AutofillCredentialsError(
-        #[from] bitwarden_fido::DecryptFido2AutofillCredentialsError,
-    ),
+    DecryptFido2AutofillCredentials(#[from] bitwarden_fido::DecryptFido2AutofillCredentialsError),
     #[error(transparent)]
     Fido2Client(#[from] bitwarden_fido::Fido2ClientError),
 }

@@ -31,6 +31,7 @@ pub enum CipherType {
     SecureNote = 2,
     Card = 3,
     Identity = 4,
+    SSHKey = 5,
 }
 
 impl std::fmt::Display for CipherType {
@@ -40,6 +41,7 @@ impl std::fmt::Display for CipherType {
             Self::SecureNote => write!(f, "2"),
             Self::Card => write!(f, "3"),
             Self::Identity => write!(f, "4"),
+            Self::SSHKey => write!(f, "5"),
         }
     }
 }

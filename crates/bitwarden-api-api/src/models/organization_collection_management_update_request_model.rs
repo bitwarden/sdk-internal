@@ -15,10 +15,15 @@ use crate::models;
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationCollectionManagementUpdateRequestModel {
     #[serde(
-        rename = "limitCreateDeleteOwnerAdmin",
+        rename = "limitCollectionCreation",
         skip_serializing_if = "Option::is_none"
     )]
-    pub limit_create_delete_owner_admin: Option<bool>,
+    pub limit_collection_creation: Option<bool>,
+    #[serde(
+        rename = "limitCollectionDeletion",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub limit_collection_deletion: Option<bool>,
     #[serde(
         rename = "allowAdminAccessToAllCollectionItems",
         skip_serializing_if = "Option::is_none"
@@ -29,7 +34,8 @@ pub struct OrganizationCollectionManagementUpdateRequestModel {
 impl OrganizationCollectionManagementUpdateRequestModel {
     pub fn new() -> OrganizationCollectionManagementUpdateRequestModel {
         OrganizationCollectionManagementUpdateRequestModel {
-            limit_create_delete_owner_admin: None,
+            limit_collection_creation: None,
+            limit_collection_deletion: None,
             allow_admin_access_to_all_collection_items: None,
         }
     }

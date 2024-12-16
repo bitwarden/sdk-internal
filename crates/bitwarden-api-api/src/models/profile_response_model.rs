@@ -31,8 +31,6 @@ pub struct ProfileResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub premium_from_organization: Option<bool>,
-    #[serde(rename = "masterPasswordHint", skip_serializing_if = "Option::is_none")]
-    pub master_password_hint: Option<String>,
     #[serde(rename = "culture", skip_serializing_if = "Option::is_none")]
     pub culture: Option<String>,
     #[serde(rename = "twoFactorEnabled", skip_serializing_if = "Option::is_none")]
@@ -72,7 +70,6 @@ impl ProfileResponseModel {
             email_verified: None,
             premium: None,
             premium_from_organization: None,
-            master_password_hint: None,
             culture: None,
             two_factor_enabled: None,
             key: None,
