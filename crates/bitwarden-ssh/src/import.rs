@@ -88,8 +88,11 @@ fn import_pkcs8_key(
             let private_key = ssh_key::private::PrivateKey::from(Ed25519Keypair::from(
                 &private_key.secret_key.into(),
             ));
+            let private_key_openssh = private_key
+                .to_openssh(LineEnding::LF)
+                .map_err(|_| SshKeyImportError::ParsingError)?;
             Ok(SshKey {
-                private_key: private_key.to_openssh(LineEnding::LF).unwrap().to_string(),
+                private_key: private_key_openssh.to_string(),
                 public_key: private_key.public_key().to_string(),
                 key_fingerprint: private_key.fingerprint(HashAlg::Sha256).to_string(),
             })
