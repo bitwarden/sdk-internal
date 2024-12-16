@@ -19,7 +19,7 @@ pub use sends::SendClient;
 pub struct GeneratorClients(pub(crate) Arc<Client>);
 
 #[uniffi::export(async_runtime = "tokio")]
-impl ClientGenerators {
+impl GeneratorClients {
     /// Generate Password
     pub fn password(&self, settings: PasswordGeneratorRequest) -> Result<String> {
         Ok(self
@@ -56,7 +56,7 @@ impl ClientGenerators {
 pub struct ExporterClient(pub(crate) Arc<Client>);
 
 #[uniffi::export]
-impl ClientExporters {
+impl ExporterClient {
     /// Export user vault
     pub fn export_vault(
         &self,
