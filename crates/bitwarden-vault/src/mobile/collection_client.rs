@@ -7,7 +7,7 @@ pub struct ClientCollections<'a> {
     pub(crate) client: &'a Client,
 }
 
-impl<'a> ClientCollections<'a> {
+impl ClientCollections<'_> {
     pub fn decrypt(&self, collection: Collection) -> Result<CollectionView, Error> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = collection.locate_key(&enc, &None)?;

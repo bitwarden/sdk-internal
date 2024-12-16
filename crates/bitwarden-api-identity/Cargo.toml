@@ -13,14 +13,14 @@ license-file.workspace = true
 keywords.workspace = true
 
 [dependencies]
+reqwest = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
+serde_repr = { workspace = true }
 serde_with = { version = ">=3.8, <4", default-features = false, features = [
     "base64",
     "std",
     "macros",
 ] }
-serde_json = { workspace = true }
-serde_repr = { workspace = true }
 url = ">=2.5, <3"
 uuid = { workspace = true }
-reqwest = { workspace = true }

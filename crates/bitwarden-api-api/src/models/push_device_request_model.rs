@@ -16,12 +16,10 @@ use crate::models;
 pub struct PushDeviceRequestModel {
     #[serde(rename = "id")]
     pub id: String,
-    #[serde(rename = "type")]
-    pub r#type: models::DeviceType,
 }
 
 impl PushDeviceRequestModel {
-    pub fn new(id: String, r#type: models::DeviceType) -> PushDeviceRequestModel {
-        PushDeviceRequestModel { id, r#type }
+    pub fn new(id: String) -> PushDeviceRequestModel {
+        PushDeviceRequestModel { id }
     }
 }

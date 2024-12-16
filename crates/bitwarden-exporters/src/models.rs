@@ -1,6 +1,8 @@
 use bitwarden_core::{require, MissingFieldError};
+use bitwarden_crypto::{KeyContainer, KeyDecryptable, LocateKey};
 use bitwarden_vault::{
-    CipherType, CipherView, FieldView, FolderView, LoginUriView, SecureNoteType,
+    CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldView, FolderView,
+    IdentityView, LoginUriView, SecureNoteType, SecureNoteView, SshKeyView,
 };
 
 impl TryFrom<FolderView> for crate::Folder {
@@ -14,94 +16,165 @@ impl TryFrom<FolderView> for crate::Folder {
     }
 }
 
-impl TryFrom<CipherView> for crate::Cipher {
-    type Error = MissingFieldError;
+impl crate::Cipher {
+    pub(crate) fn from_cipher(
+        enc: &dyn KeyContainer,
+        cipher: Cipher,
+    ) -> Result<Self, crate::error::ExportError> {
+        let key = cipher.locate_key(enc, &None)?;
+        let view: CipherView = cipher.decrypt_with_key(key)?;
 
-    fn try_from(value: CipherView) -> Result<Self, Self::Error> {
-        let r = match value.r#type {
-            CipherType::Login => {
-                let l = require!(value.login);
-                crate::CipherType::Login(Box::new(crate::Login {
-                    username: l.username,
-                    password: l.password,
-                    login_uris: l
-                        .uris
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(|u| u.into())
-                        .collect(),
-                    totp: l.totp,
-                }))
+        let r = match view.r#type {
+            CipherType::Login => crate::CipherType::Login(Box::new(from_login(&view, enc)?)),
+            CipherType::SecureNote => {
+                let s = require!(view.secure_note);
+                crate::CipherType::SecureNote(Box::new(s.into()))
             }
-            CipherType::SecureNote => crate::CipherType::SecureNote(Box::new(crate::SecureNote {
-                r#type: value
-                    .secure_note
-                    .map(|t| t.r#type)
-                    .unwrap_or(SecureNoteType::Generic)
-                    .into(),
-            })),
             CipherType::Card => {
-                let c = require!(value.card);
-                crate::CipherType::Card(Box::new(crate::Card {
-                    cardholder_name: c.cardholder_name,
-                    exp_month: c.exp_month,
-                    exp_year: c.exp_year,
-                    code: c.code,
-                    brand: c.brand,
-                    number: c.number,
-                }))
+                let c = require!(view.card);
+                crate::CipherType::Card(Box::new(c.into()))
             }
             CipherType::Identity => {
-                let i = require!(value.identity);
-                crate::CipherType::Identity(Box::new(crate::Identity {
-                    title: i.title,
-                    first_name: i.first_name,
-                    middle_name: i.middle_name,
-                    last_name: i.last_name,
-                    address1: i.address1,
-                    address2: i.address2,
-                    address3: i.address3,
-                    city: i.city,
-                    state: i.state,
-                    postal_code: i.postal_code,
-                    country: i.country,
-                    company: i.company,
-                    email: i.email,
-                    phone: i.phone,
-                    ssn: i.ssn,
-                    username: i.username,
-                    passport_number: i.passport_number,
-                    license_number: i.license_number,
-                }))
+                let i = require!(view.identity);
+                crate::CipherType::Identity(Box::new(i.into()))
             }
             CipherType::SshKey => {
-                let s = require!(value.ssh_key);
-                crate::CipherType::SshKey(Box::new(crate::SshKey {
-                    private_key: s.private_key,
-                    public_key: s.public_key,
-                    fingerprint: s.fingerprint,
-                }))
+                let s = require!(view.ssh_key);
+                crate::CipherType::SshKey(Box::new(s.into()))
             }
         };
 
         Ok(Self {
-            id: require!(value.id),
-            folder_id: value.folder_id,
-            name: value.name,
-            notes: value.notes,
+            id: require!(view.id),
+            folder_id: view.folder_id,
+            name: view.name,
+            notes: view.notes,
             r#type: r,
-            favorite: value.favorite,
-            reprompt: value.reprompt as u8,
-            fields: value
+            favorite: view.favorite,
+            reprompt: view.reprompt as u8,
+            fields: view
                 .fields
                 .unwrap_or_default()
                 .into_iter()
                 .map(|f| f.into())
                 .collect(),
-            revision_date: value.revision_date,
-            creation_date: value.creation_date,
-            deleted_date: value.deleted_date,
+            revision_date: view.revision_date,
+            creation_date: view.creation_date,
+            deleted_date: view.deleted_date,
         })
+    }
+}
+
+/// Convert a `LoginView` into a `crate::Login`.
+fn from_login(
+    view: &CipherView,
+    enc: &dyn KeyContainer,
+) -> Result<crate::Login, MissingFieldError> {
+    let l = require!(view.login.clone());
+
+    Ok(crate::Login {
+        username: l.username,
+        password: l.password,
+        login_uris: l
+            .uris
+            .unwrap_or_default()
+            .into_iter()
+            .map(|u| u.into())
+            .collect(),
+        totp: l.totp,
+        fido2_credentials: l.fido2_credentials.as_ref().and_then(|_| {
+            let credentials = view.get_fido2_credentials(enc).ok()?;
+            if credentials.is_empty() {
+                None
+            } else {
+                Some(credentials.into_iter().map(|c| c.into()).collect())
+            }
+        }),
+    })
+}
+
+impl From<LoginUriView> for crate::LoginUri {
+    fn from(value: LoginUriView) -> Self {
+        Self {
+            r#match: value.r#match.map(|v| v as u8),
+            uri: value.uri,
+        }
+    }
+}
+
+impl From<Fido2CredentialFullView> for crate::Fido2Credential {
+    fn from(value: Fido2CredentialFullView) -> Self {
+        Self {
+            credential_id: value.credential_id,
+            key_type: value.key_type,
+            key_algorithm: value.key_algorithm,
+            key_curve: value.key_curve,
+            key_value: value.key_value,
+            rp_id: value.rp_id,
+            user_handle: value.user_handle,
+            user_name: value.user_name,
+            counter: value.counter.parse().expect("Invalid counter"),
+            rp_name: value.rp_name,
+            user_display_name: value.user_display_name,
+            discoverable: value.discoverable,
+            creation_date: value.creation_date,
+        }
+    }
+}
+
+impl From<SecureNoteView> for crate::SecureNote {
+    fn from(view: SecureNoteView) -> Self {
+        crate::SecureNote {
+            r#type: view.r#type.into(),
+        }
+    }
+}
+
+impl From<CardView> for crate::Card {
+    fn from(view: CardView) -> Self {
+        crate::Card {
+            cardholder_name: view.cardholder_name,
+            exp_month: view.exp_month,
+            exp_year: view.exp_year,
+            code: view.code,
+            brand: view.brand,
+            number: view.number,
+        }
+    }
+}
+
+impl From<IdentityView> for crate::Identity {
+    fn from(view: IdentityView) -> Self {
+        crate::Identity {
+            title: view.title,
+            first_name: view.first_name,
+            middle_name: view.middle_name,
+            last_name: view.last_name,
+            address1: view.address1,
+            address2: view.address2,
+            address3: view.address3,
+            city: view.city,
+            state: view.state,
+            postal_code: view.postal_code,
+            country: view.country,
+            company: view.company,
+            email: view.email,
+            phone: view.phone,
+            ssn: view.ssn,
+            username: view.username,
+            passport_number: view.passport_number,
+            license_number: view.license_number,
+        }
+    }
+}
+
+impl From<SshKeyView> for crate::SshKey {
+    fn from(view: SshKeyView) -> Self {
+        crate::SshKey {
+            private_key: view.private_key,
+            public_key: view.public_key,
+            fingerprint: view.fingerprint,
+        }
     }
 }
 
@@ -116,15 +189,6 @@ impl From<FieldView> for crate::Field {
     }
 }
 
-impl From<LoginUriView> for crate::LoginUri {
-    fn from(value: LoginUriView) -> Self {
-        Self {
-            r#match: value.r#match.map(|v| v as u8),
-            uri: value.uri,
-        }
-    }
-}
-
 impl From<SecureNoteType> for crate::SecureNoteType {
     fn from(value: SecureNoteType) -> Self {
         match value {
@@ -135,8 +199,10 @@ impl From<SecureNoteType> for crate::SecureNoteType {
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_crypto::{CryptoError, KeyContainer, KeyEncryptable, SymmetricCryptoKey};
     use bitwarden_vault::{CipherRepromptType, LoginView};
     use chrono::{DateTime, Utc};
+    use uuid::Uuid;
 
     use super::*;
 
@@ -157,9 +223,18 @@ mod tests {
         assert_eq!(f.name, "test_name".to_string());
     }
 
+    struct MockKeyContainer(SymmetricCryptoKey);
+    impl KeyContainer for MockKeyContainer {
+        fn get_key<'a>(&'a self, _: &Option<Uuid>) -> Result<&'a SymmetricCryptoKey, CryptoError> {
+            Ok(&self.0)
+        }
+    }
+
     #[test]
-    fn test_try_from_cipher_view_login() {
-        let cipher_view = CipherView {
+    fn test_from_login() {
+        let enc = MockKeyContainer(SymmetricCryptoKey::generate(rand::thread_rng()));
+
+        let view = CipherView {
             r#type: CipherType::Login,
             login: Some(LoginView {
                 username: Some("test_username".to_string()),
@@ -195,7 +270,58 @@ mod tests {
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
         };
 
-        let cipher: crate::Cipher = cipher_view.try_into().unwrap();
+        let login = from_login(&view, &enc).unwrap();
+
+        assert_eq!(login.username, Some("test_username".to_string()));
+        assert_eq!(login.password, Some("test_password".to_string()));
+        assert!(login.login_uris.is_empty());
+        assert_eq!(login.totp, None);
+    }
+
+    #[test]
+    fn test_from_cipher_login() {
+        let enc = MockKeyContainer(SymmetricCryptoKey::generate(rand::thread_rng()));
+
+        let cipher_view = CipherView {
+            r#type: CipherType::Login,
+            login: Some(LoginView {
+                username: Some("test_username".to_string()),
+                password: Some("test_password".to_string()),
+                password_revision_date: None,
+                uris: None,
+                totp: None,
+                autofill_on_page_load: None,
+                fido2_credentials: None,
+            }),
+            id: "fd411a1a-fec8-4070-985d-0e6560860e69".parse().ok(),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: "My login".to_string(),
+            notes: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: true,
+            edit: true,
+            view_password: true,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+        };
+        let encrypted = cipher_view
+            .encrypt_with_key(enc.get_key(&None).unwrap())
+            .unwrap();
+
+        let cipher: crate::Cipher = crate::Cipher::from_cipher(&enc, encrypted).unwrap();
 
         assert_eq!(
             cipher.id,

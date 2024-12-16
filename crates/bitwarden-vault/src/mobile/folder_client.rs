@@ -7,7 +7,7 @@ pub struct ClientFolders<'a> {
     pub(crate) client: &'a Client,
 }
 
-impl<'a> ClientFolders<'a> {
+impl ClientFolders<'_> {
     pub fn encrypt(&self, folder_view: FolderView) -> Result<Folder, Error> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = enc.get_key(&None)?;

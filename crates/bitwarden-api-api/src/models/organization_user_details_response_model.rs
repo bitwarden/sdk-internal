@@ -42,6 +42,11 @@ pub struct OrganizationUserDetailsResponseModel {
     pub uses_key_connector: Option<bool>,
     #[serde(rename = "hasMasterPassword", skip_serializing_if = "Option::is_none")]
     pub has_master_password: Option<bool>,
+    #[serde(
+        rename = "managedByOrganization",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub managed_by_organization: Option<bool>,
     #[serde(rename = "collections", skip_serializing_if = "Option::is_none")]
     pub collections: Option<Vec<models::SelectionReadOnlyResponseModel>>,
     #[serde(rename = "groups", skip_serializing_if = "Option::is_none")]
@@ -62,6 +67,7 @@ impl OrganizationUserDetailsResponseModel {
             reset_password_enrolled: None,
             uses_key_connector: None,
             has_master_password: None,
+            managed_by_organization: None,
             collections: None,
             groups: None,
         }

@@ -20,10 +20,6 @@ pub struct TwoFactorDuoResponseModel {
     pub enabled: Option<bool>,
     #[serde(rename = "host", skip_serializing_if = "Option::is_none")]
     pub host: Option<String>,
-    #[serde(rename = "secretKey", skip_serializing_if = "Option::is_none")]
-    pub secret_key: Option<String>,
-    #[serde(rename = "integrationKey", skip_serializing_if = "Option::is_none")]
-    pub integration_key: Option<String>,
     #[serde(rename = "clientSecret", skip_serializing_if = "Option::is_none")]
     pub client_secret: Option<String>,
     #[serde(rename = "clientId", skip_serializing_if = "Option::is_none")]
@@ -36,8 +32,6 @@ impl TwoFactorDuoResponseModel {
             object: None,
             enabled: None,
             host: None,
-            secret_key: None,
-            integration_key: None,
             client_secret: None,
             client_id: None,
         }

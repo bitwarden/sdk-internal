@@ -27,21 +27,27 @@ use crate::models;
     serde_repr::Deserialize_repr,
 )]
 pub enum EventSystemUser {
+    Unknown = 0,
     SCIM = 1,
     DomainVerification = 2,
+    PublicApi = 3,
+    TwoFactorDisabled = 4,
 }
 
 impl std::fmt::Display for EventSystemUser {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            Self::Unknown => write!(f, "0"),
             Self::SCIM => write!(f, "1"),
             Self::DomainVerification => write!(f, "2"),
+            Self::PublicApi => write!(f, "3"),
+            Self::TwoFactorDisabled => write!(f, "4"),
         }
     }
 }
 
 impl Default for EventSystemUser {
     fn default() -> EventSystemUser {
-        Self::SCIM
+        Self::Unknown
     }
 }

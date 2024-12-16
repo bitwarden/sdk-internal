@@ -32,16 +32,6 @@ pub struct Permissions {
         skip_serializing_if = "Option::is_none"
     )]
     pub delete_any_collection: Option<bool>,
-    #[serde(
-        rename = "editAssignedCollections",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub edit_assigned_collections: Option<bool>,
-    #[serde(
-        rename = "deleteAssignedCollections",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub delete_assigned_collections: Option<bool>,
     #[serde(rename = "manageGroups", skip_serializing_if = "Option::is_none")]
     pub manage_groups: Option<bool>,
     #[serde(rename = "managePolicies", skip_serializing_if = "Option::is_none")]
@@ -68,8 +58,6 @@ impl Permissions {
             create_new_collections: None,
             edit_any_collection: None,
             delete_any_collection: None,
-            edit_assigned_collections: None,
-            delete_assigned_collections: None,
             manage_groups: None,
             manage_policies: None,
             manage_sso: None,

@@ -108,6 +108,8 @@ pub struct OrganizationLicense {
     pub hash: Option<String>,
     #[serde(rename = "signature", skip_serializing_if = "Option::is_none")]
     pub signature: Option<String>,
+    #[serde(rename = "token", skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
 }
 
 impl OrganizationLicense {
@@ -154,6 +156,7 @@ impl OrganizationLicense {
             license_type: None,
             hash: None,
             signature: None,
+            token: None,
         }
     }
 }

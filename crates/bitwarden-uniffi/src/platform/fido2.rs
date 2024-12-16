@@ -52,7 +52,7 @@ impl ClientFido2 {
              .0
             .fido2()
             .decrypt_fido2_autofill_credentials(cipher_view)
-            .map_err(Error::DecryptFido2AutofillCredentialsError)?;
+            .map_err(Error::DecryptFido2AutofillCredentials)?;
 
         Ok(result)
     }
@@ -122,7 +122,7 @@ impl ClientFido2Authenticator {
         let result = auth
             .credentials_for_autofill()
             .await
-            .map_err(Error::CredentialsForAutofillError)?;
+            .map_err(Error::CredentialsForAutofill)?;
         Ok(result)
     }
 }

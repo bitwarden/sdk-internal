@@ -12,7 +12,7 @@ pub struct ClientAttachments<'a> {
     pub(crate) client: &'a Client,
 }
 
-impl<'a> ClientAttachments<'a> {
+impl ClientAttachments<'_> {
     pub fn encrypt_buffer(
         &self,
         cipher: Cipher,

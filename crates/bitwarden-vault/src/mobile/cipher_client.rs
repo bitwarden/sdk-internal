@@ -8,7 +8,7 @@ pub struct ClientCiphers<'a> {
     pub(crate) client: &'a Client,
 }
 
-impl<'a> ClientCiphers<'a> {
+impl ClientCiphers<'_> {
     pub fn encrypt(&self, mut cipher_view: CipherView) -> Result<Cipher, Error> {
         let enc = self.client.internal.get_encryption_settings()?;
 
