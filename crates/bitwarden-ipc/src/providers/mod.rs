@@ -1,3 +1,3 @@
 mod crypto;
 
-pub use crypto::CryptoProvider;
+pub use crypto::{CryptoProvider, NoEncryptionCryptoProvider};
