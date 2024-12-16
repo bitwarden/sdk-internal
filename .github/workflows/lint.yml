@@ -38,9 +38,17 @@ jobs:
       - name: Install clippy-sarif and sarif-fmt
         run: cargo install clippy-sarif sarif-fmt --locked --git https://github.com/psastras/sarif-rs.git --rev 11c33a53f6ffeaed736856b86fb6b7b09fabdfd8
 
-      - name: Cargo clippy
+      - name: Cargo clippy-sarif
         run: cargo clippy --all-features --tests --message-format=json |
           clippy-sarif | tee clippy_result.sarif | sarif-fmt
+        env:
+          RUSTFLAGS: "-D warnings"
+
+      # Run it again but this time with the sarif output so that the
+      # status code of the command is caught and reported as failed in GitHub.
+      # This should be cached from the previous step and should be fast.
+      - name: Cargo clippy
+        run: cargo clippy --all-features --tests
         env:
           RUSTFLAGS: "-D warnings"
 
