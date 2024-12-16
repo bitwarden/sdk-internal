@@ -14,7 +14,7 @@ wasm = [
     "bitwarden-error-macro/wasm",
     "dep:js-sys",
     "dep:tsify-next",
-    "dep:wasm-bindgen",
+    "dep:wasm-bindgen"
 ]
 
 [dependencies]

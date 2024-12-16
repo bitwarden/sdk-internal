@@ -17,7 +17,7 @@ keywords.workspace = true
 uniffi = [
     "bitwarden-core/uniffi",
     "bitwarden-crypto/uniffi",
-    "dep:uniffi",
+    "dep:uniffi"
 ] # Uniffi bindings
 wasm = ["dep:tsify-next", "dep:wasm-bindgen"] # WASM support
 
@@ -27,8 +27,8 @@ bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 chrono = { workspace = true }
-rand = ">=0.8.5, <0.9"
 hmac = ">=0.12.1, <0.13"
+rand = ">=0.8.5, <0.9"
 reqwest = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
@@ -37,9 +37,9 @@ serde_repr = { workspace = true }
 sha1 = ">=0.10.5, <0.11"
 sha2 = ">=0.10.6, <0.11"
 thiserror = { workspace = true }
+tsify-next = { workspace = true, optional = true }
 uniffi = { version = "=0.28.3", optional = true }
 uuid = { workspace = true }
-tsify-next = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
