@@ -27,7 +27,7 @@ impl ClientGenerators {
              .0
             .generator()
             .password(settings)
-            .map_err(Error::PasswordError)?)
+            .map_err(Error::Password)?)
     }
 
     /// Generate Passphrase
@@ -37,7 +37,7 @@ impl ClientGenerators {
              .0
             .generator()
             .passphrase(settings)
-            .map_err(Error::PassphraseError)?)
+            .map_err(Error::Passphrase)?)
     }
 
     /// Generate Username
@@ -48,7 +48,7 @@ impl ClientGenerators {
             .generator()
             .username(settings)
             .await
-            .map_err(Error::UsernameError)?)
+            .map_err(Error::Username)?)
     }
 }
 
@@ -69,7 +69,7 @@ impl ClientExporters {
              .0
             .exporters()
             .export_vault(folders, ciphers, format)
-            .map_err(Error::ExportError)?)
+            .map_err(Error::Export)?)
     }
 
     /// Export organization vault
@@ -84,7 +84,7 @@ impl ClientExporters {
              .0
             .exporters()
             .export_organization_vault(collections, ciphers, format)
-            .map_err(Error::ExportError)?)
+            .map_err(Error::Export)?)
     }
 
     /// Credential Exchange Format (CXF)
@@ -99,7 +99,7 @@ impl ClientExporters {
              .0
             .exporters()
             .export_cxf(account, ciphers)
-            .map_err(Error::ExportError)?)
+            .map_err(Error::Export)?)
     }
 
     /// Credential Exchange Format (CXF)
@@ -114,6 +114,6 @@ impl ClientExporters {
              .0
             .exporters()
             .import_cxf(payload)
-            .map_err(Error::ExportError)?)
+            .map_err(Error::Export)?)
     }
 }
