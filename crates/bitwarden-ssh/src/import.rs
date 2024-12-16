@@ -7,11 +7,10 @@ use ssh_key::{
     private::{Ed25519Keypair, RsaKeypair},
     HashAlg, LineEnding,
 };
-
-use crate::{error::SshKeyImportError, SshKey};
-
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
+
+use crate::{error::SshKeyImportError, SshKey};
 
 const PKCS1_HEADER: &str = "-----BEGIN RSA PRIVATE KEY-----";
 const PKCS8_UNENCRYPTED_HEADER: &str = "-----BEGIN PRIVATE KEY-----";

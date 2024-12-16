@@ -3,7 +3,6 @@ pub mod generator;
 pub mod import;
 
 use serde::{Deserialize, Serialize};
-
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 

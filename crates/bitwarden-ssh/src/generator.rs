@@ -1,12 +1,9 @@
-use crate::error;
-use crate::error::KeyGenerationError;
-use crate::SshKey;
+use serde::{Deserialize, Serialize};
 use ssh_key::{rand_core::CryptoRngCore, Algorithm, HashAlg, LineEnding};
-
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
-use serde::{Deserialize, Serialize};
+use crate::{error, error::KeyGenerationError, SshKey};
 
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -59,9 +56,8 @@ fn generate_sshkey_internal(
 mod tests {
     use rand::SeedableRng;
 
-    use crate::generator::generate_sshkey_internal;
-
     use super::KeyAlgorithm;
+    use crate::generator::generate_sshkey_internal;
 
     #[test]
     fn generate_ssh_key_ed25519() {
