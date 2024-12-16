@@ -1,6 +1,7 @@
 mod client;
 mod crypto;
 mod custom_types;
+mod ipc;
 mod ssh;
 mod vault;
 

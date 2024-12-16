@@ -9,7 +9,13 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
+[features]
+wasm = ["dep:tsify-next", "dep:wasm-bindgen"] # WASM support
+
 [dependencies]
+bitwarden-core = { workspace = true, features = ["internal"] }
+tsify-next = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [lints]
 workspace = true
