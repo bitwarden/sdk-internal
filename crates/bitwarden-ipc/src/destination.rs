@@ -5,6 +5,8 @@ use wasm_bindgen::prelude::*;
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum Destination {
     Web,
-    Browser,
-    Desktop,
+    BrowserForeground,
+    BrowserBackground,
+    DesktopRenderer,
+    DesktopMain,
 }
