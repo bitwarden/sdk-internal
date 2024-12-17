@@ -25,7 +25,7 @@ workspace = true
 proc-macro = true
 
 [dev-dependencies]
-bitwarden-error.workspace = true
+bitwarden-error = { workspace = true, features = ["wasm"] }
 js-sys.workspace = true
 serde.workspace = true
 thiserror.workspace = true
