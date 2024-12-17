@@ -9,7 +9,7 @@ mod full;
 /// # Attributes
 ///
 /// ## Error type
-
+///
 /// - `basic`: The error is converted into a string using the `ToString` trait.
 /// - `flat`: The error is converted into a flat structure using the `FlatError` trait.
 /// - `full`: The entire error stack is made available using `serde`.

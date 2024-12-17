@@ -103,15 +103,22 @@ pub struct OrganizationSubscriptionResponseModel {
     )]
     pub max_autoscale_sm_service_accounts: Option<i32>,
     #[serde(
-        rename = "limitCollectionCreationDeletion",
+        rename = "limitCollectionCreation",
         skip_serializing_if = "Option::is_none"
     )]
-    pub limit_collection_creation_deletion: Option<bool>,
+    pub limit_collection_creation: Option<bool>,
+    #[serde(
+        rename = "limitCollectionDeletion",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub limit_collection_deletion: Option<bool>,
     #[serde(
         rename = "allowAdminAccessToAllCollectionItems",
         skip_serializing_if = "Option::is_none"
     )]
     pub allow_admin_access_to_all_collection_items: Option<bool>,
+    #[serde(rename = "useRiskInsights", skip_serializing_if = "Option::is_none")]
+    pub use_risk_insights: Option<bool>,
     #[serde(rename = "storageName", skip_serializing_if = "Option::is_none")]
     pub storage_name: Option<String>,
     #[serde(rename = "storageGb", skip_serializing_if = "Option::is_none")]
@@ -174,8 +181,10 @@ impl OrganizationSubscriptionResponseModel {
             sm_service_accounts: None,
             max_autoscale_sm_seats: None,
             max_autoscale_sm_service_accounts: None,
-            limit_collection_creation_deletion: None,
+            limit_collection_creation: None,
+            limit_collection_deletion: None,
             allow_admin_access_to_all_collection_items: None,
+            use_risk_insights: None,
             storage_name: None,
             storage_gb: None,
             customer_discount: None,

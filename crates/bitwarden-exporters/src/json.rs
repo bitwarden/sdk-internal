@@ -215,7 +215,7 @@ impl From<Identity> for JsonIdentity {
 struct JsonSshKey {
     private_key: String,
     public_key: String,
-    fingerprint: String,
+    key_fingerprint: String,
 }
 
 impl From<SshKey> for JsonSshKey {
@@ -223,7 +223,7 @@ impl From<SshKey> for JsonSshKey {
         JsonSshKey {
             private_key: ssh_key.private_key,
             public_key: ssh_key.public_key,
-            fingerprint: ssh_key.fingerprint,
+            key_fingerprint: ssh_key.fingerprint,
         }
     }
 }
@@ -314,6 +314,7 @@ mod tests {
                     r#match: None,
                 }],
                 totp: Some("ABC".to_string()),
+                fido2_credentials: None,
             })),
 
             favorite: true,
@@ -661,7 +662,7 @@ mod tests {
             "sshKey": {
               "privateKey": "private",
               "publicKey": "public",
-              "fingerprint": "fingerprint"
+              "keyFingerprint": "fingerprint"
             },
             "favorite": false,
             "collectionIds": null
@@ -705,6 +706,7 @@ mod tests {
                             r#match: None,
                         }],
                         totp: Some("ABC".to_string()),
+                        fido2_credentials: None,
                     })),
 
                     favorite: true,

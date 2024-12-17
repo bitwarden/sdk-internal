@@ -2,7 +2,10 @@ use std::rc::Rc;
 
 use bitwarden_core::{
     client::encryption_settings::EncryptionSettingsError,
-    mobile::crypto::{InitOrgCryptoRequest, InitUserCryptoRequest},
+    mobile::crypto::{
+        InitOrgCryptoRequest, InitUserCryptoRequest, MakeKeyPairResponse,
+        VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
+    },
     Client,
 };
 use wasm_bindgen::prelude::*;
@@ -34,5 +37,24 @@ impl ClientCrypto {
         req: InitOrgCryptoRequest,
     ) -> Result<(), EncryptionSettingsError> {
         self.0.crypto().initialize_org_crypto(req).await
+    }
+
+    /// Generates a new key pair and encrypts the private key with the provided user key.
+    /// Crypto initialization not required.
+    pub fn make_key_pair(
+        &self,
+        user_key: String,
+    ) -> Result<MakeKeyPairResponse, bitwarden_core::Error> {
+        self.0.crypto().make_key_pair(user_key)
+    }
+
+    /// Verifies a user's asymmetric keys by decrypting the private key with the provided user
+    /// key. Returns if the private key is decryptable and if it is a valid matching key.
+    /// Crypto initialization not required.
+    pub fn verify_asymmetric_keys(
+        &self,
+        request: VerifyAsymmetricKeysRequest,
+    ) -> Result<VerifyAsymmetricKeysResponse, bitwarden_core::Error> {
+        self.0.crypto().verify_asymmetric_keys(request)
     }
 }

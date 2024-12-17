@@ -57,7 +57,7 @@ pub struct AttachmentFileView<'a> {
     pub contents: &'a [u8],
 }
 
-impl<'a> KeyEncryptable<SymmetricCryptoKey, AttachmentEncryptResult> for AttachmentFileView<'a> {
+impl KeyEncryptable<SymmetricCryptoKey, AttachmentEncryptResult> for AttachmentFileView<'_> {
     fn encrypt_with_key(
         self,
         key: &SymmetricCryptoKey,

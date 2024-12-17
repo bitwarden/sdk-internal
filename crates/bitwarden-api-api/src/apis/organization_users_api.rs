@@ -35,10 +35,17 @@ pub enum OrganizationsOrgIdUsersDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_delete_post`]
+/// struct for typed errors of method [`organizations_org_id_users_delete_account_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersDeletePostError {
+pub enum OrganizationsOrgIdUsersDeleteAccountDeleteError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_org_id_users_delete_account_post`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrgIdUsersDeleteAccountPostError {
     UnknownValue(serde_json::Value),
 }
 
@@ -77,10 +84,17 @@ pub enum OrganizationsOrgIdUsersIdDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_delete_post`]
+/// struct for typed errors of method [`organizations_org_id_users_id_delete_account_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdDeletePostError {
+pub enum OrganizationsOrgIdUsersIdDeleteAccountDeleteError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_org_id_users_id_delete_account_post`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrgIdUsersIdDeleteAccountPostError {
     UnknownValue(serde_json::Value),
 }
 
@@ -116,6 +130,13 @@ pub enum OrganizationsOrgIdUsersIdPutError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum OrganizationsOrgIdUsersIdReinvitePostError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_org_id_users_id_remove_post`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrgIdUsersIdRemovePostError {
     UnknownValue(serde_json::Value),
 }
 
@@ -168,6 +189,13 @@ pub enum OrganizationsOrgIdUsersInvitePostError {
     UnknownValue(serde_json::Value),
 }
 
+/// struct for typed errors of method [`organizations_org_id_users_mini_details_get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrgIdUsersMiniDetailsGetError {
+    UnknownValue(serde_json::Value),
+}
+
 /// struct for typed errors of method
 /// [`organizations_org_id_users_organization_user_id_accept_init_post`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -195,6 +223,13 @@ pub enum OrganizationsOrgIdUsersPublicKeysPostError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum OrganizationsOrgIdUsersReinvitePostError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_org_id_users_remove_post`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrgIdUsersRemovePostError {
     UnknownValue(serde_json::Value),
 }
 
@@ -337,7 +372,7 @@ pub async fn organizations_org_id_users_confirm_post(
 
 pub async fn organizations_org_id_users_delete(
     configuration: &configuration::Configuration,
-    org_id: &str,
+    org_id: uuid::Uuid,
     organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
 ) -> Result<
     models::OrganizationUserBulkResponseModelListResponseModel,
@@ -350,7 +385,7 @@ pub async fn organizations_org_id_users_delete(
     let local_var_uri_str = format!(
         "{}/organizations/{orgId}/users",
         local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id)
+        orgId = crate::apis::urlencode(org_id.to_string())
     );
     let mut local_var_req_builder =
         local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
@@ -384,22 +419,71 @@ pub async fn organizations_org_id_users_delete(
     }
 }
 
-pub async fn organizations_org_id_users_delete_post(
+pub async fn organizations_org_id_users_delete_account_delete(
     configuration: &configuration::Configuration,
-    org_id: &str,
+    org_id: uuid::Uuid,
     organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
 ) -> Result<
     models::OrganizationUserBulkResponseModelListResponseModel,
-    Error<OrganizationsOrgIdUsersDeletePostError>,
+    Error<OrganizationsOrgIdUsersDeleteAccountDeleteError>,
 > {
     let local_var_configuration = configuration;
 
     let local_var_client = &local_var_configuration.client;
 
     let local_var_uri_str = format!(
-        "{}/organizations/{orgId}/users/delete",
+        "{}/organizations/{orgId}/users/delete-account",
         local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id)
+        orgId = crate::apis::urlencode(org_id.to_string())
+    );
+    let mut local_var_req_builder =
+        local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+        local_var_req_builder =
+            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+    local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        serde_json::from_str(&local_var_content).map_err(Error::from)
+    } else {
+        let local_var_entity: Option<OrganizationsOrgIdUsersDeleteAccountDeleteError> =
+            serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent {
+            status: local_var_status,
+            content: local_var_content,
+            entity: local_var_entity,
+        };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
+pub async fn organizations_org_id_users_delete_account_post(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
+) -> Result<
+    models::OrganizationUserBulkResponseModelListResponseModel,
+    Error<OrganizationsOrgIdUsersDeleteAccountPostError>,
+> {
+    let local_var_configuration = configuration;
+
+    let local_var_client = &local_var_configuration.client;
+
+    let local_var_uri_str = format!(
+        "{}/organizations/{orgId}/users/delete-account",
+        local_var_configuration.base_path,
+        orgId = crate::apis::urlencode(org_id.to_string())
     );
     let mut local_var_req_builder =
         local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
@@ -422,7 +506,7 @@ pub async fn organizations_org_id_users_delete_post(
     if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
         serde_json::from_str(&local_var_content).map_err(Error::from)
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersDeletePostError> =
+        let local_var_entity: Option<OrganizationsOrgIdUsersDeleteAccountPostError> =
             serde_json::from_str(&local_var_content).ok();
         let local_var_error = ResponseContent {
             status: local_var_status,
@@ -632,8 +716,8 @@ pub async fn organizations_org_id_users_id_confirm_post(
 
 pub async fn organizations_org_id_users_id_delete(
     configuration: &configuration::Configuration,
-    org_id: &str,
-    id: &str,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdDeleteError>> {
     let local_var_configuration = configuration;
 
@@ -642,8 +726,8 @@ pub async fn organizations_org_id_users_id_delete(
     let local_var_uri_str = format!(
         "{}/organizations/{orgId}/users/{id}",
         local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id),
-        id = crate::apis::urlencode(id)
+        orgId = crate::apis::urlencode(org_id.to_string()),
+        id = crate::apis::urlencode(id.to_string())
     );
     let mut local_var_req_builder =
         local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
@@ -676,20 +760,66 @@ pub async fn organizations_org_id_users_id_delete(
     }
 }
 
-pub async fn organizations_org_id_users_id_delete_post(
+pub async fn organizations_org_id_users_id_delete_account_delete(
     configuration: &configuration::Configuration,
-    org_id: &str,
-    id: &str,
-) -> Result<(), Error<OrganizationsOrgIdUsersIdDeletePostError>> {
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationsOrgIdUsersIdDeleteAccountDeleteError>> {
     let local_var_configuration = configuration;
 
     let local_var_client = &local_var_configuration.client;
 
     let local_var_uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}/delete",
+        "{}/organizations/{orgId}/users/{id}/delete-account",
         local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id),
-        id = crate::apis::urlencode(id)
+        orgId = crate::apis::urlencode(org_id.to_string()),
+        id = crate::apis::urlencode(id.to_string())
+    );
+    let mut local_var_req_builder =
+        local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+        local_var_req_builder =
+            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        Ok(())
+    } else {
+        let local_var_entity: Option<OrganizationsOrgIdUsersIdDeleteAccountDeleteError> =
+            serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent {
+            status: local_var_status,
+            content: local_var_content,
+            entity: local_var_entity,
+        };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
+pub async fn organizations_org_id_users_id_delete_account_post(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationsOrgIdUsersIdDeleteAccountPostError>> {
+    let local_var_configuration = configuration;
+
+    let local_var_client = &local_var_configuration.client;
+
+    let local_var_uri_str = format!(
+        "{}/organizations/{orgId}/users/{id}/delete-account",
+        local_var_configuration.base_path,
+        orgId = crate::apis::urlencode(org_id.to_string()),
+        id = crate::apis::urlencode(id.to_string())
     );
     let mut local_var_req_builder =
         local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
@@ -711,7 +841,7 @@ pub async fn organizations_org_id_users_id_delete_post(
     if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdDeletePostError> =
+        let local_var_entity: Option<OrganizationsOrgIdUsersIdDeleteAccountPostError> =
             serde_json::from_str(&local_var_content).ok();
         let local_var_error = ResponseContent {
             status: local_var_status,
@@ -724,7 +854,7 @@ pub async fn organizations_org_id_users_id_delete_post(
 
 pub async fn organizations_org_id_users_id_get(
     configuration: &configuration::Configuration,
-    id: &str,
+    id: uuid::Uuid,
     org_id: &str,
     include_groups: Option<bool>,
 ) -> Result<models::OrganizationUserDetailsResponseModel, Error<OrganizationsOrgIdUsersIdGetError>>
@@ -736,7 +866,7 @@ pub async fn organizations_org_id_users_id_get(
     let local_var_uri_str = format!(
         "{}/organizations/{orgId}/users/{id}",
         local_var_configuration.base_path,
-        id = crate::apis::urlencode(id),
+        id = crate::apis::urlencode(id.to_string()),
         orgId = crate::apis::urlencode(org_id)
     );
     let mut local_var_req_builder =
@@ -952,6 +1082,52 @@ pub async fn organizations_org_id_users_id_reinvite_post(
         Ok(())
     } else {
         let local_var_entity: Option<OrganizationsOrgIdUsersIdReinvitePostError> =
+            serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent {
+            status: local_var_status,
+            content: local_var_content,
+            entity: local_var_entity,
+        };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
+pub async fn organizations_org_id_users_id_remove_post(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationsOrgIdUsersIdRemovePostError>> {
+    let local_var_configuration = configuration;
+
+    let local_var_client = &local_var_configuration.client;
+
+    let local_var_uri_str = format!(
+        "{}/organizations/{orgId}/users/{id}/remove",
+        local_var_configuration.base_path,
+        orgId = crate::apis::urlencode(org_id.to_string()),
+        id = crate::apis::urlencode(id.to_string())
+    );
+    let mut local_var_req_builder =
+        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+        local_var_req_builder =
+            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        Ok(())
+    } else {
+        let local_var_entity: Option<OrganizationsOrgIdUsersIdRemovePostError> =
             serde_json::from_str(&local_var_content).ok();
         let local_var_error = ResponseContent {
             status: local_var_status,
@@ -1292,6 +1468,53 @@ pub async fn organizations_org_id_users_invite_post(
     }
 }
 
+pub async fn organizations_org_id_users_mini_details_get(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+) -> Result<
+    models::OrganizationUserUserMiniDetailsResponseModelListResponseModel,
+    Error<OrganizationsOrgIdUsersMiniDetailsGetError>,
+> {
+    let local_var_configuration = configuration;
+
+    let local_var_client = &local_var_configuration.client;
+
+    let local_var_uri_str = format!(
+        "{}/organizations/{orgId}/users/mini-details",
+        local_var_configuration.base_path,
+        orgId = crate::apis::urlencode(org_id.to_string())
+    );
+    let mut local_var_req_builder =
+        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+        local_var_req_builder =
+            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        serde_json::from_str(&local_var_content).map_err(Error::from)
+    } else {
+        let local_var_entity: Option<OrganizationsOrgIdUsersMiniDetailsGetError> =
+            serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent {
+            status: local_var_status,
+            content: local_var_content,
+            entity: local_var_entity,
+        };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
 pub async fn organizations_org_id_users_organization_user_id_accept_init_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1479,6 +1702,55 @@ pub async fn organizations_org_id_users_reinvite_post(
         serde_json::from_str(&local_var_content).map_err(Error::from)
     } else {
         let local_var_entity: Option<OrganizationsOrgIdUsersReinvitePostError> =
+            serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent {
+            status: local_var_status,
+            content: local_var_content,
+            entity: local_var_entity,
+        };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
+pub async fn organizations_org_id_users_remove_post(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
+) -> Result<
+    models::OrganizationUserBulkResponseModelListResponseModel,
+    Error<OrganizationsOrgIdUsersRemovePostError>,
+> {
+    let local_var_configuration = configuration;
+
+    let local_var_client = &local_var_configuration.client;
+
+    let local_var_uri_str = format!(
+        "{}/organizations/{orgId}/users/remove",
+        local_var_configuration.base_path,
+        orgId = crate::apis::urlencode(org_id.to_string())
+    );
+    let mut local_var_req_builder =
+        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+        local_var_req_builder =
+            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+    local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        serde_json::from_str(&local_var_content).map_err(Error::from)
+    } else {
+        let local_var_entity: Option<OrganizationsOrgIdUsersRemovePostError> =
             serde_json::from_str(&local_var_content).ok();
         let local_var_error = ResponseContent {
             status: local_var_status,

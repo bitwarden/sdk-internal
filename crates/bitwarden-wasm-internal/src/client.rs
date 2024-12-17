@@ -54,7 +54,7 @@ impl BitwardenClient {
         env!("SDK_VERSION").to_owned()
     }
 
-    pub async fn throw(&self, msg: String) -> Result<(), TestError> {
+    pub fn throw(&self, msg: String) -> Result<(), TestError> {
         Err(TestError(msg))
     }
 
