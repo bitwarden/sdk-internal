@@ -1,3 +1,4 @@
+use js_sys::Uint8Array;
 use wasm_bindgen::prelude::*;
 
 use crate::destination::Destination;
@@ -6,8 +7,8 @@ use crate::link::Link;
 #[wasm_bindgen(typescript_custom_section)]
 const ITEXT_STYLE: &'static str = r#"
 export interface Link {
-    send(data: Uint8Array): void;
-    receive(): Uint8Array;
+    send(data: Uint8Array): Promise<void>;
+    receive(): Promise<Uint8Array>;
     availableDestinations(): Destination[];
 }
 "#;
@@ -18,22 +19,24 @@ extern "C" {
     pub type JsLink;
 
     #[wasm_bindgen(method, structural)]
-    pub fn send(this: &JsLink, data: &[u8]);
+    pub async fn send(this: &JsLink, data: &[u8]);
 
     #[wasm_bindgen(method, structural)]
-    pub fn receive(this: &JsLink) -> Vec<u8>;
+    pub async fn receive(this: &JsLink) -> JsValue;
 
     #[wasm_bindgen(method, structural)]
     pub fn availableDestinations(this: &JsLink) -> Vec<Destination>;
 }
 
 impl Link for JsLink {
-    fn send(&self, data: &[u8]) {
-        self.send(data);
+    async fn send(&self, data: &[u8]) {
+        self.send(data).await;
     }
 
-    fn receive(&self) -> Vec<u8> {
-        self.receive()
+    async fn receive(&self) -> Vec<u8> {
+        let js_value = self.receive().await;
+        let array = Uint8Array::new(&js_value);
+        array.to_vec()
     }
 
     fn available_destinations(&self) -> Vec<Destination> {

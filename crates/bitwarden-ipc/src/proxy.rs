@@ -15,8 +15,8 @@ where
         Self { links }
     }
 
-    pub fn start(&self) {
-        let data = self.links.0.receive();
+    pub async fn start(&self) {
+        let data = self.links.0.receive().await;
         self.links.1.send(&data);
     }
 }
