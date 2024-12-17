@@ -10,7 +10,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-wasm = ["bitwarden-error/wasm"]
+wasm = []
 
 [dependencies]
 darling = "0.20.10"
