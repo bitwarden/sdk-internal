@@ -1,10 +1,11 @@
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
+use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum Destination {
-    Web,
+    Web(String),
     BrowserForeground,
     BrowserBackground,
     DesktopRenderer,

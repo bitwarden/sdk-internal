@@ -550,6 +550,7 @@ version = "1.0.0"
 dependencies = [
  "bitwarden-core",
  "js-sys",
+ "serde",
  "tsify-next",
  "wasm-bindgen",
  "wasm-bindgen-futures",

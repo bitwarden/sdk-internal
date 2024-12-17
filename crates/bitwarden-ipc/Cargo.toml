@@ -19,8 +19,9 @@ wasm = [
 
 [dependencies]
 bitwarden-core = { workspace = true, features = ["internal"] }
-tsify-next = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
+serde = { workspace = true }
+tsify-next = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 

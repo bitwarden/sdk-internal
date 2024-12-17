@@ -19,10 +19,11 @@ where
     C: CryptoProvider,
     L: Link,
 {
-    fn send(&self, data: &[u8]) {
-        todo!()
+    async fn send(&self, data: &[u8]) {
+        self.link.send(data).await;
     }
-    fn receive(&self) -> Vec<u8> {
-        todo!()
+
+    async fn receive(&self) -> Vec<u8> {
+        self.link.receive().await
     }
 }
