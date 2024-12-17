@@ -23,7 +23,11 @@ impl JsManager {
         self.manager.register_link(link);
     }
 
-    pub fn get_channel(&self, _destination: Destination) {
-        todo!()
+    pub async fn send(&self, destination: Destination, data: &[u8]) {
+        self.manager.send(destination, data).await;
+    }
+
+    pub async fn receive(&self, destination: Destination) -> Vec<u8> {
+        self.manager.receive(destination).await
     }
 }

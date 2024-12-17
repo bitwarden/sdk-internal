@@ -25,7 +25,23 @@ where
         self.links.push(link);
     }
 
-    pub fn get_channel(&mut self, destination: Destination) {
-        todo!()
+    pub async fn send(&self, destination: Destination, data: &[u8]) {
+        let link = self
+            .links
+            .iter()
+            .find(|link| link.available_destinations().contains(&destination))
+            // TODO: Use proper error handling
+            .expect("No link available for destination");
+        link.send(data).await;
+    }
+
+    pub async fn receive(&self, destination: Destination) -> Vec<u8> {
+        let link = self
+            .links
+            .iter()
+            .find(|link| link.available_destinations().contains(&destination))
+            // TODO: Use proper error handling
+            .expect("No link available for destination");
+        link.receive().await
     }
 }
