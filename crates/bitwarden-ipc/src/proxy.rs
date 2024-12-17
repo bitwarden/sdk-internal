@@ -1,11 +1,17 @@
 use crate::link::Link;
 
-pub struct Proxy {
-    links: (Box<dyn Link>, Box<dyn Link>),
+pub struct Proxy<L>
+where
+    L: Link,
+{
+    links: (L, L),
 }
 
-impl Proxy {
-    pub fn new(links: (Box<dyn Link>, Box<dyn Link>)) -> Self {
+impl<L> Proxy<L>
+where
+    L: Link,
+{
+    pub fn new(links: (L, L)) -> Self {
         Self { links }
     }
 

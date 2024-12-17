@@ -1,16 +1,18 @@
 use crate::{destination::Destination, link::Link, providers::CryptoProvider};
 
-pub struct Manager<C>
+pub struct Manager<C, L>
 where
     C: CryptoProvider,
+    L: Link,
 {
     crypto: C,
-    links: Vec<Box<dyn Link>>,
+    links: Vec<L>,
 }
 
-impl<C> Manager<C>
+impl<C, L> Manager<C, L>
 where
     C: CryptoProvider,
+    L: Link,
 {
     pub fn new(crypto: C) -> Self {
         Self {
@@ -19,7 +21,7 @@ where
         }
     }
 
-    pub fn register_link(&mut self, link: Box<dyn Link>) {
+    pub fn register_link(&mut self, link: L) {
         self.links.push(link);
     }
 
