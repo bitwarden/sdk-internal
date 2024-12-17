@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::Result;
 
+/// A struct containing the parts for making a fingerprint request.
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -16,9 +17,11 @@ pub struct FingerprintRequest {
     pub public_key: String,
 }
 
+/// A struct containing the details of a successful request to generate a fingerprint.
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FingerprintResponse {
+    /// A `String` containing 5 words seperated by hyphens.
     pub fingerprint: String,
 }
 

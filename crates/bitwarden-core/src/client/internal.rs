@@ -41,6 +41,9 @@ pub(crate) struct Tokens {
     pub(crate) refresh_token: Option<String>,
 }
 
+/// A struct contains various internal actions. Everything on this type
+/// should be considered unstable and subject to change at any time. Use
+/// with caution.
 #[derive(Debug)]
 pub struct InternalClient {
     pub(crate) tokens: RwLock<Tokens>,
