@@ -12,7 +12,7 @@ impl<'a> IpcClient<'a> {
         Self { client }
     }
 
-    pub fn create_manager(&self, link: Box<dyn Link>) {
+    pub fn create_manager<L: Link>(&self, link: L) {
         todo!()
     }
 }
