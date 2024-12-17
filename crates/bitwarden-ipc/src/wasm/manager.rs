@@ -10,7 +10,7 @@ pub struct JsManager {
     manager: Manager<NoEncryptionCryptoProvider, JsLink>,
 }
 
-#[wasm_bindgen]
+#[wasm_bindgen(js_class = Manager)]
 impl JsManager {
     #[wasm_bindgen(constructor)]
     pub fn new() -> JsManager {
