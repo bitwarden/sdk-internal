@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use ssh_key::{rand_core::CryptoRngCore, Algorithm, HashAlg, LineEnding};
+use ssh_key::{rand_core::CryptoRngCore, Algorithm};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 

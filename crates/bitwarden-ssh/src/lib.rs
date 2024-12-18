@@ -2,8 +2,7 @@ pub mod error;
 pub mod generator;
 pub mod import;
 
-use error::{SshKeyExportError, SshKeyImportError};
-use import::import_key;
+use error::SshKeyExportError;
 use pkcs8::LineEnding;
 use serde::{Deserialize, Serialize};
 use ssh_key::{HashAlg, PrivateKey};
