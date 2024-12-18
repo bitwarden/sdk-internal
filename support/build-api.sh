@@ -1,3 +1,11 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+cd "$(dirname "$0")"
+
+# Move to the root of the repository
+cd ../
+
 # Delete old directory to ensure all files are updated
 rm -rf crates/bitwarden-api-api/src
 
