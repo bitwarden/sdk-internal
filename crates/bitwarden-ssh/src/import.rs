@@ -32,7 +32,7 @@ fn import_pkcs8_key(
     encoded_key: String,
     password: Option<String>,
 ) -> Result<SshKey, SshKeyImportError> {
-    let decrypted_der = if let Some(password) = password {
+    let der = if let Some(password) = password {
         SecretDocument::from_pkcs8_encrypted_pem(&encoded_key, password.as_bytes()).map_err(
             |err| match err {
                 pkcs8::Error::EncryptedPrivateKey(pkcs5::Error::DecryptFailed) => {
@@ -45,8 +45,8 @@ fn import_pkcs8_key(
         SecretDocument::from_pkcs8_pem(&encoded_key).map_err(|_| SshKeyImportError::ParsingError)?
     };
 
-    let private_key_info = PrivateKeyInfo::from_der(decrypted_der.as_bytes())
-        .map_err(|_| SshKeyImportError::ParsingError)?;
+    let private_key_info =
+        PrivateKeyInfo::from_der(der.as_bytes()).map_err(|_| SshKeyImportError::ParsingError)?;
 
     let private_key = match private_key_info.algorithm.oid {
         ed25519::pkcs8::ALGORITHM_OID => {
