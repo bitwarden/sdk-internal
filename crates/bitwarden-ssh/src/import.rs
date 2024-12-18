@@ -9,6 +9,14 @@ const PKCS8_UNENCRYPTED_LABEL: &str = "PRIVATE KEY";
 const PKCS8_ENCRYPTED_LABEL: &str = "ENCRYPTED PRIVATE KEY";
 const OPENSSH_LABEL: &str = "OPENSSH PRIVATE KEY";
 
+/// Import a PKCS8 or OpenSSH encoded private key, and returns a decoded SshKey,
+/// with the public key and fingerprint, and the private key in OpenSSH format.
+/// A password can be provided for encrypted keys.
+/// # Returns
+/// - `Error::PasswordRequired` if the key is encrypted and no password is provided
+/// - `Error::WrongPassword` if the password provided is incorrect
+/// - `Error::UnsupportedKeyType` if the key type is not supported
+/// - `Error::ParsingError` if the key is otherwise malformed and cannot be parsed
 pub fn import_key(
     encoded_key: String,
     password: Option<String>,
@@ -53,6 +61,7 @@ fn import_pkcs8_key(
             let private_key: ed25519::KeypairBytes = private_key_info
                 .try_into()
                 .map_err(|_| SshKeyImportError::ParsingError)?;
+
             ssh_key::private::PrivateKey::from(Ed25519Keypair::from(&private_key.secret_key.into()))
         }
         rsa::pkcs1::ALGORITHM_OID => {
@@ -67,7 +76,9 @@ fn import_pkcs8_key(
         _ => return Err(SshKeyImportError::UnsupportedKeyType),
     };
 
-    private_key.try_into()
+    private_key
+        .try_into()
+        .map_err(|_| SshKeyImportError::ParsingError)
 }
 
 fn import_openssh_key(
@@ -88,11 +99,14 @@ fn import_openssh_key(
                 .decrypt(password.as_bytes())
                 .map_err(|_| SshKeyImportError::WrongPassword)?
                 .try_into()
+                .map_err(|_| SshKeyImportError::ParsingError)
         } else {
             Err(SshKeyImportError::PasswordRequired)
         }
     } else {
-        private_key.try_into()
+        private_key
+            .try_into()
+            .map_err(|_| SshKeyImportError::ParsingError)
     }
 }
 
@@ -102,41 +116,41 @@ mod tests {
 
     #[test]
     fn import_key_ed25519_openssh_unencrypted() {
-        let private_key = include_str!("../resources/ed25519_openssh_unencrypted");
-        let public_key = include_str!("../resources/ed25519_openssh_unencrypted.pub").trim();
+        let private_key = include_str!("../resources/import/ed25519_openssh_unencrypted");
+        let public_key = include_str!("../resources/import/ed25519_openssh_unencrypted.pub").trim();
         let result = import_key(private_key.to_string(), Some("".to_string())).unwrap();
         assert_eq!(result.public_key, public_key);
     }
 
     #[test]
     fn import_key_ed25519_openssh_encrypted() {
-        let private_key = include_str!("../resources/ed25519_openssh_encrypted");
-        let public_key = include_str!("../resources/ed25519_openssh_encrypted.pub").trim();
+        let private_key = include_str!("../resources/import/ed25519_openssh_encrypted");
+        let public_key = include_str!("../resources/import/ed25519_openssh_encrypted.pub").trim();
         let result = import_key(private_key.to_string(), Some("password".to_string())).unwrap();
         assert_eq!(result.public_key, public_key);
     }
 
     #[test]
     fn import_key_rsa_openssh_unencrypted() {
-        let private_key = include_str!("../resources/rsa_openssh_unencrypted");
-        let public_key = include_str!("../resources/rsa_openssh_unencrypted.pub").trim();
+        let private_key = include_str!("../resources/import/rsa_openssh_unencrypted");
+        let public_key = include_str!("../resources/import/rsa_openssh_unencrypted.pub").trim();
         let result = import_key(private_key.to_string(), Some("".to_string())).unwrap();
         assert_eq!(result.public_key, public_key);
     }
 
     #[test]
     fn import_key_rsa_openssh_encrypted() {
-        let private_key = include_str!("../resources/rsa_openssh_encrypted");
-        let public_key = include_str!("../resources/rsa_openssh_encrypted.pub").trim();
+        let private_key = include_str!("../resources/import/rsa_openssh_encrypted");
+        let public_key = include_str!("../resources/import/rsa_openssh_encrypted.pub").trim();
         let result = import_key(private_key.to_string(), Some("password".to_string())).unwrap();
         assert_eq!(result.public_key, public_key);
     }
 
     #[test]
     fn import_key_ed25519_pkcs8_unencrypted() {
-        let private_key = include_str!("../resources/ed25519_pkcs8_unencrypted");
-        let public_key =
-            include_str!("../resources/ed25519_pkcs8_unencrypted.pub").replace("testkey", "");
+        let private_key = include_str!("../resources/import/ed25519_pkcs8_unencrypted");
+        let public_key = include_str!("../resources/import/ed25519_pkcs8_unencrypted.pub")
+            .replace("testkey", "");
         let public_key = public_key.trim();
         let result = import_key(private_key.to_string(), Some("".to_string())).unwrap();
         assert_eq!(result.public_key, public_key);
@@ -144,10 +158,10 @@ mod tests {
 
     #[test]
     fn import_key_rsa_pkcs8_unencrypted() {
-        let private_key = include_str!("../resources/rsa_pkcs8_unencrypted");
+        let private_key = include_str!("../resources/import/rsa_pkcs8_unencrypted");
         // for whatever reason pkcs8 + rsa does not include the comment in the public key
         let public_key =
-            include_str!("../resources/rsa_pkcs8_unencrypted.pub").replace("testkey", "");
+            include_str!("../resources/import/rsa_pkcs8_unencrypted.pub").replace("testkey", "");
         let public_key = public_key.trim();
         let result = import_key(private_key.to_string(), Some("".to_string())).unwrap();
         assert_eq!(result.public_key, public_key);
@@ -155,9 +169,9 @@ mod tests {
 
     #[test]
     fn import_key_rsa_pkcs8_encrypted() {
-        let private_key = include_str!("../resources/rsa_pkcs8_encrypted");
+        let private_key = include_str!("../resources/import/rsa_pkcs8_encrypted");
         let public_key =
-            include_str!("../resources/rsa_pkcs8_encrypted.pub").replace("testkey", "");
+            include_str!("../resources/import/rsa_pkcs8_encrypted.pub").replace("testkey", "");
         let public_key = public_key.trim();
         let result = import_key(private_key.to_string(), Some("password".to_string())).unwrap();
         assert_eq!(result.public_key, public_key);
@@ -165,7 +179,7 @@ mod tests {
 
     #[test]
     fn import_key_ed25519_openssh_encrypted_wrong_password() {
-        let private_key = include_str!("../resources/ed25519_openssh_encrypted");
+        let private_key = include_str!("../resources/import/ed25519_openssh_encrypted");
         let result = import_key(private_key.to_string(), Some("wrongpassword".to_string()));
         assert_eq!(result.unwrap_err(), SshKeyImportError::WrongPassword);
     }
@@ -177,8 +191,15 @@ mod tests {
     }
 
     #[test]
+    fn import_wrong_label_error() {
+        let private_key = include_str!("../resources/import/wrong_label");
+        let result = import_key(private_key.to_string(), Some("".to_string()));
+        assert_eq!(result.unwrap_err(), SshKeyImportError::ParsingError);
+    }
+
+    #[test]
     fn import_ecdsa_error() {
-        let private_key = include_str!("../resources/ecdsa_openssh_unencrypted");
+        let private_key = include_str!("../resources/import/ecdsa_openssh_unencrypted");
         let result = import_key(private_key.to_string(), Some("".to_string()));
         assert_eq!(result.unwrap_err(), SshKeyImportError::UnsupportedKeyType);
     }
@@ -189,7 +210,7 @@ mod tests {
     // https://bitwarden.atlassian.net/browse/PM-14989
     #[test]
     fn import_key_ed25519_putty() {
-        let private_key = include_str!("../resources/ed25519_putty_openssh_unencrypted");
+        let private_key = include_str!("../resources/import/ed25519_putty_openssh_unencrypted");
         let result = import_key(private_key.to_string(), Some("".to_string()));
         assert_eq!(result.unwrap_err(), SshKeyImportError::ParsingError);
     }
@@ -200,14 +221,14 @@ mod tests {
     // https://bitwarden.atlassian.net/browse/PM-14989
     #[test]
     fn import_key_rsa_openssh_putty() {
-        let private_key = include_str!("../resources/rsa_putty_openssh_unencrypted");
+        let private_key = include_str!("../resources/import/rsa_putty_openssh_unencrypted");
         let result = import_key(private_key.to_string(), Some("".to_string()));
         assert_eq!(result.unwrap_err(), SshKeyImportError::ParsingError);
     }
 
     #[test]
     fn import_key_rsa_pkcs8_putty() {
-        let private_key = include_str!("../resources/rsa_putty_pkcs1_unencrypted");
+        let private_key = include_str!("../resources/import/rsa_putty_pkcs1_unencrypted");
         let result = import_key(private_key.to_string(), Some("".to_string()));
         assert_eq!(result.unwrap_err(), SshKeyImportError::UnsupportedKeyType);
     }

@@ -13,6 +13,11 @@ pub enum KeyAlgorithm {
     Rsa4096,
 }
 
+/**
+ * Generate a new SSH key pair, for the provided key algorithm, returning
+ * an `SshKey` struct containing the private key, public key, and key fingerprint,
+ * with the private key in OpenSSH format.
+ */
 pub fn generate_sshkey(key_algorithm: KeyAlgorithm) -> Result<SshKey, error::KeyGenerationError> {
     let rng = rand::thread_rng();
     generate_sshkey_internal(key_algorithm, rng)
@@ -22,34 +27,28 @@ fn generate_sshkey_internal(
     key_algorithm: KeyAlgorithm,
     mut rng: impl CryptoRngCore,
 ) -> Result<SshKey, error::KeyGenerationError> {
-    let key = match key_algorithm {
-        KeyAlgorithm::Ed25519 => ssh_key::PrivateKey::random(&mut rng, Algorithm::Ed25519),
-        KeyAlgorithm::Rsa3072 | KeyAlgorithm::Rsa4096 => {
-            let bits = match key_algorithm {
-                KeyAlgorithm::Rsa3072 => 3072,
-                KeyAlgorithm::Rsa4096 => 4096,
-                _ => unreachable!(),
-            };
+    let private_key = match key_algorithm {
+        KeyAlgorithm::Ed25519 => ssh_key::PrivateKey::random(&mut rng, Algorithm::Ed25519)
+            .map_err(KeyGenerationError::KeyGenerationError),
+        KeyAlgorithm::Rsa3072 => create_rsa_key(&mut rng, 3072),
+        KeyAlgorithm::Rsa4096 => create_rsa_key(&mut rng, 4096),
+    }?;
 
-            let rsa_keypair = ssh_key::private::RsaKeypair::random(&mut rng, bits)
-                .map_err(KeyGenerationError::KeyGenerationError)?;
+    private_key
+        .try_into()
+        .map_err(|_| KeyGenerationError::KeyConversionError)
+}
 
-            let private_key =
-                ssh_key::PrivateKey::new(ssh_key::private::KeypairData::from(rsa_keypair), "")
-                    .map_err(KeyGenerationError::KeyGenerationError)?;
-            Ok(private_key)
-        }
-    }
-    .map_err(KeyGenerationError::KeyGenerationError)?;
-
-    let private_key_openssh = key
-        .to_openssh(LineEnding::LF)
-        .map_err(KeyGenerationError::KeyConversionError)?;
-    Ok(SshKey {
-        private_key: private_key_openssh.to_string(),
-        public_key: key.public_key().to_string(),
-        key_fingerprint: key.fingerprint(HashAlg::Sha256).to_string(),
-    })
+fn create_rsa_key(
+    mut rng: impl CryptoRngCore,
+    bits: usize,
+) -> Result<ssh_key::PrivateKey, error::KeyGenerationError> {
+    let rsa_keypair = ssh_key::private::RsaKeypair::random(&mut rng, bits)
+        .map_err(KeyGenerationError::KeyGenerationError)?;
+    let private_key =
+        ssh_key::PrivateKey::new(ssh_key::private::KeypairData::from(rsa_keypair), "")
+            .map_err(KeyGenerationError::KeyGenerationError)?;
+    Ok(private_key)
 }
 
 #[cfg(test)]
@@ -64,7 +63,7 @@ mod tests {
         let rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
         let key_algorithm = KeyAlgorithm::Ed25519;
         let result = generate_sshkey_internal(key_algorithm, rng);
-        let target = include_str!("../tests/ed25519_key").replace("\r\n", "\n");
+        let target = include_str!("../resources/generator/ed25519_key").replace("\r\n", "\n");
         assert_eq!(result.unwrap().private_key, target);
     }
 
@@ -73,7 +72,7 @@ mod tests {
         let rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
         let key_algorithm = KeyAlgorithm::Rsa3072;
         let result = generate_sshkey_internal(key_algorithm, rng);
-        let target = include_str!("../tests/rsa3072_key").replace("\r\n", "\n");
+        let target = include_str!("../resources/generator/rsa3072_key").replace("\r\n", "\n");
         assert_eq!(result.unwrap().private_key, target);
     }
 
@@ -82,7 +81,7 @@ mod tests {
         let rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
         let key_algorithm = KeyAlgorithm::Rsa4096;
         let result = generate_sshkey_internal(key_algorithm, rng);
-        let target = include_str!("../tests/rsa4096_key").replace("\r\n", "\n");
+        let target = include_str!("../resources/generator/rsa4096_key").replace("\r\n", "\n");
         assert_eq!(result.unwrap().private_key, target);
     }
 }

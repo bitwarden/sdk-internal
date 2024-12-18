@@ -6,8 +6,8 @@ use thiserror::Error;
 pub enum KeyGenerationError {
     #[error("Failed to generate key: {0}")]
     KeyGenerationError(ssh_key::Error),
-    #[error("Failed to convert key: {0}")]
-    KeyConversionError(ssh_key::Error),
+    #[error("Failed to convert key")]
+    KeyConversionError,
 }
 
 #[bitwarden_error(flat)]
@@ -21,4 +21,11 @@ pub enum SshKeyImportError {
     WrongPassword,
     #[error("Unsupported key type")]
     UnsupportedKeyType,
+}
+
+#[bitwarden_error(flat)]
+#[derive(Error, Debug, PartialEq)]
+pub enum SshKeyExportError {
+    #[error("Failed to convert key")]
+    KeyConversionError,
 }
