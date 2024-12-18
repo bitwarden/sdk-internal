@@ -10,7 +10,7 @@ pub fn generate_ssh_key(
 #[wasm_bindgen]
 pub fn import_ssh_key(
     imported_key: &str,
-    password: &str,
+    password: Option<String>,
 ) -> Result<bitwarden_ssh::SshKey, bitwarden_ssh::error::SshKeyImportError> {
-    bitwarden_ssh::import::import_key(imported_key.to_string(), password.to_string())
+    bitwarden_ssh::import::import_key(imported_key.to_string(), password)
 }
