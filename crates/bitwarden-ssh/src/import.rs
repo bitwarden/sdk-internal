@@ -1,9 +1,6 @@
 use ed25519;
 use pkcs8::{der::Decode, pkcs5, DecodePrivateKey, PrivateKeyInfo, SecretDocument};
-use serde::{Deserialize, Serialize};
 use ssh_key::private::{Ed25519Keypair, RsaKeypair};
-#[cfg(feature = "wasm")]
-use tsify_next::Tsify;
 
 use crate::{error::SshKeyImportError, SshKey};
 
@@ -11,14 +8,6 @@ const PKCS1_LABEL: &str = "RSA PRIVATE KEY";
 const PKCS8_UNENCRYPTED_LABEL: &str = "PRIVATE KEY";
 const PKCS8_ENCRYPTED_LABEL: &str = "ENCRYPTED PRIVATE KEY";
 const OPENSSH_LABEL: &str = "OPENSSH PRIVATE KEY";
-
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-enum KeyType {
-    Ed25519,
-    Rsa,
-    Unknown,
-}
 
 pub fn import_key(
     encoded_key: String,
@@ -59,20 +48,14 @@ fn import_pkcs8_key(
     let private_key_info = PrivateKeyInfo::from_der(decrypted_der.as_bytes())
         .map_err(|_| SshKeyImportError::ParsingError)?;
 
-    let key_type: KeyType = match private_key_info.algorithm.oid {
-        ed25519::pkcs8::ALGORITHM_OID => KeyType::Ed25519,
-        rsa::pkcs1::ALGORITHM_OID => KeyType::Rsa,
-        _ => KeyType::Unknown,
-    };
-
-    let private_key = match key_type {
-        KeyType::Ed25519 => {
+    let private_key = match private_key_info.algorithm.oid {
+        ed25519::pkcs8::ALGORITHM_OID => {
             let private_key: ed25519::KeypairBytes = private_key_info
                 .try_into()
                 .map_err(|_| SshKeyImportError::ParsingError)?;
             ssh_key::private::PrivateKey::from(Ed25519Keypair::from(&private_key.secret_key.into()))
         }
-        KeyType::Rsa => {
+        rsa::pkcs1::ALGORITHM_OID => {
             let private_key: rsa::RsaPrivateKey = private_key_info
                 .try_into()
                 .map_err(|_| SshKeyImportError::ParsingError)?;
