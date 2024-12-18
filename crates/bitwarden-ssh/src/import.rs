@@ -1,7 +1,5 @@
 use ed25519;
-use pkcs8::{
-    der::Decode, EncryptedPrivateKeyInfo, ObjectIdentifier, PrivateKeyInfo, SecretDocument,
-};
+use pkcs8::{der::Decode, pkcs5, DecodePrivateKey, PrivateKeyInfo, SecretDocument};
 use serde::{Deserialize, Serialize};
 use ssh_key::private::{Ed25519Keypair, RsaKeypair};
 #[cfg(feature = "wasm")]
@@ -13,9 +11,6 @@ const PKCS1_HEADER: &str = "-----BEGIN RSA PRIVATE KEY-----";
 const PKCS8_UNENCRYPTED_HEADER: &str = "-----BEGIN PRIVATE KEY-----";
 const PKCS8_ENCRYPTED_HEADER: &str = "-----BEGIN ENCRYPTED PRIVATE KEY-----";
 const OPENSSH_HEADER: &str = "-----BEGIN OPENSSH PRIVATE KEY-----";
-
-pub const RSA_PKCS8_ALGORITHM_OID: ObjectIdentifier =
-    ObjectIdentifier::new_unwrap("1.2.840.113549.1.1.1");
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -31,10 +26,11 @@ pub fn import_key(
 ) -> Result<SshKey, SshKeyImportError> {
     match encoded_key.lines().next() {
         Some(PKCS1_HEADER) => Err(SshKeyImportError::UnsupportedKeyType),
-        Some(PKCS8_UNENCRYPTED_HEADER) => {
-            import_pkcs8_key(encoded_key, None).map_err(|_| SshKeyImportError::ParsingError)
-        }
-        Some(PKCS8_ENCRYPTED_HEADER) => import_pkcs8_key(encoded_key, password),
+        Some(PKCS8_UNENCRYPTED_HEADER) => import_pkcs8_key(encoded_key, None),
+        Some(PKCS8_ENCRYPTED_HEADER) => import_pkcs8_key(
+            encoded_key,
+            Some(password.ok_or(SshKeyImportError::PasswordRequired)?),
+        ),
         Some(OPENSSH_HEADER) => import_openssh_key(encoded_key, password),
         _ => Err(SshKeyImportError::ParsingError),
     }
@@ -44,20 +40,17 @@ fn import_pkcs8_key(
     encoded_key: String,
     password: Option<String>,
 ) -> Result<SshKey, SshKeyImportError> {
-    let der = match SecretDocument::from_pem(&encoded_key) {
-        Ok((_, doc)) => doc,
-        Err(_) => return Err(SshKeyImportError::ParsingError),
-    };
-
-    let decrypted_der = match password.clone() {
-        Some(password) => {
-            let encrypted_private_key_info = EncryptedPrivateKeyInfo::from_der(der.as_bytes())
-                .map_err(|_| SshKeyImportError::ParsingError)?;
-            encrypted_private_key_info
-                .decrypt(password.as_bytes())
-                .map_err(|_| SshKeyImportError::WrongPassword)?
-        }
-        None => der,
+    let decrypted_der = if let Some(password) = password {
+        SecretDocument::from_pkcs8_encrypted_pem(&encoded_key, password.as_bytes()).map_err(
+            |err| match err {
+                pkcs8::Error::EncryptedPrivateKey(pkcs5::Error::DecryptFailed) => {
+                    SshKeyImportError::WrongPassword
+                }
+                _ => SshKeyImportError::ParsingError,
+            },
+        )?
+    } else {
+        SecretDocument::from_pkcs8_pem(&encoded_key).map_err(|_| SshKeyImportError::ParsingError)?
     };
 
     let private_key_info = PrivateKeyInfo::from_der(decrypted_der.as_bytes())
@@ -65,7 +58,7 @@ fn import_pkcs8_key(
 
     let key_type: KeyType = match private_key_info.algorithm.oid {
         ed25519::pkcs8::ALGORITHM_OID => KeyType::Ed25519,
-        RSA_PKCS8_ALGORITHM_OID => KeyType::Rsa,
+        rsa::pkcs1::ALGORITHM_OID => KeyType::Rsa,
         _ => KeyType::Unknown,
     };
 
