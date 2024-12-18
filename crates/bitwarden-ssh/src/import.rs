@@ -7,10 +7,10 @@ use tsify_next::Tsify;
 
 use crate::{error::SshKeyImportError, SshKey};
 
-const PKCS1_HEADER: &str = "-----BEGIN RSA PRIVATE KEY-----";
-const PKCS8_UNENCRYPTED_HEADER: &str = "-----BEGIN PRIVATE KEY-----";
-const PKCS8_ENCRYPTED_HEADER: &str = "-----BEGIN ENCRYPTED PRIVATE KEY-----";
-const OPENSSH_HEADER: &str = "-----BEGIN OPENSSH PRIVATE KEY-----";
+const PKCS1_LABEL: &str = "RSA PRIVATE KEY";
+const PKCS8_UNENCRYPTED_LABEL: &str = "PRIVATE KEY";
+const PKCS8_ENCRYPTED_LABEL: &str = "ENCRYPTED PRIVATE KEY";
+const OPENSSH_LABEL: &str = "OPENSSH PRIVATE KEY";
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -24,14 +24,17 @@ pub fn import_key(
     encoded_key: String,
     password: Option<String>,
 ) -> Result<SshKey, SshKeyImportError> {
-    match encoded_key.lines().next() {
-        Some(PKCS1_HEADER) => Err(SshKeyImportError::UnsupportedKeyType),
-        Some(PKCS8_UNENCRYPTED_HEADER) => import_pkcs8_key(encoded_key, None),
-        Some(PKCS8_ENCRYPTED_HEADER) => import_pkcs8_key(
+    let label = pem_rfc7468::decode_label(encoded_key.as_bytes())
+        .map_err(|_| SshKeyImportError::ParsingError)?;
+
+    match label {
+        PKCS1_LABEL => Err(SshKeyImportError::UnsupportedKeyType),
+        PKCS8_UNENCRYPTED_LABEL => import_pkcs8_key(encoded_key, None),
+        PKCS8_ENCRYPTED_LABEL => import_pkcs8_key(
             encoded_key,
             Some(password.ok_or(SshKeyImportError::PasswordRequired)?),
         ),
-        Some(OPENSSH_HEADER) => import_openssh_key(encoded_key, password),
+        OPENSSH_LABEL => import_openssh_key(encoded_key, password),
         _ => Err(SshKeyImportError::ParsingError),
     }
 }

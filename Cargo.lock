@@ -584,6 +584,7 @@ version = "1.0.0"
 dependencies = [
  "bitwarden-error",
  "ed25519",
+ "pem-rfc7468",
  "pkcs8",
  "rand",
  "rand_chacha",
