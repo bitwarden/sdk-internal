@@ -98,9 +98,9 @@ fn import_openssh_key(
     let private_key =
         ssh_key::private::PrivateKey::from_openssh(&encoded_key).map_err(|err| match err {
             ssh_key::Error::AlgorithmUnknown | ssh_key::Error::AlgorithmUnsupported { .. } => {
-                return SshKeyImportError::UnsupportedKeyType
+                SshKeyImportError::UnsupportedKeyType
             }
-            _ => return SshKeyImportError::ParsingError,
+            _ => SshKeyImportError::ParsingError,
         })?;
 
     if private_key.is_encrypted() {
@@ -110,7 +110,7 @@ fn import_openssh_key(
                 .map_err(|_| SshKeyImportError::WrongPassword)?
                 .try_into()
         } else {
-            return Err(SshKeyImportError::PasswordRequired);
+            Err(SshKeyImportError::PasswordRequired)
         }
     } else {
         private_key.try_into()
