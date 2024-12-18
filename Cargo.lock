@@ -429,6 +429,7 @@ dependencies = [
  "generic-array",
  "hkdf",
  "hmac",
+ "log",
  "num-bigint",
  "num-traits",
  "pbkdf2",
@@ -659,6 +660,7 @@ dependencies = [
  "js-sys",
  "log",
  "serde_json",
+ "thiserror 1.0.69",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]

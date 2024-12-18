@@ -6,7 +6,11 @@ use bitwarden_error::prelude::*;
 use log::{set_max_level, Level};
 use wasm_bindgen::prelude::*;
 
-use crate::{vault::ClientVault, ClientCrypto};
+use crate::{
+    crypto::{pure_crypto, PureCryptoError},
+    vault::ClientVault,
+    ClientCrypto,
+};
 
 #[wasm_bindgen]
 pub enum LogLevel {
@@ -24,6 +28,42 @@ fn convert_level(level: LogLevel) -> Level {
         LogLevel::Info => Level::Info,
         LogLevel::Warn => Level::Warn,
         LogLevel::Error => Level::Error,
+    }
+}
+
+#[wasm_bindgen]
+pub struct BitwardenPure;
+
+#[wasm_bindgen]
+impl BitwardenPure {
+    pub fn version() -> String {
+        env!("SDK_VERSION").to_owned()
+    }
+
+    pub fn echo(msg: String) -> String {
+        msg
+    }
+
+    pub fn throw(msg: String) -> Result<(), TestError> {
+        Err(TestError(msg))
+    }
+
+    pub fn symmetric_decrypt(
+        enc_string: String,
+        key_b64: String,
+    ) -> Result<String, PureCryptoError> {
+        pure_crypto::symmetric_decrypt(enc_string, key_b64)
+    }
+
+    pub fn symmetric_decrypt_to_bytes(
+        enc_string: String,
+        key_b64: String,
+    ) -> Result<Vec<u8>, PureCryptoError> {
+        pure_crypto::symmetric_decrypt_to_bytes(enc_string, key_b64)
+    }
+
+    pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, PureCryptoError> {
+        pure_crypto::symmetric_encrypt(plain, key_b64)
     }
 }
 
