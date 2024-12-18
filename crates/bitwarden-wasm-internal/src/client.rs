@@ -6,7 +6,7 @@ use bitwarden_error::prelude::*;
 use log::{set_max_level, Level};
 use wasm_bindgen::prelude::*;
 
-use crate::{vault::ClientVault, ClientCrypto};
+use crate::{crypto::PureCrypto, vault::ClientVault, ClientCrypto};
 
 #[wasm_bindgen]
 pub enum LogLevel {
@@ -24,6 +24,26 @@ fn convert_level(level: LogLevel) -> Level {
         LogLevel::Info => Level::Info,
         LogLevel::Warn => Level::Warn,
         LogLevel::Error => Level::Error,
+    }
+}
+
+#[wasm_bindgen]
+pub struct BitwardenPure;
+
+#[wasm_bindgen]
+impl BitwardenPure {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        console_error_panic_hook::set_once();
+        Self
+    }
+
+    pub fn version() -> String {
+        env!("SDK_VERSION").to_owned()
+    }
+
+    pub fn crypto(&self) -> PureCrypto {
+        PureCrypto::new()
     }
 }
 
