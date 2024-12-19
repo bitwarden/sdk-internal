@@ -54,8 +54,9 @@ jobs:
       - name: Install rust
         uses: dtolnay/rust-toolchain@315e265cd78dad1e1dcf3a5074f6d6c47029d5aa # stable
         with:
-          toolchain: 1.81.0
+          toolchain: stable
           targets: wasm32-unknown-unknown
+          components: rust-src
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab # v2.7.5
