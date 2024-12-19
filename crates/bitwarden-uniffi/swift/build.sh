@@ -6,10 +6,9 @@ cd "$(dirname "$0")"
 # Generate an xcframework for the Swift bindings.
 
 # Cleanup dirs
-rm -r BitwardenFFI.xcframework
-rm -r tmp
+rm -rf BitwardenFFI.xcframework
+rm -rf tmp
 
-mkdir tmp
 mkdir -p tmp/target/universal-ios-sim/release
 
 # Build native library
@@ -49,4 +48,4 @@ xcodebuild -create-xcframework \
   -output ./BitwardenFFI.xcframework
 
 # Cleanup temporary files
-rm -r tmp
+rm -rf tmp
