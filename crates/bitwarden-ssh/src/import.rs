@@ -26,12 +26,12 @@ pub fn import_key(
 
     match label {
         PKCS1_LABEL => Err(SshKeyImportError::UnsupportedKeyType),
-        PKCS8_UNENCRYPTED_LABEL => import_pkcs8_key(encoded_key, None),
-        PKCS8_ENCRYPTED_LABEL => import_pkcs8_key(
+        pkcs8::PrivateKeyInfo::PEM_LABEL => import_pkcs8_key(encoded_key, None),
+        pkcs8::EncryptedPrivateKeyInfo::PEM_LABEL => import_pkcs8_key(
             encoded_key,
             Some(password.ok_or(SshKeyImportError::PasswordRequired)?),
         ),
-        OPENSSH_LABEL => import_openssh_key(encoded_key, password),
+        ssh_key::PrivateKey::PEM_LABEL => import_openssh_key(encoded_key, password),
         _ => Err(SshKeyImportError::ParsingError),
     }
 }
