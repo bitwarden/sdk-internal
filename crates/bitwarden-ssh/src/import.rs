@@ -188,7 +188,7 @@ mod tests {
     fn import_wrong_label_error() {
         let private_key = include_str!("../resources/import/wrong_label");
         let result = import_key(private_key.to_string(), Some("".to_string()));
-        assert_eq!(result.unwrap_err(), SshKeyImportError::ParsingError);
+        assert_eq!(result.unwrap_err(), SshKeyImportError::UnsupportedKeyType);
     }
 
     #[test]
