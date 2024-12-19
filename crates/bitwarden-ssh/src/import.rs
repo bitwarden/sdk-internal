@@ -1,13 +1,10 @@
 use ed25519;
+use pem_rfc7468::PemLabel;
 use pkcs8::{der::Decode, pkcs5, DecodePrivateKey, PrivateKeyInfo, SecretDocument};
+use rsa::pkcs1;
 use ssh_key::private::{Ed25519Keypair, RsaKeypair};
 
 use crate::{error::SshKeyImportError, SshKey};
-
-const PKCS1_LABEL: &str = "RSA PRIVATE KEY";
-const PKCS8_UNENCRYPTED_LABEL: &str = "PRIVATE KEY";
-const PKCS8_ENCRYPTED_LABEL: &str = "ENCRYPTED PRIVATE KEY";
-const OPENSSH_LABEL: &str = "OPENSSH PRIVATE KEY";
 
 /// Import a PKCS8 or OpenSSH encoded private key, and returns a decoded SshKey,
 /// with the public key and fingerprint, and the private key in OpenSSH format.
@@ -25,7 +22,7 @@ pub fn import_key(
         .map_err(|_| SshKeyImportError::ParsingError)?;
 
     match label {
-        PKCS1_LABEL => Err(SshKeyImportError::UnsupportedKeyType),
+        pkcs1::RsaPrivateKey::PEM_LABEL => Err(SshKeyImportError::UnsupportedKeyType),
         pkcs8::PrivateKeyInfo::PEM_LABEL => import_pkcs8_key(encoded_key, None),
         pkcs8::EncryptedPrivateKeyInfo::PEM_LABEL => import_pkcs8_key(
             encoded_key,
@@ -40,7 +37,7 @@ fn import_pkcs8_key(
     encoded_key: String,
     password: Option<String>,
 ) -> Result<SshKey, SshKeyImportError> {
-    let der = if let Some(password) = password {
+    let doc = if let Some(password) = password {
         SecretDocument::from_pkcs8_encrypted_pem(&encoded_key, password.as_bytes()).map_err(
             |err| match err {
                 pkcs8::Error::EncryptedPrivateKey(pkcs5::Error::DecryptFailed) => {
@@ -54,7 +51,7 @@ fn import_pkcs8_key(
     };
 
     let private_key_info =
-        PrivateKeyInfo::from_der(der.as_bytes()).map_err(|_| SshKeyImportError::ParsingError)?;
+        PrivateKeyInfo::from_der(doc.as_bytes()).map_err(|_| SshKeyImportError::ParsingError)?;
 
     let private_key = match private_key_info.algorithm.oid {
         ed25519::pkcs8::ALGORITHM_OID => {
@@ -93,21 +90,18 @@ fn import_openssh_key(
             _ => SshKeyImportError::ParsingError,
         })?;
 
-    if private_key.is_encrypted() {
-        if let Some(password) = password {
-            private_key
-                .decrypt(password.as_bytes())
-                .map_err(|_| SshKeyImportError::WrongPassword)?
-                .try_into()
-                .map_err(|_| SshKeyImportError::ParsingError)
-        } else {
-            Err(SshKeyImportError::PasswordRequired)
-        }
+    let private_key = if private_key.is_encrypted() {
+        let password = password.ok_or(SshKeyImportError::PasswordRequired)?;
+        private_key
+            .decrypt(password.as_bytes())
+            .map_err(|_| SshKeyImportError::WrongPassword)?
     } else {
         private_key
-            .try_into()
-            .map_err(|_| SshKeyImportError::ParsingError)
-    }
+    };
+
+    private_key
+        .try_into()
+        .map_err(|_| SshKeyImportError::ParsingError)
 }
 
 #[cfg(test)]
