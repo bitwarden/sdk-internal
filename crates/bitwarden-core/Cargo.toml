@@ -59,7 +59,8 @@ zxcvbn = { version = ">=3.0.1, <4.0", optional = true }
 # By default, we use rustls as the TLS stack and rust-platform-verifier to support user-installed root certificates
 # The only exception is WASM, as it just uses the browsers/node fetch
 reqwest = { workspace = true, features = ["rustls-tls-manual-roots"] }
-rustls-platform-verifier = "0.3.4"
+rustls = { version = "0.23.19", default-features = false }
+rustls-platform-verifier = "0.4.0"
 
 [dev-dependencies]
 bitwarden-crypto = { workspace = true }

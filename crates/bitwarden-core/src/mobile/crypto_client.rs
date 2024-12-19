@@ -16,11 +16,11 @@ use crate::{
     },
 };
 
-pub struct ClientCrypto<'a> {
+pub struct CryptoClient<'a> {
     pub(crate) client: &'a crate::Client,
 }
 
-impl<'a> ClientCrypto<'a> {
+impl<'a> CryptoClient<'a> {
     pub async fn initialize_user_crypto(
         &self,
         req: InitUserCryptoRequest,
@@ -73,7 +73,7 @@ impl<'a> ClientCrypto<'a> {
 }
 
 impl<'a> Client {
-    pub fn crypto(&'a self) -> ClientCrypto<'a> {
-        ClientCrypto { client: self }
+    pub fn crypto(&'a self) -> CryptoClient<'a> {
+        CryptoClient { client: self }
     }
 }

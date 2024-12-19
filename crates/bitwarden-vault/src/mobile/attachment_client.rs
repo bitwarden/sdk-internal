@@ -5,7 +5,7 @@ use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, LocateKey};
 
 use crate::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
-    Cipher, ClientVault,
+    Cipher, VaultClient,
 };
 
 pub struct ClientAttachments<'a> {
@@ -76,7 +76,7 @@ impl ClientAttachments<'_> {
     }
 }
 
-impl<'a> ClientVault<'a> {
+impl<'a> VaultClient<'a> {
     pub fn attachments(&'a self) -> ClientAttachments<'a> {
         ClientAttachments {
             client: self.client,

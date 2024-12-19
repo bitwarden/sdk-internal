@@ -1,10 +1,10 @@
 use chrono::{DateTime, Utc};
 
 use crate::{
-    generate_totp, generate_totp_cipher_view, CipherListView, ClientVault, TotpError, TotpResponse,
+    generate_totp, generate_totp_cipher_view, CipherListView, TotpError, TotpResponse, VaultClient,
 };
 
-impl<'a> ClientVault<'a> {
+impl<'a> VaultClient<'a> {
     /// Generate a TOTP code from a provided key.
     ///
     /// Key can be either:
