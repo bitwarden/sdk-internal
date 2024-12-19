@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+cd "$(dirname "$0")"
+
 # Generate an xcframework for the Swift bindings.
 
 # Cleanup dirs

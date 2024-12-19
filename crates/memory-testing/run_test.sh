@@ -1,7 +1,9 @@
+#!/usr/bin/env bash
 set -eo pipefail
 
-# Move to the root of the repository
 cd "$(dirname "$0")"
+
+# Move to the root of the repository
 cd ../../
 
 BASE_DIR="./crates/memory-testing"
