@@ -94,7 +94,7 @@ impl Client {
         key_algorithm: bitwarden_ssh::generator::KeyAlgorithm,
     ) -> Result<bitwarden_ssh::SshKey> {
         bitwarden_ssh::generator::generate_sshkey(key_algorithm)
-            .map_err(|e| error::BitwardenError::E(error::Error::SshGenerationError(e)))
+            .map_err(|e| error::BitwardenError::E(error::Error::SshGeneration(e)))
     }
 
     pub fn import_ssh_key(
@@ -103,7 +103,7 @@ impl Client {
         password: Option<String>,
     ) -> Result<bitwarden_ssh::SshKey> {
         bitwarden_ssh::import::import_key(imported_key, password)
-            .map_err(|e| error::BitwardenError::E(error::Error::SshImportError(e)))
+            .map_err(|e| error::BitwardenError::E(error::Error::SshImport(e)))
     }
 }
 

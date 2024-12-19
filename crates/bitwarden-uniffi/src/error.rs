@@ -78,9 +78,7 @@ pub enum Error {
     Fido2Client(#[from] bitwarden_fido::Fido2ClientError),
 
     #[error(transparent)]
-    SshGenerationError(#[from] bitwarden_ssh::error::KeyGenerationError),
+    SshGeneration(#[from] bitwarden_ssh::error::KeyGenerationError),
     #[error(transparent)]
-    SshImportError(#[from] bitwarden_ssh::error::SshKeyImportError),
-    #[error(transparent)]
-    SshExportError(#[from] bitwarden_ssh::error::SshKeyExportError),
+    SshImport(#[from] bitwarden_ssh::error::SshKeyImportError),
 }
