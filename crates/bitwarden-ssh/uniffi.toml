@@ -1,0 +1,9 @@
+[bindings.kotlin]
+package_name = "com.bitwarden.ssh"
+generate_immutable_records = true
+android = true
+
+[bindings.swift]
+ffi_module_name = "BitwardenSshFFI"
+module_name = "BitwardenSsh"
+generate_immutable_records = true

@@ -9,8 +9,12 @@ use ssh_key::{HashAlg, PrivateKey};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
+#[cfg(feature = "uniffi")]
+uniffi::setup_scaffolding!();
+
 #[derive(Serialize, Deserialize, Debug)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SshKey {
     /// The private key in OpenSSH format
     pub private_key: String,
