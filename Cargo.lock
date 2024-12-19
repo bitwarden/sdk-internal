@@ -594,6 +594,7 @@ dependencies = [
  "ssh-key",
  "thiserror 1.0.69",
  "tsify-next",
+ "uniffi",
  "wasm-bindgen",
 ]
 
@@ -609,6 +610,7 @@ dependencies = [
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-send",
+ "bitwarden-ssh",
  "bitwarden-vault",
  "chrono",
  "env_logger",

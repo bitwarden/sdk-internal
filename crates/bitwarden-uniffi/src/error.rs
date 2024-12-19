@@ -76,4 +76,11 @@ pub enum Error {
     DecryptFido2AutofillCredentials(#[from] bitwarden_fido::DecryptFido2AutofillCredentialsError),
     #[error(transparent)]
     Fido2Client(#[from] bitwarden_fido::Fido2ClientError),
+
+    #[error(transparent)]
+    SshGenerationError(#[from] bitwarden_ssh::error::KeyGenerationError),
+    #[error(transparent)]
+    SshImportError(#[from] bitwarden_ssh::error::SshKeyImportError),
+    #[error(transparent)]
+    SshExportError(#[from] bitwarden_ssh::error::SshKeyExportError),
 }
