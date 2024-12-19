@@ -1,19 +1,18 @@
 use ed25519;
 use pem_rfc7468::PemLabel;
 use pkcs8::{der::Decode, pkcs5, DecodePrivateKey, PrivateKeyInfo, SecretDocument};
-use rsa::pkcs1;
 use ssh_key::private::{Ed25519Keypair, RsaKeypair};
 
 use crate::{error::SshKeyImportError, SshKey};
 
-/// Import a PKCS8 or OpenSSH encoded private key, and returns a decoded SshKey,
+/// Import a PKCS8 or OpenSSH encoded private key, and returns a decoded [SshKey],
 /// with the public key and fingerprint, and the private key in OpenSSH format.
 /// A password can be provided for encrypted keys.
 /// # Returns
-/// - `Error::PasswordRequired` if the key is encrypted and no password is provided
-/// - `Error::WrongPassword` if the password provided is incorrect
-/// - `Error::UnsupportedKeyType` if the key type is not supported
-/// - `Error::ParsingError` if the key is otherwise malformed and cannot be parsed
+/// - [SshKeyImportError::PasswordRequired] if the key is encrypted and no password is provided
+/// - [SshKeyImportError::WrongPassword] if the password provided is incorrect
+/// - [SshKeyImportError::UnsupportedKeyType] if the key type is not supported
+/// - [SshKeyImportError::ParsingError] if the key is otherwise malformed and cannot be parsed
 pub fn import_key(
     encoded_key: String,
     password: Option<String>,
@@ -22,7 +21,6 @@ pub fn import_key(
         .map_err(|_| SshKeyImportError::ParsingError)?;
 
     match label {
-        pkcs1::RsaPrivateKey::PEM_LABEL => Err(SshKeyImportError::UnsupportedKeyType),
         pkcs8::PrivateKeyInfo::PEM_LABEL => import_pkcs8_key(encoded_key, None),
         pkcs8::EncryptedPrivateKeyInfo::PEM_LABEL => import_pkcs8_key(
             encoded_key,

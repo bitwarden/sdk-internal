@@ -15,7 +15,7 @@ pub enum KeyAlgorithm {
 
 /**
  * Generate a new SSH key pair, for the provided key algorithm, returning
- * an `SshKey` struct containing the private key, public key, and key fingerprint,
+ * an [SshKey] struct containing the private key, public key, and key fingerprint,
  * with the private key in OpenSSH format.
  */
 pub fn generate_sshkey(key_algorithm: KeyAlgorithm) -> Result<SshKey, error::KeyGenerationError> {
