@@ -25,11 +25,11 @@ use crate::auth::{
 };
 use crate::{auth::renew::renew_token, error::Result, Client};
 
-pub struct ClientAuth<'a> {
+pub struct AuthClient<'a> {
     pub(crate) client: &'a crate::Client,
 }
 
-impl<'a> ClientAuth<'a> {
+impl<'a> AuthClient<'a> {
     pub async fn renew_token(&self) -> Result<()> {
         renew_token(&self.client.internal).await
     }
@@ -44,7 +44,7 @@ impl<'a> ClientAuth<'a> {
 }
 
 #[cfg(feature = "internal")]
-impl<'a> ClientAuth<'a> {
+impl<'a> AuthClient<'a> {
     pub fn password_strength(
         &self,
         password: String,
@@ -142,7 +142,7 @@ impl<'a> ClientAuth<'a> {
 }
 
 #[cfg(feature = "internal")]
-impl<'a> ClientAuth<'a> {
+impl<'a> AuthClient<'a> {
     pub async fn login_device(
         &self,
         email: String,
@@ -170,8 +170,8 @@ fn trust_device(client: &Client) -> Result<TrustDeviceResponse> {
 }
 
 impl<'a> Client {
-    pub fn auth(&'a self) -> ClientAuth<'a> {
-        ClientAuth { client: self }
+    pub fn auth(&'a self) -> AuthClient<'a> {
+        AuthClient { client: self }
     }
 }
 

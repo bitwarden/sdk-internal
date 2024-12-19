@@ -1,7 +1,7 @@
 use bitwarden_core::{Client, Error};
 use bitwarden_crypto::{KeyDecryptable, LocateKey};
 
-use crate::{ClientVault, Collection, CollectionView};
+use crate::{Collection, CollectionView, VaultClient};
 
 pub struct ClientCollections<'a> {
     pub(crate) client: &'a Client,
@@ -32,7 +32,7 @@ impl ClientCollections<'_> {
     }
 }
 
-impl<'a> ClientVault<'a> {
+impl<'a> VaultClient<'a> {
     pub fn collections(&'a self) -> ClientCollections<'a> {
         ClientCollections {
             client: self.client,
@@ -45,7 +45,7 @@ mod tests {
     use bitwarden_core::client::test_accounts::test_bitwarden_com_account;
 
     use super::*;
-    use crate::ClientVaultExt;
+    use crate::VaultClientExt;
 
     #[tokio::test]
     async fn test_decrypt_list() {

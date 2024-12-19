@@ -1,7 +1,7 @@
 use bitwarden_core::{Client, Error};
 use bitwarden_crypto::{KeyDecryptable, KeyEncryptable};
 
-use crate::{ClientVault, Folder, FolderView};
+use crate::{Folder, FolderView, VaultClient};
 
 pub struct ClientFolders<'a> {
     pub(crate) client: &'a Client,
@@ -36,7 +36,7 @@ impl ClientFolders<'_> {
     }
 }
 
-impl<'a> ClientVault<'a> {
+impl<'a> VaultClient<'a> {
     pub fn folders(&'a self) -> ClientFolders<'a> {
         ClientFolders {
             client: self.client,
