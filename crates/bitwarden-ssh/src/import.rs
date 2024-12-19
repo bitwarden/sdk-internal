@@ -32,7 +32,7 @@ pub fn import_key(
             Some(password.ok_or(SshKeyImportError::PasswordRequired)?),
         ),
         ssh_key::PrivateKey::PEM_LABEL => import_openssh_key(encoded_key, password),
-        _ => Err(SshKeyImportError::ParsingError),
+        _ => Err(SshKeyImportError::UnsupportedKeyType),
     }
 }
 
