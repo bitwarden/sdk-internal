@@ -24,6 +24,7 @@ bitwarden-exporters = { workspace = true, features = ["uniffi"] }
 bitwarden-fido = { workspace = true, features = ["uniffi"] }
 bitwarden-generators = { workspace = true, features = ["uniffi"] }
 bitwarden-send = { workspace = true, features = ["uniffi"] }
+bitwarden-ssh = { workspace = true, features = ["uniffi"] }
 bitwarden-vault = { workspace = true, features = ["uniffi"] }
 chrono = { workspace = true, features = ["std"] }
 env_logger = "0.11.1"
