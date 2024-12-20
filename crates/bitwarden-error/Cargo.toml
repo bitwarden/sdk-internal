@@ -14,7 +14,7 @@ wasm = [
     "bitwarden-error-macro/wasm",
     "dep:js-sys",
     "dep:tsify-next",
-    "dep:wasm-bindgen"
+    "dep:wasm-bindgen",
 ]
 
 [dependencies]
@@ -22,6 +22,7 @@ bitwarden-error-macro = { workspace = true }
 js-sys = { workspace = true, optional = true }
 tsify-next = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
+documented = "0.9.1"
 
 [lints]
 workspace = true
