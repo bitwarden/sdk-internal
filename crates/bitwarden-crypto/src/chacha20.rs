@@ -1,5 +1,5 @@
 use chacha20::{
-    cipher::{KeyIvInit, StreamCipher},
+    cipher::{NewCipher, StreamCipher},
     XChaCha20,
 };
 use chacha20poly1305::{AeadCore, AeadInPlace, KeyInit, XChaCha20Poly1305};
