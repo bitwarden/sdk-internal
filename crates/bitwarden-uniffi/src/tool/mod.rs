@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use bitwarden_exporters::{ClientExportersExt, ExportFormat};
+use bitwarden_exporters::{Account, ExportFormat, ExporterClientExt};
 use bitwarden_generators::{
-    ClientGeneratorExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
+    GeneratorClientsExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
     UsernameGeneratorRequest,
 };
 use bitwarden_vault::{Cipher, Collection, Folder};
@@ -13,34 +13,34 @@ use crate::{
 };
 
 mod sends;
-pub use sends::ClientSends;
+pub use sends::SendClient;
 
 #[derive(uniffi::Object)]
-pub struct ClientGenerators(pub(crate) Arc<Client>);
+pub struct GeneratorClients(pub(crate) Arc<Client>);
 
 #[uniffi::export(async_runtime = "tokio")]
-impl ClientGenerators {
-    /// **API Draft:** Generate Password
+impl GeneratorClients {
+    /// Generate Password
     pub fn password(&self, settings: PasswordGeneratorRequest) -> Result<String> {
         Ok(self
             .0
              .0
             .generator()
             .password(settings)
-            .map_err(Error::PasswordError)?)
+            .map_err(Error::Password)?)
     }
 
-    /// **API Draft:** Generate Passphrase
+    /// Generate Passphrase
     pub fn passphrase(&self, settings: PassphraseGeneratorRequest) -> Result<String> {
         Ok(self
             .0
              .0
             .generator()
             .passphrase(settings)
-            .map_err(Error::PassphraseError)?)
+            .map_err(Error::Passphrase)?)
     }
 
-    /// **API Draft:** Generate Username
+    /// Generate Username
     pub async fn username(&self, settings: UsernameGeneratorRequest) -> Result<String> {
         Ok(self
             .0
@@ -48,16 +48,16 @@ impl ClientGenerators {
             .generator()
             .username(settings)
             .await
-            .map_err(Error::UsernameError)?)
+            .map_err(Error::Username)?)
     }
 }
 
 #[derive(uniffi::Object)]
-pub struct ClientExporters(pub(crate) Arc<Client>);
+pub struct ExporterClient(pub(crate) Arc<Client>);
 
 #[uniffi::export]
-impl ClientExporters {
-    /// **API Draft:** Export user vault
+impl ExporterClient {
+    /// Export user vault
     pub fn export_vault(
         &self,
         folders: Vec<Folder>,
@@ -69,10 +69,10 @@ impl ClientExporters {
              .0
             .exporters()
             .export_vault(folders, ciphers, format)
-            .map_err(Error::ExportError)?)
+            .map_err(Error::Export)?)
     }
 
-    /// **API Draft:** Export organization vault
+    /// Export organization vault
     pub fn export_organization_vault(
         &self,
         collections: Vec<Collection>,
@@ -84,6 +84,36 @@ impl ClientExporters {
              .0
             .exporters()
             .export_organization_vault(collections, ciphers, format)
-            .map_err(Error::ExportError)?)
+            .map_err(Error::Export)?)
+    }
+
+    /// Credential Exchange Format (CXF)
+    ///
+    /// *Warning:* Expect this API to be unstable, and it will change in the future.
+    ///
+    /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
+    /// Ideally the output should be immediately deserialized to [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
+    pub fn export_cxf(&self, account: Account, ciphers: Vec<Cipher>) -> Result<String> {
+        Ok(self
+            .0
+             .0
+            .exporters()
+            .export_cxf(account, ciphers)
+            .map_err(Error::Export)?)
+    }
+
+    /// Credential Exchange Format (CXF)
+    ///
+    /// *Warning:* Expect this API to be unstable, and it will change in the future.
+    ///
+    /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
+    /// Ideally the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
+    pub fn import_cxf(&self, payload: String) -> Result<Vec<Cipher>> {
+        Ok(self
+            .0
+             .0
+            .exporters()
+            .import_cxf(payload)
+            .map_err(Error::Export)?)
     }
 }

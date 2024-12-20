@@ -1,5 +1,9 @@
-# Move to the root of the repository
+#!/usr/bin/env bash
+set -eo pipefail
+
 cd "$(dirname "$0")"
+
+# Move to the root of the repository
 cd ../../
 
 if [ "$1" != "-r" ]; then

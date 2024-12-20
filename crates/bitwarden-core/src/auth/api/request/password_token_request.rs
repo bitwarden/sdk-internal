@@ -31,7 +31,7 @@ pub struct PasswordTokenRequest {
     two_factor_token: Option<String>,
     #[serde(rename = "twoFactorProvider")]
     two_factor_provider: Option<TwoFactorProvider>,
-    #[serde(rename = "twoFactorToken")]
+    #[serde(rename = "twoFactorRemember")]
     two_factor_remember: Option<bool>,
 }
 

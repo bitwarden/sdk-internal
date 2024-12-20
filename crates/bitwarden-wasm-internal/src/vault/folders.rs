@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use bitwarden_core::Client;
-use bitwarden_vault::{ClientVaultExt, Folder, FolderView};
+use bitwarden_vault::{Folder, FolderView, VaultClientExt};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]

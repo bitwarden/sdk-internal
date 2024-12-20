@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bitwarden_vault::{CipherListView, ClientVaultExt, TotpResponse};
+use bitwarden_vault::{CipherListView, TotpResponse, VaultClientExt};
 use chrono::{DateTime, Utc};
 
 use crate::{
@@ -15,10 +15,10 @@ pub mod folders;
 pub mod password_history;
 
 #[derive(uniffi::Object)]
-pub struct ClientVault(pub(crate) Arc<Client>);
+pub struct VaultClient(pub(crate) Arc<Client>);
 
 #[uniffi::export]
-impl ClientVault {
+impl VaultClient {
     /// Folder operations
     pub fn folders(self: Arc<Self>) -> Arc<folders::ClientFolders> {
         Arc::new(folders::ClientFolders(self.0.clone()))

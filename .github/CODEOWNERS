@@ -6,14 +6,9 @@
 
 # BRE for publish workflow changes
 .github/workflows/publish-*.yml @bitwarden/dept-bre
-
-# Shared workflows ownership
+.github/workflows/release-rust-crates.yml @bitwarden/dept-bre
+.github/workflows/release-swift.yml @bitwarden/dept-bre
 
 ## Multiple owners
-.github/workflows/build-android.yml
-.github/workflows/build-rust-crates.yml
-.github/workflows/build-swift.yml
-.github/workflows/build-wasm-internal.yml
-.github/workflows/release-rust-crates.yml
-.github/workflows/release-swift.yml
-.github/workflows/version-bump.yml
+.github/workflows/build-* @bitwarden/team-platform-dev
+.github/workflows/version-bump.yml @bitwarden/team-platform-dev

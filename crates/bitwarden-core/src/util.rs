@@ -9,6 +9,7 @@ const INDIFFERENT: GeneralPurposeConfig =
 pub const STANDARD_INDIFFERENT: GeneralPurpose =
     GeneralPurpose::new(&alphabet::STANDARD, INDIFFERENT);
 
+#[allow(dead_code)]
 #[cfg(test)]
 pub async fn start_mock(mocks: Vec<wiremock::Mock>) -> (wiremock::MockServer, crate::Client) {
     let server = wiremock::MockServer::start().await;

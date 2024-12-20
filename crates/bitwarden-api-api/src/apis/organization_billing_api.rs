@@ -28,10 +28,60 @@ pub enum OrganizationsOrganizationIdBillingHistoryGetError {
     UnknownValue(serde_json::Value),
 }
 
+/// struct for typed errors of method [`organizations_organization_id_billing_invoices_get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrganizationIdBillingInvoicesGetError {
+    UnknownValue(serde_json::Value),
+}
+
 /// struct for typed errors of method [`organizations_organization_id_billing_metadata_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum OrganizationsOrganizationIdBillingMetadataGetError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_organization_id_billing_payment_method_get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrganizationIdBillingPaymentMethodGetError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_organization_id_billing_payment_method_put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrganizationIdBillingPaymentMethodPutError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method
+/// [`organizations_organization_id_billing_payment_method_verify_bank_account_post`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrganizationIdBillingPaymentMethodVerifyBankAccountPostError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_organization_id_billing_tax_information_get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrganizationIdBillingTaxInformationGetError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_organization_id_billing_tax_information_put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrganizationIdBillingTaxInformationPutError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_organization_id_billing_transactions_get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrganizationIdBillingTransactionsGetError {
     UnknownValue(serde_json::Value),
 }
 
@@ -123,6 +173,60 @@ pub async fn organizations_organization_id_billing_history_get(
     }
 }
 
+pub async fn organizations_organization_id_billing_invoices_get(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    status: Option<&str>,
+    start_after: Option<&str>,
+) -> Result<(), Error<OrganizationsOrganizationIdBillingInvoicesGetError>> {
+    let local_var_configuration = configuration;
+
+    let local_var_client = &local_var_configuration.client;
+
+    let local_var_uri_str = format!(
+        "{}/organizations/{organizationId}/billing/invoices",
+        local_var_configuration.base_path,
+        organizationId = crate::apis::urlencode(organization_id.to_string())
+    );
+    let mut local_var_req_builder =
+        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_str) = status {
+        local_var_req_builder =
+            local_var_req_builder.query(&[("status", &local_var_str.to_string())]);
+    }
+    if let Some(ref local_var_str) = start_after {
+        local_var_req_builder =
+            local_var_req_builder.query(&[("startAfter", &local_var_str.to_string())]);
+    }
+    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+        local_var_req_builder =
+            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        Ok(())
+    } else {
+        let local_var_entity: Option<OrganizationsOrganizationIdBillingInvoicesGetError> =
+            serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent {
+            status: local_var_status,
+            content: local_var_content,
+            entity: local_var_entity,
+        };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
 pub async fn organizations_organization_id_billing_metadata_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -157,6 +261,282 @@ pub async fn organizations_organization_id_billing_metadata_get(
         Ok(())
     } else {
         let local_var_entity: Option<OrganizationsOrganizationIdBillingMetadataGetError> =
+            serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent {
+            status: local_var_status,
+            content: local_var_content,
+            entity: local_var_entity,
+        };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
+pub async fn organizations_organization_id_billing_payment_method_get(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+) -> Result<(), Error<OrganizationsOrganizationIdBillingPaymentMethodGetError>> {
+    let local_var_configuration = configuration;
+
+    let local_var_client = &local_var_configuration.client;
+
+    let local_var_uri_str = format!(
+        "{}/organizations/{organizationId}/billing/payment-method",
+        local_var_configuration.base_path,
+        organizationId = crate::apis::urlencode(organization_id.to_string())
+    );
+    let mut local_var_req_builder =
+        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+        local_var_req_builder =
+            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        Ok(())
+    } else {
+        let local_var_entity: Option<OrganizationsOrganizationIdBillingPaymentMethodGetError> =
+            serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent {
+            status: local_var_status,
+            content: local_var_content,
+            entity: local_var_entity,
+        };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
+pub async fn organizations_organization_id_billing_payment_method_put(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    update_payment_method_request_body: Option<models::UpdatePaymentMethodRequestBody>,
+) -> Result<(), Error<OrganizationsOrganizationIdBillingPaymentMethodPutError>> {
+    let local_var_configuration = configuration;
+
+    let local_var_client = &local_var_configuration.client;
+
+    let local_var_uri_str = format!(
+        "{}/organizations/{organizationId}/billing/payment-method",
+        local_var_configuration.base_path,
+        organizationId = crate::apis::urlencode(organization_id.to_string())
+    );
+    let mut local_var_req_builder =
+        local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+        local_var_req_builder =
+            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+    local_var_req_builder = local_var_req_builder.json(&update_payment_method_request_body);
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        Ok(())
+    } else {
+        let local_var_entity: Option<OrganizationsOrganizationIdBillingPaymentMethodPutError> =
+            serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent {
+            status: local_var_status,
+            content: local_var_content,
+            entity: local_var_entity,
+        };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
+pub async fn organizations_organization_id_billing_payment_method_verify_bank_account_post(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    verify_bank_account_request_body: Option<models::VerifyBankAccountRequestBody>,
+) -> Result<(), Error<OrganizationsOrganizationIdBillingPaymentMethodVerifyBankAccountPostError>> {
+    let local_var_configuration = configuration;
+
+    let local_var_client = &local_var_configuration.client;
+
+    let local_var_uri_str = format!(
+        "{}/organizations/{organizationId}/billing/payment-method/verify-bank-account",
+        local_var_configuration.base_path,
+        organizationId = crate::apis::urlencode(organization_id.to_string())
+    );
+    let mut local_var_req_builder =
+        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+        local_var_req_builder =
+            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+    local_var_req_builder = local_var_req_builder.json(&verify_bank_account_request_body);
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        Ok(())
+    } else {
+        let local_var_entity: Option<
+            OrganizationsOrganizationIdBillingPaymentMethodVerifyBankAccountPostError,
+        > = serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent {
+            status: local_var_status,
+            content: local_var_content,
+            entity: local_var_entity,
+        };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
+pub async fn organizations_organization_id_billing_tax_information_get(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+) -> Result<(), Error<OrganizationsOrganizationIdBillingTaxInformationGetError>> {
+    let local_var_configuration = configuration;
+
+    let local_var_client = &local_var_configuration.client;
+
+    let local_var_uri_str = format!(
+        "{}/organizations/{organizationId}/billing/tax-information",
+        local_var_configuration.base_path,
+        organizationId = crate::apis::urlencode(organization_id.to_string())
+    );
+    let mut local_var_req_builder =
+        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+        local_var_req_builder =
+            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        Ok(())
+    } else {
+        let local_var_entity: Option<OrganizationsOrganizationIdBillingTaxInformationGetError> =
+            serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent {
+            status: local_var_status,
+            content: local_var_content,
+            entity: local_var_entity,
+        };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
+pub async fn organizations_organization_id_billing_tax_information_put(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    tax_information_request_body: Option<models::TaxInformationRequestBody>,
+) -> Result<(), Error<OrganizationsOrganizationIdBillingTaxInformationPutError>> {
+    let local_var_configuration = configuration;
+
+    let local_var_client = &local_var_configuration.client;
+
+    let local_var_uri_str = format!(
+        "{}/organizations/{organizationId}/billing/tax-information",
+        local_var_configuration.base_path,
+        organizationId = crate::apis::urlencode(organization_id.to_string())
+    );
+    let mut local_var_req_builder =
+        local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+        local_var_req_builder =
+            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+    local_var_req_builder = local_var_req_builder.json(&tax_information_request_body);
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        Ok(())
+    } else {
+        let local_var_entity: Option<OrganizationsOrganizationIdBillingTaxInformationPutError> =
+            serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent {
+            status: local_var_status,
+            content: local_var_content,
+            entity: local_var_entity,
+        };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
+pub async fn organizations_organization_id_billing_transactions_get(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    start_after: Option<String>,
+) -> Result<(), Error<OrganizationsOrganizationIdBillingTransactionsGetError>> {
+    let local_var_configuration = configuration;
+
+    let local_var_client = &local_var_configuration.client;
+
+    let local_var_uri_str = format!(
+        "{}/organizations/{organizationId}/billing/transactions",
+        local_var_configuration.base_path,
+        organizationId = crate::apis::urlencode(organization_id.to_string())
+    );
+    let mut local_var_req_builder =
+        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_str) = start_after {
+        local_var_req_builder =
+            local_var_req_builder.query(&[("startAfter", &local_var_str.to_string())]);
+    }
+    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+        local_var_req_builder =
+            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        Ok(())
+    } else {
+        let local_var_entity: Option<OrganizationsOrganizationIdBillingTransactionsGetError> =
             serde_json::from_str(&local_var_content).ok();
         let local_var_error = ResponseContent {
             status: local_var_status,

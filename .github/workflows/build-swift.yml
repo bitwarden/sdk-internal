@@ -11,12 +11,12 @@ on:
 jobs:
   version:
     name: Get Version
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       package_version: ${{ steps.retrieve-version.outputs.package_version }}
     steps:
       - name: Checkout repo
-        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Get Package Version
         id: retrieve-version
@@ -26,16 +26,16 @@ jobs:
 
   build:
     name: Build
-    runs-on: macos-13
+    runs-on: macos-14
     needs: version
     env:
       _VERSION: ${{ needs.version.outputs.package_version }}
     steps:
       - name: Checkout repo
-        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install rust
-        uses: dtolnay/rust-toolchain@7b1c307e0dcbda6122208f10795a713336a9b35a # stable
+        uses: dtolnay/rust-toolchain@315e265cd78dad1e1dcf3a5074f6d6c47029d5aa # stable
         with:
           toolchain: stable
 
@@ -82,7 +82,7 @@ jobs:
   trigger-swift-release:
     name: Trigger Swift release
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     steps:
       - name: Login to Azure - CI Subscription

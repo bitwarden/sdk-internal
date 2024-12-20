@@ -14,12 +14,14 @@ pub use password_history::{PasswordHistory, PasswordHistoryView};
 mod domain;
 pub use domain::GlobalDomains;
 mod totp;
-pub use totp::{generate_totp, generate_totp_cipher_view, TotpError, TotpResponse};
+pub use totp::{
+    generate_totp, generate_totp_cipher_view, Totp, TotpAlgorithm, TotpError, TotpResponse,
+};
 mod error;
 pub use error::VaultParseError;
-mod client_vault;
-pub use client_vault::{ClientVault, ClientVaultExt};
-mod client_totp;
+mod vault_client;
+pub use vault_client::{VaultClient, VaultClientExt};
 mod mobile;
 mod sync;
+mod totp_client;
 pub use sync::{SyncRequest, SyncResponse};

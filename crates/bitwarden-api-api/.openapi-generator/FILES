@@ -39,10 +39,12 @@ src/apis/provider_organizations_api.rs
 src/apis/provider_users_api.rs
 src/apis/providers_api.rs
 src/apis/push_api.rs
+src/apis/reports_api.rs
 src/apis/request_sm_access_api.rs
 src/apis/secrets_api.rs
 src/apis/secrets_manager_events_api.rs
 src/apis/secrets_manager_porting_api.rs
+src/apis/security_task_api.rs
 src/apis/self_hosted_organization_licenses_api.rs
 src/apis/self_hosted_organization_sponsorships_api.rs
 src/apis/sends_api.rs
@@ -124,6 +126,7 @@ src/models/cipher_request_model.rs
 src/models/cipher_response_model.rs
 src/models/cipher_secure_note_model.rs
 src/models/cipher_share_request_model.rs
+src/models/cipher_ssh_key_model.rs
 src/models/cipher_type.rs
 src/models/cipher_with_id_request_model.rs
 src/models/collection_access_details_response_model.rs
@@ -149,6 +152,7 @@ src/models/device_type.rs
 src/models/device_verification_request_model.rs
 src/models/device_verification_response_model.rs
 src/models/domains_response_model.rs
+src/models/drop_password_health_report_application_request.rs
 src/models/email_request_model.rs
 src/models/email_token_request_model.rs
 src/models/emergency_access_grantee_details_response_model.rs
@@ -182,7 +186,6 @@ src/models/global_equivalent_domains_type.rs
 src/models/granted_access_policy_request.rs
 src/models/granted_project_access_policy_permission_details_response_model.rs
 src/models/granted_project_access_policy_response_model.rs
-src/models/group.rs
 src/models/group_access_policy_response_model.rs
 src/models/group_bulk_request_model.rs
 src/models/group_details_response_model.rs
@@ -191,7 +194,6 @@ src/models/group_request_model.rs
 src/models/group_response_model.rs
 src/models/import_ciphers_request_model.rs
 src/models/import_organization_ciphers_request_model.rs
-src/models/import_organization_users_request_model.rs
 src/models/inner_project_export_response_model.rs
 src/models/inner_project_import_request_model.rs
 src/models/inner_secret_export_response_model.rs
@@ -207,6 +209,9 @@ src/models/keys_request_model.rs
 src/models/keys_response_model.rs
 src/models/license_type.rs
 src/models/master_password_policy_response_model.rs
+src/models/member_access_details.rs
+src/models/member_access_report_response_model.rs
+src/models/member_cipher_details_response_model.rs
 src/models/member_decryption_type.rs
 src/models/mod.rs
 src/models/open_id_connect_redirect_behavior.rs
@@ -217,7 +222,6 @@ src/models/organization_api_key_request_model.rs
 src/models/organization_api_key_type.rs
 src/models/organization_auth_request_update_many_request_model.rs
 src/models/organization_auto_enroll_status_response_model.rs
-src/models/organization_billing_status_response_model.rs
 src/models/organization_collection_management_update_request_model.rs
 src/models/organization_connection_request_model.rs
 src/models/organization_connection_response_model.rs
@@ -232,6 +236,7 @@ src/models/organization_domain_sso_details_response_model.rs
 src/models/organization_keys_request_model.rs
 src/models/organization_keys_response_model.rs
 src/models/organization_license.rs
+src/models/organization_no_payment_create_request.rs
 src/models/organization_public_key_response_model.rs
 src/models/organization_response_model.rs
 src/models/organization_seat_request_model.rs
@@ -268,9 +273,13 @@ src/models/organization_user_type.rs
 src/models/organization_user_update_request_model.rs
 src/models/organization_user_user_details_response_model.rs
 src/models/organization_user_user_details_response_model_list_response_model.rs
+src/models/organization_user_user_mini_details_response_model.rs
+src/models/organization_user_user_mini_details_response_model_list_response_model.rs
 src/models/organization_verify_bank_request_model.rs
 src/models/organization_verify_delete_recover_request_model.rs
 src/models/other_device_keys_update_request_model.rs
+src/models/password_health_report_application.rs
+src/models/password_health_report_application_model.rs
 src/models/password_hint_request_model.rs
 src/models/password_manager_plan_features_response_model.rs
 src/models/password_request_model.rs
@@ -285,12 +294,14 @@ src/models/plan_response_model.rs
 src/models/plan_response_model_list_response_model.rs
 src/models/plan_sponsorship_type.rs
 src/models/plan_type.rs
+src/models/policy_detail_response_model.rs
 src/models/policy_request_model.rs
 src/models/policy_response_model.rs
 src/models/policy_response_model_list_response_model.rs
 src/models/policy_type.rs
 src/models/potential_grantee_response_model.rs
 src/models/potential_grantee_response_model_list_response_model.rs
+src/models/pre_validate_sponsorship_response_model.rs
 src/models/product_tier_type.rs
 src/models/profile_organization_response_model.rs
 src/models/profile_organization_response_model_list_response_model.rs
@@ -364,6 +375,10 @@ src/models/secrets_manager_subscription_update_request_model.rs
 src/models/secrets_sync_response_model.rs
 src/models/secrets_with_projects_inner_secret.rs
 src/models/secure_note_type.rs
+src/models/security_task_status.rs
+src/models/security_task_type.rs
+src/models/security_tasks_response_model.rs
+src/models/security_tasks_response_model_list_response_model.rs
 src/models/selection_read_only_request_model.rs
 src/models/selection_read_only_response_model.rs
 src/models/self_hosted_organization_license_request_model.rs
@@ -377,6 +392,7 @@ src/models/send_text_model.rs
 src/models/send_type.rs
 src/models/send_with_id_request_model.rs
 src/models/server_config_response_model.rs
+src/models/server_settings_response_model.rs
 src/models/service_account_access_policy_response_model.rs
 src/models/service_account_counts_response_model.rs
 src/models/service_account_create_request_model.rs
@@ -404,6 +420,7 @@ src/models/tax_info_update_request_model.rs
 src/models/tax_information_request_body.rs
 src/models/tax_rate_response_model.rs
 src/models/tax_rate_response_model_list_response_model.rs
+src/models/tokenized_payment_source_request_body.rs
 src/models/transaction_type.rs
 src/models/two_factor_authenticator_disable_request_model.rs
 src/models/two_factor_authenticator_response_model.rs
@@ -425,6 +442,7 @@ src/models/update_client_organization_request_body.rs
 src/models/update_devices_trust_request_model.rs
 src/models/update_domains_request_model.rs
 src/models/update_key_request_model.rs
+src/models/update_payment_method_request_body.rs
 src/models/update_profile_request_model.rs
 src/models/update_tde_offboarding_password_request_model.rs
 src/models/update_temp_password_request_model.rs
@@ -433,11 +451,13 @@ src/models/update_two_factor_duo_request_model.rs
 src/models/update_two_factor_email_request_model.rs
 src/models/update_two_factor_yubico_otp_request_model.rs
 src/models/uri_match_type.rs
-src/models/user.rs
 src/models/user_access_policy_response_model.rs
 src/models/user_key_response_model.rs
 src/models/user_license.rs
 src/models/user_verification_requirement.rs
+src/models/verified_organization_domain_sso_detail_response_model.rs
+src/models/verified_organization_domain_sso_details_response_model.rs
+src/models/verify_bank_account_request_body.rs
 src/models/verify_delete_recover_request_model.rs
 src/models/verify_email_request_model.rs
 src/models/verify_otp_request_model.rs

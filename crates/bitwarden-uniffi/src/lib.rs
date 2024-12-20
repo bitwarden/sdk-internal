@@ -2,7 +2,7 @@ uniffi::setup_scaffolding!();
 
 use std::sync::Arc;
 
-use auth::ClientAuth;
+use auth::AuthClient;
 use bitwarden_core::ClientSettings;
 
 pub mod auth;
@@ -16,11 +16,11 @@ pub mod vault;
 #[cfg(target_os = "android")]
 mod android_support;
 
-use crypto::ClientCrypto;
+use crypto::CryptoClient;
 use error::Result;
-use platform::ClientPlatform;
-use tool::{ClientExporters, ClientGenerators, ClientSends};
-use vault::ClientVault;
+use platform::PlatformClient;
+use tool::{ExporterClient, GeneratorClients, SendClient};
+use vault::VaultClient;
 
 #[derive(uniffi::Object)]
 pub struct Client(bitwarden_core::Client);
@@ -39,37 +39,37 @@ impl Client {
     }
 
     /// Crypto operations
-    pub fn crypto(self: Arc<Self>) -> Arc<ClientCrypto> {
-        Arc::new(ClientCrypto(self))
+    pub fn crypto(self: Arc<Self>) -> Arc<CryptoClient> {
+        Arc::new(CryptoClient(self))
     }
 
     /// Vault item operations
-    pub fn vault(self: Arc<Self>) -> Arc<ClientVault> {
-        Arc::new(ClientVault(self))
+    pub fn vault(self: Arc<Self>) -> Arc<VaultClient> {
+        Arc::new(VaultClient(self))
     }
 
-    pub fn platform(self: Arc<Self>) -> Arc<ClientPlatform> {
-        Arc::new(ClientPlatform(self))
+    pub fn platform(self: Arc<Self>) -> Arc<PlatformClient> {
+        Arc::new(PlatformClient(self))
     }
 
     /// Generator operations
-    pub fn generators(self: Arc<Self>) -> Arc<ClientGenerators> {
-        Arc::new(ClientGenerators(self))
+    pub fn generators(self: Arc<Self>) -> Arc<GeneratorClients> {
+        Arc::new(GeneratorClients(self))
     }
 
     /// Exporters
-    pub fn exporters(self: Arc<Self>) -> Arc<ClientExporters> {
-        Arc::new(ClientExporters(self))
+    pub fn exporters(self: Arc<Self>) -> Arc<ExporterClient> {
+        Arc::new(ExporterClient(self))
     }
 
     /// Sends operations
-    pub fn sends(self: Arc<Self>) -> Arc<ClientSends> {
-        Arc::new(ClientSends(self))
+    pub fn sends(self: Arc<Self>) -> Arc<SendClient> {
+        Arc::new(SendClient(self))
     }
 
     /// Auth operations
-    pub fn auth(self: Arc<Self>) -> Arc<ClientAuth> {
-        Arc::new(ClientAuth(self))
+    pub fn auth(self: Arc<Self>) -> Arc<AuthClient> {
+        Arc::new(AuthClient(self))
     }
 
     /// Test method, echoes back the input

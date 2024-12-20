@@ -390,7 +390,7 @@ pub enum Origin {
     Android(UnverifiedAssetLink),
 }
 
-impl<'a> TryFrom<Origin> for passkey::client::Origin<'a> {
+impl TryFrom<Origin> for passkey::client::Origin<'_> {
     type Error = InvalidOriginError;
 
     fn try_from(value: Origin) -> Result<Self, Self::Error> {
@@ -404,7 +404,7 @@ impl<'a> TryFrom<Origin> for passkey::client::Origin<'a> {
     }
 }
 
-impl<'a> TryFrom<UnverifiedAssetLink> for passkey::client::UnverifiedAssetLink<'a> {
+impl TryFrom<UnverifiedAssetLink> for passkey::client::UnverifiedAssetLink<'_> {
     type Error = InvalidOriginError;
 
     fn try_from(value: UnverifiedAssetLink) -> Result<Self, Self::Error> {
