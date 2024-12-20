@@ -81,7 +81,8 @@ mod wordlist;
 pub use wordlist::EFF_LONG_WORD_LIST;
 mod allocator;
 pub use allocator::ZeroizingAllocator;
-pub mod blake3;
+
+#[cfg(feature = "aead-crypto")]
 pub mod chacha20;
 
 #[cfg(feature = "uniffi")]

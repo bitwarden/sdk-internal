@@ -20,6 +20,8 @@ wasm = ["dep:tsify-next", "dep:wasm-bindgen"] # WASM support
 uniffi = ["dep:uniffi"]  # Uniffi bindings
 no-memory-hardening = [] # Disable memory hardening features
 
+aead-crypto = []
+
 [dependencies]
 aes = { version = ">=0.8.2, <0.9", features = ["zeroize"] }
 argon2 = { version = ">=0.5.0, <0.6", features = [
@@ -70,6 +72,7 @@ required-features = ["no-memory-hardening"]
 
 [[bench]]
 name = "ciphers"
+required-features = ["aead-crypto"]
 harness = false
 
 [lints]
