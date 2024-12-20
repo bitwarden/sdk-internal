@@ -49,7 +49,7 @@ fn encrypt_xchacha20_poly1305_blake3_ctx_internal(
 
     // This buffer contains the plaintext, that will be encrypted in-place
     let mut buffer = Vec::from(plaintext_secret_data);
-    let cipher = XChaCha20Poly1305::new(&GenericArray::from_slice(key));
+    let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(key));
 
     let poly1305_tag = cipher
         .encrypt_in_place_detached(&nonce, associated_data, &mut buffer)
@@ -92,7 +92,7 @@ pub fn decrypt_xchacha20_poly1305_blake3_ctx(
     if ctx_tag.ct_eq(&ciphertext.tag).into() {
         // At this point the commitment is verified, so we can decrypt the data using regular
         // XChaCha20Poly1305
-        let cipher = XChaCha20Poly1305::new(&GenericArray::from_slice(key));
+        let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(key));
         let mut buffer = ciphertext.encrypted_data.clone();
         let nonce_array = GenericArray::from_slice(&ciphertext.nonce);
         cipher
@@ -109,7 +109,7 @@ pub fn decrypt_xchacha20_poly1305_blake3_ctx(
 /// - The nonce
 /// - The associated data
 /// - The Poly1305 tag
-/// And by injectivity, also to the ciphertext.
+/// - And by injectivity, also to the ciphertext.
 fn ctx_hash(
     key: &[u8; 32],
     nonce: &[u8; 24],
@@ -146,19 +146,19 @@ fn get_tag_expected_for_xchacha20_poly1305_ctx(
     );
     // https://github.com/RustCrypto/AEADs/blob/8403768230657812016e1b3d17b1638e5fdf5f73/chacha20poly1305/src/cipher.rs#L35-L37
     let mut mac_key = poly1305::Key::default();
-    xchacha20.apply_keystream(&mut *mac_key);
+    xchacha20.apply_keystream(&mut mac_key);
 
     // https://github.com/RustCrypto/AEADs/blob/8403768230657812016e1b3d17b1638e5fdf5f73/chacha20poly1305/src/cipher.rs#L85-L87
-    let mut mac = Poly1305::new(GenericArray::from_slice(&*mac_key));
-    mac.update_padded(&associated_data);
-    mac.update_padded(&buffer);
-    authenticate_lengths(&associated_data, &buffer, &mut mac);
+    let mut mac = Poly1305::new(GenericArray::from_slice(&mac_key));
+    mac.update_padded(associated_data);
+    mac.update_padded(buffer);
+    authenticate_lengths(associated_data, buffer, &mut mac);
     mac.finalize()
 }
 
 /// This function copies internal behavior from the AEAD implementation in RustCrypto
 /// https://github.com/RustCrypto/AEADs/blob/8403768230657812016e1b3d17b1638e5fdf5f73/chacha20poly1305/src/cipher.rs#L100-L111
-fn authenticate_lengths(associated_data: &[u8], buffer: &[u8], mac: &mut Poly1305) -> () {
+fn authenticate_lengths(associated_data: &[u8], buffer: &[u8], mac: &mut Poly1305) {
     let associated_data_len: u64 = associated_data.len() as u64;
     let buffer_len: u64 = buffer.len() as u64;
 
