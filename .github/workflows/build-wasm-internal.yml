@@ -41,16 +41,6 @@ jobs:
           echo "SDK_VERSION='${SDK_VERSION}'" >> $GITHUB_ENV
           echo "SDK_VERSION='${SDK_VERSION}'"
 
-      - name: Setup Node
-        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
-        with:
-          node-version: 20
-          registry-url: "https://npm.pkg.github.com"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm i -g binaryen
-
       - name: Install rust
         uses: dtolnay/rust-toolchain@315e265cd78dad1e1dcf3a5074f6d6c47029d5aa # stable
         with:
