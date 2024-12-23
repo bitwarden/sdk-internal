@@ -7,6 +7,7 @@ use crate::{error, error::KeyGenerationError, SshKey};
 
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum KeyAlgorithm {
     Ed25519,
     Rsa3072,

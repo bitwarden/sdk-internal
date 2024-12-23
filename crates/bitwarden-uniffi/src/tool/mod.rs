@@ -15,6 +15,9 @@ use crate::{
 mod sends;
 pub use sends::SendClient;
 
+mod ssh;
+pub use ssh::SshClient;
+
 #[derive(uniffi::Object)]
 pub struct GeneratorClients(pub(crate) Arc<Client>);
 
