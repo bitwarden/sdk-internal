@@ -82,7 +82,7 @@ pub fn decrypt_xchacha20_poly1305_blake3_ctx(
         associated_data,
         &buffer,
     );
-    // This should never fail because poly1305_tag is always 32 bytes
+    // This should never fail because poly1305_tag is always 16 bytes
     let poly1305_tag_slice: [u8; 16] = poly1305_tag
         .as_slice()
         .try_into()
