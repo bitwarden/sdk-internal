@@ -19,7 +19,7 @@ mod android_support;
 use crypto::CryptoClient;
 use error::Result;
 use platform::PlatformClient;
-use tool::{ExporterClient, GeneratorClients, SendClient};
+use tool::{ExporterClient, GeneratorClients, SendClient, SshClient};
 use vault::VaultClient;
 
 #[derive(uniffi::Object)]
@@ -67,6 +67,11 @@ impl Client {
         Arc::new(SendClient(self))
     }
 
+    /// SSH operations
+    pub fn ssh(self: Arc<Self>) -> Arc<SshClient> {
+        Arc::new(SshClient(self))
+    }
+
     /// Auth operations
     pub fn auth(self: Arc<Self>) -> Arc<AuthClient> {
         Arc::new(AuthClient(self))
@@ -87,23 +92,6 @@ impl Client {
             .map_err(bitwarden_core::Error::Reqwest)?;
 
         Ok(res.text().await.map_err(bitwarden_core::Error::Reqwest)?)
-    }
-
-    pub fn generate_ssh_key(
-        &self,
-        key_algorithm: bitwarden_ssh::generator::KeyAlgorithm,
-    ) -> Result<bitwarden_ssh::SshKey> {
-        bitwarden_ssh::generator::generate_sshkey(key_algorithm)
-            .map_err(|e| error::BitwardenError::E(error::Error::SshGeneration(e)))
-    }
-
-    pub fn import_ssh_key(
-        &self,
-        imported_key: String,
-        password: Option<String>,
-    ) -> Result<bitwarden_ssh::SshKey> {
-        bitwarden_ssh::import::import_key(imported_key, password)
-            .map_err(|e| error::BitwardenError::E(error::Error::SshImport(e)))
     }
 }
 
