@@ -6,6 +6,9 @@ cd "$(dirname "$0")"
 # Move to the root of the repository
 cd ../../
 
+# Write VERSION file
+git rev-parse HEAD > ./crates/bitwarden-wasm-internal/npm/VERSION
+
 if [ "$1" != "-r" ]; then
   # Dev
   cargo build -p bitwarden-wasm-internal --target wasm32-unknown-unknown
