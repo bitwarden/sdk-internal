@@ -7,6 +7,7 @@ use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
+    chacha20::XChaCha20Poly1305Blake3CTXCiphertext,
     error::{CryptoError, EncStringParseError, Result},
     KeyDecryptable, KeyEncryptable, LocateKey, SymmetricCryptoKey,
 };
@@ -67,6 +68,12 @@ pub enum EncString {
         mac: [u8; 32],
         data: Vec<u8>,
     },
+    /// 7 NO AD yet
+    XChaCha20_Poly1305_Blake3_CTX_B64 {
+        iv: [u8; 24],
+        data: Vec<u8>,
+        mac: [u8; 32],
+    },
 }
 
 /// To avoid printing sensitive information, [EncString] debug prints to `EncString`.
@@ -100,6 +107,13 @@ impl FromStr for EncString {
                     Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
                 }
             }
+            ("7", 3) => {
+                let iv = from_b64(parts[0])?;
+                let data = from_b64_vec(parts[1])?;
+                let mac = from_b64(parts[2])?;
+
+                Ok(EncString::XChaCha20_Poly1305_Blake3_CTX_B64 { iv, data, mac })
+            }
 
             (enc_type, parts) => Err(EncStringParseError::InvalidTypeSymm {
                 enc_type: enc_type.to_string(),
@@ -130,7 +144,7 @@ impl EncString {
 
                 Ok(EncString::AesCbc256_B64 { iv, data })
             }
-            1 | 2 => {
+            1 | 2 | 7 => {
                 check_length(buf, 50)?;
                 let iv = buf[1..17].try_into().expect("Valid length");
                 let mac = buf[17..49].try_into().expect("Valid length");
@@ -168,6 +182,13 @@ impl EncString {
                 buf.extend_from_slice(mac);
                 buf.extend_from_slice(data);
             }
+            EncString::XChaCha20_Poly1305_Blake3_CTX_B64 { iv, data, mac } => {
+                buf = Vec::with_capacity(1 + 24 + data.len() + 32);
+                buf.push(self.enc_type());
+                buf.extend_from_slice(iv);
+                buf.extend_from_slice(data);
+                buf.extend_from_slice(mac);
+            }
         }
 
         Ok(buf)
@@ -180,6 +201,7 @@ impl Display for EncString {
             EncString::AesCbc256_B64 { iv, data } => vec![iv, data],
             EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
             EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
+            EncString::XChaCha20_Poly1305_Blake3_CTX_B64 { iv, data, mac } => vec![iv, data, mac],
         };
 
         let encoded_parts: Vec<String> = parts.iter().map(|part| STANDARD.encode(part)).collect();
@@ -214,8 +236,17 @@ impl EncString {
         mac_key: &GenericArray<u8, U32>,
         key: &GenericArray<u8, U32>,
     ) -> Result<EncString> {
-        let (iv, mac, data) = crate::aes::encrypt_aes256_hmac(data_dec, mac_key, key)?;
-        Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
+        // let (iv, mac, data) = crate::aes::encrypt_aes256_hmac(data_dec, mac_key, key)?;
+        // Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
+
+        let key = key.as_slice().try_into().unwrap();
+        let ciphertext =
+            crate::chacha20::encrypt_xchacha20_poly1305_blake3_ctx(key, data_dec, &[])?;
+        Ok(EncString::XChaCha20_Poly1305_Blake3_CTX_B64 {
+            iv: ciphertext.nonce,
+            data: ciphertext.encrypted_data,
+            mac: ciphertext.tag,
+        })
     }
 
     /// The numerical representation of the encryption type of the [EncString].
@@ -224,6 +255,7 @@ impl EncString {
             EncString::AesCbc256_B64 { .. } => 0,
             EncString::AesCbc128_HmacSha256_B64 { .. } => 1,
             EncString::AesCbc256_HmacSha256_B64 { .. } => 2,
+            EncString::XChaCha20_Poly1305_Blake3_CTX_B64 { .. } => 7,
         }
     }
 }
@@ -264,6 +296,18 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 let mac_key = key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?;
                 let dec =
                     crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), mac_key, &key.key)?;
+                Ok(dec)
+            }
+            EncString::XChaCha20_Poly1305_Blake3_CTX_B64 { iv, data, mac } => {
+                let ciphertext = XChaCha20Poly1305Blake3CTXCiphertext {
+                    nonce: *iv,
+                    encrypted_data: data.clone(),
+                    tag: *mac,
+                    authenticated_data: Vec::new(),
+                };
+                let key: [u8; 32] = key.key.as_slice().try_into().unwrap();
+                let dec =
+                    crate::chacha20::decrypt_xchacha20_poly1305_blake3_ctx(&key, &ciphertext)?;
                 Ok(dec)
             }
         }
