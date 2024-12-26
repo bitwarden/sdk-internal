@@ -9,13 +9,7 @@ pub fn hash_blake3_tuple(data_chunks: &[&[u8]]) -> [u8; 32] {
     init_key.copy_from_slice(b"hash_blake3_tuple_init_key_bytes");
     let mut inner_state = blake3::Hasher::new_keyed(&init_key);
     for data in data_chunks {
-        inner_state.update(data);
-        // ratchet the hash state
-        inner_state = blake3::Hasher::new_keyed(inner_state.finalize().as_bytes());
+        inner_state.update(blake3::hash(data).as_bytes());
     }
-    let final_inner_state = inner_state.finalize();
-
-    // avoid leaking the internal state of hash_blake3_tuple
-    // because otherwise preimage attacks could be possible
-    blake3::hash(final_inner_state.as_bytes()).into()
+    *inner_state.finalize().as_bytes()
 }
