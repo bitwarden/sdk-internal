@@ -85,3 +85,9 @@ codegen-units = 1
 # Stripping the binary reduces the size by ~30%, but the stacktraces won't be usable anymore.
 # This is fine as long as we don't have any unhandled panics, but let's keep it disabled for now
 # strip = true
+
+[patch.crates-io]
+pkcs5 = { git = "https://github.com/bitwarden/rustcrypto-formats.git", rev = "2b27c63034217dd126bbf5ed874da51b84f8c705", features = [
+    "rand_core",
+    "pbes2",
+], package = "pkcs5" }

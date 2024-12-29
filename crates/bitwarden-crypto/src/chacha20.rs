@@ -18,10 +18,10 @@ use subtle::ConstantTimeEq;
 use crate::CryptoError;
 
 pub struct XChaCha20Poly1305Blake3CTXCiphertext {
-    nonce: [u8; 24],
-    tag: [u8; 32],
-    encrypted_data: Vec<u8>,
-    authenticated_data: Vec<u8>,
+    pub nonce: [u8; 24],
+    pub tag: [u8; 32],
+    pub encrypted_data: Vec<u8>,
+    pub authenticated_data: Vec<u8>,
 }
 
 pub fn encrypt_xchacha20_poly1305_blake3_ctx(
@@ -82,7 +82,7 @@ pub fn decrypt_xchacha20_poly1305_blake3_ctx(
         associated_data,
         &buffer,
     );
-    // This should never fail because poly1305_tag is always 16 bytes
+    // This should never fail because poly1305_tag is always 32 bytes
     let poly1305_tag_slice: [u8; 16] = poly1305_tag
         .as_slice()
         .try_into()
