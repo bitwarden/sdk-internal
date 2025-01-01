@@ -111,11 +111,7 @@ impl EncString {
                 let mac = buf[17..49].try_into().expect("Valid length");
                 let data = buf[49..].to_vec();
 
-                if enc_type == 1 {
-                    Ok(EncString::AesCbc128_HmacSha256_B64 { iv, mac, data })
-                } else {
-                    Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
-                }
+                Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
             }
             _ => Err(EncStringParseError::InvalidTypeSymm {
                 enc_type: enc_type.to_string(),
@@ -187,8 +183,6 @@ impl EncString {
     /// The numerical representation of the encryption type of the [EncString].
     const fn enc_type(&self) -> u8 {
         match self {
-            EncString::AesCbc256_B64 { .. } => 0,
-            EncString::AesCbc128_HmacSha256_B64 { .. } => 1,
             EncString::AesCbc256_HmacSha256_B64 { .. } => 2,
         }
     }
@@ -208,24 +202,6 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
 impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
         match self {
-            EncString::AesCbc256_B64 { iv, data } => {
-                if key.mac_key.is_some() {
-                    return Err(CryptoError::MacNotProvided);
-                }
-
-                let dec = crate::aes::decrypt_aes256(iv, data.clone(), &key.key)?;
-                Ok(dec)
-            }
-            EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } => {
-                // TODO: SymmetricCryptoKey is designed to handle 32 byte keys only, but this
-                // variant uses a 16 byte key This means the key+mac are going to be
-                // parsed as a single 32 byte key, at the moment we split it manually
-                // When refactoring the key handling, this should be fixed.
-                let enc_key = key.key[0..16].into();
-                let mac_key = key.key[16..32].into();
-                let dec = crate::aes::decrypt_aes128_hmac(iv, mac, data.clone(), mac_key, enc_key)?;
-                Ok(dec)
-            }
             EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
                 let mac_key = key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?;
                 let dec =
@@ -273,7 +249,7 @@ mod tests {
 
     use super::EncString;
     use crate::{
-        derive_symmetric_key, CryptoError, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+        derive_symmetric_key, KeyDecryptable, KeyEncryptable,
     };
 
     #[test]
@@ -334,97 +310,6 @@ mod tests {
         let enc_string_new = EncString::from_buffer(&enc_buf).unwrap();
 
         assert_eq!(enc_string_new.to_string(), enc_str)
-    }
-
-    #[test]
-    fn test_from_str_cbc256() {
-        let enc_str = "0.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==";
-        let enc_string: EncString = enc_str.parse().unwrap();
-
-        assert_eq!(enc_string.enc_type(), 0);
-        if let EncString::AesCbc256_B64 { iv, data } = &enc_string {
-            assert_eq!(
-                iv,
-                &[164, 196, 186, 254, 39, 19, 64, 0, 109, 186, 92, 57, 218, 154, 182, 150]
-            );
-            assert_eq!(
-                data,
-                &[93, 118, 241, 43, 16, 211, 135, 233, 150, 136, 221, 71, 140, 125, 141, 215]
-            );
-        } else {
-            panic!("Invalid variant")
-        };
-    }
-
-    #[test]
-    fn test_from_str_cbc128_hmac() {
-        let enc_str = "1.Hh8gISIjJCUmJygpKissLQ==|MjM0NTY3ODk6Ozw9Pj9AQUJDREU=|KCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkc=";
-        let enc_string: EncString = enc_str.parse().unwrap();
-
-        assert_eq!(enc_string.enc_type(), 1);
-        if let EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } = &enc_string {
-            assert_eq!(
-                iv,
-                &[30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45]
-            );
-            assert_eq!(
-                mac,
-                &[
-                    40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
-                    60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71
-                ]
-            );
-            assert_eq!(
-                data,
-                &[50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69]
-            );
-        } else {
-            panic!("Invalid variant")
-        };
-    }
-
-    #[test]
-    fn test_decrypt_cbc256() {
-        let key = "hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe08=".to_string();
-        let key = SymmetricCryptoKey::try_from(key).unwrap();
-
-        let enc_str = "0.NQfjHLr6za7VQVAbrpL81w==|wfrjmyJ0bfwkQlySrhw8dA==";
-        let enc_string: EncString = enc_str.parse().unwrap();
-        assert_eq!(enc_string.enc_type(), 0);
-
-        let dec_str: String = enc_string.decrypt_with_key(&key).unwrap();
-        assert_eq!(dec_str, "EncryptMe!");
-    }
-
-    #[test]
-    fn test_decrypt_downgrade_encstring_prevention() {
-        // Simulate a potential downgrade attack by removing the mac portion of the `EncString` and
-        // attempt to decrypt it using a `SymmetricCryptoKey` with a mac key.
-        let key = "hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string();
-        let key = SymmetricCryptoKey::try_from(key).unwrap();
-
-        // A "downgraded" `EncString` from `EncString::AesCbc256_HmacSha256_B64` (2) to
-        // `EncString::AesCbc256_B64` (0), with the mac portion removed.
-        // <enc_string>
-        let enc_str = "0.NQfjHLr6za7VQVAbrpL81w==|wfrjmyJ0bfwkQlySrhw8dA==";
-        let enc_string: EncString = enc_str.parse().unwrap();
-        assert_eq!(enc_string.enc_type(), 0);
-
-        let result: Result<String, CryptoError> = enc_string.decrypt_with_key(&key);
-        assert!(matches!(result, Err(CryptoError::MacNotProvided)));
-    }
-
-    #[test]
-    fn test_decrypt_cbc128_hmac() {
-        let key = "Gt1aZ8kTTgkF80bLtb7LiMZBcxEA2FA5mbvV4x7K208=".to_string();
-        let key = SymmetricCryptoKey::try_from(key).unwrap();
-
-        let enc_str = "1.CU/oG4VZuxbHoZSDZjCLQw==|kb1HGwAk+fQ275ORfLf5Ew==|8UaEYHyqRZcG37JWhYBOBdEatEXd1u1/wN7OuImolcM=";
-        let enc_string: EncString = enc_str.parse().unwrap();
-        assert_eq!(enc_string.enc_type(), 1);
-
-        let dec_str: String = enc_string.decrypt_with_key(&key).unwrap();
-        assert_eq!(dec_str, "EncryptMe!");
     }
 
     #[test]
