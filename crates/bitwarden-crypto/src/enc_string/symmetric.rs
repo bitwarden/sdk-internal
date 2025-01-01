@@ -32,8 +32,6 @@ export type EncString = string;
 /// variants, but we should be opinionated in which variants are used for encrypting.
 ///
 /// ## Variants
-/// - [AesCbc256_B64](EncString::AesCbc256_B64)
-/// - [AesCbc128_HmacSha256_B64](EncString::AesCbc128_HmacSha256_B64)
 /// - [AesCbc256_HmacSha256_B64](EncString::AesCbc256_HmacSha256_B64)
 ///
 /// ## Serialization
@@ -42,14 +40,13 @@ export type EncString = string;
 /// custom scheme to represent the different variants.
 ///
 /// The scheme is one of the following schemes:
-/// - `[type].[iv]|[data]`
 /// - `[type].[iv]|[data]|[mac]`
 ///
 /// Where:
 /// - `[type]`: is a digit number representing the variant.
 /// - `[iv]`: (optional) is the initialization vector used for encryption.
 /// - `[data]`: is the encrypted data.
-/// - `[mac]`: (optional) is the MAC used to validate the integrity of the data.
+/// - `[mac]`: is the MAC used to validate the integrity of the data.
 #[derive(Clone, zeroize::ZeroizeOnDrop, PartialEq)]
 #[allow(unused, non_camel_case_types)]
 pub enum EncString {
