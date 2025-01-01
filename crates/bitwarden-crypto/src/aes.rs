@@ -6,9 +6,7 @@
 //! [KeyEncryptable][crate::KeyEncryptable] & [KeyDecryptable][crate::KeyDecryptable] instead.
 
 use aes::cipher::{
-    block_padding::Pkcs7,
-    typenum::U32,
-    BlockDecryptMut, BlockEncryptMut, KeyIvInit,
+    block_padding::Pkcs7, typenum::U32, BlockDecryptMut, BlockEncryptMut, KeyIvInit,
 };
 use generic_array::GenericArray;
 use hmac::Mac;
