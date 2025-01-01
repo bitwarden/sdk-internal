@@ -53,14 +53,6 @@ export type EncString = string;
 #[derive(Clone, zeroize::ZeroizeOnDrop, PartialEq)]
 #[allow(unused, non_camel_case_types)]
 pub enum EncString {
-    /// 0
-    AesCbc256_B64 { iv: [u8; 16], data: Vec<u8> },
-    /// 1
-    AesCbc128_HmacSha256_B64 {
-        iv: [u8; 16],
-        mac: [u8; 32],
-        data: Vec<u8>,
-    },
     /// 2
     AesCbc256_HmacSha256_B64 {
         iv: [u8; 16],
@@ -83,22 +75,12 @@ impl FromStr for EncString {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (enc_type, parts) = split_enc_string(s);
         match (enc_type, parts.len()) {
-            ("0", 2) => {
-                let iv = from_b64(parts[0])?;
-                let data = from_b64_vec(parts[1])?;
-
-                Ok(EncString::AesCbc256_B64 { iv, data })
-            }
-            ("1" | "2", 3) => {
+            ("2", 3) => {
                 let iv = from_b64(parts[0])?;
                 let data = from_b64_vec(parts[1])?;
                 let mac = from_b64(parts[2])?;
 
-                if enc_type == "1" {
-                    Ok(EncString::AesCbc128_HmacSha256_B64 { iv, mac, data })
-                } else {
-                    Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
-                }
+                Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
             }
 
             (enc_type, parts) => Err(EncStringParseError::InvalidTypeSymm {
@@ -123,14 +105,7 @@ impl EncString {
         let enc_type = buf[0];
 
         match enc_type {
-            0 => {
-                check_length(buf, 18)?;
-                let iv = buf[1..17].try_into().expect("Valid length");
-                let data = buf[17..].to_vec();
-
-                Ok(EncString::AesCbc256_B64 { iv, data })
-            }
-            1 | 2 => {
+            2 => {
                 check_length(buf, 50)?;
                 let iv = buf[1..17].try_into().expect("Valid length");
                 let mac = buf[17..49].try_into().expect("Valid length");
@@ -154,14 +129,7 @@ impl EncString {
         let mut buf;
 
         match self {
-            EncString::AesCbc256_B64 { iv, data } => {
-                buf = Vec::with_capacity(1 + 16 + data.len());
-                buf.push(self.enc_type());
-                buf.extend_from_slice(iv);
-                buf.extend_from_slice(data);
-            }
-            EncString::AesCbc128_HmacSha256_B64 { iv, mac, data }
-            | EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
+            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
                 buf = Vec::with_capacity(1 + 16 + 32 + data.len());
                 buf.push(self.enc_type());
                 buf.extend_from_slice(iv);
@@ -177,8 +145,6 @@ impl EncString {
 impl Display for EncString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let parts: Vec<&[u8]> = match self {
-            EncString::AesCbc256_B64 { iv, data } => vec![iv, data],
-            EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
             EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
         };
 
