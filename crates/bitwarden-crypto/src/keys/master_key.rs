@@ -144,12 +144,8 @@ pub(super) fn decrypt_user_key(
     key: &SymmetricCryptoKey,
     user_key: EncString,
 ) -> Result<SymmetricCryptoKey> {
-    let mut dec: Vec<u8> = match user_key {
-        _ => {
-            let stretched_key = stretch_kdf_key(key)?;
-            user_key.decrypt_with_key(&stretched_key)?
-        }
-    };
+    let stretched_key = stretch_kdf_key(key)?;
+    let mut dec: Vec<u8> = user_key.decrypt_with_key(&stretched_key)?;
 
     SymmetricCryptoKey::try_from(dec.as_mut_slice())
 }
