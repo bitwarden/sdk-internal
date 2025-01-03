@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use crate::VaultParseError;
 
+/// Encrypted Collection state
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -24,6 +25,7 @@ pub struct Collection {
     pub manage: bool,
 }
 
+/// Decrypted Collection state
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -40,6 +42,7 @@ pub struct CollectionView {
 }
 
 impl LocateKey for Collection {
+    /// Returns a [SymmetricCryptoKey] on success, [CryptoError] on failure
     fn locate_key<'a>(
         &self,
         enc: &'a dyn KeyContainer,
@@ -48,6 +51,7 @@ impl LocateKey for Collection {
         enc.get_key(&Some(self.organization_id))
     }
 }
+
 impl KeyDecryptable<SymmetricCryptoKey, CollectionView> for Collection {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<CollectionView, CryptoError> {
         Ok(CollectionView {
