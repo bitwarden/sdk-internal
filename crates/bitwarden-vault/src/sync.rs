@@ -54,7 +54,7 @@ pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncRes
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-/// Data returned from the `/accounts/profile`.
+/// Data returned from `/accounts/profile`.
 pub struct ProfileResponse {
     pub id: Uuid,
     pub name: String,
