@@ -1,2 +1,9 @@
 [target.'cfg(target_arch="aarch64")']
 rustflags = ["--cfg", "aes_armv8"]
+
+# Enable support for 16k pages on Android
+# https://android-developers.googleblog.com/2024/08/adding-16-kb-page-size-to-android.html
+[target.'cfg(target_os = "android")']
+rustflags = [
+    "-C", "link-arg=-Wl,-z,max-page-size=16384",
+]
