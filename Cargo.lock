@@ -429,7 +429,6 @@ dependencies = [
  "generic-array",
  "hkdf",
  "hmac",
- "log",
  "num-bigint",
  "num-traits",
  "pbkdf2",

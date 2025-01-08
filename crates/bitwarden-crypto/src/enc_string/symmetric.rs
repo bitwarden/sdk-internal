@@ -4,7 +4,6 @@ use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::GenericArray;
 use serde::Deserialize;
-use log::info;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
@@ -286,7 +285,6 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
 impl KeyDecryptable<SymmetricCryptoKey, String> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<String> {
         let dec: Vec<u8> = self.decrypt_with_key(key)?;
-        info!("decrypted: {:?}", dec);
         String::from_utf8(dec).map_err(|_| CryptoError::InvalidUtf8String)
     }
 }
