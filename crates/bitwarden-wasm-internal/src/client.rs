@@ -37,14 +37,17 @@ pub struct BitwardenPure;
 #[wasm_bindgen]
 impl BitwardenPure {
     pub fn version() -> String {
+        Self::setup_once();
         env!("SDK_VERSION").to_owned()
     }
 
     pub fn echo(msg: String) -> String {
+        Self::setup_once();
         msg
     }
 
     pub fn throw(msg: String) -> Result<(), TestError> {
+        Self::setup_once();
         Err(TestError(msg))
     }
 
@@ -52,6 +55,7 @@ impl BitwardenPure {
         enc_string: String,
         key_b64: String,
     ) -> Result<String, PureCryptoError> {
+        Self::setup_once();
         pure_crypto::symmetric_decrypt(enc_string, key_b64)
     }
 
@@ -59,11 +63,21 @@ impl BitwardenPure {
         enc_string: String,
         key_b64: String,
     ) -> Result<Vec<u8>, PureCryptoError> {
+        Self::setup_once();
         pure_crypto::symmetric_decrypt_to_bytes(enc_string, key_b64)
     }
 
     pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, PureCryptoError> {
+        Self::setup_once();
         pure_crypto::symmetric_encrypt(plain, key_b64)
+    }
+
+    fn setup_once() {
+        console_error_panic_hook::set_once();
+        let log_level = convert_level(LogLevel::Info);
+        if let Err(_e) = console_log::init_with_level(log_level) {
+            set_max_level(log_level.to_level_filter())
+        }
     }
 }
 
