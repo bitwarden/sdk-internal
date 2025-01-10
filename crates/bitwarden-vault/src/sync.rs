@@ -54,6 +54,7 @@ pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncRes
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+/// Data returned from `/accounts/profile`.
 pub struct ProfileResponse {
     pub id: Uuid,
     pub name: String,
@@ -79,6 +80,7 @@ pub struct DomainResponse {
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+/// Data returned from `/sync`.
 pub struct SyncResponse {
     /// Data about the user, including their encryption keys and the organizations they are a part
     /// of
