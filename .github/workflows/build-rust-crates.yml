@@ -12,17 +12,21 @@ env:
 
 jobs:
   build:
-    name: Building ${{matrix.package}} for - ${{ matrix.os }}
+    name: Build
 
-    runs-on: ${{ matrix.os || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - macos-14
-          - ubuntu-24.04
-          - windows-2022
+        target: [
+          x86_64-apple-darwin,
+          aarch64-apple-darwin,
+          x86_64-unknown-linux-gnu,
+          aarch64-unknown-linux-gnu,
+          x86_64-pc-windows-msvc,
+          x86_64-pc-windows-gnu
+        ]
 
         package:
           - bitwarden-api-api
@@ -34,18 +38,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Install rust
-        uses: dtolnay/rust-toolchain@315e265cd78dad1e1dcf3a5074f6d6c47029d5aa # stable
-        with:
-          toolchain: stable
-
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab # v2.7.5
 
-      - name: Build
-        run: cargo build -p ${{ matrix.package }} --release
-        env:
-          RUSTFLAGS: "-D warnings"
+      - name: Build ${{ matrix.package }} for - ${{ matrix.target }}
+        run: nix develop --command ci-build ${{ matrix.package }}
 
   release-dry-run:
     name: Release dry-run
@@ -56,16 +53,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Install rust
-        uses: dtolnay/rust-toolchain@315e265cd78dad1e1dcf3a5074f6d6c47029d5aa # stable
-        with:
-          toolchain: stable
-
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab # v2.7.5
 
-      - name: Install cargo-release
-        run: cargo install cargo-release
-
       - name: Cargo release dry run
-        run: cargo-release release publish --no-publish -p bitwarden-api-api -p bitwarden-api-identity -p bitwarden
+        run: nix develop --command ci-release-dry-run
