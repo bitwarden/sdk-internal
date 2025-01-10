@@ -9,7 +9,7 @@ pub struct PlatformClient<'a> {
     pub(crate) client: &'a Client,
 }
 
-impl<'a> PlatformClient<'a> {
+impl PlatformClient<'_> {
     pub fn fingerprint(&self, input: &FingerprintRequest) -> Result<FingerprintResponse> {
         generate_fingerprint(input)
     }

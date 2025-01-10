@@ -36,7 +36,7 @@ pub struct Fido2Client<'a> {
     pub authenticator: Fido2Authenticator<'a>,
 }
 
-impl<'a> Fido2Client<'a> {
+impl Fido2Client<'_> {
     pub async fn register(
         &mut self,
         origin: Origin,
