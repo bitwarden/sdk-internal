@@ -7,8 +7,8 @@ pub fn init() {
 
     fn init_inner() -> Result<(), Box<dyn Error>> {
         let jvm = java_vm()?;
-        let env = jvm.attach_current_thread_permanently()?;
-        init_verifier(&env)?;
+        let mut env = jvm.attach_current_thread_permanently()?;
+        init_verifier(&mut env)?;
         Ok(())
     }
 
@@ -52,7 +52,7 @@ fn java_vm() -> Result<jni::JavaVM, Box<dyn Error>> {
     Ok(jvm)
 }
 
-fn init_verifier(env: &jni::JNIEnv<'_>) -> jni::errors::Result<()> {
+fn init_verifier(env: &mut jni::JNIEnv<'_>) -> jni::errors::Result<()> {
     let activity_thread = env
         .call_static_method(
             "android/app/ActivityThread",
@@ -72,6 +72,6 @@ fn init_verifier(env: &jni::JNIEnv<'_>) -> jni::errors::Result<()> {
         .l()?;
 
     Ok(rustls_platform_verifier::android::init_hosted(
-        &env, context,
+        env, context,
     )?)
 }

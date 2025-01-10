@@ -26,8 +26,5 @@ inquire = "0.7.0"
 log = "0.4.20"
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
-[dev-dependencies]
-tempfile = "3.10.0"
-
 [lints]
 workspace = true
