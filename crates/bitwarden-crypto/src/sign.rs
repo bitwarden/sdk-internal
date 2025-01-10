@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 
+use self::key_hash::KeyHashable;
 use crate::{
     key_hash::{self, KeyHash},
     signing,
-    signing_key::{SigningCryptoKey, VerifyingCryptoKey},
+    signing_key::{SigningCryptoKey, Verifiable, VerifyingCryptoKey},
     CryptoError,
 };
 
@@ -43,7 +44,7 @@ pub fn trust_identity_key(
 ) -> Result<Signature, CryptoError> {
     let message = IdentityTrustMessage {
         identity: peer_identity.clone(),
-        verifying_key_fingerprint: key_hash::KeyHash::default(),
+        verifying_key_fingerprint: peer_verifying_key.hash(),
     };
 
     let message_bytes = serde_json::to_vec(&message).map_err(|_| CryptoError::InvalidKey)?;
@@ -52,14 +53,45 @@ pub fn trust_identity_key(
         context: SignatureContext::IdentityTrust(peer_identity),
         data: message_bytes.clone(),
         signature_data: own_signing_key.signing_key.sign(&message_bytes),
-        signing_key_hash: key_hash::KeyHash::default(),
+        signing_key_hash: own_signing_key.hash(),
     })
+}
+
+pub fn verify_identity_trust(
+    own_signing_key: &mut SigningCryptoKey,
+    peer_verifying_key: &VerifyingCryptoKey,
+    peer_identity: TrustIdentity,
+    signature: &Signature,
+) -> Result<(), CryptoError> {
+    if let SignatureContext::IdentityTrust(message_peer_identity) = &signature.context {
+        if !message_peer_identity.eq(&peer_identity) {
+            return Err(CryptoError::InvalidSignature);
+        }
+    } else {
+        return Err(CryptoError::InvalidSignature);
+    }
+
+    let message = IdentityTrustMessage {
+        identity: peer_identity.clone(),
+        verifying_key_fingerprint: peer_verifying_key.hash(),
+    };
+
+    let message_bytes = serde_json::to_vec(&message).map_err(|_| CryptoError::InvalidKey)?;
+    if !own_signing_key
+        .verifier()
+        .verifier
+        .verify(&message_bytes, &signature.signature_data)
+    {
+        return Err(CryptoError::InvalidSignature);
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{signing::Signer, signing_key::Verifiable};
+    use crate::signing_key::Verifiable;
 
     #[test]
     fn test_trust_identity_key() {
@@ -68,8 +100,18 @@ mod tests {
         let peer_verifying_key = peer_signing_key.verifier();
         let peer_identity = TrustIdentity::User("test_user_id".to_string());
 
-        let signature =
-            trust_identity_key(&mut own_signing_key, &peer_verifying_key, peer_identity)
-                .expect("Failed to generate trust signature");
+        let signature = trust_identity_key(
+            &mut own_signing_key,
+            &peer_verifying_key,
+            peer_identity.clone(),
+        )
+        .expect("Failed to generate trust signature");
+        let verified = verify_identity_trust(
+            &mut own_signing_key,
+            &peer_verifying_key,
+            peer_identity,
+            &signature,
+        );
+        assert!(verified.is_ok());
     }
 }

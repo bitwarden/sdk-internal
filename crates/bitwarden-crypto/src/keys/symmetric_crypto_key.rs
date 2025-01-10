@@ -6,7 +6,7 @@ use generic_array::GenericArray;
 use rand::Rng;
 use zeroize::Zeroize;
 
-use super::key_encryptable::CryptoKey;
+use super::{key_encryptable::CryptoKey, key_hash::KeyHashData};
 use crate::CryptoError;
 
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
@@ -132,6 +132,12 @@ impl CryptoKey for SymmetricCryptoKey {}
 impl std::fmt::Debug for SymmetricCryptoKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SymmetricCryptoKey").finish()
+    }
+}
+
+impl KeyHashData for SymmetricCryptoKey {
+    fn hash_data(&self) -> Vec<u8> {
+        self.to_vec()
     }
 }
 

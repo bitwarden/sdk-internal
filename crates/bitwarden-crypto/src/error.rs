@@ -50,6 +50,8 @@ pub enum CryptoError {
     InvalidHashAlgorithm,
     #[error("Hash Parse Error")]
     HashParseError,
+    #[error("Invalid signature")]
+    InvalidSignature,
 }
 
 #[derive(Debug, Error)]

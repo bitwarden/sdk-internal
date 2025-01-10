@@ -1,6 +1,6 @@
 use std::pin::Pin;
 
-use super::key_encryptable::CryptoKey;
+use super::{key_encryptable::CryptoKey, key_hash::KeyHashData};
 use crate::{
     error::Result,
     signing::{SignatureAlgorithm, Signer, Verifier},
@@ -11,7 +11,7 @@ pub trait Verifiable {
 }
 
 pub struct VerifyingCryptoKey {
-    verifier: Verifier,
+    pub(crate) verifier: Verifier,
 }
 
 impl VerifyingCryptoKey {
@@ -29,6 +29,18 @@ impl VerifyingCryptoKey {
 #[derive(Clone)]
 pub struct SigningCryptoKey {
     pub(crate) signing_key: Pin<Box<Signer>>,
+}
+
+impl KeyHashData for SigningCryptoKey {
+    fn hash_data(&self) -> Vec<u8> {
+        self.verifier().to_spki_der()
+    }
+}
+
+impl KeyHashData for VerifyingCryptoKey {
+    fn hash_data(&self) -> Vec<u8> {
+        self.to_spki_der()
+    }
 }
 
 const _: () = {
