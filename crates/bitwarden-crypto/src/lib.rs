@@ -75,6 +75,7 @@ pub use fingerprint::fingerprint;
 mod keys;
 pub use keys::*;
 mod rsa;
+mod signing;
 pub use crate::rsa::RsaKeyPair;
 mod util;
 pub use util::{generate_random_alphanumeric, generate_random_bytes, pbkdf2};

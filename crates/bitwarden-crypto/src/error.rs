@@ -41,6 +41,15 @@ pub enum CryptoError {
 
     #[error("Number is zero")]
     ZeroNumber,
+
+    #[error("Invalid signature algorithm")]
+    InvalidSignatureAlgorithm,
+    #[error("Signature Parse Error")]
+    SignatureParseError,
+    #[error("Invalid hash algorithm")]
+    InvalidHashAlgorithm,
+    #[error("Hash Parse Error")]
+    HashParseError,
 }
 
 #[derive(Debug, Error)]
