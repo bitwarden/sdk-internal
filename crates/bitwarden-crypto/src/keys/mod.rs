@@ -21,4 +21,6 @@ mod device_key;
 pub use device_key::{DeviceKey, TrustDeviceResponse};
 mod pin_key;
 pub use pin_key::PinKey;
+pub(crate) mod key_hash;
+pub(crate) mod signing_key;
 mod utils;

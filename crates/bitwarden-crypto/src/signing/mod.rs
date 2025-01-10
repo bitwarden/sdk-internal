@@ -1,3 +1,8 @@
+use pkcs8::{der::Decode, PrivateKeyInfo, SubjectPublicKeyInfoRef};
+use zeroize::ZeroizeOnDrop;
+
+use crate::{key_hash::KeyHash, signing_key::SigningCryptoKey, CryptoError};
+
 mod ed25519;
 pub mod signature;
 
@@ -6,19 +11,25 @@ pub enum SignatureAlgorithm {
     Ed25519,
 }
 
+#[derive(Clone)]
 enum SignatureImpl {
     Ed25519(ed25519::Ed25519Signer),
 }
 
+#[derive(Clone)]
 enum VerifyImpl {
     Ed25519(ed25519::Ed25519Verifier),
 }
 
-struct Signer {
+#[derive(Clone)]
+pub(crate) struct Signer {
     impl_: SignatureImpl,
 }
 
-struct Verifier {
+impl ZeroizeOnDrop for Signer {}
+
+#[derive(Clone)]
+pub(crate) struct Verifier {
     impl_: VerifyImpl,
 }
 
@@ -50,6 +61,23 @@ impl Signer {
             },
         }
     }
+
+    pub(crate) fn from_pkcs8_der(data: &[u8]) -> Result<Self, CryptoError> {
+        let private_key_info =
+            PrivateKeyInfo::from_der(data).map_err(|_| CryptoError::KeyDecrypt)?;
+        match private_key_info.algorithm.oid {
+            ed25519_dalek::ed25519::pkcs8::ALGORITHM_OID => Ok(Signer {
+                impl_: SignatureImpl::Ed25519(ed25519::Ed25519Signer::from_der(data)?),
+            }),
+            _ => Err(CryptoError::InvalidKey),
+        }
+    }
+
+    pub(crate) fn to_pkcs8_der(&self) -> Vec<u8> {
+        match &self.impl_ {
+            SignatureImpl::Ed25519(signer) => signer.to_der(),
+        }
+    }
 }
 
 impl Verifier {
@@ -61,6 +89,23 @@ impl Verifier {
                 }
                 verifier.verify(data, signature)
             }
+        }
+    }
+
+    pub(crate) fn from_spki_der(data: &[u8]) -> Result<Self, CryptoError> {
+        let public_key_info =
+            SubjectPublicKeyInfoRef::from_der(data).map_err(|_| CryptoError::InvalidKey)?;
+        match public_key_info.algorithm.oid {
+            ed25519_dalek::ed25519::pkcs8::ALGORITHM_OID => Ok(Verifier {
+                impl_: VerifyImpl::Ed25519(ed25519::Ed25519Verifier::from_der(data)?),
+            }),
+            _ => Err(CryptoError::InvalidKey),
+        }
+    }
+
+    pub(crate) fn to_spki_der(&self) -> Vec<u8> {
+        match &self.impl_ {
+            VerifyImpl::Ed25519(verifier) => verifier.to_der(),
         }
     }
 }

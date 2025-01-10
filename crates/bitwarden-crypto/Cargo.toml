@@ -29,7 +29,14 @@ argon2 = { version = ">=0.5.0, <0.6", features = [
 base64 = ">=0.22.1, <0.23"
 blake3 = { version = "1.5.5", features = ["zeroize"] }
 cbc = { version = ">=0.1.2, <0.2", features = ["alloc", "zeroize"] }
-ed25519-dalek = { version = "2.1.1", features = ["alloc", "digest", "pem", "pkcs8", "rand_core", "signature"] }
+ed25519-dalek = { version = "2.1.1", features = [
+    "alloc",
+    "digest",
+    "pem",
+    "pkcs8",
+    "rand_core",
+    "signature",
+] }
 generic-array = { version = ">=0.14.7, <1.0", features = ["zeroize"] }
 hkdf = ">=0.12.3, <0.13"
 hmac = ">=0.12.1, <0.13"
@@ -42,6 +49,7 @@ rayon = ">=1.8.1, <2.0"
 rsa = ">=0.9.2, <0.10"
 schemars = { workspace = true }
 serde = { workspace = true }
+serde_json.workspace = true
 sha1 = ">=0.10.5, <0.11"
 sha2 = ">=0.10.6, <0.11"
 signature = "2.2.0"
