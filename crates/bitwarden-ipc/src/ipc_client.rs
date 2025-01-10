@@ -12,9 +12,9 @@ impl<'a> IpcClient<'a> {
         Self { client }
     }
 
-    pub fn create_manager<L: Link>(&self, link: L) {
-        todo!()
-    }
+    // pub fn create_manager<L: Link>(&self, link: L) {
+    //     todo!()
+    // }
 }
 
 pub trait IpcClientExt<'a> {

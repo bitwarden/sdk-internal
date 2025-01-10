@@ -1,24 +1,47 @@
+use crate::link::{self, Link};
+
 pub trait CryptoProvider {
     type Session;
+    type SendError;
+    type ReceiveError;
 
-    fn establish_session(&self) -> Self::Session;
-
-    fn encrypt(&self, data: &[u8]) -> Vec<u8>;
-    fn decrypt(&self, data: &[u8]) -> Vec<u8>;
+    fn send(
+        &self,
+        session: Option<Self::Session>,
+        link: &Link,
+        data: &[u8],
+    ) -> impl std::future::Future<Output = Result<Option<Self::Session>, Self::SendError>>;
+    fn receive(
+        &self,
+        session: Option<Self::Session>,
+        link: &Link,
+    ) -> impl std::future::Future<Output = Result<(Vec<u8>, Option<Self::Session>), Self::ReceiveError>>;
 }
 
 pub struct NoEncryptionCryptoProvider;
 
 impl CryptoProvider for NoEncryptionCryptoProvider {
     type Session = ();
+    type SendError = link::SendError;
+    type ReceiveError = link::ReceiveError;
 
-    fn establish_session(&self) {}
-
-    fn encrypt(&self, data: &[u8]) -> Vec<u8> {
-        data.to_vec()
+    async fn send(
+        &self,
+        _session: Option<Self::Session>,
+        link: &Link,
+        data: &[u8],
+    ) -> Result<Option<Self::Session>, link::SendError> {
+        // TODO: Should we change &[u8] to Vec<u8>?
+        link.send(data.to_vec()).await?;
+        Ok(None)
     }
 
-    fn decrypt(&self, data: &[u8]) -> Vec<u8> {
-        data.to_vec()
+    async fn receive(
+        &self,
+        _session: Option<Self::Session>,
+        link: &Link,
+    ) -> Result<(Vec<u8>, Option<Self::Session>), link::ReceiveError> {
+        let data = link.receive().await?;
+        Ok((data, None))
     }
 }

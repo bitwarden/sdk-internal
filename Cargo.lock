@@ -551,6 +551,8 @@ dependencies = [
  "bitwarden-core",
  "js-sys",
  "serde",
+ "thiserror 1.0.69",
+ "tokio",
  "tsify-next",
  "wasm-bindgen",
  "wasm-bindgen-futures",

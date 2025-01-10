@@ -1,11 +1,50 @@
-use crate::destination::Destination;
+use thiserror::Error;
+use tokio::sync::broadcast;
 
-/// A wrapper around a "physical" connection (e.g. a TCP connection) between two IPC endpoints.
-/// This is a low-level struct that is used to send and receive data between two endpoints
-/// it is not meant to be used directly by consumers of this library.
-pub trait Link {
-    fn send(&self, data: &[u8]) -> impl std::future::Future<Output = ()>;
-    fn receive(&self) -> impl std::future::Future<Output = Vec<u8>>;
+#[derive(Debug, Error)]
+#[error(transparent)]
+pub struct SendError(#[from] broadcast::error::SendError<Vec<u8>>);
 
-    fn available_destinations(&self) -> Vec<Destination>;
+#[derive(Debug, Error)]
+#[error(transparent)]
+pub struct ReceiveError(#[from] broadcast::error::RecvError);
+
+pub struct Link {
+    tx: broadcast::Sender<Vec<u8>>,
+    // Store a receiver to keep the channel alive
+    _rx: broadcast::Receiver<Vec<u8>>,
+    // destinations: Vec<Destination>,
+}
+
+impl Link {
+    // pub fn new(destinations: Vec<Destination>) -> Self {
+    pub fn new() -> Self {
+        let (tx, _rx) = broadcast::channel(100);
+
+        Self {
+            tx,
+            _rx,
+            // destinations,
+        }
+    }
+
+    pub async fn send(&self, data: Vec<u8>) -> Result<(), SendError> {
+        self.tx.send(data)?;
+        Ok(())
+    }
+
+    pub async fn receive(&self) -> Result<Vec<u8>, ReceiveError> {
+        let tx = self.tx.clone();
+        let mut rx = tx.subscribe();
+        let data = rx.recv().await?;
+        Ok(data)
+    }
+
+    pub fn subscribe(&self) -> broadcast::Receiver<Vec<u8>> {
+        self.tx.subscribe()
+    }
+
+    // pub fn available_destinations(&self) -> &Vec<Destination> {
+    //     &self.destinations
+    // }
 }
