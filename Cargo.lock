@@ -549,6 +549,7 @@ name = "bitwarden-ipc"
 version = "1.0.0"
 dependencies = [
  "bitwarden-core",
+ "bitwarden-error",
  "js-sys",
  "serde",
  "thiserror 1.0.69",
