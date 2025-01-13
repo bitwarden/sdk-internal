@@ -27,6 +27,7 @@ thiserror = { workspace = true }
 tsify-next = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
+tokio-stream = "0.1.17"
 
 [lints]
 workspace = true
