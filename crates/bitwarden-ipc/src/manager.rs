@@ -1,46 +1,56 @@
 use crate::{
     error::{ReceiveError, SendError},
     message::Message,
-    providers::{CommunicationProvider, CryptoProvider},
+    providers::{CommunicationProvider, CryptoProvider, SessionProvider},
 };
 
-pub struct Manager<Crypto, Com>
+pub struct Manager<Crypto, Com, Ses>
 where
-    Crypto: CryptoProvider<Com>,
+    Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationProvider,
+    Ses: SessionProvider<Session = Crypto::Session>,
 {
     crypto: Crypto,
     communication: Com,
+    sessions: Ses,
 }
 
-impl<Crypto, Com> Manager<Crypto, Com>
+impl<Crypto, Com, Ses> Manager<Crypto, Com, Ses>
 where
-    Crypto: CryptoProvider<Com>,
+    Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationProvider,
+    Ses: SessionProvider<Session = Crypto::Session>,
 {
-    pub fn new(crypto: Crypto, communication: Com) -> Self {
+    pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Self {
         Self {
             crypto,
             communication,
+            sessions,
         }
     }
 
     pub async fn send(
-        &self,
+        &mut self,
         message: Message,
     ) -> Result<(), SendError<Crypto::SendError, Com::SendError>> {
-        self.crypto.send(&self.communication, message).await
+        self.crypto
+            .send(&self.communication, &mut self.sessions, message)
+            .await
     }
 
     pub async fn receive(
-        &self,
+        &mut self,
     ) -> Result<Message, ReceiveError<Crypto::ReceiveError, Com::ReceiveError>> {
-        self.crypto.receive(&self.communication).await
+        self.crypto
+            .receive(&self.communication, &mut self.sessions)
+            .await
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use crate::destination::Destination;
 
     use super::*;
@@ -60,12 +70,29 @@ mod tests {
         }
     }
 
+    type SessionMap = HashMap<Destination, String>;
+    impl SessionProvider for SessionMap {
+        type Session = String;
+
+        fn get(&self, destination: Destination) -> Option<Self::Session> {
+            self.get(&destination).cloned()
+        }
+
+        fn save(&mut self, destination: Destination, session: Self::Session) {
+            self.insert(destination, session);
+        }
+
+        fn remove(&mut self, destination: Destination) {
+            self.remove(&destination);
+        }
+    }
+
     struct TestCryptoProvider {
         send_result: Result<(), SendError<String, ()>>,
         receive_result: Result<Message, ReceiveError<String, ()>>,
     }
 
-    impl CryptoProvider<TestCommunicationProvider> for TestCryptoProvider {
+    impl CryptoProvider<TestCommunicationProvider, SessionMap> for TestCryptoProvider {
         type Session = String;
         type SendError = String;
         type ReceiveError = String;
@@ -73,6 +100,7 @@ mod tests {
         async fn receive(
             &self,
             _communication: &TestCommunicationProvider,
+            _sessions: &mut SessionMap,
         ) -> Result<Message, ReceiveError<String, ()>> {
             self.receive_result.clone()
         }
@@ -80,7 +108,7 @@ mod tests {
         async fn send(
             &self,
             _communication: &TestCommunicationProvider,
-            // session: &Option<Self::Session>,
+            _sessions: &mut SessionMap,
             _message: Message,
         ) -> Result<
             (),
@@ -104,7 +132,8 @@ mod tests {
             receive_result: Ok(message.clone()),
         };
         let communication_provider = TestCommunicationProvider;
-        let manager = Manager::new(crypto_provider, communication_provider);
+        let session_map = SessionMap::new();
+        let mut manager = Manager::new(crypto_provider, communication_provider, session_map);
 
         let error = manager.send(message).await.unwrap_err();
 
@@ -118,7 +147,8 @@ mod tests {
             receive_result: Err(ReceiveError::CryptoError("Crypto error".to_string())),
         };
         let communication_provider = TestCommunicationProvider;
-        let manager = Manager::new(crypto_provider, communication_provider);
+        let session_map = SessionMap::new();
+        let mut manager = Manager::new(crypto_provider, communication_provider, session_map);
 
         let error = manager.receive().await.unwrap_err();
 

@@ -3,11 +3,12 @@ use crate::{
     message::Message,
 };
 
-use super::CommunicationProvider;
+use super::{session::SessionProvider, CommunicationProvider};
 
-pub trait CryptoProvider<Com>
+pub trait CryptoProvider<Com, Ses>
 where
     Com: CommunicationProvider,
+    Ses: SessionProvider<Session = Self::Session>,
 {
     type Session;
     type SendError;
@@ -16,13 +17,13 @@ where
     fn send(
         &self,
         communication: &Com,
-        // session: &Option<Self::Session>,
+        sessions: &mut Ses,
         message: Message,
     ) -> impl std::future::Future<Output = Result<(), SendError<Self::SendError, Com::SendError>>>;
     fn receive(
         &self,
         communication: &Com,
-        // session: &Option<Self::Session>,
+        sessions: &mut Ses,
     ) -> impl std::future::Future<
         Output = Result<Message, ReceiveError<Self::ReceiveError, Com::ReceiveError>>,
     >;
@@ -30,9 +31,10 @@ where
 
 pub struct NoEncryptionCryptoProvider;
 
-impl<Com> CryptoProvider<Com> for NoEncryptionCryptoProvider
+impl<Com, Ses> CryptoProvider<Com, Ses> for NoEncryptionCryptoProvider
 where
     Com: CommunicationProvider,
+    Ses: SessionProvider<Session = ()>,
 {
     type Session = ();
     type SendError = Com::SendError;
@@ -41,7 +43,7 @@ where
     async fn send(
         &self,
         communication: &Com,
-        // _session: &Option<Self::Session>,
+        _sessions: &mut Ses,
         message: Message,
     ) -> Result<(), SendError<Self::SendError, Com::SendError>> {
         communication
@@ -53,7 +55,7 @@ where
     async fn receive(
         &self,
         communication: &Com,
-        // _session: Option<Self::Session>,
+        _sessions: &mut Ses,
     ) -> Result<Message, ReceiveError<Self::ReceiveError, Com::ReceiveError>> {
         let message = communication
             .receive()
