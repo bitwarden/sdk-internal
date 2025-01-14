@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::FromStr};
+use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -8,7 +8,7 @@ use serde::Deserialize;
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result},
-    KeyDecryptable, KeyEncryptable, LocateKey, SymmetricCryptoKey,
+    DecryptedWithAdditionalData, KeyDecryptable, KeyEncryptable, LocateKey, SymmetricCryptoKey,
 };
 
 #[cfg(feature = "wasm")]
@@ -47,9 +47,10 @@ export type EncString = string;
 ///
 /// Where:
 /// - `[type]`: is a digit number representing the variant.
-/// - `[iv]`: (optional) is the initialization vector used for encryption.
+/// - `[iv]`: is the initialization vector used for encryption.
 /// - `[data]`: is the encrypted data.
-/// - `[mac]`: (optional) is the MAC used to validate the integrity of the data.
+/// - `[mac]`: (only present on types with message authentication) is the MAC used to validate the
+///   integrity of the data.
 #[derive(Clone, zeroize::ZeroizeOnDrop, PartialEq)]
 #[allow(unused, non_camel_case_types)]
 pub enum EncString {
@@ -241,32 +242,8 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
 
 impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
-        match self {
-            EncString::AesCbc256_B64 { iv, data } => {
-                if key.mac_key.is_some() {
-                    return Err(CryptoError::MacNotProvided);
-                }
-
-                let dec = crate::aes::decrypt_aes256(iv, data.clone(), &key.key)?;
-                Ok(dec)
-            }
-            EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } => {
-                // TODO: SymmetricCryptoKey is designed to handle 32 byte keys only, but this
-                // variant uses a 16 byte key This means the key+mac are going to be
-                // parsed as a single 32 byte key, at the moment we split it manually
-                // When refactoring the key handling, this should be fixed.
-                let enc_key = key.key[0..16].into();
-                let mac_key = key.key[16..32].into();
-                let dec = crate::aes::decrypt_aes128_hmac(iv, mac, data.clone(), mac_key, enc_key)?;
-                Ok(dec)
-            }
-            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
-                let mac_key = key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?;
-                let dec =
-                    crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), mac_key, &key.key)?;
-                Ok(dec)
-            }
-        }
+        let dec: DecryptedWithAdditionalData = self.decrypt_with_key(key)?;
+        Ok(dec.clear_bytes().to_vec())
     }
 }
 
@@ -286,6 +263,56 @@ impl KeyDecryptable<SymmetricCryptoKey, String> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<String> {
         let dec: Vec<u8> = self.decrypt_with_key(key)?;
         String::from_utf8(dec).map_err(|_| CryptoError::InvalidUtf8String)
+    }
+}
+
+impl KeyDecryptable<SymmetricCryptoKey, DecryptedWithAdditionalData> for EncString {
+    /// Decrypt an [EncString] using a [SymmetricCryptoKey] while preserving additional data for the
+    /// context of decryption.
+    ///
+    /// -- Additional Data by [EncString] variant --
+    /// - [EncString::AesCbc256_B64]:
+    ///     - "type": "0" Note: this is unauthenticated data
+    /// - [EncString::AesCbc128_HmacSha256_B64]:
+    ///    - "type": "1" Note: this is unauthenticated data
+    /// - [EncString::AesCbc256_HmacSha256_B64]:
+    ///   - "type": "2" Note: this is unauthenticated data
+    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<DecryptedWithAdditionalData> {
+        match self {
+            EncString::AesCbc256_B64 { iv, data } => {
+                if key.mac_key.is_some() {
+                    return Err(CryptoError::MacNotProvided);
+                }
+
+                let dec = crate::aes::decrypt_aes256(iv, data.clone(), &key.key)?;
+                Ok(DecryptedWithAdditionalData::new(
+                    dec,
+                    HashMap::from([("type".to_string(), "0".to_string())]),
+                ))
+            }
+            EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } => {
+                // TODO: SymmetricCryptoKey is designed to handle 32 byte keys only, but this
+                // variant uses a 16 byte key This means the key+mac are going to be
+                // parsed as a single 32 byte key, at the moment we split it manually
+                // When refactoring the key handling, this should be fixed.
+                let enc_key = key.key[0..16].into();
+                let mac_key = key.key[16..32].into();
+                let dec = crate::aes::decrypt_aes128_hmac(iv, mac, data.clone(), mac_key, enc_key)?;
+                Ok(DecryptedWithAdditionalData::new(
+                    dec,
+                    HashMap::from([("type".to_string(), "1".to_string())]),
+                ))
+            }
+            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
+                let mac_key = key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?;
+                let dec =
+                    crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), mac_key, &key.key)?;
+                Ok(DecryptedWithAdditionalData::new(
+                    dec,
+                    HashMap::from([("type".to_string(), "2".to_string())]),
+                ))
+            }
+        }
     }
 }
 

@@ -21,25 +21,70 @@ pub enum PureCryptoError {
 }
 
 pub mod pure_crypto {
+    use std::collections::HashMap;
+
+    use bitwarden_crypto::DecryptedWithAdditionalData;
+    use serde::{Deserialize, Serialize};
+
     use super::*;
+
+    #[derive(tsify_next::Tsify, Serialize, Deserialize)]
+    #[tsify(into_wasm_abi, from_wasm_abi)]
+    pub struct DecryptedString {
+        pub clear_text: String,
+        pub additional_data: HashMap<String, String>,
+    }
+
+    #[derive(tsify_next::Tsify, Serialize, Deserialize)]
+    #[tsify(into_wasm_abi, from_wasm_abi)]
+    pub struct DecryptedBytes {
+        pub clear_bytes: Vec<u8>,
+        pub additional_data: HashMap<String, String>,
+    }
+
+    #[derive(tsify_next::Tsify, Serialize, Deserialize)]
+    #[tsify(into_wasm_abi, from_wasm_abi)]
+    pub struct EncryptOptions {
+        pub additional_data: Option<HashMap<String, String>>,
+    }
+
+    impl TryFrom<DecryptedBytes> for DecryptedString {
+        type Error = PureCryptoError;
+        fn try_from(decrypted_bytes: DecryptedBytes) -> Result<Self, PureCryptoError> {
+            Ok(Self {
+                clear_text: String::from_utf8(decrypted_bytes.clear_bytes)
+                    .map_err(|_| bitwarden_crypto::CryptoError::InvalidUtf8String)?,
+                additional_data: decrypted_bytes.additional_data,
+            })
+        }
+    }
+
+    impl From<DecryptedWithAdditionalData> for DecryptedBytes {
+        fn from(decrypted: DecryptedWithAdditionalData) -> Self {
+            Self {
+                clear_bytes: decrypted.clear_bytes().to_vec(),
+                additional_data: decrypted.additional_data().clone(),
+            }
+        }
+    }
 
     pub fn symmetric_decrypt(
         enc_string: String,
         key_b64: String,
-    ) -> Result<String, PureCryptoError> {
+    ) -> Result<DecryptedString, PureCryptoError> {
         let dec = symmetric_decrypt_to_bytes(enc_string, key_b64)?;
-        Ok(String::from_utf8(dec).map_err(|_| bitwarden_crypto::CryptoError::InvalidUtf8String)?)
+        Ok(dec.try_into()?)
     }
 
     pub fn symmetric_decrypt_to_bytes(
         enc_string: String,
         key_b64: String,
-    ) -> Result<Vec<u8>, PureCryptoError> {
+    ) -> Result<DecryptedBytes, PureCryptoError> {
         let enc_string = EncString::from_str(&enc_string)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
-        let decrypted: Vec<u8> = enc_string.decrypt_with_key(&key)?;
-        Ok(decrypted)
+        let dec: DecryptedWithAdditionalData = enc_string.decrypt_with_key(&key)?;
+        Ok(dec.into())
     }
 
     pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, PureCryptoError> {

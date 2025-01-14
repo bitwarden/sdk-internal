@@ -35,6 +35,37 @@ pub trait KeyDecryptable<Key: CryptoKey, Output> {
     fn decrypt_with_key(&self, key: &Key) -> Result<Output>;
 }
 
+pub struct DecryptedWithAdditionalData {
+    clear_text: Vec<u8>,
+    additional_data: HashMap<String, String>,
+}
+
+impl DecryptedWithAdditionalData {
+    pub fn new(clear_text: Vec<u8>, additional_data: HashMap<String, String>) -> Self {
+        Self {
+            clear_text,
+            additional_data,
+        }
+    }
+
+    pub fn clear_bytes(&self) -> &[u8] {
+        &self.clear_text
+    }
+
+    pub fn clear_text_utf8(&self) -> Result<String> {
+        String::from_utf8(self.clear_text.clone()).map_err(|_| CryptoError::InvalidUtf8String)
+    }
+
+    /// Additional data on the context of the decryption of the clear text.
+    /// Note that not all of this data is authenticated for all [crate::EncString] variants.
+    ///
+    ///  See [KeyDecryptable<_,DecryptedWithAdditionalData>::decrypt_with_key] implementation for
+    /// more information.
+    pub fn additional_data(&self) -> &HashMap<String, String> {
+        &self.additional_data
+    }
+}
+
 impl<T: KeyEncryptable<Key, Output>, Key: CryptoKey, Output> KeyEncryptable<Key, Option<Output>>
     for Option<T>
 {

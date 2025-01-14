@@ -658,8 +658,10 @@ dependencies = [
  "console_log",
  "js-sys",
  "log",
+ "serde",
  "serde_json",
  "thiserror 1.0.69",
+ "tsify-next",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]

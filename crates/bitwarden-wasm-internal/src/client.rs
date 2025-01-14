@@ -7,7 +7,10 @@ use log::{set_max_level, Level};
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    crypto::{pure_crypto, PureCryptoError},
+    crypto::{
+        pure_crypto::{self, DecryptedBytes, DecryptedString},
+        PureCryptoError,
+    },
     vault::ClientVault,
     ClientCrypto,
 };
@@ -54,7 +57,7 @@ impl BitwardenPure {
     pub fn symmetric_decrypt(
         enc_string: String,
         key_b64: String,
-    ) -> Result<String, PureCryptoError> {
+    ) -> Result<DecryptedString, PureCryptoError> {
         Self::setup_once();
         pure_crypto::symmetric_decrypt(enc_string, key_b64)
     }
@@ -62,7 +65,7 @@ impl BitwardenPure {
     pub fn symmetric_decrypt_to_bytes(
         enc_string: String,
         key_b64: String,
-    ) -> Result<Vec<u8>, PureCryptoError> {
+    ) -> Result<DecryptedBytes, PureCryptoError> {
         Self::setup_once();
         pure_crypto::symmetric_decrypt_to_bytes(enc_string, key_b64)
     }
