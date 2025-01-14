@@ -1,6 +1,6 @@
 use bitwarden_core::Client;
 
-use crate::link::Link;
+// use crate::link::Link;
 
 pub struct IpcClient<'a> {
     #[allow(dead_code)]

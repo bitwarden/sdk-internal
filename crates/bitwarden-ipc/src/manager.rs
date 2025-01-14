@@ -1,74 +1,127 @@
-use crate::{destination::Destination, link_repository::LinkRepository, providers::CryptoProvider};
+use crate::{
+    error::{ReceiveError, SendError},
+    message::Message,
+    providers::{CommunicationProvider, CryptoProvider},
+};
 
-#[derive(Debug)]
-pub enum SendError<T> {
-    DestinationUnreachable,
-    CryptoError(T),
-}
-
-#[derive(Debug)]
-pub enum ReceiveError<T> {
-    DestinationUnreachable,
-    CryptoError(T),
-}
-
-pub struct Manager<C, L>
+pub struct Manager<Crypto, Com>
 where
-    C: CryptoProvider,
-    L: LinkRepository,
+    Crypto: CryptoProvider<Com>,
+    Com: CommunicationProvider,
 {
-    crypto: C,
-    link_repository: L,
+    crypto: Crypto,
+    communication: Com,
 }
 
-impl<C, L> Manager<C, L>
+impl<Crypto, Com> Manager<Crypto, Com>
 where
-    C: CryptoProvider,
-    L: LinkRepository,
+    Crypto: CryptoProvider<Com>,
+    Com: CommunicationProvider,
 {
-    pub fn new(crypto: C, link_repository: L) -> Self {
+    pub fn new(crypto: Crypto, communication: Com) -> Self {
         Self {
             crypto,
-            link_repository,
+            communication,
         }
     }
 
     pub async fn send(
         &self,
-        destination: Destination,
-        data: &[u8],
-    ) -> Result<(), SendError<C::SendError>> {
-        let link = self
-            .link_repository
-            .get(destination)
-            .ok_or(SendError::DestinationUnreachable)?;
-        // TODO: Fetch session from some kind of session store
-        let session = None;
-        // TODO: Store new session if changed
-        let _new_session = self
-            .crypto
-            .send(session, link, data)
-            .await
-            .map_err(|e| SendError::CryptoError(e))?;
-
-        Ok(())
+        message: Message,
+    ) -> Result<(), SendError<Crypto::SendError, Com::SendError>> {
+        self.crypto.send(&self.communication, message).await
     }
 
     pub async fn receive(
         &self,
-        destination: Destination,
-    ) -> Result<Vec<u8>, ReceiveError<C::ReceiveError>> {
-        let link = self
-            .link_repository
-            .get(destination)
-            .ok_or(ReceiveError::DestinationUnreachable)?;
-        let session = None;
-        let (data, _new_session) = self
-            .crypto
-            .receive(session, link)
-            .await
-            .map_err(|e| ReceiveError::CryptoError(e))?;
+    ) -> Result<Message, ReceiveError<Crypto::ReceiveError, Com::ReceiveError>> {
+        self.crypto.receive(&self.communication).await
+    }
+}
 
-        Ok(data)
+#[cfg(test)]
+mod tests {
+    use crate::destination::Destination;
+
+    use super::*;
+
+    struct TestCommunicationProvider;
+
+    impl CommunicationProvider for TestCommunicationProvider {
+        type SendError = ();
+        type ReceiveError = ();
+
+        async fn send(&self, _message: Message) -> Result<(), Self::SendError> {
+            todo!()
+        }
+
+        async fn receive(&self) -> Result<Message, Self::ReceiveError> {
+            todo!()
+        }
+    }
+
+    struct TestCryptoProvider {
+        send_result: Result<(), SendError<String, ()>>,
+        receive_result: Result<Message, ReceiveError<String, ()>>,
+    }
+
+    impl CryptoProvider<TestCommunicationProvider> for TestCryptoProvider {
+        type Session = String;
+        type SendError = String;
+        type ReceiveError = String;
+
+        async fn receive(
+            &self,
+            _communication: &TestCommunicationProvider,
+        ) -> Result<Message, ReceiveError<String, ()>> {
+            self.receive_result.clone()
+        }
+
+        async fn send(
+            &self,
+            _communication: &TestCommunicationProvider,
+            // session: &Option<Self::Session>,
+            _message: Message,
+        ) -> Result<
+            (),
+            SendError<
+                Self::SendError,
+                <TestCommunicationProvider as CommunicationProvider>::SendError,
+            >,
+        > {
+            self.send_result.clone()
+        }
+    }
+
+    #[tokio::test]
+    async fn returns_send_error_when_crypto_provider_returns_error() {
+        let message = Message {
+            data: vec![],
+            destination: Destination::BrowserBackground,
+        };
+        let crypto_provider = TestCryptoProvider {
+            send_result: Err(SendError::CryptoError("Crypto error".to_string())),
+            receive_result: Ok(message.clone()),
+        };
+        let communication_provider = TestCommunicationProvider;
+        let manager = Manager::new(crypto_provider, communication_provider);
+
+        let error = manager.send(message).await.unwrap_err();
+
+        assert_eq!(error, SendError::CryptoError("Crypto error".to_string()));
+    }
+
+    #[tokio::test]
+    async fn returns_receive_error_when_crypto_provider_returns_error() {
+        let crypto_provider = TestCryptoProvider {
+            send_result: Ok(()),
+            receive_result: Err(ReceiveError::CryptoError("Crypto error".to_string())),
+        };
+        let communication_provider = TestCommunicationProvider;
+        let manager = Manager::new(crypto_provider, communication_provider);
+
+        let error = manager.receive().await.unwrap_err();
+
+        assert_eq!(error, ReceiveError::CryptoError("Crypto error".to_string()));
     }
 }

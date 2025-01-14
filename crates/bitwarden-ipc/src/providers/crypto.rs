@@ -1,47 +1,64 @@
-use crate::link::{self, Link};
+use crate::{
+    error::{ReceiveError, SendError},
+    message::Message,
+};
 
-pub trait CryptoProvider {
+use super::CommunicationProvider;
+
+pub trait CryptoProvider<Com>
+where
+    Com: CommunicationProvider,
+{
     type Session;
     type SendError;
     type ReceiveError;
 
     fn send(
         &self,
-        session: Option<Self::Session>,
-        link: &Link,
-        data: &[u8],
-    ) -> impl std::future::Future<Output = Result<Option<Self::Session>, Self::SendError>>;
+        communication: &Com,
+        // session: &Option<Self::Session>,
+        message: Message,
+    ) -> impl std::future::Future<Output = Result<(), SendError<Self::SendError, Com::SendError>>>;
     fn receive(
         &self,
-        session: Option<Self::Session>,
-        link: &Link,
-    ) -> impl std::future::Future<Output = Result<(Vec<u8>, Option<Self::Session>), Self::ReceiveError>>;
+        communication: &Com,
+        // session: &Option<Self::Session>,
+    ) -> impl std::future::Future<
+        Output = Result<Message, ReceiveError<Self::ReceiveError, Com::ReceiveError>>,
+    >;
 }
 
 pub struct NoEncryptionCryptoProvider;
 
-impl CryptoProvider for NoEncryptionCryptoProvider {
+impl<Com> CryptoProvider<Com> for NoEncryptionCryptoProvider
+where
+    Com: CommunicationProvider,
+{
     type Session = ();
-    type SendError = link::SendError;
-    type ReceiveError = link::ReceiveError;
+    type SendError = Com::SendError;
+    type ReceiveError = Com::ReceiveError;
 
     async fn send(
         &self,
-        _session: Option<Self::Session>,
-        link: &Link,
-        data: &[u8],
-    ) -> Result<Option<Self::Session>, link::SendError> {
-        // TODO: Should we change &[u8] to Vec<u8>?
-        link.send(data.to_vec()).await?;
-        Ok(None)
+        communication: &Com,
+        // _session: &Option<Self::Session>,
+        message: Message,
+    ) -> Result<(), SendError<Self::SendError, Com::SendError>> {
+        communication
+            .send(message)
+            .await
+            .map_err(SendError::CommunicationError)
     }
 
     async fn receive(
         &self,
-        _session: Option<Self::Session>,
-        link: &Link,
-    ) -> Result<(Vec<u8>, Option<Self::Session>), link::ReceiveError> {
-        let data = link.receive().await?;
-        Ok((data, None))
+        communication: &Com,
+        // _session: Option<Self::Session>,
+    ) -> Result<Message, ReceiveError<Self::ReceiveError, Com::ReceiveError>> {
+        let message = communication
+            .receive()
+            .await
+            .map_err(ReceiveError::CommunicationError);
+        message
     }
 }
