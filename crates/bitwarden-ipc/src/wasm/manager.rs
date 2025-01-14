@@ -1,33 +1,41 @@
-// use wasm_bindgen::prelude::*;
+use wasm_bindgen::prelude::*;
 
-// use crate::{destination::Destination, providers::NoEncryptionCryptoProvider, Manager};
+use crate::{
+    message::Message,
+    providers::{InMemorySessionProvider, NoEncryptionCryptoProvider},
+    Manager,
+};
 
-// use super::link::JsLink;
+use super::{
+    communication::JsCommunicationProvider,
+    error::{JsReceiveError, JsSendError},
+};
 
-// #[wasm_bindgen(js_name = Manager)]
-// pub struct JsManager {
-//     // TODO: This can't be generic because of wasm_bindgen
-//     manager: Manager<NoEncryptionCryptoProvider, JsLink>,
-// }
+#[wasm_bindgen(js_name = Manager)]
+pub struct JsManager {
+    // TODO: Change session provider to a JS-implemented one
+    manager:
+        Manager<NoEncryptionCryptoProvider, JsCommunicationProvider, InMemorySessionProvider<()>>,
+}
 
-// #[wasm_bindgen(js_class = Manager)]
-// impl JsManager {
-//     #[wasm_bindgen(constructor)]
-//     pub fn new() -> JsManager {
-//         JsManager {
-//             manager: Manager::new(NoEncryptionCryptoProvider),
-//         }
-//     }
+#[wasm_bindgen(js_class = Manager)]
+impl JsManager {
+    #[wasm_bindgen(constructor)]
+    pub fn new(communication_provider: JsCommunicationProvider) -> JsManager {
+        JsManager {
+            manager: Manager::new(
+                NoEncryptionCryptoProvider,
+                communication_provider,
+                InMemorySessionProvider::new(),
+            ),
+        }
+    }
 
-//     pub fn register_link(&mut self, link: JsLink) {
-//         self.manager.register_link(link);
-//     }
+    pub async fn send(&mut self, message: Message) -> Result<(), JsSendError> {
+        self.manager.send(message).await.map_err(|e| e.into())
+    }
 
-//     pub async fn send(&self, destination: Destination, data: &[u8]) {
-//         self.manager.send(destination, data).await;
-//     }
-
-//     pub async fn receive(&self, destination: Destination) -> Vec<u8> {
-//         self.manager.receive(destination).await
-//     }
-// }
+    pub async fn receive(&mut self) -> Result<Message, JsReceiveError> {
+        self.manager.receive().await.map_err(|e| e.into())
+    }
+}

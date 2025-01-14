@@ -51,7 +51,7 @@ where
 mod tests {
     use std::collections::HashMap;
 
-    use crate::destination::Destination;
+    use crate::{destination::Destination, providers::InMemorySessionProvider};
 
     use super::*;
 
@@ -70,29 +70,13 @@ mod tests {
         }
     }
 
-    type SessionMap = HashMap<Destination, String>;
-    impl SessionProvider for SessionMap {
-        type Session = String;
-
-        fn get(&self, destination: Destination) -> Option<Self::Session> {
-            self.get(&destination).cloned()
-        }
-
-        fn save(&mut self, destination: Destination, session: Self::Session) {
-            self.insert(destination, session);
-        }
-
-        fn remove(&mut self, destination: Destination) {
-            self.remove(&destination);
-        }
-    }
-
     struct TestCryptoProvider {
         send_result: Result<(), SendError<String, ()>>,
         receive_result: Result<Message, ReceiveError<String, ()>>,
     }
 
-    impl CryptoProvider<TestCommunicationProvider, SessionMap> for TestCryptoProvider {
+    type TestSessionProvider = InMemorySessionProvider<String>;
+    impl CryptoProvider<TestCommunicationProvider, TestSessionProvider> for TestCryptoProvider {
         type Session = String;
         type SendError = String;
         type ReceiveError = String;
@@ -100,7 +84,7 @@ mod tests {
         async fn receive(
             &self,
             _communication: &TestCommunicationProvider,
-            _sessions: &mut SessionMap,
+            _sessions: &mut TestSessionProvider,
         ) -> Result<Message, ReceiveError<String, ()>> {
             self.receive_result.clone()
         }
@@ -108,7 +92,7 @@ mod tests {
         async fn send(
             &self,
             _communication: &TestCommunicationProvider,
-            _sessions: &mut SessionMap,
+            _sessions: &mut TestSessionProvider,
             _message: Message,
         ) -> Result<
             (),
@@ -132,7 +116,7 @@ mod tests {
             receive_result: Ok(message.clone()),
         };
         let communication_provider = TestCommunicationProvider;
-        let session_map = SessionMap::new();
+        let session_map = TestSessionProvider::new();
         let mut manager = Manager::new(crypto_provider, communication_provider, session_map);
 
         let error = manager.send(message).await.unwrap_err();
@@ -147,7 +131,7 @@ mod tests {
             receive_result: Err(ReceiveError::CryptoError("Crypto error".to_string())),
         };
         let communication_provider = TestCommunicationProvider;
-        let session_map = SessionMap::new();
+        let session_map = TestSessionProvider::new();
         let mut manager = Manager::new(crypto_provider, communication_provider, session_map);
 
         let error = manager.receive().await.unwrap_err();
