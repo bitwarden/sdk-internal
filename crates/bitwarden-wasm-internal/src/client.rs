@@ -8,7 +8,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     crypto::{
-        pure_crypto::{self, DecryptedBytes, DecryptedString},
+        pure_crypto::{self, DecryptedBytes, DecryptedString, EncryptOptions},
         PureCryptoError,
     },
     vault::ClientVault,
@@ -70,9 +70,13 @@ impl BitwardenPure {
         pure_crypto::symmetric_decrypt_to_bytes(enc_string, key_b64)
     }
 
-    pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, PureCryptoError> {
+    pub fn symmetric_encrypt(
+        plain: String,
+        key_b64: String,
+        encrypt_options: EncryptOptions,
+    ) -> Result<String, PureCryptoError> {
         Self::setup_once();
-        pure_crypto::symmetric_encrypt(plain, key_b64)
+        pure_crypto::symmetric_encrypt(plain, key_b64, encrypt_options)
     }
 
     fn setup_once() {

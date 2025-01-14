@@ -87,7 +87,18 @@ pub mod pure_crypto {
         Ok(dec.into())
     }
 
-    pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, PureCryptoError> {
+    pub fn symmetric_encrypt(
+        plain: String,
+        key_b64: String,
+        encrypt_options: EncryptOptions,
+    ) -> Result<String, PureCryptoError> {
+        if encrypt_options
+            .additional_data
+            .is_some_and(|additional_data| additional_data.keys().len() > 0)
+        {
+            panic!("Additional data is not supported yet");
+        }
+
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
         let encrypted: EncString = plain.encrypt_with_key(&key)?;
