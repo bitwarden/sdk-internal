@@ -20,7 +20,7 @@ pub struct CryptoClient<'a> {
     pub(crate) client: &'a crate::Client,
 }
 
-impl<'a> CryptoClient<'a> {
+impl CryptoClient<'_> {
     pub async fn initialize_user_crypto(
         &self,
         req: InitUserCryptoRequest,
