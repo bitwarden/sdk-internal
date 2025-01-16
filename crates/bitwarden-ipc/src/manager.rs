@@ -110,6 +110,7 @@ mod tests {
         let message = Message {
             data: vec![],
             destination: Destination::BrowserBackground,
+            source: None,
         };
         let crypto_provider = TestCryptoProvider {
             send_result: Err(SendError::CryptoError("Crypto error".to_string())),

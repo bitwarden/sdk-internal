@@ -1,4 +1,7 @@
 use bitwarden_core::Client;
+use wasm_bindgen::prelude::*;
+
+use crate::wasm::manager::JsManager;
 
 // use crate::link::Link;
 

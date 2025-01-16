@@ -8,4 +8,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 pub struct Message {
     pub data: Vec<u8>,
     pub destination: Destination,
+    // TODO: Consider splitting "Message" into "Outgoing" and "Incoming" types
+    // where only "Incoming" has a "source" field
+    pub source: Option<Destination>,
 }

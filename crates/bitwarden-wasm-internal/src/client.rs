@@ -75,8 +75,7 @@ impl BitwardenClient {
     }
 
     pub fn ipc(&self) -> IpcClient {
-        IpcClient
-        // IpcClient::new(self.0.clone())
+        IpcClient::new(self.0.clone())
     }
 }
 
