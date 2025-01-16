@@ -110,6 +110,9 @@ pub fn decrypt_xchacha20_poly1305_blake3_ctx(
 /// - The associated data
 /// - The Poly1305 tag
 /// - And by injectivity, also to the ciphertext.
+///
+/// Returns a 32 byte (256 bits) output hash, to give 128 bits of birthday-bound
+/// context-comitting security (https://eprint.iacr.org/2024/875.pdf)
 fn ctx_hash(
     key: &[u8; 32],
     nonce: &[u8; 24],
