@@ -20,6 +20,7 @@ wasm = [
     "dep:tsify-next",
     "dep:wasm-bindgen"
 ] # WASM support
+uniffi = ["dep:uniffi"] # Uniffi bindings
 
 [dependencies]
 bitwarden-error = { workspace = true }
@@ -36,6 +37,7 @@ ssh-key = { version = ">=0.6.7, <0.7", features = [
 ], default-features = false }
 thiserror = { workspace = true }
 tsify-next = { workspace = true, optional = true }
+uniffi = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]

@@ -29,7 +29,7 @@ pub struct AuthClient<'a> {
     pub(crate) client: &'a crate::Client,
 }
 
-impl<'a> AuthClient<'a> {
+impl AuthClient<'_> {
     pub async fn renew_token(&self) -> Result<()> {
         renew_token(&self.client.internal).await
     }
@@ -44,7 +44,7 @@ impl<'a> AuthClient<'a> {
 }
 
 #[cfg(feature = "internal")]
-impl<'a> AuthClient<'a> {
+impl AuthClient<'_> {
     pub fn password_strength(
         &self,
         password: String,
@@ -142,7 +142,7 @@ impl<'a> AuthClient<'a> {
 }
 
 #[cfg(feature = "internal")]
-impl<'a> AuthClient<'a> {
+impl AuthClient<'_> {
     pub async fn login_device(
         &self,
         email: String,
