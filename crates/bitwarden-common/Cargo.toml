@@ -1,0 +1,17 @@
+[package]
+name = "bitwarden-common"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[dependencies]
+base64 = ">=0.22.1, <0.23"
+thiserror.workspace = true
+
+[lints]
+workspace = true
