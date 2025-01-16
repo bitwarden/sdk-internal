@@ -17,6 +17,7 @@ if [ "$1" != "-r" ]; then
 else
   # Release
   cargo build -p bitwarden-wasm-internal --target wasm32-unknown-unknown --release --config 'patch.crates-io.pkcs5.git="https://github.com/bitwarden/rustcrypto-formats.git"'  --config 'patch.crates-io.pkcs5.rev="2b27c63034217dd126bbf5ed874da51b84f8c705"'
+  tree .
   wasm-bindgen --target nodejs --out-dir crates/bitwarden-wasm-internal/npm/node ./target/wasm32-unknown-unknown/release/bitwarden_wasm_internal.wasm
 fi
 
