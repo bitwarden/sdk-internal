@@ -51,10 +51,17 @@ jobs:
       - name: Install dependencies
         run: npm i -g binaryen
 
+      - name: Set Rust Toolchain
+        id: toolchain
+        shell: bash
+        run: |
+          RUST_TOOLCHAIN="$(grep -oP '^channel.*"(\K.*?)(?=")' rust-toolchain.toml)"
+          echo "RUST_TOOLCHAIN=${RUST_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
+
       - name: Install rust
         uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203 # stable
         with:
-          toolchain: 1.81.0
+          toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
           targets: wasm32-unknown-unknown
 
       - name: Cache cargo registry
