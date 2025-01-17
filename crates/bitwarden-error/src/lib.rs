@@ -15,6 +15,7 @@ pub use ::tsify_next;
 #[cfg(feature = "wasm")]
 #[doc(hidden)]
 pub use ::wasm_bindgen;
+use documented::docs_const;
 
 pub mod prelude {
     pub use bitwarden_error_macro::*;
@@ -22,4 +23,10 @@ pub mod prelude {
     pub use crate::flat_error::FlatError;
     #[cfg(feature = "wasm")]
     pub use crate::wasm::SdkJsError;
+}
+
+/// A test function.
+#[docs_const]
+pub fn test() {
+    println!("Hello, world!");
 }

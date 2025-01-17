@@ -1,6 +1,9 @@
 use std::{env, process::Command};
 
 fn main() {
+
+    std::fs::write("doc/test.md", bitwarden_error::TEST_DOCS).unwrap();
+
     // Use the SDK_VERSION environment variable if it is set (e.g. by CI) or get it from Git
     let sdk_version = env::var("SDK_VERSION")
         .or_else(|_| version_from_git_info())
