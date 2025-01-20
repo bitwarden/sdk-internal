@@ -430,7 +430,6 @@ dependencies = [
  "generic-array",
  "hkdf",
  "hmac",
- "memsec",
  "num-bigint",
  "num-traits",
  "pbkdf2",
@@ -2367,17 +2366,6 @@ dependencies = [
  "serde",
  "serde_json",
  "zeroize",
-]
-
-[[package]]
-name = "memsec"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c797b9d6bb23aab2fc369c65f871be49214f5c759af65bde26ffaaa2b646b492"
-dependencies = [
- "getrandom",
- "libc",
- "windows-sys 0.45.0",
 ]
 
 [[package]]

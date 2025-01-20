@@ -50,9 +50,6 @@ wasm-bindgen = { workspace = true, optional = true }
 zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
 zeroizing-alloc = ">=0.1.0, <0.2"
 
-[target.'cfg(all(not(target_arch = "wasm32"), not(windows)))'.dependencies]
-memsec = { version = "0.7.0", features = ["alloc_ext"] }
-
 [dev-dependencies]
 criterion = "0.5.1"
 rand_chacha = "0.3.1"
@@ -70,7 +67,3 @@ required-features = ["no-memory-hardening"]
 
 [lints]
 workspace = true
-
-[package.metadata.cargo-udeps.ignore]
-# This is unused when using --all-features, as that disables memory-hardening
-normal = ["memsec"]

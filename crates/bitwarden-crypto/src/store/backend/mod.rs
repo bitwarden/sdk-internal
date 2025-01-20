@@ -3,7 +3,6 @@ use zeroize::ZeroizeOnDrop;
 use crate::store::KeyRef;
 
 mod implementation;
-mod slice_backend;
 
 pub use implementation::create_store;
 
