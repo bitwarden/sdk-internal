@@ -18,7 +18,7 @@ mod tests {
         let mut store = create_store::<TestSymmKey>();
 
         let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        store.insert(TestSymmKey::A(0), key.clone());
+        store.upsert(TestSymmKey::A(0), key.clone());
 
         assert_eq!(
             store.get(TestSymmKey::A(0)).unwrap().to_base64(),

@@ -6,15 +6,27 @@ mod implementation;
 
 pub use implementation::create_store;
 
-/// This trait represents a platform that can securely store and return keys. The `SliceBackend`
-/// implementation is a simple store backed by a fixed size slice. Otherimplementations
-/// could use secure enclaves or HSMs, or OS provided keychains.
+/// This trait represents a platform that can store and return keys. If possible,
+/// it will try to enable as many security protections on the keys as it can.
+/// The keys themselves implement ZeroizeOnDrop, so the store will only need to make sure
+/// that the keys are dropped when they are no longer needed.
+///
+/// The default implementation is a basic in-memory store that does not provide any security guarantees.
+///
+/// We have other implementations in testing using `mlock` and `memfd_secret` for protecting keys in memory.
+///
+/// Other implementations could use secure enclaves, HSMs or OS provided keychains.
 pub trait StoreBackend<Key: KeyRef>: ZeroizeOnDrop + Send + Sync {
-    fn insert(&mut self, key_ref: Key, key: Key::KeyValue);
+    /// Inserts a key into the store. If the key already exists, it will be replaced.
+    fn upsert(&mut self, key_ref: Key, key: Key::KeyValue);
+    /// Retrieves a key from the store.
     fn get(&self, key_ref: Key) -> Option<&Key::KeyValue>;
     #[allow(unused)]
+    /// Removes a key from the store.
     fn remove(&mut self, key_ref: Key);
+    /// Removes all keys from the store.
     fn clear(&mut self);
-
+    /// Retains only the elements specified by the predicate.
+    /// In other words, remove all keys for which `f` returns false.
     fn retain(&mut self, f: fn(Key) -> bool);
 }

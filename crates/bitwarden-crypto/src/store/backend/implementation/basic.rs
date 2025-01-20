@@ -18,7 +18,7 @@ impl<Key: KeyRef> BasicBackend<Key> {
 }
 
 impl<Key: KeyRef> StoreBackend<Key> for BasicBackend<Key> {
-    fn insert(&mut self, key_ref: Key, key: <Key as KeyRef>::KeyValue) {
+    fn upsert(&mut self, key_ref: Key, key: <Key as KeyRef>::KeyValue) {
         self.keys.insert(key_ref, key);
     }
 

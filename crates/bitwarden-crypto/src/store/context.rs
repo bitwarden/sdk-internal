@@ -348,12 +348,12 @@ impl<Refs: KeyRefs> KeyStoreContext<'_, Refs> {
         key: SymmetricCryptoKey,
     ) -> Result<()> {
         if key_ref.is_local() {
-            self.local_symmetric_keys.insert(key_ref, key);
+            self.local_symmetric_keys.upsert(key_ref, key);
         } else {
             self.global_keys
                 .get_mut()?
                 .symmetric_keys
-                .insert(key_ref, key);
+                .upsert(key_ref, key);
         }
         Ok(())
     }
@@ -365,12 +365,12 @@ impl<Refs: KeyRefs> KeyStoreContext<'_, Refs> {
         key: AsymmetricCryptoKey,
     ) -> Result<()> {
         if key_ref.is_local() {
-            self.local_asymmetric_keys.insert(key_ref, key);
+            self.local_asymmetric_keys.upsert(key_ref, key);
         } else {
             self.global_keys
                 .get_mut()?
                 .asymmetric_keys
-                .insert(key_ref, key);
+                .upsert(key_ref, key);
         }
         Ok(())
     }
