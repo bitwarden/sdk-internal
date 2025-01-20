@@ -7,8 +7,7 @@ use crate::{Decryptable, Encryptable, KeyRef, KeyRefs, UsesKey};
 mod backend;
 mod context;
 
-use backend::create_store;
-use backend::StoreBackend;
+use backend::{create_store, StoreBackend};
 use context::GlobalKeys;
 pub use context::KeyStoreContext;
 

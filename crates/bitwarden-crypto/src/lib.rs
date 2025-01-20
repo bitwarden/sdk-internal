@@ -82,7 +82,6 @@ mod wordlist;
 pub use wordlist::EFF_LONG_WORD_LIST;
 mod store;
 pub use store::{KeyStore, KeyStoreContext};
-
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
 
 #[cfg(feature = "uniffi")]

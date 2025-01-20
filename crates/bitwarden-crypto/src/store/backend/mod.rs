@@ -11,9 +11,11 @@ pub use implementation::create_store;
 /// The keys themselves implement ZeroizeOnDrop, so the store will only need to make sure
 /// that the keys are dropped when they are no longer needed.
 ///
-/// The default implementation is a basic in-memory store that does not provide any security guarantees.
+/// The default implementation is a basic in-memory store that does not provide any security
+/// guarantees.
 ///
-/// We have other implementations in testing using `mlock` and `memfd_secret` for protecting keys in memory.
+/// We have other implementations in testing using `mlock` and `memfd_secret` for protecting keys in
+/// memory.
 ///
 /// Other implementations could use secure enclaves, HSMs or OS provided keychains.
 pub trait StoreBackend<Key: KeyRef>: ZeroizeOnDrop + Send + Sync {
