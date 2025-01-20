@@ -12,6 +12,7 @@ pub use implementation::create_store;
 pub trait StoreBackend<Key: KeyRef>: ZeroizeOnDrop + Send + Sync {
     fn insert(&mut self, key_ref: Key, key: Key::KeyValue);
     fn get(&self, key_ref: Key) -> Option<&Key::KeyValue>;
+    #[allow(unused)]
     fn remove(&mut self, key_ref: Key);
     fn clear(&mut self);
 

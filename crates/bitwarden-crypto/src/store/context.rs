@@ -28,7 +28,7 @@ use crate::{
 /// is complete.
 ///
 /// ```rust
-/// # use bitwarden_crypto::{*, store::*};
+/// # use bitwarden_crypto::*;
 /// # key_refs! {
 /// #     #[symmetric]
 /// #     pub enum SymmKeyRef {

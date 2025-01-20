@@ -7,7 +7,7 @@ use crate::{Decryptable, Encryptable, KeyRef, KeyRefs, UsesKey};
 mod backend;
 mod context;
 
-pub use backend::create_store;
+use backend::create_store;
 use backend::StoreBackend;
 use context::GlobalKeys;
 pub use context::KeyStoreContext;
@@ -21,7 +21,7 @@ pub use context::KeyStoreContext;
 /// the store itself is thread safe and can be cloned to share between threads.
 ///
 /// ```rust
-/// use bitwarden_crypto::{*, store::*};
+/// # use bitwarden_crypto::*;
 ///
 /// // We need to define our own key reference types. We provide a macro to make this easier.
 /// key_refs! {
