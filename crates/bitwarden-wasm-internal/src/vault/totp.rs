@@ -33,9 +33,7 @@ impl ClientTotp {
         key: String,
         time_ms: Option<f64>,
     ) -> Result<bitwarden_vault::TotpResponse, bitwarden_vault::TotpError> {
-        let datetime = time_ms
-            .map(|time| DateTime::<Utc>::from_timestamp_millis(time as i64))
-            .flatten();
+        let datetime = time_ms.and_then(|time| DateTime::<Utc>::from_timestamp_millis(time as i64));
 
         self.0.vault().generate_totp(key, datetime)
     }
