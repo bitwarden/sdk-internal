@@ -208,18 +208,16 @@ mod tests {
 
     #[test]
     fn test_try_from_folder_view() {
+        let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         let view = FolderView {
-            id: Some("fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap()),
+            id: Some(test_id),
             name: "test_name".to_string(),
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
         };
 
         let f: crate::Folder = view.try_into().unwrap();
 
-        assert_eq!(
-            f.id,
-            "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap()
-        );
+        assert_eq!(f.id, test_id);
         assert_eq!(f.name, "test_name".to_string());
     }
 
@@ -234,6 +232,7 @@ mod tests {
     fn test_from_login() {
         let enc = MockKeyContainer(SymmetricCryptoKey::generate(rand::thread_rng()));
 
+        let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         let view = CipherView {
             r#type: CipherType::Login,
             login: Some(LoginView {
@@ -245,7 +244,7 @@ mod tests {
                 autofill_on_page_load: None,
                 fido2_credentials: None,
             }),
-            id: "fd411a1a-fec8-4070-985d-0e6560860e69".parse().ok(),
+            id: Some(test_id),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
@@ -282,6 +281,7 @@ mod tests {
     fn test_from_cipher_login() {
         let enc = MockKeyContainer(SymmetricCryptoKey::generate(rand::thread_rng()));
 
+        let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         let cipher_view = CipherView {
             r#type: CipherType::Login,
             login: Some(LoginView {
@@ -293,7 +293,7 @@ mod tests {
                 autofill_on_page_load: None,
                 fido2_credentials: None,
             }),
-            id: "fd411a1a-fec8-4070-985d-0e6560860e69".parse().ok(),
+            id: Some(test_id),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
@@ -323,10 +323,7 @@ mod tests {
 
         let cipher: crate::Cipher = crate::Cipher::from_cipher(&enc, encrypted).unwrap();
 
-        assert_eq!(
-            cipher.id,
-            "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap()
-        );
+        assert_eq!(cipher.id, test_id);
         assert_eq!(cipher.folder_id, None);
         assert_eq!(cipher.name, "My login".to_string());
         assert_eq!(cipher.notes, None);
