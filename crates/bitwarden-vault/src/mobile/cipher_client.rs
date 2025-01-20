@@ -2,7 +2,7 @@ use bitwarden_core::{Client, Error};
 use bitwarden_crypto::{KeyDecryptable, KeyEncryptable, LocateKey};
 use uuid::Uuid;
 
-use crate::{Cipher, CipherError, CipherListView, CipherView, ClientVault};
+use crate::{Cipher, CipherError, CipherListView, CipherView, VaultClient};
 
 pub struct ClientCiphers<'a> {
     pub(crate) client: &'a Client,
@@ -79,7 +79,7 @@ impl ClientCiphers<'_> {
     }
 }
 
-impl<'a> ClientVault<'a> {
+impl<'a> VaultClient<'a> {
     pub fn ciphers(&'a self) -> ClientCiphers<'a> {
         ClientCiphers {
             client: self.client,
@@ -93,7 +93,7 @@ mod tests {
     use bitwarden_core::client::test_accounts::test_bitwarden_com_account;
 
     use super::*;
-    use crate::{Attachment, CipherRepromptType, CipherType, ClientVaultExt, Login};
+    use crate::{Attachment, CipherRepromptType, CipherType, Login, VaultClientExt};
 
     #[tokio::test]
     async fn test_decrypt_list() {

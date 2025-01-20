@@ -1,6 +1,6 @@
-pub mod client_platform;
 mod generate_fingerprint;
 mod get_user_api_key;
+pub mod platform_client;
 mod secret_verification_request;
 
 pub use generate_fingerprint::{FingerprintRequest, FingerprintResponse};

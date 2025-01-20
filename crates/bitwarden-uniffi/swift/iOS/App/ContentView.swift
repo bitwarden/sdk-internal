@@ -114,7 +114,7 @@ struct ContentView: View {
         .padding()
     }
 
-    func clientExamplePassword(clientAuth: ClientAuthProtocol, clientCrypto: ClientCryptoProtocol, setupBiometrics: Bool, setupPin: Bool) async throws {
+    func clientExamplePassword(clientAuth: AuthClientProtocol, clientCrypto: CryptoClientProtocol, setupBiometrics: Bool, setupPin: Bool) async throws {
         ////////////////////////////// Get master password hash //////////////////////////////
 
         struct PreloginRequest: Codable { let email: String }
@@ -230,7 +230,7 @@ struct ContentView: View {
         }
     }
 
-    func clientExampleBiometrics(clientCrypto: ClientCryptoProtocol) async throws {
+    func clientExampleBiometrics(clientCrypto: CryptoClientProtocol) async throws {
         let defaults = UserDefaults.standard
         let privateKey = defaults.string(forKey: "privateKey")!
         let kdf = if defaults.integer(forKey: "kdfType") == 0 {
@@ -255,7 +255,7 @@ struct ContentView: View {
         ))
     }
 
-    func clientExamplePin(clientCrypto: ClientCryptoProtocol) async throws {
+    func clientExamplePin(clientCrypto: CryptoClientProtocol) async throws {
         let defaults = UserDefaults.standard
         let privateKey = defaults.string(forKey: "privateKey")!
         let kdf = if defaults.integer(forKey: "kdfType") == 0 {
@@ -279,7 +279,7 @@ struct ContentView: View {
         ))
     }
 
-    func decryptVault(clientCrypto: ClientCryptoProtocol, clientVault: ClientVaultProtocol) async throws {
+    func decryptVault(clientCrypto: CryptoClientProtocol, clientVault: VaultClientProtocol) async throws {
         ///////////////////////////// Sync /////////////////////////////
 
         struct SyncOrganization: Codable {

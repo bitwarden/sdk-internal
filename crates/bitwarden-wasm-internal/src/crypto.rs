@@ -11,16 +11,16 @@ use bitwarden_core::{
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub struct ClientCrypto(Rc<Client>);
+pub struct CryptoClient(Rc<Client>);
 
-impl ClientCrypto {
+impl CryptoClient {
     pub fn new(client: Rc<Client>) -> Self {
         Self(client)
     }
 }
 
 #[wasm_bindgen]
-impl ClientCrypto {
+impl CryptoClient {
     /// Initialization method for the user crypto. Needs to be called before any other crypto
     /// operations.
     pub async fn initialize_user_crypto(

@@ -694,6 +694,7 @@ mod tests {
     use crate::Fido2Credential;
 
     fn generate_cipher() -> CipherView {
+        let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         CipherView {
             r#type: CipherType::Login,
             login: Some(LoginView {
@@ -705,7 +706,7 @@ mod tests {
                 autofill_on_page_load: None,
                 fido2_credentials: None,
             }),
-            id: "fd411a1a-fec8-4070-985d-0e6560860e69".parse().ok(),
+            id: Some(test_id),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
