@@ -12,12 +12,38 @@ pub struct JsSendError {
     communication_error: Option<JsValue>,
 }
 
+#[wasm_bindgen(js_class = SendError)]
+impl JsSendError {
+    pub fn debug(&self) -> String {
+        if let Some(e) = &self.crypto_error {
+            format!("Crypto error: {:?}", e)
+        } else if let Some(e) = &self.communication_error {
+            format!("Communication error: {:?}", e)
+        } else {
+            "Unknown error".to_string()
+        }
+    }
+}
+
 #[wasm_bindgen(js_name = ReceiveError)]
 pub struct JsReceiveError {
     #[allow(dead_code)]
     crypto_error: Option<JsValue>,
     #[allow(dead_code)]
     communication_error: Option<JsValue>,
+}
+
+#[wasm_bindgen(js_class = ReceiveError)]
+impl JsReceiveError {
+    pub fn debug(&self) -> String {
+        if let Some(e) = &self.crypto_error {
+            format!("Crypto error: {:?}", e)
+        } else if let Some(e) = &self.communication_error {
+            format!("Communication error: {:?}", e)
+        } else {
+            "Unknown error".to_string()
+        }
+    }
 }
 
 impl From<SendError<JsValue, JsValue>> for JsSendError {
