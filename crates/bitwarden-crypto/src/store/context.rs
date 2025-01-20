@@ -329,7 +329,7 @@ impl<Refs: KeyRefs> KeyStoreContext<'_, Refs> {
         } else {
             self.global_keys.get().symmetric_keys.get(key_ref)
         }
-        .ok_or_else(|| crate::CryptoError::MissingKey2(format!("{key_ref:?}")))
+        .ok_or_else(|| crate::CryptoError::MissingKeyRef(format!("{key_ref:?}")))
     }
 
     fn get_asymmetric_key(&self, key_ref: Refs::Asymmetric) -> Result<&AsymmetricCryptoKey> {
@@ -338,7 +338,7 @@ impl<Refs: KeyRefs> KeyStoreContext<'_, Refs> {
         } else {
             self.global_keys.get().asymmetric_keys.get(key_ref)
         }
-        .ok_or_else(|| crate::CryptoError::MissingKey2(format!("{key_ref:?}")))
+        .ok_or_else(|| crate::CryptoError::MissingKeyRef(format!("{key_ref:?}")))
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
