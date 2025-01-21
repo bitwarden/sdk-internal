@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use rayon::prelude::*;
 
-use crate::{Decryptable, Encryptable, KeyId, KeyIds, IdentifyKey};
+use crate::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
 
 mod backend;
 mod context;
@@ -78,10 +78,9 @@ struct KeyStoreInner<Ids: KeyIds> {
     asymmetric_keys: Box<dyn StoreBackend<Ids::Asymmetric>>,
 }
 
-impl<Ids: KeyIds> KeyStore<Ids> {
-    /// Create a new key store with the best available implementation for the current platform.
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+/// Create a new key store with the best available implementation for the current platform.
+impl<Ids: KeyIds> Default for KeyStore<Ids> {
+    fn default() -> Self {
         Self {
             inner: Arc::new(RwLock::new(KeyStoreInner {
                 symmetric_keys: create_store(),
@@ -89,7 +88,9 @@ impl<Ids: KeyIds> KeyStore<Ids> {
             })),
         }
     }
+}
 
+impl<Ids: KeyIds> KeyStore<Ids> {
     /// Clear all keys from the store. This can be used to clear all keys from memory in case of
     /// lock/logout, and is equivalent to destroying the store and creating a new one.
     pub fn clear(&self) {
@@ -239,7 +240,7 @@ fn batch_chunk_size(len: usize) -> usize {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use crate::{
         store::{KeyStore, KeyStoreContext},
         traits::tests::{TestIds, TestSymmKey},
@@ -284,7 +285,7 @@ mod tests {
     #[test]
     fn test_multithread_decrypt_keeps_order() {
         let mut rng = rand::thread_rng();
-        let store: KeyStore<TestIds> = KeyStore::new();
+        let store: KeyStore<TestIds> = KeyStore::default();
 
         // Create a bunch of random keys
         for n in 0..15 {

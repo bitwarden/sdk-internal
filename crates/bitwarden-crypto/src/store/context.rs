@@ -464,7 +464,7 @@ mod tests {
     #[test]
     fn test_set_keys_for_encryption() {
         let mut rng = rand::thread_rng();
-        let store: KeyStore<TestIds> = KeyStore::new();
+        let store: KeyStore<TestIds> = KeyStore::default();
 
         // Generate and insert a key
         let key_a0_id = TestSymmKey::A(0);
@@ -485,7 +485,7 @@ mod tests {
     #[test]
     fn test_key_encryption() {
         let mut rng = rand::thread_rng();
-        let store: KeyStore<TestIds> = KeyStore::new();
+        let store: KeyStore<TestIds> = KeyStore::default();
 
         let mut ctx = store.context();
 
