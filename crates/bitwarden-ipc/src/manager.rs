@@ -30,27 +30,25 @@ where
     }
 
     pub async fn send(
-        &mut self,
+        &self,
         message: Message,
     ) -> Result<(), SendError<Crypto::SendError, Com::SendError>> {
         self.crypto
-            .send(&self.communication, &mut self.sessions, message)
+            .send(&self.communication, &self.sessions, message)
             .await
     }
 
     pub async fn receive(
-        &mut self,
+        &self,
     ) -> Result<Message, ReceiveError<Crypto::ReceiveError, Com::ReceiveError>> {
         self.crypto
-            .receive(&self.communication, &mut self.sessions)
+            .receive(&self.communication, &self.sessions)
             .await
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use crate::{destination::Destination, providers::InMemorySessionProvider};
 
     use super::*;
@@ -84,7 +82,7 @@ mod tests {
         async fn receive(
             &self,
             _communication: &TestCommunicationProvider,
-            _sessions: &mut TestSessionProvider,
+            _sessions: &TestSessionProvider,
         ) -> Result<Message, ReceiveError<String, ()>> {
             self.receive_result.clone()
         }
@@ -92,7 +90,7 @@ mod tests {
         async fn send(
             &self,
             _communication: &TestCommunicationProvider,
-            _sessions: &mut TestSessionProvider,
+            _sessions: &TestSessionProvider,
             _message: Message,
         ) -> Result<
             (),
@@ -118,7 +116,7 @@ mod tests {
         };
         let communication_provider = TestCommunicationProvider;
         let session_map = TestSessionProvider::new();
-        let mut manager = Manager::new(crypto_provider, communication_provider, session_map);
+        let manager = Manager::new(crypto_provider, communication_provider, session_map);
 
         let error = manager.send(message).await.unwrap_err();
 
@@ -133,7 +131,7 @@ mod tests {
         };
         let communication_provider = TestCommunicationProvider;
         let session_map = TestSessionProvider::new();
-        let mut manager = Manager::new(crypto_provider, communication_provider, session_map);
+        let manager = Manager::new(crypto_provider, communication_provider, session_map);
 
         let error = manager.receive().await.unwrap_err();
 

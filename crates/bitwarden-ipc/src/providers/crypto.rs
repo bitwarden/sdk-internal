@@ -17,13 +17,13 @@ where
     fn send(
         &self,
         communication: &Com,
-        sessions: &mut Ses,
+        sessions: &Ses,
         message: Message,
     ) -> impl std::future::Future<Output = Result<(), SendError<Self::SendError, Com::SendError>>>;
     fn receive(
         &self,
         communication: &Com,
-        sessions: &mut Ses,
+        sessions: &Ses,
     ) -> impl std::future::Future<
         Output = Result<Message, ReceiveError<Self::ReceiveError, Com::ReceiveError>>,
     >;
@@ -43,7 +43,7 @@ where
     async fn send(
         &self,
         communication: &Com,
-        _sessions: &mut Ses,
+        _sessions: &Ses,
         message: Message,
     ) -> Result<(), SendError<Self::SendError, Com::SendError>> {
         communication
@@ -55,7 +55,7 @@ where
     async fn receive(
         &self,
         communication: &Com,
-        _sessions: &mut Ses,
+        _sessions: &Ses,
     ) -> Result<Message, ReceiveError<Self::ReceiveError, Com::ReceiveError>> {
         let message = communication
             .receive()

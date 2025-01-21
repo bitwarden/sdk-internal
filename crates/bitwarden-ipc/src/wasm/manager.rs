@@ -31,11 +31,11 @@ impl JsManager {
         }
     }
 
-    pub async fn send(&mut self, message: Message) -> Result<(), JsSendError> {
+    pub async fn send(&self, message: Message) -> Result<(), JsSendError> {
         self.manager.send(message).await.map_err(|e| e.into())
     }
 
-    pub async fn receive(&mut self) -> Result<Message, JsReceiveError> {
+    pub async fn receive(&self) -> Result<Message, JsReceiveError> {
         self.manager.receive().await.map_err(|e| e.into())
     }
 }

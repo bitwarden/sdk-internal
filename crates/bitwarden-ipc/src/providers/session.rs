@@ -6,8 +6,8 @@ pub trait SessionProvider {
     type Session;
 
     fn get(&self, destination: Destination) -> Option<Self::Session>;
-    fn save(&mut self, destination: Destination, session: Self::Session);
-    fn remove(&mut self, destination: Destination);
+    fn save(&self, destination: Destination, session: Self::Session);
+    fn remove(&self, destination: Destination);
 }
 
 pub type InMemorySessionProvider<Session> = HashMap<Destination, Session>;
@@ -21,11 +21,13 @@ where
         self.get(&destination).cloned()
     }
 
-    fn save(&mut self, destination: Destination, session: Self::Session) {
-        self.insert(destination, session);
+    fn save(&self, destination: Destination, session: Self::Session) {
+        // TODO: Implement internal mutability
+        // self.insert(destination, session);
     }
 
-    fn remove(&mut self, destination: Destination) {
-        self.remove(&destination);
+    fn remove(&self, destination: Destination) {
+        // TODO: Implement internal mutability
+        // self.remove(&destination);
     }
 }
