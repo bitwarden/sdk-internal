@@ -22,15 +22,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Set Rust Nightly Toolchain
+        id: nightly-toolchain
+        shell: bash
+        run: |
+          RUST_NIGHTLY_TOOLCHAIN="$(grep -oP '^nightly-channel.*"(\K.*?)(?=")' rust-toolchain.toml)"
+          echo "RUST_NIGHTLY_TOOLCHAIN=${RUST_NIGHTLY_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
+
       - name: Install rust
         uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203 # stable
         with:
-          toolchain: nightly
+          toolchain: "${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}"
 
       - name: Build documentation
         env:
           RUSTDOCFLAGS: "--enable-index-page -Zunstable-options"
-        run: cargo +nightly doc --no-deps --all-features --document-private-items
+        run: cargo +"${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}" doc --no-deps --all-features --document-private-items
 
       - name: Deploy to GitHub Pages
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
