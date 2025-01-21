@@ -49,6 +49,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use crate::{destination::Destination, providers::InMemorySessionProvider};
 
     use super::*;
@@ -115,7 +117,7 @@ mod tests {
             receive_result: Ok(message.clone()),
         };
         let communication_provider = TestCommunicationProvider;
-        let session_map = TestSessionProvider::new();
+        let session_map = TestSessionProvider::new(HashMap::new());
         let manager = Manager::new(crypto_provider, communication_provider, session_map);
 
         let error = manager.send(message).await.unwrap_err();
@@ -130,7 +132,7 @@ mod tests {
             receive_result: Err(ReceiveError::CryptoError("Crypto error".to_string())),
         };
         let communication_provider = TestCommunicationProvider;
-        let session_map = TestSessionProvider::new();
+        let session_map = TestSessionProvider::new(HashMap::new());
         let manager = Manager::new(crypto_provider, communication_provider, session_map);
 
         let error = manager.receive().await.unwrap_err();

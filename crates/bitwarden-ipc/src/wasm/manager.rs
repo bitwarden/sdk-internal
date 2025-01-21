@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -26,7 +28,7 @@ impl JsManager {
             manager: Manager::new(
                 NoEncryptionCryptoProvider,
                 communication_provider,
-                InMemorySessionProvider::new(),
+                InMemorySessionProvider::new(HashMap::new()),
             ),
         }
     }
