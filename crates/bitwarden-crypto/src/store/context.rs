@@ -139,8 +139,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// * `encryption_key` - The key id used to decrypt the `encrypted_key`. It must already exist
     ///   in the context
-    /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists,
-    ///   it will be overwritten
+    /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
+    ///   will be overwritten
     /// * `encrypted_key` - The key to decrypt
     pub fn decrypt_symmetric_key_with_symmetric_key(
         &mut self,
@@ -184,8 +184,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// * `encryption_key` - The key id used to decrypt the `encrypted_key`. It must already exist
     ///   in the context
-    /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists,
-    ///   it will be overwritten
+    /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
+    ///   will be overwritten
     /// * `encrypted_key` - The key to decrypt
     pub fn decrypt_symmetric_key_with_asymmetric_key(
         &mut self,
@@ -229,8 +229,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// * `encryption_key` - The key id used to decrypt the `encrypted_key`. It must already exist
     ///   in the context
-    /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists,
-    ///   it will be overwritten
+    /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
+    ///   will be overwritten
     /// * `encrypted_key` - The key to decrypt
     pub fn decrypt_asymmetric_key_with_asymmetric_key(
         &mut self,
@@ -456,8 +456,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 #[allow(deprecated)]
 mod tests {
     use crate::{
-        key_id::tests::{TestIds, TestSymmKey},
         store::{tests::DataView, KeyStore},
+        traits::tests::{TestIds, TestSymmKey},
         Decryptable, Encryptable, SymmetricCryptoKey,
     };
 

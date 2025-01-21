@@ -241,8 +241,8 @@ fn batch_chunk_size(len: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use crate::{
-        key_id::tests::{TestIds, TestSymmKey},
         store::{KeyStore, KeyStoreContext},
+        traits::tests::{TestIds, TestSymmKey},
         EncString, SymmetricCryptoKey,
     };
 

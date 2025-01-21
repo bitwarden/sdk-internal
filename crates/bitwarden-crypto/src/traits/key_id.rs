@@ -103,31 +103,10 @@ macro_rules! key_ids {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use crate::KeyId;
-
-    key_ids! {
-        #[symmetric]
-        pub enum TestSymmKey {
-            A(u8),
-
-            // We only support one variant value,
-            // but that value can be a tuple
-            B((u8, u8)),
-
-            #[local]
-            C(u8),
-        }
-
-        #[asymmetric]
-        pub enum TestAsymmKey {
-            A(u8),
-            B,
-            #[local]
-            C(&'static str),
-        }
-
-       pub TestIds => TestSymmKey, TestAsymmKey;
-    }
+    use crate::{
+        traits::tests::{TestAsymmKey, TestSymmKey},
+        KeyId,
+    };
 
     #[test]
     fn test_local() {
