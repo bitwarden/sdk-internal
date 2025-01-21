@@ -45,8 +45,8 @@ use crate::{
 ///     key: EncString,
 ///     name: String,
 /// }
-/// # impl UsesKey<SymmKeyId> for Data {
-/// #    fn uses_key(&self) -> SymmKeyId {
+/// # impl IdentifyKey<SymmKeyId> for Data {
+/// #    fn key_identifier(&self) -> SymmKeyId {
 /// #        SymmKeyId::User
 /// #    }
 /// # }

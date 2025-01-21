@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use rayon::prelude::*;
 
-use crate::{Decryptable, Encryptable, KeyId, KeyIds, UsesKey};
+use crate::{Decryptable, Encryptable, KeyId, KeyIds, IdentifyKey};
 
 mod backend;
 mod context;
@@ -45,8 +45,8 @@ pub use context::KeyStoreContext;
 ///
 /// // Define some data that needs to be encrypted
 /// struct Data(String);
-/// impl UsesKey<SymmKeyId> for Data {
-///    fn uses_key(&self) -> SymmKeyId {
+/// impl IdentifyKey<SymmKeyId> for Data {
+///    fn key_identifier(&self) -> SymmKeyId {
 ///        SymmKeyId::User
 ///    }
 /// }
@@ -138,37 +138,37 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         }
     }
 
-    /// Decript a single item using this key store. The key returned by `data.uses_key()` must
+    /// Decript a single item using this key store. The key returned by `data.key_identifier()` must
     /// already be present in the store, otherwise this will return an error.
     /// This method is not parallelized, and is meant for single item decryption.
     /// If you need to decrypt multiple items, use `decrypt_list` instead.
-    pub fn decrypt<Key: KeyId, Data: Decryptable<Ids, Key, Output> + UsesKey<Key>, Output>(
+    pub fn decrypt<Key: KeyId, Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key>, Output>(
         &self,
         data: &Data,
     ) -> Result<Output, crate::CryptoError> {
-        let key = data.uses_key();
+        let key = data.key_identifier();
         data.decrypt(&mut self.context(), key)
     }
 
-    /// Encrypt a single item using this key store. The key returned by `data.uses_key()` must
+    /// Encrypt a single item using this key store. The key returned by `data.key_identifier()` must
     /// already be present in the store, otherwise this will return an error.
     /// This method is not parallelized, and is meant for single item encryption.
     /// If you need to encrypt multiple items, use `encrypt_list` instead.
-    pub fn encrypt<Key: KeyId, Data: Encryptable<Ids, Key, Output> + UsesKey<Key>, Output>(
+    pub fn encrypt<Key: KeyId, Data: Encryptable<Ids, Key, Output> + IdentifyKey<Key>, Output>(
         &self,
         data: Data,
     ) -> Result<Output, crate::CryptoError> {
-        let key = data.uses_key();
+        let key = data.key_identifier();
         data.encrypt(&mut self.context(), key)
     }
 
-    /// Decrypt a list of items using this key store. The keys returned by `data[i].uses_key()` must
+    /// Decrypt a list of items using this key store. The keys returned by `data[i].key_identifier()` must
     /// already be present in the store, otherwise this will return an error.
     /// This method will try to parallelize the decryption of the items, for better performance on
     /// large lists.
     pub fn decrypt_list<
         Key: KeyId,
-        Data: Decryptable<Ids, Key, Output> + UsesKey<Key> + Send + Sync,
+        Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Send + Sync,
         Output: Send + Sync,
     >(
         &self,
@@ -182,7 +182,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
                 let mut result = Vec::with_capacity(chunk.len());
 
                 for item in chunk {
-                    let key = item.uses_key();
+                    let key = item.key_identifier();
                     result.push(item.decrypt(&mut ctx, key));
                     ctx.clear();
                 }
@@ -195,13 +195,13 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         res
     }
 
-    /// Encrypt a list of items using this key store. The keys returned by `data[i].uses_key()` must
+    /// Encrypt a list of items using this key store. The keys returned by `data[i].key_identifier()` must
     /// already be present in the store, otherwise this will return an error.
     /// This method will try to parallelize the encryption of the items, for better performance on
     /// large lists. This method is not parallelized, and is meant for single item encryption.
     pub fn encrypt_list<
         Key: KeyId,
-        Data: Encryptable<Ids, Key, Output> + UsesKey<Key> + Send + Sync,
+        Data: Encryptable<Ids, Key, Output> + IdentifyKey<Key> + Send + Sync,
         Output: Send + Sync,
     >(
         &self,
@@ -215,7 +215,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
                 let mut result = Vec::with_capacity(chunk.len());
 
                 for item in chunk {
-                    let key = item.uses_key();
+                    let key = item.key_identifier();
                     result.push(item.encrypt(&mut ctx, key));
                     ctx.clear();
                 }
@@ -249,14 +249,14 @@ mod tests {
     pub struct DataView(pub String, pub TestSymmKey);
     pub struct Data(pub EncString, pub TestSymmKey);
 
-    impl crate::UsesKey<TestSymmKey> for DataView {
-        fn uses_key(&self) -> TestSymmKey {
+    impl crate::IdentifyKey<TestSymmKey> for DataView {
+        fn key_identifier(&self) -> TestSymmKey {
             self.1
         }
     }
 
-    impl crate::UsesKey<TestSymmKey> for Data {
-        fn uses_key(&self) -> TestSymmKey {
+    impl crate::IdentifyKey<TestSymmKey> for Data {
+        fn key_identifier(&self) -> TestSymmKey {
             self.1
         }
     }

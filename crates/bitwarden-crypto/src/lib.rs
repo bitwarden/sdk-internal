@@ -83,7 +83,7 @@ pub use wordlist::EFF_LONG_WORD_LIST;
 mod store;
 pub use store::{KeyStore, KeyStoreContext};
 mod traits;
-pub use traits::{Decryptable, Encryptable, KeyId, KeyIds, UsesKey};
+pub use traits::{Decryptable, Encryptable, KeyId, KeyIds, IdentifyKey};
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
 
 #[cfg(feature = "uniffi")]

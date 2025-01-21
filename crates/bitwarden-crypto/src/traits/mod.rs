@@ -6,10 +6,10 @@ pub use decryptable::Decryptable;
 pub(crate) mod key_id;
 pub use key_id::{KeyId, KeyIds};
 
-/// Types implementing [UsesKey] are capable of knowing which cryptographic key is
+/// Types implementing [IdentifyKey] are capable of knowing which cryptographic key is
 /// needed to encrypt/decrypt them.
-pub trait UsesKey<Key: KeyId> {
-    fn uses_key(&self) -> Key;
+pub trait IdentifyKey<Key: KeyId> {
+    fn key_identifier(&self) -> Key;
 }
 
 #[cfg(test)]
