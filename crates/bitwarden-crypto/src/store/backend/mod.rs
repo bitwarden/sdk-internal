@@ -1,6 +1,6 @@
 use zeroize::ZeroizeOnDrop;
 
-use crate::store::KeyRef;
+use crate::store::KeyId;
 
 mod implementation;
 
@@ -18,14 +18,14 @@ pub use implementation::create_store;
 /// memory.
 ///
 /// Other implementations could use secure enclaves, HSMs or OS provided keychains.
-pub trait StoreBackend<Key: KeyRef>: ZeroizeOnDrop + Send + Sync {
+pub trait StoreBackend<Key: KeyId>: ZeroizeOnDrop + Send + Sync {
     /// Inserts a key into the store. If the key already exists, it will be replaced.
-    fn upsert(&mut self, key_ref: Key, key: Key::KeyValue);
+    fn upsert(&mut self, key_id: Key, key: Key::KeyValue);
     /// Retrieves a key from the store.
-    fn get(&self, key_ref: Key) -> Option<&Key::KeyValue>;
+    fn get(&self, key_id: Key) -> Option<&Key::KeyValue>;
     #[allow(unused)]
     /// Removes a key from the store.
-    fn remove(&mut self, key_ref: Key);
+    fn remove(&mut self, key_id: Key);
     /// Removes all keys from the store.
     fn clear(&mut self);
     /// Retains only the elements specified by the predicate.

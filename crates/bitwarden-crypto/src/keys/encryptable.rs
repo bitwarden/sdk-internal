@@ -1,18 +1,18 @@
-use crate::{store::KeyStoreContext, AsymmetricEncString, CryptoError, EncString, KeyRef, KeyRefs};
+use crate::{store::KeyStoreContext, AsymmetricEncString, CryptoError, EncString, KeyId, KeyIds};
 
 /// Types implementing [UsesKey] are capable of knowing which cryptographic key is
 /// needed to encrypt/decrypt them.
-pub trait UsesKey<Key: KeyRef> {
+pub trait UsesKey<Key: KeyId> {
     fn uses_key(&self) -> Key;
 }
 
 /// An encryption operation that takes the input value and encrypts it into the output value.
 /// Implementations should generally consist of calling [Encryptable::encrypt] for all the fields of
 /// the type.
-pub trait Encryptable<Refs: KeyRefs, Key: KeyRef, Output> {
+pub trait Encryptable<Ids: KeyIds, Key: KeyId, Output> {
     fn encrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
+        ctx: &mut KeyStoreContext<Ids>,
         key: Key,
     ) -> Result<Output, crate::CryptoError>;
 }
@@ -20,51 +20,51 @@ pub trait Encryptable<Refs: KeyRefs, Key: KeyRef, Output> {
 /// A decryption operation that takes the input value and decrypts it into the output value.
 /// Implementations should generally consist of calling [Decryptable::decrypt] for all the fields of
 /// the type.
-pub trait Decryptable<Refs: KeyRefs, Key: KeyRef, Output> {
+pub trait Decryptable<Ids: KeyIds, Key: KeyId, Output> {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
+        ctx: &mut KeyStoreContext<Ids>,
         key: Key,
     ) -> Result<Output, crate::CryptoError>;
 }
 
 // Basic Encryptable/Decryptable implementations to and from bytes
 
-impl<Refs: KeyRefs> Decryptable<Refs, Refs::Symmetric, Vec<u8>> for EncString {
+impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
-        key: Refs::Symmetric,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Symmetric,
     ) -> Result<Vec<u8>, crate::CryptoError> {
         ctx.decrypt_data_with_symmetric_key(key, self)
     }
 }
 
-impl<Refs: KeyRefs> Decryptable<Refs, Refs::Asymmetric, Vec<u8>> for AsymmetricEncString {
+impl<Ids: KeyIds> Decryptable<Ids, Ids::Asymmetric, Vec<u8>> for AsymmetricEncString {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
-        key: Refs::Asymmetric,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Asymmetric,
     ) -> Result<Vec<u8>, crate::CryptoError> {
         ctx.decrypt_data_with_asymmetric_key(key, self)
     }
 }
 
-impl<Refs: KeyRefs> Encryptable<Refs, Refs::Symmetric, EncString> for &[u8] {
+impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for &[u8] {
     fn encrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
-        key: Refs::Symmetric,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Symmetric,
     ) -> Result<EncString, crate::CryptoError> {
         ctx.encrypt_data_with_symmetric_key(key, self)
     }
 }
 
-impl<Refs: KeyRefs> Encryptable<Refs, Refs::Asymmetric, AsymmetricEncString> for &[u8] {
+impl<Ids: KeyIds> Encryptable<Ids, Ids::Asymmetric, AsymmetricEncString> for &[u8] {
     fn encrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
-        key: Refs::Asymmetric,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Asymmetric,
     ) -> Result<AsymmetricEncString, crate::CryptoError> {
         ctx.encrypt_data_with_asymmetric_key(key, self)
     }
@@ -72,63 +72,63 @@ impl<Refs: KeyRefs> Encryptable<Refs, Refs::Asymmetric, AsymmetricEncString> for
 
 // Encryptable/Decryptable implementations to and from strings
 
-impl<Refs: KeyRefs> Decryptable<Refs, Refs::Symmetric, String> for EncString {
+impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, String> for EncString {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
-        key: Refs::Symmetric,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Symmetric,
     ) -> Result<String, crate::CryptoError> {
         let bytes: Vec<u8> = self.decrypt(ctx, key)?;
         String::from_utf8(bytes).map_err(|_| CryptoError::InvalidUtf8String)
     }
 }
 
-impl<Refs: KeyRefs> Decryptable<Refs, Refs::Asymmetric, String> for AsymmetricEncString {
+impl<Ids: KeyIds> Decryptable<Ids, Ids::Asymmetric, String> for AsymmetricEncString {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
-        key: Refs::Asymmetric,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Asymmetric,
     ) -> Result<String, crate::CryptoError> {
         let bytes: Vec<u8> = self.decrypt(ctx, key)?;
         String::from_utf8(bytes).map_err(|_| CryptoError::InvalidUtf8String)
     }
 }
 
-impl<Refs: KeyRefs> Encryptable<Refs, Refs::Symmetric, EncString> for &str {
+impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for &str {
     fn encrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
-        key: Refs::Symmetric,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Symmetric,
     ) -> Result<EncString, crate::CryptoError> {
         self.as_bytes().encrypt(ctx, key)
     }
 }
 
-impl<Refs: KeyRefs> Encryptable<Refs, Refs::Asymmetric, AsymmetricEncString> for &str {
+impl<Ids: KeyIds> Encryptable<Ids, Ids::Asymmetric, AsymmetricEncString> for &str {
     fn encrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
-        key: Refs::Asymmetric,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Asymmetric,
     ) -> Result<AsymmetricEncString, crate::CryptoError> {
         self.as_bytes().encrypt(ctx, key)
     }
 }
 
-impl<Refs: KeyRefs> Encryptable<Refs, Refs::Symmetric, EncString> for String {
+impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for String {
     fn encrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
-        key: Refs::Symmetric,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Symmetric,
     ) -> Result<EncString, crate::CryptoError> {
         self.as_bytes().encrypt(ctx, key)
     }
 }
 
-impl<Refs: KeyRefs> Encryptable<Refs, Refs::Asymmetric, AsymmetricEncString> for String {
+impl<Ids: KeyIds> Encryptable<Ids, Ids::Asymmetric, AsymmetricEncString> for String {
     fn encrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
-        key: Refs::Asymmetric,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Asymmetric,
     ) -> Result<AsymmetricEncString, crate::CryptoError> {
         self.as_bytes().encrypt(ctx, key)
     }
@@ -136,12 +136,12 @@ impl<Refs: KeyRefs> Encryptable<Refs, Refs::Asymmetric, AsymmetricEncString> for
 
 // Generic implementations for Optional values
 
-impl<Refs: KeyRefs, Key: KeyRef, T: Encryptable<Refs, Key, Output>, Output>
-    Encryptable<Refs, Key, Option<Output>> for Option<T>
+impl<Ids: KeyIds, Key: KeyId, T: Encryptable<Ids, Key, Output>, Output>
+    Encryptable<Ids, Key, Option<Output>> for Option<T>
 {
     fn encrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
+        ctx: &mut KeyStoreContext<Ids>,
         key: Key,
     ) -> Result<Option<Output>, crate::CryptoError> {
         self.as_ref()
@@ -150,12 +150,12 @@ impl<Refs: KeyRefs, Key: KeyRef, T: Encryptable<Refs, Key, Output>, Output>
     }
 }
 
-impl<Refs: KeyRefs, Key: KeyRef, T: Decryptable<Refs, Key, Output>, Output>
-    Decryptable<Refs, Key, Option<Output>> for Option<T>
+impl<Ids: KeyIds, Key: KeyId, T: Decryptable<Ids, Key, Output>, Output>
+    Decryptable<Ids, Key, Option<Output>> for Option<T>
 {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
+        ctx: &mut KeyStoreContext<Ids>,
         key: Key,
     ) -> Result<Option<Output>, crate::CryptoError> {
         self.as_ref()
@@ -166,24 +166,24 @@ impl<Refs: KeyRefs, Key: KeyRef, T: Decryptable<Refs, Key, Output>, Output>
 
 // Generic implementations for Vec values
 
-impl<Refs: KeyRefs, Key: KeyRef, T: Encryptable<Refs, Key, Output>, Output>
-    Encryptable<Refs, Key, Vec<Output>> for Vec<T>
+impl<Ids: KeyIds, Key: KeyId, T: Encryptable<Ids, Key, Output>, Output>
+    Encryptable<Ids, Key, Vec<Output>> for Vec<T>
 {
     fn encrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
+        ctx: &mut KeyStoreContext<Ids>,
         key: Key,
     ) -> Result<Vec<Output>, crate::CryptoError> {
         self.iter().map(|value| value.encrypt(ctx, key)).collect()
     }
 }
 
-impl<Refs: KeyRefs, Key: KeyRef, T: Decryptable<Refs, Key, Output>, Output>
-    Decryptable<Refs, Key, Vec<Output>> for Vec<T>
+impl<Ids: KeyIds, Key: KeyId, T: Decryptable<Ids, Key, Output>, Output>
+    Decryptable<Ids, Key, Vec<Output>> for Vec<T>
 {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<Refs>,
+        ctx: &mut KeyStoreContext<Ids>,
         key: Key,
     ) -> Result<Vec<Output>, crate::CryptoError> {
         self.iter().map(|value| value.decrypt(ctx, key)).collect()

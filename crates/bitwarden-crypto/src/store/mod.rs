@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use rayon::prelude::*;
 
-use crate::{Decryptable, Encryptable, KeyRef, KeyRefs, UsesKey};
+use crate::{Decryptable, Encryptable, KeyId, KeyIds, UsesKey};
 
 mod backend;
 mod context;
@@ -12,8 +12,8 @@ use context::GlobalKeys;
 pub use context::KeyStoreContext;
 
 /// An in-memory key store that provides a safe and secure way to store keys and use them for
-/// encryption/decryption operations. The store API is designed to work only on key references
-/// ([KeyRef]). These references are user-defined types that contain no key material, which means
+/// encryption/decryption operations. The store API is designed to work only on key identifiers
+/// ([KeyId]). These identifiers are user-defined types that contain no key material, which means
 /// the API users don't have to worry about accidentally leaking keys.
 ///
 /// Each store is designed to be used by a single user and should not be shared between users, but
@@ -22,36 +22,36 @@ pub use context::KeyStoreContext;
 /// ```rust
 /// # use bitwarden_crypto::*;
 ///
-/// // We need to define our own key reference types. We provide a macro to make this easier.
-/// key_refs! {
+/// // We need to define our own key identifier types. We provide a macro to make this easier.
+/// key_ids! {
 ///     #[symmetric]
-///     pub enum SymmKeyRef {
+///     pub enum SymmKeyId {
 ///         User,
 ///         #[local]
 ///         Local(&'static str)
 ///     }
 ///     #[asymmetric]
-///     pub enum AsymmKeyRef {
+///     pub enum AsymmKeyId {
 ///         UserPrivate,
 ///     }
-///     pub Refs => SymmKeyRef, AsymmKeyRef;
+///     pub Ids => SymmKeyId, AsymmKeyId;
 /// }
 ///
 /// // Initialize the store and insert a test key
-/// let store: KeyStore<Refs> = KeyStore::new();
+/// let store: KeyStore<Ids> = KeyStore::new();
 ///
 /// #[allow(deprecated)]
-/// store.context_mut().set_symmetric_key(SymmKeyRef::User, SymmetricCryptoKey::generate(rand::thread_rng()));
+/// store.context_mut().set_symmetric_key(SymmKeyId::User, SymmetricCryptoKey::generate(rand::thread_rng()));
 ///
 /// // Define some data that needs to be encrypted
 /// struct Data(String);
-/// impl UsesKey<SymmKeyRef> for Data {
-///    fn uses_key(&self) -> SymmKeyRef {
-///        SymmKeyRef::User
+/// impl UsesKey<SymmKeyId> for Data {
+///    fn uses_key(&self) -> SymmKeyId {
+///        SymmKeyId::User
 ///    }
 /// }
-/// impl Encryptable<Refs, SymmKeyRef, EncString> for Data {
-///     fn encrypt(&self, ctx: &mut KeyStoreContext<Refs>, key: SymmKeyRef) -> Result<EncString, CryptoError> {
+/// impl Encryptable<Ids, SymmKeyId, EncString> for Data {
+///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
 ///         self.0.encrypt(ctx, key)
 ///     }
 /// }
@@ -61,24 +61,24 @@ pub use context::KeyStoreContext;
 /// let encrypted = store.encrypt(decrypted).unwrap();
 /// ```
 #[derive(Clone)]
-pub struct KeyStore<Refs: KeyRefs> {
+pub struct KeyStore<Ids: KeyIds> {
     // We use an Arc<> to make it easier to pass this store around, as we can
     // clone it instead of passing references
-    inner: Arc<RwLock<KeyStoreInner<Refs>>>,
+    inner: Arc<RwLock<KeyStoreInner<Ids>>>,
 }
 
-impl<Refs: KeyRefs> std::fmt::Debug for KeyStore<Refs> {
+impl<Ids: KeyIds> std::fmt::Debug for KeyStore<Ids> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("KeyStore").finish()
     }
 }
 
-struct KeyStoreInner<Refs: KeyRefs> {
-    symmetric_keys: Box<dyn StoreBackend<Refs::Symmetric>>,
-    asymmetric_keys: Box<dyn StoreBackend<Refs::Asymmetric>>,
+struct KeyStoreInner<Ids: KeyIds> {
+    symmetric_keys: Box<dyn StoreBackend<Ids::Symmetric>>,
+    asymmetric_keys: Box<dyn StoreBackend<Ids::Asymmetric>>,
 }
 
-impl<Refs: KeyRefs> KeyStore<Refs> {
+impl<Ids: KeyIds> KeyStore<Ids> {
     /// Create a new key store with the best available implementation for the current platform.
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
@@ -109,7 +109,7 @@ impl<Refs: KeyRefs> KeyStore<Refs> {
     /// store only get cleared automatically when the context is dropped, and not between
     /// operations. This means that if you are using the same context for multiple operations,
     /// you may want to clear it manually between them.
-    pub fn context(&'_ self) -> KeyStoreContext<'_, Refs> {
+    pub fn context(&'_ self) -> KeyStoreContext<'_, Ids> {
         KeyStoreContext {
             global_keys: GlobalKeys::ReadOnly(self.inner.read().expect("RwLock is poisoned")),
             local_symmetric_keys: create_store(),
@@ -129,7 +129,7 @@ impl<Refs: KeyRefs> KeyStore<Refs> {
     ///
     /// TODO: We should work towards making this pub(crate), and instead providing a safe API for
     /// modifying the global keys. (i.e. `derive_master_key`, `derive_user_key`, etc.)
-    pub fn context_mut(&'_ self) -> KeyStoreContext<'_, Refs> {
+    pub fn context_mut(&'_ self) -> KeyStoreContext<'_, Ids> {
         KeyStoreContext {
             global_keys: GlobalKeys::ReadWrite(self.inner.write().expect("RwLock is poisoned")),
             local_symmetric_keys: create_store(),
@@ -142,7 +142,7 @@ impl<Refs: KeyRefs> KeyStore<Refs> {
     /// already be present in the store, otherwise this will return an error.
     /// This method is not parallelized, and is meant for single item decryption.
     /// If you need to decrypt multiple items, use `decrypt_list` instead.
-    pub fn decrypt<Key: KeyRef, Data: Decryptable<Refs, Key, Output> + UsesKey<Key>, Output>(
+    pub fn decrypt<Key: KeyId, Data: Decryptable<Ids, Key, Output> + UsesKey<Key>, Output>(
         &self,
         data: &Data,
     ) -> Result<Output, crate::CryptoError> {
@@ -154,7 +154,7 @@ impl<Refs: KeyRefs> KeyStore<Refs> {
     /// already be present in the store, otherwise this will return an error.
     /// This method is not parallelized, and is meant for single item encryption.
     /// If you need to encrypt multiple items, use `encrypt_list` instead.
-    pub fn encrypt<Key: KeyRef, Data: Encryptable<Refs, Key, Output> + UsesKey<Key>, Output>(
+    pub fn encrypt<Key: KeyId, Data: Encryptable<Ids, Key, Output> + UsesKey<Key>, Output>(
         &self,
         data: Data,
     ) -> Result<Output, crate::CryptoError> {
@@ -167,8 +167,8 @@ impl<Refs: KeyRefs> KeyStore<Refs> {
     /// This method will try to parallelize the decryption of the items, for better performance on
     /// large lists.
     pub fn decrypt_list<
-        Key: KeyRef,
-        Data: Decryptable<Refs, Key, Output> + UsesKey<Key> + Send + Sync,
+        Key: KeyId,
+        Data: Decryptable<Ids, Key, Output> + UsesKey<Key> + Send + Sync,
         Output: Send + Sync,
     >(
         &self,
@@ -200,8 +200,8 @@ impl<Refs: KeyRefs> KeyStore<Refs> {
     /// This method will try to parallelize the encryption of the items, for better performance on
     /// large lists. This method is not parallelized, and is meant for single item encryption.
     pub fn encrypt_list<
-        Key: KeyRef,
-        Data: Encryptable<Refs, Key, Output> + UsesKey<Key> + Send + Sync,
+        Key: KeyId,
+        Data: Encryptable<Ids, Key, Output> + UsesKey<Key> + Send + Sync,
         Output: Send + Sync,
     >(
         &self,
@@ -241,7 +241,7 @@ fn batch_chunk_size(len: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use crate::{
-        key_ref::tests::{TestRefs, TestSymmKey},
+        key_id::tests::{TestIds, TestSymmKey},
         store::{KeyStore, KeyStoreContext},
         EncString, SymmetricCryptoKey,
     };
@@ -261,20 +261,20 @@ mod tests {
         }
     }
 
-    impl crate::Encryptable<TestRefs, TestSymmKey, Data> for DataView {
+    impl crate::Encryptable<TestIds, TestSymmKey, Data> for DataView {
         fn encrypt(
             &self,
-            ctx: &mut KeyStoreContext<TestRefs>,
+            ctx: &mut KeyStoreContext<TestIds>,
             key: TestSymmKey,
         ) -> Result<Data, crate::CryptoError> {
             Ok(Data(self.0.encrypt(ctx, key)?, key))
         }
     }
 
-    impl crate::Decryptable<TestRefs, TestSymmKey, DataView> for Data {
+    impl crate::Decryptable<TestIds, TestSymmKey, DataView> for Data {
         fn decrypt(
             &self,
-            ctx: &mut KeyStoreContext<TestRefs>,
+            ctx: &mut KeyStoreContext<TestIds>,
             key: TestSymmKey,
         ) -> Result<DataView, crate::CryptoError> {
             Ok(DataView(self.0.decrypt(ctx, key)?, key))
@@ -284,7 +284,7 @@ mod tests {
     #[test]
     fn test_multithread_decrypt_keeps_order() {
         let mut rng = rand::thread_rng();
-        let store: KeyStore<TestRefs> = KeyStore::new();
+        let store: KeyStore<TestIds> = KeyStore::new();
 
         // Create a bunch of random keys
         for n in 0..15 {

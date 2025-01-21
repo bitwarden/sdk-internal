@@ -4,18 +4,18 @@ use zeroize::ZeroizeOnDrop;
 
 use crate::{AsymmetricCryptoKey, CryptoKey, SymmetricCryptoKey};
 
-/// Represents a key reference that can be used to identify cryptographic keys in the
+/// Represents a key identifier that can be used to identify cryptographic keys in the
 /// key store. It is used to avoid exposing the key material directly in the public API.
 ///
 /// This trait is user-implemented, and our recommended implementation is using enums with variants
-/// for each expected key purpose. We provide a macro ([crate::key_refs]) that simplifies the trait
+/// for each expected key purpose. We provide a macro ([crate::key_ids]) that simplifies the trait
 /// implementation
 ///
 /// To implement it manually, note that you need a few types:
-/// - One implementing [KeyRef<KeyValue = SymmetricCryptoKey>]
-/// - One implementing [KeyRef<KeyValue = AsymmetricCryptoKey>]
-/// - One implementing [KeyRefs]
-pub trait KeyRef:
+/// - One implementing [KeyId<KeyValue = SymmetricCryptoKey>]
+/// - One implementing [KeyId<KeyValue = AsymmetricCryptoKey>]
+/// - One implementing [KeyIds]
+pub trait KeyId:
     Debug + Clone + Copy + Hash + Eq + PartialEq + Ord + PartialOrd + Send + Sync + 'static
 {
     type KeyValue: CryptoKey + Send + Sync + ZeroizeOnDrop;
@@ -25,20 +25,20 @@ pub trait KeyRef:
     fn is_local(&self) -> bool;
 }
 
-/// Represents a set of all the key references that need to be defined to use a key store.
+/// Represents a set of all the key identifiers that need to be defined to use a key store.
 /// At the moment it's just symmetric and asymmetric keys.
-pub trait KeyRefs {
-    type Symmetric: KeyRef<KeyValue = SymmetricCryptoKey>;
-    type Asymmetric: KeyRef<KeyValue = AsymmetricCryptoKey>;
+pub trait KeyIds {
+    type Symmetric: KeyId<KeyValue = SymmetricCryptoKey>;
+    type Asymmetric: KeyId<KeyValue = AsymmetricCryptoKey>;
 }
 
-/// Just a small derive_like macro that can be used to generate the key reference enums.
+/// Just a small derive_like macro that can be used to generate the key identifier enums.
 /// Example usage:
 /// ```rust
-/// use bitwarden_crypto::key_refs;
-/// key_refs! {
+/// use bitwarden_crypto::key_ids;
+/// key_ids! {
 ///     #[symmetric]
-///     pub enum SymmKeyRef {
+///     pub enum SymmKeyId {
 ///         User,
 ///         Org(uuid::Uuid),
 ///         #[local]
@@ -46,13 +46,13 @@ pub trait KeyRefs {
 ///     }
 ///
 ///     #[asymmetric]
-///     pub enum AsymmKeyRef {
+///     pub enum AsymmKeyId {
 ///         PrivateKey,
 ///     }
-///     pub Refs => SymmKeyRef, AsymmKeyRef;
+///     pub Ids => SymmKeyId, AsymmKeyId;
 /// }
 #[macro_export]
-macro_rules! key_refs {
+macro_rules! key_ids {
     ( $(
         #[$meta_type:tt]
         $vis:vis enum $name:ident {
@@ -63,7 +63,7 @@ macro_rules! key_refs {
             $(,)?
         }
     )+
-    $refs_vis:vis $refs_name:ident => $symm_name:ident, $asymm_name:ident;
+    $ids_vis:vis $ids_name:ident => $symm_name:ident, $asymm_name:ident;
     ) => {
         $(
             #[derive(std::fmt::Debug, Clone, Copy, std::hash::Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -71,21 +71,21 @@ macro_rules! key_refs {
                 $variant  $( ($inner) )?,
             )* }
 
-            impl $crate::KeyRef for $name {
-                type KeyValue = key_refs!(@key_type $meta_type);
+            impl $crate::KeyId for $name {
+                type KeyValue = key_ids!(@key_type $meta_type);
 
                 fn is_local(&self) -> bool {
                     use $name::*;
                     match self { $(
-                        key_refs!(@variant_match $variant $( ( $inner ) )?) =>
-                            key_refs!(@variant_value $( $variant_tag )? ),
+                        key_ids!(@variant_match $variant $( ( $inner ) )?) =>
+                            key_ids!(@variant_value $( $variant_tag )? ),
                     )* }
                 }
             }
         )+
 
-        $refs_vis struct $refs_name;
-        impl $crate::KeyRefs for $refs_name {
+        $ids_vis struct $ids_name;
+        impl $crate::KeyIds for $ids_name {
             type Symmetric = $symm_name;
             type Asymmetric = $asymm_name;
         }
@@ -103,9 +103,9 @@ macro_rules! key_refs {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use crate::KeyRef;
+    use crate::KeyId;
 
-    key_refs! {
+    key_ids! {
         #[symmetric]
         pub enum TestSymmKey {
             A(u8),
@@ -126,7 +126,7 @@ pub(crate) mod tests {
             C(&'static str),
         }
 
-       pub TestRefs => TestSymmKey, TestAsymmKey;
+       pub TestIds => TestSymmKey, TestAsymmKey;
     }
 
     #[test]
