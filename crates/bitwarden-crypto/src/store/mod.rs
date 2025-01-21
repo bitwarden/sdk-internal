@@ -38,7 +38,7 @@ pub use context::KeyStoreContext;
 /// }
 ///
 /// // Initialize the store and insert a test key
-/// let store: KeyStore<Ids> = KeyStore::new();
+/// let store: KeyStore<Ids> = KeyStore::default();
 ///
 /// #[allow(deprecated)]
 /// store.context_mut().set_symmetric_key(SymmKeyId::User, SymmetricCryptoKey::generate(rand::thread_rng()));
@@ -231,13 +231,20 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     }
 }
 
+/// Calculate the optimal chunk size for parallelizing encryption/decryption operations.
 fn batch_chunk_size(len: usize) -> usize {
-    // We want to split all the data between available threads, but at the
-    // same time we don't want to split it too much if the amount of data is small.
+    // In an optimal scenario with no overhead, we would split the data evenly between
+    // all available threads, rounding up to the nearest integer.
+    let items_per_thread = usize::div_ceil(len, rayon::current_num_threads());
 
-    // In this case, the minimum chunk size is 50. This was chosen pretty arbitrarily,
-    // but it seems to work well in practice.
-    usize::max(1 + len / rayon::current_num_threads(), 50)
+    // Because the addition of each chunk has some overhead (e.g. creating a new context, thread
+    // synchronization), we want to split the data into chunks that are large enough to amortize
+    // this overhead, but not too large that we get no benefit from multithreading. We've chosen
+    // a value more or less arbitrarily, but it seems to work well in practice.
+    const MINIMUM_CHUNK_SIZE: usize = 50;
+
+    // As a result, we pick whichever of the two values is larger.
+    usize::max(items_per_thread, MINIMUM_CHUNK_SIZE)
 }
 
 #[cfg(test)]
@@ -298,8 +305,8 @@ pub(crate) mod tests {
         }
 
         // Create some test data
-        let data: Vec<_> = (0..200)
-            .map(|n| DataView(format!("Test {}", n), TestSymmKey::A(n % 15)))
+        let data: Vec<_> = (0..300usize)
+            .map(|n| DataView(format!("Test {}", n), TestSymmKey::A((n % 15) as u8)))
             .collect();
 
         // Encrypt the data
