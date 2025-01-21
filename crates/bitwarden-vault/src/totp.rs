@@ -9,6 +9,7 @@ use reqwest::Url;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
 use crate::CipherListView;
