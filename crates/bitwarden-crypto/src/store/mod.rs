@@ -163,10 +163,10 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         data.encrypt(&mut self.context(), key)
     }
 
-    /// Decrypt a list of items using this key store. The keys returned by `data[i].key_identifier()` must
-    /// already be present in the store, otherwise this will return an error.
-    /// This method will try to parallelize the decryption of the items, for better performance on
-    /// large lists.
+    /// Decrypt a list of items using this key store. The keys returned by
+    /// `data[i].key_identifier()` must already be present in the store, otherwise this will
+    /// return an error. This method will try to parallelize the decryption of the items, for
+    /// better performance on large lists.
     pub fn decrypt_list<
         Key: KeyId,
         Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Send + Sync,
@@ -196,10 +196,11 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         res
     }
 
-    /// Encrypt a list of items using this key store. The keys returned by `data[i].key_identifier()` must
-    /// already be present in the store, otherwise this will return an error.
-    /// This method will try to parallelize the encryption of the items, for better performance on
-    /// large lists. This method is not parallelized, and is meant for single item encryption.
+    /// Encrypt a list of items using this key store. The keys returned by
+    /// `data[i].key_identifier()` must already be present in the store, otherwise this will
+    /// return an error. This method will try to parallelize the encryption of the items, for
+    /// better performance on large lists. This method is not parallelized, and is meant for
+    /// single item encryption.
     pub fn encrypt_list<
         Key: KeyId,
         Data: Encryptable<Ids, Key, Output> + IdentifyKey<Key> + Send + Sync,

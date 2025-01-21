@@ -140,7 +140,8 @@ mod tests {
         let string_decrypted: Option<String> = none_data.decrypt(&mut ctx, key).unwrap();
         assert_eq!(string_decrypted, None);
 
-        // The None implementation will not do any decrypt operations, so it won't fail even if the key doesn't exist
+        // The None implementation will not do any decrypt operations, so it won't fail even if the
+        // key doesn't exist
         let bad_key = TestSymmKey::B((0, 1));
         let string_decrypted_bad: Option<String> = none_data.decrypt(&mut ctx, bad_key).unwrap();
         assert_eq!(string_decrypted_bad, None);
