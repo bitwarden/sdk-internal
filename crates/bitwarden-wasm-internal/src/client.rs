@@ -6,7 +6,7 @@ use bitwarden_error::prelude::*;
 use log::{set_max_level, Level};
 use wasm_bindgen::prelude::*;
 
-use crate::{vault::VaultClient, CryptoClient};
+use crate::{ipc::IpcClient, CryptoClient, VaultClient};
 
 #[wasm_bindgen]
 pub enum LogLevel {
@@ -72,6 +72,10 @@ impl BitwardenClient {
 
     pub fn vault(&self) -> VaultClient {
         VaultClient::new(self.0.clone())
+    }
+
+    pub fn ipc(&self) -> IpcClient {
+        IpcClient::new(self.0.clone())
     }
 }
 
