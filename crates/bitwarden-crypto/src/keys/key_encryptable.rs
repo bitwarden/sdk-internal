@@ -3,7 +3,7 @@ use std::{collections::HashMap, hash::Hash, sync::Arc};
 use rayon::prelude::*;
 use uuid::Uuid;
 
-use crate::{error::Result, CryptoError, SymmetricCryptoKey};
+use crate::{enc_string::encryption_context::EncryptionContextBuilder, error::Result, CryptoError, SymmetricCryptoKey};
 
 pub trait KeyContainer: Send + Sync {
     fn get_key(&self, org_id: &Option<Uuid>) -> Result<&SymmetricCryptoKey, CryptoError>;
@@ -31,8 +31,39 @@ pub trait KeyEncryptable<Key: CryptoKey, Output> {
     fn encrypt_with_key(self, key: &Key) -> Result<Output>;
 }
 
-pub trait KeyDecryptable<Key: CryptoKey, Output> {
-    fn decrypt_with_key(&self, key: &Key) -> Result<Output>;
+pub trait KeyDecryptable<Key: CryptoKey, Output, ContextBuilder: EncryptionContextBuilder> {
+    fn decrypt_with_key(&self, key: &Key, context_builder: &ContextBuilder) -> Result<Output>;
+}
+
+pub struct DecryptedWithAdditionalData {
+    clear_text: Vec<u8>,
+    additional_data: HashMap<String, String>,
+}
+
+impl DecryptedWithAdditionalData {
+    pub fn new(clear_text: Vec<u8>, additional_data: HashMap<String, String>) -> Self {
+        Self {
+            clear_text,
+            additional_data,
+        }
+    }
+
+    pub fn clear_bytes(&self) -> &[u8] {
+        &self.clear_text
+    }
+
+    pub fn clear_text_utf8(&self) -> Result<String> {
+        String::from_utf8(self.clear_text.clone()).map_err(|_| CryptoError::InvalidUtf8String)
+    }
+
+    /// Additional data on the context of the decryption of the clear text.
+    /// Note that not all of this data is authenticated for all [crate::EncString] variants.
+    ///
+    ///  See [KeyDecryptable<_,DecryptedWithAdditionalData>::decrypt_with_key] implementation for
+    /// more information.
+    pub fn additional_data(&self) -> &HashMap<String, String> {
+        &self.additional_data
+    }
 }
 
 impl<T: KeyEncryptable<Key, Output>, Key: CryptoKey, Output> KeyEncryptable<Key, Option<Output>>
@@ -43,11 +74,11 @@ impl<T: KeyEncryptable<Key, Output>, Key: CryptoKey, Output> KeyEncryptable<Key,
     }
 }
 
-impl<T: KeyDecryptable<Key, Output>, Key: CryptoKey, Output> KeyDecryptable<Key, Option<Output>>
+impl<T: KeyDecryptable<Key, Output, ContextBuilder>, Key: CryptoKey, Output, ContextBuilder: EncryptionContextBuilder> KeyDecryptable<Key, Option<Output>, ContextBuilder>
     for Option<T>
 {
-    fn decrypt_with_key(&self, key: &Key) -> Result<Option<Output>> {
-        self.as_ref().map(|e| e.decrypt_with_key(key)).transpose()
+    fn decrypt_with_key(&self, key: &Key, context_builder: &ContextBuilder) -> Result<Option<Output>> {
+        self.as_ref().map(|e| e.decrypt_with_key(key, context_builder)).transpose()
     }
 }
 
@@ -59,11 +90,11 @@ impl<T: KeyEncryptable<Key, Output>, Key: CryptoKey, Output> KeyEncryptable<Key,
     }
 }
 
-impl<T: KeyDecryptable<Key, Output>, Key: CryptoKey, Output> KeyDecryptable<Key, Output>
+impl<T: KeyDecryptable<Key, Output, ContextBuilder>, Key: CryptoKey, Output, ContextBuilder: EncryptionContextBuilder> KeyDecryptable<Key, Output, ContextBuilder>
     for Box<T>
 {
-    fn decrypt_with_key(&self, key: &Key) -> Result<Output> {
-        (**self).decrypt_with_key(key)
+    fn decrypt_with_key(&self, key: &Key, context_builder: &ContextBuilder) -> Result<Output> {
+        (**self).decrypt_with_key(key, context_builder)
     }
 }
 
@@ -81,14 +112,15 @@ impl<
 }
 
 impl<
-        T: KeyDecryptable<Key, Output> + Send + Sync,
+        T: KeyDecryptable<Key, Output, ContextBuilder> + Send + Sync,
         Key: CryptoKey + Send + Sync,
         Output: Send + Sync,
-    > KeyDecryptable<Key, Vec<Output>> for Vec<T>
+        ContextBuilder: EncryptionContextBuilder + Send + Sync,
+    > KeyDecryptable<Key, Vec<Output>, ContextBuilder> for Vec<T>
 {
-    fn decrypt_with_key(&self, key: &Key) -> Result<Vec<Output>> {
+    fn decrypt_with_key(&self, key: &Key, context_builder: &ContextBuilder) -> Result<Vec<Output>> {
         self.into_par_iter()
-            .map(|e| e.decrypt_with_key(key))
+            .map(|e| e.decrypt_with_key(key, context_builder))
             .collect()
     }
 }
@@ -108,15 +140,16 @@ impl<
 }
 
 impl<
-        T: KeyDecryptable<Key, Output> + Send + Sync,
+        T: KeyDecryptable<Key, Output, ContextBuilder> + Send + Sync,
         Key: CryptoKey + Send + Sync,
         Output: Send + Sync,
         Id: Hash + Eq + Copy + Send + Sync,
-    > KeyDecryptable<Key, HashMap<Id, Output>> for HashMap<Id, T>
+        ContextBuilder: EncryptionContextBuilder + Send + Sync,
+    > KeyDecryptable<Key, HashMap<Id, Output>, ContextBuilder> for HashMap<Id, T>
 {
-    fn decrypt_with_key(&self, key: &Key) -> Result<HashMap<Id, Output>> {
+    fn decrypt_with_key(&self, key: &Key, context_builder: &ContextBuilder) -> Result<HashMap<Id, Output>> {
         self.into_par_iter()
-            .map(|(id, e)| Ok((*id, e.decrypt_with_key(key)?)))
+            .map(|(id, e)| Ok((*id, e.decrypt_with_key(key, context_builder)?)))
             .collect()
     }
 }

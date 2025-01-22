@@ -5,8 +5,7 @@ use base64::{
 use bitwarden_api_api::models::{SendFileModel, SendResponseModel, SendTextModel};
 use bitwarden_core::require;
 use bitwarden_crypto::{
-    derive_shareable_key, generate_random_bytes, CryptoError, EncString, KeyDecryptable,
-    KeyEncryptable, SymmetricCryptoKey,
+    derive_shareable_key, generate_random_bytes, CryptoError, EncString, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
 };
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
@@ -146,7 +145,7 @@ impl Send {
         send_key: &EncString,
         enc_key: &SymmetricCryptoKey,
     ) -> Result<SymmetricCryptoKey, CryptoError> {
-        let key: Vec<u8> = send_key.decrypt_with_key(enc_key)?;
+        let key: Vec<u8> = send_key.decrypt_with_key(enc_key, &NoContextBuilder)?;
         Self::derive_shareable_key(&key)
     }
 
@@ -156,10 +155,10 @@ impl Send {
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, SendTextView> for SendText {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<SendTextView, CryptoError> {
+impl KeyDecryptable<SymmetricCryptoKey, SendTextView, NoContextBuilder> for SendText {
+    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<SendTextView, CryptoError> {
         Ok(SendTextView {
-            text: self.text.decrypt_with_key(key)?,
+            text: self.text.decrypt_with_key(key, context_builder)?,
             hidden: self.hidden,
         })
     }
@@ -174,11 +173,11 @@ impl KeyEncryptable<SymmetricCryptoKey, SendText> for SendTextView {
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, SendFileView> for SendFile {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<SendFileView, CryptoError> {
+impl KeyDecryptable<SymmetricCryptoKey, SendFileView, NoContextBuilder> for SendFile {
+    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<SendFileView, CryptoError> {
         Ok(SendFileView {
             id: self.id.clone(),
-            file_name: self.file_name.decrypt_with_key(key)?,
+            file_name: self.file_name.decrypt_with_key(key, context_builder)?,
             size: self.size.clone(),
             size_name: self.size_name.clone(),
         })
@@ -196,27 +195,27 @@ impl KeyEncryptable<SymmetricCryptoKey, SendFile> for SendFileView {
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, SendView> for Send {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<SendView, CryptoError> {
+impl KeyDecryptable<SymmetricCryptoKey, SendView, NoContextBuilder> for Send {
+    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<SendView, CryptoError> {
         // For sends, we first decrypt the send key with the user key, and stretch it to it's full
         // size For the rest of the fields, we ignore the provided SymmetricCryptoKey and
         // the stretched key
-        let k: Vec<u8> = self.key.decrypt_with_key(key)?;
+        let k: Vec<u8> = self.key.decrypt_with_key(key, context_builder)?;
         let key = Send::derive_shareable_key(&k)?;
 
         Ok(SendView {
             id: self.id,
             access_id: self.access_id.clone(),
 
-            name: self.name.decrypt_with_key(&key).ok().unwrap_or_default(),
-            notes: self.notes.decrypt_with_key(&key).ok().flatten(),
+            name: self.name.decrypt_with_key(&key, context_builder).ok().unwrap_or_default(),
+            notes: self.notes.decrypt_with_key(&key, context_builder).ok().flatten(),
             key: Some(URL_SAFE_NO_PAD.encode(k)),
             new_password: None,
             has_password: self.password.is_some(),
 
             r#type: self.r#type,
-            file: self.file.decrypt_with_key(&key).ok().flatten(),
-            text: self.text.decrypt_with_key(&key).ok().flatten(),
+            file: self.file.decrypt_with_key(&key, context_builder).ok().flatten(),
+            text: self.text.decrypt_with_key(&key, context_builder).ok().flatten(),
 
             max_access_count: self.max_access_count,
             access_count: self.access_count,
@@ -230,8 +229,8 @@ impl KeyDecryptable<SymmetricCryptoKey, SendView> for Send {
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, SendListView> for Send {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<SendListView, CryptoError> {
+impl KeyDecryptable<SymmetricCryptoKey, SendListView, NoContextBuilder> for Send {
+    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<SendListView, CryptoError> {
         // For sends, we first decrypt the send key with the user key, and stretch it to it's full
         // size For the rest of the fields, we ignore the provided SymmetricCryptoKey and
         // the stretched key
@@ -241,7 +240,7 @@ impl KeyDecryptable<SymmetricCryptoKey, SendListView> for Send {
             id: self.id,
             access_id: self.access_id.clone(),
 
-            name: self.name.decrypt_with_key(&key)?,
+            name: self.name.decrypt_with_key(&key, context_builder)?,
             r#type: self.r#type,
 
             disabled: self.disabled,
@@ -457,7 +456,7 @@ mod tests {
             hide_email: false,
         };
 
-        let view: SendView = send.decrypt_with_key(key).unwrap();
+        let view: SendView = send.decrypt_with_key(key, &NoContextBuilder).unwrap();
 
         let expected = SendView {
             id: "3d80dd72-2d14-4f26-812c-b0f0018aa144".parse().ok(),
@@ -518,7 +517,7 @@ mod tests {
             .clone()
             .encrypt_with_key(key)
             .unwrap()
-            .decrypt_with_key(key)
+            .decrypt_with_key(key, &NoContextBuilder)
             .unwrap();
         assert_eq!(v, view);
     }
@@ -556,7 +555,7 @@ mod tests {
             .clone()
             .encrypt_with_key(key)
             .unwrap()
-            .decrypt_with_key(key)
+            .decrypt_with_key(key, &NoContextBuilder)
             .unwrap();
 
         // Ignore key when comparing
@@ -599,7 +598,7 @@ mod tests {
             Some("vTIDfdj3FTDbejmMf+mJWpYdMXsxfeSd1Sma3sjCtiQ=".to_owned())
         );
 
-        let v: SendView = send.decrypt_with_key(key).unwrap();
+        let v: SendView = send.decrypt_with_key(key, &NoContextBuilder).unwrap();
         assert_eq!(v.new_password, None);
         assert!(v.has_password);
     }

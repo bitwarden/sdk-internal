@@ -65,11 +65,11 @@ impl EncryptionSettings {
         user_key: SymmetricCryptoKey,
         private_key: EncString,
     ) -> Result<Self, EncryptionSettingsError> {
-        use bitwarden_crypto::KeyDecryptable;
+        use bitwarden_crypto::{KeyDecryptable, NoContextBuilder};
         use log::warn;
 
         let private_key = {
-            let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
+            let dec: Vec<u8> = private_key.decrypt_with_key(&user_key, &NoContextBuilder)?;
 
             // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a recovery
             // process in place.
@@ -108,7 +108,7 @@ impl EncryptionSettings {
         &mut self,
         org_enc_keys: Vec<(Uuid, AsymmetricEncString)>,
     ) -> Result<&Self, EncryptionSettingsError> {
-        use bitwarden_crypto::KeyDecryptable;
+        use bitwarden_crypto::{KeyDecryptable, NoContextBuilder};
 
         // Make sure we only keep the keys given in the arguments and not any of the previous
         // ones, which might be from organizations that the user is no longer a part of anymore
@@ -126,7 +126,7 @@ impl EncryptionSettings {
 
         // Decrypt the org keys with the private key
         for (org_id, org_enc_key) in org_enc_keys {
-            let mut dec: Vec<u8> = org_enc_key.decrypt_with_key(private_key)?;
+            let mut dec: Vec<u8> = org_enc_key.decrypt_with_key(private_key, &NoContextBuilder)?;
 
             let org_key = SymmetricCryptoKey::try_from(dec.as_mut_slice())?;
 

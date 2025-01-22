@@ -5,11 +5,11 @@ pub use internal::AsymmetricEncString;
 use rsa::Oaep;
 use serde::Deserialize;
 
-use super::{from_b64_vec, split_enc_string};
+use super::{encryption_context::EncryptionContextBuilder, from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result},
     rsa::encrypt_rsa2048_oaep_sha1,
-    AsymmetricCryptoKey, AsymmetricEncryptable, KeyDecryptable,
+    AsymmetricCryptoKey, AsymmetricEncryptable, EncryptionContext, KeyDecryptable,
 };
 // This module is a workaround to avoid deprecated warnings that come from the ZeroizeOnDrop
 // macro expansion
@@ -171,8 +171,14 @@ impl AsymmetricEncString {
     }
 }
 
-impl KeyDecryptable<AsymmetricCryptoKey, Vec<u8>> for AsymmetricEncString {
-    fn decrypt_with_key(&self, key: &AsymmetricCryptoKey) -> Result<Vec<u8>> {
+impl<ContextBuilder: EncryptionContextBuilder> KeyDecryptable<AsymmetricCryptoKey, Vec<u8>, ContextBuilder>
+    for AsymmetricEncString
+{
+    fn decrypt_with_key(
+        &self,
+        key: &AsymmetricCryptoKey,
+        _context_builder: &ContextBuilder,
+    ) -> Result<Vec<u8>> {
         use AsymmetricEncString::*;
         match self {
             Rsa2048_OaepSha256_B64 { data } => key.key.decrypt(Oaep::new::<sha2::Sha256>(), data),
@@ -184,15 +190,21 @@ impl KeyDecryptable<AsymmetricCryptoKey, Vec<u8>> for AsymmetricEncString {
             #[allow(deprecated)]
             Rsa2048_OaepSha1_HmacSha256_B64 { data, .. } => {
                 key.key.decrypt(Oaep::new::<sha1::Sha1>(), data)
-            }
+            } // TODO: Use _context_builder once we use HPKE and support AEAD in asymmetric encryption operations
         }
         .map_err(|_| CryptoError::KeyDecrypt)
     }
 }
 
-impl KeyDecryptable<AsymmetricCryptoKey, String> for AsymmetricEncString {
-    fn decrypt_with_key(&self, key: &AsymmetricCryptoKey) -> Result<String> {
-        let dec: Vec<u8> = self.decrypt_with_key(key)?;
+impl<ContextBuilder: EncryptionContextBuilder> KeyDecryptable<AsymmetricCryptoKey, String, ContextBuilder>
+    for AsymmetricEncString
+{
+    fn decrypt_with_key(
+        &self,
+        key: &AsymmetricCryptoKey,
+        context_builder: &ContextBuilder,
+    ) -> Result<String> {
+        let dec: Vec<u8> = self.decrypt_with_key(key, context_builder)?;
         String::from_utf8(dec).map_err(|_| CryptoError::InvalidUtf8String)
     }
 }
@@ -212,8 +224,32 @@ impl schemars::JsonSchema for AsymmetricEncString {
 #[cfg(test)]
 mod tests {
     use schemars::schema_for;
+    use serde::{Deserialize, Serialize};
+
+    use crate::{enc_string::encryption_context::EncryptionContextBuilder, EncryptionContext};
 
     use super::{AsymmetricCryptoKey, AsymmetricEncString, KeyDecryptable};
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    enum TestContext {
+        Test,
+    }
+
+    struct TestEncryptionContextBuilder;
+
+    impl EncryptionContextBuilder for TestEncryptionContextBuilder {
+        type Context = TestContext;
+
+        fn build_like(&self, _template_context: &TestContext) -> TestContext {
+            TestContext::Test
+        }
+    }
+
+    impl EncryptionContext for TestContext {
+        fn context_name(&self) -> &str {
+            "Test"
+        }
+    }
 
     const RSA_PRIVATE_KEY: &str = "-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCXRVrCX+2hfOQS
@@ -252,7 +288,9 @@ XKZBokBGnjFnTnKcs7nv/O8=
 
         assert_eq!(enc_string.enc_type(), 3);
 
-        let res: String = enc_string.decrypt_with_key(&private_key).unwrap();
+        let res: String = enc_string
+            .decrypt_with_key(&private_key, &TestEncryptionContextBuilder)
+            .unwrap();
         assert_eq!(res, "EncryptMe!");
     }
 
@@ -264,7 +302,9 @@ XKZBokBGnjFnTnKcs7nv/O8=
 
         assert_eq!(enc_string.enc_type(), 4);
 
-        let res: String = enc_string.decrypt_with_key(&private_key).unwrap();
+        let res: String = enc_string
+            .decrypt_with_key(&private_key, &TestEncryptionContextBuilder)
+            .unwrap();
         assert_eq!(res, "EncryptMe!");
     }
 
@@ -276,7 +316,9 @@ XKZBokBGnjFnTnKcs7nv/O8=
 
         assert_eq!(enc_string.enc_type(), 6);
 
-        let res: String = enc_string.decrypt_with_key(&private_key).unwrap();
+        let res: String = enc_string
+            .decrypt_with_key(&private_key, &TestEncryptionContextBuilder)
+            .unwrap();
         assert_eq!(res, "EncryptMe!");
     }
 

@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::CipherIdentityModel;
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -80,27 +80,27 @@ impl KeyEncryptable<SymmetricCryptoKey, Identity> for IdentityView {
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, IdentityView> for Identity {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<IdentityView, CryptoError> {
+impl KeyDecryptable<SymmetricCryptoKey, IdentityView, NoContextBuilder> for Identity {
+    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<IdentityView, CryptoError> {
         Ok(IdentityView {
-            title: self.title.decrypt_with_key(key).ok().flatten(),
-            first_name: self.first_name.decrypt_with_key(key).ok().flatten(),
-            middle_name: self.middle_name.decrypt_with_key(key).ok().flatten(),
-            last_name: self.last_name.decrypt_with_key(key).ok().flatten(),
-            address1: self.address1.decrypt_with_key(key).ok().flatten(),
-            address2: self.address2.decrypt_with_key(key).ok().flatten(),
-            address3: self.address3.decrypt_with_key(key).ok().flatten(),
-            city: self.city.decrypt_with_key(key).ok().flatten(),
-            state: self.state.decrypt_with_key(key).ok().flatten(),
-            postal_code: self.postal_code.decrypt_with_key(key).ok().flatten(),
-            country: self.country.decrypt_with_key(key).ok().flatten(),
-            company: self.company.decrypt_with_key(key).ok().flatten(),
-            email: self.email.decrypt_with_key(key).ok().flatten(),
-            phone: self.phone.decrypt_with_key(key).ok().flatten(),
-            ssn: self.ssn.decrypt_with_key(key).ok().flatten(),
-            username: self.username.decrypt_with_key(key).ok().flatten(),
-            passport_number: self.passport_number.decrypt_with_key(key).ok().flatten(),
-            license_number: self.license_number.decrypt_with_key(key).ok().flatten(),
+            title: self.title.decrypt_with_key(key, context_builder).ok().flatten(),
+            first_name: self.first_name.decrypt_with_key(key, context_builder).ok().flatten(),
+            middle_name: self.middle_name.decrypt_with_key(key, context_builder).ok().flatten(),
+            last_name: self.last_name.decrypt_with_key(key, context_builder).ok().flatten(),
+            address1: self.address1.decrypt_with_key(key, context_builder).ok().flatten(),
+            address2: self.address2.decrypt_with_key(key, context_builder).ok().flatten(),
+            address3: self.address3.decrypt_with_key(key, context_builder).ok().flatten(),
+            city: self.city.decrypt_with_key(key, context_builder).ok().flatten(),
+            state: self.state.decrypt_with_key(key, context_builder).ok().flatten(),
+            postal_code: self.postal_code.decrypt_with_key(key, context_builder).ok().flatten(),
+            country: self.country.decrypt_with_key(key, context_builder).ok().flatten(),
+            company: self.company.decrypt_with_key(key, context_builder).ok().flatten(),
+            email: self.email.decrypt_with_key(key, context_builder).ok().flatten(),
+            phone: self.phone.decrypt_with_key(key, context_builder).ok().flatten(),
+            ssn: self.ssn.decrypt_with_key(key, context_builder).ok().flatten(),
+            username: self.username.decrypt_with_key(key, context_builder).ok().flatten(),
+            passport_number: self.passport_number.decrypt_with_key(key, context_builder).ok().flatten(),
+            license_number: self.license_number.decrypt_with_key(key, context_builder).ok().flatten(),
         })
     }
 }

@@ -1,5 +1,5 @@
 use bitwarden_core::{Client, Error};
-use bitwarden_crypto::{KeyDecryptable, LocateKey};
+use bitwarden_crypto::{KeyDecryptable, LocateKey, NoContextBuilder};
 
 use crate::{Collection, CollectionView, VaultClient};
 
@@ -12,7 +12,7 @@ impl ClientCollections<'_> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = collection.locate_key(&enc, &None)?;
 
-        let view = collection.decrypt_with_key(key)?;
+        let view = collection.decrypt_with_key(key, &NoContextBuilder)?;
 
         Ok(view)
     }
@@ -24,7 +24,7 @@ impl ClientCollections<'_> {
             .iter()
             .map(|c| -> Result<CollectionView, _> {
                 let key = c.locate_key(&enc, &None)?;
-                Ok(c.decrypt_with_key(key)?)
+                Ok(c.decrypt_with_key(key, &NoContextBuilder)?)
             })
             .collect();
 

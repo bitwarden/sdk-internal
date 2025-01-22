@@ -1,5 +1,5 @@
 use bitwarden_core::{Client, Error};
-use bitwarden_crypto::{KeyDecryptable, KeyEncryptable};
+use bitwarden_crypto::{KeyDecryptable, KeyEncryptable, NoContextBuilder};
 
 use crate::{PasswordHistory, PasswordHistoryView, VaultClient};
 
@@ -24,7 +24,7 @@ impl ClientPasswordHistory<'_> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = enc.get_key(&None)?;
 
-        let history_view = history.decrypt_with_key(key)?;
+        let history_view = history.decrypt_with_key(key, &NoContextBuilder)?;
 
         Ok(history_view)
     }

@@ -1,5 +1,5 @@
 use bitwarden_core::Client;
-use bitwarden_crypto::{KeyContainer, KeyDecryptable, KeyEncryptable, LocateKey};
+use bitwarden_crypto::{KeyContainer, KeyDecryptable, KeyEncryptable, LocateKey, NoContextBuilder};
 use bitwarden_vault::{Cipher, CipherView, Collection, Folder, FolderView};
 
 use crate::{
@@ -19,7 +19,7 @@ pub(crate) fn export_vault(
     let enc = client.internal.get_encryption_settings()?;
     let key = enc.get_key(&None)?;
 
-    let folders: Vec<FolderView> = folders.decrypt_with_key(key)?;
+    let folders: Vec<FolderView> = folders.decrypt_with_key(key, &NoContextBuilder)?;
     let folders: Vec<crate::Folder> = folders.into_iter().flat_map(|f| f.try_into()).collect();
 
     let ciphers: Vec<crate::Cipher> = ciphers

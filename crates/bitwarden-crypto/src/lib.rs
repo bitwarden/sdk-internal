@@ -12,14 +12,34 @@
 //! ## Example:
 //!
 //! ```rust
-//! use bitwarden_crypto::{SymmetricCryptoKey, KeyEncryptable, KeyDecryptable, CryptoError};
+//! use bitwarden_crypto::{SymmetricCryptoKey, KeyEncryptable, KeyDecryptable, CryptoError, EncryptionContextBuilder, EncryptionContext};
+//!
+//! #[derive(serde::Serialize, serde::Deserialize, PartialEq)]
+//! enum DocContext {
+//!  V1
+//! };
+//! struct DocContextBuilder;
+//!
+//! impl EncryptionContextBuilder for DocContextBuilder {
+//!   type Context = DocContext;
+//!   fn build_like(&self, _template_context: &DocContext) -> DocContext {
+//!     DocContext::V1
+//!   }
+//! }
+//!
+//! impl EncryptionContext for DocContext {
+//!  fn context_name(&self) -> &str {
+//!   "DocContext"
+//!  }
+//! }
 //!
 //! async fn example() -> Result<(), CryptoError> {
 //!   let key = SymmetricCryptoKey::generate(rand::thread_rng());
 //!
+//!
 //!   let data = "Hello, World!".to_owned();
 //!   let encrypted = data.clone().encrypt_with_key(&key)?;
-//!   let decrypted: String = encrypted.decrypt_with_key(&key)?;
+//!   let decrypted: String = encrypted.decrypt_with_key(&key, &DocContextBuilder)?;
 //!
 //!   assert_eq!(data, decrypted);
 //!   Ok(())
@@ -66,7 +86,14 @@ static ALLOC: ZeroizingAllocator<std::alloc::System> = ZeroizingAllocator(std::a
 
 mod aes;
 mod enc_string;
-pub use enc_string::{AsymmetricEncString, EncString};
+pub use enc_string::{
+    encryption_context::{
+        EncryptionContext, EncryptionContextBuilder, EncryptionContextError, 
+        // FIXME: stop exporting this once everyone writes a custom context
+        NoContextBuilder,
+    },
+    AsymmetricEncString, EncString,
+};
 mod error;
 pub use error::CryptoError;
 pub(crate) use error::Result;

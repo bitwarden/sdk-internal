@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::CipherCardModel;
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -44,15 +44,15 @@ impl KeyEncryptable<SymmetricCryptoKey, Card> for CardView {
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, CardView> for Card {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<CardView, CryptoError> {
+impl KeyDecryptable<SymmetricCryptoKey, CardView, NoContextBuilder> for Card {
+    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<CardView, CryptoError> {
         Ok(CardView {
-            cardholder_name: self.cardholder_name.decrypt_with_key(key).ok().flatten(),
-            exp_month: self.exp_month.decrypt_with_key(key).ok().flatten(),
-            exp_year: self.exp_year.decrypt_with_key(key).ok().flatten(),
-            code: self.code.decrypt_with_key(key).ok().flatten(),
-            brand: self.brand.decrypt_with_key(key).ok().flatten(),
-            number: self.number.decrypt_with_key(key).ok().flatten(),
+            cardholder_name: self.cardholder_name.decrypt_with_key(key, context_builder).ok().flatten(),
+            exp_month: self.exp_month.decrypt_with_key(key, context_builder).ok().flatten(),
+            exp_year: self.exp_year.decrypt_with_key(key, context_builder).ok().flatten(),
+            code: self.code.decrypt_with_key(key, context_builder).ok().flatten(),
+            brand: self.brand.decrypt_with_key(key, context_builder).ok().flatten(),
+            number: self.number.decrypt_with_key(key, context_builder).ok().flatten(),
         })
     }
 }

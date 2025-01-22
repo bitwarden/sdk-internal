@@ -1,5 +1,5 @@
 use bitwarden_core::{Client, Error};
-use bitwarden_crypto::{KeyDecryptable, KeyEncryptable, LocateKey};
+use bitwarden_crypto::{KeyDecryptable, KeyEncryptable, LocateKey, NoContextBuilder};
 use uuid::Uuid;
 
 use crate::{Cipher, CipherError, CipherListView, CipherView, VaultClient};
@@ -35,7 +35,7 @@ impl ClientCiphers<'_> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = cipher.locate_key(&enc, &None)?;
 
-        let cipher_view = cipher.decrypt_with_key(key)?;
+        let cipher_view = cipher.decrypt_with_key(key, &NoContextBuilder)?;
 
         Ok(cipher_view)
     }
@@ -47,7 +47,7 @@ impl ClientCiphers<'_> {
             .iter()
             .map(|c| -> Result<CipherListView, _> {
                 let key = c.locate_key(&enc, &None)?;
-                Ok(c.decrypt_with_key(key)?)
+                Ok(c.decrypt_with_key(key, &NoContextBuilder)?)
             })
             .collect();
 

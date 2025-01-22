@@ -2,7 +2,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_api_api::models::{CipherLoginModel, CipherLoginUriModel};
 use bitwarden_core::require;
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
 };
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
@@ -191,40 +191,42 @@ impl KeyEncryptable<SymmetricCryptoKey, Fido2Credential> for Fido2CredentialFull
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, Fido2CredentialFullView> for Fido2Credential {
+impl KeyDecryptable<SymmetricCryptoKey, Fido2CredentialFullView, NoContextBuilder> for Fido2Credential {
     fn decrypt_with_key(
         &self,
         key: &SymmetricCryptoKey,
+        context_builder: &NoContextBuilder,
     ) -> Result<Fido2CredentialFullView, CryptoError> {
         Ok(Fido2CredentialFullView {
-            credential_id: self.credential_id.decrypt_with_key(key)?,
-            key_type: self.key_type.decrypt_with_key(key)?,
-            key_algorithm: self.key_algorithm.decrypt_with_key(key)?,
-            key_curve: self.key_curve.decrypt_with_key(key)?,
-            key_value: self.key_value.decrypt_with_key(key)?,
-            rp_id: self.rp_id.decrypt_with_key(key)?,
-            user_handle: self.user_handle.decrypt_with_key(key)?,
-            user_name: self.user_name.decrypt_with_key(key)?,
-            counter: self.counter.decrypt_with_key(key)?,
-            rp_name: self.rp_name.decrypt_with_key(key)?,
-            user_display_name: self.user_display_name.decrypt_with_key(key)?,
-            discoverable: self.discoverable.decrypt_with_key(key)?,
+            credential_id: self.credential_id.decrypt_with_key(key, context_builder)?,
+            key_type: self.key_type.decrypt_with_key(key, context_builder)?,
+            key_algorithm: self.key_algorithm.decrypt_with_key(key, context_builder)?,
+            key_curve: self.key_curve.decrypt_with_key(key, context_builder)?,
+            key_value: self.key_value.decrypt_with_key(key, context_builder)?,
+            rp_id: self.rp_id.decrypt_with_key(key, context_builder)?,
+            user_handle: self.user_handle.decrypt_with_key(key, context_builder)?,
+            user_name: self.user_name.decrypt_with_key(key, context_builder)?,
+            counter: self.counter.decrypt_with_key(key, context_builder)?,
+            rp_name: self.rp_name.decrypt_with_key(key, context_builder)?,
+            user_display_name: self.user_display_name.decrypt_with_key(key, context_builder)?,
+            discoverable: self.discoverable.decrypt_with_key(key, context_builder)?,
             creation_date: self.creation_date,
         })
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, Fido2CredentialFullView> for Fido2CredentialView {
+impl KeyDecryptable<SymmetricCryptoKey, Fido2CredentialFullView, NoContextBuilder> for Fido2CredentialView {
     fn decrypt_with_key(
         &self,
         key: &SymmetricCryptoKey,
+        context_builder: &NoContextBuilder,
     ) -> Result<Fido2CredentialFullView, CryptoError> {
         Ok(Fido2CredentialFullView {
             credential_id: self.credential_id.clone(),
             key_type: self.key_type.clone(),
             key_algorithm: self.key_algorithm.clone(),
             key_curve: self.key_curve.clone(),
-            key_value: self.key_value.decrypt_with_key(key)?,
+            key_value: self.key_value.decrypt_with_key(key, context_builder)?,
             rp_id: self.rp_id.clone(),
             user_handle: self.user_handle.clone(),
             user_name: self.user_name.clone(),
@@ -302,36 +304,36 @@ impl KeyEncryptable<SymmetricCryptoKey, Login> for LoginView {
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, LoginUriView> for LoginUri {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<LoginUriView, CryptoError> {
+impl KeyDecryptable<SymmetricCryptoKey, LoginUriView, NoContextBuilder> for LoginUri {
+    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<LoginUriView, CryptoError> {
         Ok(LoginUriView {
-            uri: self.uri.decrypt_with_key(key)?,
+            uri: self.uri.decrypt_with_key(key, context_builder)?,
             r#match: self.r#match,
-            uri_checksum: self.uri_checksum.decrypt_with_key(key)?,
+            uri_checksum: self.uri_checksum.decrypt_with_key(key, context_builder)?,
         })
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, LoginView> for Login {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<LoginView, CryptoError> {
+impl KeyDecryptable<SymmetricCryptoKey, LoginView, NoContextBuilder> for Login {
+    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<LoginView, CryptoError> {
         Ok(LoginView {
-            username: self.username.decrypt_with_key(key).ok().flatten(),
-            password: self.password.decrypt_with_key(key).ok().flatten(),
+            username: self.username.decrypt_with_key(key, context_builder).ok().flatten(),
+            password: self.password.decrypt_with_key(key, context_builder).ok().flatten(),
             password_revision_date: self.password_revision_date,
-            uris: self.uris.decrypt_with_key(key).ok().flatten(),
-            totp: self.totp.decrypt_with_key(key).ok().flatten(),
+            uris: self.uris.decrypt_with_key(key, context_builder).ok().flatten(),
+            totp: self.totp.decrypt_with_key(key, context_builder).ok().flatten(),
             autofill_on_page_load: self.autofill_on_page_load,
             fido2_credentials: self.fido2_credentials.clone(),
         })
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, LoginListView> for Login {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<LoginListView, CryptoError> {
+impl KeyDecryptable<SymmetricCryptoKey, LoginListView, NoContextBuilder> for Login {
+    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<LoginListView, CryptoError> {
         Ok(LoginListView {
             has_fido2: self.fido2_credentials.is_some(),
             totp: self.totp.clone(),
-            uris: self.uris.decrypt_with_key(key).ok().flatten(),
+            uris: self.uris.decrypt_with_key(key, context_builder).ok().flatten(),
         })
     }
 }
@@ -362,24 +364,25 @@ impl KeyEncryptable<SymmetricCryptoKey, Fido2Credential> for Fido2CredentialView
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, Fido2CredentialView> for Fido2Credential {
+impl KeyDecryptable<SymmetricCryptoKey, Fido2CredentialView, NoContextBuilder> for Fido2Credential {
     fn decrypt_with_key(
         &self,
         key: &SymmetricCryptoKey,
+        context_builder: &NoContextBuilder
     ) -> Result<Fido2CredentialView, CryptoError> {
         Ok(Fido2CredentialView {
-            credential_id: self.credential_id.decrypt_with_key(key)?,
-            key_type: self.key_type.decrypt_with_key(key)?,
-            key_algorithm: self.key_algorithm.decrypt_with_key(key)?,
-            key_curve: self.key_curve.decrypt_with_key(key)?,
+            credential_id: self.credential_id.decrypt_with_key(key, context_builder)?,
+            key_type: self.key_type.decrypt_with_key(key, context_builder)?,
+            key_algorithm: self.key_algorithm.decrypt_with_key(key, context_builder)?,
+            key_curve: self.key_curve.decrypt_with_key(key, context_builder)?,
             key_value: self.key_value.clone(),
-            rp_id: self.rp_id.decrypt_with_key(key)?,
-            user_handle: self.user_handle.decrypt_with_key(key)?,
-            user_name: self.user_name.decrypt_with_key(key)?,
-            counter: self.counter.decrypt_with_key(key)?,
-            rp_name: self.rp_name.decrypt_with_key(key)?,
-            user_display_name: self.user_display_name.decrypt_with_key(key)?,
-            discoverable: self.discoverable.decrypt_with_key(key)?,
+            rp_id: self.rp_id.decrypt_with_key(key, context_builder)?,
+            user_handle: self.user_handle.decrypt_with_key(key, context_builder)?,
+            user_name: self.user_name.decrypt_with_key(key, context_builder)?,
+            counter: self.counter.decrypt_with_key(key, context_builder)?,
+            rp_name: self.rp_name.decrypt_with_key(key, context_builder)?,
+            user_display_name: self.user_display_name.decrypt_with_key(key, context_builder)?,
+            discoverable: self.discoverable.decrypt_with_key(key, context_builder)?,
             creation_date: self.creation_date,
         })
     }

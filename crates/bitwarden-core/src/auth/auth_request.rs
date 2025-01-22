@@ -52,8 +52,10 @@ pub(crate) fn auth_request_decrypt_user_key(
     private_key: String,
     user_key: AsymmetricEncString,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
+    use bitwarden_crypto::NoContextBuilder;
+
     let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
-    let mut key: Vec<u8> = user_key.decrypt_with_key(&key)?;
+    let mut key: Vec<u8> = user_key.decrypt_with_key(&key, &NoContextBuilder)?;
 
     Ok(SymmetricCryptoKey::try_from(key.as_mut_slice())?)
 }
@@ -65,10 +67,10 @@ pub(crate) fn auth_request_decrypt_master_key(
     master_key: AsymmetricEncString,
     user_key: EncString,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
-    use bitwarden_crypto::MasterKey;
+    use bitwarden_crypto::{MasterKey, NoContextBuilder};
 
     let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
-    let mut master_key: Vec<u8> = master_key.decrypt_with_key(&key)?;
+    let mut master_key: Vec<u8> = master_key.decrypt_with_key(&key, &NoContextBuilder)?;
     let master_key = MasterKey::new(SymmetricCryptoKey::try_from(master_key.as_mut_slice())?);
 
     Ok(master_key.decrypt_user_key(user_key)?)

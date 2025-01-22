@@ -1,5 +1,5 @@
 use bitwarden_core::{require, MissingFieldError};
-use bitwarden_crypto::{KeyContainer, KeyDecryptable, LocateKey};
+use bitwarden_crypto::{KeyContainer, KeyDecryptable, LocateKey, NoContextBuilder};
 use bitwarden_vault::{
     CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldView, FolderView,
     IdentityView, LoginUriView, SecureNoteType, SecureNoteView, SshKeyView,
@@ -22,7 +22,7 @@ impl crate::Cipher {
         cipher: Cipher,
     ) -> Result<Self, crate::error::ExportError> {
         let key = cipher.locate_key(enc, &None)?;
-        let view: CipherView = cipher.decrypt_with_key(key)?;
+        let view: CipherView = cipher.decrypt_with_key(key, &NoContextBuilder)?;
 
         let r = match view.r#type {
             CipherType::Login => crate::CipherType::Login(Box::new(from_login(&view, enc)?)),

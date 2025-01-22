@@ -7,6 +7,7 @@
 //! [AsymmetricCryptoKey][crate::AsymmetricCryptoKey]s.
 
 mod asymmetric;
+pub mod encryption_context;
 mod symmetric;
 
 use std::str::FromStr;

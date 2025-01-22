@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::CollectionDetailsResponseModel;
 use bitwarden_core::require;
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyContainer, KeyDecryptable, LocateKey, SymmetricCryptoKey,
+    CryptoError, EncString, KeyContainer, KeyDecryptable, LocateKey, NoContextBuilder, SymmetricCryptoKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -48,13 +48,13 @@ impl LocateKey for Collection {
         enc.get_key(&Some(self.organization_id))
     }
 }
-impl KeyDecryptable<SymmetricCryptoKey, CollectionView> for Collection {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<CollectionView, CryptoError> {
+impl KeyDecryptable<SymmetricCryptoKey, CollectionView, NoContextBuilder> for Collection {
+    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<CollectionView, CryptoError> {
         Ok(CollectionView {
             id: self.id,
             organization_id: self.organization_id,
 
-            name: self.name.decrypt_with_key(key).ok().unwrap_or_default(),
+            name: self.name.decrypt_with_key(key, context_builder).ok().unwrap_or_default(),
 
             external_id: self.external_id.clone(),
             hide_passwords: self.hide_passwords,
