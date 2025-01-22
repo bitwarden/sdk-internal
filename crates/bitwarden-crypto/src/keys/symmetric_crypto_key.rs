@@ -7,10 +7,9 @@ use rand::Rng;
 use zeroize::Zeroize;
 
 use super::key_encryptable::CryptoKey;
-use crate::CryptoError;
-
 #[cfg(not(test))]
 use super::master_key::KdfDerivedKeymaterial;
+use crate::CryptoError;
 
 // GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
 // To keep the compiler from making stack copies when moving this struct around,
