@@ -99,12 +99,36 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         keys.asymmetric_keys.clear();
     }
 
+    /// <div class="warning">
+    /// This is an advanced API, use with care. If you still need to use it, make sure you read this
+    /// documentation to understand how to use it safely. </div>
+    ///
     /// Initiate an encryption/decryption context. This context will have read only access to the
     /// global keys, and will have its own local key stores with read/write access. This
     /// context-local store will be cleared up when the context is dropped.
     ///
-    /// This is an advanced API, use with care. Prefer to instead use
-    /// `encrypt`/`decrypt`/`encrypt_list`/`decrypt_list` methods.
+    /// Some possible use cases for this API and alternative recommendations are:
+    /// - Decrypting one or more [crate::EncString]s directly. This was the pattern before the
+    ///   introduction of  the [Encryptable] and [Decryptable] traits, but is now considered
+    ///   obsolete. We recommend wrapping the values in a struct that implements these traits
+    ///   instead, and then using [KeyStore::encrypt], [KeyStore::decrypt], [KeyStore::encrypt_list]
+    ///   and [KeyStore::decrypt_list].
+    /// - Decrypting or encrypting multiple [Decryptable] or [Encryptable] items while sharing any
+    ///   local keys. This is not recommended as it can lead to fragile and flaky
+    ///   decryption/encryption operations. We recommend any local keys to be used only in the
+    ///   context of a single [Encryptable] or [Decryptable] implementation. In the future we might
+    ///   enforce this.
+    /// - Obtaining the key material directly. We strongly recommend against doing this as it can
+    ///   lead to key material being leaked, but we need to support it for backwards compatibility.
+    ///   If you want to access the key material to encrypt it or derive a new key from it, we
+    ///   provide functions for that:
+    ///     - [KeyStoreContext::encrypt_symmetric_key_with_symmetric_key]
+    ///     - [KeyStoreContext::encrypt_symmetric_key_with_asymmetric_key]
+    ///     - [KeyStoreContext::encrypt_asymmetric_key_with_asymmetric_key]
+    ///     - [KeyStoreContext::derive_shareable_key]
+    /// - Some other minor and safe operations, like checking if a key exists. This is not exposed
+    ///   in the [KeyStore] directly as we haven't seen many use cases for it, but we can add it if
+    ///   needed.
     ///
     /// One of the pitfalls of the current implementations is that keys stored in the context-local
     /// store only get cleared automatically when the context is dropped, and not between
@@ -119,17 +143,21 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         }
     }
 
+    /// <div class="warning">
+    /// This is an advanced API, use with care and ONLY when needing to modify the global keys.
+    ///
+    /// The same pitfalls as [Self::context] apply here, but with the added risk of accidentally
+    /// modifying the global keys and leaving the store in an inconsistent state.
+    /// If you still need to use it, make sure you read this documentation to understand how to use
+    /// it safely. </div>
+    ///
     /// Initiate an encryption/decryption context. This context will have MUTABLE access to the
     /// global keys, and will have its own local key stores with read/write access. This
     /// context-local store will be cleared up when the context is dropped.
     ///
-    /// This is an advanced API, use with care and ONLY when needing to modify the global keys.
-    ///
-    /// The same pitfalls as `context` apply here, but with the added risk of accidentally
-    /// modifying the global keys and leaving the store in an inconsistent state.
-    ///
-    /// TODO: We should work towards making this pub(crate), and instead providing a safe API for
-    /// modifying the global keys. (i.e. `derive_master_key`, `derive_user_key`, etc.)
+    /// The only supported use case for this API is initializing the store with the user's symetric
+    /// and private keys, and setting the organization keys. This method will be marked as
+    /// `pub(crate)` in the future, once we have a safe API for key initialization and updating.
     pub fn context_mut(&'_ self) -> KeyStoreContext<'_, Ids> {
         KeyStoreContext {
             global_keys: GlobalKeys::ReadWrite(self.inner.write().expect("RwLock is poisoned")),
