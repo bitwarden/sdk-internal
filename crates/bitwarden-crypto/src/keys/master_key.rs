@@ -5,11 +5,15 @@ use generic_array::{typenum::U32, GenericArray};
 use rand::Rng;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use zeroize::Zeroize;
 #[cfg(feature = "wasm")]
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
-use super::utils::{derive_kdf_key, stretch_kdf_key};
-use crate::{util, CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey};
+use super::{
+    symmetric_crypto_key::KdfDerviedKeymaterial,
+    utils::{derive_kdf_key, stretch_kdf_key},
+};
+use crate::{util, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey};
 
 /// Key Derivation Function for Bitwarden Account
 ///
@@ -66,10 +70,10 @@ pub enum HashPurpose {
 /// Master Key.
 ///
 /// Derived from the users master password, used to protect the [UserKey].
-pub struct MasterKey(SymmetricCryptoKey);
+pub struct MasterKey(KdfDerviedKeymaterial);
 
 impl MasterKey {
-    pub fn new(key: SymmetricCryptoKey) -> Self {
+    pub(crate) fn new(key: KdfDerviedKeymaterial) -> Self {
         Self(key)
     }
 
@@ -80,7 +84,7 @@ impl MasterKey {
         rng.fill(key.as_mut_slice());
 
         // Master Keys never contains a mac_key.
-        Self::new(SymmetricCryptoKey { key, mac_key: None })
+        Self::new(KdfDerviedKeymaterial { key_material: key })
     }
 
     /// Derives a users master key from their password, email and KDF.
@@ -97,7 +101,7 @@ impl MasterKey {
 
     /// Derive the master key hash, used for local and remote password validation.
     pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> Result<String> {
-        let hash = util::pbkdf2(&self.0.key, password, purpose as u32);
+        let hash = util::pbkdf2(&self.0.key_material, password, purpose as u32);
 
         Ok(STANDARD.encode(hash))
     }
@@ -118,39 +122,44 @@ impl MasterKey {
     }
 
     pub fn to_base64(&self) -> String {
-        self.0.to_base64()
+        STANDARD.encode(self.0.key_material.to_vec())
+    }
+
+    pub fn try_from(value: &mut [u8]) -> Result<Self> {
+        let material = KdfDerviedKeymaterial {
+            key_material: Box::pin(GenericArray::<u8, U32>::clone_from_slice(value)),
+        };
+        value.zeroize();
+        Ok(Self::new(material))
     }
 }
 
 /// Helper function to encrypt a user key with a master or pin key.
 pub(super) fn encrypt_user_key(
-    key: &SymmetricCryptoKey,
+    key: &KdfDerviedKeymaterial,
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
     let stretched_key = stretch_kdf_key(key)?;
-
-    EncString::encrypt_aes256_hmac(
-        &user_key.to_vec(),
-        stretched_key
-            .mac_key
-            .as_ref()
-            .ok_or(CryptoError::InvalidMac)?,
-        &stretched_key.key,
-    )
+    return EncString::encrypt_aes256_hmac(&user_key.to_vec(), &stretched_key);
 }
 
 /// Helper function to decrypt a user key with a master or pin key.
 pub(super) fn decrypt_user_key(
-    key: &SymmetricCryptoKey,
+    key: &KdfDerviedKeymaterial,
     user_key: EncString,
 ) -> Result<SymmetricCryptoKey> {
     let mut dec: Vec<u8> = match user_key {
         // Legacy. user_keys were encrypted using `AesCbc256_B64` a long time ago. We've since
         // moved to using `AesCbc256_HmacSha256_B64`. However, we still need to support
         // decrypting these old keys.
-        EncString::AesCbc256_B64 { .. } => user_key.decrypt_with_key(key)?,
+        EncString::AesCbc256_B64 { .. } => {
+            let legacy_key = SymmetricCryptoKey::Aes256CbcKey(super::Aes256CbcKey {
+                encryption_key: key.key_material.clone(),
+            });
+            user_key.decrypt_with_key(&legacy_key)?
+        }
         _ => {
-            let stretched_key = stretch_kdf_key(key)?;
+            let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_kdf_key(key)?);
             user_key.decrypt_with_key(&stretched_key)?
         }
     };
@@ -175,7 +184,10 @@ mod tests {
     use rand::SeedableRng;
 
     use super::{make_user_key, HashPurpose, Kdf, MasterKey};
-    use crate::{keys::symmetric_crypto_key::derive_symmetric_key, EncString, SymmetricCryptoKey};
+    use crate::{
+        keys::{master_key::KdfDerviedKeymaterial, symmetric_crypto_key::derive_symmetric_key},
+        EncString, SymmetricCryptoKey, UserKey,
+    };
 
     #[test]
     fn test_master_key_derive_pbkdf2() {
@@ -193,9 +205,8 @@ mod tests {
                 31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138, 167,
                 69, 167, 254, 149, 2, 27, 39, 197, 64, 42, 22, 195, 86, 75
             ],
-            master_key.0.key.as_slice()
+            master_key.0.key_material.as_slice()
         );
-        assert_eq!(None, master_key.0.mac_key);
     }
 
     #[test]
@@ -216,9 +227,8 @@ mod tests {
                 207, 240, 225, 177, 162, 19, 163, 76, 98, 106, 179, 175, 224, 9, 17, 240, 20, 147,
                 237, 47, 246, 150, 141, 184, 62, 225, 131, 242, 51, 53, 225, 242
             ],
-            master_key.0.key.as_slice()
+            master_key.0.key_material.as_slice()
         );
-        assert_eq!(None, master_key.0.mac_key);
     }
 
     #[test]
@@ -269,28 +279,32 @@ mod tests {
     fn test_make_user_key() {
         let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
 
-        let master_key = MasterKey(SymmetricCryptoKey::new(
-            Box::pin(
+        let master_key = MasterKey(KdfDerviedKeymaterial {
+            key_material: Box::pin(
                 [
                     31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138,
                     167, 69, 167, 254, 149, 2, 27, 39, 197, 64, 42, 22, 195, 86, 75,
                 ]
                 .into(),
             ),
-            None,
-        ));
+        });
 
         let (user_key, protected) = make_user_key(&mut rng, &master_key).unwrap();
+        let user_key_unwrapped = if let SymmetricCryptoKey::Aes256CbcHmacKey(k) = user_key.0 {
+            k
+        } else {
+            panic!("User key is not an Aes256CbcHmacKey");
+        };
 
         assert_eq!(
-            user_key.0.key.as_slice(),
+            user_key_unwrapped.encryption_key.as_slice(),
             [
                 62, 0, 239, 47, 137, 95, 64, 214, 127, 91, 184, 232, 31, 9, 165, 161, 44, 132, 14,
                 195, 206, 154, 127, 59, 24, 27, 225, 136, 239, 113, 26, 30
             ]
         );
         assert_eq!(
-            user_key.0.mac_key.as_ref().unwrap().as_slice(),
+            user_key_unwrapped.mac_key.as_slice(),
             [
                 152, 76, 225, 114, 185, 33, 111, 65, 159, 68, 83, 103, 69, 109, 86, 25, 49, 74, 66,
                 163, 218, 134, 176, 1, 56, 123, 253, 184, 14, 12, 254, 66
@@ -301,32 +315,30 @@ mod tests {
         let decrypted = master_key.decrypt_user_key(protected).unwrap();
 
         assert_eq!(
-            decrypted.key, user_key.0.key,
-            "Decrypted key doesn't match user key"
-        );
-        assert_eq!(
-            decrypted.mac_key, user_key.0.mac_key,
+            decrypted, user_key.0,
             "Decrypted key doesn't match user key"
         );
     }
 
     #[test]
     fn test_make_user_key2() {
-        let master_key = MasterKey(derive_symmetric_key("test1"));
+        let kdf_material = KdfDerviedKeymaterial {
+            key_material: if let SymmetricCryptoKey::Aes256CbcHmacKey(k) =
+                &derive_symmetric_key("test1")
+            {
+                k.encryption_key.clone()
+            } else {
+                panic!("Key is not an Aes256CbcHmacKey");
+            },
+        };
+        let master_key = MasterKey(kdf_material);
 
         let user_key = derive_symmetric_key("test2");
 
         let encrypted = master_key.encrypt_user_key(&user_key).unwrap();
         let decrypted = master_key.decrypt_user_key(encrypted).unwrap();
 
-        assert_eq!(
-            decrypted.key, user_key.key,
-            "Decrypted key doesn't match user key"
-        );
-        assert_eq!(
-            decrypted.mac_key, user_key.mac_key,
-            "Decrypted key doesn't match user key"
-        );
+        assert_eq!(decrypted, user_key, "Decrypted key doesn't match user key");
     }
 
     #[test]
@@ -342,16 +354,21 @@ mod tests {
         let user_key: EncString = "0.8UClLa8IPE1iZT7chy5wzQ==|6PVfHnVk5S3XqEtQemnM5yb4JodxmPkkWzmDRdfyHtjORmvxqlLX40tBJZ+CKxQWmS8tpEB5w39rbgHg/gqs0haGdZG4cPbywsgGzxZ7uNI=".parse().unwrap();
 
         let decrypted = master_key.decrypt_user_key(user_key).unwrap();
+        let decrypted = if let SymmetricCryptoKey::Aes256CbcHmacKey(k) = &decrypted {
+            k
+        } else {
+            panic!("Decrypted key is not an Aes256CbcHmacKey");
+        };
 
         assert_eq!(
-            decrypted.key.as_slice(),
+            decrypted.encryption_key.as_slice(),
             [
                 12, 95, 151, 203, 37, 4, 236, 67, 137, 97, 90, 58, 6, 127, 242, 28, 209, 168, 125,
                 29, 118, 24, 213, 44, 117, 202, 2, 115, 132, 165, 125, 148
             ]
         );
         assert_eq!(
-            decrypted.mac_key.as_ref().unwrap().as_slice(),
+            decrypted.mac_key.as_slice(),
             [
                 186, 215, 234, 137, 24, 169, 227, 29, 218, 57, 180, 237, 73, 91, 189, 51, 253, 26,
                 17, 52, 226, 4, 134, 75, 194, 208, 178, 133, 128, 224, 140, 167

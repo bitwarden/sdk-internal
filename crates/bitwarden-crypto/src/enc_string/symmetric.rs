@@ -1,14 +1,12 @@
 use std::{fmt::Display, str::FromStr};
 
-use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
-use generic_array::GenericArray;
 use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result},
-    KeyDecryptable, KeyEncryptable, LocateKey, SymmetricCryptoKey,
+    Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, LocateKey, SymmetricCryptoKey,
 };
 
 #[cfg(feature = "wasm")]
@@ -55,12 +53,6 @@ export type EncString = string;
 pub enum EncString {
     /// 0
     AesCbc256_B64 { iv: [u8; 16], data: Vec<u8> },
-    /// 1
-    AesCbc128_HmacSha256_B64 {
-        iv: [u8; 16],
-        mac: [u8; 32],
-        data: Vec<u8>,
-    },
     /// 2
     AesCbc256_HmacSha256_B64 {
         iv: [u8; 16],
@@ -89,16 +81,12 @@ impl FromStr for EncString {
 
                 Ok(EncString::AesCbc256_B64 { iv, data })
             }
-            ("1" | "2", 3) => {
+            ("2", 3) => {
                 let iv = from_b64(parts[0])?;
                 let data = from_b64_vec(parts[1])?;
                 let mac = from_b64(parts[2])?;
 
-                if enc_type == "1" {
-                    Ok(EncString::AesCbc128_HmacSha256_B64 { iv, mac, data })
-                } else {
-                    Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
-                }
+                Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
             }
 
             (enc_type, parts) => Err(EncStringParseError::InvalidTypeSymm {
@@ -130,17 +118,13 @@ impl EncString {
 
                 Ok(EncString::AesCbc256_B64 { iv, data })
             }
-            1 | 2 => {
+            2 => {
                 check_length(buf, 50)?;
                 let iv = buf[1..17].try_into().expect("Valid length");
                 let mac = buf[17..49].try_into().expect("Valid length");
                 let data = buf[49..].to_vec();
 
-                if enc_type == 1 {
-                    Ok(EncString::AesCbc128_HmacSha256_B64 { iv, mac, data })
-                } else {
-                    Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
-                }
+                Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
             }
             _ => Err(EncStringParseError::InvalidTypeSymm {
                 enc_type: enc_type.to_string(),
@@ -160,8 +144,7 @@ impl EncString {
                 buf.extend_from_slice(iv);
                 buf.extend_from_slice(data);
             }
-            EncString::AesCbc128_HmacSha256_B64 { iv, mac, data }
-            | EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
+            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
                 buf = Vec::with_capacity(1 + 16 + 32 + data.len());
                 buf.push(self.enc_type());
                 buf.extend_from_slice(iv);
@@ -178,7 +161,6 @@ impl Display for EncString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let parts: Vec<&[u8]> = match self {
             EncString::AesCbc256_B64 { iv, data } => vec![iv, data],
-            EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
             EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
         };
 
@@ -211,10 +193,10 @@ impl serde::Serialize for EncString {
 impl EncString {
     pub(crate) fn encrypt_aes256_hmac(
         data_dec: &[u8],
-        mac_key: &GenericArray<u8, U32>,
-        key: &GenericArray<u8, U32>,
+        key: &Aes256CbcHmacKey,
     ) -> Result<EncString> {
-        let (iv, mac, data) = crate::aes::encrypt_aes256_hmac(data_dec, mac_key, key)?;
+        let (iv, mac, data) =
+            crate::aes::encrypt_aes256_hmac(data_dec, &key.mac_key, &key.encryption_key)?;
         Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
     }
 
@@ -222,7 +204,6 @@ impl EncString {
     const fn enc_type(&self) -> u8 {
         match self {
             EncString::AesCbc256_B64 { .. } => 0,
-            EncString::AesCbc128_HmacSha256_B64 { .. } => 1,
             EncString::AesCbc256_HmacSha256_B64 { .. } => 2,
         }
     }
@@ -231,11 +212,10 @@ impl EncString {
 impl LocateKey for EncString {}
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        EncString::encrypt_aes256_hmac(
-            self,
-            key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?,
-            &key.key,
-        )
+        match key {
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
+            _ => Err(CryptoError::UnsupportedCipher),
+        }
     }
 }
 
@@ -243,28 +223,26 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
         match self {
             EncString::AesCbc256_B64 { iv, data } => {
-                if key.mac_key.is_some() {
-                    return Err(CryptoError::MacNotProvided);
+                if let SymmetricCryptoKey::Aes256CbcKey(key) = key {
+                    let dec = crate::aes::decrypt_aes256(iv, data.clone(), &key.encryption_key)?;
+                    Ok(dec)
+                } else {
+                    Err(CryptoError::EncryptionTypeMismatch)
                 }
-
-                let dec = crate::aes::decrypt_aes256(iv, data.clone(), &key.key)?;
-                Ok(dec)
-            }
-            EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } => {
-                // TODO: SymmetricCryptoKey is designed to handle 32 byte keys only, but this
-                // variant uses a 16 byte key This means the key+mac are going to be
-                // parsed as a single 32 byte key, at the moment we split it manually
-                // When refactoring the key handling, this should be fixed.
-                let enc_key = key.key[0..16].into();
-                let mac_key = key.key[16..32].into();
-                let dec = crate::aes::decrypt_aes128_hmac(iv, mac, data.clone(), mac_key, enc_key)?;
-                Ok(dec)
             }
             EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
-                let mac_key = key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?;
-                let dec =
-                    crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), mac_key, &key.key)?;
-                Ok(dec)
+                if let SymmetricCryptoKey::Aes256CbcHmacKey(key) = key {
+                    let dec = crate::aes::decrypt_aes256_hmac(
+                        iv,
+                        mac,
+                        data.clone(),
+                        &key.mac_key,
+                        &key.encryption_key,
+                    )?;
+                    Ok(dec)
+                } else {
+                    Err(CryptoError::EncryptionTypeMismatch)
+                }
             }
         }
     }
@@ -384,33 +362,6 @@ mod tests {
             assert_eq!(
                 data,
                 &[93, 118, 241, 43, 16, 211, 135, 233, 150, 136, 221, 71, 140, 125, 141, 215]
-            );
-        } else {
-            panic!("Invalid variant")
-        };
-    }
-
-    #[test]
-    fn test_from_str_cbc128_hmac() {
-        let enc_str = "1.Hh8gISIjJCUmJygpKissLQ==|MjM0NTY3ODk6Ozw9Pj9AQUJDREU=|KCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkc=";
-        let enc_string: EncString = enc_str.parse().unwrap();
-
-        assert_eq!(enc_string.enc_type(), 1);
-        if let EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } = &enc_string {
-            assert_eq!(
-                iv,
-                &[30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45]
-            );
-            assert_eq!(
-                mac,
-                &[
-                    40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
-                    60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71
-                ]
-            );
-            assert_eq!(
-                data,
-                &[50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69]
             );
         } else {
             panic!("Invalid variant")
