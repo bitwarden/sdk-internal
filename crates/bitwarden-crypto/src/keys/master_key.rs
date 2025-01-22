@@ -140,7 +140,7 @@ pub(super) fn encrypt_user_key(
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
     let stretched_key = stretch_kdf_key(key)?;
-    return EncString::encrypt_aes256_hmac(&user_key.to_vec(), &stretched_key);
+    EncString::encrypt_aes256_hmac(&user_key.to_vec(), &stretched_key)
 }
 
 /// Helper function to decrypt a user key with a master or pin key.
@@ -290,7 +290,7 @@ mod tests {
         });
 
         let (user_key, protected) = make_user_key(&mut rng, &master_key).unwrap();
-        let user_key_unwrapped = if let SymmetricCryptoKey::Aes256CbcHmacKey(k) = user_key.0 {
+        let user_key_unwrapped = if let SymmetricCryptoKey::Aes256CbcHmacKey(k) = &user_key.0 {
             k
         } else {
             panic!("User key is not an Aes256CbcHmacKey");

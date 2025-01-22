@@ -175,19 +175,6 @@ mod tests {
     }
 
     #[test]
-    fn test_decrypt_aes128() {
-        let iv = generate_vec(16, 0, 1);
-        let iv: &[u8; 16] = iv.as_slice().try_into().unwrap();
-        let key = generate_generic_array(0, 1);
-
-        let data = STANDARD.decode("dC0X+2IjFbeL4WLLg2jX7Q==").unwrap();
-
-        let decrypted = decrypt_aes128(iv, data, &key).unwrap();
-
-        assert_eq!(String::from_utf8(decrypted).unwrap(), "EncryptMe!");
-    }
-
-    #[test]
     fn test_decrypt_aes256() {
         let iv = generate_vec(16, 0, 1);
         let iv: &[u8; 16] = iv.as_slice().try_into().unwrap();

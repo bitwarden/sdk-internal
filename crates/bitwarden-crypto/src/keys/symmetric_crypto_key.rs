@@ -9,6 +9,7 @@ use zeroize::Zeroize;
 use super::key_encryptable::CryptoKey;
 use crate::CryptoError;
 
+#[cfg_attr(test, derive(Debug))]
 pub(crate) struct KdfDerviedKeymaterial {
     pub(crate) key_material: Pin<Box<GenericArray<u8, U32>>>,
 }
@@ -32,6 +33,7 @@ pub struct Aes256CbcHmacKey {
 
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
 #[derive(Clone)]
+#[cfg_attr(test, derive(Debug))]
 pub enum SymmetricCryptoKey {
     Aes256CbcKey(Aes256CbcKey),
     Aes256CbcHmacKey(Aes256CbcHmacKey),
@@ -166,9 +168,17 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
 impl CryptoKey for SymmetricCryptoKey {}
 
 // We manually implement these to make sure we don't print any sensitive data
+#[cfg(not(test))]
 impl std::fmt::Debug for SymmetricCryptoKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SymmetricCryptoKey").finish()
+    }
+}
+
+#[cfg(not(test))]
+impl std::fmt::Debug for KdfDerviedKeymaterial {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KdfDerviedKeymaterial").finish()
     }
 }
 

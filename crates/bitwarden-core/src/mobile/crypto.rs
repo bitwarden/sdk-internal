@@ -431,7 +431,7 @@ pub fn verify_asymmetric_keys(
             .to_public_der()
             .map_err(VerifyError::PublicFailed)?;
 
-        let derived_public_key = STANDARD.encode(&derived_public_key_vec);
+        let derived_public_key = STANDARD.encode(derived_public_key_vec);
 
         if derived_public_key != request.user_public_key {
             return Err(VerifyError::KeyMismatch);
