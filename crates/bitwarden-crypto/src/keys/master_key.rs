@@ -1,4 +1,4 @@
-use std::num::NonZeroU32;
+use std::{num::NonZeroU32, pin::Pin};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::{typenum::U32, GenericArray};
@@ -9,11 +9,13 @@ use zeroize::Zeroize;
 #[cfg(feature = "wasm")]
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
-use super::{
-    symmetric_crypto_key::KdfDerivedKeymaterial,
-    utils::{derive_kdf_key, stretch_kdf_key},
-};
+use super::utils::{derive_kdf_key, stretch_kdf_key};
 use crate::{util, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey};
+
+#[cfg_attr(test, derive(Debug))]
+pub(crate) struct KdfDerivedKeymaterial {
+    pub(crate) key_material: Pin<Box<GenericArray<u8, U32>>>,
+}
 
 /// Key Derivation Function for Bitwarden Account
 ///

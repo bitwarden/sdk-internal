@@ -6,13 +6,8 @@ use generic_array::GenericArray;
 use rand::Rng;
 use zeroize::Zeroize;
 
-use super::key_encryptable::CryptoKey;
+use super::{key_encryptable::CryptoKey, master_key::KdfDerivedKeymaterial};
 use crate::CryptoError;
-
-#[cfg_attr(test, derive(Debug))]
-pub(crate) struct KdfDerivedKeymaterial {
-    pub(crate) key_material: Pin<Box<GenericArray<u8, U32>>>,
-}
 
 // GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
 // To keep the compiler from making stack copies when moving this struct around,

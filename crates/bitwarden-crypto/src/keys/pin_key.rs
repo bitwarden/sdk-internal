@@ -1,7 +1,4 @@
-use super::{
-    master_key::{decrypt_user_key, encrypt_user_key},
-    symmetric_crypto_key::KdfDerivedKeymaterial,
-};
+use super::master_key::{decrypt_user_key, encrypt_user_key, KdfDerivedKeymaterial};
 use crate::{
     keys::{
         key_encryptable::CryptoKey,
