@@ -400,19 +400,6 @@ mod tests {
     }
 
     #[test]
-    fn test_decrypt_cbc128_hmac() {
-        let key = "Gt1aZ8kTTgkF80bLtb7LiMZBcxEA2FA5mbvV4x7K208=".to_string();
-        let key = SymmetricCryptoKey::try_from(key).unwrap();
-
-        let enc_str = "1.CU/oG4VZuxbHoZSDZjCLQw==|kb1HGwAk+fQ275ORfLf5Ew==|8UaEYHyqRZcG37JWhYBOBdEatEXd1u1/wN7OuImolcM=";
-        let enc_string: EncString = enc_str.parse().unwrap();
-        assert_eq!(enc_string.enc_type(), 1);
-
-        let dec_str: String = enc_string.decrypt_with_key(&key).unwrap();
-        assert_eq!(dec_str, "EncryptMe!");
-    }
-
-    #[test]
     fn test_from_str_invalid() {
         let enc_str = "7.ABC";
         let enc_string: Result<EncString, _> = enc_str.parse();
