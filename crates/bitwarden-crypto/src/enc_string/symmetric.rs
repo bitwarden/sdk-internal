@@ -31,7 +31,6 @@ export type EncString = string;
 ///
 /// ## Variants
 /// - [AesCbc256_B64](EncString::AesCbc256_B64)
-/// - [AesCbc128_HmacSha256_B64](EncString::AesCbc128_HmacSha256_B64)
 /// - [AesCbc256_HmacSha256_B64](EncString::AesCbc256_HmacSha256_B64)
 ///
 /// ## Serialization
