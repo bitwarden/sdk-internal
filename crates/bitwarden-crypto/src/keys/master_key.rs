@@ -186,7 +186,7 @@ mod tests {
     use super::{make_user_key, HashPurpose, Kdf, MasterKey};
     use crate::{
         keys::{master_key::KdfDerviedKeymaterial, symmetric_crypto_key::derive_symmetric_key},
-        EncString, SymmetricCryptoKey, UserKey,
+        EncString, SymmetricCryptoKey,
     };
 
     #[test]
