@@ -1,9 +1,8 @@
 use generic_array::GenericArray;
 use sha2::Digest;
 
-use crate::{util::hkdf_expand, CryptoError, Kdf, Result};
-
 use super::{symmetric_crypto_key::KdfDerviedKeymaterial, Aes256CbcHmacKey};
+use crate::{util::hkdf_expand, CryptoError, Kdf, Result};
 
 const PBKDF2_MIN_ITERATIONS: u32 = 5000;
 
