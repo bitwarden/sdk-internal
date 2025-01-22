@@ -1,6 +1,6 @@
 use super::{
     master_key::{decrypt_user_key, encrypt_user_key},
-    symmetric_crypto_key::KdfDerviedKeymaterial,
+    symmetric_crypto_key::KdfDerivedKeymaterial,
 };
 use crate::{
     keys::{
@@ -13,7 +13,7 @@ use crate::{
 /// Pin Key.
 ///
 /// Derived from a specific password, used for pin encryption and exports.
-pub struct PinKey(KdfDerviedKeymaterial);
+pub struct PinKey(KdfDerivedKeymaterial);
 
 impl PinKey {
     /// Derives a users pin key from their password, email and KDF.

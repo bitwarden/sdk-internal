@@ -10,7 +10,7 @@ use super::key_encryptable::CryptoKey;
 use crate::CryptoError;
 
 #[cfg_attr(test, derive(Debug))]
-pub(crate) struct KdfDerviedKeymaterial {
+pub(crate) struct KdfDerivedKeymaterial {
     pub(crate) key_material: Pin<Box<GenericArray<u8, U32>>>,
 }
 
@@ -176,7 +176,7 @@ impl std::fmt::Debug for SymmetricCryptoKey {
 }
 
 #[cfg(not(test))]
-impl std::fmt::Debug for KdfDerviedKeymaterial {
+impl std::fmt::Debug for KdfDerivedKeymaterial {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("KdfDerviedKeymaterial").finish()
     }
