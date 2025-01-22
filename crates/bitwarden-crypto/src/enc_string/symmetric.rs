@@ -396,7 +396,7 @@ mod tests {
         assert_eq!(enc_string.enc_type(), 0);
 
         let result: Result<String, CryptoError> = enc_string.decrypt_with_key(&key);
-        assert!(matches!(result, Err(CryptoError::MacNotProvided)));
+        assert!(matches!(result, Err(CryptoError::EncryptionTypeMismatch)));
     }
 
     #[test]
