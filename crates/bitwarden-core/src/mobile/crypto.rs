@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricEncString, EncString, Kdf, KeyDecryptable, KeyEncryptable,
-    MasterKey, SymmetricCryptoKey, UserKey,
+    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, Kdf, KeyDecryptable,
+    KeyEncryptable, MasterKey, SymmetricCryptoKey, UserKey,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -166,7 +166,10 @@ pub async fn initialize_user_crypto(
             master_key,
             user_key,
         } => {
-            let master_key = MasterKey::new(SymmetricCryptoKey::try_from(master_key)?);
+            let mut master_key_bytes = STANDARD
+                .decode(master_key)
+                .map_err(|_| CryptoError::InvalidKey)?;
+            let master_key = MasterKey::try_from(master_key_bytes.as_mut_slice())?;
             let user_key: EncString = user_key.parse()?;
 
             client
@@ -428,7 +431,7 @@ pub fn verify_asymmetric_keys(
             .to_public_der()
             .map_err(VerifyError::PublicFailed)?;
 
-        let derived_public_key = STANDARD.encode(&derived_public_key_vec);
+        let derived_public_key = STANDARD.encode(derived_public_key_vec);
 
         if derived_public_key != request.user_public_key {
             return Err(VerifyError::KeyMismatch);

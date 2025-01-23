@@ -7,24 +7,56 @@ use rand::Rng;
 use zeroize::Zeroize;
 
 use super::key_encryptable::CryptoKey;
+#[cfg(not(test))]
+use super::master_key::KdfDerivedKeymaterial;
 use crate::CryptoError;
+
+// GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
+// To keep the compiler from making stack copies when moving this struct around,
+// we use a Box to keep the values on the heap. We also pin the box to make sure
+// that the contents can't be pulled out of the box and moved
+#[derive(Zeroize, Clone)]
+#[cfg_attr(test, derive(Debug))]
+pub struct Aes256CbcKey {
+    pub(crate) encryption_key: Pin<Box<GenericArray<u8, U32>>>,
+}
+
+#[derive(Zeroize, Clone)]
+#[cfg_attr(test, derive(Debug))]
+pub struct Aes256CbcHmacKey {
+    pub(crate) encryption_key: Pin<Box<GenericArray<u8, U32>>>,
+    pub(crate) mac_key: Pin<Box<GenericArray<u8, U32>>>,
+}
 
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
 #[derive(Clone)]
-pub struct SymmetricCryptoKey {
-    // GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
-    // To keep the compiler from making stack copies when moving this struct around,
-    // we use a Box to keep the values on the heap. We also pin the box to make sure
-    // that the contents can't be pulled out of the box and moved
-    pub(crate) key: Pin<Box<GenericArray<u8, U32>>>,
-    pub(crate) mac_key: Option<Pin<Box<GenericArray<u8, U32>>>>,
+#[cfg_attr(test, derive(Debug))]
+pub enum SymmetricCryptoKey {
+    Aes256CbcKey(Aes256CbcKey),
+    Aes256CbcHmacKey(Aes256CbcHmacKey),
+}
+
+#[cfg(test)]
+impl PartialEq for SymmetricCryptoKey {
+    fn eq(&self, other: &Self) -> bool {
+        // this is not constant-time and should only ever be used in tests
+        match (self, other) {
+            (Self::Aes256CbcKey(k1), Self::Aes256CbcKey(k2)) => {
+                k1.encryption_key == k2.encryption_key
+            }
+            (Self::Aes256CbcHmacKey(k1), Self::Aes256CbcHmacKey(k2)) => {
+                k1.encryption_key == k2.encryption_key && k1.mac_key == k2.mac_key
+            }
+            _ => false,
+        }
+    }
 }
 
 impl Drop for SymmetricCryptoKey {
     fn drop(&mut self) {
-        self.key.zeroize();
-        if let Some(mac_key) = &mut self.mac_key {
-            mac_key.zeroize();
+        match self {
+            Self::Aes256CbcKey(key) => key.zeroize(),
+            Self::Aes256CbcHmacKey(key) => key.zeroize(),
         }
     }
 }
@@ -43,21 +75,17 @@ impl SymmetricCryptoKey {
         rng.fill(key.as_mut_slice());
         rng.fill(mac_key.as_mut_slice());
 
-        SymmetricCryptoKey {
-            key,
-            mac_key: Some(mac_key),
-        }
-    }
-
-    pub(crate) fn new(
-        key: Pin<Box<GenericArray<u8, U32>>>,
-        mac_key: Option<Pin<Box<GenericArray<u8, U32>>>>,
-    ) -> Self {
-        Self { key, mac_key }
+        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
+            encryption_key: key,
+            mac_key,
+        })
     }
 
     fn total_len(&self) -> usize {
-        self.key.len() + self.mac_key.as_ref().map_or(0, |mac| mac.len())
+        match &self {
+            SymmetricCryptoKey::Aes256CbcKey(_) => 32,
+            SymmetricCryptoKey::Aes256CbcHmacKey(_) => 64,
+        }
     }
 
     pub fn to_base64(&self) -> String {
@@ -67,10 +95,16 @@ impl SymmetricCryptoKey {
     pub fn to_vec(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(self.total_len());
 
-        buf.extend_from_slice(&self.key);
-        if let Some(mac) = &self.mac_key {
-            buf.extend_from_slice(mac);
+        match &self {
+            SymmetricCryptoKey::Aes256CbcKey(key) => {
+                buf.extend_from_slice(&key.encryption_key);
+            }
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
+                buf.extend_from_slice(&key.encryption_key);
+                buf.extend_from_slice(&key.mac_key);
+            }
         }
+
         buf
     }
 }
@@ -107,16 +141,18 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
             key.copy_from_slice(&value[..Self::KEY_LEN]);
             mac_key.copy_from_slice(&value[Self::KEY_LEN..]);
 
-            Ok(SymmetricCryptoKey {
-                key,
-                mac_key: Some(mac_key),
-            })
+            Ok(SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
+                encryption_key: key,
+                mac_key,
+            }))
         } else if value.len() == Self::KEY_LEN {
             let mut key = Box::pin(GenericArray::<u8, U32>::default());
 
             key.copy_from_slice(&value[..Self::KEY_LEN]);
 
-            Ok(SymmetricCryptoKey { key, mac_key: None })
+            Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey {
+                encryption_key: key,
+            }))
         } else {
             Err(CryptoError::InvalidKeyLen)
         };
@@ -129,9 +165,17 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
 impl CryptoKey for SymmetricCryptoKey {}
 
 // We manually implement these to make sure we don't print any sensitive data
+#[cfg(not(test))]
 impl std::fmt::Debug for SymmetricCryptoKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SymmetricCryptoKey").finish()
+    }
+}
+
+#[cfg(not(test))]
+impl std::fmt::Debug for KdfDerivedKeymaterial {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KdfDerviedKeymaterial").finish()
     }
 }
 
@@ -153,8 +197,8 @@ mod tests {
     fn test_symmetric_crypto_key() {
         let key = derive_symmetric_key("test");
         let key2 = SymmetricCryptoKey::try_from(key.to_base64()).unwrap();
-        assert_eq!(key.key, key2.key);
-        assert_eq!(key.mac_key, key2.mac_key);
+
+        assert_eq!(key, key2);
 
         let key = "UY4B5N4DA4UisCNClgZtRr6VLy9ZF5BXXC7cDZRqourKi4ghEMgISbCsubvgCkHf5DZctQjVot11/vVvN9NNHQ==".to_string();
         let key2 = SymmetricCryptoKey::try_from(key.clone()).unwrap();
