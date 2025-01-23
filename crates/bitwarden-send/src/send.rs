@@ -5,7 +5,8 @@ use base64::{
 use bitwarden_api_api::models::{SendFileModel, SendResponseModel, SendTextModel};
 use bitwarden_core::require;
 use bitwarden_crypto::{
-    derive_shareable_key, generate_random_bytes, CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey
+    derive_shareable_key, generate_random_bytes, CryptoError, EncString, EncryptionContext,
+    KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
 };
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
@@ -14,7 +15,14 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
-use crate::{context::{send_context::{SendContext, SendContextBuilder}, send_file_context::{SendFileContext, SendFileContextBuilder}, send_text_context::{SendTextContext, SendTextContextBuilder}}, SendParseError};
+use crate::{
+    context::{
+        send_context::{SendContext, SendContextBuilder},
+        send_file_context::{SendFileContext, SendFileContextBuilder},
+        send_text_context::{SendTextContext, SendTextContextBuilder},
+    },
+    SendParseError,
+};
 
 const SEND_ITERATIONS: u32 = 100_000;
 
@@ -156,28 +164,46 @@ impl Send {
 }
 
 impl KeyDecryptable<SymmetricCryptoKey, SendTextView, SendTextContextBuilder> for SendText {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &SendTextContextBuilder) -> Result<SendTextView, CryptoError> {
+    fn decrypt_with_key(
+        &self,
+        key: &SymmetricCryptoKey,
+        context_builder: &SendTextContextBuilder,
+    ) -> Result<SendTextView, CryptoError> {
         Ok(SendTextView {
-            text: self.text.decrypt_with_key(key, &context_builder.text_message_context_builder())?,
+            text: self
+                .text
+                .decrypt_with_key(key, &context_builder.text_message_context_builder())?,
             hidden: self.hidden,
         })
     }
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, SendText, SendTextContext> for SendTextView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &SendTextContext) -> Result<SendText, CryptoError> {
+    fn encrypt_with_key(
+        self,
+        key: &SymmetricCryptoKey,
+        context: &SendTextContext,
+    ) -> Result<SendText, CryptoError> {
         Ok(SendText {
-            text: self.text.encrypt_with_key(key, &context.text_message_context())?,
+            text: self
+                .text
+                .encrypt_with_key(key, &context.text_message_context())?,
             hidden: self.hidden,
         })
     }
 }
 
 impl KeyDecryptable<SymmetricCryptoKey, SendFileView, SendFileContextBuilder> for SendFile {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &SendFileContextBuilder) -> Result<SendFileView, CryptoError> {
+    fn decrypt_with_key(
+        &self,
+        key: &SymmetricCryptoKey,
+        context_builder: &SendFileContextBuilder,
+    ) -> Result<SendFileView, CryptoError> {
         Ok(SendFileView {
             id: self.id.clone(),
-            file_name: self.file_name.decrypt_with_key(key, &context_builder.file_name_context_builder())?,
+            file_name: self
+                .file_name
+                .decrypt_with_key(key, &context_builder.file_name_context_builder())?,
             size: self.size.clone(),
             size_name: self.size_name.clone(),
         })
@@ -185,10 +211,16 @@ impl KeyDecryptable<SymmetricCryptoKey, SendFileView, SendFileContextBuilder> fo
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, SendFile, SendFileContext> for SendFileView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &SendFileContext) -> Result<SendFile, CryptoError> {
+    fn encrypt_with_key(
+        self,
+        key: &SymmetricCryptoKey,
+        context: &SendFileContext,
+    ) -> Result<SendFile, CryptoError> {
         Ok(SendFile {
             id: self.id.clone(),
-            file_name: self.file_name.encrypt_with_key(key, &context.file_name_context())?,
+            file_name: self
+                .file_name
+                .encrypt_with_key(key, &context.file_name_context())?,
             size: self.size.clone(),
             size_name: self.size_name.clone(),
         })
@@ -196,7 +228,11 @@ impl KeyEncryptable<SymmetricCryptoKey, SendFile, SendFileContext> for SendFileV
 }
 
 impl KeyDecryptable<SymmetricCryptoKey, SendView, SendContextBuilder> for Send {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &SendContextBuilder) -> Result<SendView, CryptoError> {
+    fn decrypt_with_key(
+        &self,
+        key: &SymmetricCryptoKey,
+        context_builder: &SendContextBuilder,
+    ) -> Result<SendView, CryptoError> {
         // For sends, we first decrypt the send key with the user key, and stretch it to it's full
         // size For the rest of the fields, we ignore the provided SymmetricCryptoKey and
         // the stretched key
@@ -207,15 +243,31 @@ impl KeyDecryptable<SymmetricCryptoKey, SendView, SendContextBuilder> for Send {
             id: self.id,
             access_id: self.access_id.clone(),
 
-            name: self.name.decrypt_with_key(&key, &context_builder.name_context_builder()).ok().unwrap_or_default(),
-            notes: self.notes.decrypt_with_key(&key, &context_builder.notes_context_builder()).ok().flatten(),
+            name: self
+                .name
+                .decrypt_with_key(&key, &context_builder.name_context_builder())
+                .ok()
+                .unwrap_or_default(),
+            notes: self
+                .notes
+                .decrypt_with_key(&key, &context_builder.notes_context_builder())
+                .ok()
+                .flatten(),
             key: Some(URL_SAFE_NO_PAD.encode(k)),
             new_password: None,
             has_password: self.password.is_some(),
 
             r#type: self.r#type,
-            file: self.file.decrypt_with_key(&key, &context_builder.file_context_builder()).ok().flatten(),
-            text: self.text.decrypt_with_key(&key, &context_builder.text_context_builder()).ok().flatten(),
+            file: self
+                .file
+                .decrypt_with_key(&key, &context_builder.file_context_builder())
+                .ok()
+                .flatten(),
+            text: self
+                .text
+                .decrypt_with_key(&key, &context_builder.text_context_builder())
+                .ok()
+                .flatten(),
 
             max_access_count: self.max_access_count,
             access_count: self.access_count,
@@ -230,7 +282,11 @@ impl KeyDecryptable<SymmetricCryptoKey, SendView, SendContextBuilder> for Send {
 }
 
 impl KeyDecryptable<SymmetricCryptoKey, SendListView, SendContextBuilder> for Send {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &SendContextBuilder) -> Result<SendListView, CryptoError> {
+    fn decrypt_with_key(
+        &self,
+        key: &SymmetricCryptoKey,
+        context_builder: &SendContextBuilder,
+    ) -> Result<SendListView, CryptoError> {
         // For sends, we first decrypt the send key with the user key, and stretch it to it's full
         // size For the rest of the fields, we ignore the provided SymmetricCryptoKey and
         // the stretched key
@@ -240,7 +296,9 @@ impl KeyDecryptable<SymmetricCryptoKey, SendListView, SendContextBuilder> for Se
             id: self.id,
             access_id: self.access_id.clone(),
 
-            name: self.name.decrypt_with_key(&key, &context_builder.name_context_builder())?,
+            name: self
+                .name
+                .decrypt_with_key(&key, &context_builder.name_context_builder())?,
             r#type: self.r#type,
 
             disabled: self.disabled,
@@ -253,7 +311,11 @@ impl KeyDecryptable<SymmetricCryptoKey, SendListView, SendContextBuilder> for Se
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, Send, SendContext> for SendView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &SendContext) -> Result<Send, CryptoError> {
+    fn encrypt_with_key(
+        self,
+        key: &SymmetricCryptoKey,
+        context: &SendContext,
+    ) -> Result<Send, CryptoError> {
         // For sends, we first decrypt the send key with the user key, and stretch it to it's full
         // size For the rest of the fields, we ignore the provided SymmetricCryptoKey and
         // the stretched key
@@ -285,8 +347,12 @@ impl KeyEncryptable<SymmetricCryptoKey, Send, SendContext> for SendView {
             }),
 
             r#type: self.r#type,
-            file: self.file.encrypt_with_key(&send_key, &context.file_context())?,
-            text: self.text.encrypt_with_key(&send_key, &context.text_context())?,
+            file: self
+                .file
+                .encrypt_with_key(&send_key, &context.file_context())?,
+            text: self
+                .text
+                .encrypt_with_key(&send_key, &context.text_context())?,
 
             max_access_count: self.max_access_count,
             access_count: self.access_count,

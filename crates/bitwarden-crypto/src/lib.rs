@@ -88,9 +88,12 @@ mod aes;
 mod enc_string;
 pub use enc_string::{
     encryption_context::{
-        EncryptionContext, EncryptionContextBuilder, EncryptionContextError, 
+        EncryptionContext,
+        EncryptionContextBuilder,
+        EncryptionContextError,
+        NoContext,
         // FIXME: stop exporting these once everyone writes a custom context
-        NoContextBuilder, NoContext
+        NoContextBuilder,
     },
     AsymmetricEncString, EncString,
 };

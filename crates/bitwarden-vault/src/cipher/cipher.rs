@@ -1,7 +1,8 @@
 use bitwarden_api_api::models::CipherDetailsResponseModel;
 use bitwarden_core::{require, MissingFieldError, VaultLocked};
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyContainer, KeyDecryptable, KeyEncryptable, LocateKey, NoContext, NoContextBuilder, SymmetricCryptoKey
+    CryptoError, EncString, EncryptionContext, KeyContainer, KeyDecryptable, KeyEncryptable,
+    LocateKey, NoContext, NoContextBuilder, SymmetricCryptoKey,
 };
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
@@ -181,9 +182,9 @@ impl CipherListView {
         let key = cipher_key.as_ref().unwrap_or(key);
 
         let totp = match self.r#type {
-            CipherListViewType::Login(LoginListView { totp, .. }) => {
-                totp.map(|t| t.decrypt_with_key(key, &NoContextBuilder)).transpose()?
-            }
+            CipherListViewType::Login(LoginListView { totp, .. }) => totp
+                .map(|t| t.decrypt_with_key(key, &NoContextBuilder))
+                .transpose()?,
             _ => None,
         };
 
@@ -192,7 +193,11 @@ impl CipherListView {
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, Cipher, NoContext> for CipherView {
-    fn encrypt_with_key(mut self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<Cipher, CryptoError> {
+    fn encrypt_with_key(
+        mut self,
+        key: &SymmetricCryptoKey,
+        context: &NoContext,
+    ) -> Result<Cipher, CryptoError> {
         let ciphers_key = Cipher::get_cipher_key(key, &self.key)?;
         let key = ciphers_key.as_ref().unwrap_or(key);
 
@@ -232,7 +237,12 @@ impl KeyEncryptable<SymmetricCryptoKey, Cipher, NoContext> for CipherView {
 }
 
 impl KeyDecryptable<SymmetricCryptoKey, CipherView, NoContextBuilder> for Cipher {
-fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<CipherView, CryptoError> {        let ciphers_key = Cipher::get_cipher_key(key, &self.key)?;
+    fn decrypt_with_key(
+        &self,
+        key: &SymmetricCryptoKey,
+        context_builder: &NoContextBuilder,
+    ) -> Result<CipherView, CryptoError> {
+        let ciphers_key = Cipher::get_cipher_key(key, &self.key)?;
         let key = ciphers_key.as_ref().unwrap_or(key);
 
         let mut cipher = CipherView {
@@ -241,23 +251,67 @@ fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContext
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
             key: self.key.clone(),
-            name: self.name.decrypt_with_key(key, context_builder).ok().unwrap_or_default(),
-            notes: self.notes.decrypt_with_key(key, context_builder).ok().flatten(),
+            name: self
+                .name
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .unwrap_or_default(),
+            notes: self
+                .notes
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
             r#type: self.r#type,
-            login: self.login.decrypt_with_key(key, context_builder).ok().flatten(),
-            identity: self.identity.decrypt_with_key(key, context_builder).ok().flatten(),
-            card: self.card.decrypt_with_key(key, context_builder).ok().flatten(),
-            secure_note: self.secure_note.decrypt_with_key(key, context_builder).ok().flatten(),
-            ssh_key: self.ssh_key.decrypt_with_key(key, context_builder).ok().flatten(),
+            login: self
+                .login
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
+            identity: self
+                .identity
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
+            card: self
+                .card
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
+            secure_note: self
+                .secure_note
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
+            ssh_key: self
+                .ssh_key
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
             favorite: self.favorite,
             reprompt: self.reprompt,
             organization_use_totp: self.organization_use_totp,
             edit: self.edit,
             view_password: self.view_password,
-            local_data: self.local_data.decrypt_with_key(key, context_builder).ok().flatten(),
-            attachments: self.attachments.decrypt_with_key(key, context_builder).ok().flatten(),
-            fields: self.fields.decrypt_with_key(key, context_builder).ok().flatten(),
-            password_history: self.password_history.decrypt_with_key(key, context_builder).ok().flatten(),
+            local_data: self
+                .local_data
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
+            attachments: self
+                .attachments
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
+            fields: self
+                .fields
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
+            password_history: self
+                .password_history
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
@@ -296,7 +350,10 @@ impl Cipher {
                 let Some(login) = &self.login else {
                     return Ok(String::new());
                 };
-                login.username.decrypt_with_key(key, &NoContextBuilder)?.unwrap_or_default()
+                login
+                    .username
+                    .decrypt_with_key(key, &NoContextBuilder)?
+                    .unwrap_or_default()
             }
             CipherType::SecureNote => String::new(),
             CipherType::Card => {
@@ -440,7 +497,8 @@ impl CipherView {
         if let Some(attachments) = &mut self.attachments {
             for attachment in attachments {
                 if let Some(attachment_key) = &mut attachment.key {
-                    let dec_attachment_key: Vec<u8> = attachment_key.decrypt_with_key(old_key, &NoContextBuilder)?;
+                    let dec_attachment_key: Vec<u8> =
+                        attachment_key.decrypt_with_key(old_key, &NoContextBuilder)?;
                     *attachment_key = dec_attachment_key.encrypt_with_key(new_key, &NoContext)?;
                 }
             }
@@ -497,7 +555,8 @@ impl CipherView {
 
         // If the cipher has a key, we need to re-encrypt it with the new organization key
         if let Some(cipher_key) = &mut self.key {
-            let dec_cipher_key: Vec<u8> = cipher_key.decrypt_with_key(old_key, &NoContextBuilder)?;
+            let dec_cipher_key: Vec<u8> =
+                cipher_key.decrypt_with_key(old_key, &NoContextBuilder)?;
             *cipher_key = dec_cipher_key.encrypt_with_key(new_key, &NoContext)?;
         } else {
             // If the cipher does not have a key, we need to reencrypt all attachment keys
@@ -542,7 +601,11 @@ impl CipherView {
 }
 
 impl KeyDecryptable<SymmetricCryptoKey, CipherListView, NoContextBuilder> for Cipher {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<CipherListView, CryptoError> {
+    fn decrypt_with_key(
+        &self,
+        key: &SymmetricCryptoKey,
+        context_builder: &NoContextBuilder,
+    ) -> Result<CipherListView, CryptoError> {
         let ciphers_key = Cipher::get_cipher_key(key, &self.key)?;
         let key = ciphers_key.as_ref().unwrap_or(key);
 
@@ -552,7 +615,11 @@ impl KeyDecryptable<SymmetricCryptoKey, CipherListView, NoContextBuilder> for Ci
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
             key: self.key.clone(),
-            name: self.name.decrypt_with_key(key, context_builder).ok().unwrap_or_default(),
+            name: self
+                .name
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .unwrap_or_default(),
             subtitle: self.get_decrypted_subtitle(key).ok().unwrap_or_default(),
             r#type: match self.r#type {
                 CipherType::Login => {
@@ -733,9 +800,18 @@ mod tests {
     fn generate_fido2(key: &SymmetricCryptoKey) -> Fido2Credential {
         Fido2Credential {
             credential_id: "123".to_string().encrypt_with_key(key, &NoContext).unwrap(),
-            key_type: "public-key".to_string().encrypt_with_key(key, &NoContext).unwrap(),
-            key_algorithm: "ECDSA".to_string().encrypt_with_key(key, &NoContext).unwrap(),
-            key_curve: "P-256".to_string().encrypt_with_key(key, &NoContext).unwrap(),
+            key_type: "public-key"
+                .to_string()
+                .encrypt_with_key(key, &NoContext)
+                .unwrap(),
+            key_algorithm: "ECDSA"
+                .to_string()
+                .encrypt_with_key(key, &NoContext)
+                .unwrap(),
+            key_curve: "P-256"
+                .to_string()
+                .encrypt_with_key(key, &NoContext)
+                .unwrap(),
             key_value: "123".to_string().encrypt_with_key(key, &NoContext).unwrap(),
             rp_id: "123".to_string().encrypt_with_key(key, &NoContext).unwrap(),
             user_handle: None,
@@ -743,7 +819,10 @@ mod tests {
             counter: "123".to_string().encrypt_with_key(key, &NoContext).unwrap(),
             rp_name: None,
             user_display_name: None,
-            discoverable: "true".to_string().encrypt_with_key(key, &NoContext).unwrap(),
+            discoverable: "true"
+                .to_string()
+                .encrypt_with_key(key, &NoContext)
+                .unwrap(),
             creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
         }
     }
@@ -827,7 +906,9 @@ mod tests {
         // Check that the cipher gets encrypted correctly without it's own key
         let cipher = generate_cipher();
         let no_key_cipher_enc = cipher.encrypt_with_key(&key, &NoContext).unwrap();
-        let no_key_cipher_dec: CipherView = no_key_cipher_enc.decrypt_with_key(&key, &NoContextBuilder).unwrap();
+        let no_key_cipher_dec: CipherView = no_key_cipher_enc
+            .decrypt_with_key(&key, &NoContextBuilder)
+            .unwrap();
         assert!(no_key_cipher_dec.key.is_none());
         assert_eq!(no_key_cipher_dec.name, original_cipher.name);
 
@@ -836,7 +917,9 @@ mod tests {
 
         // Check that the cipher gets encrypted correctly when it's assigned it's own key
         let key_cipher_enc = cipher.encrypt_with_key(&key, &NoContext).unwrap();
-        let key_cipher_dec: CipherView = key_cipher_enc.decrypt_with_key(&key, &NoContextBuilder).unwrap();
+        let key_cipher_dec: CipherView = key_cipher_enc
+            .decrypt_with_key(&key, &NoContextBuilder)
+            .unwrap();
         assert!(key_cipher_dec.key.is_some());
         assert_eq!(key_cipher_dec.name, original_cipher.name);
     }
@@ -846,7 +929,10 @@ mod tests {
         let key = SymmetricCryptoKey::generate(rand::thread_rng());
 
         let cipher_key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let cipher_key = cipher_key.to_vec().encrypt_with_key(&key, &NoContext).unwrap();
+        let cipher_key = cipher_key
+            .to_vec()
+            .encrypt_with_key(&key, &NoContext)
+            .unwrap();
 
         let mut original_cipher = generate_cipher();
         original_cipher.key = Some(cipher_key.clone());
@@ -854,7 +940,11 @@ mod tests {
         original_cipher.generate_cipher_key(&key).unwrap();
 
         // Make sure that the cipher key is decryptable
-        let _: Vec<u8> = original_cipher.key.unwrap().decrypt_with_key(&key, &NoContextBuilder).unwrap();
+        let _: Vec<u8> = original_cipher
+            .key
+            .unwrap()
+            .decrypt_with_key(&key, &NoContextBuilder)
+            .unwrap();
     }
 
     #[test]
@@ -909,7 +999,9 @@ mod tests {
         // Check that the cipher can be encrypted/decrypted with the new org key
         let org_key = enc.get_key(&Some(org)).unwrap();
         let cipher_enc = cipher.encrypt_with_key(org_key, &NoContext).unwrap();
-        let cipher_dec: CipherView = cipher_enc.decrypt_with_key(org_key, &NoContextBuilder).unwrap();
+        let cipher_dec: CipherView = cipher_enc
+            .decrypt_with_key(org_key, &NoContextBuilder)
+            .unwrap();
 
         assert_eq!(cipher_dec.name, "My test login");
     }
@@ -1188,7 +1280,10 @@ mod tests {
         let key = "hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string();
         let key = SymmetricCryptoKey::try_from(key).unwrap();
         let original_subtitle = "SHA256:1JjFjvPRkj1Gbf2qRP1dgHiIzEuNAEvp+92x99jw3K0".to_string();
-        let fingerprint_encrypted = original_subtitle.to_owned().encrypt_with_key(&key, &NoContext).unwrap();
+        let fingerprint_encrypted = original_subtitle
+            .to_owned()
+            .encrypt_with_key(&key, &NoContext)
+            .unwrap();
         let private_key_encrypted = "".to_string().encrypt_with_key(&key, &NoContext).unwrap();
         let public_key_encrypted = "".to_string().encrypt_with_key(&key, &NoContext).unwrap();
         let ssh_key_cipher = Cipher {

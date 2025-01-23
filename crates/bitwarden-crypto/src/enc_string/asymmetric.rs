@@ -171,8 +171,8 @@ impl AsymmetricEncString {
     }
 }
 
-impl<ContextBuilder: EncryptionContextBuilder> KeyDecryptable<AsymmetricCryptoKey, Vec<u8>, ContextBuilder>
-    for AsymmetricEncString
+impl<ContextBuilder: EncryptionContextBuilder>
+    KeyDecryptable<AsymmetricCryptoKey, Vec<u8>, ContextBuilder> for AsymmetricEncString
 {
     fn decrypt_with_key(
         &self,
@@ -190,14 +190,15 @@ impl<ContextBuilder: EncryptionContextBuilder> KeyDecryptable<AsymmetricCryptoKe
             #[allow(deprecated)]
             Rsa2048_OaepSha1_HmacSha256_B64 { data, .. } => {
                 key.key.decrypt(Oaep::new::<sha1::Sha1>(), data)
-            } // TODO: Use _context_builder once we use HPKE and support AEAD in asymmetric encryption operations
+            } /* TODO: Use _context_builder once we use HPKE and support AEAD in asymmetric
+               * encryption operations */
         }
         .map_err(|_| CryptoError::KeyDecrypt)
     }
 }
 
-impl<ContextBuilder: EncryptionContextBuilder> KeyDecryptable<AsymmetricCryptoKey, String, ContextBuilder>
-    for AsymmetricEncString
+impl<ContextBuilder: EncryptionContextBuilder>
+    KeyDecryptable<AsymmetricCryptoKey, String, ContextBuilder> for AsymmetricEncString
 {
     fn decrypt_with_key(
         &self,
@@ -226,9 +227,8 @@ mod tests {
     use schemars::schema_for;
     use serde::{Deserialize, Serialize};
 
-    use crate::{enc_string::encryption_context::EncryptionContextBuilder, EncryptionContext};
-
     use super::{AsymmetricCryptoKey, AsymmetricEncString, KeyDecryptable};
+    use crate::{enc_string::encryption_context::EncryptionContextBuilder, EncryptionContext};
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     enum TestContext {

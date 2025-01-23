@@ -199,7 +199,9 @@ impl From<SecureNoteType> for crate::SecureNoteType {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::{CryptoError, KeyContainer, KeyEncryptable, NoContext, SymmetricCryptoKey};
+    use bitwarden_crypto::{
+        CryptoError, KeyContainer, KeyEncryptable, NoContext, SymmetricCryptoKey,
+    };
     use bitwarden_vault::{CipherRepromptType, LoginView};
     use chrono::{DateTime, Utc};
     use uuid::Uuid;

@@ -5,7 +5,7 @@ use super::send_text_message_context::{SendTextMessageContext, SendTextMessageCo
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize, Debug)]
 pub(crate) enum SendTextContext {
-    V1
+    V1,
 }
 
 impl SendTextContext {

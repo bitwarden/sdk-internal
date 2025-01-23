@@ -3,7 +3,10 @@ use std::path::Path;
 use bitwarden_core::{Client, Error};
 use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable};
 
-use crate::{context::send_context::{SendContext, SendContextBuilder}, Send, SendListView, SendView};
+use crate::{
+    context::send_context::{SendContext, SendContextBuilder},
+    Send, SendListView, SendView,
+};
 
 pub struct SendClient<'a> {
     client: &'a Client,

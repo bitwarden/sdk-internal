@@ -57,8 +57,12 @@ pub(crate) fn export_encrypted_json(
         kdf_iterations,
         kdf_memory,
         kdf_parallelism,
-        enc_key_validation: enc_key_validation.encrypt_with_key(&key, &NoContext)?.to_string(),
-        data: decrypted_export.encrypt_with_key(&key, &NoContext)?.to_string(),
+        enc_key_validation: enc_key_validation
+            .encrypt_with_key(&key, &NoContext)?
+            .to_string(),
+        data: decrypted_export
+            .encrypt_with_key(&key, &NoContext)?
+            .to_string(),
     };
 
     Ok(serde_json::to_string_pretty(&encrypted_export)?)

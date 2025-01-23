@@ -11,7 +11,9 @@ pub enum EncryptionContextError {
 }
 
 #[derive(Serialize, Deserialize, PartialEq)]
-#[deprecated(note="Use of NoContext provides no security, implement a specific context and context builder")]
+#[deprecated(
+    note = "Use of NoContext provides no security, implement a specific context and context builder"
+)]
 pub struct NoContext;
 
 impl NoContext {
@@ -24,7 +26,9 @@ impl NoContext {
     }
 }
 
-#[deprecated(note="Use of NoContext provides no security, implement a specific context builder and context")]
+#[deprecated(
+    note = "Use of NoContext provides no security, implement a specific context builder and context"
+)]
 pub struct NoContextBuilder;
 
 impl EncryptionContextBuilder for NoContextBuilder {
@@ -68,17 +72,20 @@ pub trait EncryptionContext: Serialize + for<'a> Deserialize<'a> + PartialEq {
         }
     }
 
-    fn validate(from_encrypted: Self, builder: impl FnOnce(&Self) -> Self) -> Result<(), EncryptionContextError> {
+    fn validate(
+        from_encrypted: Self,
+        builder: impl FnOnce(&Self) -> Self,
+    ) -> Result<(), EncryptionContextError> {
         let expected = builder(&from_encrypted);
         if expected == from_encrypted {
-            return Ok(());
+            Ok(())
         } else {
-            return Err(EncryptionContextError::ContextMismatch);
+            Err(EncryptionContextError::ContextMismatch)
         }
     }
 
     fn get(&self) -> Vec<u8> {
-        rmp_serde::to_vec(&(self.context_name(), self)).unwrap()
+        rmp_serde::to_vec(&(self.context_name(), self)).expect("rmp_serde should always serialize")
     }
 
     fn get_encoded(&self) -> B64Encoded {
@@ -91,7 +98,12 @@ pub trait EncryptionContext: Serialize + for<'a> Deserialize<'a> + PartialEq {
         Ok(rmp_serde::from_slice(&rmp)?)
     }
 
-    fn full_validate(&self, other: Self, other_name: String, builder: impl FnOnce(&Self) -> Self) -> Result<(), EncryptionContextError> {
+    fn full_validate(
+        &self,
+        other: Self,
+        other_name: String,
+        builder: impl FnOnce(&Self) -> Self,
+    ) -> Result<(), EncryptionContextError> {
         self.validate_context_name(other_name)?;
         Self::validate(other, builder)
     }

@@ -1,11 +1,16 @@
 use bitwarden_crypto::{EncryptionContext, EncryptionContextBuilder};
 use serde::{Deserialize, Serialize};
 
-use super::{send_file_context::{SendFileContext, SendFileContextBuilder}, send_name_context::{SendNameContext, SendNameContextBuilder}, send_notes_context::{SendNotesContext, SendNotesContextBuilder}, send_text_context::{SendTextContext, SendTextContextBuilder}};
+use super::{
+    send_file_context::{SendFileContext, SendFileContextBuilder},
+    send_name_context::{SendNameContext, SendNameContextBuilder},
+    send_notes_context::{SendNotesContext, SendNotesContextBuilder},
+    send_text_context::{SendTextContext, SendTextContextBuilder},
+};
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize, Debug)]
 pub(crate) enum SendContext {
-    V1
+    V1,
 }
 
 impl SendContext {

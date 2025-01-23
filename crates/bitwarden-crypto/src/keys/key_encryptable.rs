@@ -3,7 +3,10 @@ use std::{collections::HashMap, hash::Hash, sync::Arc};
 use rayon::prelude::*;
 use uuid::Uuid;
 
-use crate::{enc_string::encryption_context::EncryptionContextBuilder, error::Result, CryptoError, EncryptionContext, SymmetricCryptoKey};
+use crate::{
+    enc_string::encryption_context::EncryptionContextBuilder, error::Result, CryptoError,
+    EncryptionContext, SymmetricCryptoKey,
+};
 
 pub trait KeyContainer: Send + Sync {
     fn get_key(&self, org_id: &Option<Uuid>) -> Result<&SymmetricCryptoKey, CryptoError>;
@@ -66,32 +69,54 @@ impl DecryptedWithAdditionalData {
     }
 }
 
-impl<T: KeyEncryptable<Key, Output, Context>, Key: CryptoKey, Output, Context: EncryptionContext> KeyEncryptable<Key, Option<Output>, Context>
-    for Option<T>
+impl<
+        T: KeyEncryptable<Key, Output, Context>,
+        Key: CryptoKey,
+        Output,
+        Context: EncryptionContext,
+    > KeyEncryptable<Key, Option<Output>, Context> for Option<T>
 {
     fn encrypt_with_key(self, key: &Key, context: &Context) -> Result<Option<Output>> {
         self.map(|e| e.encrypt_with_key(key, context)).transpose()
     }
 }
 
-impl<T: KeyDecryptable<Key, Output, ContextBuilder>, Key: CryptoKey, Output, ContextBuilder: EncryptionContextBuilder> KeyDecryptable<Key, Option<Output>, ContextBuilder>
-    for Option<T>
+impl<
+        T: KeyDecryptable<Key, Output, ContextBuilder>,
+        Key: CryptoKey,
+        Output,
+        ContextBuilder: EncryptionContextBuilder,
+    > KeyDecryptable<Key, Option<Output>, ContextBuilder> for Option<T>
 {
-    fn decrypt_with_key(&self, key: &Key, context_builder: &ContextBuilder) -> Result<Option<Output>> {
-        self.as_ref().map(|e| e.decrypt_with_key(key, context_builder)).transpose()
+    fn decrypt_with_key(
+        &self,
+        key: &Key,
+        context_builder: &ContextBuilder,
+    ) -> Result<Option<Output>> {
+        self.as_ref()
+            .map(|e| e.decrypt_with_key(key, context_builder))
+            .transpose()
     }
 }
 
-impl<T: KeyEncryptable<Key, Output, Context>, Key: CryptoKey, Output, Context: EncryptionContext> KeyEncryptable<Key, Output, Context>
-    for Box<T>
+impl<
+        T: KeyEncryptable<Key, Output, Context>,
+        Key: CryptoKey,
+        Output,
+        Context: EncryptionContext,
+    > KeyEncryptable<Key, Output, Context> for Box<T>
 {
     fn encrypt_with_key(self, key: &Key, context: &Context) -> Result<Output> {
         (*self).encrypt_with_key(key, context)
     }
 }
 
-impl<T: KeyDecryptable<Key, Output, ContextBuilder>, Key: CryptoKey, Output, ContextBuilder: EncryptionContextBuilder> KeyDecryptable<Key, Output, ContextBuilder>
-    for Box<T>
+impl<
+        T: KeyDecryptable<Key, Output, ContextBuilder>,
+        Key: CryptoKey,
+        Output,
+        ContextBuilder: EncryptionContextBuilder,
+    > KeyDecryptable<Key, Output, ContextBuilder> for Box<T>
 {
     fn decrypt_with_key(&self, key: &Key, context_builder: &ContextBuilder) -> Result<Output> {
         (**self).decrypt_with_key(key, context_builder)
@@ -149,7 +174,11 @@ impl<
         ContextBuilder: EncryptionContextBuilder + Send + Sync,
     > KeyDecryptable<Key, HashMap<Id, Output>, ContextBuilder> for HashMap<Id, T>
 {
-    fn decrypt_with_key(&self, key: &Key, context_builder: &ContextBuilder) -> Result<HashMap<Id, Output>> {
+    fn decrypt_with_key(
+        &self,
+        key: &Key,
+        context_builder: &ContextBuilder,
+    ) -> Result<HashMap<Id, Output>> {
         self.into_par_iter()
             .map(|(id, e)| Ok((*id, e.decrypt_with_key(key, context_builder)?)))
             .collect()

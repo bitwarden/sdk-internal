@@ -1,6 +1,7 @@
 use bitwarden_api_api::models::CipherCardModel;
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder, SymmetricCryptoKey
+    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext,
+    NoContextBuilder, SymmetricCryptoKey,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -32,7 +33,11 @@ pub struct CardView {
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, Card, NoContext> for CardView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<Card, CryptoError> {
+    fn encrypt_with_key(
+        self,
+        key: &SymmetricCryptoKey,
+        context: &NoContext,
+    ) -> Result<Card, CryptoError> {
         Ok(Card {
             cardholder_name: self.cardholder_name.encrypt_with_key(key, context)?,
             exp_month: self.exp_month.encrypt_with_key(key, context)?,
@@ -45,14 +50,42 @@ impl KeyEncryptable<SymmetricCryptoKey, Card, NoContext> for CardView {
 }
 
 impl KeyDecryptable<SymmetricCryptoKey, CardView, NoContextBuilder> for Card {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<CardView, CryptoError> {
+    fn decrypt_with_key(
+        &self,
+        key: &SymmetricCryptoKey,
+        context_builder: &NoContextBuilder,
+    ) -> Result<CardView, CryptoError> {
         Ok(CardView {
-            cardholder_name: self.cardholder_name.decrypt_with_key(key, context_builder).ok().flatten(),
-            exp_month: self.exp_month.decrypt_with_key(key, context_builder).ok().flatten(),
-            exp_year: self.exp_year.decrypt_with_key(key, context_builder).ok().flatten(),
-            code: self.code.decrypt_with_key(key, context_builder).ok().flatten(),
-            brand: self.brand.decrypt_with_key(key, context_builder).ok().flatten(),
-            number: self.number.decrypt_with_key(key, context_builder).ok().flatten(),
+            cardholder_name: self
+                .cardholder_name
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
+            exp_month: self
+                .exp_month
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
+            exp_year: self
+                .exp_year
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
+            code: self
+                .code
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
+            brand: self
+                .brand
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
+            number: self
+                .number
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
         })
     }
 }

@@ -122,9 +122,10 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        enc_string::encryption_context::EncryptionContextBuilder, AsymmetricCryptoKey, AsymmetricEncString, AsymmetricPublicCryptoKey, EncryptionContext, KeyDecryptable
+        enc_string::encryption_context::EncryptionContextBuilder, AsymmetricCryptoKey,
+        AsymmetricEncString, AsymmetricPublicCryptoKey, EncryptionContext, KeyDecryptable,
     };
-    
+
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     enum TestContext {
         Test,
@@ -145,8 +146,6 @@ mod tests {
             "Test"
         }
     }
-
-
 
     #[test]
     fn test_asymmetric_crypto_key() {
@@ -243,7 +242,9 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let encrypted =
             AsymmetricEncString::encrypt_rsa2048_oaep_sha1(plaintext.as_bytes(), &public_key)
                 .unwrap();
-        let decrypted: String = encrypted.decrypt_with_key(&private_key, &TestEncryptionContextBuilder).unwrap();
+        let decrypted: String = encrypted
+            .decrypt_with_key(&private_key, &TestEncryptionContextBuilder)
+            .unwrap();
 
         assert_eq!(plaintext, decrypted);
     }

@@ -5,9 +5,13 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::GenericArray;
 use serde::Deserialize;
 
-use super::{check_length, encryption_context::EncryptionContextBuilder, from_b64, from_b64_vec, split_enc_string};
+use super::{
+    check_length, encryption_context::EncryptionContextBuilder, from_b64, from_b64_vec,
+    split_enc_string,
+};
 use crate::{
-    error::{CryptoError, EncStringParseError, Result}, EncryptionContext, KeyDecryptable, KeyEncryptable, LocateKey, SymmetricCryptoKey
+    error::{CryptoError, EncStringParseError, Result},
+    EncryptionContext, KeyDecryptable, KeyEncryptable, LocateKey, SymmetricCryptoKey,
 };
 
 #[cfg(feature = "wasm")]
@@ -228,7 +232,9 @@ impl EncString {
 }
 
 impl LocateKey for EncString {}
-impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, EncString, Context> for &[u8] {
+impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, EncString, Context>
+    for &[u8]
+{
     fn encrypt_with_key(self, key: &SymmetricCryptoKey, _context: &Context) -> Result<EncString> {
         // TODO: use context when we switch over to AEAD encryption
         EncString::encrypt_aes256_hmac(
@@ -239,8 +245,14 @@ impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, EncString, C
     }
 }
 
-impl<ContextBuilder: EncryptionContextBuilder> KeyDecryptable<SymmetricCryptoKey, Vec<u8>, ContextBuilder> for EncString {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, _context_builder: &ContextBuilder) -> Result<Vec<u8>> {
+impl<ContextBuilder: EncryptionContextBuilder>
+    KeyDecryptable<SymmetricCryptoKey, Vec<u8>, ContextBuilder> for EncString
+{
+    fn decrypt_with_key(
+        &self,
+        key: &SymmetricCryptoKey,
+        _context_builder: &ContextBuilder,
+    ) -> Result<Vec<u8>> {
         match self {
             EncString::AesCbc256_B64 { iv, data } => {
                 if key.mac_key.is_some() {
@@ -265,8 +277,8 @@ impl<ContextBuilder: EncryptionContextBuilder> KeyDecryptable<SymmetricCryptoKey
                 let dec =
                     crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), mac_key, &key.key)?;
                 Ok(dec)
-            }
-            // TODO: use _context_builder when we have an AEAD variant to guarantee decryption context
+            } /* TODO: use _context_builder when we have an AEAD variant to guarantee decryption
+               * context */
         }
     }
 }
@@ -283,8 +295,14 @@ impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, EncString, C
     }
 }
 
-impl<ContextBuilder: EncryptionContextBuilder> KeyDecryptable<SymmetricCryptoKey, String, ContextBuilder> for EncString {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &ContextBuilder) -> Result<String> {
+impl<ContextBuilder: EncryptionContextBuilder>
+    KeyDecryptable<SymmetricCryptoKey, String, ContextBuilder> for EncString
+{
+    fn decrypt_with_key(
+        &self,
+        key: &SymmetricCryptoKey,
+        context_builder: &ContextBuilder,
+    ) -> Result<String> {
         let dec: Vec<u8> = self.decrypt_with_key(key, context_builder)?;
         String::from_utf8(dec).map_err(|_| CryptoError::InvalidUtf8String)
     }
@@ -309,7 +327,8 @@ mod tests {
 
     use super::EncString;
     use crate::{
-        derive_symmetric_key, enc_string::encryption_context::EncryptionContextBuilder, CryptoError, EncryptionContext, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey
+        derive_symmetric_key, enc_string::encryption_context::EncryptionContextBuilder,
+        CryptoError, EncryptionContext, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
     };
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -338,9 +357,14 @@ mod tests {
         let key = derive_symmetric_key("test");
 
         let test_string = "encrypted_test_string";
-        let cipher = test_string.to_owned().encrypt_with_key(&key, &TestContext::Test).unwrap();
+        let cipher = test_string
+            .to_owned()
+            .encrypt_with_key(&key, &TestContext::Test)
+            .unwrap();
 
-        let decrypted_str: String = cipher.decrypt_with_key(&key, &TestEncryptionContextBuilder).unwrap();
+        let decrypted_str: String = cipher
+            .decrypt_with_key(&key, &TestEncryptionContextBuilder)
+            .unwrap();
         assert_eq!(decrypted_str, test_string);
     }
 
@@ -349,9 +373,13 @@ mod tests {
         let key = derive_symmetric_key("test");
 
         let test_string = "encrypted_test_string";
-        let cipher = test_string.encrypt_with_key(&key, &TestContext::Test).unwrap();
+        let cipher = test_string
+            .encrypt_with_key(&key, &TestContext::Test)
+            .unwrap();
 
-        let decrypted_str: String = cipher.decrypt_with_key(&key, &TestEncryptionContextBuilder).unwrap();
+        let decrypted_str: String = cipher
+            .decrypt_with_key(&key, &TestEncryptionContextBuilder)
+            .unwrap();
         assert_eq!(decrypted_str, test_string);
     }
 
@@ -449,7 +477,9 @@ mod tests {
         let enc_string: EncString = enc_str.parse().unwrap();
         assert_eq!(enc_string.enc_type(), 0);
 
-        let dec_str: String = enc_string.decrypt_with_key(&key, &TestEncryptionContextBuilder).unwrap();
+        let dec_str: String = enc_string
+            .decrypt_with_key(&key, &TestEncryptionContextBuilder)
+            .unwrap();
         assert_eq!(dec_str, "EncryptMe!");
     }
 
@@ -467,7 +497,8 @@ mod tests {
         let enc_string: EncString = enc_str.parse().unwrap();
         assert_eq!(enc_string.enc_type(), 0);
 
-        let result: Result<String, CryptoError> = enc_string.decrypt_with_key(&key, &TestEncryptionContextBuilder);
+        let result: Result<String, CryptoError> =
+            enc_string.decrypt_with_key(&key, &TestEncryptionContextBuilder);
         assert!(matches!(result, Err(CryptoError::MacNotProvided)));
     }
 
@@ -480,7 +511,9 @@ mod tests {
         let enc_string: EncString = enc_str.parse().unwrap();
         assert_eq!(enc_string.enc_type(), 1);
 
-        let dec_str: String = enc_string.decrypt_with_key(&key, &TestEncryptionContextBuilder).unwrap();
+        let dec_str: String = enc_string
+            .decrypt_with_key(&key, &TestEncryptionContextBuilder)
+            .unwrap();
         assert_eq!(dec_str, "EncryptMe!");
     }
 

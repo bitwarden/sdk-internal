@@ -1,5 +1,6 @@
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder, SymmetricCryptoKey
+    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext,
+    NoContextBuilder, SymmetricCryptoKey,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -29,7 +30,11 @@ pub struct SshKeyView {
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, SshKey, NoContext> for SshKeyView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<SshKey, CryptoError> {
+    fn encrypt_with_key(
+        self,
+        key: &SymmetricCryptoKey,
+        context: &NoContext,
+    ) -> Result<SshKey, CryptoError> {
         Ok(SshKey {
             private_key: self.private_key.encrypt_with_key(key, context)?,
             public_key: self.public_key.encrypt_with_key(key, context)?,
@@ -39,7 +44,11 @@ impl KeyEncryptable<SymmetricCryptoKey, SshKey, NoContext> for SshKeyView {
 }
 
 impl KeyDecryptable<SymmetricCryptoKey, SshKeyView, NoContextBuilder> for SshKey {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<SshKeyView, CryptoError> {
+    fn decrypt_with_key(
+        &self,
+        key: &SymmetricCryptoKey,
+        context_builder: &NoContextBuilder,
+    ) -> Result<SshKeyView, CryptoError> {
         Ok(SshKeyView {
             private_key: self.private_key.decrypt_with_key(key, context_builder)?,
             public_key: self.public_key.decrypt_with_key(key, context_builder)?,

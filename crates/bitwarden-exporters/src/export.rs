@@ -1,5 +1,7 @@
 use bitwarden_core::Client;
-use bitwarden_crypto::{KeyContainer, KeyDecryptable, KeyEncryptable, LocateKey, NoContext, NoContextBuilder};
+use bitwarden_crypto::{
+    KeyContainer, KeyDecryptable, KeyEncryptable, LocateKey, NoContext, NoContextBuilder,
+};
 use bitwarden_vault::{Cipher, CipherView, Collection, Folder, FolderView};
 
 use crate::{

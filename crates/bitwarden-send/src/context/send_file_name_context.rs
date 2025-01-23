@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize, Debug)]
 pub(crate) enum SendFileNameContext {
-    V1
+    V1,
 }
 
 impl EncryptionContext for SendFileNameContext {

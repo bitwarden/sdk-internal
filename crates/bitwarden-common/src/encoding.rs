@@ -1,5 +1,5 @@
-use thiserror::Error;
 use base64::{engine::general_purpose::STANDARD, Engine};
+use thiserror::Error;
 
 pub trait Encodable<To>: Sized {
     type DecodeError;
@@ -9,11 +9,11 @@ pub trait Encodable<To>: Sized {
 
 /// A struct representing data that has been encoded to a Base64 string.
 /// Guaranteed to only contain valid base64 characters.
-pub struct B64Encoded (String);
+pub struct B64Encoded(String);
 
 impl From<B64Encoded> for Vec<u8> {
     fn from(encoded: B64Encoded) -> Vec<u8> {
-        STANDARD.decode(&encoded.0).unwrap()
+        STANDARD.decode(&encoded.0).expect("B64Encoded should always contain valid base64")
     }
 }
 
@@ -44,7 +44,7 @@ impl Encodable<B64Encoded> for String {
 
     fn try_decode(encoded: B64Encoded) -> Result<String, B64DecodeError> {
         let decoded = Vec::<u8>::try_decode(encoded)?;
-        Ok(String::from_utf8(decoded).map_err(|_| B64DecodeError::InvalidUtf8String)?)
+        String::from_utf8(decoded).map_err(|_| B64DecodeError::InvalidUtf8String)
     }
 }
 
@@ -52,10 +52,12 @@ impl Encodable<B64Encoded> for Vec<u8> {
     type DecodeError = B64DecodeError;
 
     fn encode(&self) -> B64Encoded {
-        B64Encoded(STANDARD.encode(&self))
+        B64Encoded(STANDARD.encode(self))
     }
 
     fn try_decode(encoded: B64Encoded) -> Result<Self, Self::DecodeError> {
-        Ok(STANDARD.decode(&encoded.0).map_err(|_| B64DecodeError::InvalidBase64)?)
+        STANDARD
+            .decode(&encoded.0)
+            .map_err(|_| B64DecodeError::InvalidBase64)
     }
 }

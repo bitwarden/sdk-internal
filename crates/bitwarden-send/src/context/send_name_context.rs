@@ -1,10 +1,9 @@
 use bitwarden_crypto::{EncryptionContext, EncryptionContextBuilder};
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize, Debug)]
 pub(crate) enum SendNameContext {
-    V1
+    V1,
 }
 
 impl EncryptionContext for SendNameContext {

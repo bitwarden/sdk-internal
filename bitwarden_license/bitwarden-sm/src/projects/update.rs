@@ -29,7 +29,12 @@ pub(crate) async fn update_project(
     let key = enc.get_key(&Some(input.organization_id))?;
 
     let project = Some(ProjectUpdateRequestModel {
-        name: input.name.clone().trim().encrypt_with_key(key, &NoContext)?.to_string(),
+        name: input
+            .name
+            .clone()
+            .trim()
+            .encrypt_with_key(key, &NoContext)?
+            .to_string(),
     });
 
     let config = client.internal.get_api_configurations().await;

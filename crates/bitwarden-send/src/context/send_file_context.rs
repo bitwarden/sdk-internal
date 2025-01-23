@@ -5,7 +5,7 @@ use super::send_name_context::{SendNameContext, SendNameContextBuilder};
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize, Debug)]
 pub(crate) enum SendFileContext {
-    V1
+    V1,
 }
 
 impl SendFileContext {

@@ -1,5 +1,6 @@
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder, SymmetricCryptoKey
+    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext,
+    NoContextBuilder, SymmetricCryptoKey,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -57,7 +58,9 @@ pub struct AttachmentFileView<'a> {
     pub contents: &'a [u8],
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, AttachmentEncryptResult, NoContext> for AttachmentFileView<'_> {
+impl KeyEncryptable<SymmetricCryptoKey, AttachmentEncryptResult, NoContext>
+    for AttachmentFileView<'_>
+{
     fn encrypt_with_key(
         self,
         key: &SymmetricCryptoKey,
@@ -72,7 +75,11 @@ impl KeyEncryptable<SymmetricCryptoKey, AttachmentEncryptResult, NoContext> for 
         // with it, and then encrypt the key with the cipher key
         let attachment_key = SymmetricCryptoKey::generate(rand::thread_rng());
         let encrypted_contents = self.contents.encrypt_with_key(&attachment_key, context)?;
-        attachment.key = Some(attachment_key.to_vec().encrypt_with_key(ciphers_key, context)?);
+        attachment.key = Some(
+            attachment_key
+                .to_vec()
+                .encrypt_with_key(ciphers_key, context)?,
+        );
 
         let contents = encrypted_contents.to_buffer()?;
 
@@ -98,16 +105,22 @@ fn size_name(size: usize) -> String {
 }
 
 impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>, NoContextBuilder> for AttachmentFile {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<Vec<u8>, CryptoError> {
+    fn decrypt_with_key(
+        &self,
+        key: &SymmetricCryptoKey,
+        context_builder: &NoContextBuilder,
+    ) -> Result<Vec<u8>, CryptoError> {
         let ciphers_key = Cipher::get_cipher_key(key, &self.cipher.key)?;
         let ciphers_key = ciphers_key.as_ref().unwrap_or(key);
 
         // Version 2 or 3, `AttachmentKey` or `CipherKey(AttachmentKey)`
         if let Some(attachment_key) = &self.attachment.key {
-            let mut content_key: Vec<u8> = attachment_key.decrypt_with_key(ciphers_key, context_builder)?;
+            let mut content_key: Vec<u8> =
+                attachment_key.decrypt_with_key(ciphers_key, context_builder)?;
             let content_key = SymmetricCryptoKey::try_from(content_key.as_mut_slice())?;
 
-            self.contents.decrypt_with_key(&content_key, context_builder)
+            self.contents
+                .decrypt_with_key(&content_key, context_builder)
         } else {
             // Legacy attachment version 1, use user/org key
             self.contents.decrypt_with_key(key, context_builder)
@@ -116,7 +129,11 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>, NoContextBuilder> for Attachmen
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, Attachment, NoContext> for AttachmentView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<Attachment, CryptoError> {
+    fn encrypt_with_key(
+        self,
+        key: &SymmetricCryptoKey,
+        context: &NoContext,
+    ) -> Result<Attachment, CryptoError> {
         Ok(Attachment {
             id: self.id,
             url: self.url,
@@ -129,7 +146,11 @@ impl KeyEncryptable<SymmetricCryptoKey, Attachment, NoContext> for AttachmentVie
 }
 
 impl KeyDecryptable<SymmetricCryptoKey, AttachmentView, NoContextBuilder> for Attachment {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<AttachmentView, CryptoError> {
+    fn decrypt_with_key(
+        &self,
+        key: &SymmetricCryptoKey,
+        context_builder: &NoContextBuilder,
+    ) -> Result<AttachmentView, CryptoError> {
         Ok(AttachmentView {
             id: self.id.clone(),
             url: self.url.clone(),
@@ -161,7 +182,9 @@ impl TryFrom<bitwarden_api_api::models::AttachmentResponseModel> for Attachment 
 #[cfg(test)]
 mod tests {
     use base64::{engine::general_purpose::STANDARD, Engine};
-    use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder, SymmetricCryptoKey};
+    use bitwarden_crypto::{
+        EncString, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder, SymmetricCryptoKey,
+    };
 
     use crate::{
         cipher::cipher::{CipherRepromptType, CipherType},
@@ -227,7 +250,9 @@ mod tests {
             contents: contents.as_slice(),
         };
 
-        let result = attachment_file.encrypt_with_key(&user_key, &NoContext).unwrap();
+        let result = attachment_file
+            .encrypt_with_key(&user_key, &NoContext)
+            .unwrap();
 
         assert_eq!(result.contents.len(), 161);
         assert_eq!(result.attachment.size, Some("161".into()));

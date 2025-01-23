@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use super::utils::{derive_kdf_key, stretch_kdf_key};
-use crate::{enc_string::encryption_context::NoContextBuilder, util, CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey};
+use crate::{
+    enc_string::encryption_context::NoContextBuilder, util, CryptoError, EncString, KeyDecryptable,
+    Result, SymmetricCryptoKey, UserKey,
+};
 
 /// Key Derivation Function for Bitwarden Account
 ///

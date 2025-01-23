@@ -32,7 +32,8 @@ pub fn get(state_file: &Path, access_token: &AccessToken) -> Result<ClientState>
     let file_content = std::fs::read_to_string(state_file)?;
 
     let encrypted_state: EncString = file_content.parse()?;
-    let decrypted_state: String = encrypted_state.decrypt_with_key(&access_token.encryption_key, &NoContextBuilder)?;
+    let decrypted_state: String =
+        encrypted_state.decrypt_with_key(&access_token.encryption_key, &NoContextBuilder)?;
     let client_state: ClientState = serde_json::from_str(&decrypted_state)?;
 
     if client_state.version != STATE_VERSION {

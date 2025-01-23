@@ -27,7 +27,12 @@ pub(crate) async fn create_project(
     let key = enc.get_key(&Some(input.organization_id))?;
 
     let project = Some(ProjectCreateRequestModel {
-        name: input.name.clone().trim().encrypt_with_key(key, &NoContext)?.to_string(),
+        name: input
+            .name
+            .clone()
+            .trim()
+            .encrypt_with_key(key, &NoContext)?
+            .to_string(),
     });
 
     let config = client.internal.get_api_configurations().await;

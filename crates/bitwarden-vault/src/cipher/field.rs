@@ -1,7 +1,8 @@
 use bitwarden_api_api::models::CipherFieldModel;
 use bitwarden_core::require;
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder, SymmetricCryptoKey
+    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext,
+    NoContextBuilder, SymmetricCryptoKey,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -43,7 +44,11 @@ pub struct FieldView {
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, Field, NoContext> for FieldView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<Field, CryptoError> {
+    fn encrypt_with_key(
+        self,
+        key: &SymmetricCryptoKey,
+        context: &NoContext,
+    ) -> Result<Field, CryptoError> {
         Ok(Field {
             name: self.name.encrypt_with_key(key, context)?,
             value: self.value.encrypt_with_key(key, context)?,
@@ -54,10 +59,22 @@ impl KeyEncryptable<SymmetricCryptoKey, Field, NoContext> for FieldView {
 }
 
 impl KeyDecryptable<SymmetricCryptoKey, FieldView, NoContextBuilder> for Field {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey, context_builder: &NoContextBuilder) -> Result<FieldView, CryptoError> {
+    fn decrypt_with_key(
+        &self,
+        key: &SymmetricCryptoKey,
+        context_builder: &NoContextBuilder,
+    ) -> Result<FieldView, CryptoError> {
         Ok(FieldView {
-            name: self.name.decrypt_with_key(key, context_builder).ok().flatten(),
-            value: self.value.decrypt_with_key(key, context_builder).ok().flatten(),
+            name: self
+                .name
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
+            value: self
+                .value
+                .decrypt_with_key(key, context_builder)
+                .ok()
+                .flatten(),
             r#type: self.r#type,
             linked_id: self.linked_id,
         })
