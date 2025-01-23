@@ -198,16 +198,7 @@ mod tests {
         let key = derive_symmetric_key("test");
         let key2 = SymmetricCryptoKey::try_from(key.to_base64()).unwrap();
 
-        match (&key, &key2) {
-            (SymmetricCryptoKey::Aes256CbcKey(k), SymmetricCryptoKey::Aes256CbcKey(k2)) => {
-                assert_eq!(k.encryption_key.to_vec(), k2.encryption_key.to_vec());
-            }
-            (SymmetricCryptoKey::Aes256CbcHmacKey(k), SymmetricCryptoKey::Aes256CbcHmacKey(k2)) => {
-                assert_eq!(k.encryption_key.to_vec(), k2.encryption_key.to_vec());
-                assert_eq!(k.mac_key.to_vec(), k2.mac_key.to_vec());
-            }
-            _ => panic!("Key types don't match"),
-        }
+        assert_eq!(key, key2);
 
         let key = "UY4B5N4DA4UisCNClgZtRr6VLy9ZF5BXXC7cDZRqourKi4ghEMgISbCsubvgCkHf5DZctQjVot11/vVvN9NNHQ==".to_string();
         let key2 = SymmetricCryptoKey::try_from(key.clone()).unwrap();
