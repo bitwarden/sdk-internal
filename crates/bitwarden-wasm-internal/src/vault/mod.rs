@@ -1,8 +1,10 @@
 pub mod folders;
+pub mod totp;
 
 use std::rc::Rc;
 
 use bitwarden_core::Client;
+use totp::ClientTotp;
 use wasm_bindgen::prelude::*;
 
 use crate::ClientFolders;
@@ -20,5 +22,9 @@ impl VaultClient {
 impl VaultClient {
     pub fn folders(&self) -> ClientFolders {
         ClientFolders::new(self.0.clone())
+    }
+
+    pub fn totp(&self) -> ClientTotp {
+        ClientTotp::new(self.0.clone())
     }
 }
