@@ -1,9 +1,9 @@
 use std::path::Path;
 
 use bitwarden_core::{Client, Error};
-use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder};
+use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable};
 
-use crate::{Send, SendListView, SendView};
+use crate::{context::send_context::{SendContext, SendContextBuilder}, Send, SendListView, SendView};
 
 pub struct SendClient<'a> {
     client: &'a Client,
@@ -18,7 +18,7 @@ impl<'a> SendClient<'a> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = enc.get_key(&None)?;
 
-        let send_view = send.decrypt_with_key(key, &NoContextBuilder)?;
+        let send_view = send.decrypt_with_key(key, &SendContextBuilder)?;
 
         Ok(send_view)
     }
@@ -27,7 +27,7 @@ impl<'a> SendClient<'a> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = enc.get_key(&None)?;
 
-        let send_views = sends.decrypt_with_key(key, &NoContextBuilder)?;
+        let send_views = sends.decrypt_with_key(key, &SendContextBuilder)?;
 
         Ok(send_views)
     }
@@ -50,14 +50,14 @@ impl<'a> SendClient<'a> {
         let key = Send::get_key(&send.key, key)?;
 
         let buf = EncString::from_buffer(encrypted_buffer)?;
-        Ok(buf.decrypt_with_key(&key, &NoContextBuilder)?)
+        Ok(buf.decrypt_with_key(&key, &SendContextBuilder)?)
     }
 
     pub fn encrypt(&self, send_view: SendView) -> Result<Send, Error> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = enc.get_key(&None)?;
 
-        let send = send_view.encrypt_with_key(key, &NoContext)?;
+        let send = send_view.encrypt_with_key(key, &SendContext::V1)?;
 
         Ok(send)
     }
@@ -79,7 +79,7 @@ impl<'a> SendClient<'a> {
         let key = enc.get_key(&None)?;
         let key = Send::get_key(&send.key, key)?;
 
-        let encrypted = buffer.encrypt_with_key(&key, &NoContext)?;
+        let encrypted = buffer.encrypt_with_key(&key, &SendContext::V1)?;
         Ok(encrypted.to_buffer()?)
     }
 }
