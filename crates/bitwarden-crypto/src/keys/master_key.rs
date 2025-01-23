@@ -124,7 +124,7 @@ impl MasterKey {
     }
 
     pub fn to_base64(&self) -> String {
-        STANDARD.encode(self.0.key_material.to_vec())
+        STANDARD.encode(self.0.key_material.as_slice())
     }
 
     pub fn try_from(value: &mut [u8]) -> Result<Self> {
@@ -141,8 +141,11 @@ pub(super) fn encrypt_user_key(
     key: &KdfDerivedKeymaterial,
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
+    let mut userkey_bytes = user_key.to_vec();
     let stretched_key = stretch_kdf_key(key)?;
-    EncString::encrypt_aes256_hmac(&user_key.to_vec(), &stretched_key)
+    let encrypted_userkey = EncString::encrypt_aes256_hmac(&userkey_bytes, &stretched_key);
+    userkey_bytes.zeroize();
+    encrypted_userkey
 }
 
 /// Helper function to decrypt a user key with a master or pin key.
