@@ -1,5 +1,5 @@
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
+    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder, SymmetricCryptoKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -57,11 +57,11 @@ pub struct AttachmentFileView<'a> {
     pub contents: &'a [u8],
 }
 
-impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, AttachmentEncryptResult, Context> for AttachmentFileView<'_> {
+impl KeyEncryptable<SymmetricCryptoKey, AttachmentEncryptResult, NoContext> for AttachmentFileView<'_> {
     fn encrypt_with_key(
         self,
         key: &SymmetricCryptoKey,
-        context: &Context,
+        context: &NoContext,
     ) -> Result<AttachmentEncryptResult, CryptoError> {
         let ciphers_key = Cipher::get_cipher_key(key, &self.cipher.key)?;
         let ciphers_key = ciphers_key.as_ref().unwrap_or(key);
@@ -115,8 +115,8 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>, NoContextBuilder> for Attachmen
     }
 }
 
-impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, Attachment, Context> for AttachmentView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<Attachment, CryptoError> {
+impl KeyEncryptable<SymmetricCryptoKey, Attachment, NoContext> for AttachmentView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<Attachment, CryptoError> {
         Ok(Attachment {
             id: self.id,
             url: self.url,

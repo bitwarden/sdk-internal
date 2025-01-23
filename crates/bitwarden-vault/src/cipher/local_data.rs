@@ -1,4 +1,4 @@
-use bitwarden_crypto::{CryptoError, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey};
+use bitwarden_crypto::{CryptoError, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder, SymmetricCryptoKey};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -18,8 +18,8 @@ pub struct LocalDataView {
     last_launched: Option<u32>,
 }
 
-impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, LocalData, Context> for LocalDataView {
-    fn encrypt_with_key(self, _key: &SymmetricCryptoKey, _context: &Context) -> Result<LocalData, CryptoError> {
+impl KeyEncryptable<SymmetricCryptoKey, LocalData, NoContext> for LocalDataView {
+    fn encrypt_with_key(self, _key: &SymmetricCryptoKey, _context: &NoContext) -> Result<LocalData, CryptoError> {
         Ok(LocalData {
             last_used_date: self.last_used_date,
             last_launched: self.last_launched,

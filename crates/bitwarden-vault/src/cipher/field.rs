@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::CipherFieldModel;
 use bitwarden_core::require;
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
+    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder, SymmetricCryptoKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -42,8 +42,8 @@ pub struct FieldView {
     pub linked_id: Option<LinkedIdType>,
 }
 
-impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, Field, Context> for FieldView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<Field, CryptoError> {
+impl KeyEncryptable<SymmetricCryptoKey, Field, NoContext> for FieldView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<Field, CryptoError> {
         Ok(Field {
             name: self.name.encrypt_with_key(key, context)?,
             value: self.value.encrypt_with_key(key, context)?,

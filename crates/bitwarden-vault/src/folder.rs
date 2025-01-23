@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::FolderResponseModel;
 use bitwarden_core::require;
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
+    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder, SymmetricCryptoKey
 };
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
@@ -32,8 +32,8 @@ pub struct FolderView {
     pub revision_date: DateTime<Utc>,
 }
 
-impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, Folder, Context> for FolderView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<Folder, CryptoError> {
+impl KeyEncryptable<SymmetricCryptoKey, Folder, NoContext> for FolderView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<Folder, CryptoError> {
         Ok(Folder {
             id: self.id,
             name: self.name.encrypt_with_key(key, context)?,

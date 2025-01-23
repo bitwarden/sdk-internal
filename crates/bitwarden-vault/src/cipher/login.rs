@@ -2,7 +2,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_api_api::models::{CipherLoginModel, CipherLoginUriModel};
 use bitwarden_core::require;
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
+    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder, SymmetricCryptoKey
 };
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
@@ -168,8 +168,8 @@ impl From<Fido2CredentialFullView> for Fido2CredentialNewView {
     }
 }
 
-impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, Fido2Credential, Context> for Fido2CredentialFullView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<Fido2Credential, CryptoError> {
+impl KeyEncryptable<SymmetricCryptoKey, Fido2Credential, NoContext> for Fido2CredentialFullView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<Fido2Credential, CryptoError> {
         Ok(Fido2Credential {
             credential_id: self.credential_id.encrypt_with_key(key, context)?,
             key_type: self.key_type.encrypt_with_key(key, context)?,
@@ -280,8 +280,8 @@ pub struct LoginListView {
     pub uris: Option<Vec<LoginUriView>>,
 }
 
-impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, LoginUri, Context> for LoginUriView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<LoginUri, CryptoError> {
+impl KeyEncryptable<SymmetricCryptoKey, LoginUri, NoContext> for LoginUriView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<LoginUri, CryptoError> {
         Ok(LoginUri {
             uri: self.uri.encrypt_with_key(key, context)?,
             r#match: self.r#match,
@@ -290,8 +290,8 @@ impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, LoginUri, Co
     }
 }
 
-impl<Context: EncryptionContext + Send + Sync> KeyEncryptable<SymmetricCryptoKey, Login, Context> for LoginView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<Login, CryptoError> {
+impl KeyEncryptable<SymmetricCryptoKey, Login, NoContext> for LoginView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<Login, CryptoError> {
         Ok(Login {
             username: self.username.encrypt_with_key(key, context)?,
             password: self.password.encrypt_with_key(key, context)?,
@@ -338,8 +338,8 @@ impl KeyDecryptable<SymmetricCryptoKey, LoginListView, NoContextBuilder> for Log
     }
 }
 
-impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, Fido2Credential, Context> for Fido2CredentialView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<Fido2Credential, CryptoError> {
+impl KeyEncryptable<SymmetricCryptoKey, Fido2Credential, NoContext> for Fido2CredentialView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<Fido2Credential, CryptoError> {
         Ok(Fido2Credential {
             credential_id: self.credential_id.encrypt_with_key(key, context)?,
             key_type: self.key_type.encrypt_with_key(key, context)?,

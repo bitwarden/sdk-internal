@@ -191,8 +191,8 @@ impl CipherListView {
     }
 }
 
-impl<Context: EncryptionContext + Send + Sync> KeyEncryptable<SymmetricCryptoKey, Cipher, Context> for CipherView {
-    fn encrypt_with_key(mut self, key: &SymmetricCryptoKey, context: &Context) -> Result<Cipher, CryptoError> {
+impl KeyEncryptable<SymmetricCryptoKey, Cipher, NoContext> for CipherView {
+    fn encrypt_with_key(mut self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<Cipher, CryptoError> {
         let ciphers_key = Cipher::get_cipher_key(key, &self.key)?;
         let key = ciphers_key.as_ref().unwrap_or(key);
 

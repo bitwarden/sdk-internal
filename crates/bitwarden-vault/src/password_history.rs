@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::CipherPasswordHistoryModel;
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
+    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder, SymmetricCryptoKey
 };
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
@@ -24,8 +24,8 @@ pub struct PasswordHistoryView {
     last_used_date: DateTime<Utc>,
 }
 
-impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, PasswordHistory, Context> for PasswordHistoryView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<PasswordHistory, CryptoError> {
+impl KeyEncryptable<SymmetricCryptoKey, PasswordHistory, NoContext> for PasswordHistoryView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<PasswordHistory, CryptoError> {
         Ok(PasswordHistory {
             password: self.password.encrypt_with_key(key, context)?,
             last_used_date: self.last_used_date,

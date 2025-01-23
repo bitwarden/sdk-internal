@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::CipherIdentityModel;
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
+    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder, SymmetricCryptoKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -55,8 +55,8 @@ pub struct IdentityView {
     pub license_number: Option<String>,
 }
 
-impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, Identity, Context> for IdentityView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<Identity, CryptoError> {
+impl KeyEncryptable<SymmetricCryptoKey, Identity, NoContext> for IdentityView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<Identity, CryptoError> {
         Ok(Identity {
             title: self.title.encrypt_with_key(key, context)?,
             first_name: self.first_name.encrypt_with_key(key, context)?,

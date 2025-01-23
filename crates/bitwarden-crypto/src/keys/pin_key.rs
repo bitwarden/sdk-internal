@@ -3,7 +3,7 @@ use crate::{
     keys::{
         key_encryptable::CryptoKey,
         utils::{derive_kdf_key, stretch_kdf_key},
-    }, EncString, EncryptionContext, Kdf, KeyEncryptable, Result, SymmetricCryptoKey
+    }, EncString, EncryptionContext, Kdf, KeyEncryptable, NoContext, Result, SymmetricCryptoKey
 };
 
 /// Pin Key.
@@ -34,16 +34,16 @@ impl PinKey {
 
 impl CryptoKey for PinKey {}
 
-impl<Context: EncryptionContext> KeyEncryptable<PinKey, EncString, Context> for &[u8] {
-    fn encrypt_with_key(self, key: &PinKey, context: &Context) -> Result<EncString> {
+impl KeyEncryptable<PinKey, EncString, NoContext> for &[u8] {
+    fn encrypt_with_key(self, key: &PinKey, context: &NoContext) -> Result<EncString> {
         let stretched_key = stretch_kdf_key(&key.0)?;
 
         self.encrypt_with_key(&stretched_key, context)
     }
 }
 
-impl<Context: EncryptionContext> KeyEncryptable<PinKey, EncString, Context> for String {
-    fn encrypt_with_key(self, key: &PinKey, context: &Context) -> Result<EncString> {
+impl KeyEncryptable<PinKey, EncString, NoContext> for String {
+    fn encrypt_with_key(self, key: &PinKey, context: &NoContext) -> Result<EncString> {
         self.as_bytes().encrypt_with_key(key, context)
     }
 }

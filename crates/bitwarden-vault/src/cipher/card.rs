@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::CipherCardModel;
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
+    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder, SymmetricCryptoKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -31,8 +31,8 @@ pub struct CardView {
     pub number: Option<String>,
 }
 
-impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, Card, Context> for CardView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<Card, CryptoError> {
+impl KeyEncryptable<SymmetricCryptoKey, Card, NoContext> for CardView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &NoContext) -> Result<Card, CryptoError> {
         Ok(Card {
             cardholder_name: self.cardholder_name.encrypt_with_key(key, context)?,
             exp_month: self.exp_month.encrypt_with_key(key, context)?,
