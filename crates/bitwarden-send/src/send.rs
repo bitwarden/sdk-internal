@@ -5,7 +5,7 @@ use base64::{
 use bitwarden_api_api::models::{SendFileModel, SendResponseModel, SendTextModel};
 use bitwarden_core::require;
 use bitwarden_crypto::{
-    derive_shareable_key, generate_random_bytes, CryptoError, EncString, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
+    derive_shareable_key, generate_random_bytes, CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
 };
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
@@ -164,10 +164,10 @@ impl KeyDecryptable<SymmetricCryptoKey, SendTextView, NoContextBuilder> for Send
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, SendText> for SendTextView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<SendText, CryptoError> {
+impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, SendText, Context> for SendTextView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<SendText, CryptoError> {
         Ok(SendText {
-            text: self.text.encrypt_with_key(key)?,
+            text: self.text.encrypt_with_key(key, context)?,
             hidden: self.hidden,
         })
     }
@@ -184,11 +184,11 @@ impl KeyDecryptable<SymmetricCryptoKey, SendFileView, NoContextBuilder> for Send
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, SendFile> for SendFileView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<SendFile, CryptoError> {
+impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, SendFile, Context> for SendFileView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<SendFile, CryptoError> {
         Ok(SendFile {
             id: self.id.clone(),
-            file_name: self.file_name.encrypt_with_key(key)?,
+            file_name: self.file_name.encrypt_with_key(key, context)?,
             size: self.size.clone(),
             size_name: self.size_name.clone(),
         })
@@ -252,8 +252,8 @@ impl KeyDecryptable<SymmetricCryptoKey, SendListView, NoContextBuilder> for Send
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, Send> for SendView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<Send, CryptoError> {
+impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, Send, Context> for SendView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<Send, CryptoError> {
         // For sends, we first decrypt the send key with the user key, and stretch it to it's full
         // size For the rest of the fields, we ignore the provided SymmetricCryptoKey and
         // the stretched key
@@ -276,17 +276,17 @@ impl KeyEncryptable<SymmetricCryptoKey, Send> for SendView {
             id: self.id,
             access_id: self.access_id,
 
-            name: self.name.encrypt_with_key(&send_key)?,
-            notes: self.notes.encrypt_with_key(&send_key)?,
-            key: k.encrypt_with_key(key)?,
+            name: self.name.encrypt_with_key(&send_key, context)?,
+            notes: self.notes.encrypt_with_key(&send_key, context)?,
+            key: k.encrypt_with_key(key, context)?,
             password: self.new_password.map(|password| {
                 let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
                 STANDARD.encode(password)
             }),
 
             r#type: self.r#type,
-            file: self.file.encrypt_with_key(&send_key)?,
-            text: self.text.encrypt_with_key(&send_key)?,
+            file: self.file.encrypt_with_key(&send_key, context)?,
+            text: self.text.encrypt_with_key(&send_key, context)?,
 
             max_access_count: self.max_access_count,
             access_count: self.access_count,
@@ -362,7 +362,7 @@ impl TryFrom<SendTextModel> for SendText {
 mod tests {
     use std::collections::HashMap;
 
-    use bitwarden_crypto::{Kdf, KeyContainer, KeyDecryptable, KeyEncryptable, MasterKey};
+    use bitwarden_crypto::{Kdf, KeyContainer, KeyDecryptable, KeyEncryptable, MasterKey, NoContext};
 
     use super::*;
 
@@ -515,7 +515,7 @@ mod tests {
         // Re-encrypt and decrypt again to ensure encrypt works
         let v: SendView = view
             .clone()
-            .encrypt_with_key(key)
+            .encrypt_with_key(key, &NoContext)
             .unwrap()
             .decrypt_with_key(key, &NoContextBuilder)
             .unwrap();
@@ -553,7 +553,7 @@ mod tests {
         // Re-encrypt and decrypt again to ensure encrypt works
         let v: SendView = view
             .clone()
-            .encrypt_with_key(key)
+            .encrypt_with_key(key, &NoContext)
             .unwrap()
             .decrypt_with_key(key, &NoContextBuilder)
             .unwrap();
@@ -591,7 +591,7 @@ mod tests {
             expiration_date: None,
         };
 
-        let send: Send = view.encrypt_with_key(key).unwrap();
+        let send: Send = view.encrypt_with_key(key, &NoContext).unwrap();
 
         assert_eq!(
             send.password,

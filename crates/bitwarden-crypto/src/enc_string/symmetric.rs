@@ -7,7 +7,7 @@ use serde::Deserialize;
 
 use super::{check_length, encryption_context::EncryptionContextBuilder, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    error::{CryptoError, EncStringParseError, Result}, KeyDecryptable, KeyEncryptable, LocateKey, SymmetricCryptoKey
+    error::{CryptoError, EncStringParseError, Result}, EncryptionContext, KeyDecryptable, KeyEncryptable, LocateKey, SymmetricCryptoKey
 };
 
 #[cfg(feature = "wasm")]
@@ -228,8 +228,9 @@ impl EncString {
 }
 
 impl LocateKey for EncString {}
-impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
+impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, EncString, Context> for &[u8] {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, _context: &Context) -> Result<EncString> {
+        // TODO: use context when we switch over to AEAD encryption
         EncString::encrypt_aes256_hmac(
             self,
             key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?,
@@ -270,15 +271,15 @@ impl<ContextBuilder: EncryptionContextBuilder> KeyDecryptable<SymmetricCryptoKey
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, EncString> for String {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        self.as_bytes().encrypt_with_key(key)
+impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, EncString, Context> for String {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<EncString> {
+        self.as_bytes().encrypt_with_key(key, context)
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        self.as_bytes().encrypt_with_key(key)
+impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, EncString, Context> for &str {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<EncString> {
+        self.as_bytes().encrypt_with_key(key, context)
     }
 }
 
@@ -337,7 +338,7 @@ mod tests {
         let key = derive_symmetric_key("test");
 
         let test_string = "encrypted_test_string";
-        let cipher = test_string.to_owned().encrypt_with_key(&key).unwrap();
+        let cipher = test_string.to_owned().encrypt_with_key(&key, &TestContext::Test).unwrap();
 
         let decrypted_str: String = cipher.decrypt_with_key(&key, &TestEncryptionContextBuilder).unwrap();
         assert_eq!(decrypted_str, test_string);
@@ -348,7 +349,7 @@ mod tests {
         let key = derive_symmetric_key("test");
 
         let test_string = "encrypted_test_string";
-        let cipher = test_string.encrypt_with_key(&key).unwrap();
+        let cipher = test_string.encrypt_with_key(&key, &TestContext::Test).unwrap();
 
         let decrypted_str: String = cipher.decrypt_with_key(&key, &TestEncryptionContextBuilder).unwrap();
         assert_eq!(decrypted_str, test_string);

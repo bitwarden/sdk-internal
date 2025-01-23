@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricEncString, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, NoContextBuilder, SymmetricCryptoKey, UserKey
+    AsymmetricCryptoKey, AsymmetricEncString, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, NoContext, NoContextBuilder, SymmetricCryptoKey, UserKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -277,7 +277,7 @@ pub fn derive_pin_key(client: &Client, pin: String) -> Result<DerivePinKeyRespon
 
     Ok(DerivePinKeyResponse {
         pin_protected_user_key,
-        encrypted_pin: pin.encrypt_with_key(user_key)?,
+        encrypted_pin: pin.encrypt_with_key(user_key, &NoContext)?,
     })
 }
 
@@ -756,7 +756,7 @@ mod tests {
         let invalid_private_key = "bad_key"
             .to_string()
             .into_bytes()
-            .encrypt_with_key(&user_key.0)
+            .encrypt_with_key(&user_key.0, &NoContext)
             .unwrap();
 
         let request = VerifyAsymmetricKeysRequest {

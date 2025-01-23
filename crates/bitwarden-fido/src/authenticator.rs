@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 
 use bitwarden_core::{Client, VaultLocked};
-use bitwarden_crypto::{CryptoError, KeyContainer, KeyEncryptable};
+use bitwarden_crypto::{CryptoError, KeyContainer, KeyEncryptable, NoContext};
 use bitwarden_vault::{CipherError, CipherView};
 use itertools::Itertools;
 use log::error;
@@ -485,7 +485,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
 
             // Encrypt the updated cipher before sending it to the clients to be stored
             let key = enc.get_key(&selected.organization_id)?;
-            let encrypted = selected.encrypt_with_key(key)?;
+            let encrypted = selected.encrypt_with_key(key, &NoContext)?;
 
             this.authenticator
                 .credential_store
@@ -559,7 +559,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
 
             // Encrypt the updated cipher before sending it to the clients to be stored
             let key = enc.get_key(&selected.organization_id)?;
-            let encrypted = selected.encrypt_with_key(key)?;
+            let encrypted = selected.encrypt_with_key(key, &NoContext)?;
 
             this.authenticator
                 .credential_store

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use bitwarden_core::{Client, Error};
-use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, NoContextBuilder};
+use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder};
 
 use crate::{Send, SendListView, SendView};
 
@@ -57,7 +57,7 @@ impl<'a> SendClient<'a> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = enc.get_key(&None)?;
 
-        let send = send_view.encrypt_with_key(key)?;
+        let send = send_view.encrypt_with_key(key, &NoContext)?;
 
         Ok(send)
     }
@@ -79,7 +79,7 @@ impl<'a> SendClient<'a> {
         let key = enc.get_key(&None)?;
         let key = Send::get_key(&send.key, key)?;
 
-        let encrypted = buffer.encrypt_with_key(&key)?;
+        let encrypted = buffer.encrypt_with_key(&key, &NoContext)?;
         Ok(encrypted.to_buffer()?)
     }
 }

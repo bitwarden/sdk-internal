@@ -1,5 +1,5 @@
 use bitwarden_core::Client;
-use bitwarden_crypto::{KeyContainer, KeyDecryptable, KeyEncryptable, LocateKey, NoContextBuilder};
+use bitwarden_crypto::{KeyContainer, KeyDecryptable, KeyEncryptable, LocateKey, NoContext, NoContextBuilder};
 use bitwarden_vault::{Cipher, CipherView, Collection, Folder, FolderView};
 
 use crate::{
@@ -79,7 +79,7 @@ fn encrypt_import(enc: &dyn KeyContainer, cipher: ImportingCipher) -> Result<Cip
     }
 
     let key = view.locate_key(enc, &None)?;
-    let new_cipher = view.encrypt_with_key(key)?;
+    let new_cipher = view.encrypt_with_key(key, &NoContext)?;
 
     Ok(new_cipher)
 }

@@ -1,5 +1,5 @@
 use bitwarden_core::{Client, Error};
-use bitwarden_crypto::{KeyDecryptable, KeyEncryptable, NoContextBuilder};
+use bitwarden_crypto::{KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder};
 
 use crate::{Folder, FolderView, VaultClient};
 
@@ -12,7 +12,7 @@ impl ClientFolders<'_> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = enc.get_key(&None)?;
 
-        let folder = folder_view.encrypt_with_key(key)?;
+        let folder = folder_view.encrypt_with_key(key, &NoContext)?;
 
         Ok(folder)
     }

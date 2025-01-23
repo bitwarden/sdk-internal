@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use bitwarden_core::{Client, Error};
-use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, LocateKey, NoContextBuilder};
+use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, LocateKey, NoContext, NoContextBuilder};
 
 use crate::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
@@ -27,7 +27,7 @@ impl ClientAttachments<'_> {
             attachment,
             contents: buffer,
         }
-        .encrypt_with_key(key)?)
+        .encrypt_with_key(key, &NoContext)?)
     }
     pub fn encrypt_file(
         &self,

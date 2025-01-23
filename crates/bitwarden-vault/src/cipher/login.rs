@@ -2,7 +2,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_api_api::models::{CipherLoginModel, CipherLoginUriModel};
 use bitwarden_core::require;
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
+    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
 };
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
@@ -168,24 +168,24 @@ impl From<Fido2CredentialFullView> for Fido2CredentialNewView {
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, Fido2Credential> for Fido2CredentialFullView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<Fido2Credential, CryptoError> {
+impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, Fido2Credential, Context> for Fido2CredentialFullView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<Fido2Credential, CryptoError> {
         Ok(Fido2Credential {
-            credential_id: self.credential_id.encrypt_with_key(key)?,
-            key_type: self.key_type.encrypt_with_key(key)?,
-            key_algorithm: self.key_algorithm.encrypt_with_key(key)?,
-            key_curve: self.key_curve.encrypt_with_key(key)?,
-            key_value: self.key_value.encrypt_with_key(key)?,
-            rp_id: self.rp_id.encrypt_with_key(key)?,
+            credential_id: self.credential_id.encrypt_with_key(key, context)?,
+            key_type: self.key_type.encrypt_with_key(key, context)?,
+            key_algorithm: self.key_algorithm.encrypt_with_key(key, context)?,
+            key_curve: self.key_curve.encrypt_with_key(key, context)?,
+            key_value: self.key_value.encrypt_with_key(key, context)?,
+            rp_id: self.rp_id.encrypt_with_key(key, context)?,
             user_handle: self
                 .user_handle
-                .map(|h| h.encrypt_with_key(key))
+                .map(|h| h.encrypt_with_key(key, context))
                 .transpose()?,
-            user_name: self.user_name.encrypt_with_key(key)?,
-            counter: self.counter.encrypt_with_key(key)?,
-            rp_name: self.rp_name.encrypt_with_key(key)?,
-            user_display_name: self.user_display_name.encrypt_with_key(key)?,
-            discoverable: self.discoverable.encrypt_with_key(key)?,
+            user_name: self.user_name.encrypt_with_key(key, context)?,
+            counter: self.counter.encrypt_with_key(key, context)?,
+            rp_name: self.rp_name.encrypt_with_key(key, context)?,
+            user_display_name: self.user_display_name.encrypt_with_key(key, context)?,
+            discoverable: self.discoverable.encrypt_with_key(key, context)?,
             creation_date: self.creation_date,
         })
     }
@@ -280,24 +280,24 @@ pub struct LoginListView {
     pub uris: Option<Vec<LoginUriView>>,
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, LoginUri> for LoginUriView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<LoginUri, CryptoError> {
+impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, LoginUri, Context> for LoginUriView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<LoginUri, CryptoError> {
         Ok(LoginUri {
-            uri: self.uri.encrypt_with_key(key)?,
+            uri: self.uri.encrypt_with_key(key, context)?,
             r#match: self.r#match,
-            uri_checksum: self.uri_checksum.encrypt_with_key(key)?,
+            uri_checksum: self.uri_checksum.encrypt_with_key(key, context)?,
         })
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, Login> for LoginView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<Login, CryptoError> {
+impl<Context: EncryptionContext + Send + Sync> KeyEncryptable<SymmetricCryptoKey, Login, Context> for LoginView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<Login, CryptoError> {
         Ok(Login {
-            username: self.username.encrypt_with_key(key)?,
-            password: self.password.encrypt_with_key(key)?,
+            username: self.username.encrypt_with_key(key, context)?,
+            password: self.password.encrypt_with_key(key, context)?,
             password_revision_date: self.password_revision_date,
-            uris: self.uris.encrypt_with_key(key)?,
-            totp: self.totp.encrypt_with_key(key)?,
+            uris: self.uris.encrypt_with_key(key, context)?,
+            totp: self.totp.encrypt_with_key(key, context)?,
             autofill_on_page_load: self.autofill_on_page_load,
             fido2_credentials: self.fido2_credentials,
         })
@@ -338,27 +338,27 @@ impl KeyDecryptable<SymmetricCryptoKey, LoginListView, NoContextBuilder> for Log
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, Fido2Credential> for Fido2CredentialView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<Fido2Credential, CryptoError> {
+impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, Fido2Credential, Context> for Fido2CredentialView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<Fido2Credential, CryptoError> {
         Ok(Fido2Credential {
-            credential_id: self.credential_id.encrypt_with_key(key)?,
-            key_type: self.key_type.encrypt_with_key(key)?,
-            key_algorithm: self.key_algorithm.encrypt_with_key(key)?,
-            key_curve: self.key_curve.encrypt_with_key(key)?,
+            credential_id: self.credential_id.encrypt_with_key(key, context)?,
+            key_type: self.key_type.encrypt_with_key(key, context)?,
+            key_algorithm: self.key_algorithm.encrypt_with_key(key, context)?,
+            key_curve: self.key_curve.encrypt_with_key(key, context)?,
             key_value: self.key_value,
-            rp_id: self.rp_id.encrypt_with_key(key)?,
+            rp_id: self.rp_id.encrypt_with_key(key, context)?,
             user_handle: self
                 .user_handle
-                .map(|h| h.encrypt_with_key(key))
+                .map(|h| h.encrypt_with_key(key, context))
                 .transpose()?,
             user_name: self
                 .user_name
-                .map(|n| n.encrypt_with_key(key))
+                .map(|n| n.encrypt_with_key(key, context))
                 .transpose()?,
-            counter: self.counter.encrypt_with_key(key)?,
-            rp_name: self.rp_name.encrypt_with_key(key)?,
-            user_display_name: self.user_display_name.encrypt_with_key(key)?,
-            discoverable: self.discoverable.encrypt_with_key(key)?,
+            counter: self.counter.encrypt_with_key(key, context)?,
+            rp_name: self.rp_name.encrypt_with_key(key, context)?,
+            user_display_name: self.user_display_name.encrypt_with_key(key, context)?,
+            discoverable: self.discoverable.encrypt_with_key(key, context)?,
             creation_date: self.creation_date,
         })
     }

@@ -3,7 +3,7 @@ use std::{collections::HashMap, hash::Hash, sync::Arc};
 use rayon::prelude::*;
 use uuid::Uuid;
 
-use crate::{enc_string::encryption_context::EncryptionContextBuilder, error::Result, CryptoError, SymmetricCryptoKey};
+use crate::{enc_string::encryption_context::EncryptionContextBuilder, error::Result, CryptoError, EncryptionContext, SymmetricCryptoKey};
 
 pub trait KeyContainer: Send + Sync {
     fn get_key(&self, org_id: &Option<Uuid>) -> Result<&SymmetricCryptoKey, CryptoError>;
@@ -27,8 +27,8 @@ pub trait LocateKey {
 
 pub trait CryptoKey {}
 
-pub trait KeyEncryptable<Key: CryptoKey, Output> {
-    fn encrypt_with_key(self, key: &Key) -> Result<Output>;
+pub trait KeyEncryptable<Key: CryptoKey, Output, Context: EncryptionContext> {
+    fn encrypt_with_key(self, key: &Key, context: &Context) -> Result<Output>;
 }
 
 pub trait KeyDecryptable<Key: CryptoKey, Output, ContextBuilder: EncryptionContextBuilder> {
@@ -66,11 +66,11 @@ impl DecryptedWithAdditionalData {
     }
 }
 
-impl<T: KeyEncryptable<Key, Output>, Key: CryptoKey, Output> KeyEncryptable<Key, Option<Output>>
+impl<T: KeyEncryptable<Key, Output, Context>, Key: CryptoKey, Output, Context: EncryptionContext> KeyEncryptable<Key, Option<Output>, Context>
     for Option<T>
 {
-    fn encrypt_with_key(self, key: &Key) -> Result<Option<Output>> {
-        self.map(|e| e.encrypt_with_key(key)).transpose()
+    fn encrypt_with_key(self, key: &Key, context: &Context) -> Result<Option<Output>> {
+        self.map(|e| e.encrypt_with_key(key, context)).transpose()
     }
 }
 
@@ -82,11 +82,11 @@ impl<T: KeyDecryptable<Key, Output, ContextBuilder>, Key: CryptoKey, Output, Con
     }
 }
 
-impl<T: KeyEncryptable<Key, Output>, Key: CryptoKey, Output> KeyEncryptable<Key, Output>
+impl<T: KeyEncryptable<Key, Output, Context>, Key: CryptoKey, Output, Context: EncryptionContext> KeyEncryptable<Key, Output, Context>
     for Box<T>
 {
-    fn encrypt_with_key(self, key: &Key) -> Result<Output> {
-        (*self).encrypt_with_key(key)
+    fn encrypt_with_key(self, key: &Key, context: &Context) -> Result<Output> {
+        (*self).encrypt_with_key(key, context)
     }
 }
 
@@ -99,14 +99,15 @@ impl<T: KeyDecryptable<Key, Output, ContextBuilder>, Key: CryptoKey, Output, Con
 }
 
 impl<
-        T: KeyEncryptable<Key, Output> + Send + Sync,
+        T: KeyEncryptable<Key, Output, Context> + Send + Sync,
         Key: CryptoKey + Send + Sync,
         Output: Send + Sync,
-    > KeyEncryptable<Key, Vec<Output>> for Vec<T>
+        Context: EncryptionContext + Send + Sync,
+    > KeyEncryptable<Key, Vec<Output>, Context> for Vec<T>
 {
-    fn encrypt_with_key(self, key: &Key) -> Result<Vec<Output>> {
+    fn encrypt_with_key(self, key: &Key, context: &Context) -> Result<Vec<Output>> {
         self.into_par_iter()
-            .map(|e| e.encrypt_with_key(key))
+            .map(|e| e.encrypt_with_key(key, context))
             .collect()
     }
 }
@@ -126,15 +127,16 @@ impl<
 }
 
 impl<
-        T: KeyEncryptable<Key, Output> + Send + Sync,
+        T: KeyEncryptable<Key, Output, Context> + Send + Sync,
         Key: CryptoKey + Send + Sync,
         Output: Send + Sync,
+        Context: EncryptionContext + Send + Sync,
         Id: Hash + Eq + Send + Sync,
-    > KeyEncryptable<Key, HashMap<Id, Output>> for HashMap<Id, T>
+    > KeyEncryptable<Key, HashMap<Id, Output>, Context> for HashMap<Id, T>
 {
-    fn encrypt_with_key(self, key: &Key) -> Result<HashMap<Id, Output>> {
+    fn encrypt_with_key(self, key: &Key, context: &Context) -> Result<HashMap<Id, Output>> {
         self.into_par_iter()
-            .map(|(id, e)| Ok((id, e.encrypt_with_key(key)?)))
+            .map(|(id, e)| Ok((id, e.encrypt_with_key(key, context)?)))
             .collect()
     }
 }

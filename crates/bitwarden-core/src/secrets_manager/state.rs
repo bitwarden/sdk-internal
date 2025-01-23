@@ -1,6 +1,6 @@
 use std::{fmt::Debug, path::Path};
 
-use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, NoContextBuilder};
+use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, NoContext, NoContextBuilder};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -45,7 +45,7 @@ pub fn get(state_file: &Path, access_token: &AccessToken) -> Result<ClientState>
 pub fn set(state_file: &Path, access_token: &AccessToken, state: ClientState) -> Result<()> {
     let serialized_state: String = serde_json::to_string(&state)?;
     let encrypted_state: EncString =
-        serialized_state.encrypt_with_key(&access_token.encryption_key)?;
+        serialized_state.encrypt_with_key(&access_token.encryption_key, &NoContext)?;
     let state_string: String = encrypted_state.to_string();
 
     std::fs::write(state_file, state_string)

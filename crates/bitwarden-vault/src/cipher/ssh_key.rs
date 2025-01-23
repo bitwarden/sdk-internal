@@ -1,5 +1,5 @@
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
+    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -28,12 +28,12 @@ pub struct SshKeyView {
     pub fingerprint: String,
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, SshKey> for SshKeyView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<SshKey, CryptoError> {
+impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, SshKey, Context> for SshKeyView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<SshKey, CryptoError> {
         Ok(SshKey {
-            private_key: self.private_key.encrypt_with_key(key)?,
-            public_key: self.public_key.encrypt_with_key(key)?,
-            fingerprint: self.fingerprint.encrypt_with_key(key)?,
+            private_key: self.private_key.encrypt_with_key(key, context)?,
+            public_key: self.public_key.encrypt_with_key(key, context)?,
+            fingerprint: self.fingerprint.encrypt_with_key(key, context)?,
         })
     }
 }

@@ -38,7 +38,7 @@
 //!
 //!
 //!   let data = "Hello, World!".to_owned();
-//!   let encrypted = data.clone().encrypt_with_key(&key)?;
+//!   let encrypted = data.clone().encrypt_with_key(&key, &DocContext::V1)?;
 //!   let decrypted: String = encrypted.decrypt_with_key(&key, &DocContextBuilder)?;
 //!
 //!   assert_eq!(data, decrypted);
@@ -89,8 +89,8 @@ mod enc_string;
 pub use enc_string::{
     encryption_context::{
         EncryptionContext, EncryptionContextBuilder, EncryptionContextError, 
-        // FIXME: stop exporting this once everyone writes a custom context
-        NoContextBuilder,
+        // FIXME: stop exporting these once everyone writes a custom context
+        NoContextBuilder, NoContext
     },
     AsymmetricEncString, EncString,
 };

@@ -199,7 +199,7 @@ impl From<SecureNoteType> for crate::SecureNoteType {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::{CryptoError, KeyContainer, KeyEncryptable, SymmetricCryptoKey};
+    use bitwarden_crypto::{CryptoError, KeyContainer, KeyEncryptable, NoContext, SymmetricCryptoKey};
     use bitwarden_vault::{CipherRepromptType, LoginView};
     use chrono::{DateTime, Utc};
     use uuid::Uuid;
@@ -318,7 +318,7 @@ mod tests {
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
         };
         let encrypted = cipher_view
-            .encrypt_with_key(enc.get_key(&None).unwrap())
+            .encrypt_with_key(enc.get_key(&None).unwrap(), &NoContext)
             .unwrap();
 
         let cipher: crate::Cipher = crate::Cipher::from_cipher(&enc, encrypted).unwrap();

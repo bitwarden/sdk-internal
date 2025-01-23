@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::CipherIdentityModel;
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
+    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContextBuilder, SymmetricCryptoKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -55,27 +55,27 @@ pub struct IdentityView {
     pub license_number: Option<String>,
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, Identity> for IdentityView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<Identity, CryptoError> {
+impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, Identity, Context> for IdentityView {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<Identity, CryptoError> {
         Ok(Identity {
-            title: self.title.encrypt_with_key(key)?,
-            first_name: self.first_name.encrypt_with_key(key)?,
-            middle_name: self.middle_name.encrypt_with_key(key)?,
-            last_name: self.last_name.encrypt_with_key(key)?,
-            address1: self.address1.encrypt_with_key(key)?,
-            address2: self.address2.encrypt_with_key(key)?,
-            address3: self.address3.encrypt_with_key(key)?,
-            city: self.city.encrypt_with_key(key)?,
-            state: self.state.encrypt_with_key(key)?,
-            postal_code: self.postal_code.encrypt_with_key(key)?,
-            country: self.country.encrypt_with_key(key)?,
-            company: self.company.encrypt_with_key(key)?,
-            email: self.email.encrypt_with_key(key)?,
-            phone: self.phone.encrypt_with_key(key)?,
-            ssn: self.ssn.encrypt_with_key(key)?,
-            username: self.username.encrypt_with_key(key)?,
-            passport_number: self.passport_number.encrypt_with_key(key)?,
-            license_number: self.license_number.encrypt_with_key(key)?,
+            title: self.title.encrypt_with_key(key, context)?,
+            first_name: self.first_name.encrypt_with_key(key, context)?,
+            middle_name: self.middle_name.encrypt_with_key(key, context)?,
+            last_name: self.last_name.encrypt_with_key(key, context)?,
+            address1: self.address1.encrypt_with_key(key, context)?,
+            address2: self.address2.encrypt_with_key(key, context)?,
+            address3: self.address3.encrypt_with_key(key, context)?,
+            city: self.city.encrypt_with_key(key, context)?,
+            state: self.state.encrypt_with_key(key, context)?,
+            postal_code: self.postal_code.encrypt_with_key(key, context)?,
+            country: self.country.encrypt_with_key(key, context)?,
+            company: self.company.encrypt_with_key(key, context)?,
+            email: self.email.encrypt_with_key(key, context)?,
+            phone: self.phone.encrypt_with_key(key, context)?,
+            ssn: self.ssn.encrypt_with_key(key, context)?,
+            username: self.username.encrypt_with_key(key, context)?,
+            passport_number: self.passport_number.encrypt_with_key(key, context)?,
+            license_number: self.license_number.encrypt_with_key(key, context)?,
         })
     }
 }

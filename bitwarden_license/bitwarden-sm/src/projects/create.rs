@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::ProjectCreateRequestModel;
 use bitwarden_core::{validate_only_whitespaces, Client, Error};
-use bitwarden_crypto::KeyEncryptable;
+use bitwarden_crypto::{KeyEncryptable, NoContext};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -27,7 +27,7 @@ pub(crate) async fn create_project(
     let key = enc.get_key(&Some(input.organization_id))?;
 
     let project = Some(ProjectCreateRequestModel {
-        name: input.name.clone().trim().encrypt_with_key(key)?.to_string(),
+        name: input.name.clone().trim().encrypt_with_key(key, &NoContext)?.to_string(),
     });
 
     let config = client.internal.get_api_configurations().await;
