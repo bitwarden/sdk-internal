@@ -428,7 +428,8 @@ mod tests {
 
     #[test]
     fn test_parse_totp_label_two_issuers() {
-        // If the label has an issuer and there is an issuer parameter, the parameter is chosen as the issuer
+        // If the label has an issuer and there is an issuer parameter, the parameter is chosen as
+        // the issuer
         let key = "otpauth://totp/test-issuer:test-account@example.com?secret=WQIQ25BRKZYCJVYP&issuer=other-test-issuer";
         let totp = Totp::from_str(key).unwrap();
 
