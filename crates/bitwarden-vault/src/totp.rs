@@ -128,8 +128,10 @@ impl TotpAlgorithm {
 /// access to the individual components.
 #[derive(Debug)]
 pub struct Totp {
+    pub account: Option<String>,
     pub algorithm: TotpAlgorithm,
     pub digits: u32,
+    pub issuer: Option<String>,
     pub period: u32,
     pub secret: Vec<u8>,
 }
@@ -166,9 +168,28 @@ impl FromStr for Totp {
 
         let params = if key.starts_with("otpauth://") {
             let url = Url::parse(&key).map_err(|_| TotpError::InvalidOtpauth)?;
+            let label = remove_first(url.path());
+            let label_string = label.map(|v| v.to_string());
+            let pieces: Vec<String> = label
+                .unwrap_or("")
+                .split(":")
+                .map(|v| v.to_string())
+                .collect();
+            let label_issuer = if pieces.iter().count() > 1 {
+                pieces.get(0)
+            } else {
+                None
+            };
+            let label_account = if pieces.iter().count() > 1 {
+                pieces.get(1)
+            } else {
+                label_string.as_ref()
+            };
+
             let parts: HashMap<_, _> = url.query_pairs().collect();
 
             Totp {
+                account: label_account.cloned(),
                 algorithm: parts
                     .get("algorithm")
                     .and_then(|v| match v.as_ref() {
@@ -183,6 +204,10 @@ impl FromStr for Totp {
                     .and_then(|v| v.parse().ok())
                     .map(|v: u32| v.clamp(0, 10))
                     .unwrap_or(DEFAULT_DIGITS),
+                issuer: parts
+                    .get("issuer")
+                    .map(|v| v.to_string())
+                    .or(label_issuer.cloned()),
                 period: parts
                     .get("period")
                     .and_then(|v| v.parse().ok())
@@ -197,15 +222,19 @@ impl FromStr for Totp {
             }
         } else if let Some(secret) = key.strip_prefix("steam://") {
             Totp {
+                account: None,
                 algorithm: TotpAlgorithm::Steam,
                 digits: 5,
+                issuer: None,
                 period: DEFAULT_PERIOD,
                 secret: decode_b32(secret),
             }
         } else {
             Totp {
+                account: None,
                 algorithm: DEFAULT_ALGORITHM,
                 digits: DEFAULT_DIGITS,
+                issuer: None,
                 period: DEFAULT_PERIOD,
                 secret: decode_b32(&key),
             }
@@ -213,6 +242,11 @@ impl FromStr for Totp {
 
         Ok(params)
     }
+}
+
+/// Remove the first character from a string; returns None if the string is one character long.
+fn remove_first(s: &str) -> Option<&str> {
+    s.chars().next().map(|c| &s[c.len_utf8()..])
 }
 
 /// Derive the Steam OTP from the hash with the given number of digits.
@@ -370,6 +404,36 @@ mod tests {
 
         assert_eq!(response.code, "842615".to_string());
         assert_eq!(response.period, 30);
+    }
+
+    #[test]
+    fn test_parse_totp_label_no_issuer() {
+        // If there is only one value in the label, it is the account
+        let key = "otpauth://totp/test-account@example.com?secret=WQIQ25BRKZYCJVYP";
+        let totp = Totp::from_str(key).unwrap();
+
+        assert_eq!(totp.account, Some("test-account@example.com".to_string()));
+        assert_eq!(totp.issuer, None);
+    }
+
+    #[test]
+    fn test_parse_totp_label_with_issuer() {
+        // If there are two values in the label, the first is the issuer, the second is the account
+        let key = "otpauth://totp/test-issuer:test-account@example.com?secret=WQIQ25BRKZYCJVYP";
+        let totp = Totp::from_str(key).unwrap();
+
+        assert_eq!(totp.account, Some("test-account@example.com".to_string()));
+        assert_eq!(totp.issuer, Some("test-issuer".to_string()));
+    }
+
+    #[test]
+    fn test_parse_totp_label_two_issuers() {
+        // If the label has an issuer and there is an issuer parameter, the parameter is chosen as the issuer
+        let key = "otpauth://totp/test-issuer:test-account@example.com?secret=WQIQ25BRKZYCJVYP&issuer=other-test-issuer";
+        let totp = Totp::from_str(key).unwrap();
+
+        assert_eq!(totp.account, Some("test-account@example.com".to_string()));
+        assert_eq!(totp.issuer, Some("other-test-issuer".to_string()));
     }
 
     #[test]
