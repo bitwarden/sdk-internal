@@ -175,12 +175,12 @@ impl FromStr for Totp {
                 .split(":")
                 .map(|v| v.to_string())
                 .collect();
-            let label_issuer = if pieces.iter().count() > 1 {
-                pieces.get(0)
+            let label_issuer = if pieces.len() > 1 {
+                pieces.first()
             } else {
                 None
             };
-            let label_account = if pieces.iter().count() > 1 {
+            let label_account = if pieces.len() > 1 {
                 pieces.get(1)
             } else {
                 label_string.as_ref()
