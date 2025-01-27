@@ -338,8 +338,8 @@ impl KeyEncryptable<SymmetricCryptoKey, Send, SendContext> for SendView {
             id: self.id,
             access_id: self.access_id,
 
-            name: self.name.encrypt_with_key(&send_key, context)?,
-            notes: self.notes.encrypt_with_key(&send_key, context)?,
+            name: self.name.encrypt_with_key(&send_key, &context.name_context())?,
+            notes: self.notes.encrypt_with_key(&send_key, &context.notes_context())?,
             key: k.encrypt_with_key(key, context)?,
             password: self.new_password.map(|password| {
                 let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
