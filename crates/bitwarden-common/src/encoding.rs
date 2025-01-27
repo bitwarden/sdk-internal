@@ -1,10 +1,17 @@
+use std::convert::Infallible;
+
 use thiserror::Error;
 use base64::{engine::general_purpose::STANDARD, Engine};
 
 pub trait Encodable<To>: Sized {
-    type DecodeError;
+    // type DecodeError;
     fn encode(&self) -> To;
-    fn try_decode(encoded: To) -> Result<Self, Self::DecodeError>;
+    // fn try_decode(encoded: To) -> Result<Self, Self::DecodeError>;
+}
+
+pub trait Decodable<To: Encodable<Self>>: Sized {
+    type DecodeError;
+    fn try_decode(self) -> Result<To, Self::DecodeError>;
 }
 
 /// A struct representing data that has been encoded to a Base64 string.
@@ -37,25 +44,68 @@ pub enum B64DecodeError {
 }
 
 impl Encodable<B64Encoded> for String {
-    type DecodeError = B64DecodeError;
     fn encode(&self) -> B64Encoded {
         B64Encoded(STANDARD.encode(self))
     }
+}
 
-    fn try_decode(encoded: B64Encoded) -> Result<String, B64DecodeError> {
-        let decoded = Vec::<u8>::try_decode(encoded)?;
+impl Decodable<String> for B64Encoded {
+    type DecodeError = B64DecodeError;
+    fn try_decode(self) -> Result<String, B64DecodeError> {
+        let decoded: Vec::<u8> = self.try_decode()?;
         Ok(String::from_utf8(decoded).map_err(|_| B64DecodeError::InvalidUtf8String)?)
     }
 }
 
 impl Encodable<B64Encoded> for Vec<u8> {
-    type DecodeError = B64DecodeError;
-
     fn encode(&self) -> B64Encoded {
         B64Encoded(STANDARD.encode(&self))
     }
+}
 
-    fn try_decode(encoded: B64Encoded) -> Result<Self, Self::DecodeError> {
-        Ok(STANDARD.decode(&encoded.0).map_err(|_| B64DecodeError::InvalidBase64)?)
+impl Decodable<Vec<u8>> for B64Encoded {
+    type DecodeError = B64DecodeError;
+
+    fn try_decode(self) -> Result<Vec<u8>, Self::DecodeError> {
+        Ok(STANDARD.decode(&self.0).map_err(|_| B64DecodeError::InvalidBase64)?)
+    }
+}
+
+impl Encodable<Vec<u8>> for Vec<u8> {
+    fn encode(&self) -> Vec<u8> {
+        self.clone()
+    }
+}
+
+impl Decodable<Vec<u8>> for Vec<u8> {
+    type DecodeError = Infallible;
+    fn try_decode(self) -> Result<Vec<u8>, Self::DecodeError> {
+        Ok(self)
+    }
+}
+
+impl Encodable<Vec<u8>> for &[u8] {
+    fn encode(&self) -> Vec<u8> {
+        self.to_vec()
+    }
+}
+
+impl Encodable<Vec<u8>> for String {
+
+    fn encode(&self) -> Vec<u8> {
+        self.as_bytes().to_vec()
+    }
+}
+
+impl Decodable<String> for Vec<u8> {
+    type DecodeError = std::string::FromUtf8Error;
+    fn try_decode(self) -> Result<String, Self::DecodeError> {
+        Ok(String::from_utf8(self)?)
+    }
+}
+
+impl Encodable<Vec<u8>> for &str {
+    fn encode(&self) -> Vec<u8> {
+        self.as_bytes().to_vec()
     }
 }
