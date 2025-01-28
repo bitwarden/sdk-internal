@@ -246,7 +246,7 @@ mod tests {
     }
 
     impl EncryptionContext for TestContext {
-        fn context_name(&self) -> &str {
+        fn context_name() -> &'static str {
             "Test"
         }
     }

@@ -7,7 +7,7 @@ pub(crate) enum SendFileNameContext {
 }
 
 impl EncryptionContext for SendFileNameContext {
-    fn context_name(&self) -> &str {
+    fn context_name() -> &'static str {
         "send_file_name"
     }
 }

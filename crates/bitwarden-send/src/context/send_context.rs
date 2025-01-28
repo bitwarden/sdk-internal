@@ -40,7 +40,7 @@ impl SendContext {
 }
 
 impl EncryptionContext for SendContext {
-    fn context_name(&self) -> &str {
+    fn context_name() -> &'static str {
         "send"
     }
 }

@@ -55,7 +55,7 @@ export type EncString = string;
 /// - `[mac]`: (optional) is the MAC used to validate the integrity of the data.
 #[derive(Clone, zeroize::ZeroizeOnDrop, PartialEq)]
 #[allow(unused, non_camel_case_types)]
-pub enum EncString {
+pub enum EncString{
     /// 0
     AesCbc256_B64 { iv: [u8; 16], data: Vec<u8> },
     /// 1
@@ -347,7 +347,7 @@ mod tests {
     }
 
     impl EncryptionContext for TestContext {
-        fn context_name(&self) -> &str {
+        fn context_name() -> &'static str {
             "Test"
         }
     }

@@ -46,7 +46,7 @@ impl EncryptionContextBuilder for NoContext {
 }
 
 impl EncryptionContext for NoContext {
-    fn context_name(&self) -> &str {
+    fn context_name() -> &'static str {
         "NoContext"
     }
 }
@@ -59,14 +59,14 @@ pub trait EncryptionContextBuilder {
 pub trait EncryptionContext: Serialize + for<'a> Deserialize<'a> + PartialEq {
     /// A short name to describe the purpose of the context. This context name is validated for all
     /// values automatically and should never be changed
-    fn context_name(&self) -> &str;
+    fn context_name() -> &'static str;
 
     fn validate_context_name(&self, other: String) -> Result<(), EncryptionContextError> {
-        if self.context_name() == other {
+        if Self::context_name() == other {
             Ok(())
         } else {
             Err(EncryptionContextError::ContextNameMismatch {
-                expected: self.context_name().to_string(),
+                expected: Self::context_name().to_string(),
                 got: other,
             })
         }
@@ -85,7 +85,7 @@ pub trait EncryptionContext: Serialize + for<'a> Deserialize<'a> + PartialEq {
     }
 
     fn get(&self) -> Vec<u8> {
-        rmp_serde::to_vec(&(self.context_name(), self)).expect("rmp_serde should always serialize")
+        rmp_serde::to_vec(&(Self::context_name(), self)).expect("rmp_serde should always serialize")
     }
 
     fn get_encoded(&self) -> B64Encoded {
@@ -94,7 +94,7 @@ pub trait EncryptionContext: Serialize + for<'a> Deserialize<'a> + PartialEq {
     }
 
     fn try_from_encoded(b64: B64Encoded) -> Result<(String, Self), EncryptionContextEncodingError> {
-        let rmp = Vec::<u8>::try_decode(b64)?;
+    let rmp = Vec::<u8>::try_decode(b64)?;
         Ok(rmp_serde::from_slice(&rmp)?)
     }
 
