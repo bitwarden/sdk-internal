@@ -51,14 +51,6 @@ impl<T: KeyDecryptable<Key, Output>, Key: CryptoKey, Output> KeyDecryptable<Key,
     }
 }
 
-impl<T: KeyEncryptable<Key, Output>, Key: CryptoKey, Output> KeyEncryptable<Key, Output>
-    for Box<T>
-{
-    fn encrypt_with_key(self, key: &Key) -> Result<Output> {
-        (*self).encrypt_with_key(key)
-    }
-}
-
 impl<T: KeyDecryptable<Key, Output>, Key: CryptoKey, Output> KeyDecryptable<Key, Output>
     for Box<T>
 {

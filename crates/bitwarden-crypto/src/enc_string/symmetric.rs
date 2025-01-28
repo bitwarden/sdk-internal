@@ -2,6 +2,7 @@ use std::{fmt::Display, str::FromStr};
 
 use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
+use bitwarden_common::encoding::Encodable;
 use generic_array::GenericArray;
 use serde::Deserialize;
 
@@ -228,16 +229,17 @@ impl EncString {
     }
 }
 
-impl LocateKey for EncString {}
-impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
+impl<T: Encodable<Vec<u8>>> KeyEncryptable<SymmetricCryptoKey, EncString> for T {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
         EncString::encrypt_aes256_hmac(
-            self,
+            &self.encode(),
             key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?,
             &key.key,
         )
     }
 }
+
+impl LocateKey for EncString {}
 
 impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
@@ -267,18 +269,6 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 Ok(dec)
             }
         }
-    }
-}
-
-impl KeyEncryptable<SymmetricCryptoKey, EncString> for String {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        self.as_bytes().encrypt_with_key(key)
-    }
-}
-
-impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        self.as_bytes().encrypt_with_key(key)
     }
 }
 
