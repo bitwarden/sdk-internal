@@ -39,8 +39,8 @@ impl<Key: KeyId> StoreBackend<Key> for BasicBackend<Key> {
     }
 }
 
-// Key::KeyValue already implements ZeroizeOnDrop,
-// so we only need to ensure the map is cleared on drop.
+/// [KeyId::KeyValue] already implements [ZeroizeOnDrop],
+/// so we only need to ensure the map is cleared on drop.
 impl<Key: KeyId> ZeroizeOnDrop for BasicBackend<Key> {}
 impl<Key: KeyId> Drop for BasicBackend<Key> {
     fn drop(&mut self) {

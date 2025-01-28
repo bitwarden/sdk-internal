@@ -67,6 +67,7 @@ pub struct KeyStore<Ids: KeyIds> {
     inner: Arc<RwLock<KeyStoreInner<Ids>>>,
 }
 
+/// [KeyStore] contains sensitive data, provide a dummy [Debug] implementation.
 impl<Ids: KeyIds> std::fmt::Debug for KeyStore<Ids> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("KeyStore").finish()

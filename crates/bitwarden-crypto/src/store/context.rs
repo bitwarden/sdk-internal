@@ -17,11 +17,11 @@ use crate::{
 /// This will usually be accessed from an implementation of [crate::Decryptable] or
 /// [crate::Encryptable], but can also be obtained through [super::KeyStore::context]
 ///
-/// This context contains access to the user keys stored in the [super::KeyStore] (sometimes refered
-/// to as `global keys`) and it also contains it's own individual secure backend for key storage.
-/// Keys stored in this individual backend are usually refered to as `local keys`, they will be
-/// cleared when this context goes out of scope and is dropped and they do not affect either the
-/// global [super::KeyStore] or other instances of contexts.
+/// This context contains access to the user keys stored in the [super::KeyStore] (sometimes
+/// referred to as `global keys`) and it also contains it's own individual secure backend for key
+/// storage. Keys stored in this individual backend are usually referred to as `local keys`, they
+/// will be cleared when this context goes out of scope and is dropped and they do not affect either
+/// the global [super::KeyStore] or other instances of contexts.
 ///
 /// This context-local storage is recommended for ephemeral and temporary keys that are decrypted
 /// during the course of a decrypt/encrypt operation, but won't be used after the operation itself
@@ -71,11 +71,11 @@ pub struct KeyStoreContext<'a, Ids: KeyIds> {
     pub(super) _phantom: std::marker::PhantomData<(Cell<()>, RwLockReadGuard<'static, ()>)>,
 }
 
-// A KeyStoreContext is usually limited to a read only access to the global keys,
-// which allows us to have multiple read only contexts at the same time and do multitheaded
-// encryption/decryption. We also have the option to create a read/write context, which allows us to
-// modify the global keys, but only allows one context at a time. This is controlled by a RWLock on
-// the global keys, and this struct stores both types of guards.
+/// A KeyStoreContext is usually limited to a read only access to the global keys,
+/// which allows us to have multiple read only contexts at the same time and do multitheaded
+/// encryption/decryption. We also have the option to create a read/write context, which allows us
+/// to modify the global keys, but only allows one context at a time. This is controlled by a
+/// [std::sync::RwLock] on the global keys, and this struct stores both types of guards.
 pub(crate) enum GlobalKeys<'a, Ids: KeyIds> {
     ReadOnly(RwLockReadGuard<'a, KeyStoreInner<Ids>>),
     ReadWrite(RwLockWriteGuard<'a, KeyStoreInner<Ids>>),

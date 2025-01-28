@@ -7,7 +7,7 @@ use crate::{AsymmetricCryptoKey, CryptoKey, SymmetricCryptoKey};
 /// Represents a key identifier that can be used to identify cryptographic keys in the
 /// key store. It is used to avoid exposing the key material directly in the public API.
 ///
-/// This trait is user-implemented, and our recommended implementation is using enums with variants
+/// This trait is user-implemented, and the recommended implementation is using enums with variants
 /// for each expected key purpose. We provide a macro ([crate::key_ids]) that simplifies the trait
 /// implementation
 ///
