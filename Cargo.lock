@@ -429,6 +429,7 @@ dependencies = [
  "aes",
  "argon2",
  "base64",
+ "bitwarden-common",
  "cbc",
  "criterion",
  "generic-array",
