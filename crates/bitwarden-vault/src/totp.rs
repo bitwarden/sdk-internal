@@ -364,6 +364,15 @@ mod tests {
     }
 
     #[test]
+    fn test_generate_otpauth_no_label() {
+        let key = "otpauth://totp/?secret=WQIQ25BRKZYCJVYP";
+        let totp = Totp::from_str(key).unwrap();
+
+        assert_eq!(totp.account, Some("".to_string()));
+        assert_eq!(totp.issuer, None);
+    }
+
+    #[test]
     fn test_generate_otpauth_uppercase() {
         let key = "OTPauth://totp/test-account?secret=WQIQ25BRKZYCJVYP".to_string();
         let time = Some(
@@ -435,6 +444,36 @@ mod tests {
 
         assert_eq!(totp.account, Some("test-account@example.com".to_string()));
         assert_eq!(totp.issuer, Some("other-test-issuer".to_string()));
+    }
+
+    #[test]
+    fn test_parse_totp_label_encoded_colon() {
+        // A url-encoded colon is a valid separator
+        let key = "otpauth://totp/test-issuer%3Atest-account@example.com?secret=WQIQ25BRKZYCJVYP&issuer=test-issuer";
+        let totp = Totp::from_str(key).unwrap();
+
+        assert_eq!(totp.account, Some("test-account@example.com".to_string()));
+        assert_eq!(totp.issuer, Some("other-test-issuer".to_string()));
+    }
+
+    #[test]
+    fn test_parse_totp_label_encoded_characters() {
+        // The account and issuer can both be URL-encoded
+        let key = "otpauth://totp/test%20issuer:test-account%40example%2Ecom?secret=WQIQ25BRKZYCJVYP&issuer=test%20issuer";
+        let totp = Totp::from_str(key).unwrap();
+
+        assert_eq!(totp.account, Some("test-account@example.com".to_string()));
+        assert_eq!(totp.issuer, Some("test-issuer".to_string()));
+    }
+
+    #[test]
+    fn test_parse_totp_label_account_spaces() {
+        // The account can have spaces before it
+        let key = "otpauth://totp/test-issuer:   test-account@example.com?secret=WQIQ25BRKZYCJVYP&issuer=test-issuer";
+        let totp = Totp::from_str(key).unwrap();
+
+        assert_eq!(totp.account, Some("test-account@example.com".to_string()));
+        assert_eq!(totp.issuer, Some("test-issuer".to_string()));
     }
 
     #[test]
