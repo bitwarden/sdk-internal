@@ -1,4 +1,4 @@
-use bitwarden_crypto::{EncString, PinKey};
+use bitwarden_crypto::{EncString, NoContext, PinKey};
 
 use crate::{
     client::{LoginMethod, UserLoginMethod},
@@ -9,7 +9,7 @@ use crate::{
 pub(crate) fn validate_pin(
     client: &Client,
     pin: String,
-    pin_protected_user_key: EncString,
+    pin_protected_user_key: EncString<NoContext>,
 ) -> Result<bool> {
     let login_method = client
         .internal

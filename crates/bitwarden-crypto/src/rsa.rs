@@ -6,8 +6,7 @@ use rsa::{
 use sha1::Sha1;
 
 use crate::{
-    error::{Result, RsaError},
-    CryptoError, EncString, SymmetricCryptoKey,
+    error::{Result, RsaError}, CryptoError, EncString, NoContext, SymmetricCryptoKey
 };
 
 /// RSA Key Pair
@@ -18,7 +17,7 @@ pub struct RsaKeyPair {
     /// Base64 encoded DER representation of the public key
     pub public: String,
     /// Encrypted PKCS8 private key
-    pub private: EncString,
+    pub private: EncString<NoContext>,
 }
 
 /// Generate a new RSA key pair of 2048 bits

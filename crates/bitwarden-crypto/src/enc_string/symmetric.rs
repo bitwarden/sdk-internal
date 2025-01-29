@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, marker::PhantomData, str::FromStr};
 
 use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -55,32 +55,34 @@ export type EncString = string;
 /// - `[mac]`: (optional) is the MAC used to validate the integrity of the data.
 #[derive(Clone, zeroize::ZeroizeOnDrop, PartialEq)]
 #[allow(unused, non_camel_case_types)]
-pub enum EncString{
+pub enum EncString<Context: EncryptionContext>{
     /// 0
-    AesCbc256_B64 { iv: [u8; 16], data: Vec<u8> },
+    AesCbc256_B64 { iv: [u8; 16], data: Vec<u8>, context: PhantomData<Context> },
     /// 1
     AesCbc128_HmacSha256_B64 {
         iv: [u8; 16],
         mac: [u8; 32],
         data: Vec<u8>,
+        context: PhantomData<Context>
     },
     /// 2
     AesCbc256_HmacSha256_B64 {
         iv: [u8; 16],
         mac: [u8; 32],
         data: Vec<u8>,
+        context: PhantomData<Context>
     },
 }
 
 /// To avoid printing sensitive information, [EncString] debug prints to `EncString`.
-impl std::fmt::Debug for EncString {
+impl<T: EncryptionContext> std::fmt::Debug for EncString<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EncString").finish()
     }
 }
 
 /// Deserializes an [EncString] from a string.
-impl FromStr for EncString {
+impl<Context: EncryptionContext> FromStr for EncString<Context> {
     type Err = CryptoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -90,7 +92,7 @@ impl FromStr for EncString {
                 let iv = from_b64(parts[0])?;
                 let data = from_b64_vec(parts[1])?;
 
-                Ok(EncString::AesCbc256_B64 { iv, data })
+                Ok(EncString::AesCbc256_B64 { iv, data, context: PhantomData })
             }
             ("1" | "2", 3) => {
                 let iv = from_b64(parts[0])?;
@@ -98,9 +100,9 @@ impl FromStr for EncString {
                 let mac = from_b64(parts[2])?;
 
                 if enc_type == "1" {
-                    Ok(EncString::AesCbc128_HmacSha256_B64 { iv, mac, data })
+                    Ok(EncString::AesCbc128_HmacSha256_B64 { iv, mac, data, context: PhantomData })
                 } else {
-                    Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
+                    Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data, context: PhantomData })
                 }
             }
 
@@ -113,9 +115,9 @@ impl FromStr for EncString {
     }
 }
 
-impl EncString {
+impl<T: EncryptionContext> EncString<T> {
     /// Synthetic sugar for mapping `Option<String>` to `Result<Option<EncString>>`
-    pub fn try_from_optional(s: Option<String>) -> Result<Option<EncString>, CryptoError> {
+    pub fn try_from_optional(s: Option<String>) -> Result<Option<EncString<T>>, CryptoError> {
         s.map(|s| s.parse()).transpose()
     }
 
@@ -131,7 +133,7 @@ impl EncString {
                 let iv = buf[1..17].try_into().expect("Valid length");
                 let data = buf[17..].to_vec();
 
-                Ok(EncString::AesCbc256_B64 { iv, data })
+                Ok(EncString::AesCbc256_B64 { iv, data, context: PhantomData })
             }
             1 | 2 => {
                 check_length(buf, 50)?;
@@ -140,9 +142,9 @@ impl EncString {
                 let data = buf[49..].to_vec();
 
                 if enc_type == 1 {
-                    Ok(EncString::AesCbc128_HmacSha256_B64 { iv, mac, data })
+                    Ok(EncString::AesCbc128_HmacSha256_B64 { iv, mac, data, context: PhantomData })
                 } else {
-                    Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
+                    Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data, context: PhantomData })
                 }
             }
             _ => Err(EncStringParseError::InvalidTypeSymm {
@@ -157,14 +159,14 @@ impl EncString {
         let mut buf;
 
         match self {
-            EncString::AesCbc256_B64 { iv, data } => {
+            EncString::AesCbc256_B64 { iv, data, .. } => {
                 buf = Vec::with_capacity(1 + 16 + data.len());
                 buf.push(self.enc_type());
                 buf.extend_from_slice(iv);
                 buf.extend_from_slice(data);
             }
-            EncString::AesCbc128_HmacSha256_B64 { iv, mac, data }
-            | EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
+            EncString::AesCbc128_HmacSha256_B64 { iv, mac, data, .. }
+            | EncString::AesCbc256_HmacSha256_B64 { iv, mac, data, .. } => {
                 buf = Vec::with_capacity(1 + 16 + 32 + data.len());
                 buf.push(self.enc_type());
                 buf.extend_from_slice(iv);
@@ -177,12 +179,12 @@ impl EncString {
     }
 }
 
-impl Display for EncString {
+impl<T: EncryptionContext> Display for EncString<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let parts: Vec<&[u8]> = match self {
-            EncString::AesCbc256_B64 { iv, data } => vec![iv, data],
-            EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
-            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
+            EncString::AesCbc256_B64 { iv, data, .. } => vec![iv, data],
+            EncString::AesCbc128_HmacSha256_B64 { iv, mac, data, .. } => vec![iv, data, mac],
+            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data, .. } => vec![iv, data, mac],
         };
 
         let encoded_parts: Vec<String> = parts.iter().map(|part| STANDARD.encode(part)).collect();
@@ -193,7 +195,7 @@ impl Display for EncString {
     }
 }
 
-impl<'de> Deserialize<'de> for EncString {
+impl<'de, T: EncryptionContext> Deserialize<'de> for EncString<T> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -202,7 +204,7 @@ impl<'de> Deserialize<'de> for EncString {
     }
 }
 
-impl serde::Serialize for EncString {
+impl<T: EncryptionContext> serde::Serialize for EncString<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -211,14 +213,14 @@ impl serde::Serialize for EncString {
     }
 }
 
-impl EncString {
+impl<T: EncryptionContext> EncString<T> {
     pub(crate) fn encrypt_aes256_hmac(
         data_dec: &[u8],
         mac_key: &GenericArray<u8, U32>,
         key: &GenericArray<u8, U32>,
-    ) -> Result<EncString> {
+    ) -> Result<EncString<T>> {
         let (iv, mac, data) = crate::aes::encrypt_aes256_hmac(data_dec, mac_key, key)?;
-        Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
+        Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data, context: PhantomData })
     }
 
     /// The numerical representation of the encryption type of the [EncString].
@@ -231,11 +233,11 @@ impl EncString {
     }
 }
 
-impl LocateKey for EncString {}
-impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, EncString, Context>
+impl<T: EncryptionContext> LocateKey for EncString<T> {}
+impl<T: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, EncString<T>, T>
     for &[u8]
 {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, _context: &Context) -> Result<EncString> {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, _context: &T) -> Result<EncString<T>> {
         // TODO: use context when we switch over to AEAD encryption
         EncString::encrypt_aes256_hmac(
             self,
@@ -245,8 +247,10 @@ impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, EncString, C
     }
 }
 
-impl<ContextBuilder: EncryptionContextBuilder>
-    KeyDecryptable<SymmetricCryptoKey, Vec<u8>, ContextBuilder> for EncString
+impl<ContextBuilder, Context>
+    KeyDecryptable<SymmetricCryptoKey, Vec<u8>, ContextBuilder> for EncString<Context> where 
+    ContextBuilder: EncryptionContextBuilder<Context = Context>,
+    Context: EncryptionContext
 {
     fn decrypt_with_key(
         &self,
@@ -254,7 +258,7 @@ impl<ContextBuilder: EncryptionContextBuilder>
         _context_builder: &ContextBuilder,
     ) -> Result<Vec<u8>> {
         match self {
-            EncString::AesCbc256_B64 { iv, data } => {
+            EncString::AesCbc256_B64 { iv, data, .. } => {
                 if key.mac_key.is_some() {
                     return Err(CryptoError::MacNotProvided);
                 }
@@ -262,7 +266,7 @@ impl<ContextBuilder: EncryptionContextBuilder>
                 let dec = crate::aes::decrypt_aes256(iv, data.clone(), &key.key)?;
                 Ok(dec)
             }
-            EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } => {
+            EncString::AesCbc128_HmacSha256_B64 { iv, mac, data, .. } => {
                 // TODO: SymmetricCryptoKey is designed to handle 32 byte keys only, but this
                 // variant uses a 16 byte key This means the key+mac are going to be
                 // parsed as a single 32 byte key, at the moment we split it manually
@@ -272,7 +276,7 @@ impl<ContextBuilder: EncryptionContextBuilder>
                 let dec = crate::aes::decrypt_aes128_hmac(iv, mac, data.clone(), mac_key, enc_key)?;
                 Ok(dec)
             }
-            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
+            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data, .. } => {
                 let mac_key = key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?;
                 let dec =
                     crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), mac_key, &key.key)?;
@@ -283,20 +287,22 @@ impl<ContextBuilder: EncryptionContextBuilder>
     }
 }
 
-impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, EncString, Context> for String {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<EncString> {
+impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, EncString<Context>, Context> for String {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<EncString<Context>> {
         self.as_bytes().encrypt_with_key(key, context)
     }
 }
 
-impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, EncString, Context> for &str {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<EncString> {
+impl<Context: EncryptionContext> KeyEncryptable<SymmetricCryptoKey, EncString<Context>, Context> for &str {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, context: &Context) -> Result<EncString<Context>> {
         self.as_bytes().encrypt_with_key(key, context)
     }
 }
 
-impl<ContextBuilder: EncryptionContextBuilder>
-    KeyDecryptable<SymmetricCryptoKey, String, ContextBuilder> for EncString
+impl<ContextBuilder, Context>
+    KeyDecryptable<SymmetricCryptoKey, String, ContextBuilder> for EncString<Context>
+    where ContextBuilder: EncryptionContextBuilder<Context = Context>,
+    Context: EncryptionContext
 {
     fn decrypt_with_key(
         &self,
@@ -310,7 +316,7 @@ impl<ContextBuilder: EncryptionContextBuilder>
 
 /// Usually we wouldn't want to expose EncStrings in the API or the schemas.
 /// But during the transition phase we will expose endpoints using the EncString type.
-impl schemars::JsonSchema for EncString {
+impl<T: EncryptionContext> schemars::JsonSchema for EncString<T> {
     fn schema_name() -> String {
         "EncString".to_string()
     }
@@ -387,7 +393,7 @@ mod tests {
     fn test_enc_string_serialization() {
         #[derive(serde::Serialize, serde::Deserialize)]
         struct Test {
-            key: EncString,
+            key: EncString<TestContext>,
         }
 
         let cipher = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
@@ -402,7 +408,7 @@ mod tests {
     #[test]
     fn test_enc_from_to_buffer() {
         let enc_str: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
-        let enc_string: EncString = enc_str.parse().unwrap();
+        let enc_string: EncString<TestContext> = enc_str.parse().unwrap();
 
         let enc_buf = enc_string.to_buffer().unwrap();
 
@@ -416,7 +422,7 @@ mod tests {
             ]
         );
 
-        let enc_string_new = EncString::from_buffer(&enc_buf).unwrap();
+        let enc_string_new = EncString::<TestContext>::from_buffer(&enc_buf).unwrap();
 
         assert_eq!(enc_string_new.to_string(), enc_str)
     }
@@ -424,10 +430,10 @@ mod tests {
     #[test]
     fn test_from_str_cbc256() {
         let enc_str = "0.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==";
-        let enc_string: EncString = enc_str.parse().unwrap();
+        let enc_string: EncString<TestContext> = enc_str.parse().unwrap();
 
         assert_eq!(enc_string.enc_type(), 0);
-        if let EncString::AesCbc256_B64 { iv, data } = &enc_string {
+        if let EncString::AesCbc256_B64 { iv, data, .. } = &enc_string {
             assert_eq!(
                 iv,
                 &[164, 196, 186, 254, 39, 19, 64, 0, 109, 186, 92, 57, 218, 154, 182, 150]
@@ -444,10 +450,10 @@ mod tests {
     #[test]
     fn test_from_str_cbc128_hmac() {
         let enc_str = "1.Hh8gISIjJCUmJygpKissLQ==|MjM0NTY3ODk6Ozw9Pj9AQUJDREU=|KCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkc=";
-        let enc_string: EncString = enc_str.parse().unwrap();
+        let enc_string: EncString<TestContext> = enc_str.parse().unwrap();
 
         assert_eq!(enc_string.enc_type(), 1);
-        if let EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } = &enc_string {
+        if let EncString::AesCbc128_HmacSha256_B64 { iv, mac, data, .. } = &enc_string {
             assert_eq!(
                 iv,
                 &[30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45]
@@ -474,7 +480,7 @@ mod tests {
         let key = SymmetricCryptoKey::try_from(key).unwrap();
 
         let enc_str = "0.NQfjHLr6za7VQVAbrpL81w==|wfrjmyJ0bfwkQlySrhw8dA==";
-        let enc_string: EncString = enc_str.parse().unwrap();
+        let enc_string: EncString<TestContext> = enc_str.parse().unwrap();
         assert_eq!(enc_string.enc_type(), 0);
 
         let dec_str: String = enc_string
@@ -494,7 +500,7 @@ mod tests {
         // `EncString::AesCbc256_B64` (0), with the mac portion removed.
         // <enc_string>
         let enc_str = "0.NQfjHLr6za7VQVAbrpL81w==|wfrjmyJ0bfwkQlySrhw8dA==";
-        let enc_string: EncString = enc_str.parse().unwrap();
+        let enc_string: EncString<TestContext> = enc_str.parse().unwrap();
         assert_eq!(enc_string.enc_type(), 0);
 
         let result: Result<String, CryptoError> =
@@ -508,7 +514,7 @@ mod tests {
         let key = SymmetricCryptoKey::try_from(key).unwrap();
 
         let enc_str = "1.CU/oG4VZuxbHoZSDZjCLQw==|kb1HGwAk+fQ275ORfLf5Ew==|8UaEYHyqRZcG37JWhYBOBdEatEXd1u1/wN7OuImolcM=";
-        let enc_string: EncString = enc_str.parse().unwrap();
+        let enc_string: EncString<TestContext> = enc_str.parse().unwrap();
         assert_eq!(enc_string.enc_type(), 1);
 
         let dec_str: String = enc_string
@@ -520,7 +526,7 @@ mod tests {
     #[test]
     fn test_from_str_invalid() {
         let enc_str = "7.ABC";
-        let enc_string: Result<EncString, _> = enc_str.parse();
+        let enc_string: Result<EncString<TestContext>, _> = enc_str.parse();
 
         let err = enc_string.unwrap_err();
         assert_eq!(
@@ -532,7 +538,7 @@ mod tests {
     #[test]
     fn test_debug_format() {
         let enc_str  = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
-        let enc_string: EncString = enc_str.parse().unwrap();
+        let enc_string: EncString<TestContext> = enc_str.parse().unwrap();
 
         let debug_string = format!("{:?}", enc_string);
         assert_eq!(debug_string, "EncString");
@@ -540,7 +546,7 @@ mod tests {
 
     #[test]
     fn test_json_schema() {
-        let schema = schema_for!(EncString);
+        let schema = schema_for!(EncString<TestContext>);
 
         assert_eq!(
             serde_json::to_string(&schema).unwrap(),

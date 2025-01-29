@@ -10,8 +10,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use super::utils::{derive_kdf_key, stretch_kdf_key};
 use crate::{
-    enc_string::encryption_context::NoContextBuilder, util, CryptoError, EncString, KeyDecryptable,
-    Result, SymmetricCryptoKey, UserKey,
+    enc_string::encryption_context::NoContextBuilder, util, CryptoError, EncString, KeyDecryptable, NoContext, Result, SymmetricCryptoKey, UserKey
 };
 
 /// Key Derivation Function for Bitwarden Account
@@ -106,17 +105,17 @@ impl MasterKey {
     }
 
     /// Generate a new random user key and encrypt it with the master key.
-    pub fn make_user_key(&self) -> Result<(UserKey, EncString)> {
+    pub fn make_user_key(&self) -> Result<(UserKey, EncString<NoContext>)> {
         make_user_key(rand::thread_rng(), self)
     }
 
     /// Encrypt the users user key
-    pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
+    pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString<NoContext>> {
         encrypt_user_key(&self.0, user_key)
     }
 
     /// Decrypt the users user key
-    pub fn decrypt_user_key(&self, user_key: EncString) -> Result<SymmetricCryptoKey> {
+    pub fn decrypt_user_key(&self, user_key: EncString<NoContext>) -> Result<SymmetricCryptoKey> {
         decrypt_user_key(&self.0, user_key)
     }
 
@@ -129,7 +128,7 @@ impl MasterKey {
 pub(super) fn encrypt_user_key(
     key: &SymmetricCryptoKey,
     user_key: &SymmetricCryptoKey,
-) -> Result<EncString> {
+) -> Result<EncString<NoContext>> {
     let stretched_key = stretch_kdf_key(key)?;
 
     EncString::encrypt_aes256_hmac(
@@ -145,7 +144,7 @@ pub(super) fn encrypt_user_key(
 /// Helper function to decrypt a user key with a master or pin key.
 pub(super) fn decrypt_user_key(
     key: &SymmetricCryptoKey,
-    user_key: EncString,
+    user_key: EncString<NoContext>,
 ) -> Result<SymmetricCryptoKey> {
     let mut dec: Vec<u8> = match user_key {
         // Legacy. user_keys were encrypted using `AesCbc256_B64` a long time ago. We've since
@@ -165,7 +164,7 @@ pub(super) fn decrypt_user_key(
 fn make_user_key(
     mut rng: impl rand::RngCore,
     master_key: &MasterKey,
-) -> Result<(UserKey, EncString)> {
+) -> Result<(UserKey, EncString<NoContext>)> {
     let user_key = SymmetricCryptoKey::generate(&mut rng);
     let protected = master_key.encrypt_user_key(&user_key)?;
     Ok((UserKey::new(user_key), protected))
@@ -178,7 +177,7 @@ mod tests {
     use rand::SeedableRng;
 
     use super::{make_user_key, HashPurpose, Kdf, MasterKey};
-    use crate::{keys::symmetric_crypto_key::derive_symmetric_key, EncString, SymmetricCryptoKey};
+    use crate::{keys::symmetric_crypto_key::derive_symmetric_key, EncString, NoContext, SymmetricCryptoKey};
 
     #[test]
     fn test_master_key_derive_pbkdf2() {
@@ -342,7 +341,7 @@ mod tests {
 
         let master_key = MasterKey::derive(password, salt, &kdf).unwrap();
 
-        let user_key: EncString = "0.8UClLa8IPE1iZT7chy5wzQ==|6PVfHnVk5S3XqEtQemnM5yb4JodxmPkkWzmDRdfyHtjORmvxqlLX40tBJZ+CKxQWmS8tpEB5w39rbgHg/gqs0haGdZG4cPbywsgGzxZ7uNI=".parse().unwrap();
+        let user_key: EncString<NoContext> = "0.8UClLa8IPE1iZT7chy5wzQ==|6PVfHnVk5S3XqEtQemnM5yb4JodxmPkkWzmDRdfyHtjORmvxqlLX40tBJZ+CKxQWmS8tpEB5w39rbgHg/gqs0haGdZG4cPbywsgGzxZ7uNI=".parse().unwrap();
 
         let decrypted = master_key.decrypt_user_key(user_key).unwrap();
 

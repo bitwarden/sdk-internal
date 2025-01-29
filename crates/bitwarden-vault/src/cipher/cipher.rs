@@ -64,10 +64,10 @@ pub struct Cipher {
 
     /// More recent ciphers uses individual encryption keys to encrypt the other fields of the
     /// Cipher.
-    pub key: Option<EncString>,
+    pub key: Option<EncString<NoContext>>,
 
-    pub name: EncString,
-    pub notes: Option<EncString>,
+    pub name: EncString<NoContext>,
+    pub notes: Option<EncString<NoContext>>,
 
     pub r#type: CipherType,
     pub login: Option<Login>,
@@ -102,7 +102,7 @@ pub struct CipherView {
     pub collection_ids: Vec<Uuid>,
 
     /// Temporary, required to support re-encrypting existing items.
-    pub key: Option<EncString>,
+    pub key: Option<EncString<NoContext>>,
 
     pub name: String,
     pub notes: Option<String>,
@@ -151,7 +151,7 @@ pub struct CipherListView {
     pub collection_ids: Vec<Uuid>,
 
     /// Temporary, required to support calculating TOTP from CipherListView.
-    pub key: Option<EncString>,
+    pub key: Option<EncString<NoContext>>,
 
     pub name: String,
     pub subtitle: String,
@@ -333,7 +333,7 @@ impl Cipher {
     /// with this cipher's user or organization must be used instead
     pub(super) fn get_cipher_key(
         key: &SymmetricCryptoKey,
-        ciphers_key: &Option<EncString>,
+        ciphers_key: &Option<EncString<NoContext>>,
     ) -> Result<Option<SymmetricCryptoKey>, CryptoError> {
         ciphers_key
             .as_ref()

@@ -17,9 +17,7 @@ use zeroize::Zeroizing;
 
 use crate::{
     context::{
-        send_context::{SendContext, SendContextBuilder},
-        send_file_context::{SendFileContext, SendFileContextBuilder},
-        send_text_context::{SendTextContext, SendTextContextBuilder},
+        send_context::{SendContext, SendContextBuilder}, send_file_context::{SendFileContext, SendFileContextBuilder}, send_file_name_context::SendFileNameContext, send_key_context::SendKeyContext, send_name_context::SendNameContext, send_notes_context::SendNotesContext, send_text_context::{SendTextContext, SendTextContextBuilder}, send_text_message_context::SendTextMessageContext
     },
     SendParseError,
 };
@@ -31,7 +29,7 @@ const SEND_ITERATIONS: u32 = 100_000;
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendFile {
     pub id: Option<String>,
-    pub file_name: EncString,
+    pub file_name: EncString<SendFileNameContext>,
     pub size: Option<String>,
     /// Readable size, ex: "4.2 KB" or "1.43 GB"
     pub size_name: Option<String>,
@@ -52,7 +50,7 @@ pub struct SendFileView {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendText {
-    pub text: Option<EncString>,
+    pub text: Option<EncString<SendTextMessageContext>>,
     pub hidden: bool,
 }
 
@@ -79,9 +77,9 @@ pub struct Send {
     pub id: Option<Uuid>,
     pub access_id: Option<String>,
 
-    pub name: EncString,
-    pub notes: Option<EncString>,
-    pub key: EncString,
+    pub name: EncString<SendNameContext>,
+    pub notes: Option<EncString<SendNotesContext>>,
+    pub key: EncString<SendKeyContext>,
     pub password: Option<String>,
 
     pub r#type: SendType,
@@ -150,10 +148,10 @@ pub struct SendListView {
 
 impl Send {
     pub fn get_key(
-        send_key: &EncString,
+        send_key: &EncString<SendKeyContext>,
         enc_key: &SymmetricCryptoKey,
     ) -> Result<SymmetricCryptoKey, CryptoError> {
-        let key: Vec<u8> = send_key.decrypt_with_key(enc_key, &SendContextBuilder)?;
+        let key: Vec<u8> = send_key.decrypt_with_key(enc_key, &SendContextBuilder.key_context_builder())?;
         Self::derive_shareable_key(&key)
     }
 
@@ -236,7 +234,7 @@ impl KeyDecryptable<SymmetricCryptoKey, SendView, SendContextBuilder> for Send {
         // For sends, we first decrypt the send key with the user key, and stretch it to it's full
         // size For the rest of the fields, we ignore the provided SymmetricCryptoKey and
         // the stretched key
-        let k: Vec<u8> = self.key.decrypt_with_key(key, context_builder)?;
+        let k: Vec<u8> = self.key.decrypt_with_key(key, &context_builder.key_context_builder())?;
         let key = Send::derive_shareable_key(&k)?;
 
         Ok(SendView {
@@ -340,7 +338,7 @@ impl KeyEncryptable<SymmetricCryptoKey, Send, SendContext> for SendView {
 
             name: self.name.encrypt_with_key(&send_key, &context.name_context())?,
             notes: self.notes.encrypt_with_key(&send_key, &context.notes_context())?,
-            key: k.encrypt_with_key(key, context)?,
+            key: k.encrypt_with_key(key, &context.key_context())?,
             password: self.new_password.map(|password| {
                 let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
                 STANDARD.encode(password)
@@ -428,13 +426,13 @@ impl TryFrom<SendTextModel> for SendText {
 mod tests {
     use std::collections::HashMap;
 
-    use bitwarden_crypto::{Kdf, KeyContainer, KeyDecryptable, KeyEncryptable, MasterKey};
+    use bitwarden_crypto::{Kdf, KeyContainer, KeyDecryptable, KeyEncryptable, MasterKey, NoContext};
 
     use super::*;
 
     struct MockKeyContainer(HashMap<Option<Uuid>, SymmetricCryptoKey>);
     impl MockKeyContainer {
-        fn new(master_key: MasterKey, user_key: EncString) -> Result<Self, CryptoError> {
+        fn new(master_key: MasterKey, user_key: EncString<NoContext>) -> Result<Self, CryptoError> {
             let user_key = master_key.decrypt_user_key(user_key)?;
             Ok(Self(HashMap::from([(None, user_key)])))
         }

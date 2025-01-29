@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{AsymmetricEncString, EncString, Kdf, MasterKey, PinKey};
+use bitwarden_crypto::{AsymmetricEncString, NoContext, EncString, Kdf, MasterKey, PinKey};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -179,9 +179,10 @@ impl InternalClient {
     pub(crate) fn initialize_user_crypto_master_key(
         &self,
         master_key: MasterKey,
-        user_key: EncString,
-        private_key: EncString,
+        user_key: EncString<NoContext>,
+        private_key: EncString<NoContext>,
     ) -> Result<(), EncryptionSettingsError> {
+
         *self
             .encryption_settings
             .write()
@@ -198,8 +199,9 @@ impl InternalClient {
     pub(crate) fn initialize_user_crypto_decrypted_key(
         &self,
         user_key: SymmetricCryptoKey,
-        private_key: EncString,
+        private_key: EncString<NoContext>,
     ) -> Result<(), EncryptionSettingsError> {
+
         *self
             .encryption_settings
             .write()
@@ -214,9 +216,11 @@ impl InternalClient {
     pub(crate) fn initialize_user_crypto_pin(
         &self,
         pin_key: PinKey,
-        pin_protected_user_key: EncString,
-        private_key: EncString,
+        pin_protected_user_key: EncString<NoContext>,
+        private_key: EncString<NoContext>,
     ) -> Result<(), EncryptionSettingsError> {
+        use bitwarden_crypto::NoContext;
+
         let decrypted_user_key = pin_key.decrypt_user_key(pin_protected_user_key)?;
         self.initialize_user_crypto_decrypted_key(decrypted_user_key, private_key)
     }

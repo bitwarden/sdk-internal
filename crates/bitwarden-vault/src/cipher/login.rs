@@ -2,7 +2,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_api_api::models::{CipherLoginModel, CipherLoginUriModel};
 use bitwarden_core::require;
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, NoContext,
     NoContextBuilder, SymmetricCryptoKey,
 };
 use chrono::{DateTime, Utc};
@@ -29,9 +29,9 @@ pub enum UriMatchType {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct LoginUri {
-    pub uri: Option<EncString>,
+    pub uri: Option<EncString<NoContext>>,
     pub r#match: Option<UriMatchType>,
-    pub uri_checksum: Option<EncString>,
+    pub uri_checksum: Option<EncString<NoContext>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq)]
@@ -75,18 +75,18 @@ impl LoginUriView {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct Fido2Credential {
-    pub credential_id: EncString,
-    pub key_type: EncString,
-    pub key_algorithm: EncString,
-    pub key_curve: EncString,
-    pub key_value: EncString,
-    pub rp_id: EncString,
-    pub user_handle: Option<EncString>,
-    pub user_name: Option<EncString>,
-    pub counter: EncString,
-    pub rp_name: Option<EncString>,
-    pub user_display_name: Option<EncString>,
-    pub discoverable: EncString,
+    pub credential_id: EncString<NoContext>,
+    pub key_type: EncString<NoContext>,
+    pub key_algorithm: EncString<NoContext>,
+    pub key_curve: EncString<NoContext>,
+    pub key_value: EncString<NoContext>,
+    pub rp_id: EncString<NoContext>,
+    pub user_handle: Option<EncString<NoContext>>,
+    pub user_name: Option<EncString<NoContext>>,
+    pub counter: EncString<NoContext>,
+    pub rp_name: Option<EncString<NoContext>>,
+    pub user_display_name: Option<EncString<NoContext>>,
+    pub discoverable: EncString<NoContext>,
     pub creation_date: DateTime<Utc>,
 }
 
@@ -100,7 +100,7 @@ pub struct Fido2CredentialView {
     pub key_curve: String,
     // This value doesn't need to be returned to the client
     // so we keep it encrypted until we need it
-    pub key_value: EncString,
+    pub key_value: EncString<NoContext>,
     pub rp_id: String,
     pub user_handle: Option<String>,
     pub user_name: Option<String>,
@@ -254,12 +254,12 @@ impl KeyDecryptable<SymmetricCryptoKey, Fido2CredentialFullView, NoContextBuilde
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct Login {
-    pub username: Option<EncString>,
-    pub password: Option<EncString>,
+    pub username: Option<EncString<NoContext>>,
+    pub password: Option<EncString<NoContext>>,
     pub password_revision_date: Option<DateTime<Utc>>,
 
     pub uris: Option<Vec<LoginUri>>,
-    pub totp: Option<EncString>,
+    pub totp: Option<EncString<NoContext>>,
     pub autofill_on_page_load: Option<bool>,
 
     pub fido2_credentials: Option<Vec<Fido2Credential>>,
@@ -287,7 +287,7 @@ pub struct LoginView {
 pub struct LoginListView {
     pub has_fido2: bool,
     /// The TOTP key is not decrypted. Useable as is with [`crate::generate_totp_cipher_view`].
-    pub totp: Option<EncString>,
+    pub totp: Option<EncString<NoContext>>,
     pub uris: Option<Vec<LoginUriView>>,
 }
 

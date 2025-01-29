@@ -17,8 +17,8 @@ pub struct Attachment {
     pub size: Option<String>,
     /// Readable size, ex: "4.2 KB" or "1.43 GB"
     pub size_name: Option<String>,
-    pub file_name: Option<EncString>,
-    pub key: Option<EncString>,
+    pub file_name: Option<EncString<NoContext>>,
+    pub key: Option<EncString<NoContext>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
@@ -30,7 +30,7 @@ pub struct AttachmentView {
     pub size: Option<String>,
     pub size_name: Option<String>,
     pub file_name: Option<String>,
-    pub key: Option<EncString>,
+    pub key: Option<EncString<NoContext>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
@@ -49,7 +49,7 @@ pub struct AttachmentFile {
     /// 1. UserKey / OrgKey (Contents) - Legacy
     /// 2. AttachmentKey(Contents) - Pre CipherKey
     /// 3. CipherKey(AttachmentKey(Contents)) - Current
-    pub contents: EncString,
+    pub contents: EncString<NoContext>,
 }
 
 pub struct AttachmentFileView<'a> {

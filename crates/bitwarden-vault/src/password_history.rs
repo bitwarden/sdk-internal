@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::CipherPasswordHistoryModel;
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, NoContext,
     NoContextBuilder, SymmetricCryptoKey,
 };
 use chrono::{DateTime, Utc};
@@ -13,7 +13,7 @@ use crate::VaultParseError;
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct PasswordHistory {
-    password: EncString,
+    password: EncString<NoContext>,
     last_used_date: DateTime<Utc>,
 }
 

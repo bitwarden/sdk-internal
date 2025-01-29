@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::FolderResponseModel;
 use bitwarden_core::require;
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, NoContext,
     NoContextBuilder, SymmetricCryptoKey,
 };
 use chrono::{DateTime, Utc};
@@ -19,7 +19,7 @@ use crate::VaultParseError;
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Folder {
     id: Option<Uuid>,
-    name: EncString,
+    name: EncString<NoContext>,
     revision_date: DateTime<Utc>,
 }
 

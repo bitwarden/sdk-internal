@@ -1,3 +1,4 @@
+use bitwarden_crypto::NoContext;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{
     AsymmetricEncString, CryptoError, DeviceKey, EncString, Kdf, TrustDeviceResponse,
@@ -124,7 +125,7 @@ impl AuthClient<'_> {
         validate_password_user_key(self.client, password, encrypted_user_key)
     }
 
-    pub fn validate_pin(&self, pin: String, pin_protected_user_key: EncString) -> Result<bool> {
+    pub fn validate_pin(&self, pin: String, pin_protected_user_key: EncString<NoContext>) -> Result<bool> {
         validate_pin(self.client, pin, pin_protected_user_key)
     }
 

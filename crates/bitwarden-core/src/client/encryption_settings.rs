@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use bitwarden_crypto::{AsymmetricCryptoKey, CryptoError, KeyContainer, SymmetricCryptoKey};
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{AsymmetricEncString, EncString, MasterKey};
+use bitwarden_crypto::{AsymmetricEncString, EncString, NoContext, MasterKey};
 use bitwarden_error::prelude::*;
 use thiserror::Error;
 use uuid::Uuid;
@@ -48,10 +48,11 @@ impl EncryptionSettings {
     #[cfg(feature = "internal")]
     pub(crate) fn new(
         master_key: MasterKey,
-        user_key: EncString,
-        private_key: EncString,
+        user_key: EncString<NoContext>,
+        private_key: EncString<NoContext>,
     ) -> Result<Self, EncryptionSettingsError> {
         // Decrypt the user key
+
         let user_key = master_key.decrypt_user_key(user_key)?;
         Self::new_decrypted_key(user_key, private_key)
     }
@@ -63,7 +64,7 @@ impl EncryptionSettings {
     #[cfg(feature = "internal")]
     pub(crate) fn new_decrypted_key(
         user_key: SymmetricCryptoKey,
-        private_key: EncString,
+        private_key: EncString<NoContext>,
     ) -> Result<Self, EncryptionSettingsError> {
         use bitwarden_crypto::{KeyDecryptable, NoContextBuilder};
         use log::warn;

@@ -1,7 +1,7 @@
 use bitwarden_crypto::{EncryptionContext, EncryptionContextBuilder};
 use serde::{Deserialize, Serialize};
 
-use super::{send_file_name_context::SendFileNameContext, send_name_context::{SendNameContext, SendNameContextBuilder}};
+use super::send_file_name_context::{SendFileNameContext, SendFileNameContextBuilder};
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize, Debug)]
 pub(crate) enum SendFileContext {
@@ -9,8 +9,8 @@ pub(crate) enum SendFileContext {
 }
 
 impl SendFileContext {
-    pub(crate) fn file_name_context(&self) -> SendNameContext {
-        SendNameContext::V1
+    pub(crate) fn file_name_context(&self) -> SendFileNameContext {
+        SendFileNameContext::V1
     }
 }
 
@@ -23,8 +23,8 @@ impl EncryptionContext for SendFileContext {
 pub(crate) struct SendFileContextBuilder;
 
 impl SendFileContextBuilder {
-    pub(crate) fn file_name_context_builder(&self) -> SendNameContextBuilder {
-        SendNameContextBuilder
+    pub(crate) fn file_name_context_builder(&self) -> SendFileNameContextBuilder {
+        SendFileNameContextBuilder
     }
 }
 

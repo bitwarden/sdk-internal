@@ -23,28 +23,28 @@ impl PinKey {
     }
 
     /// Encrypt the users user key
-    pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
+    pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString<NoContext>> {
         encrypt_user_key(&self.0, user_key)
     }
 
     /// Decrypt the users user key
-    pub fn decrypt_user_key(&self, user_key: EncString) -> Result<SymmetricCryptoKey> {
+    pub fn decrypt_user_key(&self, user_key: EncString<NoContext>) -> Result<SymmetricCryptoKey> {
         decrypt_user_key(&self.0, user_key)
     }
 }
 
 impl CryptoKey for PinKey {}
 
-impl KeyEncryptable<PinKey, EncString, NoContext> for &[u8] {
-    fn encrypt_with_key(self, key: &PinKey, context: &NoContext) -> Result<EncString> {
+impl KeyEncryptable<PinKey, EncString<NoContext>, NoContext> for &[u8] {
+    fn encrypt_with_key(self, key: &PinKey, context: &NoContext) -> Result<EncString<NoContext>> {
         let stretched_key = stretch_kdf_key(&key.0)?;
 
         self.encrypt_with_key(&stretched_key, context)
     }
 }
 
-impl KeyEncryptable<PinKey, EncString, NoContext> for String {
-    fn encrypt_with_key(self, key: &PinKey, context: &NoContext) -> Result<EncString> {
+impl KeyEncryptable<PinKey, EncString<NoContext>, NoContext> for String {
+    fn encrypt_with_key(self, key: &PinKey, context: &NoContext) -> Result<EncString<NoContext>> {
         self.as_bytes().encrypt_with_key(key, context)
     }
 }

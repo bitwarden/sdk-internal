@@ -4,7 +4,7 @@ use bitwarden_crypto::{
     AsymmetricPublicCryptoKey,
 };
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{EncString, KeyDecryptable, SymmetricCryptoKey};
+use bitwarden_crypto::{EncString, NoContext, NoContextBuilder, KeyDecryptable, SymmetricCryptoKey};
 
 #[cfg(feature = "internal")]
 use crate::client::encryption_settings::EncryptionSettingsError;
@@ -52,7 +52,6 @@ pub(crate) fn auth_request_decrypt_user_key(
     private_key: String,
     user_key: AsymmetricEncString,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
-    use bitwarden_crypto::NoContextBuilder;
 
     let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
     let mut key: Vec<u8> = user_key.decrypt_with_key(&key, &NoContextBuilder)?;
@@ -65,9 +64,9 @@ pub(crate) fn auth_request_decrypt_user_key(
 pub(crate) fn auth_request_decrypt_master_key(
     private_key: String,
     master_key: AsymmetricEncString,
-    user_key: EncString,
+    user_key: EncString<NoContext>,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
-    use bitwarden_crypto::{MasterKey, NoContextBuilder};
+    use bitwarden_crypto::MasterKey;
 
     let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
     let mut master_key: Vec<u8> = master_key.decrypt_with_key(&key, &NoContextBuilder)?;

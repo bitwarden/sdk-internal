@@ -10,7 +10,7 @@ pub enum EncryptionContextError {
     ContextMismatch,
 }
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[deprecated(
     note = "Use of NoContext provides no security, implement a specific context and context builder"
 )]

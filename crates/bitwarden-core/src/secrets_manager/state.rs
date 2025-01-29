@@ -31,7 +31,7 @@ impl ClientState {
 pub fn get(state_file: &Path, access_token: &AccessToken) -> Result<ClientState> {
     let file_content = std::fs::read_to_string(state_file)?;
 
-    let encrypted_state: EncString = file_content.parse()?;
+    let encrypted_state: EncString<NoContext> = file_content.parse()?;
     let decrypted_state: String =
         encrypted_state.decrypt_with_key(&access_token.encryption_key, &NoContextBuilder)?;
     let client_state: ClientState = serde_json::from_str(&decrypted_state)?;
@@ -45,7 +45,7 @@ pub fn get(state_file: &Path, access_token: &AccessToken) -> Result<ClientState>
 
 pub fn set(state_file: &Path, access_token: &AccessToken, state: ClientState) -> Result<()> {
     let serialized_state: String = serde_json::to_string(&state)?;
-    let encrypted_state: EncString =
+    let encrypted_state: EncString<NoContext> =
         serialized_state.encrypt_with_key(&access_token.encryption_key, &NoContext)?;
     let state_string: String = encrypted_state.to_string();
 

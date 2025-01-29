@@ -1,3 +1,4 @@
+use bitwarden_crypto::NoContext;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{AsymmetricEncString, EncString};
 
@@ -47,7 +48,7 @@ impl CryptoClient<'_> {
         derive_pin_key(self.client, pin)
     }
 
-    pub fn derive_pin_user_key(&self, encrypted_pin: EncString) -> Result<EncString> {
+    pub fn derive_pin_user_key(&self, encrypted_pin: EncString<NoContext>) -> Result<EncString<NoContext>> {
         derive_pin_user_key(self.client, encrypted_pin)
     }
 

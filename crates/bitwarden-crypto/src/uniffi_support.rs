@@ -1,6 +1,6 @@
 use std::{num::NonZeroU32, str::FromStr};
 
-use crate::{AsymmetricEncString, CryptoError, EncString, UniffiCustomTypeConverter};
+use crate::{AsymmetricEncString, CryptoError, EncString, EncryptionContext, NoContext, UniffiCustomTypeConverter};
 
 uniffi::custom_type!(NonZeroU32, u32);
 
@@ -16,9 +16,11 @@ impl UniffiCustomTypeConverter for NonZeroU32 {
     }
 }
 
-uniffi::custom_type!(EncString, String);
+type NoContextEncString = EncString<NoContext>;
 
-impl UniffiCustomTypeConverter for EncString {
+uniffi::custom_type!(NoContextEncString, String);
+
+impl<T: EncryptionContext> UniffiCustomTypeConverter for EncString<T> {
     type Builtin = String;
 
     fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {

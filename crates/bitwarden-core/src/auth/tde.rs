@@ -1,7 +1,6 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricEncString, AsymmetricPublicCryptoKey, DeviceKey, EncString, Kdf, SymmetricCryptoKey,
-    TrustDeviceResponse, UserKey,
+    AsymmetricEncString, AsymmetricPublicCryptoKey, DeviceKey, EncString, Kdf, NoContext, SymmetricCryptoKey, TrustDeviceResponse, UserKey
 };
 
 use crate::{error::Result, Client};
@@ -55,7 +54,7 @@ pub(super) fn make_register_tde_keys(
 
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct RegisterTdeKeyResponse {
-    pub private_key: EncString,
+    pub private_key: EncString<NoContext>,
     pub public_key: String,
 
     pub admin_reset: AsymmetricEncString,

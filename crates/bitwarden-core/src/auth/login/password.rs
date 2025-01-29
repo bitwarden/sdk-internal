@@ -24,7 +24,7 @@ pub(crate) async fn login_password(
     client: &Client,
     input: &PasswordLoginRequest,
 ) -> Result<PasswordLoginResponse> {
-    use bitwarden_crypto::{EncString, HashPurpose, MasterKey};
+    use bitwarden_crypto::{EncString, HashPurpose, MasterKey, NoContext};
 
     use crate::{client::UserLoginMethod, require};
 
@@ -50,8 +50,8 @@ pub(crate) async fn login_password(
                 kdf: input.kdf.to_owned(),
             }));
 
-        let user_key: EncString = require!(r.key.as_deref()).parse()?;
-        let private_key: EncString = require!(r.private_key.as_deref()).parse()?;
+        let user_key: EncString<NoContext> = require!(r.key.as_deref()).parse()?;
+        let private_key: EncString<NoContext> = require!(r.private_key.as_deref()).parse()?;
 
         client
             .internal

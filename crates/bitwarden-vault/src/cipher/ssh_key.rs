@@ -1,5 +1,5 @@
 use bitwarden_crypto::{
-    CryptoError, EncString, EncryptionContext, KeyDecryptable, KeyEncryptable, NoContext,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, NoContext,
     NoContextBuilder, SymmetricCryptoKey,
 };
 use schemars::JsonSchema;
@@ -10,11 +10,11 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SshKey {
     /// SSH private key (ed25519/rsa) in unencrypted openssh private key format [OpenSSH private key](https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key)
-    pub private_key: EncString,
+    pub private_key: EncString<NoContext>,
     /// SSH public key (ed25519/rsa) according to [RFC4253](https://datatracker.ietf.org/doc/html/rfc4253#section-6.6)
-    pub public_key: EncString,
+    pub public_key: EncString<NoContext>,
     /// SSH fingerprint using SHA256 in the format: `SHA256:BASE64_ENCODED_FINGERPRINT`
-    pub fingerprint: EncString,
+    pub fingerprint: EncString<NoContext>,
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]

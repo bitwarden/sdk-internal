@@ -25,8 +25,8 @@ pub enum FieldType {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct Field {
-    name: Option<EncString>,
-    value: Option<EncString>,
+    name: Option<EncString<NoContext>>,
+    value: Option<EncString<NoContext>>,
     r#type: FieldType,
 
     linked_id: Option<LinkedIdType>,

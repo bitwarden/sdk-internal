@@ -12,12 +12,12 @@ use crate::VaultParseError;
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct Card {
-    pub cardholder_name: Option<EncString>,
-    pub exp_month: Option<EncString>,
-    pub exp_year: Option<EncString>,
-    pub code: Option<EncString>,
-    pub brand: Option<EncString>,
-    pub number: Option<EncString>,
+    pub cardholder_name: Option<EncString<NoContext>>,
+    pub exp_month: Option<EncString<NoContext>>,
+    pub exp_year: Option<EncString<NoContext>>,
+    pub code: Option<EncString<NoContext>>,
+    pub brand: Option<EncString<NoContext>>,
+    pub number: Option<EncString<NoContext>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]

@@ -1,8 +1,7 @@
 use bitwarden_api_api::models::CollectionDetailsResponseModel;
 use bitwarden_core::require;
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyContainer, KeyDecryptable, LocateKey, NoContextBuilder,
-    SymmetricCryptoKey,
+    CryptoError, EncString, KeyContainer, KeyDecryptable, LocateKey, NoContext, NoContextBuilder, SymmetricCryptoKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -17,7 +16,7 @@ pub struct Collection {
     pub id: Option<Uuid>,
     pub organization_id: Uuid,
 
-    pub name: EncString,
+    pub name: EncString<NoContext>,
 
     pub external_id: Option<String>,
     pub hide_passwords: bool,

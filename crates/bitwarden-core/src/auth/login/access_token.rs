@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use bitwarden_crypto::{EncString, KeyDecryptable, NoContextBuilder, SymmetricCryptoKey};
+use bitwarden_crypto::{EncString, KeyDecryptable, NoContext, NoContextBuilder, SymmetricCryptoKey};
 use chrono::Utc;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -54,7 +54,7 @@ pub(crate) async fn login_access_token(
 
     if let IdentityTokenResponse::Payload(r) = &response {
         // Extract the encrypted payload and use the access token encryption key to decrypt it
-        let payload: EncString = r.encrypted_payload.parse()?;
+        let payload: EncString<NoContext> = r.encrypted_payload.parse()?;
 
         let decrypted_payload: Vec<u8> =
             payload.decrypt_with_key(&access_token.encryption_key, &NoContextBuilder)?;
