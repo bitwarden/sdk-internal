@@ -2622,7 +2622,7 @@ dependencies = [
 [[package]]
 name = "passkey"
 version = "0.2.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=ff757604cd7b4e8f321ed1616fef7e40e21ac5df#ff757604cd7b4e8f321ed1616fef7e40e21ac5df"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
 dependencies = [
  "passkey-authenticator",
  "passkey-client",
@@ -2633,7 +2633,7 @@ dependencies = [
 [[package]]
 name = "passkey-authenticator"
 version = "0.2.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=ff757604cd7b4e8f321ed1616fef7e40e21ac5df#ff757604cd7b4e8f321ed1616fef7e40e21ac5df"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
 dependencies = [
  "async-trait",
  "coset",
@@ -2646,7 +2646,7 @@ dependencies = [
 [[package]]
 name = "passkey-client"
 version = "0.2.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=ff757604cd7b4e8f321ed1616fef7e40e21ac5df#ff757604cd7b4e8f321ed1616fef7e40e21ac5df"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
 dependencies = [
  "ciborium",
  "coset",
@@ -2663,12 +2663,12 @@ dependencies = [
 [[package]]
 name = "passkey-transports"
 version = "0.1.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=ff757604cd7b4e8f321ed1616fef7e40e21ac5df#ff757604cd7b4e8f321ed1616fef7e40e21ac5df"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
 
 [[package]]
 name = "passkey-types"
 version = "0.2.1"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=ff757604cd7b4e8f321ed1616fef7e40e21ac5df#ff757604cd7b4e8f321ed1616fef7e40e21ac5df"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
 dependencies = [
  "bitflags 2.8.0",
  "ciborium",
@@ -2890,7 +2890,7 @@ dependencies = [
 [[package]]
 name = "public-suffix"
 version = "0.1.1"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=ff757604cd7b4e8f321ed1616fef7e40e21ac5df#ff757604cd7b4e8f321ed1616fef7e40e21ac5df"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
 
 [[package]]
 name = "quinn"
