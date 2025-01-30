@@ -78,7 +78,7 @@ impl TryFrom<CipherType> for ItemType {
     fn try_from(value: CipherType) -> Result<Self, Self::Error> {
         match value {
             CipherType::Login(_) => Ok(ItemType::Login),
-            CipherType::Card(_) => Ok(ItemType::Login),
+            CipherType::Card(_) => Ok(ItemType::Identity),
             CipherType::Identity(_) => Ok(ItemType::Identity),
             CipherType::SecureNote(_) => Ok(ItemType::Document),
             CipherType::SshKey(_) => {
