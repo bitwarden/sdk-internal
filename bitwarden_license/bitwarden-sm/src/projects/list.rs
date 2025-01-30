@@ -1,13 +1,10 @@
 use bitwarden_api_api::models::ProjectResponseModelListResponseModel;
-use bitwarden_core::{
-    client::{encryption_settings::EncryptionSettings, Client},
-    Error,
-};
+use bitwarden_core::client::{encryption_settings::EncryptionSettings, Client};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::ProjectResponse;
+use crate::{error::SecretsManagerError, projects::ProjectResponse};
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -19,7 +16,7 @@ pub struct ProjectsListRequest {
 pub(crate) async fn list_projects(
     client: &Client,
     input: &ProjectsListRequest,
-) -> Result<ProjectsResponse, Error> {
+) -> Result<ProjectsResponse, SecretsManagerError> {
     let config = client.internal.get_api_configurations().await;
     let res = bitwarden_api_api::apis::projects_api::organizations_organization_id_projects_get(
         &config.api,
@@ -42,7 +39,7 @@ impl ProjectsResponse {
     pub(crate) fn process_response(
         response: ProjectResponseModelListResponseModel,
         enc: &EncryptionSettings,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, SecretsManagerError> {
         let data = response.data.unwrap_or_default();
 
         Ok(ProjectsResponse {
