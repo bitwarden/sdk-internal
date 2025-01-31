@@ -1,3 +1,7 @@
+//! Credit card credential conversion
+//!
+//! Handles conversion between internal [Card] and credential exchange [CreditCardCredential].
+
 use bitwarden_vault::CardBrand;
 use credential_exchange_types::format::{Credential, CreditCardCredential};
 
