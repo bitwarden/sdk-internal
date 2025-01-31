@@ -1,3 +1,8 @@
+//! Login credential conversion
+//!
+//! Handles conversion between internal [Login] and credential exchange [BasicAuthCredential] and
+//! [PasskeyCredential].
+
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::MissingFieldError;
 use bitwarden_crypto::generate_random_bytes;
