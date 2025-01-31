@@ -1,21 +1,23 @@
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use chrono::{DateTime, Utc};
 use credential_exchange_types::format::{
-    Account as CxpAccount, BasicAuthCredential, Credential, CreditCardCredential, Item,
+    Account as CxfAccount, BasicAuthCredential, Credential, CreditCardCredential, Item,
     PasskeyCredential,
 };
 
-use crate::{cxp::CxpError, CipherType, Fido2Credential, ImportingCipher, Login, LoginUri};
+use crate::{
+    cxf::{login::to_login, CxfError},
+    CipherType, ImportingCipher,
+};
 
-pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxpError> {
-    let account: CxpAccount = serde_json::from_str(&payload)?;
+pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfError> {
+    let account: CxfAccount = serde_json::from_str(&payload)?;
 
     let items: Vec<ImportingCipher> = account.items.into_iter().flat_map(parse_item).collect();
 
     Ok(items)
 }
 
-/// Convert a CXP timestamp to a DateTime<Utc>.
+/// Convert a CXF timestamp to a DateTime<Utc>.
 ///
 /// If the timestamp is None, the current time is used.
 fn convert_date(ts: Option<u64>) -> DateTime<Utc> {
@@ -36,39 +38,7 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         let basic_auth = grouped.basic_auth.first();
         let passkey = grouped.passkey.first();
 
-        let login = Login {
-            username: basic_auth.and_then(|v| v.username.as_ref().map(|u| u.value.clone())),
-            password: basic_auth.and_then(|v| v.password.as_ref().map(|u| u.value.clone())),
-            login_uris: basic_auth
-                .map(|v| {
-                    v.urls
-                        .iter()
-                        .map(|u| LoginUri {
-                            uri: Some(u.clone()),
-                            r#match: None,
-                        })
-                        .collect()
-                })
-                .unwrap_or_default(),
-            totp: None,
-            fido2_credentials: passkey.map(|p| {
-                vec![Fido2Credential {
-                    credential_id: format!("b64.{}", p.credential_id),
-                    key_type: "public-key".to_string(),
-                    key_algorithm: "ECDSA".to_string(),
-                    key_curve: "P-256".to_string(),
-                    key_value: URL_SAFE_NO_PAD.encode(&p.key),
-                    rp_id: p.rp_id.clone(),
-                    user_handle: Some(p.user_handle.to_string()),
-                    user_name: Some(p.user_name.clone()),
-                    counter: 0,
-                    rp_name: Some(p.rp_id.clone()),
-                    user_display_name: Some(p.user_display_name.clone()),
-                    discoverable: "true".to_string(),
-                    creation_date,
-                }]
-            }),
-        };
+        let login = to_login(creation_date, basic_auth, passkey);
 
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
@@ -148,6 +118,7 @@ struct GroupedCredentials {
 
 #[cfg(test)]
 mod tests {
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
     use chrono::Duration;
     use credential_exchange_types::format::{CreditCardCredential, ItemType};
 
