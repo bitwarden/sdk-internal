@@ -5,7 +5,7 @@ use credential_exchange_types::format::{
     PasskeyCredential,
 };
 
-use crate::{cxp::CxpError, Card, CipherType, Fido2Credential, ImportingCipher, Login, LoginUri};
+use crate::{cxp::CxpError, CipherType, Fido2Credential, ImportingCipher, Login, LoginUri};
 
 pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxpError> {
     let account: CxpAccount = serde_json::from_str(&payload)?;
@@ -105,31 +105,6 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
     }
 
     output
-}
-
-impl From<&CreditCardCredential> for Card {
-    fn from(value: &CreditCardCredential) -> Self {
-        let (year, month) = value
-            .expiry_date
-            .as_ref()
-            .map(|date| {
-                let parts: Vec<&str> = date.split('-').collect();
-                (
-                    parts.first().map(|s| s.to_string()),
-                    parts.get(1).map(|s| s.to_string()),
-                )
-            })
-            .unwrap_or_default();
-
-        Card {
-            cardholder_name: Some(value.full_name.clone()),
-            exp_month: month,
-            exp_year: year,
-            code: value.verification_number.clone(),
-            brand: value.card_type.clone(), // TODO: Validate brand
-            number: Some(value.number.clone()),
-        }
-    }
 }
 
 /// Group credentials by type.
@@ -333,7 +308,7 @@ mod tests {
         assert_eq!(card.exp_month, Some("01".to_string()));
         assert_eq!(card.exp_year, Some("2026".to_string()));
         assert_eq!(card.code, Some("123".to_string()));
-        assert_eq!(card.brand, Some("MasterCard".to_string()));
+        assert_eq!(card.brand, Some("Mastercard".to_string()));
         assert_eq!(card.number, Some("1234 5678 9012 3456".to_string()));
     }
 }
