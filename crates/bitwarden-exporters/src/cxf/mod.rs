@@ -3,7 +3,7 @@
 //! This module implements support for the Credential Exchange standard as defined by the FIDO
 //! Alliance.
 //!
-//! https://fidoalliance.org/specifications-credential-exchange-specifications/
+//! <https://fidoalliance.org/specifications-credential-exchange-specifications/>
 mod error;
 pub use error::CxfError;
 

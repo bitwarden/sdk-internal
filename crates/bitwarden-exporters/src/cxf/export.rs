@@ -1,6 +1,6 @@
 use bitwarden_vault::{Totp, TotpAlgorithm};
 use credential_exchange_types::format::{
-    Account as CxpAccount, Credential, Item, ItemType, NoteCredential, OTPHashAlgorithm,
+    Account as CxfAccount, Credential, Item, ItemType, NoteCredential, OTPHashAlgorithm,
     TotpCredential,
 };
 use uuid::Uuid;
@@ -25,7 +25,7 @@ pub(crate) fn build_cxf(account: Account, ciphers: Vec<Cipher>) -> Result<String
         .flat_map(|cipher| cipher.try_into())
         .collect();
 
-    let account = CxpAccount {
+    let account = CxfAccount {
         id: account.id.as_bytes().as_slice().into(),
         user_name: "".to_owned(),
         email: account.email,
