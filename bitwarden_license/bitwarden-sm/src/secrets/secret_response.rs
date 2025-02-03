@@ -1,12 +1,14 @@
 use bitwarden_api_api::models::{
     BaseSecretResponseModel, BaseSecretResponseModelListResponseModel, SecretResponseModel,
 };
-use bitwarden_core::{client::encryption_settings::EncryptionSettings, require, Error};
+use bitwarden_core::{client::encryption_settings::EncryptionSettings, require};
 use bitwarden_crypto::{EncString, KeyDecryptable};
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+use crate::error::SecretsManagerError;
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -27,7 +29,7 @@ impl SecretResponse {
     pub(crate) fn process_response(
         response: SecretResponseModel,
         enc: &EncryptionSettings,
-    ) -> Result<SecretResponse, Error> {
+    ) -> Result<SecretResponse, SecretsManagerError> {
         let base = BaseSecretResponseModel {
             object: response.object,
             id: response.id,
@@ -44,7 +46,7 @@ impl SecretResponse {
     pub(crate) fn process_base_response(
         response: BaseSecretResponseModel,
         enc: &EncryptionSettings,
-    ) -> Result<SecretResponse, Error> {
+    ) -> Result<SecretResponse, SecretsManagerError> {
         let org_id = response.organization_id;
         let enc_key = enc.get_key(&org_id)?;
 
@@ -87,7 +89,7 @@ impl SecretsResponse {
     pub(crate) fn process_response(
         response: BaseSecretResponseModelListResponseModel,
         enc: &EncryptionSettings,
-    ) -> Result<SecretsResponse, Error> {
+    ) -> Result<SecretsResponse, SecretsManagerError> {
         Ok(SecretsResponse {
             data: response
                 .data

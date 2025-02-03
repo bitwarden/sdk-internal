@@ -88,28 +88,28 @@ fn flat_error_wasm(
         .expect("Could not generate TypeScript code");
 
     quote! {
-        const _: () = {
-            use bitwarden_error::wasm_bindgen::prelude::*;
+            const _: () = {
+                use bitwarden_error::wasm_bindgen::prelude::*;
 
-            #[wasm_bindgen(typescript_custom_section)]
-            const TS_APPEND_CONTENT: &'static str = #ts_code;
+                #[wasm_bindgen(typescript_custom_section)]
+                const TS_APPEND_CONTENT: &'static str = #ts_code;
 
-            #[wasm_bindgen(js_name = #is_error_function_name, skip_typescript)]
-            pub fn is_error(error: &JsValue) -> bool {
-                let name_js_value = bitwarden_error::js_sys::Reflect::get(&error, &JsValue::from_str("name")).unwrap_or(JsValue::NULL);
-                let name = name_js_value.as_string().unwrap_or_default();
-                name == #export_as_identifier_str
-            }
-
-            #[automatically_derived]
-            impl From<#type_identifier> for JsValue {
-                fn from(error: #type_identifier) -> Self {
-                    let js_error = bitwarden_error::wasm::SdkJsError::new(error.to_string());
-                    js_error.set_name(#export_as_identifier_str.to_owned());
-                    js_error.set_variant(bitwarden_error::flat_error::FlatError::error_variant(&error).to_owned());
-                    js_error.into()
+                #[wasm_bindgen(js_name = #is_error_function_name, skip_typescript)]
+                pub fn is_error(error: &JsValue) -> bool {
+                    let name_js_value = ::bitwarden_error::js_sys::Reflect::get(&error, &JsValue::from_str("name")).unwrap_or(JsValue::NULL);
+                    let name = name_js_value.as_string().unwrap_or_default();
+                    name == #export_as_identifier_str
                 }
+
+                #[automatically_derived]
+                impl From<#type_identifier> for JsValue {
+                    fn from(error: #type_identifier) -> Self {
+                        let js_error = ::bitwarden_error::wasm::SdkJsError::new(error.to_string());
+                        js_error.set_name(#export_as_identifier_str.to_owned());
+                        js_error.set_variant(::bitwarden_error::flat_error::FlatError::error_variant(&error).to_owned());
+                        js_error.into()
+                    }
             }
         };
     }
-}
+    }

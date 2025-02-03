@@ -1,12 +1,15 @@
 use bitwarden_api_api::models::ProjectUpdateRequestModel;
-use bitwarden_core::{validate_only_whitespaces, Client, Error};
+use bitwarden_core::Client;
 use bitwarden_crypto::KeyEncryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use validator::Validate;
 
-use super::ProjectResponse;
+use crate::{
+    error::{validate_only_whitespaces, SecretsManagerError},
+    projects::ProjectResponse,
+};
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Validate)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -22,7 +25,7 @@ pub struct ProjectPutRequest {
 pub(crate) async fn update_project(
     client: &Client,
     input: &ProjectPutRequest,
-) -> Result<ProjectResponse, Error> {
+) -> Result<ProjectResponse, SecretsManagerError> {
     input.validate()?;
 
     let enc = client.internal.get_encryption_settings()?;
@@ -44,7 +47,7 @@ pub(crate) async fn update_project(
 mod tests {
     use super::*;
 
-    async fn update_project(name: String) -> Result<ProjectResponse, Error> {
+    async fn update_project(name: String) -> Result<ProjectResponse, SecretsManagerError> {
         let input = ProjectPutRequest {
             id: Uuid::new_v4(),
             organization_id: Uuid::new_v4(),
