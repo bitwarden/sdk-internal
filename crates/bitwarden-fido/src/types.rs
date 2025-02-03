@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_crypto::{CryptoError, KeyContainer};
-use bitwarden_vault::{CipherError, CipherView};
+use bitwarden_vault::CipherView;
 use passkey::types::webauthn::UserVerificationRequirement;
 use reqwest::Url;
 use schemars::JsonSchema;
