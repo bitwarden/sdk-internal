@@ -20,6 +20,7 @@ bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-error = { version = "1.0.0", path = "../bitwarden-error" }
 bitwarden-ssh = { workspace = true, features = ["wasm"] }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
+chrono = { workspace = true }
 console_error_panic_hook = "0.1.7"
 console_log = { version = "1.0.0", features = ["color"] }
 js-sys = "0.3.68"

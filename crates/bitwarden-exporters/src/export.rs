@@ -4,7 +4,7 @@ use bitwarden_vault::{Cipher, CipherView, Collection, Folder, FolderView};
 
 use crate::{
     csv::export_csv,
-    cxp::{build_cxf, parse_cxf, Account},
+    cxf::{build_cxf, parse_cxf, Account},
     encrypted_json::export_encrypted_json,
     json::export_json,
     ExportError, ExportFormat, ImportingCipher,

@@ -35,8 +35,7 @@ bitwarden-error = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
 # We don't use this directly (it's used by rand), but we need it here to enable WASM support
 getrandom = { version = ">=0.2.9, <0.3", features = ["js"] }
-hmac = ">=0.12.1, <0.13"
-log = ">=0.4.18, <0.5"
+log = { workspace = true }
 rand = ">=0.8.5, <0.9"
 reqwest = { workspace = true }
 schemars = { workspace = true }
@@ -44,8 +43,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_qs = { workspace = true }
 serde_repr = { workspace = true }
-sha1 = ">=0.10.5, <0.11"
-sha2 = ">=0.10.6, <0.11"
 thiserror = { workspace = true }
 tsify-next = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true, features = ["tokio"] }
@@ -63,7 +60,6 @@ rustls = { version = "0.23.19", default-features = false }
 rustls-platform-verifier = "0.5.0"
 
 [dev-dependencies]
-bitwarden-crypto = { workspace = true }
 rand_chacha = "0.3.1"
 tokio = { workspace = true, features = ["rt"] }
 wiremock = "0.6.0"
