@@ -26,7 +26,7 @@ mod full;
 /// Using the `basic` error type:
 ///
 /// ```rust
-/// use bitwarden_error::prelude::*;
+/// use bitwarden_error::bitwarden_error;
 /// use thiserror::Error;
 ///
 /// #[derive(Debug, Error)]
@@ -52,7 +52,7 @@ mod full;
 /// Using the `flat` error type:
 ///
 /// ```rust
-/// use bitwarden_error::prelude::*;
+/// use bitwarden_error::bitwarden_error;
 /// use thiserror::Error;
 ///
 /// #[derive(Debug, Error)]
@@ -77,7 +77,7 @@ mod full;
 /// Using the `full` error type:
 ///
 /// ```rust
-/// use bitwarden_error::prelude::*;
+/// use bitwarden_error::bitwarden_error;
 /// use serde::Serialize;
 /// use thiserror::Error;
 ///

@@ -2,7 +2,7 @@ use std::{collections::HashMap, str::FromStr};
 
 use bitwarden_core::VaultLocked;
 use bitwarden_crypto::{CryptoError, KeyContainer};
-use bitwarden_error::prelude::*;
+use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use reqwest::Url;

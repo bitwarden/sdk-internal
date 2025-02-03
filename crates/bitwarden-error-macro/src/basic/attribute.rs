@@ -51,7 +51,7 @@ fn basic_error_wasm(
             #[automatically_derived]
             impl From<#type_identifier> for JsValue {
                 fn from(error: #type_identifier) -> Self {
-                    let js_error = SdkJsError::new(error.to_string());
+                    let js_error = bitwarden_error::wasm::SdkJsError::new(error.to_string());
                     js_error.set_name(#export_as_identifier_str.to_owned());
                     js_error.into()
                 }
