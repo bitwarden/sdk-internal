@@ -47,7 +47,6 @@ thiserror = { workspace = true }
 tsify-next = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true, features = ["tokio"] }
 uuid = { workspace = true }
-validator = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
 zxcvbn = { version = ">=3.0.1, <4.0", optional = true }

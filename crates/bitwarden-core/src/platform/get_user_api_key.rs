@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use super::SecretVerificationRequest;
 use crate::{
     client::{LoginMethod, UserLoginMethod},
-    error::{Error, Result},
+    error::{NotAuthenticatedError, Result},
     require, Client,
 };
 
@@ -32,14 +32,14 @@ pub(crate) async fn get_user_api_key(
     UserApiKeyResponse::process_response(response)
 }
 
-fn get_login_method(client: &Client) -> Result<Arc<LoginMethod>> {
+fn get_login_method(client: &Client) -> Result<Arc<LoginMethod>, NotAuthenticatedError> {
     if client.internal.is_authed() {
         client
             .internal
             .get_login_method()
-            .ok_or(Error::NotAuthenticated)
+            .ok_or(NotAuthenticatedError)
     } else {
-        Err(Error::NotAuthenticated)
+        Err(NotAuthenticatedError)
     }
 }
 
