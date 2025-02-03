@@ -549,6 +549,7 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-error",
  "chrono",
  "schemars",
  "serde",

@@ -17,7 +17,7 @@ keywords.workspace = true
 uniffi = [
     "bitwarden-core/uniffi",
     "bitwarden-crypto/uniffi",
-    "dep:uniffi"
+    "dep:uniffi",
 ] # Uniffi bindings
 
 [dependencies]
@@ -25,6 +25,7 @@ base64 = ">=0.22.1, <0.23"
 bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
+bitwarden-error = { workspace = true }
 chrono = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
