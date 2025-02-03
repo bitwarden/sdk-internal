@@ -453,7 +453,7 @@ impl CipherView {
     pub fn decrypt_fido2_credentials(
         &self,
         enc: &dyn KeyContainer,
-    ) -> Result<Vec<Fido2CredentialView>, CipherError> {
+    ) -> Result<Vec<Fido2CredentialView>, CryptoError> {
         let key = self.locate_key(enc, &None)?;
         let cipher_key = Cipher::get_cipher_key(key, &self.key)?;
 

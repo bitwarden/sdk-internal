@@ -52,7 +52,8 @@ impl ClientCiphers {
              .0
             .vault()
             .ciphers()
-            .decrypt_fido2_credentials(cipher_view)?)
+            .decrypt_fido2_credentials(cipher_view)
+            .map_err(Error::Decrypt)?)
     }
 
     /// Move a cipher to an organization, reencrypting the cipher key if necessary

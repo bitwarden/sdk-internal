@@ -1,4 +1,4 @@
-use bitwarden_core::{Client, Error};
+use bitwarden_core::Client;
 use bitwarden_crypto::{KeyDecryptable, KeyEncryptable, LocateKey};
 use uuid::Uuid;
 
@@ -56,16 +56,13 @@ impl ClientCiphers<'_> {
         cipher_views
     }
 
-    #[cfg(feature = "uniffi")]
     pub fn decrypt_fido2_credentials(
         &self,
         cipher_view: CipherView,
-    ) -> Result<Vec<crate::Fido2CredentialView>, Error> {
+    ) -> Result<Vec<crate::Fido2CredentialView>, DecryptError> {
         let enc = self.client.internal.get_encryption_settings()?;
 
-        let credentials = cipher_view
-            .decrypt_fido2_credentials(&enc)
-            .map_err(|e| e.to_string())?;
+        let credentials = cipher_view.decrypt_fido2_credentials(&enc)?;
 
         Ok(credentials)
     }
