@@ -15,6 +15,13 @@ jobs:
 
     runs-on: ubuntu-24.04
 
+    strategy:
+      fail-fast: false
+      matrix:
+        channel:
+          - "rust-toolchain" # The version defined in rust-toolchain
+          - "msrv" # The supported MSRV
+
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -23,7 +30,13 @@ jobs:
         id: toolchain
         shell: bash
         run: |
-          RUST_TOOLCHAIN="$(grep -oP '^channel.*"(\K.*?)(?=")' rust-toolchain.toml)"
+          if [[ "${{ matrix.channel }}" == 'rust-toolchain' ]]; then
+            RUST_TOOLCHAIN="$(grep -oP '^channel.*"(\K.*?)(?=")' rust-toolchain.toml)"
+          elif [[ "${{ matrix.channel }}" == 'msrv' ]]; then
+            RUST_TOOLCHAIN="$(grep -oP '^rust-version.*"(\K.*?)(?=")' Cargo.toml)"
+          else
+            RUST_TOOLCHAIN="${{ matrix.channel }}"
+          fi
           echo "RUST_TOOLCHAIN=${RUST_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
 
       - name: Set Rust Nightly Toolchain
@@ -35,6 +48,7 @@ jobs:
 
       - name: Install rust
         uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203 # stable
+        if: ${{ matrix.channel == 'rust-toolchain' }}
         with:
           toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
           components: clippy, rustfmt
@@ -45,7 +59,7 @@ jobs:
           rustup component add rustfmt --toolchain "${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}"-x86_64-unknown-linux-gnu
 
       - name: Cache cargo registry
-        uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab # v2.7.5
+        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
 
       - name: Cargo fmt
         run: cargo +"${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}" fmt --check
@@ -60,7 +74,7 @@ jobs:
           RUSTFLAGS: "-D warnings"
 
       - name: Upload Clippy results to GitHub
-        uses: github/codeql-action/upload-sarif@aa578102511db1f4524ed59b8cc2bae4f6e88195 # v3.27.6
+        uses: github/codeql-action/upload-sarif@dd746615b3b9d728a6a37ca2045b68ca76d4841a # v3.28.8
         with:
           sarif_file: clippy_result.sarif
 
@@ -85,7 +99,7 @@ jobs:
         run: cargo +"${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}" udeps --workspace --all-features
 
       - name: Set up Node
-        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
           cache: "npm"
           cache-dependency-path: "package-lock.json"
