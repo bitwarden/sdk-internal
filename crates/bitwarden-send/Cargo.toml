@@ -17,8 +17,9 @@ keywords.workspace = true
 uniffi = [
     "bitwarden-core/uniffi",
     "bitwarden-crypto/uniffi",
-    "dep:uniffi",
+    "dep:uniffi"
 ] # Uniffi bindings
+wasm = ["dep:wasm-bindgen"] # WebAssembly support
 
 [dependencies]
 base64 = ">=0.22.1, <0.23"
@@ -33,6 +34,7 @@ serde_repr = { workspace = true }
 thiserror = { workspace = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
 zeroize = { version = ">=1.7.0, <2.0" }
 
 [lints]

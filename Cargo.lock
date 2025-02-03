@@ -557,6 +557,7 @@ dependencies = [
  "thiserror 1.0.69",
  "uniffi",
  "uuid",
+ "wasm-bindgen",
  "zeroize",
 ]
 
@@ -658,6 +659,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-send",
  "bitwarden-ssh",
  "bitwarden-vault",
  "chrono",
