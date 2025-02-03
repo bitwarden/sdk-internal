@@ -9,7 +9,7 @@ use crate::{
 use crate::{
     auth::api::{request::ApiTokenRequest, response::IdentityTokenResponse},
     client::{internal::InternalClient, LoginMethod, UserLoginMethod},
-    error::{Error, Result},
+    error::{Error, NotAuthenticatedError, Result},
 };
 
 pub(crate) async fn renew_token(client: &InternalClient) -> Result<()> {
@@ -40,7 +40,7 @@ pub(crate) async fn renew_token(client: &InternalClient) -> Result<()> {
         let res = match login_method.as_ref() {
             LoginMethod::User(u) => match u {
                 UserLoginMethod::Username { client_id, .. } => {
-                    let refresh = tokens.refresh_token.ok_or(Error::NotAuthenticated)?;
+                    let refresh = tokens.refresh_token.ok_or(NotAuthenticatedError)?;
 
                     crate::auth::api::request::RenewTokenRequest::new(refresh, client_id.to_owned())
                         .send(&config)
@@ -105,5 +105,5 @@ pub(crate) async fn renew_token(client: &InternalClient) -> Result<()> {
         }
     }
 
-    Err(Error::NotAuthenticated)
+    Err(NotAuthenticatedError)?
 }

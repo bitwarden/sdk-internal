@@ -3,7 +3,7 @@ use bitwarden_crypto::{HashPurpose, MasterKey};
 use crate::{
     auth::determine_password_hash,
     client::{LoginMethod, UserLoginMethod},
-    error::{Error, Result},
+    error::{NotAuthenticatedError, Result},
     Client,
 };
 
@@ -16,7 +16,7 @@ pub(crate) fn validate_password(
     let login_method = client
         .internal
         .get_login_method()
-        .ok_or(Error::NotAuthenticated)?;
+        .ok_or(NotAuthenticatedError)?;
 
     #[allow(irrefutable_let_patterns)]
     if let LoginMethod::User(login_method) = login_method.as_ref() {
@@ -34,7 +34,7 @@ pub(crate) fn validate_password(
             }
         }
     } else {
-        Err(Error::NotAuthenticated)
+        Err(NotAuthenticatedError)?
     }
 }
 
@@ -47,7 +47,7 @@ pub(crate) fn validate_password_user_key(
     let login_method = client
         .internal
         .get_login_method()
-        .ok_or(Error::NotAuthenticated)?;
+        .ok_or(NotAuthenticatedError)?;
 
     #[allow(irrefutable_let_patterns)]
     if let LoginMethod::User(login_method) = login_method.as_ref() {
@@ -72,7 +72,7 @@ pub(crate) fn validate_password_user_key(
             }
         }
     } else {
-        Err(Error::NotAuthenticated)
+        Err(NotAuthenticatedError)?
     }
 }
 

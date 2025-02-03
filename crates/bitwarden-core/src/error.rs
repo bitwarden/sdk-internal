@@ -17,9 +17,8 @@ pub enum Error {
     MissingFieldError(#[from] MissingFieldError),
     #[error(transparent)]
     VaultLocked(#[from] VaultLocked),
-
-    #[error("The client is not authenticated or the session has expired")]
-    NotAuthenticated,
+    #[error(transparent)]
+    NotAuthenticated(#[from] NotAuthenticatedError),
 
     #[error("Access token is not in a valid format: {0}")]
     AccessTokenInvalid(#[from] AccessTokenInvalidError),
@@ -137,6 +136,10 @@ pub enum ApiError {
 impl_bitwarden_error!(ApiApisError, ApiError);
 
 pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
+
+#[derive(Debug, Error)]
+#[error("The client is not authenticated or the session has expired")]
+pub struct NotAuthenticatedError;
 
 #[derive(Debug, Error)]
 #[error("The response received was missing a required field: {0}")]
