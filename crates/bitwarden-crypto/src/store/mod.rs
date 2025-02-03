@@ -1,3 +1,27 @@
+//!
+//! This module contains all the necessary parts to create an in-memory key store that can be used
+//! to securely store key and use them for encryption/decryption operations.
+//!
+//! ## Organization
+//!
+//! ### Key Identifiers
+//! To avoid having to pass key materials over the crate boundaries, the key store API uses key
+//! identifiers in its API. These key identifiers are user-defined types that contain no key
+//! material, and are used to uniquely identify each key in the store. The key store doesn't specify
+//! how these traits should be implemented, but we recommend using `enums`, and we provide an
+//! optional macro ([key_ids](crate::key_ids)) that makes it easier to define them.
+//!
+//! ### Key Store
+//! [KeyStore] is a thread-safe in-memory key store and the main entry point for using this module.
+//! It provides functionality to encrypt and decrypt data using the keys stored in the store. The
+//! store is designed to be used by a single user and should not be shared between users.
+//!
+//! ### Key Store Context
+//! From a [KeyStore], you can also create an instance of [KeyStoreContext], which initializes a
+//! temporary context-local key store for encryption/decryption operations that require the use of
+//! per-item keys (like cipher keys or send keys, for example). Any keys stored in the context-local
+//! store will be cleared when the context is dropped.
+
 use std::sync::{Arc, RwLock};
 
 use rayon::prelude::*;
