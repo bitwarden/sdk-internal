@@ -101,7 +101,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Clears all the local keys stored in this context
     /// This will not affect the global keys even if this context has write access.
     /// To clear the global keys, you need to use [super::KeyStore::clear] instead.
-    pub fn clear(&mut self) {
+    pub fn clear_local(&mut self) {
         self.local_symmetric_keys.clear();
         self.local_asymmetric_keys.clear();
     }

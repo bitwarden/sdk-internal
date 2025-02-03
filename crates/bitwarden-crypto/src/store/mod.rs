@@ -238,7 +238,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
                 for item in chunk {
                     let key = item.key_identifier();
                     result.push(item.decrypt(&mut ctx, key));
-                    ctx.clear();
+                    ctx.clear_local();
                 }
 
                 result
@@ -272,7 +272,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
                 for item in chunk {
                     let key = item.key_identifier();
                     result.push(item.encrypt(&mut ctx, key));
-                    ctx.clear();
+                    ctx.clear_local();
                 }
 
                 result
