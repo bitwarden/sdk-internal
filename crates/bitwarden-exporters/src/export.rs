@@ -34,10 +34,7 @@ pub(crate) fn export_vault(
             folders,
             ciphers,
             password,
-            client
-                .internal
-                .get_kdf()
-                .map_err(|e| ExportError::BitwardenError(e.into()))?,
+            client.internal.get_kdf()?,
         )?),
     }
 }
