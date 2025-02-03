@@ -27,6 +27,26 @@ pub enum SendDecryptError {
     VaultLocked(#[from] bitwarden_core::VaultLocked),
 }
 
+/// Generic error type for send encryption errors.
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum SendEncryptFileError {
+    #[error(transparent)]
+    Encrypt(#[from] SendEncryptError),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+}
+
+/// Generic error type for send decryption errors
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum SendDecryptFileError {
+    #[error(transparent)]
+    Decrypt(#[from] SendDecryptError),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+}
+
 pub struct SendClient<'a> {
     client: &'a Client,
 }
@@ -36,7 +56,7 @@ impl<'a> SendClient<'a> {
         Self { client }
     }
 
-    pub fn decrypt(&self, send: Send) -> Result<SendView, Error> {
+    pub fn decrypt(&self, send: Send) -> Result<SendView, SendDecryptError> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = enc.get_key(&None)?;
 
@@ -45,7 +65,7 @@ impl<'a> SendClient<'a> {
         Ok(send_view)
     }
 
-    pub fn decrypt_list(&self, sends: Vec<Send>) -> Result<Vec<SendListView>, Error> {
+    pub fn decrypt_list(&self, sends: Vec<Send>) -> Result<Vec<SendListView>, SendDecryptError> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = enc.get_key(&None)?;
 
@@ -59,14 +79,18 @@ impl<'a> SendClient<'a> {
         send: Send,
         encrypted_file_path: &Path,
         decrypted_file_path: &Path,
-    ) -> Result<(), Error> {
+    ) -> Result<(), SendDecryptFileError> {
         let data = std::fs::read(encrypted_file_path)?;
         let decrypted = self.decrypt_buffer(send, &data)?;
         std::fs::write(decrypted_file_path, decrypted)?;
         Ok(())
     }
 
-    pub fn decrypt_buffer(&self, send: Send, encrypted_buffer: &[u8]) -> Result<Vec<u8>, Error> {
+    pub fn decrypt_buffer(
+        &self,
+        send: Send,
+        encrypted_buffer: &[u8],
+    ) -> Result<Vec<u8>, SendDecryptError> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = enc.get_key(&None)?;
         let key = Send::get_key(&send.key, key)?;
@@ -75,7 +99,7 @@ impl<'a> SendClient<'a> {
         Ok(buf.decrypt_with_key(&key)?)
     }
 
-    pub fn encrypt(&self, send_view: SendView) -> Result<Send, Error> {
+    pub fn encrypt(&self, send_view: SendView) -> Result<Send, SendEncryptError> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = enc.get_key(&None)?;
 
@@ -89,14 +113,14 @@ impl<'a> SendClient<'a> {
         send: Send,
         decrypted_file_path: &Path,
         encrypted_file_path: &Path,
-    ) -> Result<(), Error> {
+    ) -> Result<(), SendEncryptFileError> {
         let data = std::fs::read(decrypted_file_path)?;
         let encrypted = self.encrypt_buffer(send, &data)?;
         std::fs::write(encrypted_file_path, encrypted)?;
         Ok(())
     }
 
-    pub fn encrypt_buffer(&self, send: Send, buffer: &[u8]) -> Result<Vec<u8>, Error> {
+    pub fn encrypt_buffer(&self, send: Send, buffer: &[u8]) -> Result<Vec<u8>, SendEncryptError> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = enc.get_key(&None)?;
         let key = Send::get_key(&send.key, key)?;
