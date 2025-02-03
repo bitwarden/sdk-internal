@@ -99,15 +99,9 @@ impl<Ids: KeyIds> GlobalKeys<'_, Ids> {
 
 impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Clears all the local keys stored in this context
-    /// If this context has write access to the global keys,
-    /// it will also clear them
+    /// This will not affect the global keys even if this context has write access.
+    /// To clear the global keys, you need to use [super::KeyStore::clear] instead.
     pub fn clear(&mut self) {
-        // Clear global keys if we have write access
-        if let Ok(keys) = self.global_keys.get_mut() {
-            keys.symmetric_keys.clear();
-            keys.asymmetric_keys.clear();
-        }
-
         self.local_symmetric_keys.clear();
         self.local_asymmetric_keys.clear();
     }
