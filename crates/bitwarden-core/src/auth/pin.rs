@@ -2,7 +2,7 @@ use bitwarden_crypto::{EncString, PinKey};
 
 use crate::{
     client::{LoginMethod, UserLoginMethod},
-    error::{Error, Result},
+    error::{NotAuthenticatedError, Result},
     Client,
 };
 
@@ -14,11 +14,11 @@ pub(crate) fn validate_pin(
     let login_method = client
         .internal
         .get_login_method()
-        .ok_or(Error::NotAuthenticated)?;
+        .ok_or(NotAuthenticatedError)?;
 
     #[allow(irrefutable_let_patterns)]
     let LoginMethod::User(login_method) = login_method.as_ref() else {
-        return Err(Error::NotAuthenticated);
+        return Err(NotAuthenticatedError)?;
     };
 
     match login_method {

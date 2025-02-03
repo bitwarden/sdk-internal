@@ -59,6 +59,14 @@ pub enum Error {
     Cipher(#[from] bitwarden_vault::CipherError),
     #[error(transparent)]
     Totp(#[from] bitwarden_vault::TotpError),
+    #[error(transparent)]
+    Decrypt(#[from] bitwarden_vault::DecryptError),
+    #[error(transparent)]
+    DecryptFile(#[from] bitwarden_vault::DecryptFileError),
+    #[error(transparent)]
+    Encrypt(#[from] bitwarden_vault::EncryptError),
+    #[error(transparent)]
+    EncryptFile(#[from] bitwarden_vault::EncryptFileError),
 
     #[error(transparent)]
     Export(#[from] ExportError),

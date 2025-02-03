@@ -1,15 +1,17 @@
-use bitwarden_core::{Client, Error};
+use bitwarden_core::Client;
 use bitwarden_crypto::{KeyDecryptable, KeyEncryptable, LocateKey};
 use uuid::Uuid;
 
-use crate::{Cipher, CipherError, CipherListView, CipherView, VaultClient};
+use crate::{
+    Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError, VaultClient,
+};
 
 pub struct ClientCiphers<'a> {
     pub(crate) client: &'a Client,
 }
 
 impl ClientCiphers<'_> {
-    pub fn encrypt(&self, mut cipher_view: CipherView) -> Result<Cipher, Error> {
+    pub fn encrypt(&self, mut cipher_view: CipherView) -> Result<Cipher, EncryptError> {
         let enc = self.client.internal.get_encryption_settings()?;
 
         // TODO: Once this flag is removed, the key generation logic should
@@ -31,7 +33,7 @@ impl ClientCiphers<'_> {
         Ok(cipher)
     }
 
-    pub fn decrypt(&self, cipher: Cipher) -> Result<CipherView, Error> {
+    pub fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
         let enc = self.client.internal.get_encryption_settings()?;
         let key = cipher.locate_key(&enc, &None)?;
 
@@ -40,7 +42,7 @@ impl ClientCiphers<'_> {
         Ok(cipher_view)
     }
 
-    pub fn decrypt_list(&self, ciphers: Vec<Cipher>) -> Result<Vec<CipherListView>, Error> {
+    pub fn decrypt_list(&self, ciphers: Vec<Cipher>) -> Result<Vec<CipherListView>, DecryptError> {
         let enc = self.client.internal.get_encryption_settings()?;
 
         let cipher_views: Result<Vec<CipherListView>, _> = ciphers
@@ -54,16 +56,13 @@ impl ClientCiphers<'_> {
         cipher_views
     }
 
-    #[cfg(feature = "uniffi")]
     pub fn decrypt_fido2_credentials(
         &self,
         cipher_view: CipherView,
-    ) -> Result<Vec<crate::Fido2CredentialView>, Error> {
+    ) -> Result<Vec<crate::Fido2CredentialView>, DecryptError> {
         let enc = self.client.internal.get_encryption_settings()?;
 
-        let credentials = cipher_view
-            .decrypt_fido2_credentials(&enc)
-            .map_err(|e| e.to_string())?;
+        let credentials = cipher_view.decrypt_fido2_credentials(&enc)?;
 
         Ok(credentials)
     }

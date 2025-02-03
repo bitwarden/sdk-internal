@@ -2,12 +2,15 @@ use std::{collections::HashMap, str::FromStr};
 
 use bitwarden_core::VaultLocked;
 use bitwarden_crypto::{CryptoError, KeyContainer};
+use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use reqwest::Url;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use tsify_next::Tsify;
 
 use crate::CipherListView;
 
@@ -22,6 +25,7 @@ const DEFAULT_ALGORITHM: TotpAlgorithm = TotpAlgorithm::Sha1;
 const DEFAULT_DIGITS: u32 = 6;
 const DEFAULT_PERIOD: u32 = 30;
 
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum TotpError {
     #[error("Invalid otpauth")]
@@ -38,6 +42,7 @@ pub enum TotpError {
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct TotpResponse {
     /// Generated TOTP code
     pub code: String,

@@ -453,7 +453,7 @@ impl CipherView {
     pub fn decrypt_fido2_credentials(
         &self,
         enc: &dyn KeyContainer,
-    ) -> Result<Vec<Fido2CredentialView>, CipherError> {
+    ) -> Result<Vec<Fido2CredentialView>, CryptoError> {
         let key = self.locate_key(enc, &None)?;
         let cipher_key = Cipher::get_cipher_key(key, &self.key)?;
 
@@ -694,6 +694,7 @@ mod tests {
     use crate::Fido2Credential;
 
     fn generate_cipher() -> CipherView {
+        let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         CipherView {
             r#type: CipherType::Login,
             login: Some(LoginView {
@@ -705,7 +706,7 @@ mod tests {
                 autofill_on_page_load: None,
                 fido2_credentials: None,
             }),
-            id: "fd411a1a-fec8-4070-985d-0e6560860e69".parse().ok(),
+            id: Some(test_id),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],

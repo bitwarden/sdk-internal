@@ -1,4 +1,4 @@
-use bitwarden_error::prelude::*;
+use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
 #[bitwarden_error(flat)]
