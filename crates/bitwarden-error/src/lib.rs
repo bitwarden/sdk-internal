@@ -15,5 +15,4 @@ pub use ::tsify_next;
 #[cfg(feature = "wasm")]
 #[doc(hidden)]
 pub use ::wasm_bindgen;
-
 pub use bitwarden_error_macro::bitwarden_error;
