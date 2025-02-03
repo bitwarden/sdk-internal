@@ -56,7 +56,7 @@ mod full;
 /// use thiserror::Error;
 ///
 /// #[derive(Debug, Error)]
-/// #[bitwarden_error(basic)]
+/// #[bitwarden_error(flat)]
 /// enum MyError {
 ///     #[error("Not found")]
 ///     NotFound,
