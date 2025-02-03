@@ -3,12 +3,14 @@ use bitwarden_api_api::models::{
 };
 use bitwarden_core::{
     client::{encryption_settings::EncryptionSettings, Client},
-    require, Error,
+    require,
 };
 use bitwarden_crypto::{EncString, KeyDecryptable};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+use crate::error::SecretsManagerError;
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -20,7 +22,7 @@ pub struct SecretIdentifiersRequest {
 pub(crate) async fn list_secrets(
     client: &Client,
     input: &SecretIdentifiersRequest,
-) -> Result<SecretIdentifiersResponse, Error> {
+) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
     let config = client.internal.get_api_configurations().await;
     let res = bitwarden_api_api::apis::secrets_api::organizations_organization_id_secrets_get(
         &config.api,
@@ -43,7 +45,7 @@ pub struct SecretIdentifiersByProjectRequest {
 pub(crate) async fn list_secrets_by_project(
     client: &Client,
     input: &SecretIdentifiersByProjectRequest,
-) -> Result<SecretIdentifiersResponse, Error> {
+) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
     let config = client.internal.get_api_configurations().await;
     let res = bitwarden_api_api::apis::secrets_api::projects_project_id_secrets_get(
         &config.api,
@@ -66,7 +68,7 @@ impl SecretIdentifiersResponse {
     pub(crate) fn process_response(
         response: SecretWithProjectsListResponseModel,
         enc: &EncryptionSettings,
-    ) -> Result<SecretIdentifiersResponse, Error> {
+    ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
         Ok(SecretIdentifiersResponse {
             data: response
                 .secrets
@@ -91,7 +93,7 @@ impl SecretIdentifierResponse {
     pub(crate) fn process_response(
         response: SecretsWithProjectsInnerSecret,
         enc: &EncryptionSettings,
-    ) -> Result<SecretIdentifierResponse, Error> {
+    ) -> Result<SecretIdentifierResponse, SecretsManagerError> {
         let organization_id = require!(response.organization_id);
         let enc_key = enc.get_key(&Some(organization_id))?;
 

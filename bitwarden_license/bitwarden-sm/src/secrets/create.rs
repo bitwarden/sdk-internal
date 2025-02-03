@@ -1,12 +1,15 @@
 use bitwarden_api_api::models::SecretCreateRequestModel;
-use bitwarden_core::{validate_only_whitespaces, Client, Error};
+use bitwarden_core::Client;
 use bitwarden_crypto::KeyEncryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use validator::Validate;
 
-use super::SecretResponse;
+use crate::{
+    error::{validate_only_whitespaces, SecretsManagerError},
+    secrets::SecretResponse,
+};
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Validate)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -28,7 +31,7 @@ pub struct SecretCreateRequest {
 pub(crate) async fn create_secret(
     client: &Client,
     input: &SecretCreateRequest,
-) -> Result<SecretResponse, Error> {
+) -> Result<SecretResponse, SecretsManagerError> {
     input.validate()?;
 
     let enc = client.internal.get_encryption_settings()?;
@@ -61,7 +64,7 @@ mod tests {
         key: Option<String>,
         value: Option<String>,
         note: Option<String>,
-    ) -> Result<SecretResponse, Error> {
+    ) -> Result<SecretResponse, SecretsManagerError> {
         let input = SecretCreateRequest {
             organization_id: Uuid::new_v4(),
             key: key.unwrap_or_else(|| "test key".into()),
