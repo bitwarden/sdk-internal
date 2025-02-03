@@ -9,3 +9,6 @@ crates/bitwarden-uniffi/swift/*
 
 # Test fixtures
 crates/bitwarden-exporters/resources/*
+
+# Nix
+flake.lock
