@@ -2,7 +2,7 @@ use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
 /// Generic error type for vault encryption errors.
-#[bitwarden_error(flat, export_as = "DecryptError")]
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum EncryptError {
     #[error(transparent)]
@@ -12,7 +12,7 @@ pub enum EncryptError {
 }
 
 /// Generic error type for decryption errors
-#[bitwarden_error(flat, export_as = "DecryptError")]
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum DecryptError {
     #[error(transparent)]

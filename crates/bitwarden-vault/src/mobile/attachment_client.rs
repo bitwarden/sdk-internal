@@ -15,7 +15,7 @@ pub struct ClientAttachments<'a> {
 }
 
 /// Generic error type for vault encryption errors.
-#[bitwarden_error(flat, export_as = "DecryptError")]
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum EncryptFileError {
     #[error(transparent)]
@@ -25,7 +25,7 @@ pub enum EncryptFileError {
 }
 
 /// Generic error type for decryption errors
-#[bitwarden_error(flat, export_as = "DecryptError")]
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum DecryptFileError {
     #[error(transparent)]
