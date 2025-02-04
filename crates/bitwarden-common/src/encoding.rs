@@ -16,17 +16,16 @@ impl std::fmt::Display for DecodeError {
 
 impl std::error::Error for DecodeError {}
 
-
 mod private {
-    // We can't easily add blanket impls for Encodable and Decodable to ensure the reverse impls are available,
-    // but we can mark the traits as sealed to ensure that only the intended types can implement them.
+    // We can't easily add blanket impls for Encodable and Decodable to ensure the reverse impls are
+    // available, but we can mark the traits as sealed to ensure that only the intended types
+    // can implement them.
     pub trait Sealed {}
     impl Sealed for Vec<u8> {}
     impl Sealed for &[u8] {}
     impl Sealed for String {}
     impl Sealed for &str {}
 }
-
 
 pub trait Encodable<To>: private::Sealed {
     fn encode(self) -> To;

@@ -239,7 +239,10 @@ impl<T: Encodable<Vec<u8>>> KeyEncryptable<SymmetricCryptoKey, EncString> for T 
     }
 }
 
-impl<Output> KeyDecryptable<SymmetricCryptoKey, Output> for EncString where Vec<u8>: Decodable<Output>{
+impl<Output> KeyDecryptable<SymmetricCryptoKey, Output> for EncString
+where
+    Vec<u8>: Decodable<Output>,
+{
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Output> {
         match self {
             EncString::AesCbc256_B64 { iv, data } => {
@@ -269,7 +272,6 @@ impl<Output> KeyDecryptable<SymmetricCryptoKey, Output> for EncString where Vec<
         }
     }
 }
-
 
 impl LocateKey for EncString {}
 
