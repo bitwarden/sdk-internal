@@ -18,7 +18,7 @@ pub enum CryptoError {
     #[error("The cipher key has an invalid length")]
     InvalidKeyLen,
     #[error("The value is not a valid UTF8 String")]
-    InvalidUtf8String,
+    InvalidUtf8String(#[from] std::string::FromUtf8Error),
     #[error("Missing Key for organization with ID {0}")]
     MissingKey(Uuid),
     #[error("The item was missing a required field: {0}")]
@@ -45,6 +45,9 @@ pub enum CryptoError {
 
     #[error("Number is zero")]
     ZeroNumber,
+
+    #[error("DecodeError")]
+    Decode(#[from] bitwarden_common::encoding::DecodeError),
 }
 
 #[derive(Debug, Error)]

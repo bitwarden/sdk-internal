@@ -2,7 +2,7 @@ use std::{fmt::Display, str::FromStr};
 
 use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
-use bitwarden_common::encoding::Encodable;
+use bitwarden_common::encoding::{Decodable, Encodable};
 use generic_array::GenericArray;
 use serde::Deserialize;
 
@@ -239,10 +239,8 @@ impl<T: Encodable<Vec<u8>>> KeyEncryptable<SymmetricCryptoKey, EncString> for T 
     }
 }
 
-impl LocateKey for EncString {}
-
-impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
+impl<Output> KeyDecryptable<SymmetricCryptoKey, Output> for EncString where Vec<u8>: Decodable<Output>{
+    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Output> {
         match self {
             EncString::AesCbc256_B64 { iv, data } => {
                 if key.mac_key.is_some() {
@@ -250,7 +248,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 }
 
                 let dec = crate::aes::decrypt_aes256(iv, data.clone(), &key.key)?;
-                Ok(dec)
+                Ok(dec.try_decode()?)
             }
             EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } => {
                 // TODO: SymmetricCryptoKey is designed to handle 32 byte keys only, but this
@@ -260,24 +258,20 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 let enc_key = key.key[0..16].into();
                 let mac_key = key.key[16..32].into();
                 let dec = crate::aes::decrypt_aes128_hmac(iv, mac, data.clone(), mac_key, enc_key)?;
-                Ok(dec)
+                Ok(dec.try_decode()?)
             }
             EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
                 let mac_key = key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?;
                 let dec =
                     crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), mac_key, &key.key)?;
-                Ok(dec)
+                Ok(dec.try_decode()?)
             }
         }
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, String> for EncString {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<String> {
-        let dec: Vec<u8> = self.decrypt_with_key(key)?;
-        String::from_utf8(dec).map_err(|_| CryptoError::InvalidUtf8String)
-    }
-}
+
+impl LocateKey for EncString {}
 
 /// Usually we wouldn't want to expose EncStrings in the API or the schemas.
 /// But during the transition phase we will expose endpoints using the EncString type.

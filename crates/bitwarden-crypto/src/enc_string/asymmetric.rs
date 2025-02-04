@@ -1,6 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
+use bitwarden_common::encoding::Decodable;
 pub use internal::AsymmetricEncString;
 use rsa::Oaep;
 use serde::Deserialize;
@@ -171,10 +172,13 @@ impl AsymmetricEncString {
     }
 }
 
-impl KeyDecryptable<AsymmetricCryptoKey, Vec<u8>> for AsymmetricEncString {
-    fn decrypt_with_key(&self, key: &AsymmetricCryptoKey) -> Result<Vec<u8>> {
+impl<Output> KeyDecryptable<AsymmetricCryptoKey, Output> for AsymmetricEncString
+where
+    Vec<u8>: Decodable<Output>,
+{
+    fn decrypt_with_key(&self, key: &AsymmetricCryptoKey) -> Result<Output> {
         use AsymmetricEncString::*;
-        match self {
+        let dec = match self {
             Rsa2048_OaepSha256_B64 { data } => key.key.decrypt(Oaep::new::<sha2::Sha256>(), data),
             Rsa2048_OaepSha1_B64 { data } => key.key.decrypt(Oaep::new::<sha1::Sha1>(), data),
             #[allow(deprecated)]
@@ -186,14 +190,8 @@ impl KeyDecryptable<AsymmetricCryptoKey, Vec<u8>> for AsymmetricEncString {
                 key.key.decrypt(Oaep::new::<sha1::Sha1>(), data)
             }
         }
-        .map_err(|_| CryptoError::KeyDecrypt)
-    }
-}
-
-impl KeyDecryptable<AsymmetricCryptoKey, String> for AsymmetricEncString {
-    fn decrypt_with_key(&self, key: &AsymmetricCryptoKey) -> Result<String> {
-        let dec: Vec<u8> = self.decrypt_with_key(key)?;
-        String::from_utf8(dec).map_err(|_| CryptoError::InvalidUtf8String)
+        .map_err(|_| CryptoError::KeyDecrypt)?;
+        Ok(dec.try_decode()?)
     }
 }
 
