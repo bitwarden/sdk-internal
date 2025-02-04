@@ -376,27 +376,21 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ) -> Result<Vec<u8>> {
         let key = self.get_symmetric_key(key)?;
 
-        match data {
-            EncString::AesCbc256_B64 { iv, data } => {
-                let dec = crate::aes::decrypt_aes256(iv, data.clone(), &key.key)?;
-                Ok(dec)
+        match (data, key) {
+            (EncString::AesCbc256_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
+                crate::aes::decrypt_aes256(iv, data.clone(), &key.encryption_key)
             }
-            EncString::AesCbc128_HmacSha256_B64 { iv, mac, data } => {
-                // TODO: SymmetricCryptoKey is designed to handle 32 byte keys only, but this
-                // variant uses a 16 byte key This means the key+mac are going to be
-                // parsed as a single 32 byte key, at the moment we split it manually
-                // When refactoring the key handling, this should be fixed.
-                let enc_key = (&key.key[0..16]).into();
-                let mac_key = (&key.key[16..32]).into();
-                let dec = crate::aes::decrypt_aes128_hmac(iv, mac, data.clone(), mac_key, enc_key)?;
-                Ok(dec)
-            }
-            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
-                let mac_key = key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?;
-                let dec =
-                    crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), mac_key, &key.key)?;
-                Ok(dec)
-            }
+            (
+                EncString::AesCbc256_HmacSha256_B64 { iv, mac, data },
+                SymmetricCryptoKey::Aes256CbcHmacKey(key),
+            ) => crate::aes::decrypt_aes256_hmac(
+                iv,
+                mac,
+                data.clone(),
+                &key.mac_key,
+                &key.encryption_key,
+            ),
+            _ => Err(CryptoError::InvalidKey),
         }
     }
 
@@ -406,11 +400,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         data: &[u8],
     ) -> Result<EncString> {
         let key = self.get_symmetric_key(key)?;
-        EncString::encrypt_aes256_hmac(
-            data,
-            key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?,
-            &key.key,
-        )
+        if let SymmetricCryptoKey::Aes256CbcHmacKey(key) = key {
+            EncString::encrypt_aes256_hmac(data, key)
+        } else {
+            Err(CryptoError::InvalidKey)
+        }
     }
 
     pub(crate) fn decrypt_data_with_asymmetric_key(
