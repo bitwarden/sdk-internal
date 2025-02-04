@@ -10,12 +10,24 @@ use thiserror::Error;
 
 use crate::{error::Result, wordlist::EFF_LONG_WORD_LIST, CryptoError};
 
+/// Errors that can occur when computing a fingerprint.
+#[derive(Debug, Error)]
+pub enum FingerprintError {
+    #[error("Entropy is too small")]
+    EntropyTooSmall,
+    #[error(transparent)]
+    Crypto(#[from] CryptoError),
+}
+
 /// Computes a fingerprint of the given `fingerprint_material` using the given `public_key`.
 ///
 /// This is commonly used for account fingerprints. With the following arguments:
 /// - `fingerprint_material`: user's id.
 /// - `public_key`: user's public key.
-pub fn fingerprint(fingerprint_material: &str, public_key: &[u8]) -> Result<String> {
+pub fn fingerprint(
+    fingerprint_material: &str,
+    public_key: &[u8],
+) -> Result<String, FingerprintError> {
     let hkdf =
         hkdf::Hkdf::<sha2::Sha256>::from_prk(public_key).map_err(|_| CryptoError::InvalidKeyLen)?;
 
@@ -27,7 +39,7 @@ pub fn fingerprint(fingerprint_material: &str, public_key: &[u8]) -> Result<Stri
 }
 
 /// Derive a 5 word phrase from a 32 byte hash.
-fn hash_word(hash: [u8; 32]) -> Result<String> {
+fn hash_word(hash: [u8; 32]) -> Result<String, FingerprintError> {
     let minimum_entropy = 64;
 
     let entropy_per_word = (EFF_LONG_WORD_LIST.len() as f64).log2();
@@ -36,7 +48,7 @@ fn hash_word(hash: [u8; 32]) -> Result<String> {
     let hash_arr: Vec<u8> = hash.to_vec();
     let entropy_available = hash_arr.len() * 4;
     if num_words as f64 * entropy_per_word > entropy_available as f64 {
-        return Err(FingerprintError::EntropyTooSmall.into());
+        return Err(FingerprintError::EntropyTooSmall);
     }
 
     let mut phrase = Vec::new();
@@ -53,12 +65,6 @@ fn hash_word(hash: [u8; 32]) -> Result<String> {
     }
 
     Ok(phrase.join("-"))
-}
-
-#[derive(Debug, Error)]
-pub enum FingerprintError {
-    #[error("Entropy is too small")]
-    EntropyTooSmall,
 }
 
 #[cfg(test)]

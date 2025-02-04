@@ -19,6 +19,8 @@ pub enum Error {
     VaultLocked(#[from] VaultLocked),
     #[error(transparent)]
     NotAuthenticated(#[from] NotAuthenticatedError),
+    #[error(transparent)]
+    FingerprintError(#[from] bitwarden_crypto::FingerprintError),
 
     #[error("Access token is not in a valid format: {0}")]
     AccessTokenInvalid(#[from] AccessTokenInvalidError),

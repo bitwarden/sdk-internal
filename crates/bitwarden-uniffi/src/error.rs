@@ -45,6 +45,10 @@ pub type Result<T, E = BitwardenError> = std::result::Result<T, E>;
 pub enum Error {
     #[error(transparent)]
     Core(#[from] bitwarden_core::Error),
+    #[error(transparent)]
+    Fingerprint(#[from] bitwarden_core::platform::FingerprintError),
+    #[error(transparent)]
+    UserFingerprint(#[from] bitwarden_core::platform::UserFingerprintError),
 
     // Generators
     #[error(transparent)]
