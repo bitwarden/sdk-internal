@@ -1,5 +1,5 @@
 use bitwarden_core::Client;
-use bitwarden_crypto::{KeyDecryptable, KeyEncryptable, LocateKey};
+use bitwarden_crypto::IdentifyKey;
 use uuid::Uuid;
 
 use crate::{
@@ -12,7 +12,7 @@ pub struct ClientCiphers<'a> {
 
 impl ClientCiphers<'_> {
     pub fn encrypt(&self, mut cipher_view: CipherView) -> Result<Cipher, EncryptError> {
-        let enc = self.client.internal.get_encryption_settings()?;
+        let key_store = self.client.internal.get_key_store();
 
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the KeyEncryptable implementation
@@ -23,47 +23,32 @@ impl ClientCiphers<'_> {
                 .get_flags()
                 .enable_cipher_key_encryption
         {
-            let key = cipher_view.locate_key(&enc, &None)?;
-            cipher_view.generate_cipher_key(key)?;
+            let key = cipher_view.key_identifier();
+            cipher_view.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
-        let key = cipher_view.locate_key(&enc, &None)?;
-        let cipher = cipher_view.encrypt_with_key(key)?;
-
+        let cipher = key_store.encrypt(cipher_view)?;
         Ok(cipher)
     }
 
     pub fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
-        let enc = self.client.internal.get_encryption_settings()?;
-        let key = cipher.locate_key(&enc, &None)?;
-
-        let cipher_view = cipher.decrypt_with_key(key)?;
-
+        let key_store = self.client.internal.get_key_store();
+        let cipher_view = key_store.decrypt(&cipher)?;
         Ok(cipher_view)
     }
 
     pub fn decrypt_list(&self, ciphers: Vec<Cipher>) -> Result<Vec<CipherListView>, DecryptError> {
-        let enc = self.client.internal.get_encryption_settings()?;
-
-        let cipher_views: Result<Vec<CipherListView>, _> = ciphers
-            .iter()
-            .map(|c| -> Result<CipherListView, _> {
-                let key = c.locate_key(&enc, &None)?;
-                Ok(c.decrypt_with_key(key)?)
-            })
-            .collect();
-
-        cipher_views
+        let key_store = self.client.internal.get_key_store();
+        let cipher_views = key_store.decrypt_list(&ciphers)?;
+        Ok(cipher_views)
     }
 
     pub fn decrypt_fido2_credentials(
         &self,
         cipher_view: CipherView,
     ) -> Result<Vec<crate::Fido2CredentialView>, DecryptError> {
-        let enc = self.client.internal.get_encryption_settings()?;
-
-        let credentials = cipher_view.decrypt_fido2_credentials(&enc)?;
-
+        let key_store = self.client.internal.get_key_store();
+        let credentials = cipher_view.decrypt_fido2_credentials(&mut key_store.context())?;
         Ok(credentials)
     }
 
@@ -72,8 +57,8 @@ impl ClientCiphers<'_> {
         mut cipher_view: CipherView,
         organization_id: Uuid,
     ) -> Result<CipherView, CipherError> {
-        let enc = self.client.internal.get_encryption_settings()?;
-        cipher_view.move_to_organization(&enc, organization_id)?;
+        let key_store = self.client.internal.get_key_store();
+        cipher_view.move_to_organization(&mut key_store.context(), organization_id)?;
         Ok(cipher_view)
     }
 }

@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::ProjectUpdateRequestModel;
-use bitwarden_core::Client;
-use bitwarden_crypto::KeyEncryptable;
+use bitwarden_core::{key_management::SymmetricKeyId, Client};
+use bitwarden_crypto::Encryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -28,11 +28,16 @@ pub(crate) async fn update_project(
 ) -> Result<ProjectResponse, SecretsManagerError> {
     input.validate()?;
 
-    let enc = client.internal.get_encryption_settings()?;
-    let key = enc.get_key(&Some(input.organization_id))?;
+    let key_store = client.internal.get_key_store();
+    let key = SymmetricKeyId::Organization(input.organization_id);
 
     let project = Some(ProjectUpdateRequestModel {
-        name: input.name.clone().trim().encrypt_with_key(key)?.to_string(),
+        name: input
+            .name
+            .clone()
+            .trim()
+            .encrypt(&mut key_store.context(), key)?
+            .to_string(),
     });
 
     let config = client.internal.get_api_configurations().await;
@@ -40,7 +45,7 @@ pub(crate) async fn update_project(
         bitwarden_api_api::apis::projects_api::projects_id_put(&config.api, input.id, project)
             .await?;
 
-    ProjectResponse::process_response(res, &enc)
+    ProjectResponse::process_response(res, &mut key_store.context())
 }
 
 #[cfg(test)]

@@ -1,7 +1,10 @@
 use bitwarden_api_api::models::FolderResponseModel;
-use bitwarden_core::require;
+use bitwarden_core::{
+    key_management::{KeyIds, SymmetricKeyId},
+    require,
+};
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
@@ -32,21 +35,40 @@ pub struct FolderView {
     pub revision_date: DateTime<Utc>,
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, Folder> for FolderView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<Folder, CryptoError> {
+impl IdentifyKey<SymmetricKeyId> for Folder {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::User
+    }
+}
+impl IdentifyKey<SymmetricKeyId> for FolderView {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::User
+    }
+}
+
+impl Encryptable<KeyIds, SymmetricKeyId, Folder> for FolderView {
+    fn encrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<Folder, CryptoError> {
         Ok(Folder {
             id: self.id,
-            name: self.name.encrypt_with_key(key)?,
+            name: self.name.encrypt(ctx, key)?,
             revision_date: self.revision_date,
         })
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, FolderView> for Folder {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<FolderView, CryptoError> {
+impl Decryptable<KeyIds, SymmetricKeyId, FolderView> for Folder {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<FolderView, CryptoError> {
         Ok(FolderView {
             id: self.id,
-            name: self.name.decrypt_with_key(key).ok().unwrap_or_default(),
+            name: self.name.decrypt(ctx, key).ok().unwrap_or_default(),
             revision_date: self.revision_date,
         })
     }

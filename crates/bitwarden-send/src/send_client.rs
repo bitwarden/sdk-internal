@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use bitwarden_core::Client;
-use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable};
+use bitwarden_crypto::{Decryptable, EncString, Encryptable, IdentifyKey};
 use thiserror::Error;
 
 use crate::{Send, SendListView, SendView};
@@ -52,20 +52,14 @@ impl<'a> SendClient<'a> {
     }
 
     pub fn decrypt(&self, send: Send) -> Result<SendView, SendDecryptError> {
-        let enc = self.client.internal.get_encryption_settings()?;
-        let key = enc.get_key(&None)?;
-
-        let send_view = send.decrypt_with_key(key)?;
-
+        let key_store = self.client.internal.get_key_store();
+        let send_view = key_store.decrypt(&send)?;
         Ok(send_view)
     }
 
     pub fn decrypt_list(&self, sends: Vec<Send>) -> Result<Vec<SendListView>, SendDecryptError> {
-        let enc = self.client.internal.get_encryption_settings()?;
-        let key = enc.get_key(&None)?;
-
-        let send_views = sends.decrypt_with_key(key)?;
-
+        let key_store = self.client.internal.get_key_store();
+        let send_views = key_store.decrypt_list(&sends)?;
         Ok(send_views)
     }
 
@@ -86,19 +80,19 @@ impl<'a> SendClient<'a> {
         send: Send,
         encrypted_buffer: &[u8],
     ) -> Result<Vec<u8>, SendDecryptError> {
-        let enc = self.client.internal.get_encryption_settings()?;
-        let key = enc.get_key(&None)?;
-        let key = Send::get_key(&send.key, key)?;
+        let key_store = self.client.internal.get_key_store();
+        let mut ctx = key_store.context();
+
+        let key = Send::get_key(&mut ctx, &send.key, send.key_identifier())?;
 
         let buf = EncString::from_buffer(encrypted_buffer)?;
-        Ok(buf.decrypt_with_key(&key)?)
+        Ok(buf.decrypt(&mut ctx, key)?)
     }
 
     pub fn encrypt(&self, send_view: SendView) -> Result<Send, SendEncryptError> {
-        let enc = self.client.internal.get_encryption_settings()?;
-        let key = enc.get_key(&None)?;
+        let key_store = self.client.internal.get_key_store();
 
-        let send = send_view.encrypt_with_key(key)?;
+        let send = key_store.encrypt(send_view)?;
 
         Ok(send)
     }
@@ -116,11 +110,12 @@ impl<'a> SendClient<'a> {
     }
 
     pub fn encrypt_buffer(&self, send: Send, buffer: &[u8]) -> Result<Vec<u8>, SendEncryptError> {
-        let enc = self.client.internal.get_encryption_settings()?;
-        let key = enc.get_key(&None)?;
-        let key = Send::get_key(&send.key, key)?;
+        let key_store = self.client.internal.get_key_store();
+        let mut ctx = key_store.context();
 
-        let encrypted = buffer.encrypt_with_key(&key)?;
+        let key = Send::get_key(&mut ctx, &send.key, send.key_identifier())?;
+
+        let encrypted = buffer.encrypt(&mut ctx, key)?;
         Ok(encrypted.to_buffer()?)
     }
 }

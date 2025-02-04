@@ -47,11 +47,11 @@ impl<'a> ClientFido2<'a> {
         &'a self,
         cipher_view: CipherView,
     ) -> Result<Vec<Fido2CredentialAutofillView>, DecryptFido2AutofillCredentialsError> {
-        let enc = self.client.internal.get_encryption_settings()?;
+        let key_store = self.client.internal.get_key_store();
 
         Ok(Fido2CredentialAutofillView::from_cipher_view(
             &cipher_view,
-            &*enc,
+            &mut key_store.context(),
         )?)
     }
 }
