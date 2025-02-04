@@ -45,6 +45,18 @@ pub type Result<T, E = BitwardenError> = std::result::Result<T, E>;
 pub enum Error {
     #[error(transparent)]
     Core(#[from] bitwarden_core::Error),
+    #[error(transparent)]
+    EncryptionSettings(
+        #[from] bitwarden_core::client::encryption_settings::EncryptionSettingsError,
+    ),
+    #[error(transparent)]
+    DeriveKeyConnector(#[from] bitwarden_core::mobile::crypto::DeriveKeyConnectorError),
+    #[error(transparent)]
+    MobileCrypto(#[from] bitwarden_core::mobile::crypto::MobileCryptoError),
+    #[error(transparent)]
+    EnrollAdminPasswordReset(#[from] bitwarden_core::mobile::crypto::EnrollAdminPasswordResetError),
+    #[error(transparent)]
+    Api(#[from] bitwarden_core::ApiError),
 
     // Generators
     #[error(transparent)]

@@ -2,8 +2,9 @@
 use bitwarden_crypto::{AsymmetricEncString, EncString};
 
 use super::crypto::{
-    derive_key_connector, make_key_pair, verify_asymmetric_keys, DeriveKeyConnectorRequest,
-    MakeKeyPairResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
+    derive_key_connector, make_key_pair, verify_asymmetric_keys, DeriveKeyConnectorError,
+    DeriveKeyConnectorRequest, EnrollAdminPasswordResetError, MakeKeyPairResponse,
+    MobileCryptoError, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
 };
 use crate::{client::encryption_settings::EncryptionSettingsError, Client};
 #[cfg(feature = "internal")]
@@ -35,28 +36,40 @@ impl CryptoClient<'_> {
         initialize_org_crypto(self.client, req).await
     }
 
-    pub async fn get_user_encryption_key(&self) -> Result<String> {
+    pub async fn get_user_encryption_key(&self) -> Result<String, MobileCryptoError> {
         get_user_encryption_key(self.client).await
     }
 
-    pub fn update_password(&self, new_password: String) -> Result<UpdatePasswordResponse> {
+    pub fn update_password(
+        &self,
+        new_password: String,
+    ) -> Result<UpdatePasswordResponse, MobileCryptoError> {
         update_password(self.client, new_password)
     }
 
-    pub fn derive_pin_key(&self, pin: String) -> Result<DerivePinKeyResponse> {
+    pub fn derive_pin_key(&self, pin: String) -> Result<DerivePinKeyResponse, MobileCryptoError> {
         derive_pin_key(self.client, pin)
     }
 
-    pub fn derive_pin_user_key(&self, encrypted_pin: EncString) -> Result<EncString> {
+    pub fn derive_pin_user_key(
+        &self,
+        encrypted_pin: EncString,
+    ) -> Result<EncString, MobileCryptoError> {
         derive_pin_user_key(self.client, encrypted_pin)
     }
 
-    pub fn enroll_admin_password_reset(&self, public_key: String) -> Result<AsymmetricEncString> {
+    pub fn enroll_admin_password_reset(
+        &self,
+        public_key: String,
+    ) -> Result<AsymmetricEncString, EnrollAdminPasswordResetError> {
         enroll_admin_password_reset(self.client, public_key)
     }
 
     /// Derive the master key for migrating to the key connector
-    pub fn derive_key_connector(&self, request: DeriveKeyConnectorRequest) -> Result<String> {
+    pub fn derive_key_connector(
+        &self,
+        request: DeriveKeyConnectorRequest,
+    ) -> Result<String, DeriveKeyConnectorError> {
         derive_key_connector(request)
     }
 
