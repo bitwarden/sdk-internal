@@ -27,7 +27,7 @@ pub struct FingerprintResponse {
 #[derive(Debug, Error)]
 pub enum FingerprintError {
     #[error(transparent)]
-    Fingerprint(#[from] bitwarden_crypto::FingerprintError),
+    CryptoError(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
     InvalidBase64(#[from] base64::DecodeError),
 }
@@ -47,8 +47,6 @@ pub(crate) fn generate_fingerprint(
 /// Errors that can occur when computing a fingerprint.
 #[derive(Debug, Error)]
 pub enum UserFingerprintError {
-    #[error(transparent)]
-    Fingerprint(#[from] bitwarden_crypto::FingerprintError),
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]

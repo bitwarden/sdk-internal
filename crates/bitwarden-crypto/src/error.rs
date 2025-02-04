@@ -3,6 +3,8 @@ use std::fmt::Debug;
 use thiserror::Error;
 use uuid::Uuid;
 
+use crate::fingerprint::FingerprintError;
+
 #[derive(Debug, Error)]
 pub enum CryptoError {
     #[error("The provided key is not the expected type")]
@@ -34,6 +36,9 @@ pub enum CryptoError {
 
     #[error("Rsa error, {0}")]
     RsaError(#[from] RsaError),
+
+    #[error("Fingerprint error, {0}")]
+    FingerprintError(#[from] FingerprintError),
 
     #[error("Argon2 error, {0}")]
     ArgonError(#[from] argon2::Error),

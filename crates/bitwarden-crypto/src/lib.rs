@@ -71,7 +71,7 @@ mod error;
 pub use error::CryptoError;
 pub(crate) use error::Result;
 mod fingerprint;
-pub use fingerprint::{fingerprint, FingerprintError};
+pub use fingerprint::fingerprint;
 mod keys;
 pub use keys::*;
 mod rsa;
