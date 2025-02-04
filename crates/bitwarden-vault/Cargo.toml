@@ -26,6 +26,7 @@ base64 = ">=0.22.1, <0.23"
 bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
+bitwarden-error = { workspace = true }
 chrono = { workspace = true }
 hmac = ">=0.12.1, <0.13"
 rand = ">=0.8.5, <0.9"

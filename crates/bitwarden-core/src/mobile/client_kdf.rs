@@ -6,7 +6,7 @@ pub struct ClientKdf<'a> {
     pub(crate) _client: &'a crate::Client,
 }
 
-impl<'a> ClientKdf<'a> {
+impl ClientKdf<'_> {
     pub async fn hash_password(
         &self,
         email: String,

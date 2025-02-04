@@ -2,13 +2,11 @@
 
 use std::{borrow::Cow, fmt::Debug};
 
-use bitwarden_api_api::apis::Error as ApiError;
+use bitwarden_api_api::apis::Error as ApiApisError;
 use bitwarden_api_identity::apis::Error as IdentityError;
-use bitwarden_error::prelude::*;
-use log::debug;
+use bitwarden_error::bitwarden_error;
 use reqwest::StatusCode;
 use thiserror::Error;
-use validator::ValidationErrors;
 
 use crate::client::encryption_settings::EncryptionSettingsError;
 
@@ -19,9 +17,8 @@ pub enum Error {
     MissingFieldError(#[from] MissingFieldError),
     #[error(transparent)]
     VaultLocked(#[from] VaultLocked),
-
-    #[error("The client is not authenticated or the session has expired")]
-    NotAuthenticated,
+    #[error(transparent)]
+    NotAuthenticated(#[from] NotAuthenticatedError),
 
     #[error("Access token is not in a valid format: {0}")]
     AccessTokenInvalid(#[from] AccessTokenInvalidError),
@@ -48,9 +45,6 @@ pub enum Error {
 
     #[error("Received error message from server: [{}] {}", .status, .message)]
     ResponseContent { status: StatusCode, message: String },
-
-    #[error(transparent)]
-    ValidationError(#[from] ValidationError),
 
     #[error("The state file version is invalid")]
     InvalidStateFileVersion,
@@ -107,8 +101,8 @@ const _: () = {
 };
 
 macro_rules! impl_bitwarden_error {
-    ($name:ident) => {
-        impl<T> From<$name<T>> for Error {
+    ($name:ident, $error:ident) => {
+        impl<T> From<$name<T>> for $error {
             fn from(e: $name<T>) -> Self {
                 match e {
                     $name::Reqwest(e) => Self::Reqwest(e),
@@ -123,10 +117,29 @@ macro_rules! impl_bitwarden_error {
         }
     };
 }
-impl_bitwarden_error!(ApiError);
-impl_bitwarden_error!(IdentityError);
+impl_bitwarden_error!(ApiApisError, Error);
+impl_bitwarden_error!(IdentityError, Error);
+
+#[derive(Debug, Error)]
+pub enum ApiError {
+    #[error(transparent)]
+    Reqwest(#[from] reqwest::Error),
+    #[error(transparent)]
+    Serde(#[from] serde_json::Error),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+
+    #[error("Received error message from server: [{}] {}", .status, .message)]
+    ResponseContent { status: StatusCode, message: String },
+}
+
+impl_bitwarden_error!(ApiApisError, ApiError);
 
 pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
+
+#[derive(Debug, Error)]
+#[error("The client is not authenticated or the session has expired")]
+pub struct NotAuthenticatedError;
 
 #[derive(Debug, Error)]
 #[error("The response received was missing a required field: {0}")]
@@ -148,66 +161,4 @@ macro_rules! require {
             None => return Err($crate::MissingFieldError(stringify!($val)).into()),
         }
     };
-}
-
-// Validation
-#[derive(Debug, Error)]
-pub enum ValidationError {
-    #[error("{0} must not be empty")]
-    Required(String),
-    #[error("{0} must not exceed {1} characters in length")]
-    ExceedsCharacterLength(String, u64),
-    #[error("{0} must not contain only whitespaces")]
-    OnlyWhitespaces(String),
-}
-
-const VALIDATION_LENGTH_CODE: &str = "length";
-const VALIDATION_ONLY_WHITESPACES_CODE: &str = "only_whitespaces";
-
-pub fn validate_only_whitespaces(value: &str) -> Result<(), validator::ValidationError> {
-    if !value.is_empty() && value.trim().is_empty() {
-        return Err(validator::ValidationError::new(
-            VALIDATION_ONLY_WHITESPACES_CODE,
-        ));
-    }
-    Ok(())
-}
-
-impl From<ValidationErrors> for Error {
-    fn from(e: ValidationErrors) -> Self {
-        debug!("Validation errors: {:#?}", e);
-        for (field_name, errors) in e.field_errors() {
-            for error in errors {
-                match error.code.as_ref() {
-                    VALIDATION_LENGTH_CODE => {
-                        if error.params.contains_key("min")
-                            && error.params["min"].as_u64().expect("Min provided") == 1
-                            && error.params["value"]
-                                .as_str()
-                                .expect("Value provided")
-                                .is_empty()
-                        {
-                            return Error::ValidationError(ValidationError::Required(
-                                field_name.to_string(),
-                            ));
-                        } else if error.params.contains_key("max") {
-                            return Error::ValidationError(
-                                ValidationError::ExceedsCharacterLength(
-                                    field_name.to_string(),
-                                    error.params["max"].as_u64().expect("Max provided"),
-                                ),
-                            );
-                        }
-                    }
-                    VALIDATION_ONLY_WHITESPACES_CODE => {
-                        return Error::ValidationError(ValidationError::OnlyWhitespaces(
-                            field_name.to_string(),
-                        ));
-                    }
-                    _ => {}
-                }
-            }
-        }
-        format!("Unknown validation error: {:#?}", e).into()
-    }
 }

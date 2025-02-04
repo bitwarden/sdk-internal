@@ -31,6 +31,23 @@ pub struct CardView {
     pub number: Option<String>,
 }
 
+#[derive(Serialize, Deserialize)]
+pub enum CardBrand {
+    Visa,
+    Mastercard,
+    Amex,
+    Discover,
+    #[serde(rename = "Diners Club")]
+    DinersClub,
+    #[serde(rename = "JCB")]
+    Jcb,
+    Maestro,
+    UnionPay,
+    RuPay,
+    #[serde(untagged)]
+    Other,
+}
+
 impl KeyEncryptable<SymmetricCryptoKey, Card> for CardView {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<Card, CryptoError> {
         Ok(Card {

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bitwarden_crypto::{AsymmetricCryptoKey, CryptoError, KeyContainer, SymmetricCryptoKey};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{AsymmetricEncString, EncString, MasterKey};
-use bitwarden_error::prelude::*;
+use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use uuid::Uuid;
 

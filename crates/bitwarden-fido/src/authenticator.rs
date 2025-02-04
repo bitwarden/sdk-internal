@@ -33,7 +33,7 @@ pub enum GetSelectedCredentialError {
     #[error(transparent)]
     VaultLocked(#[from] VaultLocked),
     #[error(transparent)]
-    CipherError(#[from] CipherError),
+    CryptoError(#[from] CryptoError),
 }
 
 #[derive(Debug, Error)]

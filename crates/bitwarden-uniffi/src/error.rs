@@ -59,6 +59,14 @@ pub enum Error {
     Cipher(#[from] bitwarden_vault::CipherError),
     #[error(transparent)]
     Totp(#[from] bitwarden_vault::TotpError),
+    #[error(transparent)]
+    Decrypt(#[from] bitwarden_vault::DecryptError),
+    #[error(transparent)]
+    DecryptFile(#[from] bitwarden_vault::DecryptFileError),
+    #[error(transparent)]
+    Encrypt(#[from] bitwarden_vault::EncryptError),
+    #[error(transparent)]
+    EncryptFile(#[from] bitwarden_vault::EncryptFileError),
 
     #[error(transparent)]
     Export(#[from] ExportError),
@@ -76,4 +84,9 @@ pub enum Error {
     DecryptFido2AutofillCredentials(#[from] bitwarden_fido::DecryptFido2AutofillCredentialsError),
     #[error(transparent)]
     Fido2Client(#[from] bitwarden_fido::Fido2ClientError),
+
+    #[error(transparent)]
+    SshGeneration(#[from] bitwarden_ssh::error::KeyGenerationError),
+    #[error(transparent)]
+    SshImport(#[from] bitwarden_ssh::error::SshKeyImportError),
 }

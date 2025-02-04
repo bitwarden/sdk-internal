@@ -19,7 +19,7 @@ mod android_support;
 use crypto::CryptoClient;
 use error::Result;
 use platform::PlatformClient;
-use tool::{ExporterClient, GeneratorClients, SendClient};
+use tool::{ExporterClient, GeneratorClients, SendClient, SshClient};
 use vault::VaultClient;
 
 #[derive(uniffi::Object)]
@@ -65,6 +65,11 @@ impl Client {
     /// Sends operations
     pub fn sends(self: Arc<Self>) -> Arc<SendClient> {
         Arc::new(SendClient(self))
+    }
+
+    /// SSH operations
+    pub fn ssh(self: Arc<Self>) -> Arc<SshClient> {
+        Arc::new(SshClient(self))
     }
 
     /// Auth operations

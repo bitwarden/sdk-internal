@@ -19,7 +19,7 @@ use crate::{
 use crate::{
     client::encryption_settings::EncryptionSettingsError,
     client::{flags::Flags, login_method::UserLoginMethod},
-    error::Error,
+    error::NotAuthenticatedError,
 };
 
 #[derive(Debug, Clone)]
@@ -138,7 +138,7 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
-    pub fn get_kdf(&self) -> Result<Kdf> {
+    pub fn get_kdf(&self) -> Result<Kdf, NotAuthenticatedError> {
         match self
             .login_method
             .read()
@@ -148,7 +148,7 @@ impl InternalClient {
             Some(LoginMethod::User(
                 UserLoginMethod::Username { kdf, .. } | UserLoginMethod::ApiKey { kdf, .. },
             )) => Ok(kdf.clone()),
-            _ => Err(Error::NotAuthenticated),
+            _ => Err(NotAuthenticatedError),
         }
     }
 

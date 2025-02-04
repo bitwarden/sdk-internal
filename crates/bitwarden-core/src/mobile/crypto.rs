@@ -12,7 +12,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
-    error::{Error, Result},
+    error::{NotAuthenticatedError, Result},
     Client,
 };
 
@@ -233,7 +233,7 @@ pub fn update_password(client: &Client, new_password: String) -> Result<UpdatePa
     let login_method = client
         .internal
         .get_login_method()
-        .ok_or(Error::NotAuthenticated)?;
+        .ok_or(NotAuthenticatedError)?;
 
     // Derive a new master key from password
     let new_master_key = match login_method.as_ref() {
@@ -242,7 +242,7 @@ pub fn update_password(client: &Client, new_password: String) -> Result<UpdatePa
             | UserLoginMethod::ApiKey { email, kdf, .. },
         ) => MasterKey::derive(&new_password, email, kdf)?,
         #[cfg(feature = "secrets")]
-        LoginMethod::ServiceAccount(_) => return Err(Error::NotAuthenticated),
+        LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
     };
 
     let new_key = new_master_key.encrypt_user_key(user_key)?;
@@ -275,7 +275,7 @@ pub fn derive_pin_key(client: &Client, pin: String) -> Result<DerivePinKeyRespon
     let login_method = client
         .internal
         .get_login_method()
-        .ok_or(Error::NotAuthenticated)?;
+        .ok_or(NotAuthenticatedError)?;
 
     let pin_protected_user_key = derive_pin_protected_user_key(&pin, &login_method, user_key)?;
 
@@ -293,7 +293,7 @@ pub fn derive_pin_user_key(client: &Client, encrypted_pin: EncString) -> Result<
     let login_method = client
         .internal
         .get_login_method()
-        .ok_or(Error::NotAuthenticated)?;
+        .ok_or(NotAuthenticatedError)?;
 
     derive_pin_protected_user_key(&pin, &login_method, user_key)
 }
@@ -311,7 +311,7 @@ fn derive_pin_protected_user_key(
             | UserLoginMethod::ApiKey { email, kdf, .. },
         ) => PinKey::derive(pin.as_bytes(), email.as_bytes(), kdf)?,
         #[cfg(feature = "secrets")]
-        LoginMethod::ServiceAccount(_) => return Err(Error::NotAuthenticated),
+        LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
     };
 
     Ok(derived_key.encrypt_user_key(user_key)?)

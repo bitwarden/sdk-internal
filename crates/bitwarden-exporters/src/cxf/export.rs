@@ -1,19 +1,11 @@
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use bitwarden_core::MissingFieldError;
-use bitwarden_crypto::generate_random_bytes;
-use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
 use bitwarden_vault::{Totp, TotpAlgorithm};
-use credential_exchange_types::{
-    format::{
-        Account as CxpAccount, BasicAuthCredential, Credential, EditableField, FieldType, Item,
-        ItemType, NoteCredential, OTPHashAlgorithm, PasskeyCredential, TotpCredential,
-    },
-    B64Url,
+use credential_exchange_types::format::{
+    Account as CxfAccount, Credential, Item, ItemType, NoteCredential, OTPHashAlgorithm,
+    TotpCredential,
 };
-use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{cxp::CxpError, Cipher, CipherType, Fido2Credential, Login};
+use crate::{cxf::CxfError, Cipher, CipherType, Login};
 
 /// Temporary struct to hold metadata related to current account
 ///
@@ -27,13 +19,13 @@ pub struct Account {
 }
 
 /// Builds a Credential Exchange Format (CXF) payload
-pub(crate) fn build_cxf(account: Account, ciphers: Vec<Cipher>) -> Result<String, CxpError> {
+pub(crate) fn build_cxf(account: Account, ciphers: Vec<Cipher>) -> Result<String, CxfError> {
     let items: Vec<Item> = ciphers
         .into_iter()
         .flat_map(|cipher| cipher.try_into())
         .collect();
 
-    let account = CxpAccount {
+    let account = CxfAccount {
         id: account.id.as_bytes().as_slice().into(),
         user_name: "".to_owned(),
         email: account.email,
@@ -48,7 +40,7 @@ pub(crate) fn build_cxf(account: Account, ciphers: Vec<Cipher>) -> Result<String
 }
 
 impl TryFrom<Cipher> for Item {
-    type Error = CxpError;
+    type Error = CxfError;
 
     fn try_from(value: Cipher) -> Result<Self, Self::Error> {
         let mut credentials: Vec<Credential> = value.r#type.clone().into();
@@ -73,17 +65,17 @@ impl TryFrom<Cipher> for Item {
 }
 
 impl TryFrom<CipherType> for ItemType {
-    type Error = CxpError;
+    type Error = CxfError;
 
     fn try_from(value: CipherType) -> Result<Self, Self::Error> {
         match value {
             CipherType::Login(_) => Ok(ItemType::Login),
-            CipherType::Card(_) => Ok(ItemType::Login),
+            CipherType::Card(_) => Ok(ItemType::Identity),
             CipherType::Identity(_) => Ok(ItemType::Identity),
             CipherType::SecureNote(_) => Ok(ItemType::Document),
             CipherType::SshKey(_) => {
                 // TODO(PM-15448): Add support for SSH Keys
-                Err(CxpError::Internal("Unsupported CipherType: SshKey".into()))
+                Err(CxfError::Internal("Unsupported CipherType: SshKey".into()))
             }
         }
     }
@@ -94,7 +86,7 @@ impl From<CipherType> for Vec<Credential> {
         match value {
             CipherType::Login(login) => (*login).into(),
             // TODO(PM-15450): Add support for credit cards.
-            CipherType::Card(_) => vec![],
+            CipherType::Card(card) => (*card).into(),
             // TODO(PM-15451): Add support for identities.
             CipherType::Identity(_) => vec![],
             // Secure Notes only contains a note field which is handled by `TryFrom<Cipher> for
@@ -150,80 +142,12 @@ fn convert_totp(totp: Totp) -> TotpCredential {
     }
 }
 
-impl From<Login> for BasicAuthCredential {
-    fn from(login: Login) -> Self {
-        BasicAuthCredential {
-            urls: login
-                .login_uris
-                .into_iter()
-                .flat_map(|uri| uri.uri)
-                .collect(),
-            username: login.username.map(|value| EditableField {
-                id: random_id(),
-                field_type: FieldType::String,
-                value,
-                label: None,
-            }),
-            password: login.password.map(|value| EditableField {
-                id: random_id(),
-                field_type: FieldType::ConcealedString,
-                value,
-                label: None,
-            }),
-        }
-    }
-}
-
-/// Generate a 32 byte random ID
-///
-/// TODO: This should be removed shortly.
-fn random_id() -> B64Url {
-    generate_random_bytes::<[u8; 32]>().as_slice().into()
-}
-
-#[derive(Error, Debug)]
-pub enum PasskeyError {
-    #[error("Counter is not zero")]
-    CounterNotZero,
-    #[error(transparent)]
-    InvalidGuid(InvalidGuid),
-    #[error(transparent)]
-    MissingField(MissingFieldError),
-    #[error(transparent)]
-    InvalidBase64(#[from] base64::DecodeError),
-}
-
-impl TryFrom<Fido2Credential> for PasskeyCredential {
-    type Error = PasskeyError;
-
-    fn try_from(value: Fido2Credential) -> Result<Self, Self::Error> {
-        if value.counter > 0 {
-            return Err(PasskeyError::CounterNotZero);
-        }
-
-        Ok(PasskeyCredential {
-            credential_id: string_to_guid_bytes(&value.credential_id)
-                .map_err(PasskeyError::InvalidGuid)?
-                .into(),
-            rp_id: value.rp_id,
-            user_name: value.user_name.unwrap_or_default(),
-            user_display_name: value.user_display_name.unwrap_or_default(),
-            user_handle: value
-                .user_handle
-                .map(|v| URL_SAFE_NO_PAD.decode(v))
-                .transpose()?
-                .map(|v| v.into())
-                .ok_or(PasskeyError::MissingField(MissingFieldError("user_handle")))?,
-            key: URL_SAFE_NO_PAD.decode(value.key_value)?.into(),
-            fido2_extensions: None,
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use credential_exchange_types::format::FieldType;
+
     use super::*;
-    use crate::{Field, LoginUri};
+    use crate::{Fido2Credential, Field, LoginUri};
 
     #[test]
     fn test_convert_totp() {
@@ -241,66 +165,6 @@ mod tests {
         assert_eq!(credential.username, "");
         assert_eq!(credential.algorithm, OTPHashAlgorithm::Sha1);
         assert_eq!(credential.issuer, None);
-    }
-
-    #[test]
-    fn test_basic_auth() {
-        let login = Login {
-            username: Some("test@bitwarden.com".to_string()),
-            password: Some("asdfasdfasdf".to_string()),
-            login_uris: vec![LoginUri {
-                uri: Some("https://vault.bitwarden.com".to_string()),
-                r#match: None,
-            }],
-            totp: None,
-            fido2_credentials: None,
-        };
-
-        let basic_auth: BasicAuthCredential = login.into();
-
-        let username = basic_auth.username.as_ref().unwrap();
-        assert_eq!(username.field_type, FieldType::String);
-        assert_eq!(username.value, "test@bitwarden.com");
-        assert!(username.label.is_none());
-
-        let password = basic_auth.password.as_ref().unwrap();
-        assert_eq!(password.field_type, FieldType::ConcealedString);
-        assert_eq!(password.value, "asdfasdfasdf");
-        assert!(password.label.is_none());
-
-        assert_eq!(
-            basic_auth.urls,
-            vec!["https://vault.bitwarden.com".to_string()]
-        );
-    }
-
-    #[test]
-    fn test_passkey() {
-        let credential = Fido2Credential {
-            credential_id: "e8d88789-e916-e196-3cbd-81dafae71bbc".to_string(),
-            key_type: "public-key".to_string(),
-            key_algorithm: "ECDSA".to_string(),
-            key_curve: "P-256".to_string(),
-            key_value: "AAECAwQFBg".to_string(),
-            rp_id: "123".to_string(),
-            user_handle: Some("AAECAwQFBg".to_string()),
-            user_name: None,
-            counter: 0,
-            rp_name: None,
-            user_display_name: None,
-            discoverable: "true".to_string(),
-            creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
-        };
-
-        let passkey: PasskeyCredential = credential.try_into().unwrap();
-
-        assert_eq!(passkey.credential_id.to_string(), "6NiHiekW4ZY8vYHa-ucbvA");
-        assert_eq!(passkey.rp_id, "123");
-        assert_eq!(passkey.user_name, "");
-        assert_eq!(passkey.user_display_name, "");
-        assert_eq!(String::from(passkey.user_handle.clone()), "AAECAwQFBg");
-        assert_eq!(String::from(passkey.key.clone()), "AAECAwQFBg");
-        assert!(passkey.fido2_extensions.is_none());
     }
 
     #[test]
