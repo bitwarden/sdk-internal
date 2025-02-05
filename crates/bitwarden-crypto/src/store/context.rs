@@ -4,12 +4,13 @@ use std::{
 };
 
 use rsa::Oaep;
-use zeroize::Zeroizing;
+use zeroize::{Zeroize, Zeroizing};
 
 use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, store::backend::StoreBackend, AsymmetricCryptoKey, AsymmetricEncString,
-    CryptoError, EncString, KeyId, KeyIds, Result, SymmetricCryptoKey,
+    CryptoError, CryptoKey, Decryptable, EncString, Encryptable, KeyId, KeyIds, Result,
+    SymmetricCryptoKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -55,7 +56,7 @@ use crate::{
 ///
 /// impl Encryptable<Ids, SymmKeyId, EncString> for Data {
 ///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
-///         let local_key_id = ctx.decrypt_symmetric_key_with_symmetric_key(key, LOCAL_KEY, &self.key)?;
+///         let local_key_id = ctx.decrypt_key_into_store(key, LOCAL_KEY, &self.key)?;
 ///         self.name.encrypt(ctx, local_key_id)
 ///     }
 /// }
@@ -97,6 +98,93 @@ impl<Ids: KeyIds> GlobalKeys<'_, Ids> {
     }
 }
 
+// TODO: We should probably unify how we handle key parsing, and implement TryFrom<Vec<u8>> and
+// TryInto<Vec<u8>> for all keys
+pub trait KeyBytes: Sized {
+    fn as_bytes(&self) -> Result<Vec<u8>>;
+    fn from_bytes(bytes: &[u8]) -> Result<Self>;
+}
+impl KeyBytes for SymmetricCryptoKey {
+    fn as_bytes(&self) -> Result<Vec<u8>> {
+        Ok(self.to_vec())
+    }
+    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        SymmetricCryptoKey::try_from(bytes.to_vec())
+    }
+}
+impl KeyBytes for AsymmetricCryptoKey {
+    fn as_bytes(&self) -> Result<Vec<u8>> {
+        Ok(self.to_der()?.as_slice().to_vec())
+    }
+    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        AsymmetricCryptoKey::from_der(bytes)
+    }
+}
+
+mod internal {
+    use super::*;
+    pub trait ContextHasKeys<Id: KeyId<KeyValue = Key>, Key: CryptoKey, ContextIds: KeyIds> {
+        fn internal_get_key(&self, id: Id) -> Result<&Id::KeyValue>;
+        fn internal_set_key(&mut self, id: Id, value: Id::KeyValue) -> Result<()>;
+    }
+}
+use internal::ContextHasKeys;
+
+impl<ContextIds: KeyIds> ContextHasKeys<ContextIds::Symmetric, SymmetricCryptoKey, ContextIds>
+    for KeyStoreContext<'_, ContextIds>
+{
+    fn internal_get_key(&self, id: ContextIds::Symmetric) -> Result<&SymmetricCryptoKey> {
+        if id.is_local() {
+            self.local_symmetric_keys.get(id)
+        } else {
+            self.global_keys.get().symmetric_keys.get(id)
+        }
+        .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{id:?}")))
+    }
+
+    fn internal_set_key(
+        &mut self,
+        id: ContextIds::Symmetric,
+        value: SymmetricCryptoKey,
+    ) -> Result<()> {
+        if id.is_local() {
+            self.local_symmetric_keys.upsert(id, value);
+        } else {
+            self.global_keys.get_mut()?.symmetric_keys.upsert(id, value);
+        }
+        Ok(())
+    }
+}
+
+impl<ContextIds: KeyIds> ContextHasKeys<ContextIds::Asymmetric, AsymmetricCryptoKey, ContextIds>
+    for KeyStoreContext<'_, ContextIds>
+{
+    fn internal_get_key(&self, id: ContextIds::Asymmetric) -> Result<&AsymmetricCryptoKey> {
+        if id.is_local() {
+            self.local_asymmetric_keys.get(id)
+        } else {
+            self.global_keys.get().asymmetric_keys.get(id)
+        }
+        .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{id:?}")))
+    }
+
+    fn internal_set_key(
+        &mut self,
+        id: ContextIds::Asymmetric,
+        value: AsymmetricCryptoKey,
+    ) -> Result<()> {
+        if id.is_local() {
+            self.local_asymmetric_keys.upsert(id, value);
+        } else {
+            self.global_keys
+                .get_mut()?
+                .asymmetric_keys
+                .upsert(id, value);
+        }
+        Ok(())
+    }
+}
+
 impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Clears all the local keys stored in this context
     /// This will not affect the global keys even if this context has write access.
@@ -124,35 +212,32 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         self.local_asymmetric_keys.retain(f);
     }
 
-    // TODO: All these encrypt x key with x key look like they need to be made generic,
-    // but I haven't found the best way to do that yet.
-
-    /// Decrypt a symmetric key into the context by using an already existing symmetric key
+    /// Decrypt a key into the context by using an already existing key
     ///
     /// # Arguments
     ///
     /// * `encryption_key` - The key id used to decrypt the `encrypted_key`. It must already exist
     ///   in the context
-    /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
-    ///   will be overwritten
+    /// * `decrypted_key_id` - The key id where the decrypted key will be stored. If it already
+    ///   exists, it will be overwritten
     /// * `encrypted_key` - The key to decrypt
-    pub fn decrypt_symmetric_key_with_symmetric_key(
+    pub fn decrypt_key_into_store<EncryptedKey, EncryptionKeyId, DecryptedKeyId>(
         &mut self,
-        encryption_key: Ids::Symmetric,
-        new_key_id: Ids::Symmetric,
-        encrypted_key: &EncString,
-    ) -> Result<Ids::Symmetric> {
-        let mut new_key_material =
-            self.decrypt_data_with_symmetric_key(encryption_key, encrypted_key)?;
+        encryption_key: EncryptionKeyId,
+        decrypted_key_id: DecryptedKeyId,
+        encrypted_key: &EncryptedKey,
+    ) -> Result<DecryptedKeyId>
+    where
+        Self: ContextHasKeys<DecryptedKeyId, DecryptedKeyId::KeyValue, Ids>,
+        EncryptedKey: Decryptable<Ids, EncryptionKeyId, Vec<u8>>,
+        DecryptedKeyId: KeyId<KeyValue: KeyBytes>,
+        EncryptionKeyId: KeyId,
+    {
+        let decrypted_key = encrypted_key.decrypt(self, encryption_key)?;
+        let decrypted_key: DecryptedKeyId::KeyValue = KeyBytes::from_bytes(&decrypted_key)?;
 
-        #[allow(deprecated)]
-        self.set_symmetric_key(
-            new_key_id,
-            SymmetricCryptoKey::try_from(new_key_material.as_mut_slice())?,
-        )?;
-
-        // Returning the new key identifier for convenience
-        Ok(new_key_id)
+        self.internal_set_key(decrypted_key_id, decrypted_key)?;
+        Ok(decrypted_key_id)
     }
 
     /// Encrypt and return a symmetric key from the context by using an already existing symmetric
@@ -163,125 +248,39 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// * `encryption_key` - The key id used to encrypt the `key_to_encrypt`. It must already exist
     ///   in the context
     /// * `key_to_encrypt` - The key id to encrypt. It must already exist in the context
-    pub fn encrypt_symmetric_key_with_symmetric_key(
-        &self,
-        encryption_key: Ids::Symmetric,
-        key_to_encrypt: Ids::Symmetric,
-    ) -> Result<EncString> {
-        let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
-        self.encrypt_data_with_symmetric_key(encryption_key, &key_to_encrypt.to_vec())
-    }
-
-    /// Decrypt a symmetric key into the context by using an already existing asymmetric key
-    ///
-    /// # Arguments
-    ///
-    /// * `encryption_key` - The key id used to decrypt the `encrypted_key`. It must already exist
-    ///   in the context
-    /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
-    ///   will be overwritten
-    /// * `encrypted_key` - The key to decrypt
-    pub fn decrypt_symmetric_key_with_asymmetric_key(
+    pub fn encrypt_key_from_store<DecryptedKeyId, EncryptionKeyId, EncryptedKey>(
         &mut self,
-        encryption_key: Ids::Asymmetric,
-        new_key_id: Ids::Symmetric,
-        encrypted_key: &AsymmetricEncString,
-    ) -> Result<Ids::Symmetric> {
-        let mut new_key_material =
-            self.decrypt_data_with_asymmetric_key(encryption_key, encrypted_key)?;
+        encryption_key: EncryptionKeyId,
+        key_to_encrypt: DecryptedKeyId,
+    ) -> Result<EncryptedKey>
+    where
+        Self: ContextHasKeys<DecryptedKeyId, DecryptedKeyId::KeyValue, Ids>,
+        EncryptionKeyId: KeyId,
+        DecryptedKeyId: KeyId<KeyValue: KeyBytes>,
+        for<'a> &'a [u8]: Encryptable<Ids, EncryptionKeyId, EncryptedKey>,
+    {
+        let key_to_encrypt: &DecryptedKeyId::KeyValue = self.internal_get_key(key_to_encrypt)?;
 
-        #[allow(deprecated)]
-        self.set_symmetric_key(
-            new_key_id,
-            SymmetricCryptoKey::try_from(new_key_material.as_mut_slice())?,
-        )?;
+        let mut key_bytes = key_to_encrypt.as_bytes()?;
+        let encrypted_key = key_bytes.as_slice().encrypt(self, encryption_key)?;
 
-        // Returning the new key identifier for convenience
-        Ok(new_key_id)
+        key_bytes.zeroize();
+
+        Ok(encrypted_key)
     }
 
-    /// Encrypt and return a symmetric key from the context by using an already existing asymmetric
-    /// key
-    ///
-    /// # Arguments
-    ///
-    /// * `encryption_key` - The key id used to encrypt the `key_to_encrypt`. It must already exist
-    ///   in the context
-    /// * `key_to_encrypt` - The key id to encrypt. It must already exist in the context
-    pub fn encrypt_symmetric_key_with_asymmetric_key(
-        &self,
-        encryption_key: Ids::Asymmetric,
-        key_to_encrypt: Ids::Symmetric,
-    ) -> Result<AsymmetricEncString> {
-        let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
-        self.encrypt_data_with_asymmetric_key(encryption_key, &key_to_encrypt.to_vec())
-    }
-
-    /// Decrypt an asymmetric key into the context by using an already existing asymmetric key
-    ///
-    /// # Arguments
-    ///
-    /// * `encryption_key` - The key id used to decrypt the `encrypted_key`. It must already exist
-    ///   in the context
-    /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
-    ///   will be overwritten
-    /// * `encrypted_key` - The key to decrypt
-    pub fn decrypt_asymmetric_key_with_asymmetric_key(
-        &mut self,
-        encryption_key: Ids::Asymmetric,
-        new_key_id: Ids::Asymmetric,
-        encrypted_key: &AsymmetricEncString,
-    ) -> Result<Ids::Asymmetric> {
-        let new_key_material =
-            self.decrypt_data_with_asymmetric_key(encryption_key, encrypted_key)?;
-
-        #[allow(deprecated)]
-        self.set_asymmetric_key(
-            new_key_id,
-            AsymmetricCryptoKey::from_der(&new_key_material)?,
-        )?;
-
-        // Returning the new key identifier for convenience
-        Ok(new_key_id)
-    }
-
-    /// Encrypt and return an asymmetric key from the context by using an already existing
-    /// asymmetric key
-    ///
-    /// # Arguments
-    ///
-    /// * `encryption_key` - The key id used to encrypt the `key_to_encrypt`. It must already exist
-    ///   in the context
-    /// * `key_to_encrypt` - The key id to encrypt. It must already exist in the context
-    pub fn encrypt_asymmetric_key_with_asymmetric_key(
-        &self,
-        encryption_key: Ids::Asymmetric,
-        key_to_encrypt: Ids::Asymmetric,
-    ) -> Result<AsymmetricEncString> {
-        let encryption_key = self.get_asymmetric_key(encryption_key)?;
-        let key_to_encrypt = self.get_asymmetric_key(key_to_encrypt)?;
-
-        AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
-            key_to_encrypt.to_der()?.as_slice(),
-            encryption_key,
-        )
-    }
-
-    /// Returns `true` if the context has a symmetric key with the given identifier
-    pub fn has_symmetric_key(&self, key_id: Ids::Symmetric) -> bool {
-        self.get_symmetric_key(key_id).is_ok()
-    }
-
-    /// Returns `true` if the context has an asymmetric key with the given identifier
-    pub fn has_asymmetric_key(&self, key_id: Ids::Asymmetric) -> bool {
-        self.get_asymmetric_key(key_id).is_ok()
+    /// Returns `true` if the context has a key with the given identifier
+    pub fn has_key<Id: KeyId>(&self, key_id: Id) -> bool
+    where
+        Self: ContextHasKeys<Id, Id::KeyValue, Ids>,
+    {
+        self.internal_get_key(key_id).is_ok()
     }
 
     /// Generate a new random symmetric key and store it in the context
     pub fn generate_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<Ids::Symmetric> {
         let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        #[allow(deprecated)]
-        self.set_symmetric_key(key_id, key)?;
+        self.internal_set_key(key_id, key)?;
         Ok(key_id)
     }
 
@@ -296,77 +295,24 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         name: &str,
         info: Option<&str>,
     ) -> Result<Ids::Symmetric> {
-        #[allow(deprecated)]
-        self.set_symmetric_key(key_id, derive_shareable_key(secret, name, info))?;
+        self.internal_set_key(key_id, derive_shareable_key(secret, name, info))?;
         Ok(key_id)
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
-    pub fn dangerous_get_symmetric_key(
-        &self,
-        key_id: Ids::Symmetric,
-    ) -> Result<&SymmetricCryptoKey> {
-        self.get_symmetric_key(key_id)
+    pub fn dangerous_get_key<Id: KeyId>(&self, key_id: Id) -> Result<&Id::KeyValue>
+    where
+        Self: ContextHasKeys<Id, Id::KeyValue, Ids>,
+    {
+        self.internal_get_key(key_id)
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
-    pub fn dangerous_get_asymmetric_key(
-        &self,
-        key_id: Ids::Asymmetric,
-    ) -> Result<&AsymmetricCryptoKey> {
-        self.get_asymmetric_key(key_id)
-    }
-
-    fn get_symmetric_key(&self, key_id: Ids::Symmetric) -> Result<&SymmetricCryptoKey> {
-        if key_id.is_local() {
-            self.local_symmetric_keys.get(key_id)
-        } else {
-            self.global_keys.get().symmetric_keys.get(key_id)
-        }
-        .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{key_id:?}")))
-    }
-
-    fn get_asymmetric_key(&self, key_id: Ids::Asymmetric) -> Result<&AsymmetricCryptoKey> {
-        if key_id.is_local() {
-            self.local_asymmetric_keys.get(key_id)
-        } else {
-            self.global_keys.get().asymmetric_keys.get(key_id)
-        }
-        .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{key_id:?}")))
-    }
-
-    #[deprecated(note = "This function should ideally never be used outside this crate")]
-    pub fn set_symmetric_key(
-        &mut self,
-        key_id: Ids::Symmetric,
-        key: SymmetricCryptoKey,
-    ) -> Result<()> {
-        if key_id.is_local() {
-            self.local_symmetric_keys.upsert(key_id, key);
-        } else {
-            self.global_keys
-                .get_mut()?
-                .symmetric_keys
-                .upsert(key_id, key);
-        }
-        Ok(())
-    }
-
-    #[deprecated(note = "This function should ideally never be used outside this crate")]
-    pub fn set_asymmetric_key(
-        &mut self,
-        key_id: Ids::Asymmetric,
-        key: AsymmetricCryptoKey,
-    ) -> Result<()> {
-        if key_id.is_local() {
-            self.local_asymmetric_keys.upsert(key_id, key);
-        } else {
-            self.global_keys
-                .get_mut()?
-                .asymmetric_keys
-                .upsert(key_id, key);
-        }
-        Ok(())
+    pub fn set_key<Id: KeyId>(&mut self, key_id: Id, key_value: Id::KeyValue) -> Result<()>
+    where
+        Self: ContextHasKeys<Id, Id::KeyValue, Ids>,
+    {
+        self.internal_set_key(key_id, key_value)
     }
 
     pub(crate) fn decrypt_data_with_symmetric_key(
@@ -374,7 +320,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key: Ids::Symmetric,
         data: &EncString,
     ) -> Result<Vec<u8>> {
-        let key = self.get_symmetric_key(key)?;
+        let key = self.internal_get_key(key)?;
 
         match data {
             EncString::AesCbc256_B64 { iv, data } => {
@@ -395,7 +341,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key: Ids::Symmetric,
         data: &[u8],
     ) -> Result<EncString> {
-        let key = self.get_symmetric_key(key)?;
+        let key = self.internal_get_key(key)?;
         EncString::encrypt_aes256_hmac(
             data,
             key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?,
@@ -408,7 +354,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key: Ids::Asymmetric,
         data: &AsymmetricEncString,
     ) -> Result<Vec<u8>> {
-        let key = self.get_asymmetric_key(key)?;
+        let key = self.internal_get_key(key)?;
 
         use AsymmetricEncString::*;
         match data {
@@ -431,7 +377,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key: Ids::Asymmetric,
         data: &[u8],
     ) -> Result<AsymmetricEncString> {
-        let key = self.get_asymmetric_key(key)?;
+        let key = self.internal_get_key(key)?;
         AsymmetricEncString::encrypt_rsa2048_oaep_sha1(data, key)
     }
 }
@@ -456,10 +402,10 @@ mod tests {
 
         store
             .context_mut()
-            .set_symmetric_key(TestSymmKey::A(0), key_a0.clone())
+            .set_key(TestSymmKey::A(0), key_a0.clone())
             .unwrap();
 
-        assert!(store.context().has_symmetric_key(key_a0_id));
+        assert!(store.context().has_key(key_a0_id));
 
         // Encrypt some data with the key
         let data = DataView("Hello, World!".to_string(), key_a0_id);
@@ -477,27 +423,25 @@ mod tests {
         let key_1_id = TestSymmKey::C(1);
         let key_1 = SymmetricCryptoKey::generate(&mut rng);
 
-        ctx.set_symmetric_key(key_1_id, key_1.clone()).unwrap();
+        ctx.set_key(key_1_id, key_1.clone()).unwrap();
 
-        assert!(ctx.has_symmetric_key(key_1_id));
+        assert!(ctx.has_key(key_1_id));
 
         // Generate and insert a new key
         let key_2_id = TestSymmKey::C(2);
         let key_2 = SymmetricCryptoKey::generate(&mut rng);
 
-        ctx.set_symmetric_key(key_2_id, key_2.clone()).unwrap();
+        ctx.set_key(key_2_id, key_2.clone()).unwrap();
 
-        assert!(ctx.has_symmetric_key(key_2_id));
+        assert!(ctx.has_key(key_2_id));
 
         // Encrypt the new key with the old key
-        let key_2_enc = ctx
-            .encrypt_symmetric_key_with_symmetric_key(key_1_id, key_2_id)
-            .unwrap();
+        let key_2_enc = ctx.encrypt_key_from_store(key_1_id, key_2_id).unwrap();
 
         // Decrypt the new key with the old key in a different identifier
         let new_key_id = TestSymmKey::C(3);
 
-        ctx.decrypt_symmetric_key_with_symmetric_key(key_1_id, new_key_id, &key_2_enc)
+        ctx.decrypt_key_into_store(key_1_id, new_key_id, &key_2_enc)
             .unwrap();
 
         // Now `key_2_id` and `new_key_id` contain the same key, so we should be able to encrypt

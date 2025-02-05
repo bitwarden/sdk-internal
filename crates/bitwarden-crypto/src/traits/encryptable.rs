@@ -129,12 +129,12 @@ mod tests {
         #[allow(deprecated)]
         store
             .context_mut()
-            .set_symmetric_key(TestSymmKey::A(0), symm_key.clone())
+            .set_key(TestSymmKey::A(0), symm_key.clone())
             .unwrap();
         #[allow(deprecated)]
         store
             .context_mut()
-            .set_asymmetric_key(TestAsymmKey::A(0), asymm_key.clone())
+            .set_key(TestAsymmKey::A(0), asymm_key.clone())
             .unwrap();
 
         store

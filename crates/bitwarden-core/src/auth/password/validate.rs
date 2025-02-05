@@ -64,7 +64,7 @@ pub(crate) fn validate_password_user_key(
                 let ctx = key_store.context();
                 // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
                 #[allow(deprecated)]
-                let existing_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+                let existing_key = ctx.dangerous_get_key(SymmetricKeyId::User)?;
 
                 if user_key.to_vec() != existing_key.to_vec() {
                     return Err(AuthValidateError::WrongUserKey);

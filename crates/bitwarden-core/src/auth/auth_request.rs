@@ -99,7 +99,7 @@ pub(crate) fn approve_auth_request(
 
     // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
     #[allow(deprecated)]
-    let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+    let key = ctx.dangerous_get_key(SymmetricKeyId::User)?;
 
     Ok(AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
         &key.to_vec(),
@@ -258,7 +258,7 @@ mod tests {
             let key_store = existing_device.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -267,7 +267,7 @@ mod tests {
             let key_store = new_device.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
         };
