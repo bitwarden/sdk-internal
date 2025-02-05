@@ -220,29 +220,21 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
 
 impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
-        match self {
-            EncString::AesCbc256_B64 { iv, data } => {
-                if let SymmetricCryptoKey::Aes256CbcKey(key) = key {
-                    let dec = crate::aes::decrypt_aes256(iv, data.clone(), &key.encryption_key)?;
-                    Ok(dec)
-                } else {
-                    Err(CryptoError::EncryptionTypeMismatch)
-                }
+        match (self, key) {
+            (EncString::AesCbc256_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
+                crate::aes::decrypt_aes256(iv, data.clone(), &key.encryption_key)
             }
-            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
-                if let SymmetricCryptoKey::Aes256CbcHmacKey(key) = key {
-                    let dec = crate::aes::decrypt_aes256_hmac(
-                        iv,
-                        mac,
-                        data.clone(),
-                        &key.mac_key,
-                        &key.encryption_key,
-                    )?;
-                    Ok(dec)
-                } else {
-                    Err(CryptoError::EncryptionTypeMismatch)
-                }
-            }
+            (
+                EncString::AesCbc256_HmacSha256_B64 { iv, mac, data },
+                SymmetricCryptoKey::Aes256CbcHmacKey(key),
+            ) => crate::aes::decrypt_aes256_hmac(
+                iv,
+                mac,
+                data.clone(),
+                &key.mac_key,
+                &key.encryption_key,
+            ),
+            _ => Err(CryptoError::EncryptionTypeMismatch),
         }
     }
 }
