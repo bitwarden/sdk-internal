@@ -3,8 +3,9 @@ use bitwarden_crypto::fingerprint;
 use log::info;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
-use crate::error::Result;
+use crate::{error::Result, VaultLocked};
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -22,7 +23,18 @@ pub struct FingerprintResponse {
     pub fingerprint: String,
 }
 
-pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<FingerprintResponse> {
+/// Errors that can occur when computing a fingerprint.
+#[derive(Debug, Error)]
+pub enum FingerprintError {
+    #[error(transparent)]
+    CryptoError(#[from] bitwarden_crypto::CryptoError),
+    #[error(transparent)]
+    InvalidBase64(#[from] base64::DecodeError),
+}
+
+pub(crate) fn generate_fingerprint(
+    input: &FingerprintRequest,
+) -> Result<FingerprintResponse, FingerprintError> {
     info!("Generating fingerprint");
 
     let key = STANDARD.decode(&input.public_key)?;
@@ -32,17 +44,28 @@ pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<Fingerp
     })
 }
 
+/// Errors that can occur when computing a fingerprint.
+#[derive(Debug, Error)]
+pub enum UserFingerprintError {
+    #[error(transparent)]
+    Crypto(#[from] bitwarden_crypto::CryptoError),
+    #[error(transparent)]
+    VaultLocked(#[from] VaultLocked),
+    #[error("Missing private key")]
+    MissingPrivateKey,
+}
+
 pub(crate) fn generate_user_fingerprint(
     client: &crate::Client,
     fingerprint_material: String,
-) -> Result<String> {
+) -> Result<String, UserFingerprintError> {
     info!("Generating fingerprint");
 
     let enc_settings = client.internal.get_encryption_settings()?;
     let private_key = enc_settings
         .private_key
         .as_ref()
-        .ok_or("Missing private key")?;
+        .ok_or(UserFingerprintError::MissingPrivateKey)?;
 
     let public_key = private_key.to_public_der()?;
     let fingerprint = fingerprint(&fingerprint_material, &public_key)?;
