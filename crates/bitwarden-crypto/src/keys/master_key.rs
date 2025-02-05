@@ -359,9 +359,7 @@ mod tests {
         let user_key: EncString = "0.8UClLa8IPE1iZT7chy5wzQ==|6PVfHnVk5S3XqEtQemnM5yb4JodxmPkkWzmDRdfyHtjORmvxqlLX40tBJZ+CKxQWmS8tpEB5w39rbgHg/gqs0haGdZG4cPbywsgGzxZ7uNI=".parse().unwrap();
 
         let decrypted = master_key.decrypt_user_key(user_key).unwrap();
-        let decrypted = if let SymmetricCryptoKey::Aes256CbcHmacKey(k) = &decrypted {
-            k
-        } else {
+        let SymmetricCryptoKey::Aes256CbcHmacKey(decrypted) = &decrypted else {
             panic!("Decrypted key is not an Aes256CbcHmacKey");
         };
 
