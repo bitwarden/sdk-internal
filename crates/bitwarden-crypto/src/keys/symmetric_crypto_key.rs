@@ -16,13 +16,13 @@ use crate::CryptoError;
 // we use a Box to keep the values on the heap. We also pin the box to make sure
 // that the contents can't be pulled out of the box and moved
 #[derive(Zeroize, Clone)]
-#[cfg_attr(test, derive(Debug))]
+#[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Aes256CbcKey {
     pub(crate) encryption_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
 #[derive(Zeroize, Clone)]
-#[cfg_attr(test, derive(Debug))]
+#[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Aes256CbcHmacKey {
     pub(crate) encryption_key: Pin<Box<GenericArray<u8, U32>>>,
     pub(crate) mac_key: Pin<Box<GenericArray<u8, U32>>>,
@@ -30,26 +30,10 @@ pub struct Aes256CbcHmacKey {
 
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
 #[derive(Clone)]
-#[cfg_attr(test, derive(Debug))]
+#[cfg_attr(test, derive(Debug, PartialEq))]
 pub enum SymmetricCryptoKey {
     Aes256CbcKey(Aes256CbcKey),
     Aes256CbcHmacKey(Aes256CbcHmacKey),
-}
-
-#[cfg(test)]
-impl PartialEq for SymmetricCryptoKey {
-    fn eq(&self, other: &Self) -> bool {
-        // this is not constant-time and should only ever be used in tests
-        match (self, other) {
-            (Self::Aes256CbcKey(k1), Self::Aes256CbcKey(k2)) => {
-                k1.encryption_key == k2.encryption_key
-            }
-            (Self::Aes256CbcHmacKey(k1), Self::Aes256CbcHmacKey(k2)) => {
-                k1.encryption_key == k2.encryption_key && k1.mac_key == k2.mac_key
-            }
-            _ => false,
-        }
-    }
 }
 
 impl Drop for SymmetricCryptoKey {
