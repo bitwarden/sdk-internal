@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricEncString, EncString, Kdf, KeyDecryptable, KeyEncryptable,
-    MasterKey, SymmetricCryptoKey, UserKey,
+    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, Kdf, KeyDecryptable,
+    KeyEncryptable, MasterKey, SymmetricCryptoKey, UserKey,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -407,7 +407,7 @@ pub struct MakeKeyPairResponse {
     user_key_encrypted_private_key: EncString,
 }
 
-pub fn make_key_pair(user_key: String) -> Result<MakeKeyPairResponse> {
+pub fn make_key_pair(user_key: String) -> Result<MakeKeyPairResponse, CryptoError> {
     let user_key = UserKey::new(SymmetricCryptoKey::try_from(user_key)?);
 
     let key_pair = user_key.make_key_pair()?;
@@ -444,7 +444,7 @@ pub struct VerifyAsymmetricKeysResponse {
 
 pub fn verify_asymmetric_keys(
     request: VerifyAsymmetricKeysRequest,
-) -> Result<VerifyAsymmetricKeysResponse> {
+) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
     #[derive(Debug, thiserror::Error)]
     enum VerifyError {
         #[error("Failed to decrypt private key: {0:?}")]
