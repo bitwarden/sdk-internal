@@ -1,9 +1,9 @@
 use bitwarden_crypto::{HashPurpose, MasterKey};
 
 use crate::{
-    auth::determine_password_hash,
+    auth::{determine_password_hash, AuthValidateError},
     client::{LoginMethod, UserLoginMethod},
-    error::{NotAuthenticatedError, Result},
+    error::{NotAuthenticatedError, Result, WrongPasswordError},
     Client,
 };
 
@@ -12,7 +12,7 @@ pub(crate) fn validate_password(
     client: &Client,
     password: String,
     password_hash: String,
-) -> Result<bool> {
+) -> Result<bool, AuthValidateError> {
     let login_method = client
         .internal
         .get_login_method()
@@ -38,12 +38,11 @@ pub(crate) fn validate_password(
     }
 }
 
-#[cfg(feature = "internal")]
 pub(crate) fn validate_password_user_key(
     client: &Client,
     password: String,
     encrypted_user_key: String,
-) -> Result<String> {
+) -> Result<String, AuthValidateError> {
     let login_method = client
         .internal
         .get_login_method()
@@ -57,14 +56,14 @@ pub(crate) fn validate_password_user_key(
                 let master_key = MasterKey::derive(&password, email, kdf)?;
                 let user_key = master_key
                     .decrypt_user_key(encrypted_user_key.parse()?)
-                    .map_err(|_| "wrong password")?;
+                    .map_err(|_| WrongPasswordError)?;
 
                 let enc = client.internal.get_encryption_settings()?;
 
                 let existing_key = enc.get_key(&None)?;
 
                 if user_key.to_vec() != existing_key.to_vec() {
-                    return Err("wrong user key".into());
+                    return Err(AuthValidateError::WrongUserKey);
                 }
 
                 Ok(master_key
@@ -107,7 +106,6 @@ mod tests {
         assert!(result.unwrap());
     }
 
-    #[cfg(feature = "internal")]
     #[test]
     fn test_validate_password_user_key() {
         use std::num::NonZeroU32;

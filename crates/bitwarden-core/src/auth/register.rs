@@ -2,7 +2,9 @@ use bitwarden_api_identity::{
     apis::accounts_api::accounts_register_post,
     models::{KeysRequestModel, RegisterRequestModel},
 };
-use bitwarden_crypto::{default_pbkdf2_iterations, HashPurpose, Kdf, MasterKey, RsaKeyPair};
+use bitwarden_crypto::{
+    default_pbkdf2_iterations, CryptoError, HashPurpose, Kdf, MasterKey, RsaKeyPair,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -56,7 +58,7 @@ pub(super) fn make_register_keys(
     email: String,
     password: String,
     kdf: Kdf,
-) -> Result<RegisterKeyResponse> {
+) -> Result<RegisterKeyResponse, CryptoError> {
     let master_key = MasterKey::derive(&password, &email, &kdf)?;
     let master_password_hash =
         master_key.derive_master_key_hash(password.as_bytes(), HashPurpose::ServerAuthorization)?;

@@ -8,7 +8,7 @@ pub enum EncryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLocked),
+    VaultLocked(#[from] bitwarden_core::VaultLockedError),
 }
 
 /// Generic error type for decryption errors
@@ -18,7 +18,7 @@ pub enum DecryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLocked),
+    VaultLocked(#[from] bitwarden_core::VaultLockedError),
 }
 
 #[derive(Debug, Error)]

@@ -13,7 +13,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
     error::{NotAuthenticatedError, Result},
-    Client, VaultLocked,
+    Client, VaultLockedError, WrongPasswordError,
 };
 
 /// Catch all errors for mobile crypto operations
@@ -22,7 +22,7 @@ pub enum MobileCryptoError {
     #[error(transparent)]
     NotAuthenticated(#[from] NotAuthenticatedError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLocked),
+    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
 }
@@ -338,7 +338,7 @@ fn derive_pin_protected_user_key(
 #[derive(Debug, thiserror::Error)]
 pub enum EnrollAdminPasswordResetError {
     #[error(transparent)]
-    VaultLocked(#[from] VaultLocked),
+    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
@@ -371,10 +371,6 @@ pub struct DeriveKeyConnectorRequest {
     pub kdf: Kdf,
     pub email: String,
 }
-
-#[derive(Debug, thiserror::Error)]
-#[error("wrong password")]
-pub struct WrongPasswordError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeriveKeyConnectorError {

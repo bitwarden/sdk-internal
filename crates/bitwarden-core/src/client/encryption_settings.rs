@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 #[cfg(feature = "internal")]
 use crate::error::Result;
-use crate::VaultLocked;
+use crate::VaultLockedError;
 
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
@@ -21,7 +21,7 @@ pub enum EncryptionSettingsError {
     InvalidBase64(#[from] base64::DecodeError),
 
     #[error(transparent)]
-    VaultLocked(#[from] VaultLocked),
+    VaultLocked(#[from] VaultLockedError),
 
     #[error("Invalid private key")]
     InvalidPrivateKey,

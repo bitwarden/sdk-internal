@@ -8,7 +8,7 @@ pub enum SecretsManagerError {
     #[error(transparent)]
     ValidationError(ValidationError),
     #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLocked),
+    VaultLocked(#[from] bitwarden_core::VaultLockedError),
     #[error(transparent)]
     CryptoError(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]

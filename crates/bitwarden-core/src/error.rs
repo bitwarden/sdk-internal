@@ -16,7 +16,7 @@ pub enum Error {
     #[error(transparent)]
     MissingFieldError(#[from] MissingFieldError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLocked),
+    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     NotAuthenticated(#[from] NotAuthenticatedError),
 
@@ -147,7 +147,11 @@ pub struct MissingFieldError(pub &'static str);
 
 #[derive(Debug, Error)]
 #[error("The client vault is locked and needs to be unlocked before use")]
-pub struct VaultLocked;
+pub struct VaultLockedError;
+
+#[derive(Debug, thiserror::Error)]
+#[error("Wrong password")]
+pub struct WrongPasswordError;
 
 /// This macro is used to require that a value is present or return an error otherwise.
 /// It is equivalent to using `val.ok_or(Error::MissingFields)?`, but easier to use and

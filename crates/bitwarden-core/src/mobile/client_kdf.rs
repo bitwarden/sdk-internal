@@ -1,4 +1,4 @@
-use bitwarden_crypto::{HashPurpose, Kdf};
+use bitwarden_crypto::{CryptoError, HashPurpose, Kdf};
 
 use crate::{error::Result, mobile::kdf::hash_password, Client};
 
@@ -13,7 +13,7 @@ impl ClientKdf<'_> {
         password: String,
         kdf_params: Kdf,
         purpose: HashPurpose,
-    ) -> Result<String> {
+    ) -> Result<String, CryptoError> {
         hash_password(email, password, kdf_params, purpose).await
     }
 }

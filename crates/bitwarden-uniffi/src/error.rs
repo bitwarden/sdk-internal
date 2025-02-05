@@ -57,11 +57,20 @@ pub enum Error {
     EnrollAdminPasswordReset(#[from] bitwarden_core::mobile::crypto::EnrollAdminPasswordResetError),
     #[error(transparent)]
     MobileCrypto(#[from] bitwarden_core::mobile::crypto::MobileCryptoError),
+    #[error(transparent)]
+    AuthValidate(#[from] bitwarden_core::auth::AuthValidateError),
+    #[error(transparent)]
+    ApproveAuthRequest(#[from] bitwarden_core::auth::ApproveAuthRequestError),
+    #[error(transparent)]
+    TrustDevice(#[from] bitwarden_core::auth::auth_client::TrustDeviceError),
 
     #[error(transparent)]
     Fingerprint(#[from] bitwarden_core::platform::FingerprintError),
     #[error(transparent)]
     UserFingerprint(#[from] bitwarden_core::platform::UserFingerprintError),
+
+    #[error(transparent)]
+    Crypto(#[from] bitwarden_crypto::CryptoError),
 
     // Generators
     #[error(transparent)]
