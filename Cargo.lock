@@ -382,6 +382,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-common"
+version = "1.0.0"
+
+[[package]]
 name = "bitwarden-core"
 version = "1.0.0"
 dependencies = [
@@ -421,6 +425,7 @@ dependencies = [
  "aes",
  "argon2",
  "base64",
+ "bitwarden-common",
  "cbc",
  "criterion",
  "generic-array",

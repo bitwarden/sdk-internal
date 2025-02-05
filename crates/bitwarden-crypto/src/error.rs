@@ -45,6 +45,9 @@ pub enum CryptoError {
 
     #[error("Number is zero")]
     ZeroNumber,
+
+    #[error("DecodeError")]
+    Decode(#[from] bitwarden_common::encoding::DecodeError),
 }
 
 #[derive(Debug, Error)]
