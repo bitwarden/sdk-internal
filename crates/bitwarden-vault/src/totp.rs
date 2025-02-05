@@ -1,9 +1,10 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, fmt, str::FromStr};
 
 use bitwarden_core::VaultLocked;
 use bitwarden_crypto::{CryptoError, KeyContainer};
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
+use data_encoding::BASE32_NOPAD;
 use hmac::{Hmac, Mac};
 use reqwest::Url;
 use schemars::JsonSchema;
@@ -217,6 +218,43 @@ impl FromStr for Totp {
         };
 
         Ok(params)
+    }
+}
+
+impl fmt::Display for Totp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let secret_b32 = BASE32_NOPAD.encode(&self.secret);
+
+        if let TotpAlgorithm::Steam = self.algorithm {
+            return write!(f, "steam://{}", secret_b32);
+        }
+
+        let mut params = HashMap::new();
+        params.insert("secret", secret_b32);
+
+        match self.algorithm {
+            TotpAlgorithm::Sha256 => params.insert("algorithm", "SHA256".to_string()),
+            TotpAlgorithm::Sha512 => params.insert("algorithm", "SHA512".to_string()),
+            _ => None,
+        };
+
+        if self.digits != DEFAULT_DIGITS {
+            params.insert("digits", self.digits.to_string());
+        }
+
+        if self.period != DEFAULT_PERIOD {
+            params.insert("period", self.period.to_string());
+        }
+
+        write!(
+            f,
+            "otpauth://totp/?{}",
+            params
+                .iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect::<Vec<_>>()
+                .join("&"),
+        )
     }
 }
 
