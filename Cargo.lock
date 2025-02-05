@@ -633,6 +633,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "chrono",
+ "data-encoding",
  "hmac",
  "rand",
  "reqwest",
