@@ -47,17 +47,13 @@ pub mod pure_crypto {
         Ok(enc_string.decrypt_with_key(&key)?)
     }
 
-    pub fn symmetric_encrypt(
-        plain: String,
-        key_b64: String,
-    ) -> Result<String, PureCryptoError> {
+    pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, PureCryptoError> {
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
         let encrypted: EncString = plain.encrypt_with_key(&key)?;
         Ok(encrypted.to_string())
     }
 }
-
 
 #[wasm_bindgen]
 pub struct CryptoClient(Rc<Client>);

@@ -5,7 +5,11 @@ use bitwarden_core::{Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
 use wasm_bindgen::prelude::*;
 
-use crate::{crypto::{pure_crypto, PureCryptoError}, vault::VaultClient, CryptoClient};
+use crate::{
+    crypto::{pure_crypto, PureCryptoError},
+    vault::VaultClient,
+    CryptoClient,
+};
 
 #[wasm_bindgen]
 pub enum LogLevel {
@@ -46,7 +50,10 @@ impl BitwardenPure {
         Err(TestError(msg))
     }
 
-    pub fn symmetric_decrypt(enc_string: String, key_b64: String) -> Result<String, PureCryptoError> {
+    pub fn symmetric_decrypt(
+        enc_string: String,
+        key_b64: String,
+    ) -> Result<String, PureCryptoError> {
         Self::setup_once();
         Ok(pure_crypto::symmetric_decrypt(enc_string, key_b64)?)
     }
@@ -59,10 +66,7 @@ impl BitwardenPure {
         pure_crypto::symmetric_decrypt_to_bytes(enc_string, key_b64)
     }
 
-    pub fn symmetric_encrypt(
-        plain: String,
-        key_b64: String,
-    ) -> Result<String, PureCryptoError> {
+    pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, PureCryptoError> {
         Self::setup_once();
         pure_crypto::symmetric_encrypt(plain, key_b64)
     }
