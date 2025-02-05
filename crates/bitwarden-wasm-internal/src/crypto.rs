@@ -47,11 +47,21 @@ pub mod pure_crypto {
         Ok(enc_string.decrypt_with_key(&key)?)
     }
 
-    pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, PureCryptoError> {
+    pub fn symmetric_decrypt_array_buffer(
+        enc_bytes: Vec<u8>,
+        key_b64: String,
+    ) -> Result<Vec<u8>, PureCryptoError> {
+        let enc_string = EncString::from_buffer(&enc_bytes)?;
+        let key = SymmetricCryptoKey::try_from(key_b64)?;
+
+        Ok(enc_string.decrypt_with_key(&key)?)
+    }
+
+    pub fn symmetric_encrypt(plain: &[u8], key_b64: String) -> Result<EncString, PureCryptoError> {
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
         let encrypted: EncString = plain.encrypt_with_key(&key)?;
-        Ok(encrypted.to_string())
+        Ok(encrypted)
     }
 }
 

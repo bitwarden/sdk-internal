@@ -30,6 +30,7 @@ fn convert_level(level: LogLevel) -> Level {
     }
 }
 
+/// Namespace for pure functions provided by the SDK.
 #[wasm_bindgen]
 pub struct BitwardenPure;
 
@@ -50,6 +51,11 @@ impl BitwardenPure {
         Err(TestError(msg))
     }
 
+    /// Stopgap method providing access to decryption through the SDKs handling of [bitwarden_crypto::EncString]
+    /// and [bitwarden_crypto::SymmetricCryptoKey].
+    /// 
+    /// This method is intended for use in the javascript clients at the EncryptService layer and should not
+    /// be used elsewhere.
     pub fn symmetric_decrypt(
         enc_string: String,
         key_b64: String,
@@ -58,6 +64,11 @@ impl BitwardenPure {
         pure_crypto::symmetric_decrypt(enc_string, key_b64)
     }
 
+    /// Stopgap method providing access to decryption through the SDKs handling of [bitwarden_crypto::EncString]
+    /// and [bitwarden_crypto::SymmetricCryptoKey]
+    /// 
+    /// This method is intended for use in the javascript clients at the EncryptService layer and should not
+    /// be used elsewhere.
     pub fn symmetric_decrypt_to_bytes(
         enc_string: String,
         key_b64: String,
@@ -66,9 +77,43 @@ impl BitwardenPure {
         pure_crypto::symmetric_decrypt_to_bytes(enc_string, key_b64)
     }
 
+    /// Stopgap method providing access to decryption through the SDKs handling of [bitwarden_crypto::EncString]
+    /// 
+    /// Blob data uploaded for file storage has a different format that typical [EncString] serialization. 
+    /// Handles `EncArrayBuffer` data of the form `[u8]` with the type being the first byte, the iv the next
+    /// 16, an optional mac of length 32 (depending on the first byte), and data following.
+    /// This method will Err if decrypting a the bytes of a typically serialized `EncString`. 
+    /// 
+    /// This method is intended for use in the javascript clients at the EncryptService layer and should not
+    /// be used elsewhere.
+    pub fn symmetric_decrypt_array_buffer(
+        enc_bytes: Vec<u8>,
+        key_b64: String,
+    ) -> Result<Vec<u8>, PureCryptoError> {
+        Self::setup_once();
+        pure_crypto::symmetric_decrypt_array_buffer(enc_bytes, key_b64)
+    }
+
+    /// Stopgap method providing access to encryption through the SDKs handling of [bitwarden_crypto::EncString]
+    /// 
+    /// Encrypts cleartext strings to string-serialized (base64) [EncString]s.
+    /// 
+    /// This method is intended for use in the javascript clients at the EncryptService layer and should not
+    /// be used elsewhere.
     pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, PureCryptoError> {
         Self::setup_once();
-        pure_crypto::symmetric_encrypt(plain, key_b64)
+        Ok(pure_crypto::symmetric_encrypt(plain.as_bytes(), key_b64)?.to_string())
+    }
+
+    /// Stopgap method providing access to encryption through the SDKs handling of [bitwarden_crypto::EncString]
+    /// 
+    /// Encrypts cleartext strings to byte-serialized [EncString]s.
+    /// 
+    /// This method is intended for use in the javascript clients at the EncryptService layer and should not
+    /// be used elsewhere.
+    pub fn symmetric_encrypt_to_array_buffer(plain: Vec<u8>, key_b64: String) -> Result<Vec<u8>, PureCryptoError> {
+        Self::setup_once();
+        Ok(pure_crypto::symmetric_encrypt(&plain, key_b64)?.to_buffer()?)
     }
 
     fn setup_once() {
