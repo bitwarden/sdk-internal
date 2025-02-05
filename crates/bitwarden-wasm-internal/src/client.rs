@@ -55,7 +55,7 @@ impl BitwardenPure {
         key_b64: String,
     ) -> Result<String, PureCryptoError> {
         Self::setup_once();
-        Ok(pure_crypto::symmetric_decrypt(enc_string, key_b64)?)
+        pure_crypto::symmetric_decrypt(enc_string, key_b64)
     }
 
     pub fn symmetric_decrypt_to_bytes(
