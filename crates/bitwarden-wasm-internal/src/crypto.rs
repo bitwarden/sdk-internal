@@ -9,7 +9,55 @@ use bitwarden_core::{
     Client,
 };
 use bitwarden_crypto::CryptoError;
+use bitwarden_error::bitwarden_error;
+use thiserror::Error;
 use wasm_bindgen::prelude::*;
+
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum PureCryptoError {
+    #[error("Cryptography error, {0}")]
+    Crypto(#[from] bitwarden_crypto::CryptoError),
+}
+
+pub mod pure_crypto {
+    use std::str::FromStr;
+
+    use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey};
+
+    use super::*;
+
+    pub fn symmetric_decrypt(
+        enc_string: String,
+        key_b64: String,
+    ) -> Result<String, PureCryptoError> {
+        let enc_string = EncString::from_str(&enc_string)?;
+        let key = SymmetricCryptoKey::try_from(key_b64)?;
+
+        Ok(enc_string.decrypt_with_key(&key)?)
+    }
+
+    pub fn symmetric_decrypt_to_bytes(
+        enc_string: String,
+        key_b64: String,
+    ) -> Result<Vec<u8>, PureCryptoError> {
+        let enc_string = EncString::from_str(&enc_string)?;
+        let key = SymmetricCryptoKey::try_from(key_b64)?;
+
+        Ok(enc_string.decrypt_with_key(&key)?)
+    }
+
+    pub fn symmetric_encrypt(
+        plain: String,
+        key_b64: String,
+    ) -> Result<String, PureCryptoError> {
+        let key = SymmetricCryptoKey::try_from(key_b64)?;
+
+        let encrypted: EncString = plain.encrypt_with_key(&key)?;
+        Ok(encrypted.to_string())
+    }
+}
+
 
 #[wasm_bindgen]
 pub struct CryptoClient(Rc<Client>);
