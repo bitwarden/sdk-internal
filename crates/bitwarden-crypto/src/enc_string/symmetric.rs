@@ -155,6 +155,90 @@ impl EncString {
 
         Ok(buf)
     }
+
+    /// Stopgap method providing access to decryption through the SDKs handling of
+    /// [bitwarden_crypto::EncString] and [bitwarden_crypto::SymmetricCryptoKey].
+    ///
+    /// This method is intended for use in the javascript clients at the EncryptService layer and
+    /// should not be used elsewhere.
+    #[cfg(feature = "wasm")]
+    pub fn symmetric_decrypt(
+        enc_string: String,
+        key_b64: String,
+    ) -> Result<String, CryptoError> {
+        let enc_string = EncString::from_str(&enc_string)?;
+        let key = SymmetricCryptoKey::try_from(key_b64)?;
+
+        Ok(enc_string.decrypt_with_key(&key)?)
+    }
+
+    /// Stopgap method providing access to decryption through the SDKs handling of
+    /// [bitwarden_crypto::EncString] and [bitwarden_crypto::SymmetricCryptoKey]
+    ///
+    /// This method is intended for use in the javascript clients at the EncryptService layer and
+    /// should not be used elsewhere.
+    #[cfg(feature = "wasm")]
+    pub fn symmetric_decrypt_to_bytes(
+        enc_string: String,
+        key_b64: String,
+    ) -> Result<Vec<u8>, CryptoError> {
+        let enc_string = EncString::from_str(&enc_string)?;
+        let key = SymmetricCryptoKey::try_from(key_b64)?;
+
+        Ok(enc_string.decrypt_with_key(&key)?)
+    }
+
+    /// Stopgap method providing access to decryption through the SDKs handling of
+    /// [bitwarden_crypto::EncString]
+    ///
+    /// Blob data uploaded for file storage has a different format that typical [EncString]
+    /// serialization. Handles `EncArrayBuffer` data of the form `[u8]` with the type being the
+    /// first byte, the iv the next 16, an optional mac of length 32 (depending on the first
+    /// byte), and data following. This method will Err if decrypting a the bytes of a typically
+    /// serialized `EncString`.
+    ///
+    /// This method is intended for use in the javascript clients at the EncryptService layer and
+    /// should not be used elsewhere.
+    #[cfg(feature = "wasm")]
+    pub fn symmetric_decrypt_array_buffer(
+        enc_bytes: Vec<u8>,
+        key_b64: String,
+    ) -> Result<Vec<u8>, CryptoError> {
+        let enc_string = EncString::from_buffer(&enc_bytes)?;
+        let key = SymmetricCryptoKey::try_from(key_b64)?;
+
+        Ok(enc_string.decrypt_with_key(&key)?)
+    }
+
+    /// Stopgap method providing access to encryption through the SDKs handling of
+    /// [bitwarden_crypto::EncString]
+    ///
+    /// Encrypts cleartext strings to string-serialized (base64) [EncString]s.
+    ///
+    /// This method is intended for use in the javascript clients at the EncryptService layer and
+    /// should not be used elsewhere.
+    #[cfg(feature = "wasm")]
+    pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, CryptoError> {
+        let key = SymmetricCryptoKey::try_from(key_b64)?;
+
+        Ok(plain.encrypt_with_key(&key)?.to_string())
+    }
+
+    /// Stopgap method providing access to encryption through the SDKs handling of
+    /// [bitwarden_crypto::EncString]
+    ///
+    /// Encrypts cleartext strings to byte-serialized [EncString]s.
+    ///
+    /// This method is intended for use in the javascript clients at the EncryptService layer and
+    /// should not be used elsewhere.
+    #[cfg(feature = "wasm")]
+    pub fn symmetric_encrypt_to_array_buffer(
+        plain: Vec<u8>,
+        key_b64: String,
+    ) -> Result<Vec<u8>, CryptoError> {
+        let key = SymmetricCryptoKey::try_from(key_b64)?;
+        Ok(plain.encrypt_with_key(&key)?.to_buffer()?)
+    }
 }
 
 impl Display for EncString {
