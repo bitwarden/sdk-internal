@@ -137,8 +137,10 @@ impl TotpAlgorithm {
 /// access to the individual components.
 #[derive(Debug)]
 pub struct Totp {
+    pub account: Option<String>,
     pub algorithm: TotpAlgorithm,
     pub digits: u32,
+    pub issuer: Option<String>,
     pub period: u32,
     pub secret: Vec<u8>,
 }
@@ -178,6 +180,7 @@ impl FromStr for Totp {
             let parts: HashMap<_, _> = url.query_pairs().collect();
 
             Totp {
+                account: None,
                 algorithm: parts
                     .get("algorithm")
                     .and_then(|v| match v.as_ref() {
@@ -192,6 +195,7 @@ impl FromStr for Totp {
                     .and_then(|v| v.parse().ok())
                     .map(|v: u32| v.clamp(0, 10))
                     .unwrap_or(DEFAULT_DIGITS),
+                issuer: None,
                 period: parts
                     .get("period")
                     .and_then(|v| v.parse().ok())
@@ -206,15 +210,19 @@ impl FromStr for Totp {
             }
         } else if let Some(secret) = key.strip_prefix("steam://") {
             Totp {
+                account: None,
                 algorithm: TotpAlgorithm::Steam,
                 digits: 5,
+                issuer: None,
                 period: DEFAULT_PERIOD,
                 secret: decode_b32(secret),
             }
         } else {
             Totp {
+                account: None,
                 algorithm: DEFAULT_ALGORITHM,
                 digits: DEFAULT_DIGITS,
+                issuer: None,
                 period: DEFAULT_PERIOD,
                 secret: decode_b32(&key),
             }
@@ -228,43 +236,48 @@ impl fmt::Display for Totp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let secret_b32 = BASE32_NOPAD.encode(&self.secret);
 
-        if self.algorithm == DEFAULT_ALGORITHM
-            && self.digits == DEFAULT_DIGITS
-            && self.period == DEFAULT_PERIOD
-        {
-            return write!(f, "{}", secret_b32);
-        }
-
         if let TotpAlgorithm::Steam = self.algorithm {
             return write!(f, "steam://{}", secret_b32);
         }
 
-        let mut params = Vec::new();
-        params.push(("secret", secret_b32));
+        let mut url = Url::parse("otpauth://totp").map_err(|_| fmt::Error)?;
 
-        if self.period != DEFAULT_PERIOD {
-            params.push(("period", self.period.to_string()));
-        }
-
-        match self.algorithm {
-            TotpAlgorithm::Sha256 => params.push(("algorithm", "SHA256".to_string())),
-            TotpAlgorithm::Sha512 => params.push(("algorithm", "SHA512".to_string())),
-            _ => {}
+        let label = match (&self.issuer, &self.account) {
+            (Some(issuer), Some(account)) => format!("{}:{}", issuer, account),
+            (None, Some(account)) => account.clone(),
+            _ => String::new(),
         };
 
-        if self.digits != DEFAULT_DIGITS {
-            params.push(("digits", self.digits.to_string()));
+        url.set_path(&label);
+
+        // We enclose the query builder in a block so that the mutable borrow
+        // on `url` is dropped before we use it again.
+        {
+            let mut pairs = url.query_pairs_mut();
+            pairs.append_pair("secret", &secret_b32);
+
+            if let Some(issuer) = &self.issuer {
+                pairs.append_pair("issuer", issuer);
+            }
+
+            if self.period != DEFAULT_PERIOD {
+                pairs.append_pair("period", &self.period.to_string());
+            }
+
+            if self.algorithm == TotpAlgorithm::Sha256 {
+                pairs.append_pair("algorithm", "SHA256");
+            } else if self.algorithm == TotpAlgorithm::Sha512 {
+                pairs.append_pair("algorithm", "SHA512");
+            }
+
+            if self.digits != DEFAULT_DIGITS {
+                pairs.append_pair("digits", &self.digits.to_string());
+            }
+
+            pairs.finish();
         }
 
-        write!(
-            f,
-            "otpauth://totp/?{}",
-            params
-                .iter()
-                .map(|(k, v)| format!("{}={}", k, v))
-                .collect::<Vec<_>>()
-                .join("&"),
-        )
+        write!(f, "{}", url)
     }
 }
 
@@ -428,43 +441,66 @@ mod tests {
     #[test]
     fn test_totp_to_string_with_defaults() {
         let totp = Totp {
+            account: Some("test@bitwarden.com".to_string()),
             algorithm: DEFAULT_ALGORITHM,
             digits: DEFAULT_DIGITS,
+            issuer: Some("Example".to_string()),
             period: DEFAULT_PERIOD,
             secret: vec![180, 17, 13, 116, 49, 86, 112, 36, 215, 15],
         };
 
-        assert_eq!(totp.to_string(), "WQIQ25BRKZYCJVYP");
+        assert_eq!(
+            totp.to_string(),
+            "otpauth://totp/Example:test@bitwarden.com?secret=WQIQ25BRKZYCJVYP&issuer=Example"
+        );
     }
 
     #[test]
     fn test_totp_to_string_period() {
         let totp = Totp {
+            account: Some("test@bitwarden.com".to_string()),
             algorithm: DEFAULT_ALGORITHM,
             digits: DEFAULT_DIGITS,
+            issuer: Some("Example".to_string()),
             period: 60,
             secret: vec![180, 17, 13, 116, 49, 86, 112, 36, 215, 15],
         };
 
         assert_eq!(
             totp.to_string(),
-            "otpauth://totp/?secret=WQIQ25BRKZYCJVYP&period=60"
+            "otpauth://totp/Example:test@bitwarden.com?secret=WQIQ25BRKZYCJVYP&issuer=Example&period=60"
         );
     }
 
     #[test]
     fn test_totp_to_string_sha256() {
         let totp = Totp {
+            account: Some("test@bitwarden.com".to_string()),
             algorithm: TotpAlgorithm::Sha256,
             digits: DEFAULT_DIGITS,
+            issuer: Some("Example".to_string()),
             period: DEFAULT_PERIOD,
             secret: vec![180, 17, 13, 116, 49, 86, 112, 36, 215, 15],
         };
 
         assert_eq!(
             totp.to_string(),
-            "otpauth://totp/?secret=WQIQ25BRKZYCJVYP&algorithm=SHA256"
+            "otpauth://totp/Example:test@bitwarden.com?secret=WQIQ25BRKZYCJVYP&issuer=Example&algorithm=SHA256"
         );
+    }
+
+    #[test]
+    fn test_display_steam() {
+        let totp = Totp {
+            account: None,
+            algorithm: TotpAlgorithm::Steam,
+            digits: 5,
+            issuer: None,
+            period: DEFAULT_PERIOD,
+            secret: vec![1, 2, 3, 4],
+        };
+        let secret_b32 = BASE32_NOPAD.encode(&totp.secret);
+        assert_eq!(totp.to_string(), format!("steam://{}", secret_b32));
     }
 
     #[test]
