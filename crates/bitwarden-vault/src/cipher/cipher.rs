@@ -1014,14 +1014,19 @@ mod tests {
         let org_key = SymmetricKeyId::Organization(org);
 
         // Attachment has a key that is encrypted with the user key, as the cipher has no key itself
-        let attachment_key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let attachment_key_enc = {
-            const ATTACHMENT_KEY: SymmetricKeyId = SymmetricKeyId::Local("test_attachment_key");
-            let mut ctx = key_store.context();
-            let attachment_key = ctx.generate_symmetric_key(ATTACHMENT_KEY).unwrap();
-            ctx.encrypt_symmetric_key_with_symmetric_key(SymmetricKeyId::User, attachment_key)
-                .unwrap()
-        };
+        let mut ctx = key_store.context();
+        let attachment_key = ctx
+            .generate_symmetric_key(SymmetricKeyId::Local("test_attachment_key"))
+            .unwrap();
+        let attachment_key_enc = ctx
+            .encrypt_symmetric_key_with_symmetric_key(SymmetricKeyId::User, attachment_key)
+            .unwrap();
+        #[allow(deprecated)]
+        let attachment_key_val = ctx
+            .dangerous_get_symmetric_key(attachment_key)
+            .unwrap()
+            .clone();
+        drop(ctx);
 
         let mut cipher = generate_cipher();
         let attachment = AttachmentView {
@@ -1049,7 +1054,8 @@ mod tests {
             .decrypt(&mut key_store.context(), org_key)
             .unwrap();
         let new_attachment_key_dec: SymmetricCryptoKey = new_attachment_key_dec.try_into().unwrap();
-        assert_eq!(new_attachment_key_dec.to_vec(), attachment_key.to_vec());
+
+        assert_eq!(new_attachment_key_dec.to_vec(), attachment_key_val.to_vec());
 
         let cred2: Fido2CredentialFullView = cipher
             .login
