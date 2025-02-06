@@ -119,7 +119,7 @@ impl EncString {
 
                 Ok(EncString::AesCbc256_B64 { iv, data })
             }
-            1 | 2 => {
+            2 => {
                 check_length(buf, 50)?;
                 let iv = buf[1..17].try_into().expect("Valid length");
                 let mac = buf[17..49].try_into().expect("Valid length");
