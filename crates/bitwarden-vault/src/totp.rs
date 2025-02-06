@@ -68,6 +68,9 @@ pub struct TotpResponse {
 pub fn generate_totp(key: String, time: Option<DateTime<Utc>>) -> Result<TotpResponse, TotpError> {
     let params: Totp = key.parse()?;
 
+    println!("original key: {:?}", key);
+    println!("converted: {:?}", params.to_string());
+
     let time = time.unwrap_or_else(Utc::now);
 
     let otp = params.derive_otp(time.timestamp());
@@ -91,7 +94,7 @@ pub fn generate_totp_cipher_view(
     generate_totp(key, time)
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TotpAlgorithm {
     Sha1,
     Sha256,
@@ -225,25 +228,32 @@ impl fmt::Display for Totp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let secret_b32 = BASE32_NOPAD.encode(&self.secret);
 
+        if self.algorithm == DEFAULT_ALGORITHM
+            && self.digits == DEFAULT_DIGITS
+            && self.period == DEFAULT_PERIOD
+        {
+            return write!(f, "{}", secret_b32);
+        }
+
         if let TotpAlgorithm::Steam = self.algorithm {
             return write!(f, "steam://{}", secret_b32);
         }
 
-        let mut params = HashMap::new();
-        params.insert("secret", secret_b32);
+        let mut params = Vec::new();
+        params.push(("secret", secret_b32));
+
+        if self.period != DEFAULT_PERIOD {
+            params.push(("period", self.period.to_string()));
+        }
 
         match self.algorithm {
-            TotpAlgorithm::Sha256 => params.insert("algorithm", "SHA256".to_string()),
-            TotpAlgorithm::Sha512 => params.insert("algorithm", "SHA512".to_string()),
-            _ => None,
+            TotpAlgorithm::Sha256 => params.push(("algorithm", "SHA256".to_string())),
+            TotpAlgorithm::Sha512 => params.push(("algorithm", "SHA512".to_string())),
+            _ => {}
         };
 
         if self.digits != DEFAULT_DIGITS {
-            params.insert("digits", self.digits.to_string());
-        }
-
-        if self.period != DEFAULT_PERIOD {
-            params.insert("period", self.period.to_string());
+            params.push(("digits", self.digits.to_string()));
         }
 
         write!(
@@ -413,6 +423,48 @@ mod tests {
 
         assert_eq!(response.code, "842615".to_string());
         assert_eq!(response.period, 30);
+    }
+
+    #[test]
+    fn test_totp_to_string_with_defaults() {
+        let totp = Totp {
+            algorithm: DEFAULT_ALGORITHM,
+            digits: DEFAULT_DIGITS,
+            period: DEFAULT_PERIOD,
+            secret: vec![180, 17, 13, 116, 49, 86, 112, 36, 215, 15],
+        };
+
+        assert_eq!(totp.to_string(), "WQIQ25BRKZYCJVYP");
+    }
+
+    #[test]
+    fn test_totp_to_string_period() {
+        let totp = Totp {
+            algorithm: DEFAULT_ALGORITHM,
+            digits: DEFAULT_DIGITS,
+            period: 60,
+            secret: vec![180, 17, 13, 116, 49, 86, 112, 36, 215, 15],
+        };
+
+        assert_eq!(
+            totp.to_string(),
+            "otpauth://totp/?secret=WQIQ25BRKZYCJVYP&period=60"
+        );
+    }
+
+    #[test]
+    fn test_totp_to_string_sha256() {
+        let totp = Totp {
+            algorithm: TotpAlgorithm::Sha256,
+            digits: DEFAULT_DIGITS,
+            period: DEFAULT_PERIOD,
+            secret: vec![180, 17, 13, 116, 49, 86, 112, 36, 215, 15],
+        };
+
+        assert_eq!(
+            totp.to_string(),
+            "otpauth://totp/?secret=WQIQ25BRKZYCJVYP&algorithm=SHA256"
+        );
     }
 
     #[test]
