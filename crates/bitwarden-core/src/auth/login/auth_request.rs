@@ -5,6 +5,7 @@ use bitwarden_api_api::{
 use bitwarden_crypto::Kdf;
 use uuid::Uuid;
 
+use super::LoginError;
 use crate::{
     auth::{
         api::{request::AuthRequestTokenRequest, response::IdentityTokenResponse},
@@ -14,8 +15,6 @@ use crate::{
     mobile::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
     require, ApiError, Client,
 };
-
-use super::LoginError;
 
 pub struct NewAuthRequestResponse {
     pub fingerprint: String,

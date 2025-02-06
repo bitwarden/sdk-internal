@@ -7,8 +7,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::auth::{
     api::response::IdentityTokenResponse,
-    login::response::{captcha_response::CaptchaResponse, two_factor::TwoFactorProviders},
-    login::LoginError,
+    login::{
+        response::{captcha_response::CaptchaResponse, two_factor::TwoFactorProviders},
+        LoginError,
+    },
 };
 #[cfg(feature = "internal")]
 use crate::{

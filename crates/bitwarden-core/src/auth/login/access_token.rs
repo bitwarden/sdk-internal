@@ -7,6 +7,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::LoginError;
 use crate::{
     auth::{
         api::{request::AccessTokenRequest, response::IdentityTokenResponse},
@@ -18,8 +19,6 @@ use crate::{
     secrets_manager::state::{self, ClientState},
     Client,
 };
-
-use super::LoginError;
 
 pub(crate) async fn login_access_token(
     client: &Client,

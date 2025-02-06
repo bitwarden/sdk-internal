@@ -1,5 +1,6 @@
 use chrono::Utc;
 
+use super::login::LoginError;
 #[cfg(feature = "secrets")]
 use crate::{
     auth::api::request::AccessTokenRequest,
@@ -11,8 +12,6 @@ use crate::{
     client::{internal::InternalClient, LoginMethod, UserLoginMethod},
     NotAuthenticatedError,
 };
-
-use super::login::LoginError;
 
 pub(crate) async fn renew_token(client: &InternalClient) -> Result<(), LoginError> {
     const TOKEN_RENEW_MARGIN_SECONDS: i64 = 5 * 60;
