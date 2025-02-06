@@ -11,12 +11,6 @@ pub enum BitwardenError {
     E(Error),
 }
 
-impl From<bitwarden_core::Error> for BitwardenError {
-    fn from(e: bitwarden_core::Error) -> Self {
-        Self::E(e.into())
-    }
-}
-
 impl From<Error> for BitwardenError {
     fn from(e: Error) -> Self {
         Self::E(e)
@@ -45,8 +39,6 @@ pub type Result<T, E = BitwardenError> = std::result::Result<T, E>;
 pub enum Error {
     #[error(transparent)]
     Api(#[from] bitwarden_core::ApiError),
-    #[error(transparent)]
-    Core(#[from] bitwarden_core::Error),
     #[error(transparent)]
     DeriveKeyConnector(#[from] bitwarden_core::mobile::crypto::DeriveKeyConnectorError),
     #[error(transparent)]

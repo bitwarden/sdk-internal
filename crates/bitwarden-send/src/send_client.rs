@@ -12,7 +12,7 @@ pub enum SendEncryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLocked),
+    VaultLocked(#[from] bitwarden_core::VaultLockedError),
 }
 
 /// Generic error type for send decryption errors
@@ -21,7 +21,7 @@ pub enum SendDecryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLocked),
+    VaultLocked(#[from] bitwarden_core::VaultLockedError),
 }
 
 /// Generic error type for send encryption errors.
