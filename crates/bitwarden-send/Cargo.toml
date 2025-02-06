@@ -19,7 +19,6 @@ uniffi = [
     "bitwarden-crypto/uniffi",
     "dep:uniffi"
 ] # Uniffi bindings
-wasm = ["dep:wasm-bindgen"] # WebAssembly support
 
 [dependencies]
 base64 = ">=0.22.1, <0.23"

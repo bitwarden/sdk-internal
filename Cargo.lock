@@ -659,7 +659,6 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
- "bitwarden-send",
  "bitwarden-ssh",
  "bitwarden-vault",
  "chrono",
