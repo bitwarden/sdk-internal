@@ -152,8 +152,10 @@ mod tests {
     #[test]
     fn test_convert_totp() {
         let totp = Totp {
+            account: None,
             algorithm: TotpAlgorithm::Sha1,
             digits: 4,
+            issuer: None,
             period: 60,
             secret: "secret".as_bytes().to_vec(),
         };
