@@ -68,9 +68,6 @@ pub struct TotpResponse {
 pub fn generate_totp(key: String, time: Option<DateTime<Utc>>) -> Result<TotpResponse, TotpError> {
     let params: Totp = key.parse()?;
 
-    println!("original key: {:?}", key);
-    println!("converted: {:?}", params.to_string());
-
     let time = time.unwrap_or_else(Utc::now);
 
     let otp = params.derive_otp(time.timestamp());
