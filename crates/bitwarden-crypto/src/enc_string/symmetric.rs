@@ -54,6 +54,7 @@ export type EncString = string;
 pub enum EncString {
     /// 0
     AesCbc256_B64 { iv: [u8; 16], data: Vec<u8> },
+    /// 1 was the now removed `AesCbc128_HmacSha256_B64`.
     /// 2
     AesCbc256_HmacSha256_B64 {
         iv: [u8; 16],
