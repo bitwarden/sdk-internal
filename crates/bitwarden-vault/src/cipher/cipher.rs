@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::CipherDetailsResponseModel;
-use bitwarden_core::{require, MissingFieldError, VaultLocked};
+use bitwarden_core::{require, MissingFieldError, VaultLockedError};
 use bitwarden_crypto::{
     CryptoError, EncString, KeyContainer, KeyDecryptable, KeyEncryptable, LocateKey,
     SymmetricCryptoKey,
@@ -27,7 +27,7 @@ pub enum CipherError {
     #[error(transparent)]
     MissingFieldError(#[from] MissingFieldError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLocked),
+    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     CryptoError(#[from] CryptoError),
     #[error("This cipher contains attachments without keys. Those attachments will need to be reuploaded to complete the operation")]

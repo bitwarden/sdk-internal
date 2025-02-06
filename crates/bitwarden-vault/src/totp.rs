@@ -1,6 +1,6 @@
 use std::{collections::HashMap, str::FromStr};
 
-use bitwarden_core::VaultLocked;
+use bitwarden_core::VaultLockedError;
 use bitwarden_crypto::{CryptoError, KeyContainer};
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
@@ -36,7 +36,7 @@ pub enum TotpError {
     #[error(transparent)]
     CryptoError(#[from] CryptoError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLocked),
+    VaultLocked(#[from] VaultLockedError),
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]

@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use bitwarden_core::{Client, VaultLocked};
+use bitwarden_core::{Client, VaultLockedError};
 use bitwarden_crypto::{CryptoError, KeyContainer, KeyEncryptable};
 use bitwarden_vault::{CipherError, CipherView};
 use itertools::Itertools;
@@ -31,7 +31,7 @@ pub enum GetSelectedCredentialError {
     NoCredentialFound,
 
     #[error(transparent)]
-    VaultLocked(#[from] VaultLocked),
+    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     CryptoError(#[from] CryptoError),
 }
@@ -71,7 +71,7 @@ pub enum SilentlyDiscoverCredentialsError {
     #[error(transparent)]
     CipherError(#[from] CipherError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLocked),
+    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     InvalidGuid(#[from] InvalidGuid),
     #[error(transparent)]
@@ -85,7 +85,7 @@ pub enum CredentialsForAutofillError {
     #[error(transparent)]
     CipherError(#[from] CipherError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLocked),
+    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     InvalidGuid(#[from] InvalidGuid),
     #[error(transparent)]
@@ -352,7 +352,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         #[derive(Debug, Error)]
         enum InnerError {
             #[error(transparent)]
-            VaultLocked(#[from] VaultLocked),
+            VaultLocked(#[from] VaultLockedError),
             #[error(transparent)]
             CipherError(#[from] CipherError),
             #[error(transparent)]
@@ -435,7 +435,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         #[derive(Debug, Error)]
         enum InnerError {
             #[error(transparent)]
-            VaultLocked(#[from] VaultLocked),
+            VaultLocked(#[from] VaultLockedError),
             #[error(transparent)]
             FillCredentialError(#[from] FillCredentialError),
             #[error(transparent)]
@@ -507,7 +507,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         #[derive(Debug, Error)]
         enum InnerError {
             #[error(transparent)]
-            VaultLocked(#[from] VaultLocked),
+            VaultLocked(#[from] VaultLockedError),
             #[error(transparent)]
             InvalidGuid(#[from] InvalidGuid),
             #[error("Credential ID does not match selected credential")]

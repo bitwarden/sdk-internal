@@ -12,7 +12,7 @@ use super::login_method::ServiceAccountLoginMethod;
 use crate::{
     auth::renew::renew_token,
     client::{encryption_settings::EncryptionSettings, login_method::LoginMethod},
-    error::{Result, VaultLocked},
+    error::{Result, VaultLockedError},
     DeviceType,
 };
 #[cfg(feature = "internal")]
@@ -167,12 +167,12 @@ impl InternalClient {
         &self.external_client
     }
 
-    pub fn get_encryption_settings(&self) -> Result<Arc<EncryptionSettings>, VaultLocked> {
+    pub fn get_encryption_settings(&self) -> Result<Arc<EncryptionSettings>, VaultLockedError> {
         self.encryption_settings
             .read()
             .expect("RwLock is not poisoned")
             .clone()
-            .ok_or(VaultLocked)
+            .ok_or(VaultLockedError)
     }
 
     #[cfg(feature = "internal")]
@@ -241,7 +241,7 @@ impl InternalClient {
             .expect("RwLock is not poisoned");
 
         let Some(enc) = guard.as_mut() else {
-            return Err(VaultLocked.into());
+            return Err(VaultLockedError.into());
         };
 
         let inner = Arc::make_mut(enc);

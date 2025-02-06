@@ -13,7 +13,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
     error::{NotAuthenticatedError, Result},
-    Client, VaultLocked,
+    Client, VaultLockedError, WrongPasswordError,
 };
 
 /// Catch all errors for mobile crypto operations
@@ -22,7 +22,7 @@ pub enum MobileCryptoError {
     #[error(transparent)]
     NotAuthenticated(#[from] NotAuthenticatedError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLocked),
+    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
 }
@@ -341,7 +341,7 @@ fn derive_pin_protected_user_key(
 #[derive(Debug, thiserror::Error)]
 pub enum EnrollAdminPasswordResetError {
     #[error(transparent)]
-    VaultLocked(#[from] VaultLocked),
+    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
@@ -376,10 +376,6 @@ pub struct DeriveKeyConnectorRequest {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error("wrong password")]
-pub struct WrongPasswordError;
-
-#[derive(Debug, thiserror::Error)]
 pub enum DeriveKeyConnectorError {
     #[error(transparent)]
     WrongPassword(#[from] WrongPasswordError),
@@ -410,7 +406,7 @@ pub struct MakeKeyPairResponse {
     user_key_encrypted_private_key: EncString,
 }
 
-pub fn make_key_pair(user_key: String) -> Result<MakeKeyPairResponse> {
+pub fn make_key_pair(user_key: String) -> Result<MakeKeyPairResponse, CryptoError> {
     let user_key = UserKey::new(SymmetricCryptoKey::try_from(user_key)?);
 
     let key_pair = user_key.make_key_pair()?;
@@ -447,7 +443,7 @@ pub struct VerifyAsymmetricKeysResponse {
 
 pub fn verify_asymmetric_keys(
     request: VerifyAsymmetricKeysRequest,
-) -> Result<VerifyAsymmetricKeysResponse> {
+) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
     #[derive(Debug, thiserror::Error)]
     enum VerifyError {
         #[error("Failed to decrypt private key: {0:?}")]
