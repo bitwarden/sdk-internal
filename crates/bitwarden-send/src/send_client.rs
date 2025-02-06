@@ -2,13 +2,11 @@ use std::path::Path;
 
 use bitwarden_core::Client;
 use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable};
-use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
 use crate::{Send, SendListView, SendView};
 
 /// Generic error type for send encryption errors.
-#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum SendEncryptError {
     #[error(transparent)]
@@ -18,7 +16,6 @@ pub enum SendEncryptError {
 }
 
 /// Generic error type for send decryption errors
-#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum SendDecryptError {
     #[error(transparent)]
@@ -28,7 +25,6 @@ pub enum SendDecryptError {
 }
 
 /// Generic error type for send encryption errors.
-#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum SendEncryptFileError {
     #[error(transparent)]
@@ -38,7 +34,6 @@ pub enum SendEncryptFileError {
 }
 
 /// Generic error type for send decryption errors
-#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum SendDecryptFileError {
     #[error(transparent)]
