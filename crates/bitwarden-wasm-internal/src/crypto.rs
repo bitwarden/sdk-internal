@@ -36,10 +36,7 @@ impl PureCrypto {
     ) -> Result<String, PureCryptoError> {
         crate::client::bitwarden_pure::setup_once();
 
-        let enc_string = EncString::from_str(&enc_string)?;
-        let key = SymmetricCryptoKey::try_from(key_b64)?;
-
-        Ok(enc_string.decrypt_with_key(&key)?)
+        Ok(EncString::symmetric_decrypt(enc_string, key_b64)?)
     }
 
     /// Stopgap method providing access to decryption through the SDKs handling of
@@ -53,10 +50,7 @@ impl PureCrypto {
     ) -> Result<Vec<u8>, PureCryptoError> {
         crate::client::bitwarden_pure::setup_once();
 
-        let enc_string = EncString::from_str(&enc_string)?;
-        let key = SymmetricCryptoKey::try_from(key_b64)?;
-
-        Ok(enc_string.decrypt_with_key(&key)?)
+        Ok(EncString::symmetric_decrypt_to_bytes(enc_string, key_b64)?)
     }
 
     /// Stopgap method providing access to decryption through the SDKs handling of
@@ -76,10 +70,7 @@ impl PureCrypto {
     ) -> Result<Vec<u8>, PureCryptoError> {
         crate::client::bitwarden_pure::setup_once();
 
-        let enc_string = EncString::from_buffer(&enc_bytes)?;
-        let key = SymmetricCryptoKey::try_from(key_b64)?;
-
-        Ok(enc_string.decrypt_with_key(&key)?)
+        Ok(EncString::symmetric_decrypt_array_buffer(enc_bytes, key_b64)?)
     }
 
     /// Stopgap method providing access to encryption through the SDKs handling of
@@ -92,9 +83,7 @@ impl PureCrypto {
     pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, PureCryptoError> {
         crate::client::bitwarden_pure::setup_once();
 
-        let key = SymmetricCryptoKey::try_from(key_b64)?;
-
-        Ok(plain.encrypt_with_key(&key)?.to_string())
+        Ok(EncString::symmetric_encrypt(plain, key_b64)?)
     }
 
     /// Stopgap method providing access to encryption through the SDKs handling of
@@ -110,8 +99,7 @@ impl PureCrypto {
     ) -> Result<Vec<u8>, PureCryptoError> {
         crate::client::bitwarden_pure::setup_once();
 
-        let key = SymmetricCryptoKey::try_from(key_b64)?;
-        Ok(plain.encrypt_with_key(&key)?.to_buffer()?)
+        Ok(EncString::symmetric_encrypt_to_array_buffer(plain, key_b64)?)
     }
 }
 
