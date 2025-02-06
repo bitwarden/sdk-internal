@@ -27,6 +27,19 @@ fn convert_level(level: LogLevel) -> Level {
     }
 }
 
+/// Namespace for pure functions provided by the SDK.
+pub(crate) mod bitwarden_pure {
+    use super::*;
+
+    pub(crate) fn setup_once() {
+        console_error_panic_hook::set_once();
+        let log_level = convert_level(LogLevel::Info);
+        if let Err(_e) = console_log::init_with_level(log_level) {
+            set_max_level(log_level.to_level_filter())
+        }
+    }
+}
+
 // Rc<...> is to avoid needing to take ownership of the Client during our async run_command
 // function https://github.com/rustwasm/wasm-bindgen/issues/2195#issuecomment-799588401
 #[wasm_bindgen]
