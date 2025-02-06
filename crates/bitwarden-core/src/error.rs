@@ -4,13 +4,12 @@ use std::{borrow::Cow, fmt::Debug};
 
 use bitwarden_api_api::apis::Error as ApiApisError;
 use bitwarden_api_identity::apis::Error as IdentityError;
-use bitwarden_error::bitwarden_error;
 use reqwest::StatusCode;
 use thiserror::Error;
 
 use crate::client::encryption_settings::EncryptionSettingsError;
 
-#[bitwarden_error(flat, export_as = "CoreError")]
+/// Deprecated, use a domain specific Error instead
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
