@@ -32,6 +32,11 @@ pub(crate) fn bitwarden_error_flat(
                 }
             });
 
+            // let wasm = flat_error_wasm(
+            //     type_identifier,
+            //     export_as_identifier,
+            //     &variant_names.collect::<Vec<_>>(),
+            // );
             let wasm = cfg!(feature = "wasm").then(|| {
                 flat_error_wasm(
                     type_identifier,
@@ -88,21 +93,22 @@ fn flat_error_wasm(
         .expect("Could not generate TypeScript code");
 
     quote! {
+        //#[cfg(feature = "wasm")]
         const _: () = {
-            use bitwarden_error::wasm_bindgen::prelude::*;
 
-            #[wasm_bindgen(typescript_custom_section)]
+
+            #[::bitwarden_error::prelude::wasm_bindgen(typescript_custom_section)]
             const TS_APPEND_CONTENT: &'static str = #ts_code;
 
-            #[wasm_bindgen(js_name = #is_error_function_name, skip_typescript)]
-            pub fn is_error(error: &JsValue) -> bool {
-                let name_js_value = ::bitwarden_error::js_sys::Reflect::get(&error, &JsValue::from_str("name")).unwrap_or(JsValue::NULL);
+            #[::bitwarden_error::prelude::wasm_bindgen(js_name = #is_error_function_name, skip_typescript)]
+            pub fn is_error(error: &::bitwarden_error::wasm_bindgen::JsValue) -> bool {
+                let name_js_value = ::bitwarden_error::js_sys::Reflect::get(&error, &::bitwarden_error::wasm_bindgen::JsValue::from_str("name")).unwrap_or(JsValue::NULL);
                 let name = name_js_value.as_string().unwrap_or_default();
                 name == #export_as_identifier_str
             }
 
             #[automatically_derived]
-            impl From<#type_identifier> for JsValue {
+            impl From<#type_identifier> for ::bitwarden_error::wasn_bindgen::JsValue {
                 fn from(error: #type_identifier) -> Self {
                     let js_error = ::bitwarden_error::wasm::SdkJsError::new(error.to_string());
                     js_error.set_name(#export_as_identifier_str.to_owned());

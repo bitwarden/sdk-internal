@@ -17,9 +17,13 @@ keywords.workspace = true
 uniffi = [
     "bitwarden-core/uniffi",
     "bitwarden-crypto/uniffi",
-    "dep:uniffi"
+    "dep:uniffi",
 ] # Uniffi bindings
-wasm = ["dep:tsify-next", "dep:wasm-bindgen"] # WASM support
+wasm = [
+    "dep:tsify-next",
+    "dep:wasm-bindgen",
+    "bitwarden-error/wasm",
+] # WASM support
 
 [dependencies]
 base64 = ">=0.22.1, <0.23"

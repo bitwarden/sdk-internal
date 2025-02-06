@@ -109,7 +109,7 @@ mod full;
 /// export interface VaultLocked { }
 /// ```
 ///
-/// All the general interopability rules apply such as external types needing to be defined as
+/// All the general interoperability rules apply such as external types needing to be defined as
 /// custom types.
 #[proc_macro_attribute]
 pub fn bitwarden_error(
