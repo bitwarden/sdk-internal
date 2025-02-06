@@ -1,11 +1,14 @@
+//! Fingerprint generation.
+//!
+//! This module contains the logic for generating fingerprints.
+
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::fingerprint;
-use log::info;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{error::Result, VaultLockedError};
+use crate::{MissingPrivateKeyError, VaultLockedError};
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -32,16 +35,10 @@ pub enum FingerprintError {
     InvalidBase64(#[from] base64::DecodeError),
 }
 
-pub(crate) fn generate_fingerprint(
-    input: &FingerprintRequest,
-) -> Result<FingerprintResponse, FingerprintError> {
-    info!("Generating fingerprint");
-
+pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String, FingerprintError> {
     let key = STANDARD.decode(&input.public_key)?;
 
-    Ok(FingerprintResponse {
-        fingerprint: fingerprint(&input.fingerprint_material, &key)?,
-    })
+    Ok(fingerprint(&input.fingerprint_material, &key)?)
 }
 
 /// Errors that can occur when computing a fingerprint.
@@ -51,21 +48,19 @@ pub enum UserFingerprintError {
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
     VaultLocked(#[from] VaultLockedError),
-    #[error("Missing private key")]
-    MissingPrivateKey,
+    #[error(transparent)]
+    MissingPrivateKey(#[from] MissingPrivateKeyError),
 }
 
 pub(crate) fn generate_user_fingerprint(
     client: &crate::Client,
     fingerprint_material: String,
 ) -> Result<String, UserFingerprintError> {
-    info!("Generating fingerprint");
-
     let enc_settings = client.internal.get_encryption_settings()?;
     let private_key = enc_settings
         .private_key
         .as_ref()
-        .ok_or(UserFingerprintError::MissingPrivateKey)?;
+        .ok_or(MissingPrivateKeyError)?;
 
     let public_key = private_key.to_public_der()?;
     let fingerprint = fingerprint(&fingerprint_material, &public_key)?;

@@ -7,9 +7,7 @@ use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use uuid::Uuid;
 
-#[cfg(feature = "internal")]
-use crate::error::Result;
-use crate::VaultLockedError;
+use crate::{MissingPrivateKeyError, VaultLockedError};
 
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
@@ -26,8 +24,8 @@ pub enum EncryptionSettingsError {
     #[error("Invalid private key")]
     InvalidPrivateKey,
 
-    #[error("Missing private key")]
-    MissingPrivateKey,
+    #[error(transparent)]
+    MissingPrivateKey(#[from] MissingPrivateKeyError),
 }
 
 #[derive(Clone)]
@@ -119,10 +117,7 @@ impl EncryptionSettings {
             return Ok(self);
         }
 
-        let private_key = self
-            .private_key
-            .as_ref()
-            .ok_or(EncryptionSettingsError::MissingPrivateKey)?;
+        let private_key = self.private_key.as_ref().ok_or(MissingPrivateKeyError)?;
 
         // Decrypt the org keys with the private key
         for (org_id, org_enc_key) in org_enc_keys {

@@ -47,7 +47,7 @@ pub(crate) fn export_organization_vault(
     todo!();
 }
 
-/// See [crate::ClientExporters::export_cxf] for more documentation.
+/// See [crate::ExporterClient::export_cxf] for more documentation.
 pub(crate) fn export_cxf(
     client: &Client,
     account: Account,
@@ -84,7 +84,7 @@ fn encrypt_import(enc: &dyn KeyContainer, cipher: ImportingCipher) -> Result<Cip
     Ok(new_cipher)
 }
 
-/// See [crate::ClientExporters::import_cxf] for more documentation.
+/// See [crate::ExporterClient::import_cxf] for more documentation.
 pub(crate) fn import_cxf(client: &Client, payload: String) -> Result<Vec<Cipher>, ExportError> {
     let enc = client.internal.get_encryption_settings()?;
 

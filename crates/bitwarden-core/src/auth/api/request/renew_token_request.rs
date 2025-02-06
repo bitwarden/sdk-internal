@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{auth::api::response::IdentityTokenResponse, client::ApiConfigurations, error::Result};
+use crate::{
+    auth::{api::response::IdentityTokenResponse, login::LoginError},
+    client::ApiConfigurations,
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RenewTokenRequest {
@@ -21,7 +24,7 @@ impl RenewTokenRequest {
     pub(crate) async fn send(
         &self,
         configurations: &ApiConfigurations,
-    ) -> Result<IdentityTokenResponse> {
+    ) -> Result<IdentityTokenResponse, LoginError> {
         super::send_identity_connect_request(configurations, None, &self).await
     }
 }

@@ -3,8 +3,7 @@ use bitwarden_crypto::{EncString, PinKey};
 use crate::{
     auth::AuthValidateError,
     client::{LoginMethod, UserLoginMethod},
-    error::{NotAuthenticatedError, Result},
-    Client,
+    Client, NotAuthenticatedError,
 };
 
 pub(crate) fn validate_pin(

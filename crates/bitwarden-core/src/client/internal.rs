@@ -12,8 +12,7 @@ use super::login_method::ServiceAccountLoginMethod;
 use crate::{
     auth::renew::renew_token,
     client::{encryption_settings::EncryptionSettings, login_method::LoginMethod},
-    error::{Result, VaultLockedError},
-    DeviceType,
+    DeviceType, VaultLockedError,
 };
 #[cfg(feature = "internal")]
 use crate::{

@@ -9,10 +9,12 @@ use crate::{
 use crate::{
     auth::api::{request::ApiTokenRequest, response::IdentityTokenResponse},
     client::{internal::InternalClient, LoginMethod, UserLoginMethod},
-    error::{Error, NotAuthenticatedError, Result},
+    NotAuthenticatedError,
 };
 
-pub(crate) async fn renew_token(client: &InternalClient) -> Result<()> {
+use super::login::LoginError;
+
+pub(crate) async fn renew_token(client: &InternalClient) -> Result<(), LoginError> {
     const TOKEN_RENEW_MARGIN_SECONDS: i64 = 5 * 60;
 
     let tokens = client
@@ -100,7 +102,7 @@ pub(crate) async fn renew_token(client: &InternalClient) -> Result<()> {
             }
             _ => {
                 // We should never get here
-                return Err(Error::InvalidResponse);
+                return Err(LoginError::InvalidResponse);
             }
         }
     }

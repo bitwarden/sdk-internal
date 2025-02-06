@@ -14,16 +14,17 @@ use crate::{
         AccessToken, JWTToken,
     },
     client::{LoginMethod, ServiceAccountLoginMethod},
-    error::{Error, Result},
     require,
     secrets_manager::state::{self, ClientState},
     Client,
 };
 
+use super::LoginError;
+
 pub(crate) async fn login_access_token(
     client: &Client,
     input: &AccessTokenLoginRequest,
-) -> Result<AccessTokenLoginResponse> {
+) -> Result<AccessTokenLoginResponse, LoginError> {
     //info!("api key logging in");
     //debug!("{:#?}, {:#?}", client, input);
 
@@ -74,7 +75,7 @@ pub(crate) async fn login_access_token(
         // This should always be Some() when logging in with an access token
         let organization_id = require!(access_token_obj.organization)
             .parse()
-            .map_err(|_| Error::InvalidResponse)?;
+            .map_err(|_| LoginError::InvalidResponse)?;
 
         if let Some(state_file) = &input.state_file {
             let state = ClientState::new(r.access_token.clone(), payload.encryption_key);
@@ -105,7 +106,7 @@ pub(crate) async fn login_access_token(
 async fn request_access_token(
     client: &Client,
     input: &AccessToken,
-) -> Result<IdentityTokenResponse> {
+) -> Result<IdentityTokenResponse, LoginError> {
     let config = client.internal.get_api_configurations().await;
     AccessTokenRequest::new(input.access_token_id, &input.client_secret)
         .send(&config)
@@ -116,7 +117,7 @@ fn load_tokens_from_state(
     client: &Client,
     state_file: &Path,
     access_token: &AccessToken,
-) -> Result<Uuid> {
+) -> Result<Uuid, LoginError> {
     let client_state = state::get(state_file, access_token)?;
 
     let token: JWTToken = client_state.token.parse()?;
@@ -127,7 +128,7 @@ fn load_tokens_from_state(
         if time_till_expiration > 0 {
             let organization_id: Uuid = organization_id
                 .parse()
-                .map_err(|_| "Bad organization id.")?;
+                .map_err(|_| LoginError::BadOrganizationId)?;
             let encryption_key = SymmetricCryptoKey::try_from(client_state.encryption_key)?;
 
             client
@@ -139,7 +140,7 @@ fn load_tokens_from_state(
         }
     }
 
-    Err(Error::InvalidStateFile)
+    Err(LoginError::InvalidStateFile)
 }
 
 /// Login to Bitwarden with access token
@@ -165,8 +166,8 @@ pub struct AccessTokenLoginResponse {
 impl AccessTokenLoginResponse {
     pub(crate) fn process_response(
         response: IdentityTokenResponse,
-    ) -> Result<AccessTokenLoginResponse> {
-        let password_response = PasswordLoginResponse::process_response(response)?;
+    ) -> Result<AccessTokenLoginResponse, LoginError> {
+        let password_response = PasswordLoginResponse::process_response(response);
 
         Ok(AccessTokenLoginResponse {
             authenticated: password_response.authenticated,

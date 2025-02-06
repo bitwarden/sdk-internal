@@ -1,8 +1,7 @@
 use std::str::FromStr;
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-
-use crate::error::Result;
+use thiserror::Error;
 
 /// A Bitwarden secrets manager JWT Token.
 ///
@@ -20,16 +19,27 @@ pub struct JWTToken {
     pub scope: Vec<String>,
 }
 
+#[derive(Debug, Error)]
+pub enum JWTTokenParseError {
+    #[error("JWT token parse error: {0}")]
+    Parse(#[from] serde_json::Error),
+    #[error("JWT token decode error: {0}")]
+    Decode(#[from] base64::DecodeError),
+
+    #[error("JWT token has an invalid number of parts")]
+    InvalidParts,
+}
+
 impl FromStr for JWTToken {
-    type Err = crate::error::Error;
+    type Err = JWTTokenParseError;
 
     /// Parses a JWT token from a string.
     ///
     /// **Note:** This function does not validate the token signature.
-    fn from_str(s: &str) -> Result<Self> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         let split = s.split('.').collect::<Vec<_>>();
         if split.len() != 3 {
-            return Err("JWT token has an invalid number of parts".into());
+            return Err(Self::Err::InvalidParts);
         }
         let decoded = URL_SAFE_NO_PAD.decode(split[1])?;
         Ok(serde_json::from_slice(&decoded)?)
