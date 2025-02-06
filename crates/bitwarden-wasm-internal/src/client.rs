@@ -6,10 +6,7 @@ use bitwarden_error::bitwarden_error;
 use log::{set_max_level, Level};
 use wasm_bindgen::prelude::*;
 
-use crate::{
-    vault::VaultClient,
-    CryptoClient,
-};
+use crate::{vault::VaultClient, CryptoClient};
 
 #[wasm_bindgen]
 pub enum LogLevel {
