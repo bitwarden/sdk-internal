@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{rc::Rc, str::FromStr};
 
 use bitwarden_core::{
     client::encryption_settings::EncryptionSettingsError,
@@ -9,9 +9,11 @@ use bitwarden_core::{
     Client,
 };
 use bitwarden_crypto::CryptoError;
+use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use wasm_bindgen::prelude::*;
+
 
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
@@ -20,48 +22,94 @@ pub enum PureCryptoError {
     Crypto(#[from] bitwarden_crypto::CryptoError),
 }
 
-pub mod pure_crypto {
-    use std::str::FromStr;
+#[wasm_bindgen]
+pub struct PureCrypto {}
 
-    use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey};
-
-    use super::*;
-
+#[wasm_bindgen]
+impl PureCrypto {
+    /// Stopgap method providing access to decryption through the SDKs handling of [bitwarden_crypto::EncString]
+    /// and [bitwarden_crypto::SymmetricCryptoKey].
+    ///
+    /// This method is intended for use in the javascript clients at the EncryptService layer and should not
+    /// be used elsewhere.
     pub fn symmetric_decrypt(
         enc_string: String,
         key_b64: String,
     ) -> Result<String, PureCryptoError> {
+        crate::client::bitwarden_pure::setup_once();
+        
         let enc_string = EncString::from_str(&enc_string)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
         Ok(enc_string.decrypt_with_key(&key)?)
     }
 
+    /// Stopgap method providing access to decryption through the SDKs handling of [bitwarden_crypto::EncString]
+    /// and [bitwarden_crypto::SymmetricCryptoKey]
+    ///
+    /// This method is intended for use in the javascript clients at the EncryptService layer and should not
+    /// be used elsewhere.
     pub fn symmetric_decrypt_to_bytes(
         enc_string: String,
         key_b64: String,
     ) -> Result<Vec<u8>, PureCryptoError> {
+        crate::client::bitwarden_pure::setup_once();
+        
         let enc_string = EncString::from_str(&enc_string)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
         Ok(enc_string.decrypt_with_key(&key)?)
     }
 
+    /// Stopgap method providing access to decryption through the SDKs handling of [bitwarden_crypto::EncString]
+    ///
+    /// Blob data uploaded for file storage has a different format that typical [EncString] serialization.
+    /// Handles `EncArrayBuffer` data of the form `[u8]` with the type being the first byte, the iv the next
+    /// 16, an optional mac of length 32 (depending on the first byte), and data following.
+    /// This method will Err if decrypting a the bytes of a typically serialized `EncString`.
+    ///
+    /// This method is intended for use in the javascript clients at the EncryptService layer and should not
+    /// be used elsewhere.
     pub fn symmetric_decrypt_array_buffer(
         enc_bytes: Vec<u8>,
         key_b64: String,
     ) -> Result<Vec<u8>, PureCryptoError> {
+        crate::client::bitwarden_pure::setup_once();
+        
         let enc_string = EncString::from_buffer(&enc_bytes)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
         Ok(enc_string.decrypt_with_key(&key)?)
     }
 
-    pub fn symmetric_encrypt(plain: &[u8], key_b64: String) -> Result<EncString, PureCryptoError> {
+    /// Stopgap method providing access to encryption through the SDKs handling of [bitwarden_crypto::EncString]
+    ///
+    /// Encrypts cleartext strings to string-serialized (base64) [EncString]s.
+    ///
+    /// This method is intended for use in the javascript clients at the EncryptService layer and should not
+    /// be used elsewhere.
+    pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, PureCryptoError> {
+        crate::client::bitwarden_pure::setup_once();
+        
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
-        let encrypted: EncString = plain.encrypt_with_key(&key)?;
-        Ok(encrypted)
+        Ok(plain.encrypt_with_key(&key)?.to_string())
+    }
+
+    /// Stopgap method providing access to encryption through the SDKs handling of [bitwarden_crypto::EncString]
+    ///
+    /// Encrypts cleartext strings to byte-serialized [EncString]s.
+    ///
+    /// This method is intended for use in the javascript clients at the EncryptService layer and should not
+    /// be used elsewhere.
+    pub fn symmetric_encrypt_to_array_buffer(
+        plain: Vec<u8>,
+        key_b64: String,
+    ) -> Result<Vec<u8>, PureCryptoError> {
+        crate::client::bitwarden_pure::setup_once();
+
+        let key = SymmetricCryptoKey::try_from(key_b64)?;
+        Ok(plain.encrypt_with_key(&key)?.to_buffer()?)
     }
 }
 
