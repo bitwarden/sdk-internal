@@ -1,8 +1,9 @@
 use bitwarden_api_api::models::CollectionDetailsResponseModel;
-use bitwarden_core::require;
-use bitwarden_crypto::{
-    CryptoError, EncString, KeyContainer, KeyDecryptable, LocateKey, SymmetricCryptoKey,
+use bitwarden_core::{
+    key_management::{KeyIds, SymmetricKeyId},
+    require,
 };
+use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -39,22 +40,23 @@ pub struct CollectionView {
     pub manage: bool,
 }
 
-impl LocateKey for Collection {
-    fn locate_key<'a>(
-        &self,
-        enc: &'a dyn KeyContainer,
-        _: &Option<Uuid>,
-    ) -> Result<&'a SymmetricCryptoKey, CryptoError> {
-        enc.get_key(&Some(self.organization_id))
+impl IdentifyKey<SymmetricKeyId> for Collection {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::Organization(self.organization_id)
     }
 }
-impl KeyDecryptable<SymmetricCryptoKey, CollectionView> for Collection {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<CollectionView, CryptoError> {
+
+impl Decryptable<KeyIds, SymmetricKeyId, CollectionView> for Collection {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<CollectionView, CryptoError> {
         Ok(CollectionView {
             id: self.id,
             organization_id: self.organization_id,
 
-            name: self.name.decrypt_with_key(key).ok().unwrap_or_default(),
+            name: self.name.decrypt(ctx, key).ok().unwrap_or_default(),
 
             external_id: self.external_id.clone(),
             hide_passwords: self.hide_passwords,

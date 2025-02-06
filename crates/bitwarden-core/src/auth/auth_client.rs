@@ -185,9 +185,12 @@ pub enum TrustDeviceError {
 
 #[cfg(feature = "internal")]
 fn trust_device(client: &Client) -> Result<TrustDeviceResponse, TrustDeviceError> {
-    let enc = client.internal.get_encryption_settings()?;
+    use crate::key_management::SymmetricKeyId;
 
-    let user_key = enc.get_key(&None)?;
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+    #[allow(deprecated)]
+    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(DeviceKey::trust_device(user_key)?)
 }

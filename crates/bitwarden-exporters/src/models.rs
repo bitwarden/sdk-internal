@@ -1,5 +1,5 @@
-use bitwarden_core::{require, MissingFieldError};
-use bitwarden_crypto::{KeyContainer, KeyDecryptable, LocateKey};
+use bitwarden_core::{key_management::KeyIds, require, MissingFieldError};
+use bitwarden_crypto::KeyStore;
 use bitwarden_vault::{
     CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldView, FolderView,
     IdentityView, LoginUriView, SecureNoteType, SecureNoteView, SshKeyView,
@@ -18,14 +18,13 @@ impl TryFrom<FolderView> for crate::Folder {
 
 impl crate::Cipher {
     pub(crate) fn from_cipher(
-        enc: &dyn KeyContainer,
+        key_store: &KeyStore<KeyIds>,
         cipher: Cipher,
     ) -> Result<Self, crate::error::ExportError> {
-        let key = cipher.locate_key(enc, &None)?;
-        let view: CipherView = cipher.decrypt_with_key(key)?;
+        let view: CipherView = key_store.decrypt(&cipher)?;
 
         let r = match view.r#type {
-            CipherType::Login => crate::CipherType::Login(Box::new(from_login(&view, enc)?)),
+            CipherType::Login => crate::CipherType::Login(Box::new(from_login(&view, key_store)?)),
             CipherType::SecureNote => {
                 let s = require!(view.secure_note);
                 crate::CipherType::SecureNote(Box::new(s.into()))
@@ -68,7 +67,7 @@ impl crate::Cipher {
 /// Convert a `LoginView` into a `crate::Login`.
 fn from_login(
     view: &CipherView,
-    enc: &dyn KeyContainer,
+    key_store: &KeyStore<KeyIds>,
 ) -> Result<crate::Login, MissingFieldError> {
     let l = require!(view.login.clone());
 
@@ -83,7 +82,7 @@ fn from_login(
             .collect(),
         totp: l.totp,
         fido2_credentials: l.fido2_credentials.as_ref().and_then(|_| {
-            let credentials = view.get_fido2_credentials(enc).ok()?;
+            let credentials = view.get_fido2_credentials(&mut key_store.context()).ok()?;
             if credentials.is_empty() {
                 None
             } else {
@@ -199,10 +198,10 @@ impl From<SecureNoteType> for crate::SecureNoteType {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::{CryptoError, KeyContainer, KeyEncryptable, SymmetricCryptoKey};
+    use bitwarden_core::key_management::create_test_crypto_with_user_key;
+    use bitwarden_crypto::SymmetricCryptoKey;
     use bitwarden_vault::{CipherRepromptType, LoginView};
     use chrono::{DateTime, Utc};
-    use uuid::Uuid;
 
     use super::*;
 
@@ -221,16 +220,10 @@ mod tests {
         assert_eq!(f.name, "test_name".to_string());
     }
 
-    struct MockKeyContainer(SymmetricCryptoKey);
-    impl KeyContainer for MockKeyContainer {
-        fn get_key<'a>(&'a self, _: &Option<Uuid>) -> Result<&'a SymmetricCryptoKey, CryptoError> {
-            Ok(&self.0)
-        }
-    }
-
     #[test]
     fn test_from_login() {
-        let enc = MockKeyContainer(SymmetricCryptoKey::generate(rand::thread_rng()));
+        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key_store = create_test_crypto_with_user_key(key);
 
         let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         let view = CipherView {
@@ -269,7 +262,7 @@ mod tests {
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
         };
 
-        let login = from_login(&view, &enc).unwrap();
+        let login = from_login(&view, &key_store).unwrap();
 
         assert_eq!(login.username, Some("test_username".to_string()));
         assert_eq!(login.password, Some("test_password".to_string()));
@@ -279,7 +272,8 @@ mod tests {
 
     #[test]
     fn test_from_cipher_login() {
-        let enc = MockKeyContainer(SymmetricCryptoKey::generate(rand::thread_rng()));
+        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key_store = create_test_crypto_with_user_key(key);
 
         let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         let cipher_view = CipherView {
@@ -317,11 +311,9 @@ mod tests {
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
         };
-        let encrypted = cipher_view
-            .encrypt_with_key(enc.get_key(&None).unwrap())
-            .unwrap();
+        let encrypted = key_store.encrypt(cipher_view).unwrap();
 
-        let cipher: crate::Cipher = crate::Cipher::from_cipher(&enc, encrypted).unwrap();
+        let cipher: crate::Cipher = crate::Cipher::from_cipher(&key_store, encrypted).unwrap();
 
         assert_eq!(cipher.id, test_id);
         assert_eq!(cipher.folder_id, None);

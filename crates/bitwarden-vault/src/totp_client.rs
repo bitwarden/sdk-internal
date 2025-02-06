@@ -25,8 +25,8 @@ impl<'a> VaultClient<'a> {
         view: CipherListView,
         time: Option<DateTime<Utc>>,
     ) -> Result<TotpResponse, TotpError> {
-        let enc = self.client.internal.get_encryption_settings()?;
+        let key_store = self.client.internal.get_key_store();
 
-        generate_totp_cipher_view(&enc, view, time)
+        generate_totp_cipher_view(&mut key_store.context(), view, time)
     }
 }
