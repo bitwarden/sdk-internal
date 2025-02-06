@@ -159,6 +159,11 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     /// store only get cleared automatically when the context is dropped, and not between
     /// operations. This means that if you are using the same context for multiple operations,
     /// you may want to clear it manually between them.
+    ///
+    /// [KeyStoreContext] is not [Send] or [Sync] and should not be shared between threads. Note
+    /// that this can also be problematic in async code, and you should take care to ensure that
+    /// you're not holding references to the context across await points, as that would cause the
+    /// future to also not be [Send].
     pub fn context(&'_ self) -> KeyStoreContext<'_, Ids> {
         KeyStoreContext {
             global_keys: GlobalKeys::ReadOnly(self.inner.read().expect("RwLock is poisoned")),
@@ -183,6 +188,11 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     /// The only supported use case for this API is initializing the store with the user's symetric
     /// and private keys, and setting the organization keys. This method will be marked as
     /// `pub(crate)` in the future, once we have a safe API for key initialization and updating.
+    ///
+    /// [KeyStoreContext] is not [Send] or [Sync] and should not be shared between threads. Note
+    /// that this can also be problematic in async code, and you should take care to ensure that
+    /// you're not holding references to the context across await points, as that would cause the
+    /// future to also not be [Send].
     pub fn context_mut(&'_ self) -> KeyStoreContext<'_, Ids> {
         KeyStoreContext {
             global_keys: GlobalKeys::ReadWrite(self.inner.write().expect("RwLock is poisoned")),

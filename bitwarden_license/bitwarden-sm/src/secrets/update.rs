@@ -36,21 +36,21 @@ pub(crate) async fn update_secret(
     let key_store = client.internal.get_key_store();
     let key = SymmetricKeyId::Organization(input.organization_id);
 
-    let mut ctx = key_store.context();
-
-    let secret = Some(SecretUpdateRequestModel {
-        key: input.key.clone().trim().encrypt(&mut ctx, key)?.to_string(),
-        value: input.value.clone().encrypt(&mut ctx, key)?.to_string(),
-        note: input
-            .note
-            .clone()
-            .trim()
-            .encrypt(&mut ctx, key)?
-            .to_string(),
-        project_ids: input.project_ids.clone(),
-        access_policies_requests: None,
-    });
-    drop(ctx);
+    let secret = {
+        let mut ctx = key_store.context();
+        Some(SecretUpdateRequestModel {
+            key: input.key.clone().trim().encrypt(&mut ctx, key)?.to_string(),
+            value: input.value.clone().encrypt(&mut ctx, key)?.to_string(),
+            note: input
+                .note
+                .clone()
+                .trim()
+                .encrypt(&mut ctx, key)?
+                .to_string(),
+            project_ids: input.project_ids.clone(),
+            access_policies_requests: None,
+        })
+    };
 
     let config = client.internal.get_api_configurations().await;
     let res =

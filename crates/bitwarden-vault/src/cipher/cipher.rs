@@ -1014,19 +1014,22 @@ mod tests {
         let org_key = SymmetricKeyId::Organization(org);
 
         // Attachment has a key that is encrypted with the user key, as the cipher has no key itself
-        let mut ctx = key_store.context();
-        let attachment_key = ctx
-            .generate_symmetric_key(SymmetricKeyId::Local("test_attachment_key"))
-            .unwrap();
-        let attachment_key_enc = ctx
-            .encrypt_symmetric_key_with_symmetric_key(SymmetricKeyId::User, attachment_key)
-            .unwrap();
-        #[allow(deprecated)]
-        let attachment_key_val = ctx
-            .dangerous_get_symmetric_key(attachment_key)
-            .unwrap()
-            .clone();
-        drop(ctx);
+        let (attachment_key_enc, attachment_key_val) = {
+            let mut ctx = key_store.context();
+            let attachment_key = ctx
+                .generate_symmetric_key(SymmetricKeyId::Local("test_attachment_key"))
+                .unwrap();
+            let attachment_key_enc = ctx
+                .encrypt_symmetric_key_with_symmetric_key(SymmetricKeyId::User, attachment_key)
+                .unwrap();
+            #[allow(deprecated)]
+            let attachment_key_val = ctx
+                .dangerous_get_symmetric_key(attachment_key)
+                .unwrap()
+                .clone();
+
+            (attachment_key_enc, attachment_key_val)
+        };
 
         let mut cipher = generate_cipher();
         let attachment = AttachmentView {
