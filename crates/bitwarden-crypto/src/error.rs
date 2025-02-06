@@ -1,10 +1,12 @@
 use std::fmt::Debug;
 
+use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use uuid::Uuid;
 
 use crate::fingerprint::FingerprintError;
 
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CryptoError {
     #[error("The provided key is not the expected type")]
