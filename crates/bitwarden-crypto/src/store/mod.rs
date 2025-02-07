@@ -124,20 +124,25 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         keys.asymmetric_keys.clear();
     }
 
-    /// <div class="warning">
-    /// This is an advanced API, use with care. If you still need to use it, make sure you read this
-    /// documentation to understand how to use it safely. </div>
-    ///
     /// Initiate an encryption/decryption context. This context will have read only access to the
     /// global keys, and will have its own local key stores with read/write access. This
-    /// context-local store will be cleared up when the context is dropped.
+    /// context-local store will be cleared when the context is dropped.
     ///
-    /// Some possible use cases for this API and alternative recommendations are:
-    /// - Decrypting one or more [crate::EncString]s directly. This was the pattern before the
-    ///   introduction of  the [Encryptable] and [Decryptable] traits, but is now considered
-    ///   obsolete. We recommend wrapping the values in a struct that implements these traits
-    ///   instead, and then using [KeyStore::encrypt], [KeyStore::decrypt], [KeyStore::encrypt_list]
-    ///   and [KeyStore::decrypt_list].
+    /// If you are only looking to encrypt or decrypt items, you should implement
+    /// [Encryptable]/[Decryptable] and use the [KeyStore::encrypt], [KeyStore::decrypt],
+    /// [KeyStore::encrypt_list] and [KeyStore::decrypt_list] methods instead.
+    ///
+    /// The current implementation of context only clears the keys automatically when the context is
+    /// dropped, and not between operations. This means that if you are using the same context
+    /// for multiple operations, you may want to clear it manually between them. If possible, we
+    /// recommend using [KeyStore::encrypt_list] and [KeyStore::decrypt_list] instead.
+    ///
+    /// [KeyStoreContext] is not [Send] or [Sync] and should not be shared between threads. Note
+    /// that this can also be problematic in async code, and you should take care to ensure that
+    /// you're not holding references to the context across await points, as that would cause the
+    /// future to also not be [Send].
+    ///
+    /// Some other possible use cases for this API and alternative recommendations are:
     /// - Decrypting or encrypting multiple [Decryptable] or [Encryptable] items while sharing any
     ///   local keys. This is not recommended as it can lead to fragile and flaky
     ///   decryption/encryption operations. We recommend any local keys to be used only in the

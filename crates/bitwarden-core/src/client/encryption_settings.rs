@@ -66,6 +66,7 @@ impl EncryptionSettings {
             // )
         };
 
+        // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
         #[allow(deprecated)]
         {
             let mut ctx = store.context_mut();
@@ -82,6 +83,7 @@ impl EncryptionSettings {
     /// This is used only for logging in Secrets Manager with an access token
     #[cfg(feature = "secrets")]
     pub(crate) fn new_single_key(key: SymmetricCryptoKey, store: &KeyStore<KeyIds>) {
+        // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
         #[allow(deprecated)]
         store
             .context_mut()
@@ -96,18 +98,18 @@ impl EncryptionSettings {
     ) -> Result<(), EncryptionSettingsError> {
         let mut ctx = store.context_mut();
 
+        // FIXME: [PM-11690] - Early abort to handle private key being corrupt
+        if org_enc_keys.is_empty() {
+            return Ok(());
+        }
+
         if !ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey) {
-            return Err(VaultLockedError.into());
+            return Err(EncryptionSettingsError::MissingPrivateKey);
         }
 
         // Make sure we only keep the keys given in the arguments and not any of the previous
         // ones, which might be from organizations that the user is no longer a part of anymore
         ctx.retain_symmetric_keys(|key_ref| !matches!(key_ref, SymmetricKeyId::Organization(_)));
-
-        // FIXME: [PM-11690] - Early abort to handle private key being corrupt
-        if org_enc_keys.is_empty() {
-            return Ok(());
-        }
 
         // Decrypt the org keys with the private key
         for (org_id, org_enc_key) in org_enc_keys {
