@@ -180,12 +180,11 @@ impl CipherListView {
         ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<Option<String>, CryptoError> {
         let key = self.key_identifier();
-        let cipher_key = Cipher::get_cipher_key(ctx, key, &self.key)?;
-        let key = cipher_key.unwrap_or(key);
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         let totp = match self.r#type {
             CipherListViewType::Login(LoginListView { totp, .. }) => {
-                totp.map(|t| t.decrypt(ctx, key)).transpose()?
+                totp.map(|t| t.decrypt(ctx, ciphers_key)).transpose()?
             }
             _ => None,
         };
@@ -200,13 +199,12 @@ impl Encryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<Cipher, CryptoError> {
-        let ciphers_key = Cipher::get_cipher_key(ctx, key, &self.key)?;
-        let key = ciphers_key.unwrap_or(key);
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         let mut cipher_view = self.clone();
 
         // For compatibility reasons, we only create checksums for ciphers that have a key
-        if ciphers_key.is_some() {
+        if cipher_view.key.is_some() {
             cipher_view.generate_checksums();
         }
 
@@ -216,23 +214,23 @@ impl Encryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             folder_id: cipher_view.folder_id,
             collection_ids: cipher_view.collection_ids,
             key: cipher_view.key,
-            name: cipher_view.name.encrypt(ctx, key)?,
-            notes: cipher_view.notes.encrypt(ctx, key)?,
+            name: cipher_view.name.encrypt(ctx, ciphers_key)?,
+            notes: cipher_view.notes.encrypt(ctx, ciphers_key)?,
             r#type: cipher_view.r#type,
-            login: cipher_view.login.encrypt(ctx, key)?,
-            identity: cipher_view.identity.encrypt(ctx, key)?,
-            card: cipher_view.card.encrypt(ctx, key)?,
-            secure_note: cipher_view.secure_note.encrypt(ctx, key)?,
-            ssh_key: cipher_view.ssh_key.encrypt(ctx, key)?,
+            login: cipher_view.login.encrypt(ctx, ciphers_key)?,
+            identity: cipher_view.identity.encrypt(ctx, ciphers_key)?,
+            card: cipher_view.card.encrypt(ctx, ciphers_key)?,
+            secure_note: cipher_view.secure_note.encrypt(ctx, ciphers_key)?,
+            ssh_key: cipher_view.ssh_key.encrypt(ctx, ciphers_key)?,
             favorite: cipher_view.favorite,
             reprompt: cipher_view.reprompt,
             organization_use_totp: cipher_view.organization_use_totp,
             edit: cipher_view.edit,
             view_password: cipher_view.view_password,
-            local_data: cipher_view.local_data.encrypt(ctx, key)?,
-            attachments: cipher_view.attachments.encrypt(ctx, key)?,
-            fields: cipher_view.fields.encrypt(ctx, key)?,
-            password_history: cipher_view.password_history.encrypt(ctx, key)?,
+            local_data: cipher_view.local_data.encrypt(ctx, ciphers_key)?,
+            attachments: cipher_view.attachments.encrypt(ctx, ciphers_key)?,
+            fields: cipher_view.fields.encrypt(ctx, ciphers_key)?,
+            password_history: cipher_view.password_history.encrypt(ctx, ciphers_key)?,
             creation_date: cipher_view.creation_date,
             deleted_date: cipher_view.deleted_date,
             revision_date: cipher_view.revision_date,
@@ -246,8 +244,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<CipherView, CryptoError> {
-        let ciphers_key = Cipher::get_cipher_key(ctx, key, &self.key)?;
-        let key = ciphers_key.unwrap_or(key);
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         let mut cipher = CipherView {
             id: self.id,
@@ -255,30 +252,34 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
             key: self.key.clone(),
-            name: self.name.decrypt(ctx, key).ok().unwrap_or_default(),
-            notes: self.notes.decrypt(ctx, key).ok().flatten(),
+            name: self.name.decrypt(ctx, ciphers_key).ok().unwrap_or_default(),
+            notes: self.notes.decrypt(ctx, ciphers_key).ok().flatten(),
             r#type: self.r#type,
-            login: self.login.decrypt(ctx, key).ok().flatten(),
-            identity: self.identity.decrypt(ctx, key).ok().flatten(),
-            card: self.card.decrypt(ctx, key).ok().flatten(),
-            secure_note: self.secure_note.decrypt(ctx, key).ok().flatten(),
-            ssh_key: self.ssh_key.decrypt(ctx, key).ok().flatten(),
+            login: self.login.decrypt(ctx, ciphers_key).ok().flatten(),
+            identity: self.identity.decrypt(ctx, ciphers_key).ok().flatten(),
+            card: self.card.decrypt(ctx, ciphers_key).ok().flatten(),
+            secure_note: self.secure_note.decrypt(ctx, ciphers_key).ok().flatten(),
+            ssh_key: self.ssh_key.decrypt(ctx, ciphers_key).ok().flatten(),
             favorite: self.favorite,
             reprompt: self.reprompt,
             organization_use_totp: self.organization_use_totp,
             edit: self.edit,
             view_password: self.view_password,
-            local_data: self.local_data.decrypt(ctx, key).ok().flatten(),
-            attachments: self.attachments.decrypt(ctx, key).ok().flatten(),
-            fields: self.fields.decrypt(ctx, key).ok().flatten(),
-            password_history: self.password_history.decrypt(ctx, key).ok().flatten(),
+            local_data: self.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
+            attachments: self.attachments.decrypt(ctx, ciphers_key).ok().flatten(),
+            fields: self.fields.decrypt(ctx, ciphers_key).ok().flatten(),
+            password_history: self
+                .password_history
+                .decrypt(ctx, ciphers_key)
+                .ok()
+                .flatten(),
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
         };
 
         // For compatibility we only remove URLs with invalid checksums if the cipher has a key
-        if ciphers_key.is_some() {
+        if cipher.key.is_some() {
             cipher.remove_invalid_checksums();
         }
 
@@ -287,10 +288,9 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
 }
 
 impl Cipher {
-    /// Get the decrypted individual encryption key for this cipher.
+    /// Decrypt the individual encryption key for this cipher and return it's identifier.
     /// Note that some ciphers do not have individual encryption keys,
-    /// in which case this will return Ok(None) and the key associated
-    /// with this cipher's user or organization must be used instead
+    /// in which case this will return the provided key instead
     ///
     /// # Arguments
     ///
@@ -298,17 +298,17 @@ impl Cipher {
     /// * `key` - The key to use to decrypt the cipher key, this should be the user or organization
     ///   key
     /// * `ciphers_key` - The encrypted cipher key
-    pub(super) fn get_cipher_key(
+    pub(super) fn decrypt_cipher_key(
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
         ciphers_key: &Option<EncString>,
-    ) -> Result<Option<SymmetricKeyId>, CryptoError> {
+    ) -> Result<SymmetricKeyId, CryptoError> {
         const CIPHER_KEY: SymmetricKeyId = SymmetricKeyId::Local("cipher_key");
         match ciphers_key {
-            Some(ciphers_key) => ctx
-                .decrypt_symmetric_key_with_symmetric_key(key, CIPHER_KEY, ciphers_key)
-                .map(Some),
-            None => Ok(None),
+            Some(ciphers_key) => {
+                ctx.decrypt_symmetric_key_with_symmetric_key(key, CIPHER_KEY, ciphers_key)
+            }
+            None => Ok(key),
         }
     }
 
@@ -436,15 +436,14 @@ impl CipherView {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
-        let old_ciphers_key = Cipher::get_cipher_key(ctx, key, &self.key)?;
-        let old_key = old_ciphers_key.unwrap_or(key);
+        let old_ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         const NEW_KEY: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
 
         let new_key = ctx.generate_symmetric_key(NEW_KEY)?;
 
-        self.reencrypt_attachment_keys(ctx, old_key, new_key)?;
-        self.reencrypt_fido2_credentials(ctx, old_key, new_key)?;
+        self.reencrypt_attachment_keys(ctx, old_ciphers_key, new_key)?;
+        self.reencrypt_fido2_credentials(ctx, old_ciphers_key, new_key)?;
 
         self.key = Some(ctx.encrypt_symmetric_key_with_symmetric_key(key, new_key)?);
         Ok(())
@@ -486,15 +485,13 @@ impl CipherView {
         ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<Vec<Fido2CredentialView>, CryptoError> {
         let key = self.key_identifier();
-        let cipher_key = Cipher::get_cipher_key(ctx, key, &self.key)?;
-
-        let key = cipher_key.unwrap_or(key);
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         Ok(self
             .login
             .as_ref()
             .and_then(|l| l.fido2_credentials.as_ref())
-            .map(|f| f.decrypt(ctx, key))
+            .map(|f| f.decrypt(ctx, ciphers_key))
             .transpose()?
             .unwrap_or_default())
     }
@@ -549,8 +546,7 @@ impl CipherView {
     ) -> Result<(), CipherError> {
         let key = self.key_identifier();
 
-        let ciphers_key = Cipher::get_cipher_key(ctx, key, &self.key)?;
-        let ciphers_key = ciphers_key.unwrap_or(key);
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         require!(self.login.as_mut()).fido2_credentials = Some(creds.encrypt(ctx, ciphers_key)?);
 
@@ -563,8 +559,7 @@ impl CipherView {
     ) -> Result<Vec<Fido2CredentialFullView>, CipherError> {
         let key = self.key_identifier();
 
-        let ciphers_key = Cipher::get_cipher_key(ctx, key, &self.key)?;
-        let ciphers_key = ciphers_key.unwrap_or(key);
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         let login = require!(self.login.as_ref());
         let creds = require!(login.fido2_credentials.as_ref());
@@ -579,8 +574,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<CipherListView, CryptoError> {
-        let ciphers_key = Cipher::get_cipher_key(ctx, key, &self.key)?;
-        let key = ciphers_key.unwrap_or(key);
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         Ok(CipherListView {
             id: self.id,
@@ -588,9 +582,9 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
             key: self.key.clone(),
-            name: self.name.decrypt(ctx, key).ok().unwrap_or_default(),
+            name: self.name.decrypt(ctx, ciphers_key).ok().unwrap_or_default(),
             subtitle: self
-                .get_decrypted_subtitle(ctx, key)
+                .get_decrypted_subtitle(ctx, ciphers_key)
                 .ok()
                 .unwrap_or_default(),
             r#type: match self.r#type {
@@ -599,7 +593,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
                         .login
                         .as_ref()
                         .ok_or(CryptoError::MissingField("login"))?;
-                    CipherListViewType::Login(login.decrypt(ctx, key)?)
+                    CipherListViewType::Login(login.decrypt(ctx, ciphers_key)?)
                 }
                 CipherType::SecureNote => CipherListViewType::SecureNote,
                 CipherType::Card => CipherListViewType::Card,
