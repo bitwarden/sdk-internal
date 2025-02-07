@@ -1,15 +1,15 @@
 use std::sync::Arc;
 
-use bitwarden_core::{
-    mobile::crypto::{
-        DeriveKeyConnectorRequest, DerivePinKeyResponse, InitOrgCryptoRequest,
-        InitUserCryptoRequest, UpdatePasswordResponse,
-    },
-    Error,
+use bitwarden_core::mobile::crypto::{
+    DeriveKeyConnectorRequest, DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest,
+    UpdatePasswordResponse,
 };
 use bitwarden_crypto::{AsymmetricEncString, EncString};
 
-use crate::{error::Result, Client};
+use crate::{
+    error::{Error, Result},
+    Client,
+};
 
 #[derive(uniffi::Object)]
 pub struct CryptoClient(pub(crate) Arc<Client>);
@@ -43,34 +43,65 @@ impl CryptoClient {
     /// Get the uses's decrypted encryption key. Note: It's very important
     /// to keep this key safe, as it can be used to decrypt all of the user's data
     pub async fn get_user_encryption_key(&self) -> Result<String> {
-        Ok(self.0 .0.crypto().get_user_encryption_key().await?)
+        Ok(self
+            .0
+             .0
+            .crypto()
+            .get_user_encryption_key()
+            .await
+            .map_err(Error::MobileCrypto)?)
     }
 
     /// Update the user's password, which will re-encrypt the user's encryption key with the new
     /// password. This returns the new encrypted user key and the new password hash.
     pub fn update_password(&self, new_password: String) -> Result<UpdatePasswordResponse> {
-        Ok(self.0 .0.crypto().update_password(new_password)?)
+        Ok(self
+            .0
+             .0
+            .crypto()
+            .update_password(new_password)
+            .map_err(Error::MobileCrypto)?)
     }
 
     /// Generates a PIN protected user key from the provided PIN. The result can be stored and later
     /// used to initialize another client instance by using the PIN and the PIN key with
     /// `initialize_user_crypto`.
     pub fn derive_pin_key(&self, pin: String) -> Result<DerivePinKeyResponse> {
-        Ok(self.0 .0.crypto().derive_pin_key(pin)?)
+        Ok(self
+            .0
+             .0
+            .crypto()
+            .derive_pin_key(pin)
+            .map_err(Error::MobileCrypto)?)
     }
 
     /// Derives the pin protected user key from encrypted pin. Used when pin requires master
     /// password on first unlock.
     pub fn derive_pin_user_key(&self, encrypted_pin: EncString) -> Result<EncString> {
-        Ok(self.0 .0.crypto().derive_pin_user_key(encrypted_pin)?)
+        Ok(self
+            .0
+             .0
+            .crypto()
+            .derive_pin_user_key(encrypted_pin)
+            .map_err(Error::MobileCrypto)?)
     }
 
     pub fn enroll_admin_password_reset(&self, public_key: String) -> Result<AsymmetricEncString> {
-        Ok(self.0 .0.crypto().enroll_admin_password_reset(public_key)?)
+        Ok(self
+            .0
+             .0
+            .crypto()
+            .enroll_admin_password_reset(public_key)
+            .map_err(Error::EnrollAdminPasswordReset)?)
     }
 
     /// Derive the master key for migrating to the key connector
     pub fn derive_key_connector(&self, request: DeriveKeyConnectorRequest) -> Result<String> {
-        Ok(self.0 .0.crypto().derive_key_connector(request)?)
+        Ok(self
+            .0
+             .0
+            .crypto()
+            .derive_key_connector(request)
+            .map_err(Error::DeriveKeyConnector)?)
     }
 }

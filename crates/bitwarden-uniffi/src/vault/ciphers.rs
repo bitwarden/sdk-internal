@@ -12,17 +12,35 @@ pub struct ClientCiphers(pub Arc<Client>);
 impl ClientCiphers {
     /// Encrypt cipher
     pub fn encrypt(&self, cipher_view: CipherView) -> Result<Cipher> {
-        Ok(self.0 .0.vault().ciphers().encrypt(cipher_view)?)
+        Ok(self
+            .0
+             .0
+            .vault()
+            .ciphers()
+            .encrypt(cipher_view)
+            .map_err(Error::Encrypt)?)
     }
 
     /// Decrypt cipher
     pub fn decrypt(&self, cipher: Cipher) -> Result<CipherView> {
-        Ok(self.0 .0.vault().ciphers().decrypt(cipher)?)
+        Ok(self
+            .0
+             .0
+            .vault()
+            .ciphers()
+            .decrypt(cipher)
+            .map_err(Error::Decrypt)?)
     }
 
     /// Decrypt cipher list
     pub fn decrypt_list(&self, ciphers: Vec<Cipher>) -> Result<Vec<CipherListView>> {
-        Ok(self.0 .0.vault().ciphers().decrypt_list(ciphers)?)
+        Ok(self
+            .0
+             .0
+            .vault()
+            .ciphers()
+            .decrypt_list(ciphers)
+            .map_err(Error::Decrypt)?)
     }
 
     pub fn decrypt_fido2_credentials(
@@ -34,7 +52,8 @@ impl ClientCiphers {
              .0
             .vault()
             .ciphers()
-            .decrypt_fido2_credentials(cipher_view)?)
+            .decrypt_fido2_credentials(cipher_view)
+            .map_err(Error::Decrypt)?)
     }
 
     /// Move a cipher to an organization, reencrypting the cipher key if necessary

@@ -1,20 +1,23 @@
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use chrono::{DateTime, Utc};
 use credential_exchange_types::format::{
-    Account as CxpAccount, BasicAuthCredential, Credential, Item, ItemType, PasskeyCredential,
+    Account as CxfAccount, BasicAuthCredential, Credential, CreditCardCredential, Item,
+    PasskeyCredential,
 };
 
-use crate::{cxp::CxpError, CipherType, Fido2Credential, ImportingCipher, Login, LoginUri};
+use crate::{
+    cxf::{login::to_login, CxfError},
+    CipherType, ImportingCipher,
+};
 
-pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxpError> {
-    let account: CxpAccount = serde_json::from_str(&payload)?;
+pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfError> {
+    let account: CxfAccount = serde_json::from_str(&payload)?;
 
     let items: Vec<ImportingCipher> = account.items.into_iter().flat_map(parse_item).collect();
 
     Ok(items)
 }
 
-/// Convert a CXP timestamp to a DateTime<Utc>.
+/// Convert a CXF timestamp to a DateTime<Utc>.
 ///
 /// If the timestamp is None, the current time is used.
 fn convert_date(ts: Option<u64>) -> DateTime<Utc> {
@@ -28,60 +31,50 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
     let creation_date = convert_date(value.creation_at);
     let revision_date = convert_date(value.modified_at);
 
-    match value.ty {
-        ItemType::Login => {
-            let basic_auth = grouped.basic_auth.first();
-            let passkey = grouped.passkey.first();
+    let mut output = vec![];
 
-            let login = Login {
-                username: basic_auth.and_then(|v| v.username.as_ref().map(|u| u.value.clone())),
-                password: basic_auth.and_then(|v| v.password.as_ref().map(|u| u.value.clone())),
-                login_uris: basic_auth
-                    .map(|v| {
-                        v.urls
-                            .iter()
-                            .map(|u| LoginUri {
-                                uri: Some(u.clone()),
-                                r#match: None,
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default(),
-                totp: None,
-                fido2_credentials: passkey.map(|p| {
-                    vec![Fido2Credential {
-                        credential_id: format!("b64.{}", p.credential_id),
-                        key_type: "public-key".to_string(),
-                        key_algorithm: "ECDSA".to_string(),
-                        key_curve: "P-256".to_string(),
-                        key_value: URL_SAFE_NO_PAD.encode(&p.key),
-                        rp_id: p.rp_id.clone(),
-                        user_handle: Some(p.user_handle.to_string()),
-                        user_name: Some(p.user_name.clone()),
-                        counter: 0,
-                        rp_name: Some(p.rp_id.clone()),
-                        user_display_name: Some(p.user_display_name.clone()),
-                        discoverable: "true".to_string(),
-                        creation_date,
-                    }]
-                }),
-            };
+    // Login credentials
+    if !grouped.basic_auth.is_empty() || !grouped.passkey.is_empty() {
+        let basic_auth = grouped.basic_auth.first();
+        let passkey = grouped.passkey.first();
 
-            vec![ImportingCipher {
-                folder_id: None, // TODO: Handle folders
-                name: value.title,
-                notes: None,
-                r#type: CipherType::Login(Box::new(login)),
-                favorite: false,
-                reprompt: 0,
-                fields: vec![],
-                revision_date,
-                creation_date,
-                deleted_date: None,
-            }]
-        }
-        _ => vec![],
+        let login = to_login(creation_date, basic_auth, passkey);
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: None,
+            r#type: CipherType::Login(Box::new(login)),
+            favorite: false,
+            reprompt: 0,
+            fields: vec![],
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
     }
+
+    if !grouped.credit_card.is_empty() {
+        let credit_card = grouped
+            .credit_card
+            .first()
+            .expect("Credit card is not empty");
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: None,
+            r#type: CipherType::Card(Box::new(credit_card.into())),
+            favorite: false,
+            reprompt: 0,
+            fields: vec![],
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
+    }
+
+    output
 }
 
 /// Group credentials by type.
@@ -91,32 +84,43 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
 /// first of each type. Eventually we should add support for handling multiple credentials of the
 /// same type.
 fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials {
+    fn filter_credentials<T>(
+        credentials: &[Credential],
+        f: impl Fn(&Credential) -> Option<&T>,
+    ) -> Vec<T>
+    where
+        T: Clone,
+    {
+        credentials.iter().filter_map(f).cloned().collect()
+    }
+
     GroupedCredentials {
-        basic_auth: credentials
-            .iter()
-            .filter_map(|c| match c {
-                Credential::BasicAuth(basic_auth) => Some(*basic_auth.clone()),
-                _ => None,
-            })
-            .collect(),
-        passkey: credentials
-            .iter()
-            .filter_map(|c| match c {
-                Credential::Passkey(passkey) => Some(*passkey.clone()),
-                _ => None,
-            })
-            .collect(),
+        basic_auth: filter_credentials(&credentials, |c| match c {
+            Credential::BasicAuth(basic_auth) => Some(basic_auth.as_ref()),
+            _ => None,
+        }),
+        passkey: filter_credentials(&credentials, |c| match c {
+            Credential::Passkey(passkey) => Some(passkey.as_ref()),
+            _ => None,
+        }),
+        credit_card: filter_credentials(&credentials, |c| match c {
+            Credential::CreditCard(credit_card) => Some(credit_card.as_ref()),
+            _ => None,
+        }),
     }
 }
 
 struct GroupedCredentials {
     basic_auth: Vec<BasicAuthCredential>,
     passkey: Vec<PasskeyCredential>,
+    credit_card: Vec<CreditCardCredential>,
 }
 
 #[cfg(test)]
 mod tests {
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
     use chrono::Duration;
+    use credential_exchange_types::format::{CreditCardCredential, ItemType};
 
     use super::*;
 
@@ -138,7 +142,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_item() {
+    fn test_parse_empty_item() {
         let item = Item {
             id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
             creation_at: Some(1706613834),
@@ -153,11 +157,7 @@ mod tests {
         };
 
         let ciphers: Vec<ImportingCipher> = parse_item(item);
-        assert_eq!(ciphers.len(), 1);
-        let cipher = ciphers.first().unwrap();
-
-        assert_eq!(cipher.folder_id, None);
-        assert_eq!(cipher.name, "Bitwarden");
+        assert_eq!(ciphers.len(), 0);
     }
 
     #[test]
@@ -239,5 +239,47 @@ mod tests {
             passkey.creation_date,
             "2024-11-21T09:39:46Z".parse::<DateTime<Utc>>().unwrap()
         );
+    }
+
+    #[test]
+    fn test_credit_card() {
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            ty: ItemType::Identity,
+            title: "My MasterCard".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![Credential::CreditCard(Box::new(CreditCardCredential {
+                number: "1234 5678 9012 3456".to_string(),
+                full_name: "John Doe".to_string(),
+                card_type: Some("MasterCard".to_string()),
+                verification_number: Some("123".to_string()),
+                expiry_date: Some("2026-01".to_string()),
+                valid_from: None,
+            }))],
+            tags: None,
+            extensions: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        assert_eq!(cipher.folder_id, None);
+        assert_eq!(cipher.name, "My MasterCard");
+
+        let card = match &cipher.r#type {
+            CipherType::Card(card) => card,
+            _ => panic!("Expected card"),
+        };
+
+        assert_eq!(card.cardholder_name, Some("John Doe".to_string()));
+        assert_eq!(card.exp_month, Some("01".to_string()));
+        assert_eq!(card.exp_year, Some("2026".to_string()));
+        assert_eq!(card.code, Some("123".to_string()));
+        assert_eq!(card.brand, Some("Mastercard".to_string()));
+        assert_eq!(card.number, Some("1234 5678 9012 3456".to_string()));
     }
 }

@@ -7,7 +7,7 @@ use wasm_bindgen_test::*;
 #[cfg(feature = "wasm")]
 // `full` errors are just forwarded to TSify and Serde so this is just a smoke test
 fn converts_to_js() {
-    use bitwarden_error::prelude::*;
+    use bitwarden_error::bitwarden_error;
     use wasm_bindgen::JsValue;
 
     #[bitwarden_error(full)]

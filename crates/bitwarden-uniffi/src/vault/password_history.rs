@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bitwarden_vault::{PasswordHistory, PasswordHistoryView, VaultClientExt};
 
-use crate::{Client, Result};
+use crate::{error::Error, Client, Result};
 
 #[derive(uniffi::Object)]
 pub struct ClientPasswordHistory(pub Arc<Client>);
@@ -16,11 +16,18 @@ impl ClientPasswordHistory {
              .0
             .vault()
             .password_history()
-            .encrypt(password_history)?)
+            .encrypt(password_history)
+            .map_err(Error::Encrypt)?)
     }
 
     /// Decrypt password history
     pub fn decrypt_list(&self, list: Vec<PasswordHistory>) -> Result<Vec<PasswordHistoryView>> {
-        Ok(self.0 .0.vault().password_history().decrypt_list(list)?)
+        Ok(self
+            .0
+             .0
+            .vault()
+            .password_history()
+            .decrypt_list(list)
+            .map_err(Error::Decrypt)?)
     }
 }

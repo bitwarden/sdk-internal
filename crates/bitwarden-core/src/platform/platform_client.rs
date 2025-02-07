@@ -1,7 +1,7 @@
 use super::{
     generate_fingerprint::{generate_fingerprint, generate_user_fingerprint},
-    get_user_api_key, FingerprintRequest, FingerprintResponse, SecretVerificationRequest,
-    UserApiKeyResponse,
+    get_user_api_key, FingerprintError, FingerprintRequest, FingerprintResponse,
+    SecretVerificationRequest, UserApiKeyResponse, UserFingerprintError,
 };
 use crate::{error::Result, Client};
 
@@ -10,11 +10,17 @@ pub struct PlatformClient<'a> {
 }
 
 impl PlatformClient<'_> {
-    pub fn fingerprint(&self, input: &FingerprintRequest) -> Result<FingerprintResponse> {
+    pub fn fingerprint(
+        &self,
+        input: &FingerprintRequest,
+    ) -> Result<FingerprintResponse, FingerprintError> {
         generate_fingerprint(input)
     }
 
-    pub fn user_fingerprint(self, fingerprint_material: String) -> Result<String> {
+    pub fn user_fingerprint(
+        self,
+        fingerprint_material: String,
+    ) -> Result<String, UserFingerprintError> {
         generate_user_fingerprint(self.client, fingerprint_material)
     }
 

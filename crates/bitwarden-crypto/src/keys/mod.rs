@@ -1,5 +1,5 @@
 mod key_encryptable;
-pub use key_encryptable::{CryptoKey, KeyContainer, KeyDecryptable, KeyEncryptable, LocateKey};
+pub use key_encryptable::{CryptoKey, KeyContainer, KeyDecryptable, KeyEncryptable};
 mod master_key;
 pub use master_key::{
     default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
@@ -11,6 +11,7 @@ mod symmetric_crypto_key;
 #[cfg(test)]
 pub use symmetric_crypto_key::derive_symmetric_key;
 pub use symmetric_crypto_key::SymmetricCryptoKey;
+pub(crate) use symmetric_crypto_key::{Aes256CbcHmacKey, Aes256CbcKey};
 mod asymmetric_crypto_key;
 pub use asymmetric_crypto_key::{
     AsymmetricCryptoKey, AsymmetricEncryptable, AsymmetricPublicCryptoKey,

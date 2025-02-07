@@ -4,12 +4,13 @@ use chrono::Utc;
 use crate::{
     auth::api::request::AccessTokenRequest,
     client::ServiceAccountLoginMethod,
+    key_management::SymmetricKeyId,
     secrets_manager::state::{self, ClientState},
 };
 use crate::{
     auth::api::{request::ApiTokenRequest, response::IdentityTokenResponse},
     client::{internal::InternalClient, LoginMethod, UserLoginMethod},
-    error::{Error, Result},
+    error::{Error, NotAuthenticatedError, Result},
 };
 
 pub(crate) async fn renew_token(client: &InternalClient) -> Result<()> {
@@ -40,7 +41,7 @@ pub(crate) async fn renew_token(client: &InternalClient) -> Result<()> {
         let res = match login_method.as_ref() {
             LoginMethod::User(u) => match u {
                 UserLoginMethod::Username { client_id, .. } => {
-                    let refresh = tokens.refresh_token.ok_or(Error::NotAuthenticated)?;
+                    let refresh = tokens.refresh_token.ok_or(NotAuthenticatedError)?;
 
                     crate::auth::api::request::RenewTokenRequest::new(refresh, client_id.to_owned())
                         .send(&config)
@@ -70,10 +71,13 @@ pub(crate) async fn renew_token(client: &InternalClient) -> Result<()> {
                     .send(&config)
                     .await?;
 
-                    if let (IdentityTokenResponse::Payload(r), Some(state_file), Ok(enc_settings)) =
-                        (&result, state_file, client.get_encryption_settings())
+                    if let (IdentityTokenResponse::Payload(r), Some(state_file)) =
+                        (&result, state_file)
                     {
-                        if let Ok(enc_key) = enc_settings.get_key(&None) {
+                        let key_store = client.get_key_store();
+                        let ctx = key_store.context();
+                        #[allow(deprecated)]
+                        if let Ok(enc_key) = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User) {
                             let state =
                                 ClientState::new(r.access_token.clone(), enc_key.to_base64());
                             _ = state::set(state_file, access_token, state);
@@ -105,5 +109,5 @@ pub(crate) async fn renew_token(client: &InternalClient) -> Result<()> {
         }
     }
 
-    Err(Error::NotAuthenticated)
+    Err(NotAuthenticatedError)?
 }

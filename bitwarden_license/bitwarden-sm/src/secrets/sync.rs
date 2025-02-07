@@ -1,11 +1,12 @@
 use bitwarden_api_api::models::SecretsSyncResponseModel;
-use bitwarden_core::{client::encryption_settings::EncryptionSettings, require, Client, Error};
+use bitwarden_core::{key_management::KeyIds, require, Client};
+use bitwarden_crypto::KeyStoreContext;
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::SecretResponse;
+use crate::{error::SecretsManagerError, secrets::SecretResponse};
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -19,7 +20,7 @@ pub struct SecretsSyncRequest {
 pub(crate) async fn sync_secrets(
     client: &Client,
     input: &SecretsSyncRequest,
-) -> Result<SecretsSyncResponse, Error> {
+) -> Result<SecretsSyncResponse, SecretsManagerError> {
     let config = client.internal.get_api_configurations().await;
     let last_synced_date = input.last_synced_date.map(|date| date.to_rfc3339());
 
@@ -30,9 +31,9 @@ pub(crate) async fn sync_secrets(
     )
     .await?;
 
-    let enc = client.internal.get_encryption_settings()?;
+    let key_store = client.internal.get_key_store();
 
-    SecretsSyncResponse::process_response(res, &enc)
+    SecretsSyncResponse::process_response(res, &mut key_store.context())
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
@@ -45,8 +46,8 @@ pub struct SecretsSyncResponse {
 impl SecretsSyncResponse {
     pub(crate) fn process_response(
         response: SecretsSyncResponseModel,
-        enc: &EncryptionSettings,
-    ) -> Result<SecretsSyncResponse, Error> {
+        ctx: &mut KeyStoreContext<KeyIds>,
+    ) -> Result<SecretsSyncResponse, SecretsManagerError> {
         let has_changes = require!(response.has_changes);
 
         if has_changes {
@@ -54,7 +55,7 @@ impl SecretsSyncResponse {
                 .data
                 .unwrap_or_default()
                 .into_iter()
-                .map(|r| SecretResponse::process_base_response(r, enc))
+                .map(|r| SecretResponse::process_base_response(r, ctx))
                 .collect::<Result<_, _>>()?;
             return Ok(SecretsSyncResponse {
                 has_changes,

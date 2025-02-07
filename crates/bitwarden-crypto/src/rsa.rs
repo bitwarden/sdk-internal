@@ -37,11 +37,12 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
         .to_pkcs8_der()
         .map_err(|_| RsaError::CreatePrivateKey)?;
 
-    let protected = EncString::encrypt_aes256_hmac(
-        pkcs.as_bytes(),
-        key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?,
-        &key.key,
-    )?;
+    let protected = match key {
+        SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
+            EncString::encrypt_aes256_hmac(pkcs.as_bytes(), key)
+        }
+        _ => return Err(CryptoError::UnsupportedCipher),
+    }?;
 
     Ok(RsaKeyPair {
         public: b64,

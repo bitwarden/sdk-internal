@@ -13,7 +13,7 @@ pub(crate) mod ssh_key;
 pub use attachment::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
 };
-pub use card::CardView;
+pub use card::{CardBrand, CardView};
 pub use cipher::{Cipher, CipherError, CipherListView, CipherRepromptType, CipherType, CipherView};
 pub use field::FieldView;
 pub use identity::IdentityView;

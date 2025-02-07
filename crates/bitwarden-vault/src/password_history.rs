@@ -1,6 +1,7 @@
 use bitwarden_api_api::models::CipherPasswordHistoryModel;
+use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
@@ -24,22 +25,38 @@ pub struct PasswordHistoryView {
     last_used_date: DateTime<Utc>,
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, PasswordHistory> for PasswordHistoryView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<PasswordHistory, CryptoError> {
+impl IdentifyKey<SymmetricKeyId> for PasswordHistory {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::User
+    }
+}
+impl IdentifyKey<SymmetricKeyId> for PasswordHistoryView {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::User
+    }
+}
+
+impl Encryptable<KeyIds, SymmetricKeyId, PasswordHistory> for PasswordHistoryView {
+    fn encrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<PasswordHistory, CryptoError> {
         Ok(PasswordHistory {
-            password: self.password.encrypt_with_key(key)?,
+            password: self.password.encrypt(ctx, key)?,
             last_used_date: self.last_used_date,
         })
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, PasswordHistoryView> for PasswordHistory {
-    fn decrypt_with_key(
+impl Decryptable<KeyIds, SymmetricKeyId, PasswordHistoryView> for PasswordHistory {
+    fn decrypt(
         &self,
-        key: &SymmetricCryptoKey,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
     ) -> Result<PasswordHistoryView, CryptoError> {
         Ok(PasswordHistoryView {
-            password: self.password.decrypt_with_key(key).ok().unwrap_or_default(),
+            password: self.password.decrypt(ctx, key).ok().unwrap_or_default(),
             last_used_date: self.last_used_date,
         })
     }

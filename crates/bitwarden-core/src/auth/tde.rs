@@ -4,7 +4,7 @@ use bitwarden_crypto::{
     TrustDeviceResponse, UserKey,
 };
 
-use crate::{error::Result, Client};
+use crate::{client::encryption_settings::EncryptionSettingsError, error::Result, Client};
 
 /// This function generates a new user key and key pair, initializes the client's crypto with the
 /// generated user key, and encrypts the user key with the organization public key for admin
@@ -14,7 +14,7 @@ pub(super) fn make_register_tde_keys(
     email: String,
     org_public_key: String,
     remember_device: bool,
-) -> Result<RegisterTdeKeyResponse> {
+) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
     let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(org_public_key)?)?;
 
     let mut rng = rand::thread_rng();

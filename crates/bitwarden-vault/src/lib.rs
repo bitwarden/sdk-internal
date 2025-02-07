@@ -18,10 +18,11 @@ pub use totp::{
     generate_totp, generate_totp_cipher_view, Totp, TotpAlgorithm, TotpError, TotpResponse,
 };
 mod error;
-pub use error::VaultParseError;
+pub use error::{DecryptError, EncryptError, VaultParseError};
 mod vault_client;
 pub use vault_client::{VaultClient, VaultClientExt};
 mod mobile;
+pub use mobile::attachment_client::{DecryptFileError, EncryptFileError};
 mod sync;
 mod totp_client;
 pub use sync::{SyncRequest, SyncResponse};

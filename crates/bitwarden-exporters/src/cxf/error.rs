@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum CxpError {
+pub enum CxfError {
     #[error("JSON error: {0}")]
     Serde(#[from] serde_json::Error),
 

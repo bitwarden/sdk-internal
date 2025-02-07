@@ -1,12 +1,15 @@
 use bitwarden_api_api::models::ProjectUpdateRequestModel;
-use bitwarden_core::{validate_only_whitespaces, Client, Error};
-use bitwarden_crypto::KeyEncryptable;
+use bitwarden_core::{key_management::SymmetricKeyId, Client};
+use bitwarden_crypto::Encryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use validator::Validate;
 
-use super::ProjectResponse;
+use crate::{
+    error::{validate_only_whitespaces, SecretsManagerError},
+    projects::ProjectResponse,
+};
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Validate)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -22,14 +25,19 @@ pub struct ProjectPutRequest {
 pub(crate) async fn update_project(
     client: &Client,
     input: &ProjectPutRequest,
-) -> Result<ProjectResponse, Error> {
+) -> Result<ProjectResponse, SecretsManagerError> {
     input.validate()?;
 
-    let enc = client.internal.get_encryption_settings()?;
-    let key = enc.get_key(&Some(input.organization_id))?;
+    let key_store = client.internal.get_key_store();
+    let key = SymmetricKeyId::Organization(input.organization_id);
 
     let project = Some(ProjectUpdateRequestModel {
-        name: input.name.clone().trim().encrypt_with_key(key)?.to_string(),
+        name: input
+            .name
+            .clone()
+            .trim()
+            .encrypt(&mut key_store.context(), key)?
+            .to_string(),
     });
 
     let config = client.internal.get_api_configurations().await;
@@ -37,14 +45,14 @@ pub(crate) async fn update_project(
         bitwarden_api_api::apis::projects_api::projects_id_put(&config.api, input.id, project)
             .await?;
 
-    ProjectResponse::process_response(res, &enc)
+    ProjectResponse::process_response(res, &mut key_store.context())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    async fn update_project(name: String) -> Result<ProjectResponse, Error> {
+    async fn update_project(name: String) -> Result<ProjectResponse, SecretsManagerError> {
         let input = ProjectPutRequest {
             id: Uuid::new_v4(),
             organization_id: Uuid::new_v4(),

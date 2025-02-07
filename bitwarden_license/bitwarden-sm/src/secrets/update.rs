@@ -1,12 +1,15 @@
 use bitwarden_api_api::models::SecretUpdateRequestModel;
-use bitwarden_core::{validate_only_whitespaces, Client, Error};
-use bitwarden_crypto::KeyEncryptable;
+use bitwarden_core::{key_management::SymmetricKeyId, Client};
+use bitwarden_crypto::Encryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use validator::Validate;
 
-use super::SecretResponse;
+use crate::{
+    error::{validate_only_whitespaces, SecretsManagerError},
+    secrets::SecretResponse,
+};
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Validate)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -27,25 +30,33 @@ pub struct SecretPutRequest {
 pub(crate) async fn update_secret(
     client: &Client,
     input: &SecretPutRequest,
-) -> Result<SecretResponse, Error> {
+) -> Result<SecretResponse, SecretsManagerError> {
     input.validate()?;
 
-    let enc = client.internal.get_encryption_settings()?;
-    let key = enc.get_key(&Some(input.organization_id))?;
+    let key_store = client.internal.get_key_store();
+    let key = SymmetricKeyId::Organization(input.organization_id);
 
-    let secret = Some(SecretUpdateRequestModel {
-        key: input.key.clone().trim().encrypt_with_key(key)?.to_string(),
-        value: input.value.clone().encrypt_with_key(key)?.to_string(),
-        note: input.note.clone().trim().encrypt_with_key(key)?.to_string(),
-        project_ids: input.project_ids.clone(),
-        access_policies_requests: None,
-    });
+    let secret = {
+        let mut ctx = key_store.context();
+        Some(SecretUpdateRequestModel {
+            key: input.key.clone().trim().encrypt(&mut ctx, key)?.to_string(),
+            value: input.value.clone().encrypt(&mut ctx, key)?.to_string(),
+            note: input
+                .note
+                .clone()
+                .trim()
+                .encrypt(&mut ctx, key)?
+                .to_string(),
+            project_ids: input.project_ids.clone(),
+            access_policies_requests: None,
+        })
+    };
 
     let config = client.internal.get_api_configurations().await;
     let res =
         bitwarden_api_api::apis::secrets_api::secrets_id_put(&config.api, input.id, secret).await?;
 
-    SecretResponse::process_response(res, &enc)
+    SecretResponse::process_response(res, &mut key_store.context())
 }
 
 #[cfg(test)]
@@ -56,7 +67,7 @@ mod tests {
         key: Option<String>,
         value: Option<String>,
         note: Option<String>,
-    ) -> Result<SecretResponse, Error> {
+    ) -> Result<SecretResponse, SecretsManagerError> {
         let input = SecretPutRequest {
             id: Uuid::new_v4(),
             organization_id: Uuid::new_v4(),

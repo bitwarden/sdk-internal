@@ -7,7 +7,7 @@ use wasm_bindgen_test::*;
 fn converts_to_js_error_using_to_string() {
     use std::fmt::Display;
 
-    use bitwarden_error::prelude::*;
+    use bitwarden_error::{bitwarden_error, wasm::SdkJsError};
     use wasm_bindgen::JsValue;
 
     #[bitwarden_error(basic)]
@@ -32,7 +32,7 @@ fn converts_to_js_error_using_to_string() {
 fn outputs_different_name_when_given_export_as() {
     use std::fmt::Display;
 
-    use bitwarden_error::prelude::*;
+    use bitwarden_error::{bitwarden_error, wasm::SdkJsError};
     use wasm_bindgen::JsValue;
 
     #[bitwarden_error(basic, export_as = "SomeOtherError")]

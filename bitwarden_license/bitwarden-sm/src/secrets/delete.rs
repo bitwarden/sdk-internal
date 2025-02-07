@@ -1,10 +1,12 @@
 use bitwarden_api_api::models::{
     BulkDeleteResponseModel, BulkDeleteResponseModelListResponseModel,
 };
-use bitwarden_core::{client::Client, require, Error};
+use bitwarden_core::{client::Client, require};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+use crate::error::SecretsManagerError;
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -16,7 +18,7 @@ pub struct SecretsDeleteRequest {
 pub(crate) async fn delete_secrets(
     client: &Client,
     input: SecretsDeleteRequest,
-) -> Result<SecretsDeleteResponse, Error> {
+) -> Result<SecretsDeleteResponse, SecretsManagerError> {
     let config = client.internal.get_api_configurations().await;
     let res =
         bitwarden_api_api::apis::secrets_api::secrets_delete_post(&config.api, Some(input.ids))
@@ -34,7 +36,7 @@ pub struct SecretsDeleteResponse {
 impl SecretsDeleteResponse {
     pub(crate) fn process_response(
         response: BulkDeleteResponseModelListResponseModel,
-    ) -> Result<SecretsDeleteResponse, Error> {
+    ) -> Result<SecretsDeleteResponse, SecretsManagerError> {
         Ok(SecretsDeleteResponse {
             data: response
                 .data
@@ -56,7 +58,7 @@ pub struct SecretDeleteResponse {
 impl SecretDeleteResponse {
     pub(crate) fn process_response(
         response: BulkDeleteResponseModel,
-    ) -> Result<SecretDeleteResponse, Error> {
+    ) -> Result<SecretDeleteResponse, SecretsManagerError> {
         Ok(SecretDeleteResponse {
             id: require!(response.id),
             error: response.error,

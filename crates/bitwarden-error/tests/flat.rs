@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use bitwarden_error::prelude::*;
+use bitwarden_error::{bitwarden_error, flat_error::FlatError};
 #[cfg(feature = "wasm")]
 use wasm_bindgen_test::*;
 
@@ -82,6 +82,7 @@ fn variant_names_for_enum() {
 #[cfg(feature = "wasm")]
 #[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
 fn converts_to_js_error() {
+    use bitwarden_error::wasm::SdkJsError;
     use wasm_bindgen::JsValue;
 
     #[bitwarden_error(flat)]
@@ -109,6 +110,7 @@ fn converts_to_js_error() {
 #[cfg(feature = "wasm")]
 #[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
 fn outputs_different_name_when_given_export_as() {
+    use bitwarden_error::wasm::SdkJsError;
     use wasm_bindgen::JsValue;
 
     #[bitwarden_error(flat, export_as = "SomeOtherEnum")]
