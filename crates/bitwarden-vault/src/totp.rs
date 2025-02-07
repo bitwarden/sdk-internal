@@ -5,7 +5,7 @@ use bitwarden_crypto::{CryptoError, KeyStoreContext};
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
-use percent_encoding::{percent_decode, percent_decode_str};
+use percent_encoding::percent_decode_str;
 use reqwest::Url;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
