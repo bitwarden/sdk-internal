@@ -66,6 +66,7 @@ impl EncryptionSettings {
             // )
         };
 
+        // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
         #[allow(deprecated)]
         {
             let mut ctx = store.context_mut();
@@ -82,6 +83,7 @@ impl EncryptionSettings {
     /// This is used only for logging in Secrets Manager with an access token
     #[cfg(feature = "secrets")]
     pub(crate) fn new_single_key(key: SymmetricCryptoKey, store: &KeyStore<KeyIds>) {
+        // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
         #[allow(deprecated)]
         store
             .context_mut()

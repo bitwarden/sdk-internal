@@ -221,6 +221,7 @@ pub async fn initialize_org_crypto(
 pub async fn get_user_encryption_key(client: &Client) -> Result<String, MobileCryptoError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
+    // This is needed because the mobile clients need access to the user encryption key
     #[allow(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
@@ -243,6 +244,7 @@ pub fn update_password(
 ) -> Result<UpdatePasswordResponse, MobileCryptoError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
+    // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
     #[allow(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
@@ -290,6 +292,7 @@ pub fn derive_pin_key(
 ) -> Result<DerivePinKeyResponse, MobileCryptoError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
+    // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
     #[allow(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
@@ -312,6 +315,7 @@ pub fn derive_pin_user_key(
 ) -> Result<EncString, MobileCryptoError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
+    // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
     #[allow(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
@@ -364,6 +368,7 @@ pub(super) fn enroll_admin_password_reset(
     let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(public_key)?)?;
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
+    // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
     #[allow(deprecated)]
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
