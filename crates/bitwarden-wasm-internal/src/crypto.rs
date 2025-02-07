@@ -8,6 +8,7 @@ use bitwarden_core::{
     },
     Client,
 };
+use bitwarden_crypto::CryptoError;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -41,10 +42,7 @@ impl CryptoClient {
 
     /// Generates a new key pair and encrypts the private key with the provided user key.
     /// Crypto initialization not required.
-    pub fn make_key_pair(
-        &self,
-        user_key: String,
-    ) -> Result<MakeKeyPairResponse, bitwarden_core::Error> {
+    pub fn make_key_pair(&self, user_key: String) -> Result<MakeKeyPairResponse, CryptoError> {
         self.0.crypto().make_key_pair(user_key)
     }
 
@@ -54,7 +52,7 @@ impl CryptoClient {
     pub fn verify_asymmetric_keys(
         &self,
         request: VerifyAsymmetricKeysRequest,
-    ) -> Result<VerifyAsymmetricKeysResponse, bitwarden_core::Error> {
+    ) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
         self.0.crypto().verify_asymmetric_keys(request)
     }
 }

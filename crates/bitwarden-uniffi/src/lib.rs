@@ -17,7 +17,7 @@ pub mod vault;
 mod android_support;
 
 use crypto::CryptoClient;
-use error::Result;
+use error::{Error, Result};
 use platform::PlatformClient;
 use tool::{ExporterClient, GeneratorClients, SendClient, SshClient};
 use vault::VaultClient;
@@ -89,9 +89,9 @@ impl Client {
             .get(&url)
             .send()
             .await
-            .map_err(bitwarden_core::Error::Reqwest)?;
+            .map_err(|e| Error::Api(e.into()))?;
 
-        Ok(res.text().await.map_err(bitwarden_core::Error::Reqwest)?)
+        Ok(res.text().await.map_err(|e| Error::Api(e.into()))?)
     }
 }
 

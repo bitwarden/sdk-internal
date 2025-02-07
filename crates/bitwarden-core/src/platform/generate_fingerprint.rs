@@ -3,8 +3,9 @@ use bitwarden_crypto::fingerprint;
 use log::info;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
-use crate::error::Result;
+use crate::{error::Result, key_management::AsymmetricKeyId, VaultLockedError};
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -22,7 +23,18 @@ pub struct FingerprintResponse {
     pub fingerprint: String,
 }
 
-pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<FingerprintResponse> {
+/// Errors that can occur when computing a fingerprint.
+#[derive(Debug, Error)]
+pub enum FingerprintError {
+    #[error(transparent)]
+    CryptoError(#[from] bitwarden_crypto::CryptoError),
+    #[error(transparent)]
+    InvalidBase64(#[from] base64::DecodeError),
+}
+
+pub(crate) fn generate_fingerprint(
+    input: &FingerprintRequest,
+) -> Result<FingerprintResponse, FingerprintError> {
     info!("Generating fingerprint");
 
     let key = STANDARD.decode(&input.public_key)?;
@@ -32,17 +44,29 @@ pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<Fingerp
     })
 }
 
+/// Errors that can occur when computing a fingerprint.
+#[derive(Debug, Error)]
+pub enum UserFingerprintError {
+    #[error(transparent)]
+    Crypto(#[from] bitwarden_crypto::CryptoError),
+    #[error(transparent)]
+    VaultLocked(#[from] VaultLockedError),
+    #[error("Missing private key")]
+    MissingPrivateKey,
+}
+
 pub(crate) fn generate_user_fingerprint(
     client: &crate::Client,
     fingerprint_material: String,
-) -> Result<String> {
+) -> Result<String, UserFingerprintError> {
     info!("Generating fingerprint");
 
-    let enc_settings = client.internal.get_encryption_settings()?;
-    let private_key = enc_settings
-        .private_key
-        .as_ref()
-        .ok_or("Missing private key")?;
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+    // FIXME: [PM-18110] This should be removed once the key store can handle public keys and
+    // fingerprints
+    #[allow(deprecated)]
+    let private_key = ctx.dangerous_get_asymmetric_key(AsymmetricKeyId::UserPrivateKey)?;
 
     let public_key = private_key.to_public_der()?;
     let fingerprint = fingerprint(&fingerprint_material, &public_key)?;
