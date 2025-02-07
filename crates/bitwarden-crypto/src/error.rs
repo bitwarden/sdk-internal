@@ -53,6 +53,12 @@ pub enum CryptoError {
 
     #[error("Encryption type mismatch")]
     EncryptionTypeMismatch,
+
+    #[error("Invalid key hash algorithm")]
+    InvalidHashAlgorithm,
+
+    #[error("Error parsing key hash")]
+    HashParseError,
 }
 
 #[derive(Debug, Error)]

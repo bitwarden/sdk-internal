@@ -6,7 +6,7 @@ use generic_array::GenericArray;
 use rand::Rng;
 use zeroize::Zeroize;
 
-use super::key_encryptable::CryptoKey;
+use super::{key_encryptable::CryptoKey, key_hash::KeyHashData};
 #[cfg(not(test))]
 use super::master_key::KdfDerivedKeymaterial;
 use crate::CryptoError;
@@ -46,6 +46,21 @@ pub enum SymmetricCryptoKey {
 impl Drop for SymmetricCryptoKey {
     fn drop(&mut self) {
         self.zeroize();
+    }
+}
+
+impl KeyHashData for SymmetricCryptoKey {
+    fn hash_data(&self) -> Vec<u8> {
+        match &self {
+            SymmetricCryptoKey::Aes256CbcKey(key) => key.encryption_key.as_ref().to_vec(),
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
+                let mut buf = Vec::with_capacity(64);
+                buf.extend_from_slice(&key.encryption_key);
+                buf.extend_from_slice(&key.mac_key);
+                buf
+            }
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.encryption_key.as_ref().to_vec(),
+        }
     }
 }
 
