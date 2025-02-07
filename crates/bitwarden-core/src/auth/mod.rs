@@ -1,5 +1,5 @@
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{HashPurpose, Kdf, MasterKey};
+use bitwarden_crypto::{CryptoError, HashPurpose, Kdf, MasterKey};
 
 mod access_token;
 pub(super) mod api;
@@ -17,9 +17,9 @@ pub use jwt_token::JWTToken;
 #[cfg(feature = "internal")]
 mod auth_request;
 #[cfg(feature = "internal")]
-pub use auth_request::AuthRequestResponse;
-#[cfg(feature = "internal")]
 pub(crate) use auth_request::{auth_request_decrypt_master_key, auth_request_decrypt_user_key};
+#[cfg(feature = "internal")]
+pub use auth_request::{ApproveAuthRequestError, AuthRequestResponse};
 
 #[cfg(feature = "internal")]
 mod register;
@@ -34,9 +34,25 @@ pub use tde::RegisterTdeKeyResponse;
 mod key_connector;
 #[cfg(feature = "internal")]
 pub use key_connector::KeyConnectorResponse;
+use thiserror::Error;
 
 #[cfg(feature = "internal")]
 use crate::error::Result;
+use crate::{NotAuthenticatedError, VaultLockedError, WrongPasswordError};
+
+#[derive(Debug, Error)]
+pub enum AuthValidateError {
+    #[error(transparent)]
+    NotAuthenticated(#[from] NotAuthenticatedError),
+    #[error(transparent)]
+    WrongPassword(#[from] WrongPasswordError),
+    #[error(transparent)]
+    VaultLocked(#[from] VaultLockedError),
+    #[error("wrong user key")]
+    WrongUserKey,
+    #[error(transparent)]
+    Crypto(#[from] bitwarden_crypto::CryptoError),
+}
 
 #[cfg(feature = "internal")]
 fn determine_password_hash(
@@ -44,9 +60,9 @@ fn determine_password_hash(
     kdf: &Kdf,
     password: &str,
     purpose: HashPurpose,
-) -> Result<String> {
+) -> Result<String, CryptoError> {
     let master_key = MasterKey::derive(password, email, kdf)?;
-    Ok(master_key.derive_master_key_hash(password.as_bytes(), purpose)?)
+    master_key.derive_master_key_hash(password.as_bytes(), purpose)
 }
 
 #[cfg(test)]

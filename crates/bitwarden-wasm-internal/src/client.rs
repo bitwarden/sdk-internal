@@ -2,7 +2,7 @@ extern crate console_error_panic_hook;
 use std::{fmt::Display, rc::Rc};
 
 use bitwarden_core::{Client, ClientSettings};
-use bitwarden_error::prelude::*;
+use bitwarden_error::bitwarden_error;
 use log::{set_max_level, Level};
 use wasm_bindgen::prelude::*;
 

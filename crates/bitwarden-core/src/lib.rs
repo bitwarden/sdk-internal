@@ -8,7 +8,10 @@ pub mod admin_console;
 pub mod auth;
 pub mod client;
 mod error;
-pub use error::{validate_only_whitespaces, Error, MissingFieldError, VaultLocked};
+pub mod key_management;
+pub use error::{
+    ApiError, Error, MissingFieldError, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
+};
 #[cfg(feature = "internal")]
 pub mod mobile;
 #[cfg(feature = "internal")]

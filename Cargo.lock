@@ -392,7 +392,6 @@ dependencies = [
  "bitwarden-error",
  "chrono",
  "getrandom",
- "hmac",
  "log",
  "rand",
  "rand_chacha",
@@ -404,14 +403,11 @@ dependencies = [
  "serde_json",
  "serde_qs",
  "serde_repr",
- "sha1",
- "sha2",
  "thiserror 1.0.69",
  "tokio",
  "tsify-next",
  "uniffi",
  "uuid",
- "validator",
  "wasm-bindgen",
  "wiremock",
  "zeroize",
@@ -425,6 +421,7 @@ dependencies = [
  "aes",
  "argon2",
  "base64",
+ "bitwarden-error",
  "cbc",
  "criterion",
  "generic-array",
@@ -560,6 +557,7 @@ dependencies = [
  "thiserror 1.0.69",
  "uniffi",
  "uuid",
+ "wasm-bindgen",
  "zeroize",
 ]
 
@@ -571,6 +569,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "chrono",
+ "log",
  "schemars",
  "serde",
  "serde_json",
@@ -634,6 +633,7 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-error",
  "chrono",
  "hmac",
  "percent-encoding",
@@ -662,6 +662,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-ssh",
  "bitwarden-vault",
+ "chrono",
  "console_error_panic_hook",
  "console_log",
  "js-sys",
@@ -2623,7 +2624,7 @@ dependencies = [
 [[package]]
 name = "passkey"
 version = "0.2.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=ff757604cd7b4e8f321ed1616fef7e40e21ac5df#ff757604cd7b4e8f321ed1616fef7e40e21ac5df"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
 dependencies = [
  "passkey-authenticator",
  "passkey-client",
@@ -2634,7 +2635,7 @@ dependencies = [
 [[package]]
 name = "passkey-authenticator"
 version = "0.2.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=ff757604cd7b4e8f321ed1616fef7e40e21ac5df#ff757604cd7b4e8f321ed1616fef7e40e21ac5df"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
 dependencies = [
  "async-trait",
  "coset",
@@ -2647,7 +2648,7 @@ dependencies = [
 [[package]]
 name = "passkey-client"
 version = "0.2.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=ff757604cd7b4e8f321ed1616fef7e40e21ac5df#ff757604cd7b4e8f321ed1616fef7e40e21ac5df"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
 dependencies = [
  "ciborium",
  "coset",
@@ -2664,12 +2665,12 @@ dependencies = [
 [[package]]
 name = "passkey-transports"
 version = "0.1.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=ff757604cd7b4e8f321ed1616fef7e40e21ac5df#ff757604cd7b4e8f321ed1616fef7e40e21ac5df"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
 
 [[package]]
 name = "passkey-types"
 version = "0.2.1"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=ff757604cd7b4e8f321ed1616fef7e40e21ac5df#ff757604cd7b4e8f321ed1616fef7e40e21ac5df"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
 dependencies = [
  "bitflags 2.8.0",
  "ciborium",
@@ -2891,7 +2892,7 @@ dependencies = [
 [[package]]
 name = "public-suffix"
 version = "0.1.1"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=ff757604cd7b4e8f321ed1616fef7e40e21ac5df#ff757604cd7b4e8f321ed1616fef7e40e21ac5df"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
 
 [[package]]
 name = "quinn"
