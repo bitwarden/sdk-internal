@@ -28,6 +28,7 @@ pub(crate) fn validate_pin(
         | UserLoginMethod::ApiKey { email, kdf, .. } => {
             let key_store = client.internal.get_key_store();
             let ctx = key_store.context();
+            // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
             #[allow(deprecated)]
             let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 

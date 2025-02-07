@@ -218,7 +218,6 @@ impl InternalClient {
         &self,
         org_keys: Vec<(Uuid, AsymmetricEncString)>,
     ) -> Result<(), EncryptionSettingsError> {
-        EncryptionSettings::set_org_keys(org_keys, &self.key_store)?;
-        Ok(())
+        EncryptionSettings::set_org_keys(org_keys, &self.key_store)
     }
 }

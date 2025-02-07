@@ -76,8 +76,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<AttachmentEncryptResult, CryptoError> {
-        let ciphers_key = Cipher::get_cipher_key(ctx, key, &self.cipher.key)?;
-        let ciphers_key = ciphers_key.unwrap_or(key);
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key)?;
 
         let mut attachment = self.attachment.clone();
 
@@ -117,8 +116,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, Vec<u8>> for AttachmentFile {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<Vec<u8>, CryptoError> {
-        let ciphers_key = Cipher::get_cipher_key(ctx, key, &self.cipher.key)?;
-        let ciphers_key = ciphers_key.unwrap_or(key);
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key)?;
 
         // Version 2 or 3, `AttachmentKey` or `CipherKey(AttachmentKey)`
         if let Some(attachment_key) = &self.attachment.key {
