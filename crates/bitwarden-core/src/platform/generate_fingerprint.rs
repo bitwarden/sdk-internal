@@ -8,7 +8,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{MissingPrivateKeyError, VaultLockedError};
+use crate::{key_management::AsymmetricKeyId, MissingPrivateKeyError, VaultLockedError};
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -56,11 +56,12 @@ pub(crate) fn generate_user_fingerprint(
     client: &crate::Client,
     fingerprint_material: String,
 ) -> Result<String, UserFingerprintError> {
-    let enc_settings = client.internal.get_encryption_settings()?;
-    let private_key = enc_settings
-        .private_key
-        .as_ref()
-        .ok_or(MissingPrivateKeyError)?;
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+    // FIXME: [PM-18110] This should be removed once the key store can handle public keys and
+    // fingerprints
+    #[allow(deprecated)]
+    let private_key = ctx.dangerous_get_asymmetric_key(AsymmetricKeyId::UserPrivateKey)?;
 
     let public_key = private_key.to_public_der()?;
     let fingerprint = fingerprint(&fingerprint_material, &public_key)?;

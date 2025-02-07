@@ -1,5 +1,6 @@
 use bitwarden_api_api::models::ProjectResponseModelListResponseModel;
-use bitwarden_core::client::{encryption_settings::EncryptionSettings, Client};
+use bitwarden_core::{client::Client, key_management::KeyIds};
+use bitwarden_crypto::KeyStoreContext;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -24,9 +25,9 @@ pub(crate) async fn list_projects(
     )
     .await?;
 
-    let enc = client.internal.get_encryption_settings()?;
+    let key_store = client.internal.get_key_store();
 
-    ProjectsResponse::process_response(res, &enc)
+    ProjectsResponse::process_response(res, &mut key_store.context())
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
@@ -38,14 +39,14 @@ pub struct ProjectsResponse {
 impl ProjectsResponse {
     pub(crate) fn process_response(
         response: ProjectResponseModelListResponseModel,
-        enc: &EncryptionSettings,
+        ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<Self, SecretsManagerError> {
         let data = response.data.unwrap_or_default();
 
         Ok(ProjectsResponse {
             data: data
                 .into_iter()
-                .map(|r| ProjectResponse::process_response(r, enc))
+                .map(|r| ProjectResponse::process_response(r, ctx))
                 .collect::<Result<_, _>>()?,
         })
     }

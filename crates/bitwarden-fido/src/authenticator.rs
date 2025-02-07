@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 
 use bitwarden_core::{Client, VaultLockedError};
-use bitwarden_crypto::{CryptoError, KeyContainer, KeyEncryptable};
+use bitwarden_crypto::CryptoError;
 use bitwarden_vault::{CipherError, CipherView};
 use itertools::Itertools;
 use log::error;
@@ -249,14 +249,15 @@ impl<'a> Fido2Authenticator<'a> {
         &mut self,
         rp_id: String,
     ) -> Result<Vec<Fido2CredentialAutofillView>, SilentlyDiscoverCredentialsError> {
-        let enc = self.client.internal.get_encryption_settings()?;
+        let key_store = self.client.internal.get_key_store();
         let result = self.credential_store.find_credentials(None, rp_id).await?;
 
+        let mut ctx = key_store.context();
         result
             .into_iter()
             .map(
                 |cipher| -> Result<Vec<Fido2CredentialAutofillView>, SilentlyDiscoverCredentialsError> {
-                    Ok(Fido2CredentialAutofillView::from_cipher_view(&cipher, &*enc)?)
+                    Ok(Fido2CredentialAutofillView::from_cipher_view(&cipher, &mut ctx)?)
                 },
             )
             .flatten_ok()
@@ -268,15 +269,16 @@ impl<'a> Fido2Authenticator<'a> {
     pub async fn credentials_for_autofill(
         &mut self,
     ) -> Result<Vec<Fido2CredentialAutofillView>, CredentialsForAutofillError> {
-        let enc = self.client.internal.get_encryption_settings()?;
+        let key_store = self.client.internal.get_key_store();
         let all_credentials = self.credential_store.all_credentials().await?;
 
+        let mut ctx = key_store.context();
         all_credentials
             .into_iter()
             .map(
                 |cipher| -> Result<Vec<Fido2CredentialAutofillView>, CredentialsForAutofillError> {
                     Ok(Fido2CredentialAutofillView::from_cipher_view(
-                        &cipher, &*enc,
+                        &cipher, &mut ctx,
                     )?)
                 },
             )
@@ -313,7 +315,7 @@ impl<'a> Fido2Authenticator<'a> {
     pub(super) fn get_selected_credential(
         &self,
     ) -> Result<SelectedCredential, GetSelectedCredentialError> {
-        let enc = self.client.internal.get_encryption_settings()?;
+        let key_store = self.client.internal.get_key_store();
 
         let cipher = self
             .selected_cipher
@@ -322,7 +324,7 @@ impl<'a> Fido2Authenticator<'a> {
             .clone()
             .ok_or(GetSelectedCredentialError::NoSelectedCredential)?;
 
-        let creds = cipher.decrypt_fido2_credentials(&*enc)?;
+        let creds = cipher.decrypt_fido2_credentials(&mut key_store.context())?;
 
         let credential = creds
             .first()
@@ -376,12 +378,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                 .find_credentials(ids, rp_id.to_string())
                 .await?;
 
-            let enc = this
-                .authenticator
-                .client
-                .internal
-                .get_encryption_settings()?;
-
             // Remove any that don't have Fido2 credentials
             let creds: Vec<_> = ciphers
                 .into_iter()
@@ -393,11 +389,13 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                 })
                 .collect();
 
+            let key_store = this.authenticator.client.internal.get_key_store();
+
             // When using the credential for authentication we have to ask the user to pick one.
             if this.create_credential {
                 Ok(creds
                     .into_iter()
-                    .map(|c| CipherViewContainer::new(c, &*enc))
+                    .map(|c| CipherViewContainer::new(c, &mut key_store.context()))
                     .collect::<Result<_, _>>()?)
             } else {
                 let picked = this
@@ -413,7 +411,10 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                     .expect("Mutex is not poisoned")
                     .replace(picked.clone());
 
-                Ok(vec![CipherViewContainer::new(picked, &*enc)?])
+                Ok(vec![CipherViewContainer::new(
+                    picked,
+                    &mut key_store.context(),
+                )?])
             }
         }
 
@@ -457,12 +458,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             rp: passkey::types::ctap2::make_credential::PublicKeyCredentialRpEntity,
             options: passkey::types::ctap2::get_assertion::Options,
         ) -> Result<(), InnerError> {
-            let enc = this
-                .authenticator
-                .client
-                .internal
-                .get_encryption_settings()?;
-
             let cred = try_from_credential_full(cred, user, rp, options)?;
 
             // Get the previously selected cipher and add the new credential to it
@@ -474,7 +469,9 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                 .clone()
                 .ok_or(InnerError::NoSelectedCredential)?;
 
-            selected.set_new_fido2_credentials(&*enc, vec![cred])?;
+            let key_store = this.authenticator.client.internal.get_key_store();
+
+            selected.set_new_fido2_credentials(&mut key_store.context(), vec![cred])?;
 
             // Store the updated credential for later use
             this.authenticator
@@ -484,8 +481,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                 .replace(selected.clone());
 
             // Encrypt the updated cipher before sending it to the clients to be stored
-            let key = enc.get_key(&selected.organization_id)?;
-            let encrypted = selected.encrypt_with_key(key)?;
+            let encrypted = key_store.encrypt(selected)?;
 
             this.authenticator
                 .credential_store
@@ -529,12 +525,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             this: &mut CredentialStoreImpl<'_>,
             cred: Passkey,
         ) -> Result<(), InnerError> {
-            let enc = this
-                .authenticator
-                .client
-                .internal
-                .get_encryption_settings()?;
-
             // Get the previously selected cipher and update the credential
             let selected = this.authenticator.get_selected_credential()?;
 
@@ -547,8 +537,10 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
 
             let cred = fill_with_credential(&selected.credential, cred)?;
 
+            let key_store = this.authenticator.client.internal.get_key_store();
+
             let mut selected = selected.cipher;
-            selected.set_new_fido2_credentials(&*enc, vec![cred])?;
+            selected.set_new_fido2_credentials(&mut key_store.context(), vec![cred])?;
 
             // Store the updated credential for later use
             this.authenticator
@@ -558,8 +550,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                 .replace(selected.clone());
 
             // Encrypt the updated cipher before sending it to the clients to be stored
-            let key = enc.get_key(&selected.organization_id)?;
-            let encrypted = selected.encrypt_with_key(key)?;
+            let encrypted = key_store.encrypt(selected)?;
 
             this.authenticator
                 .credential_store

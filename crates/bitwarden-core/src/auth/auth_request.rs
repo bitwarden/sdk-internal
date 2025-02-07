@@ -9,7 +9,7 @@ use thiserror::Error;
 
 #[cfg(feature = "internal")]
 use crate::client::encryption_settings::EncryptionSettingsError;
-use crate::{Client, VaultLockedError};
+use crate::{key_management::SymmetricKeyId, Client, VaultLockedError};
 
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AuthRequestResponse {
@@ -94,8 +94,12 @@ pub(crate) fn approve_auth_request(
 ) -> Result<AsymmetricEncString, ApproveAuthRequestError> {
     let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(public_key)?)?;
 
-    let enc = client.internal.get_encryption_settings()?;
-    let key = enc.get_key(&None)?;
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+
+    // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
+    #[allow(deprecated)]
+    let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
         &key.to_vec(),
@@ -131,7 +135,10 @@ mod tests {
     use bitwarden_crypto::{Kdf, MasterKey};
 
     use super::*;
-    use crate::mobile::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest};
+    use crate::{
+        key_management::SymmetricKeyId,
+        mobile::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
+    };
 
     #[test]
     fn test_approve() {
@@ -246,21 +253,25 @@ mod tests {
 
         // We can validate that the vault is unlocked correctly by confirming the user key is the
         // same
-        assert_eq!(
-            existing_device
-                .internal
-                .get_encryption_settings()
-                .unwrap()
-                .get_key(&None)
-                .unwrap()
-                .to_base64(),
-            new_device
-                .internal
-                .get_encryption_settings()
-                .unwrap()
-                .get_key(&None)
+
+        let existing_key = {
+            let key_store = existing_device.internal.get_key_store();
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
-        );
+        };
+
+        let new_key = {
+            let key_store = new_device.internal.get_key_store();
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+                .unwrap()
+                .to_base64()
+        };
+
+        assert_eq!(existing_key, new_key);
     }
 }

@@ -12,6 +12,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
+    key_management::SymmetricKeyId,
     Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
 };
 
@@ -217,8 +218,11 @@ pub async fn initialize_org_crypto(
 }
 
 pub async fn get_user_encryption_key(client: &Client) -> Result<String, MobileCryptoError> {
-    let enc = client.internal.get_encryption_settings()?;
-    let user_key = enc.get_key(&None)?;
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+    // This is needed because the mobile clients need access to the user encryption key
+    #[allow(deprecated)]
+    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(user_key.to_base64())
 }
@@ -237,8 +241,11 @@ pub fn update_password(
     client: &Client,
     new_password: String,
 ) -> Result<UpdatePasswordResponse, MobileCryptoError> {
-    let enc = client.internal.get_encryption_settings()?;
-    let user_key = enc.get_key(&None)?;
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+    // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
+    #[allow(deprecated)]
+    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     let login_method = client
         .internal
@@ -282,8 +289,11 @@ pub fn derive_pin_key(
     client: &Client,
     pin: String,
 ) -> Result<DerivePinKeyResponse, MobileCryptoError> {
-    let enc = client.internal.get_encryption_settings()?;
-    let user_key = enc.get_key(&None)?;
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+    // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
+    #[allow(deprecated)]
+    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     let login_method = client
         .internal
@@ -302,8 +312,11 @@ pub fn derive_pin_user_key(
     client: &Client,
     encrypted_pin: EncString,
 ) -> Result<EncString, MobileCryptoError> {
-    let enc = client.internal.get_encryption_settings()?;
-    let user_key = enc.get_key(&None)?;
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+    // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
+    #[allow(deprecated)]
+    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     let pin: String = encrypted_pin.decrypt_with_key(user_key)?;
     let login_method = client
@@ -352,8 +365,11 @@ pub(super) fn enroll_admin_password_reset(
     use bitwarden_crypto::AsymmetricPublicCryptoKey;
 
     let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(public_key)?)?;
-    let enc = client.internal.get_encryption_settings()?;
-    let key = enc.get_key(&None)?;
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+    // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
+    #[allow(deprecated)]
+    let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
         &key.to_vec(),
@@ -560,22 +576,25 @@ mod tests {
 
         assert_eq!(new_hash, new_password_response.password_hash);
 
-        assert_eq!(
-            client
-                .internal
-                .get_encryption_settings()
-                .unwrap()
-                .get_key(&None)
-                .unwrap()
-                .to_base64(),
-            client2
-                .internal
-                .get_encryption_settings()
-                .unwrap()
-                .get_key(&None)
+        let client_key = {
+            let key_store = client.internal.get_key_store();
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
-        );
+        };
+
+        let client2_key = {
+            let key_store = client2.internal.get_key_store();
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+                .unwrap()
+                .to_base64()
+        };
+
+        assert_eq!(client_key, client2_key);
     }
 
     #[tokio::test]
@@ -622,22 +641,25 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(
-            client
-                .internal
-                .get_encryption_settings()
-                .unwrap()
-                .get_key(&None)
-                .unwrap()
-                .to_base64(),
-            client2
-                .internal
-                .get_encryption_settings()
-                .unwrap()
-                .get_key(&None)
+        let client_key = {
+            let key_store = client.internal.get_key_store();
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
-        );
+        };
+
+        let client2_key = {
+            let key_store = client2.internal.get_key_store();
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+                .unwrap()
+                .to_base64()
+        };
+
+        assert_eq!(client_key, client2_key);
 
         // Verify we can derive the pin protected user key from the encrypted pin
         let pin_protected_user_key = derive_pin_user_key(&client, pin_key.encrypted_pin).unwrap();
@@ -661,22 +683,25 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(
-            client
-                .internal
-                .get_encryption_settings()
-                .unwrap()
-                .get_key(&None)
-                .unwrap()
-                .to_base64(),
-            client3
-                .internal
-                .get_encryption_settings()
-                .unwrap()
-                .get_key(&None)
+        let client_key = {
+            let key_store = client.internal.get_key_store();
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
-        );
+        };
+
+        let client3_key = {
+            let key_store = client3.internal.get_key_store();
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+                .unwrap()
+                .to_base64()
+        };
+
+        assert_eq!(client_key, client3_key);
     }
 
     #[test]
@@ -711,8 +736,13 @@ mod tests {
             AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key).unwrap()).unwrap();
         let decrypted: Vec<u8> = encrypted.decrypt_with_key(&private_key).unwrap();
 
-        let enc = client.internal.get_encryption_settings().unwrap();
-        let expected = enc.get_key(&None).unwrap();
+        let key_store = client.internal.get_key_store();
+        let ctx = key_store.context();
+        #[allow(deprecated)]
+        let expected = ctx
+            .dangerous_get_symmetric_key(SymmetricKeyId::User)
+            .unwrap();
+
         assert_eq!(&decrypted, &expected.to_vec());
     }
 
