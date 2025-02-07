@@ -168,28 +168,23 @@ impl FromStr for Totp {
 
         let params = if key.starts_with("otpauth://") {
             let url = Url::parse(&key).map_err(|_| TotpError::InvalidOtpauth)?;
-            let label = remove_first(url.path());
-            let label_string = label.map(|v| v.to_string());
-            let pieces: Vec<String> = label
-                .unwrap_or("")
-                .split(":")
-                .map(|v| v.to_string())
-                .collect();
-            let label_issuer = if pieces.len() > 1 {
-                pieces.first()
+            let label = url.path().strip_prefix("/");
+            let (issuer, account) = if let Some(label) = label {
+                if let Some((issuer, account)) = label.split_once(":") {
+                    (Some(issuer.trim()), Some(account.trim()))
+                } else if let Some((issuer, account)) = label.split_once("%3a") {
+                    (Some(issuer.trim()), Some(account.trim()))
+                } else {
+                    (None, Some(label.trim()))
+                }
             } else {
-                None
-            };
-            let label_account = if pieces.len() > 1 {
-                pieces.get(1)
-            } else {
-                label_string.as_ref()
+                (None, None)
             };
 
             let parts: HashMap<_, _> = url.query_pairs().collect();
 
             Totp {
-                account: label_account.cloned(),
+                account: account.map(|s| s.to_string()),
                 algorithm: parts
                     .get("algorithm")
                     .and_then(|v| match v.as_ref() {
@@ -207,7 +202,7 @@ impl FromStr for Totp {
                 issuer: parts
                     .get("issuer")
                     .map(|v| v.to_string())
-                    .or(label_issuer.cloned()),
+                    .or(issuer.map(|s| s.to_string())),
                 period: parts
                     .get("period")
                     .and_then(|v| v.parse().ok())
@@ -242,11 +237,6 @@ impl FromStr for Totp {
 
         Ok(params)
     }
-}
-
-/// Remove the first character from a string; returns None if the string is one character long.
-fn remove_first(s: &str) -> Option<&str> {
-    s.chars().next().map(|c| &s[c.len_utf8()..])
 }
 
 /// Derive the Steam OTP from the hash with the given number of digits.
@@ -453,7 +443,7 @@ mod tests {
         let totp = Totp::from_str(key).unwrap();
 
         assert_eq!(totp.account, Some("test-account@example.com".to_string()));
-        assert_eq!(totp.issuer, Some("other-test-issuer".to_string()));
+        assert_eq!(totp.issuer, Some("test-issuer".to_string()));
     }
 
     #[test]
