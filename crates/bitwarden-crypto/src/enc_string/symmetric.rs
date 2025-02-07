@@ -5,7 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use super::{additional_data, check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    chacha20::XChaCha20Poly1305Ciphertext, error::{CryptoError, EncStringParseError, Result}, key_hash::KeyHashable, Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key
+    chacha20::XChaCha20Poly1305Ciphertext,
+    error::{CryptoError, EncStringParseError, Result},
+    key_hash::KeyHashable,
+    Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key,
 };
 
 #[cfg(feature = "wasm")]
@@ -296,9 +299,8 @@ impl EncString {
         additional_data: additional_data::AdditionalData,
         key: &XChaCha20Poly1305Key,
     ) -> Result<EncString> {
-        let serialized_additional_data = rmp_serde::to_vec(&additional_data).map_err(|_| {
-            CryptoError::EncString(EncStringParseError::InvalidAdditionalData)
-        })?;
+        let serialized_additional_data = rmp_serde::to_vec(&additional_data)
+            .map_err(|_| CryptoError::EncString(EncStringParseError::InvalidAdditionalData))?;
         let ciphertext = crate::chacha20::encrypt_xchacha20_poly1305(
             &key.encryption_key
                 .as_slice()
@@ -327,11 +329,14 @@ impl EncString {
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
         match key {
-            SymmetricCryptoKey::Aes256CbcHmacKey(key1) => EncString::encrypt_aes256_hmac(self, key1),
+            SymmetricCryptoKey::Aes256CbcHmacKey(key1) => {
+                EncString::encrypt_aes256_hmac(self, key1)
+            }
             SymmetricCryptoKey::XChaCha20Poly1305Key(key1) => {
-                let additional_data = additional_data::AdditionalData::V0(additional_data::AdditionalDataV0 {
-                    key_hash: key.hash(),
-                });
+                let additional_data =
+                    additional_data::AdditionalData::V0(additional_data::AdditionalDataV0 {
+                        key_hash: key.hash(),
+                    });
                 EncString::encrypt_xchacha20_poly1305(self, additional_data, key1)
             }
             _ => Err(CryptoError::UnsupportedCipher),

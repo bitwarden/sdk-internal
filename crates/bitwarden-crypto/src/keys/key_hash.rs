@@ -12,7 +12,7 @@ pub(crate) struct KeyHash {
 }
 
 pub(crate) trait KeyHashable {
-     fn hash(&self) -> KeyHash;
+    fn hash(&self) -> KeyHash;
 }
 
 impl<T: KeyHashData> KeyHashable for T {

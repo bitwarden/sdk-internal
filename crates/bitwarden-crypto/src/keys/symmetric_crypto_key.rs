@@ -6,9 +6,9 @@ use generic_array::GenericArray;
 use rand::Rng;
 use zeroize::Zeroize;
 
-use super::{key_encryptable::CryptoKey, key_hash::KeyHashData};
 #[cfg(not(test))]
 use super::master_key::KdfDerivedKeymaterial;
+use super::{key_encryptable::CryptoKey, key_hash::KeyHashData};
 use crate::CryptoError;
 
 // GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.

@@ -69,7 +69,11 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(key));
     let mut buffer = ciphertext.encrypted_data.clone();
     cipher
-        .decrypt_in_place(GenericArray::from_slice(&ciphertext.nonce), ciphertext.additional_data.as_slice(), &mut buffer)
+        .decrypt_in_place(
+            GenericArray::from_slice(&ciphertext.nonce),
+            ciphertext.additional_data.as_slice(),
+            &mut buffer,
+        )
         .map_err(|_| CryptoError::InvalidKey)?;
     return Ok(buffer);
 }

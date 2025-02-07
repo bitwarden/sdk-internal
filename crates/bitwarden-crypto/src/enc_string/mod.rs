@@ -6,9 +6,9 @@
 //! [SymmetricCryptoKey][crate::SymmetricCryptoKey] and
 //! [AsymmetricCryptoKey][crate::AsymmetricCryptoKey]s.
 
+pub(crate) mod additional_data;
 mod asymmetric;
 mod symmetric;
-pub(crate) mod additional_data;
 
 use std::str::FromStr;
 
