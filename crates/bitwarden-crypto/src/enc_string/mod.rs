@@ -8,6 +8,7 @@
 
 mod asymmetric;
 mod symmetric;
+pub(crate) mod additional_data;
 
 use std::str::FromStr;
 

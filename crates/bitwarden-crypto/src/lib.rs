@@ -85,7 +85,6 @@ mod traits;
 pub use traits::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
 
-#[cfg(feature = "aead-crypto")]
 pub mod chacha20;
 
 #[cfg(feature = "uniffi")]

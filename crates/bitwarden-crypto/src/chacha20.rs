@@ -23,7 +23,7 @@ use crate::CryptoError;
 pub struct XChaCha20Poly1305Ciphertext {
     pub(crate) nonce: [u8; 24],
     pub(crate) encrypted_data: Vec<u8>,
-    pub(crate) authenticated_data: Vec<u8>,
+    pub(crate) additional_data: Vec<u8>,
 }
 
 pub(crate) fn encrypt_xchacha20_poly1305(
@@ -58,7 +58,7 @@ fn encrypt_xchacha20_poly1305_internal(
     Ok(XChaCha20Poly1305Ciphertext {
         nonce: nonce_slice,
         encrypted_data: buffer,
-        authenticated_data: associated_data.to_vec(),
+        additional_data: associated_data.to_vec(),
     })
 }
 
@@ -69,7 +69,7 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(key));
     let mut buffer = ciphertext.encrypted_data.clone();
     cipher
-        .decrypt_in_place(GenericArray::from_slice(&ciphertext.nonce), ciphertext.authenticated_data.as_slice(), &mut buffer)
+        .decrypt_in_place(GenericArray::from_slice(&ciphertext.nonce), ciphertext.additional_data.as_slice(), &mut buffer)
         .map_err(|_| CryptoError::InvalidKey)?;
     return Ok(buffer);
 }
@@ -111,7 +111,7 @@ mod tests {
 
         let mut encrypted =
             encrypt_xchacha20_poly1305(&key, plaintext_secret_data, authenticated_data).unwrap();
-        encrypted.authenticated_data[0] = encrypted.authenticated_data[0].wrapping_add(1);
+        encrypted.additional_data[0] = encrypted.additional_data[0].wrapping_add(1);
         let result = decrypt_xchacha20_poly1305(&key, &encrypted);
         assert!(result.is_err());
     }
