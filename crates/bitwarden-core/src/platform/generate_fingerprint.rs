@@ -63,7 +63,8 @@ pub(crate) fn generate_user_fingerprint(
 
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
-    // FIXME: [PM-18110] This should be removed once the key store can handle public keys and fingerprints
+    // FIXME: [PM-18110] This should be removed once the key store can handle public keys and
+    // fingerprints
     #[allow(deprecated)]
     let private_key = ctx.dangerous_get_asymmetric_key(AsymmetricKeyId::UserPrivateKey)?;
 

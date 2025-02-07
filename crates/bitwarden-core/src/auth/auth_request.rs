@@ -96,7 +96,7 @@ pub(crate) fn approve_auth_request(
 
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
-    
+
     // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
     #[allow(deprecated)]
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
