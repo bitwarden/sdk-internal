@@ -288,9 +288,9 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
 }
 
 impl Cipher {
-    /// Decrypt the individual encryption key for this cipher and return it's identifier.
-    /// Note that some ciphers do not have individual encryption keys,
-    /// in which case this will return the provided key instead
+    /// Decrypt the individual encryption key for this cipher into the provided [KeyStoreContext]
+    /// and return it's identifier. Note that some ciphers do not have individual encryption
+    /// keys, in which case this will return the provided key identifier instead
     ///
     /// # Arguments
     ///
