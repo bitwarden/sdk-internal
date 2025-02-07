@@ -96,6 +96,11 @@ impl EncryptionSettings {
     ) -> Result<(), EncryptionSettingsError> {
         let mut ctx = store.context_mut();
 
+        // FIXME: [PM-11690] - Early abort to handle private key being corrupt
+        if org_enc_keys.is_empty() {
+            return Ok(());
+        }
+
         if !ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey) {
             return Err(EncryptionSettingsError::MissingPrivateKey);
         }
