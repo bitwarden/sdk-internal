@@ -1,12 +1,13 @@
 use std::{fmt::Display, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
+    chacha20::XChaCha20Poly1305Ciphertext,
     error::{CryptoError, EncStringParseError, Result},
-    Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+    Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key,
 };
 
 #[cfg(feature = "wasm")]
@@ -59,6 +60,38 @@ pub enum EncString {
         mac: [u8; 32],
         data: Vec<u8>,
     },
+    XChaCha20Poly1305_B64 {
+        nonce: [u8; 24],
+        data: Vec<u8>,
+        additional_data: Vec<u8>,
+    },
+}
+
+#[derive(zeroize::ZeroizeOnDrop, PartialEq, Clone, Serialize, Deserialize)]
+struct XChaCha20Poly1305Data {
+    nonce: [u8; 24],
+    data: Vec<u8>,
+    additional_data: Vec<u8>,
+}
+
+impl From<XChaCha20Poly1305Data> for EncString {
+    fn from(data: XChaCha20Poly1305Data) -> Self {
+        EncString::XChaCha20Poly1305_B64 {
+            nonce: data.nonce,
+            data: data.data.clone(),
+            additional_data: data.additional_data.clone(),
+        }
+    }
+}
+
+impl From<XChaCha20Poly1305Ciphertext> for XChaCha20Poly1305Data {
+    fn from(data: XChaCha20Poly1305Ciphertext) -> Self {
+        XChaCha20Poly1305Data {
+            nonce: data.nonce,
+            data: data.encrypted_data.clone(),
+            additional_data: data.authenticated_data.clone(),
+        }
+    }
 }
 
 /// To avoid printing sensitive information, [EncString] debug prints to `EncString`.
@@ -88,7 +121,19 @@ impl FromStr for EncString {
 
                 Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
             }
+            ("7", 1) => {
+                let buffer = from_b64_vec(parts[0])?;
 
+                let decoded: XChaCha20Poly1305Data =
+                    rmp_serde::from_slice(&buffer).map_err(|_| {
+                        CryptoError::EncString(EncStringParseError::InvalidTypeSymm {
+                            enc_type: enc_type.to_string(),
+                            parts: 1,
+                        })
+                    })?;
+
+                Ok(decoded.into())
+            }
             (enc_type, parts) => Err(EncStringParseError::InvalidTypeSymm {
                 enc_type: enc_type.to_string(),
                 parts,
@@ -126,6 +171,16 @@ impl EncString {
 
                 Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
             }
+            7 => {
+                let decoded: XChaCha20Poly1305Data =
+                    rmp_serde::from_slice(&buf[1..]).map_err(|_| {
+                        CryptoError::EncString(EncStringParseError::InvalidTypeSymm {
+                            enc_type: enc_type.to_string(),
+                            parts: 1,
+                        })
+                    })?;
+                Ok(decoded.into())
+            }
             _ => Err(EncStringParseError::InvalidTypeSymm {
                 enc_type: enc_type.to_string(),
                 parts: 1,
@@ -151,6 +206,22 @@ impl EncString {
                 buf.extend_from_slice(mac);
                 buf.extend_from_slice(data);
             }
+            EncString::XChaCha20Poly1305_B64 {
+                nonce,
+                data,
+                additional_data,
+            } => {
+                let encoded = rmp_serde::to_vec(&XChaCha20Poly1305Data {
+                    nonce: *nonce,
+                    data: data.clone(),
+                    additional_data: additional_data.clone(),
+                    // todo update error
+                })
+                .map_err(|_| CryptoError::EncString(EncStringParseError::NoType))?;
+                buf = Vec::with_capacity(1 + encoded.len());
+                buf.push(self.enc_type());
+                buf.extend_from_slice(&encoded);
+            }
         }
 
         Ok(buf)
@@ -159,16 +230,38 @@ impl EncString {
 
 impl Display for EncString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let parts: Vec<&[u8]> = match self {
-            EncString::AesCbc256_B64 { iv, data } => vec![iv, data],
-            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
-        };
+        match self {
+            EncString::AesCbc256_B64 { .. } | EncString::AesCbc256_HmacSha256_B64 { .. } => {
+                let parts: Vec<&[u8]> = match self {
+                    EncString::AesCbc256_B64 { iv, data } => vec![iv, data],
+                    EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
+                    _ => unreachable!(),
+                };
 
-        let encoded_parts: Vec<String> = parts.iter().map(|part| STANDARD.encode(part)).collect();
+                let encoded_parts: Vec<String> =
+                    parts.iter().map(|part| STANDARD.encode(part)).collect();
 
-        write!(f, "{}.{}", self.enc_type(), encoded_parts.join("|"))?;
+                write!(f, "{}.{}", self.enc_type(), encoded_parts.join("|"))?;
 
-        Ok(())
+                Ok(())
+            }
+            EncString::XChaCha20Poly1305_B64 {
+                nonce,
+                data,
+                additional_data,
+            } => {
+                let encoded = rmp_serde::to_vec(&XChaCha20Poly1305Data {
+                    nonce: *nonce,
+                    data: data.clone(),
+                    additional_data: additional_data.clone(),
+                })
+                .map_err(|_| std::fmt::Error)?;
+
+                write!(f, "{}.{}", self.enc_type(), STANDARD.encode(&encoded))?;
+
+                Ok(())
+            }
+        }
     }
 }
 
@@ -200,11 +293,32 @@ impl EncString {
         Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
     }
 
+    pub(crate) fn encrypt_xchacha20_poly1305(
+        data_dec: &[u8],
+        additional_data: &[u8],
+        key: &XChaCha20Poly1305Key,
+    ) -> Result<EncString> {
+        let ciphertext = crate::chacha20::encrypt_xchacha20_poly1305(
+            &key.encryption_key
+                .as_slice()
+                .try_into()
+                .expect("XChaChaPoly1305 key is 32 bytes long"),
+            data_dec,
+            additional_data,
+        )?;
+        Ok(EncString::XChaCha20Poly1305_B64 {
+            nonce: ciphertext.nonce,
+            data: ciphertext.encrypted_data.to_vec(),
+            additional_data: additional_data.to_vec(),
+        })
+    }
+
     /// The numerical representation of the encryption type of the [EncString].
     const fn enc_type(&self) -> u8 {
         match self {
             EncString::AesCbc256_B64 { .. } => 0,
             EncString::AesCbc256_HmacSha256_B64 { .. } => 2,
+            EncString::XChaCha20Poly1305_B64 { .. } => 7,
         }
     }
 }
@@ -213,6 +327,9 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
+                EncString::encrypt_xchacha20_poly1305(self, &[], key)
+            }
             _ => Err(CryptoError::UnsupportedCipher),
         }
     }
@@ -233,6 +350,24 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 data.clone(),
                 &key.mac_key,
                 &key.encryption_key,
+            ),
+            (
+                EncString::XChaCha20Poly1305_B64 {
+                    nonce,
+                    data,
+                    additional_data,
+                },
+                SymmetricCryptoKey::XChaCha20Poly1305Key(key),
+            ) => crate::chacha20::decrypt_xchacha20_poly1305(
+                key.encryption_key
+                    .as_slice()
+                    .try_into()
+                    .expect("XChaChaPoly1305 key is 32 bytes long"),
+                &XChaCha20Poly1305Ciphertext {
+                    nonce: *nonce,
+                    encrypted_data: data.clone(),
+                    authenticated_data: additional_data.clone(),
+                },
             ),
             _ => Err(CryptoError::EncryptionTypeMismatch),
         }
@@ -272,6 +407,7 @@ impl schemars::JsonSchema for EncString {
 
 #[cfg(test)]
 mod tests {
+    use generic_array::GenericArray;
     use schemars::schema_for;
 
     use super::EncString;
@@ -392,14 +528,39 @@ mod tests {
 
     #[test]
     fn test_from_str_invalid() {
-        let enc_str = "7.ABC";
+        let enc_str = "8.ABC";
         let enc_string: Result<EncString, _> = enc_str.parse();
 
         let err = enc_string.unwrap_err();
         assert_eq!(
             err.to_string(),
-            "EncString error, Invalid symmetric type, got type 7 with 1 parts"
+            "EncString error, Invalid symmetric type, got type 8 with 1 parts"
         );
+    }
+
+    #[test]
+    fn test_to_str_xchacha20_poly1305() {
+        let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
+            encryption_key: Box::pin(GenericArray::<u8, aes::cipher::typenum::U32>::default()),
+        });
+        let payload = "encrypted_test_string";
+        let cipher = payload.encrypt_with_key(&key).unwrap();
+        assert_eq!(
+            cipher.to_string(),
+            "7.k9wAGGjMmczweh11zJIqzOExzN9yzKltzPrM38yDC35zSh3MtszC3AAlD8yyHsz0zJXMqcylP8zDZ0TMvcyfzK43zKgBEcyGzIHMzjPM227M6syQVm8PzIPM0cz8zKLM5Mz0AXSQ",
+        );
+    }
+
+    #[test]
+    fn test_from_str_xchacha20_poly1305() {
+        let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
+            encryption_key: Box::pin(GenericArray::<u8, aes::cipher::typenum::U32>::default()),
+        });
+        let ciphertext = "7.k9wAGGjMmczweh11zJIqzOExzN9yzKltzPrM38yDC35zSh3MtszC3AAlD8yyHsz0zJXMqcylP8zDZ0TMvcyfzK43zKgBEcyGzIHMzjPM227M6syQVm8PzIPM0cz8zKLM5Mz0AXSQ";
+        let payload = "encrypted_test_string";
+        let cipher: EncString = ciphertext.parse().unwrap();
+        let decrypted: String = cipher.decrypt_with_key(&key).unwrap();
+        assert_eq!(decrypted, payload);
     }
 
     #[test]

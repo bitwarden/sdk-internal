@@ -28,12 +28,19 @@ pub struct Aes256CbcHmacKey {
     pub(crate) mac_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
+#[derive(Zeroize, Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+pub struct XChaCha20Poly1305Key {
+    pub(crate) encryption_key: Pin<Box<GenericArray<u8, U32>>>,
+}
+
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
 #[derive(Zeroize, Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub enum SymmetricCryptoKey {
     Aes256CbcKey(Aes256CbcKey),
     Aes256CbcHmacKey(Aes256CbcHmacKey),
+    XChaCha20Poly1305Key(XChaCha20Poly1305Key),
 }
 
 impl Drop for SymmetricCryptoKey {
@@ -66,6 +73,7 @@ impl SymmetricCryptoKey {
         match &self {
             SymmetricCryptoKey::Aes256CbcKey(_) => 32,
             SymmetricCryptoKey::Aes256CbcHmacKey(_) => 64,
+            SymmetricCryptoKey::XChaCha20Poly1305Key(_) => 32,
         }
     }
 
@@ -83,6 +91,9 @@ impl SymmetricCryptoKey {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
                 buf.extend_from_slice(&key.encryption_key);
                 buf.extend_from_slice(&key.mac_key);
+            }
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
+                buf.extend_from_slice(&key.encryption_key);
             }
         }
 

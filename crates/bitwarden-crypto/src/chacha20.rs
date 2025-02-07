@@ -19,11 +19,11 @@ use generic_array::GenericArray;
  */
 use crate::CryptoError;
 
+#[derive(zeroize::ZeroizeOnDrop)]
 pub struct XChaCha20Poly1305Ciphertext {
-    nonce: [u8; 24],
-    tag: [u8; 16],
-    encrypted_data: Vec<u8>,
-    authenticated_data: Vec<u8>,
+    pub(crate) nonce: [u8; 24],
+    pub(crate) encrypted_data: Vec<u8>,
+    pub(crate) authenticated_data: Vec<u8>,
 }
 
 pub(crate) fn encrypt_xchacha20_poly1305(
@@ -46,25 +46,19 @@ fn encrypt_xchacha20_poly1305_internal(
     associated_data: &[u8],
 ) -> Result<XChaCha20Poly1305Ciphertext, CryptoError> {
     let nonce = XChaCha20Poly1305::generate_nonce(rng);
-    // This should never fail because XChaCha20Poly1305::generate_nonce always returns 24 bytes
-    let nonce_slice: [u8; 24] = nonce.as_slice().try_into().expect("Nonce is 24 bytes");
 
     // This buffer contains the plaintext, that will be encrypted in-place
     let mut buffer = Vec::from(plaintext_secret_data);
-    let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(key));
+    XChaCha20Poly1305::new(GenericArray::from_slice(key))
+        .encrypt_in_place(&nonce, associated_data, &mut buffer)
+        .map_err(|_| CryptoError::InvalidKey)?;
 
-    let poly1305_tag = cipher
-        .encrypt_in_place_detached(&nonce, associated_data, &mut buffer)
-        .map_err(|_| CryptoError::InvalidKey)?
-        .as_slice()
-        .try_into()
-        .expect("A poly1305 tag is 16 bytes");
-
+    // This should never fail because XChaCha20Poly1305::generate_nonce always returns 24 bytes
+    let nonce_slice: [u8; 24] = nonce.as_slice().try_into().expect("Nonce is 24 bytes");
     Ok(XChaCha20Poly1305Ciphertext {
         nonce: nonce_slice,
         encrypted_data: buffer,
         authenticated_data: associated_data.to_vec(),
-        tag: poly1305_tag,
     })
 }
 
@@ -72,15 +66,12 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     key: &[u8; 32],
     ciphertext: &XChaCha20Poly1305Ciphertext,
 ) -> Result<Vec<u8>, CryptoError> {
-    let associated_data = ciphertext.authenticated_data.as_slice();
     let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(key));
     let mut buffer = ciphertext.encrypted_data.clone();
-    let nonce_array = GenericArray::from_slice(&ciphertext.nonce);
-    let poly1305_tag = GenericArray::from_slice(&ciphertext.tag);
     cipher
-        .decrypt_in_place_detached(nonce_array, associated_data, &mut buffer, &poly1305_tag)
+        .decrypt_in_place(GenericArray::from_slice(&ciphertext.nonce), ciphertext.authenticated_data.as_slice(), &mut buffer)
         .map_err(|_| CryptoError::InvalidKey)?;
-    Err(CryptoError::InvalidKey)
+    return Ok(buffer);
 }
 
 mod tests {
@@ -88,7 +79,7 @@ mod tests {
     use crate::chacha20::*;
 
     #[test]
-    fn test_encrypt_decrypt_xchacha20_poly1305_ctx() {
+    fn test_encrypt_decrypt_xchacha20() {
         let key = [0u8; 32];
         let plaintext_secret_data = b"My secret data";
         let authenticated_data = b"My authenticated data";
