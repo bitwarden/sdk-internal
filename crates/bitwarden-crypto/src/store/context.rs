@@ -230,7 +230,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     where
         Self: ContextHasKeys<DecryptedKeyId, DecryptedKeyId::KeyValue, Ids>,
         EncryptedKey: Decryptable<Ids, EncryptionKeyId, Vec<u8>>,
-        DecryptedKeyId: KeyId<KeyValue: KeyBytes>,
+        DecryptedKeyId: KeyId,
+        DecryptedKeyId::KeyValue: KeyBytes,
         EncryptionKeyId: KeyId,
     {
         let decrypted_key = encrypted_key.decrypt(self, encryption_key)?;
@@ -256,7 +257,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     where
         Self: ContextHasKeys<DecryptedKeyId, DecryptedKeyId::KeyValue, Ids>,
         EncryptionKeyId: KeyId,
-        DecryptedKeyId: KeyId<KeyValue: KeyBytes>,
+        DecryptedKeyId: KeyId,
+        DecryptedKeyId::KeyValue: KeyBytes,
         for<'a> &'a [u8]: Encryptable<Ids, EncryptionKeyId, EncryptedKey>,
     {
         let key_to_encrypt: &DecryptedKeyId::KeyValue = self.internal_get_key(key_to_encrypt)?;
