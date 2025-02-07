@@ -97,7 +97,7 @@ impl EncryptionSettings {
         let mut ctx = store.context_mut();
 
         if !ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey) {
-            return Err(VaultLockedError.into());
+            return Err(EncryptionSettingsError::MissingPrivateKey);
         }
 
         // Make sure we only keep the keys given in the arguments and not any of the previous
