@@ -109,11 +109,6 @@ impl EncryptionSettings {
         // ones, which might be from organizations that the user is no longer a part of anymore
         ctx.retain_symmetric_keys(|key_ref| !matches!(key_ref, SymmetricKeyId::Organization(_)));
 
-        // FIXME: [PM-11690] - Early abort to handle private key being corrupt
-        if org_enc_keys.is_empty() {
-            return Ok(());
-        }
-
         // Decrypt the org keys with the private key
         for (org_id, org_enc_key) in org_enc_keys {
             ctx.decrypt_symmetric_key_with_asymmetric_key(
