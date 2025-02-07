@@ -156,19 +156,6 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     ///     - [KeyStoreContext::encrypt_symmetric_key_with_asymmetric_key]
     ///     - [KeyStoreContext::encrypt_asymmetric_key_with_asymmetric_key]
     ///     - [KeyStoreContext::derive_shareable_key]
-    /// - Some other minor and safe operations, like checking if a key exists. This is not exposed
-    ///   in the [KeyStore] directly as we haven't seen many use cases for it, but we can add it if
-    ///   needed.
-    ///
-    /// One of the pitfalls of the current implementations is that keys stored in the context-local
-    /// store only get cleared automatically when the context is dropped, and not between
-    /// operations. This means that if you are using the same context for multiple operations,
-    /// you may want to clear it manually between them.
-    ///
-    /// [KeyStoreContext] is not [Send] or [Sync] and should not be shared between threads. Note
-    /// that this can also be problematic in async code, and you should take care to ensure that
-    /// you're not holding references to the context across await points, as that would cause the
-    /// future to also not be [Send].
     pub fn context(&'_ self) -> KeyStoreContext<'_, Ids> {
         KeyStoreContext {
             global_keys: GlobalKeys::ReadOnly(self.inner.read().expect("RwLock is poisoned")),
