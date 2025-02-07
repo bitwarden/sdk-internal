@@ -4,6 +4,7 @@ use bitwarden_core::VaultLocked;
 use bitwarden_crypto::{CryptoError, KeyContainer};
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
+use percent_encoding::{percent_decode, percent_decode_str};
 use reqwest::Url;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -168,7 +169,8 @@ impl FromStr for Totp {
 
         let params = if key.starts_with("otpauth://") {
             let url = Url::parse(&key).map_err(|_| TotpError::InvalidOtpauth)?;
-            let label = url.path().strip_prefix("/");
+            let decoded_path = percent_decode_str(url.path()).decode_utf8_lossy();
+            let label = decoded_path.strip_prefix("/");
             let (issuer, account) = if let Some(label) = label {
                 if let Some((issuer, account)) = label.split_once(":") {
                     (Some(issuer.trim()), Some(account.trim()))
@@ -453,7 +455,7 @@ mod tests {
         let totp = Totp::from_str(key).unwrap();
 
         assert_eq!(totp.account, Some("test-account@example.com".to_string()));
-        assert_eq!(totp.issuer, Some("test-issuer".to_string()));
+        assert_eq!(totp.issuer, Some("test issuer".to_string()));
     }
 
     #[test]
