@@ -9,7 +9,10 @@ use zeroize::Zeroize;
 #[cfg(feature = "wasm")]
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
-use super::utils::{derive_kdf_key, stretch_kdf_key};
+use super::{
+    utils::{derive_kdf_key, stretch_kdf_key},
+    XChaCha20Poly1305Key,
+};
 use crate::{util, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey};
 
 #[cfg_attr(test, derive(Debug))]
@@ -158,14 +161,20 @@ pub(super) fn decrypt_user_key(
         // moved to using `AesCbc256_HmacSha256_B64`. However, we still need to support
         // decrypting these old keys.
         EncString::AesCbc256_B64 { .. } => {
-            let legacy_key = SymmetricCryptoKey::Aes256CbcKey(super::Aes256CbcKey {
+            let master_key = SymmetricCryptoKey::Aes256CbcKey(super::Aes256CbcKey {
                 encryption_key: key.key_material.clone(),
             });
-            user_key.decrypt_with_key(&legacy_key)?
+            user_key.decrypt_with_key(&master_key)?
         }
-        _ => {
-            let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_kdf_key(key)?);
-            user_key.decrypt_with_key(&stretched_key)?
+        EncString::AesCbc256_HmacSha256_B64 { .. } => {
+            let stretched_master_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_kdf_key(key)?);
+            user_key.decrypt_with_key(&stretched_master_key)?
+        }
+        EncString::XChaCha20Poly1305_B64 { .. } => {
+            let master_key = SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
+                encryption_key: key.key_material.clone(),
+            });
+            user_key.decrypt_with_key(&master_key)?
         }
     };
 

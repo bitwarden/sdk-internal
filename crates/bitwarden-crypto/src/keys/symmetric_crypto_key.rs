@@ -6,9 +6,9 @@ use generic_array::GenericArray;
 use rand::Rng;
 use zeroize::Zeroize;
 
+use super::key_encryptable::CryptoKey;
 #[cfg(not(test))]
 use super::master_key::KdfDerivedKeymaterial;
-use super::{key_encryptable::CryptoKey, key_hash::KeyHashData};
 use crate::CryptoError;
 
 // GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
@@ -46,21 +46,6 @@ pub enum SymmetricCryptoKey {
 impl Drop for SymmetricCryptoKey {
     fn drop(&mut self) {
         self.zeroize();
-    }
-}
-
-impl KeyHashData for SymmetricCryptoKey {
-    fn hash_data(&self) -> Vec<u8> {
-        match &self {
-            SymmetricCryptoKey::Aes256CbcKey(key) => key.encryption_key.as_ref().to_vec(),
-            SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
-                let mut buf = Vec::with_capacity(64);
-                buf.extend_from_slice(&key.encryption_key);
-                buf.extend_from_slice(&key.mac_key);
-                buf
-            }
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.encryption_key.as_ref().to_vec(),
-        }
     }
 }
 
@@ -170,6 +155,11 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
 }
 
 impl CryptoKey for SymmetricCryptoKey {}
+
+struct SerializedCryptoKey {
+    keyAlgorithm: String,
+    keyData: []
+}
 
 // We manually implement these to make sure we don't print any sensitive data
 #[cfg(not(test))]
