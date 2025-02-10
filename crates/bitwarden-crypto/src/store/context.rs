@@ -400,10 +400,9 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         data: &[u8],
     ) -> Result<EncString> {
         let key = self.get_symmetric_key(key)?;
-        if let SymmetricCryptoKey::Aes256CbcHmacKey(key) = key {
-            EncString::encrypt_aes256_hmac(data, key)
-        } else {
-            Err(CryptoError::InvalidKey)
+        match key {
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
+            _ => Err(CryptoError::InvalidKey),
         }
     }
 
