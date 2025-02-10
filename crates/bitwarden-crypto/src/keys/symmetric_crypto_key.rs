@@ -7,8 +7,6 @@ use rand::Rng;
 use zeroize::Zeroize;
 
 use super::key_encryptable::CryptoKey;
-#[cfg(not(test))]
-use super::master_key::KdfDerivedKeymaterial;
 use crate::CryptoError;
 
 // GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
@@ -150,13 +148,6 @@ impl CryptoKey for SymmetricCryptoKey {}
 impl std::fmt::Debug for SymmetricCryptoKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SymmetricCryptoKey").finish()
-    }
-}
-
-#[cfg(not(test))]
-impl std::fmt::Debug for KdfDerivedKeymaterial {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("KdfDerviedKeymaterial").finish()
     }
 }
 

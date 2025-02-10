@@ -1,7 +1,7 @@
 use generic_array::GenericArray;
 use sha2::Digest;
 
-use super::{master_key::KdfDerivedKeymaterial, Aes256CbcHmacKey};
+use super::{master_key::KdfDerivedKeyMaterial, Aes256CbcHmacKey};
 use crate::{util::hkdf_expand, CryptoError, Kdf, Result};
 
 const PBKDF2_MIN_ITERATIONS: u32 = 5000;
@@ -15,7 +15,7 @@ pub(super) fn derive_kdf_key(
     secret: &[u8],
     salt: &[u8],
     kdf: &Kdf,
-) -> Result<KdfDerivedKeymaterial> {
+) -> Result<KdfDerivedKeyMaterial> {
     let hash = match kdf {
         Kdf::PBKDF2 { iterations } => {
             let iterations = iterations.get();
@@ -62,13 +62,13 @@ pub(super) fn derive_kdf_key(
             hash
         }
     };
-    Ok(KdfDerivedKeymaterial {
+    Ok(KdfDerivedKeyMaterial {
         key_material: Box::pin(GenericArray::clone_from_slice(&hash)),
     })
 }
 
 /// Stretch the given key using HKDF.
-pub(super) fn stretch_kdf_key(k: &KdfDerivedKeymaterial) -> Result<Aes256CbcHmacKey> {
+pub(super) fn stretch_kdf_key(k: &KdfDerivedKeyMaterial) -> Result<Aes256CbcHmacKey> {
     Ok(Aes256CbcHmacKey {
         encryption_key: hkdf_expand(&k.key_material, Some("enc"))?,
         mac_key: hkdf_expand(&k.key_material, Some("mac"))?,
@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn test_stretch_kdf_key() {
-        let key = KdfDerivedKeymaterial {
+        let key = KdfDerivedKeyMaterial {
             key_material: Box::pin(
                 [
                     31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138,

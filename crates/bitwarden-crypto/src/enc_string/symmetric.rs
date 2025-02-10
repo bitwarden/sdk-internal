@@ -213,7 +213,9 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
-            _ => Err(CryptoError::UnsupportedCipher),
+            SymmetricCryptoKey::Aes256CbcKey(_) => Err(
+                CryptoError::EncryptionOperationNotSupported("Aes256Cbc".to_string()),
+            ),
         }
     }
 }
@@ -234,7 +236,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 &key.mac_key,
                 &key.encryption_key,
             ),
-            _ => Err(CryptoError::EncryptionTypeMismatch),
+            _ => Err(CryptoError::WrongKeyType),
         }
     }
 }
@@ -387,7 +389,7 @@ mod tests {
         assert_eq!(enc_string.enc_type(), 0);
 
         let result: Result<String, CryptoError> = enc_string.decrypt_with_key(&key);
-        assert!(matches!(result, Err(CryptoError::EncryptionTypeMismatch)));
+        assert!(matches!(result, Err(CryptoError::WrongKeyType)));
     }
 
     #[test]

@@ -48,11 +48,11 @@ pub enum CryptoError {
     #[error("Number is zero")]
     ZeroNumber,
 
-    #[error("Encryption unsupported for cipher")]
-    UnsupportedCipher,
+    #[error("Encryption is not implemented for key of type {0}")]
+    EncryptionOperationNotSupported(String),
 
-    #[error("Encryption type mismatch")]
-    EncryptionTypeMismatch,
+    #[error("Key encryption algorithm does not match encrypted data type")]
+    WrongKeyType,
 }
 
 #[derive(Debug, Error)]

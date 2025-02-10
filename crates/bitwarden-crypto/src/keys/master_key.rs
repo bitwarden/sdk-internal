@@ -5,16 +5,27 @@ use generic_array::{typenum::U32, GenericArray};
 use rand::Rng;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use zeroize::Zeroize;
+use zeroize::{Zeroize, Zeroizing};
 #[cfg(feature = "wasm")]
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use super::utils::{derive_kdf_key, stretch_kdf_key};
-use crate::{util, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey};
+use crate::{util, CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey};
 
+/// The entropy that gets produced after calling a KDF on a password or PIN.
+/// This should not be directly used to encrypt, but instead be explicitly
+/// converted to a SymmetricCryptoKey of a specific encryption type, by re-using
+/// the key-material, or by stretching it with HKDF
 #[cfg_attr(test, derive(Debug))]
-pub(crate) struct KdfDerivedKeymaterial {
+pub(crate) struct KdfDerivedKeyMaterial {
     pub(crate) key_material: Pin<Box<GenericArray<u8, U32>>>,
+}
+
+#[cfg(not(test))]
+impl std::fmt::Debug for KdfDerivedKeyMaterial {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KdfDerviedKeymaterial").finish()
+    }
 }
 
 /// Key Derivation Function for Bitwarden Account
@@ -72,10 +83,10 @@ pub enum HashPurpose {
 /// Master Key.
 ///
 /// Derived from the users master password, used to protect the [UserKey].
-pub struct MasterKey(KdfDerivedKeymaterial);
+pub struct MasterKey(KdfDerivedKeyMaterial);
 
 impl MasterKey {
-    pub(crate) fn new(key: KdfDerivedKeymaterial) -> Self {
+    pub(crate) fn new(key: KdfDerivedKeyMaterial) -> Self {
         Self(key)
     }
 
@@ -86,7 +97,7 @@ impl MasterKey {
         rng.fill(key.as_mut_slice());
 
         // Master Keys never contains a mac_key.
-        Self::new(KdfDerivedKeymaterial { key_material: key })
+        Self::new(KdfDerivedKeyMaterial { key_material: key })
     }
 
     /// Derives a users master key from their password, email and KDF.
@@ -128,7 +139,12 @@ impl MasterKey {
     }
 
     pub fn try_from(value: &mut [u8]) -> Result<Self> {
-        let material = KdfDerivedKeymaterial {
+        if value.len() != 32 {
+            value.zeroize();
+            return Err(CryptoError::InvalidKey);
+        }
+
+        let material = KdfDerivedKeyMaterial {
             key_material: Box::pin(GenericArray::<u8, U32>::clone_from_slice(value)),
         };
         value.zeroize();
@@ -138,19 +154,17 @@ impl MasterKey {
 
 /// Helper function to encrypt a user key with a master or pin key.
 pub(super) fn encrypt_user_key(
-    key: &KdfDerivedKeymaterial,
+    master_key: &KdfDerivedKeyMaterial,
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
-    let mut userkey_bytes = user_key.to_vec();
-    let stretched_key = stretch_kdf_key(key)?;
-    let encrypted_userkey = EncString::encrypt_aes256_hmac(&userkey_bytes, &stretched_key);
-    userkey_bytes.zeroize();
-    encrypted_userkey
+    let stretched_master_key = stretch_kdf_key(master_key)?;
+    let userkey_bytes = Zeroizing::new(user_key.to_vec());
+    EncString::encrypt_aes256_hmac(&userkey_bytes, &stretched_master_key)
 }
 
 /// Helper function to decrypt a user key with a master or pin key.
 pub(super) fn decrypt_user_key(
-    key: &KdfDerivedKeymaterial,
+    key: &KdfDerivedKeyMaterial,
     user_key: EncString,
 ) -> Result<SymmetricCryptoKey> {
     let mut dec: Vec<u8> = match user_key {
@@ -190,7 +204,7 @@ mod tests {
 
     use super::{make_user_key, HashPurpose, Kdf, MasterKey};
     use crate::{
-        keys::{master_key::KdfDerivedKeymaterial, symmetric_crypto_key::derive_symmetric_key},
+        keys::{master_key::KdfDerivedKeyMaterial, symmetric_crypto_key::derive_symmetric_key},
         EncString, SymmetricCryptoKey,
     };
 
@@ -284,7 +298,7 @@ mod tests {
     fn test_make_user_key() {
         let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
 
-        let master_key = MasterKey(KdfDerivedKeymaterial {
+        let master_key = MasterKey(KdfDerivedKeyMaterial {
             key_material: Box::pin(
                 [
                     31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138,
@@ -325,7 +339,7 @@ mod tests {
 
     #[test]
     fn test_make_user_key2() {
-        let kdf_material = KdfDerivedKeymaterial {
+        let kdf_material = KdfDerivedKeyMaterial {
             key_material: if let SymmetricCryptoKey::Aes256CbcHmacKey(k) =
                 &derive_symmetric_key("test1")
             {

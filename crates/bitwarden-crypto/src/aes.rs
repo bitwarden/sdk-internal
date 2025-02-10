@@ -170,15 +170,4 @@ mod tests {
 
         assert_eq!(String::from_utf8(decrypted).unwrap(), "EncryptMe!");
     }
-
-    #[test]
-    fn test_encrypt_decrypt_aes256() {
-        let key = generate_generic_array(0, 1);
-        let data = "EncryptMe!";
-
-        let (iv, encrypted) = encrypt_aes256(data.as_bytes(), &key);
-        let decrypted = decrypt_aes256(&iv, encrypted, &key).unwrap();
-
-        assert_eq!(String::from_utf8(decrypted).unwrap(), "EncryptMe!");
-    }
 }
