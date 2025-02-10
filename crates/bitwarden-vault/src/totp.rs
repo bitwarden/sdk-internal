@@ -176,16 +176,9 @@ impl FromStr for Totp {
             let url = Url::parse(&key).map_err(|_| TotpError::InvalidOtpauth)?;
             let decoded_path = percent_decode_str(url.path()).decode_utf8_lossy();
             let label = decoded_path.strip_prefix("/");
-            let (issuer, account) = if let Some(label) = label {
-                if let Some((issuer, account)) = label.split_once(":") {
-                    (Some(issuer.trim()), Some(account.trim()))
-                } else if let Some((issuer, account)) = label.split_once("%3a") {
-                    (Some(issuer.trim()), Some(account.trim()))
-                } else {
-                    (None, Some(label.trim()))
-                }
-            } else {
-                (None, None)
+            let (issuer, account) = match label.and_then(|v| v.split_once(':')) {
+                Some((issuer, account)) => (Some(issuer.trim()), Some(account.trim())),
+                None => (None, label),
             };
 
             let parts: HashMap<_, _> = url.query_pairs().collect();
