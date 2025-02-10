@@ -2,8 +2,7 @@ use bitwarden_api_api::models::{
     DomainsResponseModel, ProfileOrganizationResponseModel, ProfileResponseModel, SyncResponseModel,
 };
 use bitwarden_core::{
-    client::encryption_settings::{EncryptionSettings, EncryptionSettingsError},
-    require, Client, MissingFieldError,
+    client::encryption_settings::EncryptionSettingsError, require, Client, MissingFieldError,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -45,9 +44,9 @@ pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncRes
         .filter_map(|o| o.id.zip(o.key.as_deref().and_then(|k| k.parse().ok())))
         .collect();
 
-    let enc = client.internal.initialize_org_crypto(org_keys)?;
+    client.internal.initialize_org_crypto(org_keys)?;
 
-    SyncResponse::process_response(sync, &enc)
+    SyncResponse::process_response(sync)
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
@@ -91,10 +90,7 @@ pub struct SyncResponse {
 }
 
 impl SyncResponse {
-    pub(crate) fn process_response(
-        response: SyncResponseModel,
-        enc: &EncryptionSettings,
-    ) -> Result<SyncResponse, SyncError> {
+    pub(crate) fn process_response(response: SyncResponseModel) -> Result<SyncResponse, SyncError> {
         let profile = require!(response.profile);
         let ciphers = require!(response.ciphers);
 
@@ -108,7 +104,7 @@ impl SyncResponse {
         }
 
         Ok(SyncResponse {
-            profile: ProfileResponse::process_response(*profile, enc)?,
+            profile: ProfileResponse::process_response(*profile)?,
             folders: try_into_iter(require!(response.folders))?,
             collections: try_into_iter(require!(response.collections))?,
             ciphers: try_into_iter(ciphers)?,
@@ -132,7 +128,6 @@ impl ProfileOrganizationResponse {
 impl ProfileResponse {
     fn process_response(
         response: ProfileResponseModel,
-        _enc: &EncryptionSettings,
     ) -> Result<ProfileResponse, MissingFieldError> {
         Ok(ProfileResponse {
             id: require!(response.id),

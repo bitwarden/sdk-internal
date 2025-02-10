@@ -7,7 +7,7 @@ pub enum ExportError {
     #[error(transparent)]
     NotAuthenticated(#[from] bitwarden_core::NotAuthenticatedError),
     #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLocked),
+    VaultLocked(#[from] bitwarden_core::VaultLockedError),
 
     #[error("CSV error: {0}")]
     Csv(#[from] crate::csv::CsvError),

@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::SecretCreateRequestModel;
-use bitwarden_core::Client;
-use bitwarden_crypto::KeyEncryptable;
+use bitwarden_core::{key_management::SymmetricKeyId, Client};
+use bitwarden_crypto::Encryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -34,16 +34,24 @@ pub(crate) async fn create_secret(
 ) -> Result<SecretResponse, SecretsManagerError> {
     input.validate()?;
 
-    let enc = client.internal.get_encryption_settings()?;
-    let key = enc.get_key(&Some(input.organization_id))?;
+    let key_store = client.internal.get_key_store();
+    let key = SymmetricKeyId::Organization(input.organization_id);
 
-    let secret = Some(SecretCreateRequestModel {
-        key: input.key.clone().trim().encrypt_with_key(key)?.to_string(),
-        value: input.value.clone().encrypt_with_key(key)?.to_string(),
-        note: input.note.clone().trim().encrypt_with_key(key)?.to_string(),
-        project_ids: input.project_ids.clone(),
-        access_policies_requests: None,
-    });
+    let secret = {
+        let mut ctx = key_store.context();
+        Some(SecretCreateRequestModel {
+            key: input.key.clone().trim().encrypt(&mut ctx, key)?.to_string(),
+            value: input.value.clone().encrypt(&mut ctx, key)?.to_string(),
+            note: input
+                .note
+                .clone()
+                .trim()
+                .encrypt(&mut ctx, key)?
+                .to_string(),
+            project_ids: input.project_ids.clone(),
+            access_policies_requests: None,
+        })
+    };
 
     let config = client.internal.get_api_configurations().await;
     let res = bitwarden_api_api::apis::secrets_api::organizations_organization_id_secrets_post(
@@ -53,7 +61,7 @@ pub(crate) async fn create_secret(
     )
     .await?;
 
-    SecretResponse::process_response(res, &enc)
+    SecretResponse::process_response(res, &mut key_store.context())
 }
 
 #[cfg(test)]

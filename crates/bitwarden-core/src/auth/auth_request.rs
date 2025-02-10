@@ -1,14 +1,15 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     fingerprint, generate_random_alphanumeric, AsymmetricCryptoKey, AsymmetricEncString,
-    AsymmetricPublicCryptoKey,
+    AsymmetricPublicCryptoKey, CryptoError,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, KeyDecryptable, SymmetricCryptoKey};
+use thiserror::Error;
 
 #[cfg(feature = "internal")]
 use crate::client::encryption_settings::EncryptionSettingsError;
-use crate::{error::Error, Client};
+use crate::{key_management::SymmetricKeyId, Client, VaultLockedError};
 
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AuthRequestResponse {
@@ -28,7 +29,7 @@ pub struct AuthRequestResponse {
 /// Generates a private key and access code. The pulic key is uploaded to the server and transmitted
 /// to another device. Where the user confirms the validity by confirming the fingerprint. The user
 /// key is then encrypted using the public key and returned to the initiating device.
-pub(crate) fn new_auth_request(email: &str) -> Result<AuthRequestResponse, Error> {
+pub(crate) fn new_auth_request(email: &str) -> Result<AuthRequestResponse, CryptoError> {
     let mut rng = rand::thread_rng();
 
     let key = AsymmetricCryptoKey::generate(&mut rng);
@@ -74,17 +75,31 @@ pub(crate) fn auth_request_decrypt_master_key(
     Ok(master_key.decrypt_user_key(user_key)?)
 }
 
+#[derive(Debug, Error)]
+pub enum ApproveAuthRequestError {
+    #[error(transparent)]
+    Crypto(#[from] CryptoError),
+    #[error(transparent)]
+    VaultLocked(#[from] VaultLockedError),
+    #[error(transparent)]
+    InvalidBase64(#[from] base64::DecodeError),
+}
+
 /// Approve an auth request.
 ///
 /// Encrypts the user key with a public key.
 pub(crate) fn approve_auth_request(
     client: &Client,
     public_key: String,
-) -> Result<AsymmetricEncString, Error> {
+) -> Result<AsymmetricEncString, ApproveAuthRequestError> {
     let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(public_key)?)?;
 
-    let enc = client.internal.get_encryption_settings()?;
-    let key = enc.get_key(&None)?;
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+
+    // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
+    #[allow(deprecated)]
+    let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
         &key.to_vec(),
@@ -120,7 +135,10 @@ mod tests {
     use bitwarden_crypto::{Kdf, MasterKey};
 
     use super::*;
-    use crate::mobile::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest};
+    use crate::{
+        key_management::SymmetricKeyId,
+        mobile::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
+    };
 
     #[test]
     fn test_approve() {
@@ -235,21 +253,25 @@ mod tests {
 
         // We can validate that the vault is unlocked correctly by confirming the user key is the
         // same
-        assert_eq!(
-            existing_device
-                .internal
-                .get_encryption_settings()
-                .unwrap()
-                .get_key(&None)
-                .unwrap()
-                .to_base64(),
-            new_device
-                .internal
-                .get_encryption_settings()
-                .unwrap()
-                .get_key(&None)
+
+        let existing_key = {
+            let key_store = existing_device.internal.get_key_store();
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
-        );
+        };
+
+        let new_key = {
+            let key_store = new_device.internal.get_key_store();
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+                .unwrap()
+                .to_base64()
+        };
+
+        assert_eq!(existing_key, new_key);
     }
 }

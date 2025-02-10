@@ -4,19 +4,18 @@ use std::{borrow::Cow, fmt::Debug};
 
 use bitwarden_api_api::apis::Error as ApiApisError;
 use bitwarden_api_identity::apis::Error as IdentityError;
-use bitwarden_error::bitwarden_error;
 use reqwest::StatusCode;
 use thiserror::Error;
 
 use crate::client::encryption_settings::EncryptionSettingsError;
 
-#[bitwarden_error(flat, export_as = "CoreError")]
+/// Deprecated, use a domain specific Error instead
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
     MissingFieldError(#[from] MissingFieldError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLocked),
+    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     NotAuthenticated(#[from] NotAuthenticatedError),
 
@@ -147,7 +146,15 @@ pub struct MissingFieldError(pub &'static str);
 
 #[derive(Debug, Error)]
 #[error("The client vault is locked and needs to be unlocked before use")]
-pub struct VaultLocked;
+pub struct VaultLockedError;
+
+#[derive(Debug, thiserror::Error)]
+#[error("Wrong password")]
+pub struct WrongPasswordError;
+
+#[derive(Debug, thiserror::Error)]
+#[error("Missing private key")]
+pub struct MissingPrivateKeyError;
 
 /// This macro is used to require that a value is present or return an error otherwise.
 /// It is equivalent to using `val.ok_or(Error::MissingFields)?`, but easier to use and

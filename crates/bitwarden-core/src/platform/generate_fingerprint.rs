@@ -1,10 +1,14 @@
+//! Fingerprint generation.
+//!
+//! This module contains the logic for generating fingerprints.
+
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::fingerprint;
-use log::info;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
-use crate::error::Result;
+use crate::{key_management::AsymmetricKeyId, MissingPrivateKeyError, VaultLockedError};
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -22,27 +26,42 @@ pub struct FingerprintResponse {
     pub fingerprint: String,
 }
 
-pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<FingerprintResponse> {
-    info!("Generating fingerprint");
+/// Errors that can occur when computing a fingerprint.
+#[derive(Debug, Error)]
+pub enum FingerprintError {
+    #[error(transparent)]
+    CryptoError(#[from] bitwarden_crypto::CryptoError),
+    #[error(transparent)]
+    InvalidBase64(#[from] base64::DecodeError),
+}
 
+pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String, FingerprintError> {
     let key = STANDARD.decode(&input.public_key)?;
 
-    Ok(FingerprintResponse {
-        fingerprint: fingerprint(&input.fingerprint_material, &key)?,
-    })
+    Ok(fingerprint(&input.fingerprint_material, &key)?)
+}
+
+/// Errors that can occur when computing a fingerprint.
+#[derive(Debug, Error)]
+pub enum UserFingerprintError {
+    #[error(transparent)]
+    Crypto(#[from] bitwarden_crypto::CryptoError),
+    #[error(transparent)]
+    VaultLocked(#[from] VaultLockedError),
+    #[error(transparent)]
+    MissingPrivateKey(#[from] MissingPrivateKeyError),
 }
 
 pub(crate) fn generate_user_fingerprint(
     client: &crate::Client,
     fingerprint_material: String,
-) -> Result<String> {
-    info!("Generating fingerprint");
-
-    let enc_settings = client.internal.get_encryption_settings()?;
-    let private_key = enc_settings
-        .private_key
-        .as_ref()
-        .ok_or("Missing private key")?;
+) -> Result<String, UserFingerprintError> {
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+    // FIXME: [PM-18110] This should be removed once the key store can handle public keys and
+    // fingerprints
+    #[allow(deprecated)]
+    let private_key = ctx.dangerous_get_asymmetric_key(AsymmetricKeyId::UserPrivateKey)?;
 
     let public_key = private_key.to_public_der()?;
     let fingerprint = fingerprint(&fingerprint_material, &public_key)?;
