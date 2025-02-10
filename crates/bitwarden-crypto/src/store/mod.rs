@@ -65,7 +65,7 @@ pub use context::KeyStoreContext;
 /// let store: KeyStore<Ids> = KeyStore::default();
 ///
 /// #[allow(deprecated)]
-/// store.context_mut().set_symmetric_key(SymmKeyId::User, SymmetricCryptoKey::generate(rand::thread_rng()));
+/// store.context_mut().set_symmetric_key(SymmKeyId::User, SymmetricCryptoKey::generate(rand::thread_rng(), false));
 ///
 /// // Define some data that needs to be encrypted
 /// struct Data(String);
@@ -355,7 +355,10 @@ pub(crate) mod tests {
             #[allow(deprecated)]
             store
                 .context_mut()
-                .set_symmetric_key(TestSymmKey::A(n), SymmetricCryptoKey::generate(&mut rng))
+                .set_symmetric_key(
+                    TestSymmKey::A(n),
+                    SymmetricCryptoKey::generate(&mut rng, false),
+                )
                 .unwrap();
         }
 

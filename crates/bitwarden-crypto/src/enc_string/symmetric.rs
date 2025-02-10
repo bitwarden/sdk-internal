@@ -227,6 +227,18 @@ impl EncString {
 
         Ok(buf)
     }
+
+    #[allow(dead_code)]
+    pub(crate) fn additional_authenticated_data(&self) -> additional_data::AdditionalData {
+        match self {
+            EncString::AesCbc256_B64 { .. } | EncString::AesCbc256_HmacSha256_B64 { .. } => {
+                additional_data::AdditionalData::None()
+            }
+            EncString::XChaCha20Poly1305_B64 {
+                additional_data, ..
+            } => rmp_serde::from_slice(additional_data).expect("Valid rmp data"),
+        }
+    }
 }
 
 impl Display for EncString {

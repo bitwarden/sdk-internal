@@ -855,7 +855,7 @@ mod tests {
 
     #[test]
     fn test_generate_cipher_key() {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate(rand::thread_rng(), false);
         let key_store = create_test_crypto_with_user_key(key);
 
         let original_cipher = generate_cipher();
@@ -881,7 +881,7 @@ mod tests {
 
     #[test]
     fn test_generate_cipher_key_when_a_cipher_key_already_exists() {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate(rand::thread_rng(), false);
         let key_store = create_test_crypto_with_user_key(key);
 
         let mut original_cipher = generate_cipher();
@@ -910,7 +910,7 @@ mod tests {
 
     #[test]
     fn test_generate_cipher_key_ignores_attachments_without_key() {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate(rand::thread_rng(), false);
         let key_store = create_test_crypto_with_user_key(key);
 
         let mut cipher = generate_cipher();
@@ -933,8 +933,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_to_org() {
         let org = uuid::Uuid::new_v4();
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let org_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate(rand::thread_rng(), false);
+        let org_key = SymmetricCryptoKey::generate(rand::thread_rng(), false);
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         // Create a cipher with a user key
@@ -958,8 +958,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_to_org_manually() {
         let org = uuid::Uuid::new_v4();
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let org_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate(rand::thread_rng(), false);
+        let org_key = SymmetricCryptoKey::generate(rand::thread_rng(), false);
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         // Create a cipher with a user key
@@ -978,8 +978,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_with_attachment_without_key_to_org() {
         let org = uuid::Uuid::new_v4();
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let org_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate(rand::thread_rng(), false);
+        let org_key = SymmetricCryptoKey::generate(rand::thread_rng(), false);
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         let mut cipher = generate_cipher();
@@ -1002,8 +1002,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_with_attachment_with_key_to_org() {
         let org = uuid::Uuid::new_v4();
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let org_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate(rand::thread_rng(), false);
+        let org_key = SymmetricCryptoKey::generate(rand::thread_rng(), false);
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
         let org_key = SymmetricKeyId::Organization(org);
 
@@ -1070,8 +1070,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_with_key_with_attachment_with_key_to_org() {
         let org = uuid::Uuid::new_v4();
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let org_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate(rand::thread_rng(), false);
+        let org_key = SymmetricCryptoKey::generate(rand::thread_rng(), false);
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
         let org_key = SymmetricKeyId::Organization(org);
 

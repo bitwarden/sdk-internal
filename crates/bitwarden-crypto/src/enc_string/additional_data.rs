@@ -4,6 +4,7 @@ use crate::key_hash;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) enum AdditionalData {
+    None(),
     V0(AdditionalDataV0),
 }
 

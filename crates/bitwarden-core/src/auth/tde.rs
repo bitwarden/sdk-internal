@@ -19,7 +19,7 @@ pub(super) fn make_register_tde_keys(
 
     let mut rng = rand::thread_rng();
 
-    let user_key = UserKey::new(SymmetricCryptoKey::generate(&mut rng));
+    let user_key = UserKey::new(SymmetricCryptoKey::generate(&mut rng, false));
     let key_pair = user_key.make_key_pair()?;
 
     let admin_reset =

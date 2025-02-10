@@ -4,11 +4,12 @@ use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::GenericArray;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
-use super::key_encryptable::CryptoKey;
 #[cfg(not(test))]
 use super::master_key::KdfDerivedKeymaterial;
+use super::{key_encryptable::CryptoKey, key_hash::KeyHashData};
 use crate::CryptoError;
 
 // GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
@@ -49,24 +50,51 @@ impl Drop for SymmetricCryptoKey {
     }
 }
 
+impl KeyHashData for SymmetricCryptoKey {
+    fn hash_data(&self) -> Vec<u8> {
+        match &self {
+            SymmetricCryptoKey::Aes256CbcKey(key) => key.encryption_key.to_vec(),
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
+                let mut buf = Vec::with_capacity(64);
+                buf.extend_from_slice(&key.encryption_key);
+                buf.extend_from_slice(&key.mac_key);
+                buf
+            }
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.encryption_key.to_vec(),
+        }
+    }
+}
+
 impl zeroize::ZeroizeOnDrop for SymmetricCryptoKey {}
 
 impl SymmetricCryptoKey {
-    const KEY_LEN: usize = 32;
-    const MAC_LEN: usize = 32;
+    const AES256_CBC_ENC_KEY_LEN: usize = 32;
+    const AES256_CBC_MAC_KEY_LEN: usize = 32;
+    const AES256_CBC_HMAC_KEY_LEN: usize =
+        Self::AES256_CBC_ENC_KEY_LEN + Self::AES256_CBC_MAC_KEY_LEN;
 
     /// Generate a new random [SymmetricCryptoKey]
-    pub fn generate(mut rng: impl rand::RngCore) -> Self {
-        let mut key = Box::pin(GenericArray::<u8, U32>::default());
-        let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
+    /// @param rng: A random number generator
+    /// @param create_aead_key: If true, generate an XChaCha20Poly1305 key, otherwise generate an AES256CbcHmacKey; currently feature flagged
+    pub fn generate(mut rng: impl rand::RngCore, create_aead_key: bool) -> Self {
+        if create_aead_key {
+            let mut key = Box::pin(GenericArray::<u8, U32>::default());
+            rng.fill(key.as_mut_slice());
+            SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
+                encryption_key: key,
+            })
+        } else {
+            let mut encryption_key = Box::pin(GenericArray::<u8, U32>::default());
+            let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
 
-        rng.fill(key.as_mut_slice());
-        rng.fill(mac_key.as_mut_slice());
+            rng.fill(encryption_key.as_mut_slice());
+            rng.fill(mac_key.as_mut_slice());
 
-        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-            encryption_key: key,
-            mac_key,
-        })
+            SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
+                encryption_key,
+                mac_key,
+            })
+        }
     }
 
     fn total_len(&self) -> usize {
@@ -93,12 +121,34 @@ impl SymmetricCryptoKey {
                 buf.extend_from_slice(&key.mac_key);
             }
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
-                buf.extend_from_slice(&key.encryption_key);
+                let encoded_key = SerializedSymmetricCryptoKey {
+                    key_algorithm: SymmetricCryptoKeyAlgorithm::XChaCha20Poly1305,
+                    key_data: key.encryption_key.to_vec(),
+                };
+                let encoded_key = rmp_serde::to_vec(&encoded_key).unwrap();
+                // prevent ambiguity by adding a null byte if the key is 64 bytes long
+                if encoded_key.len() >= 64 {
+                    buf.extend_from_slice(&[0]);
+                }
+                buf.extend_from_slice(&encoded_key);
             }
         }
 
         buf
     }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+enum SymmetricCryptoKeyAlgorithm {
+    Aes256Cbc,
+    Aes256CbcHmac,
+    XChaCha20Poly1305,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct SerializedSymmetricCryptoKey {
+    pub key_algorithm: SymmetricCryptoKeyAlgorithm,
+    pub key_data: Vec<u8>,
 }
 
 impl TryFrom<String> for SymmetricCryptoKey {
@@ -126,40 +176,63 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
     /// Note: This function takes the byte slice by mutable reference and will zero out all
     /// the data in it. This is to prevent the key from being left in memory.
     fn try_from(value: &mut [u8]) -> Result<Self, Self::Error> {
-        let result = if value.len() == Self::KEY_LEN + Self::MAC_LEN {
-            let mut key = Box::pin(GenericArray::<u8, U32>::default());
+        let result = if value.len() == Self::AES256_CBC_HMAC_KEY_LEN {
+            let mut encryption_key = Box::pin(GenericArray::<u8, U32>::default());
             let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
 
-            key.copy_from_slice(&value[..Self::KEY_LEN]);
-            mac_key.copy_from_slice(&value[Self::KEY_LEN..]);
+            encryption_key.copy_from_slice(&value[..Self::AES256_CBC_ENC_KEY_LEN]);
+            mac_key.copy_from_slice(&value[Self::AES256_CBC_ENC_KEY_LEN..]);
+            value.zeroize();
 
             Ok(SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-                encryption_key: key,
+                encryption_key,
                 mac_key,
             }))
-        } else if value.len() == Self::KEY_LEN {
-            let mut key = Box::pin(GenericArray::<u8, U32>::default());
-
-            key.copy_from_slice(&value[..Self::KEY_LEN]);
+        } else if value.len() == Self::AES256_CBC_ENC_KEY_LEN {
+            let mut encryption_key = Box::pin(GenericArray::<u8, U32>::default());
+            encryption_key.copy_from_slice(&value[..Self::AES256_CBC_ENC_KEY_LEN]);
+            value.zeroize();
 
             Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey {
-                encryption_key: key,
+                encryption_key,
             }))
         } else {
-            Err(CryptoError::InvalidKeyLen)
-        };
+            let mut value = value;
+            // prevent ambiguity by removing a null byte if the key is 64 bytes long
+            if value.len() >= 65 {
+                value = &mut value[1..];
+            }
+            let encoded_key: SerializedSymmetricCryptoKey =
+                rmp_serde::from_slice(value).map_err(|_| CryptoError::InvalidKey)?;
+            value.zeroize();
 
-        value.zeroize();
+            match encoded_key.key_algorithm {
+                SymmetricCryptoKeyAlgorithm::XChaCha20Poly1305 => {
+                    let mut encryption_key = Box::pin(GenericArray::<u8, U32>::default());
+                    encryption_key.copy_from_slice(&encoded_key.key_data);
+
+                    Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(
+                        XChaCha20Poly1305Key { encryption_key },
+                    ))
+                }
+                SymmetricCryptoKeyAlgorithm::Aes256CbcHmac => {
+                    let mut encryption_key = Box::pin(GenericArray::<u8, U32>::default());
+                    let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
+                    encryption_key.copy_from_slice(&encoded_key.key_data[..32]);
+                    mac_key.copy_from_slice(&encoded_key.key_data[32..]);
+                    Ok(SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
+                        encryption_key,
+                        mac_key,
+                    }))
+                }
+                _ => Err(CryptoError::InvalidKey),
+            }
+        };
         result
     }
 }
 
 impl CryptoKey for SymmetricCryptoKey {}
-
-struct SerializedCryptoKey {
-    keyAlgorithm: String,
-    keyData: []
-}
 
 // We manually implement these to make sure we don't print any sensitive data
 #[cfg(not(test))]
@@ -200,5 +273,12 @@ mod tests {
         let key = "UY4B5N4DA4UisCNClgZtRr6VLy9ZF5BXXC7cDZRqourKi4ghEMgISbCsubvgCkHf5DZctQjVot11/vVvN9NNHQ==".to_string();
         let key2 = SymmetricCryptoKey::try_from(key.clone()).unwrap();
         assert_eq!(key, key2.to_base64());
+    }
+
+    #[test]
+    fn test_encode_xchacha20_poly1305_key() {
+        let key = SymmetricCryptoKey::generate(rand::thread_rng(), true);
+        let key_vec = key.to_vec();
+        let key_vec_utf8_lossy = String::from_utf8_lossy(&key_vec);
     }
 }
