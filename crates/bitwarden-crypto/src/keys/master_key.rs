@@ -295,9 +295,7 @@ mod tests {
         });
 
         let (user_key, protected) = make_user_key(&mut rng, &master_key).unwrap();
-        let user_key_unwrapped = if let SymmetricCryptoKey::Aes256CbcHmacKey(k) = &user_key.0 {
-            k
-        } else {
+        let SymmetricCryptoKey::Aes256CbcHmacKey(user_key_unwrapped) = &user_key.0 else {
             panic!("User key is not an Aes256CbcHmacKey");
         };
 

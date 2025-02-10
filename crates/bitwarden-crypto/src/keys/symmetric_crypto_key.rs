@@ -63,7 +63,7 @@ impl SymmetricCryptoKey {
     }
 
     fn total_len(&self) -> usize {
-        match &self {
+        match self {
             SymmetricCryptoKey::Aes256CbcKey(_) => 32,
             SymmetricCryptoKey::Aes256CbcHmacKey(_) => 64,
         }
@@ -76,7 +76,7 @@ impl SymmetricCryptoKey {
     pub fn to_vec(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(self.total_len());
 
-        match &self {
+        match self {
             SymmetricCryptoKey::Aes256CbcKey(key) => {
                 buf.extend_from_slice(&key.encryption_key);
             }
