@@ -30,12 +30,12 @@ impl DeviceKey {
     /// from EncSettings.
     pub fn trust_device(user_key: &SymmetricCryptoKey) -> Result<TrustDeviceResponse> {
         let mut rng = rand::thread_rng();
-        let device_key = DeviceKey(SymmetricCryptoKey::generate(&mut rng, false));
+        let device_key = DeviceKey(SymmetricCryptoKey::generate(&mut rng));
 
         let device_private_key = AsymmetricCryptoKey::generate(&mut rng);
 
         // Encrypt both the key and mac_key of the user key
-        let data = user_key.to_vec();
+        let data = user_key.to_vec(false);
 
         let protected_user_key =
             AsymmetricEncString::encrypt_rsa2048_oaep_sha1(&data, &device_private_key)?;

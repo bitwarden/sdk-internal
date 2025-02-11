@@ -75,26 +75,27 @@ impl SymmetricCryptoKey {
 
     /// Generate a new random [SymmetricCryptoKey]
     /// @param rng: A random number generator
-    /// @param create_aead_key: If true, generate an XChaCha20Poly1305 key, otherwise generate an AES256CbcHmacKey; currently feature flagged
-    pub fn generate(mut rng: impl rand::RngCore, create_aead_key: bool) -> Self {
-        if create_aead_key {
-            let mut key = Box::pin(GenericArray::<u8, U32>::default());
-            rng.fill(key.as_mut_slice());
-            SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
-                encryption_key: key,
-            })
-        } else {
-            let mut encryption_key = Box::pin(GenericArray::<u8, U32>::default());
-            let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
+    pub fn generate(mut rng: impl rand::RngCore) -> Self {
+        let mut encryption_key = Box::pin(GenericArray::<u8, U32>::default());
+        let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
 
-            rng.fill(encryption_key.as_mut_slice());
-            rng.fill(mac_key.as_mut_slice());
+        rng.fill(encryption_key.as_mut_slice());
+        rng.fill(mac_key.as_mut_slice());
 
-            SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-                encryption_key,
-                mac_key,
-            })
-        }
+        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
+            encryption_key,
+            mac_key,
+        })
+    }
+
+    // Generate a unew random AEAD [SymmetricCryptoKey]
+    // @param rng: A random number generator
+    pub fn generate_aead(mut rng: impl rand::RngCore) -> Self {
+        let mut key = Box::pin(GenericArray::<u8, U32>::default());
+        rng.fill(key.as_mut_slice());
+        SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
+            encryption_key: key,
+        })
     }
 
     fn total_len(&self) -> usize {
@@ -106,34 +107,41 @@ impl SymmetricCryptoKey {
     }
 
     pub fn to_base64(&self) -> String {
-        STANDARD.encode(self.to_vec())
+        STANDARD.encode(self.to_vec(false))
     }
 
-    pub fn to_vec(&self) -> Vec<u8> {
+    pub fn to_vec(&self, force_new_format: bool) -> Vec<u8> {
         let mut buf = Vec::with_capacity(self.total_len());
 
-        match &self {
-            SymmetricCryptoKey::Aes256CbcKey(key) => {
-                buf.extend_from_slice(&key.encryption_key);
-            }
-            SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
-                buf.extend_from_slice(&key.encryption_key);
-                buf.extend_from_slice(&key.mac_key);
-            }
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
-                let encoded_key = SerializedSymmetricCryptoKey {
-                    key_algorithm: SymmetricCryptoKeyAlgorithm::XChaCha20Poly1305,
-                    key_data: key.encryption_key.to_vec(),
-                };
-                let encoded_key = rmp_serde::to_vec(&encoded_key).unwrap();
-                // prevent ambiguity by adding a null byte if the key is 64 bytes long
-                if encoded_key.len() >= 64 {
-                    buf.extend_from_slice(&[0]);
+        if force_new_format {
+            buf.extend_from_slice(&self.encode());
+        } else {
+            match &self {
+                SymmetricCryptoKey::Aes256CbcKey(key) => {
+                    buf.extend_from_slice(&key.encryption_key);
                 }
-                buf.extend_from_slice(&encoded_key);
+                SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
+                    buf.extend_from_slice(&key.encryption_key);
+                    buf.extend_from_slice(&key.mac_key);
+                }
+                SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
+                    buf.extend_from_slice(&self.encode());
+                }
             }
         }
 
+        buf
+    }
+
+    fn encode(&self) -> Vec<u8> {
+        let encoded_key = SerializedSymmetricCryptoKey::from(self.clone());
+        let encoded_key = rmp_serde::to_vec(&encoded_key).unwrap();
+        let mut buf = Vec::with_capacity(encoded_key.len());
+        // prevent ambiguity by adding a null byte if the key is 64 bytes long
+        if encoded_key.len() >= 64 {
+            buf.extend_from_slice(&[0]);
+        }
+        buf.extend_from_slice(&encoded_key);
         buf
     }
 }
@@ -149,6 +157,32 @@ enum SymmetricCryptoKeyAlgorithm {
 struct SerializedSymmetricCryptoKey {
     pub key_algorithm: SymmetricCryptoKeyAlgorithm,
     pub key_data: Vec<u8>,
+}
+
+impl From<SymmetricCryptoKey> for SerializedSymmetricCryptoKey {
+    fn from(key: SymmetricCryptoKey) -> Self {
+        SerializedSymmetricCryptoKey {
+            key_algorithm: match key {
+                SymmetricCryptoKey::Aes256CbcKey(_) => SymmetricCryptoKeyAlgorithm::Aes256Cbc,
+                SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
+                    SymmetricCryptoKeyAlgorithm::Aes256CbcHmac
+                }
+                SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
+                    SymmetricCryptoKeyAlgorithm::XChaCha20Poly1305
+                }
+            },
+            key_data: match &key {
+                SymmetricCryptoKey::Aes256CbcKey(key) => key.encryption_key.to_vec(),
+                SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
+                    let mut buf = Vec::with_capacity(64);
+                    buf.extend_from_slice(&key.encryption_key);
+                    buf.extend_from_slice(&key.mac_key);
+                    buf
+                }
+                SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.encryption_key.to_vec(),
+            },
+        }
+    }
 }
 
 impl TryFrom<String> for SymmetricCryptoKey {
@@ -277,8 +311,8 @@ mod tests {
 
     #[test]
     fn test_encode_xchacha20_poly1305_key() {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng(), true);
-        let key_vec = key.to_vec();
+        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key_vec = key.to_vec(true);
         let key_vec_utf8_lossy = String::from_utf8_lossy(&key_vec);
     }
 }

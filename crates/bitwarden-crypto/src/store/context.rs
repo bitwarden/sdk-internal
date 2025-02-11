@@ -170,7 +170,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key_to_encrypt: Ids::Symmetric,
     ) -> Result<EncString> {
         let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
-        self.encrypt_data_with_symmetric_key(encryption_key, &key_to_encrypt.to_vec())
+        self.encrypt_data_with_symmetric_key(encryption_key, &key_to_encrypt.to_vec(false))
     }
 
     /// Decrypt a symmetric key into the context by using an already existing asymmetric key
@@ -215,7 +215,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key_to_encrypt: Ids::Symmetric,
     ) -> Result<AsymmetricEncString> {
         let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
-        self.encrypt_data_with_asymmetric_key(encryption_key, &key_to_encrypt.to_vec())
+        self.encrypt_data_with_asymmetric_key(encryption_key, &key_to_encrypt.to_vec(false))
     }
 
     /// Decrypt an asymmetric key into the context by using an already existing asymmetric key
@@ -280,7 +280,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
     /// Generate a new random symmetric key and store it in the context
     pub fn generate_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<Ids::Symmetric> {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng(), false);
+        let key = SymmetricCryptoKey::generate(rand::thread_rng());
         #[allow(deprecated)]
         self.set_symmetric_key(key_id, key)?;
         Ok(key_id)
@@ -464,7 +464,7 @@ mod tests {
 
         // Generate and insert a key
         let key_a0_id = TestSymmKey::A(0);
-        let key_a0 = SymmetricCryptoKey::generate(&mut rng, false);
+        let key_a0 = SymmetricCryptoKey::generate(&mut rng);
 
         store
             .context_mut()
@@ -487,7 +487,7 @@ mod tests {
 
         // Generate and insert a key
         let key_1_id = TestSymmKey::C(1);
-        let key_1 = SymmetricCryptoKey::generate(&mut rng, false);
+        let key_1 = SymmetricCryptoKey::generate(&mut rng);
 
         ctx.set_symmetric_key(key_1_id, key_1.clone()).unwrap();
 
@@ -495,7 +495,7 @@ mod tests {
 
         // Generate and insert a new key
         let key_2_id = TestSymmKey::C(2);
-        let key_2 = SymmetricCryptoKey::generate(&mut rng, false);
+        let key_2 = SymmetricCryptoKey::generate(&mut rng);
 
         ctx.set_symmetric_key(key_2_id, key_2.clone()).unwrap();
 

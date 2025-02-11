@@ -13,7 +13,10 @@ use super::{
     utils::{derive_kdf_key, stretch_kdf_key},
     XChaCha20Poly1305Key,
 };
-use crate::{util, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey};
+use crate::{
+    enc_string::additional_data, util, EncString, KeyDecryptable, Result, SymmetricCryptoKey,
+    UserKey,
+};
 
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct KdfDerivedKeymaterial {
@@ -144,11 +147,24 @@ pub(super) fn encrypt_user_key(
     key: &KdfDerivedKeymaterial,
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
-    let mut userkey_bytes = user_key.to_vec();
+    let mut userkey_bytes = user_key.to_vec(false);
     let stretched_key = stretch_kdf_key(key)?;
     let encrypted_userkey = EncString::encrypt_aes256_hmac(&userkey_bytes, &stretched_key);
     userkey_bytes.zeroize();
     encrypted_userkey
+}
+
+/// Helper function to encrypt a userkey with a master or pin key using AEAD encryption.
+pub(super) fn encrypt_user_key_aead(
+    kdf_key: &KdfDerivedKeymaterial,
+    user_key: &SymmetricCryptoKey,
+) -> Result<EncString> {
+    let userkey_bytes = zeroize::Zeroizing::new(user_key.to_vec(true));
+    let encrypting_key = XChaCha20Poly1305Key {
+        encryption_key: kdf_key.key_material.clone(),
+    };
+    let ad = additional_data::AdditionalData::None();
+    EncString::encrypt_xchacha20_poly1305(&userkey_bytes, ad, &encrypting_key)
 }
 
 /// Helper function to decrypt a user key with a master or pin key.
@@ -186,7 +202,7 @@ fn make_user_key(
     mut rng: impl rand::RngCore,
     master_key: &MasterKey,
 ) -> Result<(UserKey, EncString)> {
-    let user_key = SymmetricCryptoKey::generate(&mut rng, false);
+    let user_key = SymmetricCryptoKey::generate(&mut rng);
     let protected = master_key.encrypt_user_key(&user_key)?;
     Ok((UserKey::new(user_key), protected))
 }

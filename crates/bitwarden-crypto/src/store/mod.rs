@@ -355,10 +355,7 @@ pub(crate) mod tests {
             #[allow(deprecated)]
             store
                 .context_mut()
-                .set_symmetric_key(
-                    TestSymmKey::A(n),
-                    SymmetricCryptoKey::generate(&mut rng, false),
-                )
+                .set_symmetric_key(TestSymmKey::A(n), SymmetricCryptoKey::generate(&mut rng))
                 .unwrap();
         }
 
