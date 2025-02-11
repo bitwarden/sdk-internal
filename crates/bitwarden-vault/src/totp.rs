@@ -295,7 +295,7 @@ impl fmt::Display for Totp {
         }
 
         if self.algorithm != DEFAULT_ALGORITHM {
-            query_params.push(format!("algorithm={}", self.algorithm.to_string()));
+            query_params.push(format!("algorithm={}", self.algorithm));
         }
 
         if self.digits != DEFAULT_DIGITS {
