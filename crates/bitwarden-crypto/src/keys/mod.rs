@@ -10,8 +10,7 @@ pub use shareable_key::derive_shareable_key;
 mod symmetric_crypto_key;
 #[cfg(test)]
 pub use symmetric_crypto_key::derive_symmetric_key;
-pub use symmetric_crypto_key::SymmetricCryptoKey;
-pub use symmetric_crypto_key::{Aes256CbcHmacKey, Aes256CbcKey};
+pub use symmetric_crypto_key::{Aes256CbcHmacKey, Aes256CbcKey, SymmetricCryptoKey};
 mod asymmetric_crypto_key;
 pub use asymmetric_crypto_key::{
     AsymmetricCryptoKey, AsymmetricEncryptable, AsymmetricPublicCryptoKey,
