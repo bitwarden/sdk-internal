@@ -141,7 +141,8 @@ mod tests {
         ] {
             assert_eq!(
                 derive_kdf_key(&secret, &salt, &kdf)
-                    .unwrap_err()
+                    .err()
+                    .unwrap()
                     .to_string(),
                 "Insufficient KDF parameters"
             );

@@ -16,7 +16,6 @@ use crate::{util, CryptoError, EncString, KeyDecryptable, Result, SymmetricCrypt
 /// This should not be directly used to encrypt, but instead be explicitly
 /// converted to a SymmetricCryptoKey of a specific encryption type, by re-using
 /// the key-material, or by stretching it with HKDF
-#[cfg_attr(test, derive(Debug))]
 pub(crate) struct KdfDerivedKeyMaterial {
     pub(crate) key_material: Pin<Box<GenericArray<u8, U32>>>,
 }
