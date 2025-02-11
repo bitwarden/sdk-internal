@@ -1,4 +1,8 @@
-use std::{collections::HashMap, fmt, str::FromStr};
+use std::{
+    collections::HashMap,
+    fmt::{self},
+    str::FromStr,
+};
 
 use bitwarden_core::{key_management::KeyIds, VaultLockedError};
 use bitwarden_crypto::{CryptoError, KeyStoreContext};
@@ -6,7 +10,7 @@ use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
 use data_encoding::BASE32_NOPAD;
 use hmac::{Hmac, Mac};
-use percent_encoding::percent_decode_str;
+use percent_encoding::{percent_decode_str, percent_encode, NON_ALPHANUMERIC};
 use reqwest::Url;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -128,6 +132,18 @@ impl TotpAlgorithm {
     }
 }
 
+impl fmt::Display for TotpAlgorithm {
+    /// Display the algorithm as a string
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            TotpAlgorithm::Sha1 => "SHA1",
+            TotpAlgorithm::Sha256 => "SHA256",
+            TotpAlgorithm::Sha512 => "SHA512",
+            TotpAlgorithm::Steam => "SHA1",
+        })
+    }
+}
+
 /// TOTP representation broken down into its components.
 ///
 /// Should generally be considered internal to the bitwarden-vault crate. Consumers should use one
@@ -241,6 +257,10 @@ impl FromStr for Totp {
 }
 
 impl fmt::Display for Totp {
+    /// Formats the TOTP as an OTP Auth URI.
+    ///
+    /// Returns a steam::// URI if the algorithm is Steam.
+    /// Otherwise returns an otpauth:// URI according to the Key Uri Format Specification:  https://docs.yubico.com/yesdk/users-manual/application-oath/uri-string-format.html
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let secret_b32 = BASE32_NOPAD.encode(&self.secret);
 
@@ -250,7 +270,12 @@ impl fmt::Display for Totp {
 
         let mut url = Url::parse("otpauth://totp").map_err(|_| fmt::Error)?;
 
-        let label = match (&self.issuer, &self.account) {
+        let encoded_issuer = self
+            .issuer
+            .as_ref()
+            .map(|issuer| percent_encode(issuer.as_bytes(), NON_ALPHANUMERIC));
+
+        let label = match (&encoded_issuer, &self.account) {
             (Some(issuer), Some(account)) => format!("{}:{}", issuer, account),
             (None, Some(account)) => account.clone(),
             _ => String::new(),
@@ -258,34 +283,27 @@ impl fmt::Display for Totp {
 
         url.set_path(&label);
 
-        // We enclose the query builder in a block so that the mutable borrow
-        // on `url` is dropped before we use it again.
-        {
-            let mut pairs = url.query_pairs_mut();
-            pairs.append_pair("secret", &secret_b32);
+        let mut query_params = Vec::new();
+        query_params.push(format!("secret={}", secret_b32));
 
-            if let Some(issuer) = &self.issuer {
-                pairs.append_pair("issuer", issuer);
-            }
-
-            if self.period != DEFAULT_PERIOD {
-                pairs.append_pair("period", &self.period.to_string());
-            }
-
-            if self.algorithm == TotpAlgorithm::Sha256 {
-                pairs.append_pair("algorithm", "SHA256");
-            } else if self.algorithm == TotpAlgorithm::Sha512 {
-                pairs.append_pair("algorithm", "SHA512");
-            }
-
-            if self.digits != DEFAULT_DIGITS {
-                pairs.append_pair("digits", &self.digits.to_string());
-            }
-
-            pairs.finish();
+        if let Some(issuer) = &encoded_issuer {
+            query_params.push(format!("issuer={}", issuer));
         }
 
-        write!(f, "{}", url)
+        if self.period != DEFAULT_PERIOD {
+            query_params.push(format!("period={}", self.period));
+        }
+
+        if self.algorithm != DEFAULT_ALGORITHM {
+            query_params.push(format!("algorithm={}", self.algorithm.to_string()));
+        }
+
+        if self.digits != DEFAULT_DIGITS {
+            query_params.push(format!("digits={}", self.digits));
+        }
+
+        url.set_query(Some(&query_params.join("&")));
+        url.fmt(f)
     }
 }
 
@@ -524,7 +542,7 @@ mod tests {
             digits: DEFAULT_DIGITS,
             issuer: Some("Example".to_string()),
             period: DEFAULT_PERIOD,
-            secret: vec![180, 17, 13, 116, 49, 86, 112, 36, 215, 15],
+            secret: decode_b32("WQIQ25BRKZYCJVYP"),
         };
 
         assert_eq!(
@@ -541,7 +559,7 @@ mod tests {
             digits: DEFAULT_DIGITS,
             issuer: Some("Example".to_string()),
             period: 60,
-            secret: vec![180, 17, 13, 116, 49, 86, 112, 36, 215, 15],
+            secret: decode_b32("WQIQ25BRKZYCJVYP"),
         };
 
         assert_eq!(
@@ -558,13 +576,64 @@ mod tests {
             digits: DEFAULT_DIGITS,
             issuer: Some("Example".to_string()),
             period: DEFAULT_PERIOD,
-            secret: vec![180, 17, 13, 116, 49, 86, 112, 36, 215, 15],
+            secret: decode_b32("WQIQ25BRKZYCJVYP"),
         };
 
         assert_eq!(
             totp.to_string(),
             "otpauth://totp/Example:test@bitwarden.com?secret=WQIQ25BRKZYCJVYP&issuer=Example&algorithm=SHA256"
         );
+    }
+
+    #[test]
+    fn test_totp_to_string_issuer_with_spaces() {
+        let totp = Totp {
+            account: Some("test@bitwarden.com".to_string()),
+            algorithm: DEFAULT_ALGORITHM,
+            digits: DEFAULT_DIGITS,
+            issuer: Some("Acme Inc".to_string()),
+            period: DEFAULT_PERIOD,
+            secret: decode_b32("WQIQ25BRKZYCJVYP"),
+        };
+
+        assert_eq!(
+            totp.to_string(),
+            "otpauth://totp/Acme%20Inc:test@bitwarden.com?secret=WQIQ25BRKZYCJVYP&issuer=Acme%20Inc"
+        );
+    }
+
+    #[test]
+    fn test_totp_to_string_issuer_special_characters() {
+        let totp = Totp {
+            account: Some("test@bitwarden.com".to_string()),
+            algorithm: DEFAULT_ALGORITHM,
+            digits: DEFAULT_DIGITS,
+            issuer: Some("Acme & Inc".to_string()),
+            period: DEFAULT_PERIOD,
+            secret: decode_b32("WQIQ25BRKZYCJVYP"),
+        };
+
+        assert_eq!(
+            totp.to_string(),
+            "otpauth://totp/Acme%20%26%20Inc:test@bitwarden.com?secret=WQIQ25BRKZYCJVYP&issuer=Acme%20%26%20Inc"
+        );
+    }
+
+    #[test]
+    fn test_totp_to_string_no_issuer() {
+        let totp = Totp {
+            account: Some("test@bitwarden.com".to_string()),
+            algorithm: DEFAULT_ALGORITHM,
+            digits: DEFAULT_DIGITS,
+            issuer: None,
+            period: DEFAULT_PERIOD,
+            secret: decode_b32("WQIQ25BRKZYCJVYP"),
+        };
+
+        assert_eq!(
+            totp.to_string(),
+            "otpauth://totp/test@bitwarden.com?secret=WQIQ25BRKZYCJVYP"
+        )
     }
 
     #[test]
