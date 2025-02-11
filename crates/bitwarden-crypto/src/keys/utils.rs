@@ -23,7 +23,7 @@ pub(super) fn derive_kdf_key(
                 return Err(CryptoError::InsufficientKdfParameters);
             }
 
-            crate::util::pbkdf2(secret, salt, iterations)
+            zeroize::Zeroizing::new(crate::util::pbkdf2(secret, salt, iterations))
         }
         Kdf::Argon2id {
             iterations,
@@ -59,11 +59,11 @@ pub(super) fn derive_kdf_key(
             }
             clear_stack();
 
-            hash
+            zeroize::Zeroizing::new(hash)
         }
     };
     Ok(KdfDerivedKeyMaterial {
-        key_material: Box::pin(GenericArray::clone_from_slice(&hash)),
+        key_material: Box::pin(GenericArray::clone_from_slice(hash.as_slice())),
     })
 }
 
