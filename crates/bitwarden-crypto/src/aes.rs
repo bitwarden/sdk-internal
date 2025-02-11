@@ -59,8 +59,6 @@ pub(crate) fn decrypt_aes256_hmac(
 
 /// Encrypt using AES-256 in CBC mode with MAC.
 ///
-/// Behaves similar to [encrypt_aes256], but also generate a MAC.
-///
 /// ## Returns
 ///
 /// A AesCbc256_HmacSha256_B64 EncString
@@ -79,7 +77,6 @@ pub(crate) fn encrypt_aes256_hmac(
 /// Encrypt using AES-256 in CBC mode.
 ///
 /// Used internally by:
-/// - [encrypt_aes256]
 /// - [encrypt_aes256_hmac]
 fn encrypt_aes256_internal(
     mut rng: impl rand::RngCore,
