@@ -45,6 +45,7 @@
      # on Mac
      sudo launchctl kickstart -k system/org.nixos.nix-daemon
      ```
+  4. Start a new shell
 
   = Some example commands for using this flake =
 
