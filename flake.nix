@@ -27,10 +27,10 @@
   3. Opening a shell in this directory
   4. Running a nix command
 
-  = You can install nix by =
+  = You can setup nix by =
 
-  1. Installing Nix using the Determinate Systems installer:
-     https://github.com/DeterminateSystems/nix-installer
+  1. Installing Nix:
+     https://nixos.org/download/
   2. Enabling required experimental features by creating or editing ~/.config/nix/nix.conf:
      ```
      echo "experimental-features = nix-command flakes impure-derivations ca-derivations" >> ~/.config/nix/nix.conf
