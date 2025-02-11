@@ -953,18 +953,21 @@
             paths = map (name: rustCratePackages.${name}) rustCrates;
           };
 
-          builds = pkgs.symlinkJoin {
+          builds = (pkgs.symlinkJoin ({
             name = "builds";
             paths = with self.packages.${system}; [
               crates
-              swift
               wasm
               android
               rustdoc
+            ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+              swift
             ];
+          } // pkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
             __noChroot = true;
             __impure = true;
-          };
+          }));
+
 
           checks = pkgs.symlinkJoin {
             name = "checks";
@@ -988,15 +991,16 @@
           # checks is enough, or targetting a specific platform (crates,
           # wasm, swift, android) if you are having issues with a specific
           # build.
-          everything = pkgs.symlinkJoin {
+          everything = (pkgs.symlinkJoin ({
             name = "everything";
-            __noChroot = true;
-            __impure = true;
             paths = with self.packages.${system}; [
               checks
               builds
             ];
-          };
+          } // pkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+            __noChroot = true;
+            __impure = true;
+          }));
 
           default = self.packages.${system}.checks;
         }
