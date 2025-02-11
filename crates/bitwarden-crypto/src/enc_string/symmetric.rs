@@ -49,7 +49,7 @@ export type EncString = string;
 /// - `[iv]`: (optional) is the initialization vector used for encryption.
 /// - `[data]`: is the encrypted data.
 /// - `[mac]`: (optional) is the MAC used to validate the integrity of the data.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, zeroize::ZeroizeOnDrop, PartialEq)]
 #[allow(unused, non_camel_case_types)]
 pub enum EncString {
     /// 0
@@ -61,6 +61,7 @@ pub enum EncString {
         mac: [u8; 32],
         data: Vec<u8>,
     },
+    // 7
     XChaCha20Poly1305_B64 {
         nonce: [u8; 24],
         data: Vec<u8>,
@@ -365,13 +366,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
             (
                 EncString::AesCbc256_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => crate::aes::decrypt_aes256_hmac(
-                iv,
-                mac,
-                data.clone(),
-                &key.mac_key,
-                &key.encryption_key,
-            ),
+            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
             (
                 EncString::XChaCha20Poly1305_B64 {
                     nonce,
@@ -390,7 +385,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                     additional_data: additional_data.clone(),
                 },
             ),
-            _ => Err(CryptoError::EncryptionTypeMismatch),
+            _ => Err(CryptoError::WrongKeyType),
         }
     }
 }

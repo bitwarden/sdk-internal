@@ -7,7 +7,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::key_encryptable::CryptoKey;
+use super::{key_encryptable::CryptoKey, key_hash::KeyHashData};
 use crate::CryptoError;
 
 /// Aes256CbcKey is a symmetric encryption key, consisting of one 256-bit key,
@@ -54,10 +54,10 @@ pub enum SymmetricCryptoKey {
 impl KeyHashData for SymmetricCryptoKey {
     fn hash_data(&self) -> Vec<u8> {
         match &self {
-            SymmetricCryptoKey::Aes256CbcKey(key) => key.encryption_key.to_vec(),
+            SymmetricCryptoKey::Aes256CbcKey(key) => key.enc_key.to_vec(),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
                 let mut buf = Vec::with_capacity(64);
-                buf.extend_from_slice(&key.encryption_key);
+                buf.extend_from_slice(&key.enc_key);
                 buf.extend_from_slice(&key.mac_key);
                 buf
             }
@@ -168,10 +168,10 @@ impl From<SymmetricCryptoKey> for SerializedSymmetricCryptoKey {
                 }
             },
             key_data: match &key {
-                SymmetricCryptoKey::Aes256CbcKey(key) => key.encryption_key.to_vec(),
+                SymmetricCryptoKey::Aes256CbcKey(key) => key.enc_key.to_vec(),
                 SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
                     let mut buf = Vec::with_capacity(64);
-                    buf.extend_from_slice(&key.encryption_key);
+                    buf.extend_from_slice(&key.enc_key);
                     buf.extend_from_slice(&key.mac_key);
                     buf
                 }
@@ -246,12 +246,12 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
                     ))
                 }
                 SymmetricCryptoKeyAlgorithm::Aes256CbcHmac => {
-                    let mut encryption_key = Box::pin(GenericArray::<u8, U32>::default());
+                    let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
                     let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
-                    encryption_key.copy_from_slice(&encoded_key.key_data[..32]);
+                    enc_key.copy_from_slice(&encoded_key.key_data[..32]);
                     mac_key.copy_from_slice(&encoded_key.key_data[32..]);
                     Ok(SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-                        encryption_key,
+                        enc_key,
                         mac_key,
                     }))
                 }

@@ -347,7 +347,7 @@ fn derive_pin_protected_user_key(
         LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
     };
 
-    Ok(derived_key.encrypt_user_key(user_key)?)
+    Ok(derived_key.encrypt_user_key(user_key, false)?)
 }
 
 /// Catch all errors for mobile crypto operations
@@ -376,7 +376,7 @@ pub(super) fn enroll_admin_password_reset(
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
-        &key.to_vec(),
+        &key.to_vec(false),
         &public_key,
     )?)
 }
@@ -747,7 +747,7 @@ mod tests {
             .dangerous_get_symmetric_key(SymmetricKeyId::User)
             .unwrap();
 
-        assert_eq!(&decrypted, &expected.to_vec());
+        assert_eq!(&decrypted, &expected.to_vec(false));
     }
 
     #[test]

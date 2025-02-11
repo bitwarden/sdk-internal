@@ -101,7 +101,6 @@ impl MasterKey {
 
         rng.fill(key.as_mut_slice());
 
-        // Master Keys never contains a mac_key.
         Self::new(KdfDerivedKeyMaterial { key_material: key })
     }
 

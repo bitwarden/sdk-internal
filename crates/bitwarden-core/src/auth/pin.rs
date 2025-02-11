@@ -38,7 +38,7 @@ pub(crate) fn validate_pin(
                 return Ok(false);
             };
 
-            Ok(user_key == decrypted_key)
+            Ok(user_key.to_vec(false) == decrypted_key.to_vec(false))
         }
     }
 }
