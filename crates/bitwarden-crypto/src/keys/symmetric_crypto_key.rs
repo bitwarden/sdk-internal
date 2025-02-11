@@ -9,34 +9,41 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use super::key_encryptable::CryptoKey;
 use crate::CryptoError;
 
-// GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
-// To keep the compiler from making stack copies when moving this struct around,
-// we use a Box to keep the values on the heap. We also pin the box to make sure
-// that the contents can't be pulled out of the box and moved
+/// Aes256CbcKey is a symmetric encryption key, consisting of one 256-bit key,
+/// used to decrypt legacy type 0 encstrings. The data is not autenticated
+/// so this should be used with caution, and removed where possible.
 #[derive(ZeroizeOnDrop, Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Aes256CbcKey {
+    // GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
+    // To keep the compiler from making stack copies when moving this struct around,
+    // we use a Box to keep the values on the heap. We also pin the box to make sure
+    // that the contents can't be pulled out of the box and moved
     pub(crate) encryption_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
-// GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
-// To keep the compiler from making stack copies when moving this struct around,
-// we use a Box to keep the values on the heap. We also pin the box to make sure
-// that the contents can't be pulled out of the box and moved
+/// Aes256CbcHmacKey is a symmetric encryption key consisting
+/// of two 256-bit keys, one for encryption and one for MAC
 #[derive(ZeroizeOnDrop, Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Aes256CbcHmacKey {
+    // GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
+    // To keep the compiler from making stack copies when moving this struct around,
+    // we use a Box to keep the values on the heap. We also pin the box to make sure
+    // that the contents can't be pulled out of the box and moved
     pub(crate) encryption_key: Pin<Box<GenericArray<u8, U32>>>,
     pub(crate) mac_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
-#[derive(ZeroizeOnDrop, Clone)]
+#[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub enum SymmetricCryptoKey {
     Aes256CbcKey(Aes256CbcKey),
     Aes256CbcHmacKey(Aes256CbcHmacKey),
 }
+
+impl ZeroizeOnDrop for SymmetricCryptoKey {}
 
 impl SymmetricCryptoKey {
     const KEY_LEN: usize = 32;
