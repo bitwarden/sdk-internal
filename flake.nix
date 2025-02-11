@@ -114,6 +114,14 @@
   > - a `logs` folder with logs from every check
   > - a `libs` folder with subfolders for each build type
   > - artifacts and libraries generated for each build type
+
+  = Furthur Reading =
+
+  Nix's documentation can be a bit scattered. Here are some reference materials that are good:
+
+  - <https://nix.dev>
+  - <https://zero-to-nix.com>
+  - <https://nixos.org/guides/nix-pills/>
 */
 {
   description = ''
