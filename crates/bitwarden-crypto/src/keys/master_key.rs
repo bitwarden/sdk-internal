@@ -173,7 +173,7 @@ pub(super) fn decrypt_user_key(
         // decrypting these old keys.
         EncString::AesCbc256_B64 { .. } => {
             let legacy_key = SymmetricCryptoKey::Aes256CbcKey(super::Aes256CbcKey {
-                encryption_key: key.key_material.clone(),
+                enc_key: key.key_material.clone(),
             });
             user_key.decrypt_with_key(&legacy_key)?
         }
@@ -314,7 +314,7 @@ mod tests {
         };
 
         assert_eq!(
-            user_key_unwrapped.encryption_key.as_slice(),
+            user_key_unwrapped.enc_key.as_slice(),
             [
                 62, 0, 239, 47, 137, 95, 64, 214, 127, 91, 184, 232, 31, 9, 165, 161, 44, 132, 14,
                 195, 206, 154, 127, 59, 24, 27, 225, 136, 239, 113, 26, 30
@@ -343,7 +343,7 @@ mod tests {
             key_material: if let SymmetricCryptoKey::Aes256CbcHmacKey(k) =
                 &derive_symmetric_key("test1")
             {
-                k.encryption_key.clone()
+                k.enc_key.clone()
             } else {
                 panic!("Key is not an Aes256CbcHmacKey");
             },
@@ -376,7 +376,7 @@ mod tests {
         };
 
         assert_eq!(
-            decrypted.encryption_key.as_slice(),
+            decrypted.enc_key.as_slice(),
             [
                 12, 95, 151, 203, 37, 4, 236, 67, 137, 97, 90, 58, 6, 127, 242, 28, 209, 168, 125,
                 29, 118, 24, 213, 44, 117, 202, 2, 115, 132, 165, 125, 148

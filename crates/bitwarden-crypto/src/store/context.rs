@@ -378,18 +378,12 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
         match (data, key) {
             (EncString::AesCbc256_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
-                crate::aes::decrypt_aes256(iv, data.clone(), &key.encryption_key)
+                crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
             }
             (
                 EncString::AesCbc256_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => crate::aes::decrypt_aes256_hmac(
-                iv,
-                mac,
-                data.clone(),
-                &key.mac_key,
-                &key.encryption_key,
-            ),
+            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
             _ => Err(CryptoError::InvalidKey),
         }
     }

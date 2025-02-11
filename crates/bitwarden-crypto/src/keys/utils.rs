@@ -70,7 +70,7 @@ pub(super) fn derive_kdf_key(
 /// Stretch the given key using HKDF.
 pub(super) fn stretch_kdf_key(k: &KdfDerivedKeyMaterial) -> Result<Aes256CbcHmacKey> {
     Ok(Aes256CbcHmacKey {
-        encryption_key: hkdf_expand(&k.key_material, Some("enc"))?,
+        enc_key: hkdf_expand(&k.key_material, Some("enc"))?,
         mac_key: hkdf_expand(&k.key_material, Some("mac"))?,
     })
 }
@@ -99,7 +99,7 @@ mod tests {
                 111, 31, 178, 45, 238, 152, 37, 114, 143, 215, 124, 83, 135, 173, 195, 23, 142,
                 134, 120, 249, 61, 132, 163, 182, 113, 197, 189, 204, 188, 21, 237, 96
             ],
-            stretched.encryption_key.as_slice()
+            stretched.enc_key.as_slice()
         );
         assert_eq!(
             [

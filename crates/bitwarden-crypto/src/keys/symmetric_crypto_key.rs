@@ -19,7 +19,7 @@ pub struct Aes256CbcKey {
     // To keep the compiler from making stack copies when moving this struct around,
     // we use a Box to keep the values on the heap. We also pin the box to make sure
     // that the contents can't be pulled out of the box and moved
-    pub(crate) encryption_key: Pin<Box<GenericArray<u8, U32>>>,
+    pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
 /// Aes256CbcHmacKey is a symmetric encryption key consisting
@@ -31,7 +31,7 @@ pub struct Aes256CbcHmacKey {
     // To keep the compiler from making stack copies when moving this struct around,
     // we use a Box to keep the values on the heap. We also pin the box to make sure
     // that the contents can't be pulled out of the box and moved
-    pub(crate) encryption_key: Pin<Box<GenericArray<u8, U32>>>,
+    pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
     pub(crate) mac_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
@@ -58,7 +58,7 @@ impl SymmetricCryptoKey {
         rng.fill(mac_key.as_mut_slice());
 
         SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-            encryption_key: key,
+            enc_key: key,
             mac_key,
         })
     }
@@ -79,10 +79,10 @@ impl SymmetricCryptoKey {
 
         match self {
             SymmetricCryptoKey::Aes256CbcKey(key) => {
-                buf.extend_from_slice(&key.encryption_key);
+                buf.extend_from_slice(&key.enc_key);
             }
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
-                buf.extend_from_slice(&key.encryption_key);
+                buf.extend_from_slice(&key.enc_key);
                 buf.extend_from_slice(&key.mac_key);
             }
         }
@@ -124,7 +124,7 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
             mac_key.copy_from_slice(&value[Self::KEY_LEN..]);
 
             Ok(SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-                encryption_key: key,
+                enc_key: key,
                 mac_key,
             }))
         } else if value.len() == Self::KEY_LEN {
@@ -133,7 +133,7 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
             key.copy_from_slice(&value[..Self::KEY_LEN]);
 
             Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey {
-                encryption_key: key,
+                enc_key: key,
             }))
         } else {
             Err(CryptoError::InvalidKeyLen)

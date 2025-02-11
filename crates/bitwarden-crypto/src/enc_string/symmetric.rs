@@ -196,7 +196,7 @@ impl EncString {
         key: &Aes256CbcHmacKey,
     ) -> Result<EncString> {
         let (iv, mac, data) =
-            crate::aes::encrypt_aes256_hmac(data_dec, &key.mac_key, &key.encryption_key)?;
+            crate::aes::encrypt_aes256_hmac(data_dec, &key.mac_key, &key.enc_key)?;
         Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
     }
 
@@ -224,18 +224,12 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
         match (self, key) {
             (EncString::AesCbc256_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
-                crate::aes::decrypt_aes256(iv, data.clone(), &key.encryption_key)
+                crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
             }
             (
                 EncString::AesCbc256_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => crate::aes::decrypt_aes256_hmac(
-                iv,
-                mac,
-                data.clone(),
-                &key.mac_key,
-                &key.encryption_key,
-            ),
+            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
             _ => Err(CryptoError::WrongKeyType),
         }
     }
