@@ -1031,7 +1031,7 @@
 
             shellHook = ''
               echo "Rust development environment loaded!"
-              echo "Run `bacon` to get started developing."
+              echo "Run 'bacon' to get started developing."
             '';
           };
         }
