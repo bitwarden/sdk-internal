@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use bitwarden_core::Client;
-use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, LocateKey};
+use bitwarden_crypto::EncString;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
@@ -41,15 +41,13 @@ impl ClientAttachments<'_> {
         attachment: AttachmentView,
         buffer: &[u8],
     ) -> Result<AttachmentEncryptResult, EncryptError> {
-        let enc = self.client.internal.get_encryption_settings()?;
-        let key = cipher.locate_key(&enc, &None)?;
+        let key_store = self.client.internal.get_key_store();
 
-        Ok(AttachmentFileView {
+        Ok(key_store.encrypt(AttachmentFileView {
             cipher,
             attachment,
             contents: buffer,
-        }
-        .encrypt_with_key(key)?)
+        })?)
     }
     pub fn encrypt_file(
         &self,
@@ -73,15 +71,13 @@ impl ClientAttachments<'_> {
         attachment: Attachment,
         encrypted_buffer: &[u8],
     ) -> Result<Vec<u8>, DecryptError> {
-        let enc = self.client.internal.get_encryption_settings()?;
-        let key = cipher.locate_key(&enc, &None)?;
+        let key_store = self.client.internal.get_key_store();
 
-        Ok(AttachmentFile {
+        Ok(key_store.decrypt(&AttachmentFile {
             cipher,
             attachment,
             contents: EncString::from_buffer(encrypted_buffer)?,
-        }
-        .decrypt_with_key(key)?)
+        })?)
     }
     pub fn decrypt_file(
         &self,

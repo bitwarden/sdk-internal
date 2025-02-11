@@ -6,9 +6,7 @@
 //! [KeyEncryptable][crate::KeyEncryptable] & [KeyDecryptable][crate::KeyDecryptable] instead.
 
 use aes::cipher::{
-    block_padding::Pkcs7,
-    typenum::{U16, U32},
-    BlockDecryptMut, BlockEncryptMut, KeyIvInit,
+    block_padding::Pkcs7, typenum::U32, BlockDecryptMut, BlockEncryptMut, KeyIvInit,
 };
 use generic_array::GenericArray;
 use hmac::Mac;
@@ -111,42 +109,6 @@ fn encrypt_aes256_internal(
     (iv, data)
 }
 
-/// Decrypt using AES-128 in CBC mode.
-///
-/// Behaves similar to [decrypt_aes128_hmac], but does not validate the MAC.
-fn decrypt_aes128(iv: &[u8; 16], data: Vec<u8>, key: &GenericArray<u8, U16>) -> Result<Vec<u8>> {
-    // Decrypt data
-    let iv = GenericArray::from_slice(iv);
-    let mut data = data;
-    let decrypted_key_slice = cbc::Decryptor::<aes::Aes128>::new(key, iv)
-        .decrypt_padded_mut::<Pkcs7>(&mut data)
-        .map_err(|_| CryptoError::KeyDecrypt)?;
-
-    // Data is decrypted in place and returns a subslice of the original Vec, to avoid cloning it,
-    // we truncate to the subslice length
-    let decrypted_len = decrypted_key_slice.len();
-    data.truncate(decrypted_len);
-
-    Ok(data)
-}
-
-/// Decrypt using AES-128 in CBC mode with MAC.
-///
-/// Behaves similar to [decrypt_aes128], but also validates the MAC.
-pub(crate) fn decrypt_aes128_hmac(
-    iv: &[u8; 16],
-    mac: &[u8; 32],
-    data: Vec<u8>,
-    mac_key: &GenericArray<u8, U16>,
-    key: &GenericArray<u8, U16>,
-) -> Result<Vec<u8>> {
-    let res = generate_mac(mac_key, iv, &data)?;
-    if res.ct_ne(mac).into() {
-        return Err(CryptoError::InvalidMac);
-    }
-    decrypt_aes128(iv, data, key)
-}
-
 /// Generate a MAC using HMAC-SHA256.
 fn generate_mac(mac_key: &[u8], iv: &[u8], data: &[u8]) -> Result<[u8; 32]> {
     let mut hmac =
@@ -210,19 +172,6 @@ mod tests {
         assert!(result.is_ok());
         let mac = result.unwrap();
         assert_eq!(mac.len(), 32);
-    }
-
-    #[test]
-    fn test_decrypt_aes128() {
-        let iv = generate_vec(16, 0, 1);
-        let iv: &[u8; 16] = iv.as_slice().try_into().unwrap();
-        let key = generate_generic_array(0, 1);
-
-        let data = STANDARD.decode("dC0X+2IjFbeL4WLLg2jX7Q==").unwrap();
-
-        let decrypted = decrypt_aes128(iv, data, &key).unwrap();
-
-        assert_eq!(String::from_utf8(decrypted).unwrap(), "EncryptMe!");
     }
 
     #[test]

@@ -1,3 +1,4 @@
+use bitwarden_crypto::CryptoError;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{AsymmetricEncString, EncString};
 
@@ -6,16 +7,13 @@ use super::crypto::{
     DeriveKeyConnectorRequest, EnrollAdminPasswordResetError, MakeKeyPairResponse,
     MobileCryptoError, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
 };
-use crate::{client::encryption_settings::EncryptionSettingsError, Client};
 #[cfg(feature = "internal")]
-use crate::{
-    error::Result,
-    mobile::crypto::{
-        derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
-        initialize_org_crypto, initialize_user_crypto, update_password, DerivePinKeyResponse,
-        InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
-    },
+use crate::mobile::crypto::{
+    derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
+    initialize_org_crypto, initialize_user_crypto, update_password, DerivePinKeyResponse,
+    InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
 };
+use crate::{client::encryption_settings::EncryptionSettingsError, Client};
 
 pub struct CryptoClient<'a> {
     pub(crate) client: &'a crate::Client,
@@ -73,14 +71,14 @@ impl CryptoClient<'_> {
         derive_key_connector(request)
     }
 
-    pub fn make_key_pair(&self, user_key: String) -> Result<MakeKeyPairResponse> {
+    pub fn make_key_pair(&self, user_key: String) -> Result<MakeKeyPairResponse, CryptoError> {
         make_key_pair(user_key)
     }
 
     pub fn verify_asymmetric_keys(
         &self,
         request: VerifyAsymmetricKeysRequest,
-    ) -> Result<VerifyAsymmetricKeysResponse> {
+    ) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
         verify_asymmetric_keys(request)
     }
 }

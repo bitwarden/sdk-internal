@@ -17,7 +17,7 @@ pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfErro
     Ok(items)
 }
 
-/// Convert a CXF timestamp to a DateTime<Utc>.
+/// Convert a CXF timestamp to a [`DateTime<Utc>`].
 ///
 /// If the timestamp is None, the current time is used.
 fn convert_date(ts: Option<u64>) -> DateTime<Utc> {

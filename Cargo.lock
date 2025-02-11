@@ -421,6 +421,7 @@ dependencies = [
  "aes",
  "argon2",
  "base64",
+ "bitwarden-error",
  "cbc",
  "criterion",
  "generic-array",
@@ -556,6 +557,7 @@ dependencies = [
  "thiserror 1.0.69",
  "uniffi",
  "uuid",
+ "wasm-bindgen",
  "zeroize",
 ]
 
@@ -635,6 +637,7 @@ dependencies = [
  "chrono",
  "data-encoding",
  "hmac",
+ "percent-encoding",
  "rand",
  "reqwest",
  "schemars",
