@@ -87,7 +87,7 @@ mod tests {
         #[allow(deprecated)]
         store
             .context_mut()
-            .set_symmetric_key(TestSymmKey::A(0), key.clone())
+            .set_key(TestSymmKey::A(0), key.clone())
             .unwrap();
 
         store

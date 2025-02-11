@@ -30,7 +30,7 @@ pub(crate) fn validate_pin(
             let ctx = key_store.context();
             // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
             #[allow(deprecated)]
-            let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+            let user_key = ctx.dangerous_get_key(SymmetricKeyId::User)?;
 
             let pin_key = PinKey::derive(pin.as_bytes(), email.as_bytes(), kdf)?;
 

@@ -70,9 +70,9 @@ impl EncryptionSettings {
         #[allow(deprecated)]
         {
             let mut ctx = store.context_mut();
-            ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
+            ctx.set_key(SymmetricKeyId::User, user_key)?;
             if let Some(private_key) = private_key {
-                ctx.set_asymmetric_key(AsymmetricKeyId::UserPrivateKey, private_key)?;
+                ctx.set_key(AsymmetricKeyId::UserPrivateKey, private_key)?;
             }
         }
 
@@ -87,7 +87,7 @@ impl EncryptionSettings {
         #[allow(deprecated)]
         store
             .context_mut()
-            .set_symmetric_key(SymmetricKeyId::User, key)
+            .set_key(SymmetricKeyId::User, key)
             .expect("Mutable context");
     }
 
@@ -103,7 +103,7 @@ impl EncryptionSettings {
             return Ok(());
         }
 
-        if !ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey) {
+        if !ctx.has_key(AsymmetricKeyId::UserPrivateKey) {
             return Err(EncryptionSettingsError::MissingPrivateKey);
         }
 
@@ -113,7 +113,7 @@ impl EncryptionSettings {
 
         // Decrypt the org keys with the private key
         for (org_id, org_enc_key) in org_enc_keys {
-            ctx.decrypt_symmetric_key_with_asymmetric_key(
+            ctx.decrypt_key_into_store(
                 AsymmetricKeyId::UserPrivateKey,
                 SymmetricKeyId::Organization(org_id),
                 &org_enc_key,

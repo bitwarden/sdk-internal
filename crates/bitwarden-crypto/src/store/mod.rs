@@ -65,7 +65,7 @@ pub use context::KeyStoreContext;
 /// let store: KeyStore<Ids> = KeyStore::default();
 ///
 /// #[allow(deprecated)]
-/// store.context_mut().set_symmetric_key(SymmKeyId::User, SymmetricCryptoKey::generate(rand::thread_rng()));
+/// store.context_mut().set_key(SymmKeyId::User, SymmetricCryptoKey::generate(rand::thread_rng()));
 ///
 /// // Define some data that needs to be encrypted
 /// struct Data(String);
@@ -152,9 +152,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     ///   lead to key material being leaked, but we need to support it for backwards compatibility.
     ///   If you want to access the key material to encrypt it or derive a new key from it, we
     ///   provide functions for that:
-    ///     - [KeyStoreContext::encrypt_symmetric_key_with_symmetric_key]
-    ///     - [KeyStoreContext::encrypt_symmetric_key_with_asymmetric_key]
-    ///     - [KeyStoreContext::encrypt_asymmetric_key_with_asymmetric_key]
+    ///     - [KeyStoreContext::encrypt_key_from_store]
     ///     - [KeyStoreContext::derive_shareable_key]
     pub fn context(&'_ self) -> KeyStoreContext<'_, Ids> {
         KeyStoreContext {
@@ -355,7 +353,7 @@ pub(crate) mod tests {
             #[allow(deprecated)]
             store
                 .context_mut()
-                .set_symmetric_key(TestSymmKey::A(n), SymmetricCryptoKey::generate(&mut rng))
+                .set_key(TestSymmKey::A(n), SymmetricCryptoKey::generate(&mut rng))
                 .unwrap();
         }
 

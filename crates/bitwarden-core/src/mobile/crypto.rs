@@ -223,7 +223,7 @@ pub async fn get_user_encryption_key(client: &Client) -> Result<String, MobileCr
     let ctx = key_store.context();
     // This is needed because the mobile clients need access to the user encryption key
     #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+    let user_key = ctx.dangerous_get_key(SymmetricKeyId::User)?;
 
     Ok(user_key.to_base64())
 }
@@ -246,7 +246,7 @@ pub fn update_password(
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
     #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+    let user_key = ctx.dangerous_get_key(SymmetricKeyId::User)?;
 
     let login_method = client
         .internal
@@ -294,7 +294,7 @@ pub fn derive_pin_key(
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
     #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+    let user_key = ctx.dangerous_get_key(SymmetricKeyId::User)?;
 
     let login_method = client
         .internal
@@ -317,7 +317,7 @@ pub fn derive_pin_user_key(
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
     #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+    let user_key = ctx.dangerous_get_key(SymmetricKeyId::User)?;
 
     let pin: String = encrypted_pin.decrypt_with_key(user_key)?;
     let login_method = client
@@ -370,7 +370,7 @@ pub(super) fn enroll_admin_password_reset(
     let ctx = key_store.context();
     // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
     #[allow(deprecated)]
-    let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+    let key = ctx.dangerous_get_key(SymmetricKeyId::User)?;
 
     Ok(AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
         &key.to_vec(),
@@ -581,7 +581,7 @@ mod tests {
             let key_store = client.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -590,7 +590,7 @@ mod tests {
             let key_store = client2.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -646,7 +646,7 @@ mod tests {
             let key_store = client.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -655,7 +655,7 @@ mod tests {
             let key_store = client2.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -688,7 +688,7 @@ mod tests {
             let key_store = client.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -697,7 +697,7 @@ mod tests {
             let key_store = client3.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -740,9 +740,7 @@ mod tests {
         let key_store = client.internal.get_key_store();
         let ctx = key_store.context();
         #[allow(deprecated)]
-        let expected = ctx
-            .dangerous_get_symmetric_key(SymmetricKeyId::User)
-            .unwrap();
+        let expected = ctx.dangerous_get_key(SymmetricKeyId::User).unwrap();
 
         assert_eq!(&decrypted, &expected.to_vec());
     }

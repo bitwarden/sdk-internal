@@ -305,9 +305,7 @@ impl Cipher {
     ) -> Result<SymmetricKeyId, CryptoError> {
         const CIPHER_KEY: SymmetricKeyId = SymmetricKeyId::Local("cipher_key");
         match ciphers_key {
-            Some(ciphers_key) => {
-                ctx.decrypt_symmetric_key_with_symmetric_key(key, CIPHER_KEY, ciphers_key)
-            }
+            Some(ciphers_key) => ctx.decrypt_key_into_store(key, CIPHER_KEY, ciphers_key),
             None => Ok(key),
         }
     }
@@ -445,7 +443,7 @@ impl CipherView {
         self.reencrypt_attachment_keys(ctx, old_ciphers_key, new_key)?;
         self.reencrypt_fido2_credentials(ctx, old_ciphers_key, new_key)?;
 
-        self.key = Some(ctx.encrypt_symmetric_key_with_symmetric_key(key, new_key)?);
+        self.key = Some(ctx.encrypt_key_from_store(key, new_key)?);
         Ok(())
     }
 
@@ -891,7 +889,7 @@ mod tests {
             let cipher_key = ctx.generate_symmetric_key(CIPHER_KEY).unwrap();
 
             original_cipher.key = Some(
-                ctx.encrypt_symmetric_key_with_symmetric_key(SymmetricKeyId::User, cipher_key)
+                ctx.encrypt_key_from_store(SymmetricKeyId::User, cipher_key)
                     .unwrap(),
             );
         }
@@ -1014,13 +1012,10 @@ mod tests {
                 .generate_symmetric_key(SymmetricKeyId::Local("test_attachment_key"))
                 .unwrap();
             let attachment_key_enc = ctx
-                .encrypt_symmetric_key_with_symmetric_key(SymmetricKeyId::User, attachment_key)
+                .encrypt_key_from_store(SymmetricKeyId::User, attachment_key)
                 .unwrap();
             #[allow(deprecated)]
-            let attachment_key_val = ctx
-                .dangerous_get_symmetric_key(attachment_key)
-                .unwrap()
-                .clone();
+            let attachment_key_val = ctx.dangerous_get_key(attachment_key).unwrap().clone();
 
             (attachment_key_enc, attachment_key_val)
         };
@@ -1081,7 +1076,7 @@ mod tests {
             .generate_symmetric_key(SymmetricKeyId::Local("test_cipher_key"))
             .unwrap();
         let cipher_key_enc = ctx
-            .encrypt_symmetric_key_with_symmetric_key(SymmetricKeyId::User, cipher_key)
+            .encrypt_key_from_store(SymmetricKeyId::User, cipher_key)
             .unwrap();
 
         // Attachment has a key that is encrypted with the cipher key
@@ -1089,7 +1084,7 @@ mod tests {
             .generate_symmetric_key(SymmetricKeyId::Local("test_attachment_key"))
             .unwrap();
         let attachment_key_enc = ctx
-            .encrypt_symmetric_key_with_symmetric_key(cipher_key, attachment_key)
+            .encrypt_key_from_store(cipher_key, attachment_key)
             .unwrap();
 
         let mut cipher = generate_cipher();
@@ -1121,7 +1116,7 @@ mod tests {
         let new_cipher_key_dec: SymmetricCryptoKey = new_cipher_key_dec.try_into().unwrap();
 
         #[allow(deprecated)]
-        let cipher_key_val = ctx.dangerous_get_symmetric_key(cipher_key).unwrap();
+        let cipher_key_val = ctx.dangerous_get_key(cipher_key).unwrap();
 
         assert_eq!(new_cipher_key_dec.to_vec(), cipher_key_val.to_vec());
 

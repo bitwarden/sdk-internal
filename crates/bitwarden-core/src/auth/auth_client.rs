@@ -191,7 +191,7 @@ fn trust_device(client: &Client) -> Result<TrustDeviceResponse, TrustDeviceError
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once DeviceKey deals with KeyIds, this should be updated
     #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+    let user_key = ctx.dangerous_get_key(SymmetricKeyId::User)?;
 
     Ok(DeviceKey::trust_device(user_key)?)
 }
