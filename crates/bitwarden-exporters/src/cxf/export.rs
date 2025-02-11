@@ -131,14 +131,14 @@ fn convert_totp(totp: Totp) -> TotpCredential {
         secret: totp.secret.into(),
         period: totp.period as u8,
         digits: totp.digits as u8,
-        username: "".to_string(),
+        username: totp.account.unwrap_or("".to_string()),
         algorithm: match totp.algorithm {
             TotpAlgorithm::Sha1 => OTPHashAlgorithm::Sha1,
             TotpAlgorithm::Sha256 => OTPHashAlgorithm::Sha256,
             TotpAlgorithm::Sha512 => OTPHashAlgorithm::Sha512,
             TotpAlgorithm::Steam => OTPHashAlgorithm::Unknown("steam".to_string()),
         },
-        issuer: None,
+        issuer: totp.issuer,
     }
 }
 
@@ -152,8 +152,10 @@ mod tests {
     #[test]
     fn test_convert_totp() {
         let totp = Totp {
+            account: Some("test-account@example.com".to_string()),
             algorithm: TotpAlgorithm::Sha1,
             digits: 4,
+            issuer: Some("test-issuer".to_string()),
             period: 60,
             secret: "secret".as_bytes().to_vec(),
         };
@@ -162,9 +164,9 @@ mod tests {
         assert_eq!(String::from(credential.secret), "ONSWG4TFOQ");
         assert_eq!(credential.period, 60);
         assert_eq!(credential.digits, 4);
-        assert_eq!(credential.username, "");
+        assert_eq!(credential.username, "test-account@example.com");
         assert_eq!(credential.algorithm, OTPHashAlgorithm::Sha1);
-        assert_eq!(credential.issuer, None);
+        assert_eq!(credential.issuer, Some("test-issuer".to_string()));
     }
 
     #[test]

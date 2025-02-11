@@ -152,6 +152,10 @@ pub struct VaultLockedError;
 #[error("Wrong password")]
 pub struct WrongPasswordError;
 
+#[derive(Debug, thiserror::Error)]
+#[error("Missing private key")]
+pub struct MissingPrivateKeyError;
+
 /// This macro is used to require that a value is present or return an error otherwise.
 /// It is equivalent to using `val.ok_or(Error::MissingFields)?`, but easier to use and
 /// with a more descriptive error message.
