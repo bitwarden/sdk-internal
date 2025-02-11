@@ -15,6 +15,7 @@ use generic_array::GenericArray;
  *
  * If multiple keys are possible, a key-committing cipher such as
  * XChaCha20Poly1305Blake3CTX should be used: `https://github.com/bitwarden/sdk-internal/pull/41` to prevent invisible-salamander style attacks.
+ * `https://eprint.iacr.org/2019/016.pdf`
  * `https://soatok.blog/2024/09/10/invisible-salamanders-are-not-what-you-think/`
  */
 use crate::CryptoError;
@@ -116,6 +117,19 @@ mod tests {
         let mut encrypted =
             encrypt_xchacha20_poly1305(&key, plaintext_secret_data, authenticated_data).unwrap();
         encrypted.additional_data[0] = encrypted.additional_data[0].wrapping_add(1);
+        let result = decrypt_xchacha20_poly1305(&key, &encrypted);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fails_when_nonce_changed() {
+        let key = [0u8; 32];
+        let plaintext_secret_data = b"My secret data";
+        let authenticated_data = b"My authenticated data";
+
+        let mut encrypted =
+            encrypt_xchacha20_poly1305(&key, plaintext_secret_data, authenticated_data).unwrap();
+        encrypted.nonce[0] = encrypted.nonce[0].wrapping_add(1);
         let result = decrypt_xchacha20_poly1305(&key, &encrypted);
         assert!(result.is_err());
     }

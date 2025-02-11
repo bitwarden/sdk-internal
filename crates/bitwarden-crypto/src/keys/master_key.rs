@@ -124,13 +124,21 @@ impl MasterKey {
     }
 
     /// Generate a new random user key and encrypt it with the master key.
-    pub fn make_user_key(&self) -> Result<(UserKey, EncString)> {
-        make_user_key(rand::thread_rng(), self)
+    pub fn make_user_key(&self, use_aead: bool) -> Result<(UserKey, EncString)> {
+        make_user_key(rand::thread_rng(), self, use_aead)
     }
 
     /// Encrypt the users user key
-    pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
-        encrypt_user_key(&self.0, user_key)
+    pub fn encrypt_user_key(
+        &self,
+        user_key: &SymmetricCryptoKey,
+        use_aead: bool,
+    ) -> Result<EncString> {
+        if use_aead {
+            encrypt_user_key_aead(&self.0, user_key)
+        } else {
+            encrypt_user_key(&self.0, user_key)
+        }
     }
 
     /// Decrypt the users user key
@@ -213,9 +221,10 @@ pub(super) fn decrypt_user_key(
 fn make_user_key(
     mut rng: impl rand::RngCore,
     master_key: &MasterKey,
+    use_aead: bool,
 ) -> Result<(UserKey, EncString)> {
     let user_key = SymmetricCryptoKey::generate(&mut rng);
-    let protected = master_key.encrypt_user_key(&user_key)?;
+    let protected = master_key.encrypt_user_key(&user_key, use_aead)?;
     Ok((UserKey::new(user_key), protected))
 }
 
@@ -331,7 +340,7 @@ mod tests {
             ),
         });
 
-        let (user_key, protected) = make_user_key(&mut rng, &master_key).unwrap();
+        let (user_key, protected) = make_user_key(&mut rng, &master_key, false).unwrap();
         let SymmetricCryptoKey::Aes256CbcHmacKey(user_key_unwrapped) = &user_key.0 else {
             panic!("User key is not an Aes256CbcHmacKey");
         };
@@ -375,7 +384,7 @@ mod tests {
 
         let user_key = derive_symmetric_key("test2");
 
-        let encrypted = master_key.encrypt_user_key(&user_key).unwrap();
+        let encrypted = master_key.encrypt_user_key(&user_key, false).unwrap();
         let decrypted = master_key.decrypt_user_key(encrypted).unwrap();
 
         assert_eq!(decrypted, user_key, "Decrypted key doesn't match user key");

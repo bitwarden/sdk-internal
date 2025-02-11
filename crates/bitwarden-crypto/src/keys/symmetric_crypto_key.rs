@@ -144,8 +144,11 @@ impl SymmetricCryptoKey {
 
 #[derive(Clone, Serialize, Deserialize)]
 enum SymmetricCryptoKeyAlgorithm {
+    #[serde(rename = "aes256-cbc")]
     Aes256Cbc,
+    #[serde(rename = "aes256-cbc-hmac")]
     Aes256CbcHmac,
+    #[serde(rename = "xchacha20-poly1305")]
     XChaCha20Poly1305,
 }
 
@@ -303,5 +306,6 @@ mod tests {
         let key = SymmetricCryptoKey::generate(rand::thread_rng());
         let key_vec = key.to_vec(true);
         let key_vec_utf8_lossy = String::from_utf8_lossy(&key_vec);
+        println!("key_vec: {:?}", key_vec_utf8_lossy);
     }
 }
