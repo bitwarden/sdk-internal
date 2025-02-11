@@ -31,7 +31,7 @@
 
   1. Installing Nix:
      https://nixos.org/download/
-  2. Enabling required experimental features by creating or editing ~/.config/nix/nix.conf:
+  2. Enabling required experimental features by creating or editing /etc/nix/nix.conf:
      ```
      echo "experimental-features = nix-command flakes impure-derivations ca-derivations" | sudo tee -a /etc/nix/nix.conf
      ```
@@ -242,7 +242,7 @@
         ]
         ++ (mkRustBuildInputs pkgs target);
 
-      # Gradel is used to turn the android artifacts into a library, and it
+      # Gradle is used to turn the android artifacts into a library, and it
       # requires git.
       mkAndroidLibraryBuildInputs =
         system: pkgs: target:
@@ -252,8 +252,8 @@
         ]
         ++ (mkAndroidBuildInputs system pkgs target);
 
-      # This function provides all of gradels declared dependencies from the
-      # manually generated gradel.lock file and prepares them for use by gradel.
+      # This function provides all of gradle's declared dependencies from the
+      # manually generated gradle.lock file and prepares them for use by gradle.
       mkMavenRepo =
         pkgs:
         let
