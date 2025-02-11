@@ -91,7 +91,7 @@ pub fn generate_totp_cipher_view(
     generate_totp(key, time)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TotpAlgorithm {
     Sha1,
     Sha256,
