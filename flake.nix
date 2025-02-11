@@ -726,7 +726,7 @@
               mkCheck pkgs {
                 pname = "memory-test";
                 command = "./crates/memory-testing/run_test.sh no-docker";
-                extraNativeBuildInputs = with pkgs; [ gdb ];
+                nativeBuildInputs = with pkgs; [ gdb ];
               }
             else
               pkgs.runCommand "memory-test-unsupported" { } ''
