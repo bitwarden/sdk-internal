@@ -379,18 +379,12 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
         match (data, key) {
             (EncString::AesCbc256_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
-                crate::aes::decrypt_aes256(iv, data.clone(), &key.encryption_key)
+                crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
             }
             (
                 EncString::AesCbc256_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => crate::aes::decrypt_aes256_hmac(
-                iv,
-                mac,
-                data.clone(),
-                &key.mac_key,
-                &key.encryption_key,
-            ),
+            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
             _ => Err(CryptoError::InvalidKey),
         }
     }
@@ -402,15 +396,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ) -> Result<EncString> {
         let key = self.get_symmetric_key(key)?;
         match key {
-            SymmetricCryptoKey::Aes256CbcHmacKey(key1) => {
-                EncString::encrypt_aes256_hmac(data, key1)
-            }
             SymmetricCryptoKey::XChaCha20Poly1305Key(key1) => {
                 let ad = additional_data::AdditionalData::V0(additional_data::AdditionalDataV0 {
                     key_hash: key.hash(),
                 });
                 EncString::encrypt_xchacha20_poly1305(data, ad, key1)
             }
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
             _ => Err(CryptoError::InvalidKey),
         }
     }

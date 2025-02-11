@@ -302,7 +302,7 @@ impl EncString {
         key: &Aes256CbcHmacKey,
     ) -> Result<EncString> {
         let (iv, mac, data) =
-            crate::aes::encrypt_aes256_hmac(data_dec, &key.mac_key, &key.encryption_key)?;
+            crate::aes::encrypt_aes256_hmac(data_dec, &key.mac_key, &key.enc_key)?;
         Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
     }
 
@@ -314,7 +314,7 @@ impl EncString {
         let serialized_additional_data = rmp_serde::to_vec(&additional_data)
             .map_err(|_| CryptoError::EncString(EncStringParseError::InvalidAdditionalData))?;
         let ciphertext = crate::chacha20::encrypt_xchacha20_poly1305(
-            &key.encryption_key
+            &key.enc_key
                 .as_slice()
                 .try_into()
                 .expect("XChaChaPoly1305 key is 32 bytes long"),
@@ -341,9 +341,7 @@ impl EncString {
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
         match key {
-            SymmetricCryptoKey::Aes256CbcHmacKey(key1) => {
-                EncString::encrypt_aes256_hmac(self, key1)
-            }
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(key1) => {
                 let additional_data =
                     additional_data::AdditionalData::V0(additional_data::AdditionalDataV0 {
@@ -351,7 +349,9 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
                     });
                 EncString::encrypt_xchacha20_poly1305(self, additional_data, key1)
             }
-            _ => Err(CryptoError::UnsupportedCipher),
+            SymmetricCryptoKey::Aes256CbcKey(_) => Err(
+                CryptoError::EncryptionOperationNotSupported("Aes256Cbc".to_string()),
+            ),
         }
     }
 }
@@ -360,7 +360,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
         match (self, key) {
             (EncString::AesCbc256_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
-                crate::aes::decrypt_aes256(iv, data.clone(), &key.encryption_key)
+                crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
             }
             (
                 EncString::AesCbc256_HmacSha256_B64 { iv, mac, data },
@@ -380,7 +380,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => crate::chacha20::decrypt_xchacha20_poly1305(
-                key.encryption_key
+                key.enc_key
                     .as_slice()
                     .try_into()
                     .expect("XChaChaPoly1305 key is 32 bytes long"),
@@ -544,7 +544,7 @@ mod tests {
         assert_eq!(enc_string.enc_type(), 0);
 
         let result: Result<String, CryptoError> = enc_string.decrypt_with_key(&key);
-        assert!(matches!(result, Err(CryptoError::EncryptionTypeMismatch)));
+        assert!(matches!(result, Err(CryptoError::WrongKeyType)));
     }
 
     #[test]
@@ -562,7 +562,7 @@ mod tests {
     #[test]
     fn test_from_str_xchacha20_poly1305() {
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
-            encryption_key: Box::pin(GenericArray::<u8, aes::cipher::typenum::U32>::default()),
+            enc_key: Box::pin(GenericArray::<u8, aes::cipher::typenum::U32>::default()),
         });
         let ciphertext = "7.k9wAGCd3zJkczMrM8gEdF8ySzNDM/0XM/cyyzJJObXDMt3oVzNI+3AAlzO/Muz4gEczozM9ZJWsQGAFtVcy7DFLM837M58z5zPjMzRHM5wRYzNQfzMjM0QjM9kMwLp7MgcyiVjDMkcyoa2V5X2hhc2g=";
         let payload = "encrypted_test_string";

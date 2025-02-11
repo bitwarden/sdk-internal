@@ -10,11 +10,11 @@ use generic_array::GenericArray;
 
 /**
  * Note:
- * XChaCha20Poly1305 encrypts data, and authenticates both the cipher text and associated data.
- * This does not provide key-commitment, and assumes there can only be one key.
+ * XChaCha20Poly1305 encrypts data, and authenticates both the cipher text and associated
+ * data. This does not provide key-commitment, and assumes there can only be one key.
  *
- * If multiple keys are possible, a key-committing cipher such as XChaCha20Poly1305Blake3CTX should be used:
- * `https://github.com/bitwarden/sdk-internal/pull/41` to prevent invisible-salamander style attacks.
+ * If multiple keys are possible, a key-committing cipher such as
+ * XChaCha20Poly1305Blake3CTX should be used: `https://github.com/bitwarden/sdk-internal/pull/41` to prevent invisible-salamander style attacks.
  * `https://soatok.blog/2024/09/10/invisible-salamanders-are-not-what-you-think/`
  */
 use crate::CryptoError;

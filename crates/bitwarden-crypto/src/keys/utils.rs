@@ -1,7 +1,7 @@
 use generic_array::GenericArray;
 use sha2::Digest;
 
-use super::{master_key::KdfDerivedKeymaterial, Aes256CbcHmacKey};
+use super::{master_key::KdfDerivedKeyMaterial, Aes256CbcHmacKey};
 use crate::{util::hkdf_expand, CryptoError, Kdf, Result};
 
 const PBKDF2_MIN_ITERATIONS: u32 = 5000;
@@ -15,7 +15,7 @@ pub(super) fn derive_kdf_key(
     secret: &[u8],
     salt: &[u8],
     kdf: &Kdf,
-) -> Result<KdfDerivedKeymaterial> {
+) -> Result<KdfDerivedKeyMaterial> {
     let hash = match kdf {
         Kdf::PBKDF2 { iterations } => {
             let iterations = iterations.get();
@@ -23,7 +23,7 @@ pub(super) fn derive_kdf_key(
                 return Err(CryptoError::InsufficientKdfParameters);
             }
 
-            crate::util::pbkdf2(secret, salt, iterations)
+            zeroize::Zeroizing::new(crate::util::pbkdf2(secret, salt, iterations))
         }
         Kdf::Argon2id {
             iterations,
@@ -59,18 +59,18 @@ pub(super) fn derive_kdf_key(
             }
             clear_stack();
 
-            hash
+            zeroize::Zeroizing::new(hash)
         }
     };
-    Ok(KdfDerivedKeymaterial {
-        key_material: Box::pin(GenericArray::clone_from_slice(&hash)),
+    Ok(KdfDerivedKeyMaterial {
+        key_material: Box::pin(GenericArray::clone_from_slice(hash.as_slice())),
     })
 }
 
 /// Stretch the given key using HKDF.
-pub(super) fn stretch_kdf_key(k: &KdfDerivedKeymaterial) -> Result<Aes256CbcHmacKey> {
+pub(super) fn stretch_kdf_key(k: &KdfDerivedKeyMaterial) -> Result<Aes256CbcHmacKey> {
     Ok(Aes256CbcHmacKey {
-        encryption_key: hkdf_expand(&k.key_material, Some("enc"))?,
+        enc_key: hkdf_expand(&k.key_material, Some("enc"))?,
         mac_key: hkdf_expand(&k.key_material, Some("mac"))?,
     })
 }
@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn test_stretch_kdf_key() {
-        let key = KdfDerivedKeymaterial {
+        let key = KdfDerivedKeyMaterial {
             key_material: Box::pin(
                 [
                     31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138,
@@ -99,7 +99,7 @@ mod tests {
                 111, 31, 178, 45, 238, 152, 37, 114, 143, 215, 124, 83, 135, 173, 195, 23, 142,
                 134, 120, 249, 61, 132, 163, 182, 113, 197, 189, 204, 188, 21, 237, 96
             ],
-            stretched.encryption_key.as_slice()
+            stretched.enc_key.as_slice()
         );
         assert_eq!(
             [
@@ -141,7 +141,8 @@ mod tests {
         ] {
             assert_eq!(
                 derive_kdf_key(&secret, &salt, &kdf)
-                    .unwrap_err()
+                    .err()
+                    .unwrap()
                     .to_string(),
                 "Insufficient KDF parameters"
             );

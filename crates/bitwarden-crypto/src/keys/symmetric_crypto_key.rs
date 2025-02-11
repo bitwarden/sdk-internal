@@ -5,49 +5,50 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::GenericArray;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use zeroize::Zeroize;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
-#[cfg(not(test))]
-use super::master_key::KdfDerivedKeymaterial;
-use super::{key_encryptable::CryptoKey, key_hash::KeyHashData};
+use super::key_encryptable::CryptoKey;
 use crate::CryptoError;
 
-// GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
-// To keep the compiler from making stack copies when moving this struct around,
-// we use a Box to keep the values on the heap. We also pin the box to make sure
-// that the contents can't be pulled out of the box and moved
-#[derive(Zeroize, Clone)]
+/// Aes256CbcKey is a symmetric encryption key, consisting of one 256-bit key,
+/// used to decrypt legacy type 0 encstrings. The data is not autenticated
+/// so this should be used with caution, and removed where possible.
+#[derive(ZeroizeOnDrop, Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Aes256CbcKey {
-    pub(crate) encryption_key: Pin<Box<GenericArray<u8, U32>>>,
+    // GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
+    // To keep the compiler from making stack copies when moving this struct around,
+    // we use a Box to keep the values on the heap. We also pin the box to make sure
+    // that the contents can't be pulled out of the box and moved
+    pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
-#[derive(Zeroize, Clone)]
+/// Aes256CbcHmacKey is a symmetric encryption key consisting
+/// of two 256-bit keys, one for encryption and one for MAC
+#[derive(ZeroizeOnDrop, Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Aes256CbcHmacKey {
-    pub(crate) encryption_key: Pin<Box<GenericArray<u8, U32>>>,
+    // GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
+    // To keep the compiler from making stack copies when moving this struct around,
+    // we use a Box to keep the values on the heap. We also pin the box to make sure
+    // that the contents can't be pulled out of the box and moved
+    pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
     pub(crate) mac_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
 #[derive(Zeroize, Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct XChaCha20Poly1305Key {
-    pub(crate) encryption_key: Pin<Box<GenericArray<u8, U32>>>,
+    pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
-#[derive(Zeroize, Clone)]
+#[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub enum SymmetricCryptoKey {
     Aes256CbcKey(Aes256CbcKey),
     Aes256CbcHmacKey(Aes256CbcHmacKey),
     XChaCha20Poly1305Key(XChaCha20Poly1305Key),
-}
-
-impl Drop for SymmetricCryptoKey {
-    fn drop(&mut self) {
-        self.zeroize();
-    }
 }
 
 impl KeyHashData for SymmetricCryptoKey {
@@ -60,7 +61,7 @@ impl KeyHashData for SymmetricCryptoKey {
                 buf.extend_from_slice(&key.mac_key);
                 buf
             }
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.encryption_key.to_vec(),
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.enc_key.to_vec(),
         }
     }
 }
@@ -76,30 +77,25 @@ impl SymmetricCryptoKey {
     /// Generate a new random [SymmetricCryptoKey]
     /// @param rng: A random number generator
     pub fn generate(mut rng: impl rand::RngCore) -> Self {
-        let mut encryption_key = Box::pin(GenericArray::<u8, U32>::default());
+        let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
         let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
 
-        rng.fill(encryption_key.as_mut_slice());
+        rng.fill(enc_key.as_mut_slice());
         rng.fill(mac_key.as_mut_slice());
 
-        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-            encryption_key,
-            mac_key,
-        })
+        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
     }
 
     // Generate a unew random AEAD [SymmetricCryptoKey]
     // @param rng: A random number generator
     pub fn generate_aead(mut rng: impl rand::RngCore) -> Self {
-        let mut key = Box::pin(GenericArray::<u8, U32>::default());
-        rng.fill(key.as_mut_slice());
-        SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
-            encryption_key: key,
-        })
+        let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+        rng.fill(enc_key.as_mut_slice());
+        SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key { enc_key })
     }
 
     fn total_len(&self) -> usize {
-        match &self {
+        match self {
             SymmetricCryptoKey::Aes256CbcKey(_) => 32,
             SymmetricCryptoKey::Aes256CbcHmacKey(_) => 64,
             SymmetricCryptoKey::XChaCha20Poly1305Key(_) => 32,
@@ -118,10 +114,10 @@ impl SymmetricCryptoKey {
         } else {
             match &self {
                 SymmetricCryptoKey::Aes256CbcKey(key) => {
-                    buf.extend_from_slice(&key.encryption_key);
+                    buf.extend_from_slice(&key.enc_key);
                 }
                 SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
-                    buf.extend_from_slice(&key.encryption_key);
+                    buf.extend_from_slice(&key.enc_key);
                     buf.extend_from_slice(&key.mac_key);
                 }
                 SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
@@ -179,7 +175,7 @@ impl From<SymmetricCryptoKey> for SerializedSymmetricCryptoKey {
                     buf.extend_from_slice(&key.mac_key);
                     buf
                 }
-                SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.encryption_key.to_vec(),
+                SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.enc_key.to_vec(),
             },
         }
     }
@@ -211,25 +207,23 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
     /// the data in it. This is to prevent the key from being left in memory.
     fn try_from(value: &mut [u8]) -> Result<Self, Self::Error> {
         let result = if value.len() == Self::AES256_CBC_HMAC_KEY_LEN {
-            let mut encryption_key = Box::pin(GenericArray::<u8, U32>::default());
+            let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
             let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
 
-            encryption_key.copy_from_slice(&value[..Self::AES256_CBC_ENC_KEY_LEN]);
+            enc_key.copy_from_slice(&value[..Self::AES256_CBC_ENC_KEY_LEN]);
             mac_key.copy_from_slice(&value[Self::AES256_CBC_ENC_KEY_LEN..]);
             value.zeroize();
 
             Ok(SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-                encryption_key,
+                enc_key,
                 mac_key,
             }))
         } else if value.len() == Self::AES256_CBC_ENC_KEY_LEN {
-            let mut encryption_key = Box::pin(GenericArray::<u8, U32>::default());
-            encryption_key.copy_from_slice(&value[..Self::AES256_CBC_ENC_KEY_LEN]);
+            let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+            enc_key.copy_from_slice(&value[..Self::AES256_CBC_ENC_KEY_LEN]);
             value.zeroize();
 
-            Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey {
-                encryption_key,
-            }))
+            Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey { enc_key }))
         } else {
             let mut value = value;
             // prevent ambiguity by removing a null byte if the key is 64 bytes long
@@ -246,7 +240,9 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
                     encryption_key.copy_from_slice(&encoded_key.key_data);
 
                     Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(
-                        XChaCha20Poly1305Key { encryption_key },
+                        XChaCha20Poly1305Key {
+                            enc_key: encryption_key,
+                        },
                     ))
                 }
                 SymmetricCryptoKeyAlgorithm::Aes256CbcHmac => {
@@ -273,13 +269,6 @@ impl CryptoKey for SymmetricCryptoKey {}
 impl std::fmt::Debug for SymmetricCryptoKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SymmetricCryptoKey").finish()
-    }
-}
-
-#[cfg(not(test))]
-impl std::fmt::Debug for KdfDerivedKeymaterial {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("KdfDerviedKeymaterial").finish()
     }
 }
 

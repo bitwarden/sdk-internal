@@ -57,24 +57,7 @@ pub(crate) fn decrypt_aes256_hmac(
     decrypt_aes256(iv, data, key)
 }
 
-/// Encrypt using AES-256 in CBC mode.
-///
-/// Behaves similar to [encrypt_aes256_hmac], but does't generate a MAC.
-///
-/// ## Returns
-///
-/// A AesCbc256_B64 EncString
-#[allow(unused)]
-pub(crate) fn encrypt_aes256(data_dec: &[u8], key: &GenericArray<u8, U32>) -> ([u8; 16], Vec<u8>) {
-    let rng = rand::thread_rng();
-    let (iv, data) = encrypt_aes256_internal(rng, data_dec, key);
-
-    (iv, data)
-}
-
 /// Encrypt using AES-256 in CBC mode with MAC.
-///
-/// Behaves similar to [encrypt_aes256], but also generate a MAC.
 ///
 /// ## Returns
 ///
@@ -94,7 +77,6 @@ pub(crate) fn encrypt_aes256_hmac(
 /// Encrypt using AES-256 in CBC mode.
 ///
 /// Used internally by:
-/// - [encrypt_aes256]
 /// - [encrypt_aes256_hmac]
 fn encrypt_aes256_internal(
     mut rng: impl rand::RngCore,
@@ -182,17 +164,6 @@ mod tests {
         let data = STANDARD.decode("ByUF8vhyX4ddU9gcooznwA==").unwrap();
 
         let decrypted = decrypt_aes256(iv, data, &key).unwrap();
-
-        assert_eq!(String::from_utf8(decrypted).unwrap(), "EncryptMe!");
-    }
-
-    #[test]
-    fn test_encrypt_decrypt_aes256() {
-        let key = generate_generic_array(0, 1);
-        let data = "EncryptMe!";
-
-        let (iv, encrypted) = encrypt_aes256(data.as_bytes(), &key);
-        let decrypted = decrypt_aes256(&iv, encrypted, &key).unwrap();
 
         assert_eq!(String::from_utf8(decrypted).unwrap(), "EncryptMe!");
     }
