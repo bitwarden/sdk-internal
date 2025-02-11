@@ -33,7 +33,7 @@
      https://nixos.org/download/
   2. Enabling required experimental features by creating or editing ~/.config/nix/nix.conf:
      ```
-     echo "experimental-features = nix-command flakes impure-derivations ca-derivations" >> ~/.config/nix/nix.conf
+     echo "experimental-features = nix-command flakes impure-derivations ca-derivations" | sudo tee -a /etc/nix/nix.conf
      ```
      > [!] Our flake depends on these experimental features for using nix flakes, and for building the iOS library.
   3. Restarting the nix daemon:
