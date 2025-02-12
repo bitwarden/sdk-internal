@@ -721,9 +721,16 @@
           # The memory tests only work on linux because of the gdp dependency.
           memory-test =
             if pkgs.stdenv.isLinux then
+              let
+                run-test = pkgs.writeShellApplication {
+                    name = "run-test";
+                    runtimeInputs = [ pkgs.gdb ];
+                    text = builtins.readFile ./crates/memory-testing/run_test.sh;
+                };
+              in
               mkCheck pkgs {
                 pname = "memory-test";
-                command = "$PWD/crates/memory-testing/run_test.sh";
+                command = "${run-test}/bin/run-test";
                 nativeBuildInputs = with pkgs; [ gdb ];
               }
             else
