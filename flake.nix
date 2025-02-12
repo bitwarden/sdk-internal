@@ -651,12 +651,13 @@
                 RUSTC = "${rustBin}/bin/rustc";
               };
               buildPhase = ''
+                set -eo pipefail
+                set -x
                 mkdir -p $TMPDIR/logs
                 {
-                  set -x
                   ${command}
-                  set +x
                 } 2>&1 | tee $TMPDIR/logs/${pname}.log
+                set +x
               '';
               installPhase = ''
                 mkdir -p $out/logs
@@ -724,18 +725,15 @@
             if pkgs.stdenv.isLinux then
               mkCheck pkgs {
                 pname = "memory-test";
-                command = "${toString ./crates/memory-testing/run_test.sh}";
-                nativeBuildInputs = with pkgs; [ gdb docker ];
-                buildPhase = ''
-                  cp -r $src .
-                  chmod -R +w .
-                  mkdir -p $TMPDIR/logs
-                  {
-                    set -x
-                    ./crates/memory-testing/run_test.sh
-                    set +x
-                  } 2>&1 | tee $TMPDIR/logs/${pname}.log
+                command = ''
+                  BASE_DIR="./crates/memory-testing"
+                  mkdir -p $BASE_DIR/output
+                  cargo build -p memory-testing --release
+                  docker build -f crates/memory-testing/Dockerfile -t bitwarden/memory-testing .
+                  docker run --rm -it --privileged --cap-add=SYS_PTRACE -v $BASE_DIR/output:/output bitwarden/memory-testing 
+                  ./target/release/analyze-dumps $BASE_DIR
                 '';
+                nativeBuildInputs = with pkgs; [ gdb docker ];
               }
             else
               pkgs.runCommand "memory-test-unsupported" { } ''
