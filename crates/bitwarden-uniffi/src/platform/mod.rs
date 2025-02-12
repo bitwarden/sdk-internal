@@ -21,8 +21,7 @@ impl PlatformClient {
              .0
             .platform()
             .fingerprint(&req)
-            .map_err(Error::Fingerprint)?
-            .fingerprint)
+            .map_err(Error::Fingerprint)?)
     }
 
     /// Fingerprint using logged in user's public key
