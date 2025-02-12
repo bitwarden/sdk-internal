@@ -734,9 +734,7 @@
                   BASE_DIR="./crates/memory-testing"
                   mkdir -p $BASE_DIR/output
                   cargo build -p memory-testing --release
-
-                  ./target/release/capture-dumps ./target/release/memory-testing $BASE_DIR
-
+                  sudo ./target/release/capture-dumps ./target/release/memory-testing $BASE_DIR
                   ./target/release/analyze-dumps $BASE_DIR
                 '';
                 nativeBuildInputs = with pkgs; [ gdb sudo ];
