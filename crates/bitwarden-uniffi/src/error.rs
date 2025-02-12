@@ -11,12 +11,6 @@ pub enum BitwardenError {
     E(Error),
 }
 
-impl From<bitwarden_core::Error> for BitwardenError {
-    fn from(e: bitwarden_core::Error) -> Self {
-        Self::E(e.into())
-    }
-}
-
 impl From<Error> for BitwardenError {
     fn from(e: Error) -> Self {
         Self::E(e)
@@ -44,7 +38,31 @@ pub type Result<T, E = BitwardenError> = std::result::Result<T, E>;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Core(#[from] bitwarden_core::Error),
+    Api(#[from] bitwarden_core::ApiError),
+    #[error(transparent)]
+    DeriveKeyConnector(#[from] bitwarden_core::mobile::crypto::DeriveKeyConnectorError),
+    #[error(transparent)]
+    EncryptionSettings(
+        #[from] bitwarden_core::client::encryption_settings::EncryptionSettingsError,
+    ),
+    #[error(transparent)]
+    EnrollAdminPasswordReset(#[from] bitwarden_core::mobile::crypto::EnrollAdminPasswordResetError),
+    #[error(transparent)]
+    MobileCrypto(#[from] bitwarden_core::mobile::crypto::MobileCryptoError),
+    #[error(transparent)]
+    AuthValidate(#[from] bitwarden_core::auth::AuthValidateError),
+    #[error(transparent)]
+    ApproveAuthRequest(#[from] bitwarden_core::auth::ApproveAuthRequestError),
+    #[error(transparent)]
+    TrustDevice(#[from] bitwarden_core::auth::auth_client::TrustDeviceError),
+
+    #[error(transparent)]
+    Fingerprint(#[from] bitwarden_core::platform::FingerprintError),
+    #[error(transparent)]
+    UserFingerprint(#[from] bitwarden_core::platform::UserFingerprintError),
+
+    #[error(transparent)]
+    Crypto(#[from] bitwarden_crypto::CryptoError),
 
     // Generators
     #[error(transparent)]
@@ -59,6 +77,24 @@ pub enum Error {
     Cipher(#[from] bitwarden_vault::CipherError),
     #[error(transparent)]
     Totp(#[from] bitwarden_vault::TotpError),
+    #[error(transparent)]
+    Decrypt(#[from] bitwarden_vault::DecryptError),
+    #[error(transparent)]
+    DecryptFile(#[from] bitwarden_vault::DecryptFileError),
+    #[error(transparent)]
+    Encrypt(#[from] bitwarden_vault::EncryptError),
+    #[error(transparent)]
+    EncryptFile(#[from] bitwarden_vault::EncryptFileError),
+
+    // Send
+    #[error(transparent)]
+    SendDecrypt(#[from] bitwarden_send::SendDecryptError),
+    #[error(transparent)]
+    SendDecryptFile(#[from] bitwarden_send::SendDecryptFileError),
+    #[error(transparent)]
+    SendEncrypt(#[from] bitwarden_send::SendEncryptError),
+    #[error(transparent)]
+    SendEncryptFile(#[from] bitwarden_send::SendEncryptFileError),
 
     #[error(transparent)]
     Export(#[from] ExportError),

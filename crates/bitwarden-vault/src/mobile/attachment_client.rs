@@ -1,15 +1,37 @@
 use std::path::Path;
 
-use bitwarden_core::{Client, Error};
-use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, LocateKey};
+use bitwarden_core::Client;
+use bitwarden_crypto::EncString;
+use bitwarden_error::bitwarden_error;
+use thiserror::Error;
 
 use crate::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
-    Cipher, VaultClient,
+    Cipher, DecryptError, EncryptError, VaultClient,
 };
 
 pub struct ClientAttachments<'a> {
     pub(crate) client: &'a Client,
+}
+
+/// Generic error type for vault encryption errors.
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum EncryptFileError {
+    #[error(transparent)]
+    Encrypt(#[from] EncryptError),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+}
+
+/// Generic error type for decryption errors
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum DecryptFileError {
+    #[error(transparent)]
+    Decrypt(#[from] DecryptError),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 impl ClientAttachments<'_> {
@@ -18,16 +40,14 @@ impl ClientAttachments<'_> {
         cipher: Cipher,
         attachment: AttachmentView,
         buffer: &[u8],
-    ) -> Result<AttachmentEncryptResult, Error> {
-        let enc = self.client.internal.get_encryption_settings()?;
-        let key = cipher.locate_key(&enc, &None)?;
+    ) -> Result<AttachmentEncryptResult, EncryptError> {
+        let key_store = self.client.internal.get_key_store();
 
-        Ok(AttachmentFileView {
+        Ok(key_store.encrypt(AttachmentFileView {
             cipher,
             attachment,
             contents: buffer,
-        }
-        .encrypt_with_key(key)?)
+        })?)
     }
     pub fn encrypt_file(
         &self,
@@ -35,7 +55,7 @@ impl ClientAttachments<'_> {
         attachment: AttachmentView,
         decrypted_file_path: &Path,
         encrypted_file_path: &Path,
-    ) -> Result<Attachment, Error> {
+    ) -> Result<Attachment, EncryptFileError> {
         let data = std::fs::read(decrypted_file_path)?;
         let AttachmentEncryptResult {
             attachment,
@@ -50,17 +70,14 @@ impl ClientAttachments<'_> {
         cipher: Cipher,
         attachment: Attachment,
         encrypted_buffer: &[u8],
-    ) -> Result<Vec<u8>, Error> {
-        let enc = self.client.internal.get_encryption_settings()?;
-        let key = cipher.locate_key(&enc, &None)?;
+    ) -> Result<Vec<u8>, DecryptError> {
+        let key_store = self.client.internal.get_key_store();
 
-        AttachmentFile {
+        Ok(key_store.decrypt(&AttachmentFile {
             cipher,
             attachment,
             contents: EncString::from_buffer(encrypted_buffer)?,
-        }
-        .decrypt_with_key(key)
-        .map_err(Error::Crypto)
+        })?)
     }
     pub fn decrypt_file(
         &self,
@@ -68,7 +85,7 @@ impl ClientAttachments<'_> {
         attachment: Attachment,
         encrypted_file_path: &Path,
         decrypted_file_path: &Path,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DecryptFileError> {
         let data = std::fs::read(encrypted_file_path)?;
         let decrypted = self.decrypt_buffer(cipher, attachment, &data)?;
         std::fs::write(decrypted_file_path, decrypted)?;

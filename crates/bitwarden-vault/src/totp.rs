@@ -1,13 +1,17 @@
 use std::{collections::HashMap, str::FromStr};
 
-use bitwarden_core::VaultLocked;
-use bitwarden_crypto::{CryptoError, KeyContainer};
+use bitwarden_core::{key_management::KeyIds, VaultLockedError};
+use bitwarden_crypto::{CryptoError, KeyStoreContext};
+use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
+use percent_encoding::percent_decode_str;
 use reqwest::Url;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use tsify_next::Tsify;
 
 use crate::CipherListView;
 
@@ -22,6 +26,7 @@ const DEFAULT_ALGORITHM: TotpAlgorithm = TotpAlgorithm::Sha1;
 const DEFAULT_DIGITS: u32 = 6;
 const DEFAULT_PERIOD: u32 = 30;
 
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum TotpError {
     #[error("Invalid otpauth")]
@@ -32,12 +37,13 @@ pub enum TotpError {
     #[error(transparent)]
     CryptoError(#[from] CryptoError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLocked),
+    VaultLocked(#[from] VaultLockedError),
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct TotpResponse {
     /// Generated TOTP code
     pub code: String,
@@ -76,11 +82,11 @@ pub fn generate_totp(key: String, time: Option<DateTime<Utc>>) -> Result<TotpRes
 ///
 /// See [generate_totp] for more information.
 pub fn generate_totp_cipher_view(
-    enc: &dyn KeyContainer,
+    ctx: &mut KeyStoreContext<KeyIds>,
     view: CipherListView,
     time: Option<DateTime<Utc>>,
 ) -> Result<TotpResponse, TotpError> {
-    let key = view.get_totp_key(enc)?.ok_or(TotpError::MissingSecret)?;
+    let key = view.get_totp_key(ctx)?.ok_or(TotpError::MissingSecret)?;
 
     generate_totp(key, time)
 }
@@ -128,8 +134,10 @@ impl TotpAlgorithm {
 /// access to the individual components.
 #[derive(Debug)]
 pub struct Totp {
+    pub account: Option<String>,
     pub algorithm: TotpAlgorithm,
     pub digits: u32,
+    pub issuer: Option<String>,
     pub period: u32,
     pub secret: Vec<u8>,
 }
@@ -166,9 +174,17 @@ impl FromStr for Totp {
 
         let params = if key.starts_with("otpauth://") {
             let url = Url::parse(&key).map_err(|_| TotpError::InvalidOtpauth)?;
+            let decoded_path = percent_decode_str(url.path()).decode_utf8_lossy();
+            let label = decoded_path.strip_prefix("/");
+            let (issuer, account) = match label.and_then(|v| v.split_once(':')) {
+                Some((issuer, account)) => (Some(issuer.trim()), Some(account.trim())),
+                None => (None, label),
+            };
+
             let parts: HashMap<_, _> = url.query_pairs().collect();
 
             Totp {
+                account: account.map(|s| s.to_string()),
                 algorithm: parts
                     .get("algorithm")
                     .and_then(|v| match v.as_ref() {
@@ -183,6 +199,10 @@ impl FromStr for Totp {
                     .and_then(|v| v.parse().ok())
                     .map(|v: u32| v.clamp(0, 10))
                     .unwrap_or(DEFAULT_DIGITS),
+                issuer: parts
+                    .get("issuer")
+                    .map(|v| v.to_string())
+                    .or(issuer.map(|s| s.to_string())),
                 period: parts
                     .get("period")
                     .and_then(|v| v.parse().ok())
@@ -197,15 +217,19 @@ impl FromStr for Totp {
             }
         } else if let Some(secret) = key.strip_prefix("steam://") {
             Totp {
+                account: None,
                 algorithm: TotpAlgorithm::Steam,
                 digits: 5,
+                issuer: None,
                 period: DEFAULT_PERIOD,
                 secret: decode_b32(secret),
             }
         } else {
             Totp {
+                account: None,
                 algorithm: DEFAULT_ALGORITHM,
                 digits: DEFAULT_DIGITS,
+                issuer: None,
                 period: DEFAULT_PERIOD,
                 secret: decode_b32(&key),
             }
@@ -266,9 +290,9 @@ fn decode_b32(s: &str) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::{CryptoError, SymmetricCryptoKey};
+    use bitwarden_core::key_management::create_test_crypto_with_user_key;
+    use bitwarden_crypto::SymmetricCryptoKey;
     use chrono::Utc;
-    use uuid::Uuid;
 
     use super::*;
     use crate::{cipher::cipher::CipherListViewType, login::LoginListView, CipherRepromptType};
@@ -330,6 +354,15 @@ mod tests {
     }
 
     #[test]
+    fn test_generate_otpauth_no_label() {
+        let key = "otpauth://totp/?secret=WQIQ25BRKZYCJVYP";
+        let totp = Totp::from_str(key).unwrap();
+
+        assert_eq!(totp.account, Some("".to_string()));
+        assert_eq!(totp.issuer, None);
+    }
+
+    #[test]
     fn test_generate_otpauth_uppercase() {
         let key = "OTPauth://totp/test-account?secret=WQIQ25BRKZYCJVYP".to_string();
         let time = Some(
@@ -373,6 +406,67 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_totp_label_no_issuer() {
+        // If there is only one value in the label, it is the account
+        let key = "otpauth://totp/test-account@example.com?secret=WQIQ25BRKZYCJVYP";
+        let totp = Totp::from_str(key).unwrap();
+
+        assert_eq!(totp.account, Some("test-account@example.com".to_string()));
+        assert_eq!(totp.issuer, None);
+    }
+
+    #[test]
+    fn test_parse_totp_label_with_issuer() {
+        // If there are two values in the label, the first is the issuer, the second is the account
+        let key = "otpauth://totp/test-issuer:test-account@example.com?secret=WQIQ25BRKZYCJVYP";
+        let totp = Totp::from_str(key).unwrap();
+
+        assert_eq!(totp.account, Some("test-account@example.com".to_string()));
+        assert_eq!(totp.issuer, Some("test-issuer".to_string()));
+    }
+
+    #[test]
+    fn test_parse_totp_label_two_issuers() {
+        // If the label has an issuer and there is an issuer parameter, the parameter is chosen as
+        // the issuer
+        let key = "otpauth://totp/test-issuer:test-account@example.com?secret=WQIQ25BRKZYCJVYP&issuer=other-test-issuer";
+        let totp = Totp::from_str(key).unwrap();
+
+        assert_eq!(totp.account, Some("test-account@example.com".to_string()));
+        assert_eq!(totp.issuer, Some("other-test-issuer".to_string()));
+    }
+
+    #[test]
+    fn test_parse_totp_label_encoded_colon() {
+        // A url-encoded colon is a valid separator
+        let key = "otpauth://totp/test-issuer%3Atest-account@example.com?secret=WQIQ25BRKZYCJVYP&issuer=test-issuer";
+        let totp = Totp::from_str(key).unwrap();
+
+        assert_eq!(totp.account, Some("test-account@example.com".to_string()));
+        assert_eq!(totp.issuer, Some("test-issuer".to_string()));
+    }
+
+    #[test]
+    fn test_parse_totp_label_encoded_characters() {
+        // The account and issuer can both be URL-encoded
+        let key = "otpauth://totp/test%20issuer:test-account%40example%2Ecom?secret=WQIQ25BRKZYCJVYP&issuer=test%20issuer";
+        let totp = Totp::from_str(key).unwrap();
+
+        assert_eq!(totp.account, Some("test-account@example.com".to_string()));
+        assert_eq!(totp.issuer, Some("test issuer".to_string()));
+    }
+
+    #[test]
+    fn test_parse_totp_label_account_spaces() {
+        // The account can have spaces before it
+        let key = "otpauth://totp/test-issuer:   test-account@example.com?secret=WQIQ25BRKZYCJVYP&issuer=test-issuer";
+        let totp = Totp::from_str(key).unwrap();
+
+        assert_eq!(totp.account, Some("test-account@example.com".to_string()));
+        assert_eq!(totp.issuer, Some("test-issuer".to_string()));
+    }
+
+    #[test]
     fn test_generate_totp_cipher_view() {
         let view = CipherListView {
             id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
@@ -398,22 +492,15 @@ mod tests {
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
         };
 
-        struct MockKeyContainer(SymmetricCryptoKey);
-        impl KeyContainer for MockKeyContainer {
-            fn get_key<'a>(
-                &'a self,
-                _: &Option<Uuid>,
-            ) -> Result<&'a SymmetricCryptoKey, CryptoError> {
-                Ok(&self.0)
-            }
-        }
+        let key = SymmetricCryptoKey::try_from("w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string()).unwrap();
+        let key_store = create_test_crypto_with_user_key(key);
 
-        let enc = MockKeyContainer("w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string().try_into().unwrap());
         let time = DateTime::parse_from_rfc3339("2023-01-01T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
 
-        let response = generate_totp_cipher_view(&enc, view, Some(time)).unwrap();
+        let response =
+            generate_totp_cipher_view(&mut key_store.context(), view, Some(time)).unwrap();
         assert_eq!(response.code, "559388".to_string());
         assert_eq!(response.period, 30);
     }

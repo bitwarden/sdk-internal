@@ -13,8 +13,8 @@ uniffi::setup_scaffolding!();
 mod uniffi_support;
 
 mod csv;
-mod cxp;
-pub use cxp::Account;
+mod cxf;
+pub use cxf::Account;
 mod encrypted_json;
 mod exporter_client;
 mod json;

@@ -1,22 +1,22 @@
 use std::sync::Arc;
 
-use bitwarden_core::{
-    auth::{
-        password::MasterPasswordPolicyOptions, AuthRequestResponse, KeyConnectorResponse,
-        RegisterKeyResponse, RegisterTdeKeyResponse,
-    },
-    Error,
+use bitwarden_core::auth::{
+    password::MasterPasswordPolicyOptions, AuthRequestResponse, KeyConnectorResponse,
+    RegisterKeyResponse, RegisterTdeKeyResponse,
 };
 use bitwarden_crypto::{AsymmetricEncString, EncString, HashPurpose, Kdf, TrustDeviceResponse};
 
-use crate::{error::Result, Client};
+use crate::{
+    error::{Error, Result},
+    Client,
+};
 
 #[derive(uniffi::Object)]
 pub struct AuthClient(pub(crate) Arc<Client>);
 
 #[uniffi::export(async_runtime = "tokio")]
 impl AuthClient {
-    /// **API Draft:** Calculate Password Strength
+    /// Calculate Password Strength
     pub fn password_strength(
         &self,
         password: String,
@@ -55,7 +55,8 @@ impl AuthClient {
              .0
             .kdf()
             .hash_password(email, password, kdf_params, purpose)
-            .await?)
+            .await
+            .map_err(Error::Crypto)?)
     }
 
     /// Generate keys needed for registration process
@@ -65,7 +66,12 @@ impl AuthClient {
         password: String,
         kdf: Kdf,
     ) -> Result<RegisterKeyResponse> {
-        Ok(self.0 .0.auth().make_register_keys(email, password, kdf)?)
+        Ok(self
+            .0
+             .0
+            .auth()
+            .make_register_keys(email, password, kdf)
+            .map_err(Error::Crypto)?)
     }
 
     /// Generate keys needed for TDE process
@@ -79,7 +85,8 @@ impl AuthClient {
             .0
              .0
             .auth()
-            .make_register_tde_keys(email, org_public_key, remember_device)?)
+            .make_register_tde_keys(email, org_public_key, remember_device)
+            .map_err(Error::EncryptionSettings)?)
     }
 
     /// Generate keys needed to onboard a new user without master key to key connector
@@ -102,7 +109,8 @@ impl AuthClient {
             .0
              .0
             .auth()
-            .validate_password(password, password_hash)?)
+            .validate_password(password, password_hash)
+            .map_err(Error::AuthValidate)?)
     }
 
     /// Validate the user password without knowing the password hash
@@ -120,7 +128,8 @@ impl AuthClient {
             .0
              .0
             .auth()
-            .validate_password_user_key(password, encrypted_user_key)?)
+            .validate_password_user_key(password, encrypted_user_key)
+            .map_err(Error::AuthValidate)?)
     }
 
     /// Validate the user PIN
@@ -131,21 +140,41 @@ impl AuthClient {
     /// This works by comparing the decrypted user key with the current user key, so the client must
     /// be unlocked.
     pub fn validate_pin(&self, pin: String, pin_protected_user_key: EncString) -> Result<bool> {
-        Ok(self.0 .0.auth().validate_pin(pin, pin_protected_user_key)?)
+        Ok(self
+            .0
+             .0
+            .auth()
+            .validate_pin(pin, pin_protected_user_key)
+            .map_err(Error::AuthValidate)?)
     }
 
     /// Initialize a new auth request
     pub fn new_auth_request(&self, email: String) -> Result<AuthRequestResponse> {
-        Ok(self.0 .0.auth().new_auth_request(&email)?)
+        Ok(self
+            .0
+             .0
+            .auth()
+            .new_auth_request(&email)
+            .map_err(Error::Crypto)?)
     }
 
     /// Approve an auth request
     pub fn approve_auth_request(&self, public_key: String) -> Result<AsymmetricEncString> {
-        Ok(self.0 .0.auth().approve_auth_request(public_key)?)
+        Ok(self
+            .0
+             .0
+            .auth()
+            .approve_auth_request(public_key)
+            .map_err(Error::ApproveAuthRequest)?)
     }
 
     /// Trust the current device
     pub fn trust_device(&self) -> Result<TrustDeviceResponse> {
-        Ok(self.0 .0.auth().trust_device()?)
+        Ok(self
+            .0
+             .0
+            .auth()
+            .trust_device()
+            .map_err(Error::TrustDevice)?)
     }
 }

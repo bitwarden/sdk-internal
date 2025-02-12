@@ -10,7 +10,7 @@ pub struct VaultClient<'a> {
 }
 
 impl<'a> VaultClient<'a> {
-    pub fn new(client: &'a Client) -> Self {
+    fn new(client: &'a Client) -> Self {
         Self { client }
     }
 
