@@ -732,6 +732,9 @@
                   cargo build -p memory-testing --release
                   mkdir -p $TMPDIR/docker
                   export DOCKER_TMPDIR=$TMPDIR/docker
+                  export DOCKER_HOST=unix:///var/run/docker.sock
+                  export DOCKER_CONFIG="$TMPDIR/docker/config"
+                  mkdir -p "$DOCKER_CONFIG"
                   docker build -f crates/memory-testing/Dockerfile -t bitwarden/memory-testing .
                   docker run --rm --privileged --cap-add=SYS_PTRACE -v $BASE_DIR/output:/output bitwarden/memory-testing 
                   ./target/release/analyze-dumps $BASE_DIR
@@ -740,6 +743,7 @@
               } // {
                 __noChroot = true;
                 __impure = true;
+                requiredSystemFeatures = [ "docker" ];
               }
             else
               pkgs.runCommand "memory-test-unsupported" { } ''
