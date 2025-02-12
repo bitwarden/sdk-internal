@@ -725,7 +725,7 @@
           };
 
           # The memory tests only work on linux because of the gdp
-          # dependency.  It does some impure stuff and must be run with sudo.
+          # dependency.  It does some impure stuff and must be run as root.
           memory-test =
             if pkgs.stdenv.isLinux then
               mkCheck pkgs ({
@@ -734,7 +734,7 @@
                   BASE_DIR="./crates/memory-testing"
                   mkdir -p $BASE_DIR/output
                   cargo build -p memory-testing --release
-                  sudo ./target/release/capture-dumps ./target/release/memory-testing $BASE_DIR
+                  ./target/release/capture-dumps ./target/release/memory-testing $BASE_DIR
                   ./target/release/analyze-dumps $BASE_DIR
                 '';
                 nativeBuildInputs = with pkgs; [ gdb sudo ];
