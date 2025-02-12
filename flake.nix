@@ -726,7 +726,7 @@
           # dependency.  It does some impure stuff and must be run with sudo.
           memory-test =
             if pkgs.stdenv.isLinux then
-              mkCheck pkgs {
+              mkCheck pkgs ({
                 pname = "memory-test";
                 command = ''
                   BASE_DIR="./crates/memory-testing"
@@ -740,13 +740,9 @@
                   ./target/release/analyze-dumps $BASE_DIR
                 '';
                 nativeBuildInputs = with pkgs; [ gdb libcap ];
-              } // {
                 __noChroot = true;
                 __impure = true;
-                sandboxProfile = ''
-                  (allow capability (setfcap ptrace))
-                '';
-              }
+              })
             else
               pkgs.runCommand "memory-test-unsupported" { } ''
                 mkdir -p $out/logs
