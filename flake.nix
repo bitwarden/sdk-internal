@@ -636,12 +636,13 @@
               command,
               useNightly ? false,
               nativeBuildInputs ? [ ],
-            }:
+              ...
+            }@attrs:
             let
               rustBin =
                 if useNightly then pkgs.rust-bin.nightly.latest.default else pkgs.rust-bin.stable.latest.default;
             in
-            mkRustPackage pkgs {
+              mkRustPackage pkgs (attrs // {
               inherit pname;
 
               nativeBuildInputs = mkRustBuildInputs pkgs pkgs.stdenv.hostPlatform.config ++ nativeBuildInputs;
@@ -663,7 +664,7 @@
                 mkdir -p $out/logs
                 cp -r $TMPDIR/logs/* $out/logs/
               '';
-            };
+            });
         in
         # rustCratePackages gets each crate from [workspace.dependencies] in
         # Cargo.toml.  This means something like
