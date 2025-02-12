@@ -733,7 +733,7 @@
                   sudo ./target/release/capture-dumps ./target/release/memory-testing $BASE_DIR
                   ./target/release/analyze-dumps $BASE_DIR
                 '';
-                nativeBuildInputs = with pkgs; [ gdb ];
+                nativeBuildInputs = with pkgs; [ gdb sudo ];
               } // {
                 __noChroot = true;
                 __impure = true;
