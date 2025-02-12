@@ -737,6 +737,7 @@
               } // {
                 __noChroot = true;
                 __impure = true;
+                allowSetuidPrograms = true;
               }
             else
               pkgs.runCommand "memory-test-unsupported" { } ''
