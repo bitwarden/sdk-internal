@@ -740,6 +740,9 @@
               } // {
                 __noChroot = true;
                 __impure = true;
+                sandboxProfile = ''
+                  (allow capability (setfcap ptrace))
+                '';
               }
             else
               pkgs.runCommand "memory-test-unsupported" { } ''
