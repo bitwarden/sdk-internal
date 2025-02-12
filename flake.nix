@@ -730,6 +730,8 @@
                   BASE_DIR="./crates/memory-testing"
                   mkdir -p $BASE_DIR/output
                   cargo build -p memory-testing --release
+                  mkdir -p $TMPDIR/docker
+                  export DOCKER_TMPDIR=$TMPDIR/docker
                   docker build -f crates/memory-testing/Dockerfile -t bitwarden/memory-testing .
                   docker run --rm --privileged --cap-add=SYS_PTRACE -v $BASE_DIR/output:/output bitwarden/memory-testing 
                   ./target/release/analyze-dumps $BASE_DIR
