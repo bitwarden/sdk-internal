@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    error::{CryptoError, EncStringParseError, Result},
+    error::{CryptoError, EncStringParseError, Result, UnsupportedKeyType},
     Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
 };
 
@@ -214,7 +214,7 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(
-                CryptoError::EncryptionOperationNotSupported("Aes256Cbc".to_string()),
+                CryptoError::EncryptionOperationNotSupported(UnsupportedKeyType::Aes256Cbc),
             ),
         }
     }

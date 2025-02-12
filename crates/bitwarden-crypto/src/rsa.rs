@@ -6,7 +6,7 @@ use rsa::{
 use sha1::Sha1;
 
 use crate::{
-    error::{Result, RsaError},
+    error::{Result, RsaError, UnsupportedKeyType},
     CryptoError, EncString, SymmetricCryptoKey,
 };
 
@@ -42,7 +42,7 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
             EncString::encrypt_aes256_hmac(pkcs.as_bytes(), key)
         }
         SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::EncryptionOperationNotSupported(
-            "Aes256Cbc".to_string(),
+            UnsupportedKeyType::Aes256Cbc,
         )),
     }?;
 
