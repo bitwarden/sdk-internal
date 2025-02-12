@@ -27,6 +27,7 @@
   2. Enabling required experimental features by creating or editing /etc/nix/nix.conf:
      ```
      echo "experimental-features = nix-command flakes impure-derivations ca-derivations" | sudo tee -a /etc/nix/nix.conf
+     echo "extraOptions = ''trusted-users = root''" | sudo tee -a /etc/nix/nix.conf
      ```
      > [!] Our flake depends on these experimental features for using nix flakes, and for building the iOS library.
   3. Restarting the nix daemon:
@@ -749,6 +750,7 @@
                 mkdir -p $out/logs
                 echo "Memory testing is only supported on Linux platforms" > $out/logs/memory-test.log
               '';
+
 
           wasm = mkWasmPackage pkgs {
             pname = "bitwarden-sdk-wasm";
