@@ -735,8 +735,8 @@
                   mkdir -p $BASE_DIR/output
                   cargo build -p memory-testing --release
 
-                  sudo ./target/release/capture-dumps
-                  sudo ./target/release/memory-testing $BASE_DIR
+                  ./target/release/capture-dumps
+                  ./target/release/memory-testing $BASE_DIR
 
                   ./target/release/analyze-dumps $BASE_DIR
                 '';
