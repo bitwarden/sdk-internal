@@ -80,6 +80,8 @@ pub enum EncStringParseError {
     InvalidLength { expected: usize, got: usize },
     #[error("Invalid additional data")]
     InvalidAdditionalData,
+    #[error("Invalid encoding")]
+    InvalidEncoding,
 }
 
 #[derive(Debug, Error)]

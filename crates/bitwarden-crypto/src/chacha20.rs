@@ -21,7 +21,7 @@ use generic_array::GenericArray;
 use crate::CryptoError;
 
 #[derive(zeroize::ZeroizeOnDrop)]
-pub struct XChaCha20Poly1305Ciphertext {
+pub(crate) struct XChaCha20Poly1305Ciphertext {
     pub(crate) nonce: [u8; 24],
     pub(crate) encrypted_data: Vec<u8>,
     pub(crate) additional_data: Vec<u8>,

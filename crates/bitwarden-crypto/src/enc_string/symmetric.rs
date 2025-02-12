@@ -70,25 +70,25 @@ pub enum EncString {
 }
 
 #[derive(PartialEq, Clone, Serialize, Deserialize)]
-struct XChaCha20Poly1305Data {
+struct SerializedXChaCha20Poly1305Data {
     nonce: [u8; 24],
     data: Vec<u8>,
     additional_data: Vec<u8>,
 }
 
-impl From<XChaCha20Poly1305Data> for EncString {
-    fn from(data: XChaCha20Poly1305Data) -> Self {
+impl From<SerializedXChaCha20Poly1305Data> for EncString {
+    fn from(data: SerializedXChaCha20Poly1305Data) -> Self {
         EncString::XChaCha20Poly1305_B64 {
             nonce: data.nonce,
-            data: data.data.clone(),
+            data: data.data,
             additional_data: data.additional_data,
         }
     }
 }
 
-impl From<XChaCha20Poly1305Ciphertext> for XChaCha20Poly1305Data {
+impl From<XChaCha20Poly1305Ciphertext> for SerializedXChaCha20Poly1305Data {
     fn from(data: XChaCha20Poly1305Ciphertext) -> Self {
-        XChaCha20Poly1305Data {
+        SerializedXChaCha20Poly1305Data {
             nonce: data.nonce,
             data: data.encrypted_data.clone(),
             additional_data: rmp_serde::from_slice(&data.additional_data).expect("Valid rmp data"),
@@ -126,8 +126,8 @@ impl FromStr for EncString {
             ("7", 1) => {
                 let buffer = from_b64_vec(parts[0])?;
 
-                let decoded: XChaCha20Poly1305Data =
-                    rmp_serde::from_slice(&buffer).map_err(|_| {
+                let decoded: SerializedXChaCha20Poly1305Data = rmp_serde::from_slice(&buffer)
+                    .map_err(|_| {
                         CryptoError::EncString(EncStringParseError::InvalidTypeSymm {
                             enc_type: enc_type.to_string(),
                             parts: 1,
@@ -174,8 +174,8 @@ impl EncString {
                 Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
             }
             7 => {
-                let decoded: XChaCha20Poly1305Data =
-                    rmp_serde::from_slice(&buf[1..]).map_err(|_| {
+                let decoded: SerializedXChaCha20Poly1305Data = rmp_serde::from_slice(&buf[1..])
+                    .map_err(|_| {
                         CryptoError::EncString(EncStringParseError::InvalidTypeSymm {
                             enc_type: enc_type.to_string(),
                             parts: 1,
@@ -213,13 +213,12 @@ impl EncString {
                 data,
                 additional_data,
             } => {
-                let encoded = rmp_serde::to_vec(&XChaCha20Poly1305Data {
+                let encoded = rmp_serde::to_vec(&SerializedXChaCha20Poly1305Data {
                     nonce: *nonce,
                     data: data.clone(),
                     additional_data: additional_data.clone(),
-                    // todo update error
                 })
-                .map_err(|_| CryptoError::EncString(EncStringParseError::NoType))?;
+                .map_err(|_| CryptoError::EncString(EncStringParseError::InvalidEncoding))?;
                 buf = Vec::with_capacity(1 + encoded.len());
                 buf.push(self.enc_type());
                 buf.extend_from_slice(&encoded);
@@ -264,7 +263,7 @@ impl Display for EncString {
                 data,
                 additional_data,
             } => {
-                let encoded = rmp_serde::to_vec(&XChaCha20Poly1305Data {
+                let encoded = rmp_serde::to_vec(&SerializedXChaCha20Poly1305Data {
                     nonce: *nonce,
                     data: data.clone(),
                     additional_data: additional_data.clone(),
@@ -277,6 +276,25 @@ impl Display for EncString {
             }
         }
     }
+}
+
+// Pads the bytes to the next block size
+// The format is as follows:
+// N|0x00..0x00|data
+//   ^ N null bytes
+fn pad_bytes(bytes: &[u8], block_size: usize) -> Vec<u8> {
+    let padding_len = block_size - (bytes.len() % block_size);
+    let mut padded = vec![0; 1 + padding_len + bytes.len()];
+    padded[0] = padding_len as u8;
+    padded[1..=padding_len].fill(0);
+    padded[1 + padding_len..].copy_from_slice(bytes);
+    padded
+}
+
+// Unpads the bytes
+fn unpad_bytes(bytes: &[u8]) -> &[u8] {
+    let padding_len = bytes[0] as usize;
+    &bytes[1 + padding_len..]
 }
 
 impl<'de> Deserialize<'de> for EncString {
@@ -298,6 +316,8 @@ impl serde::Serialize for EncString {
 }
 
 impl EncString {
+    const XCHACHA20_PAD_BLOCK_SIZE: usize = 24;
+
     pub(crate) fn encrypt_aes256_hmac(
         data_dec: &[u8],
         key: &Aes256CbcHmacKey,
@@ -343,12 +363,13 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key1) => {
+            SymmetricCryptoKey::XChaCha20Poly1305Key(inner_key) => {
                 let additional_data =
                     additional_data::AdditionalData::V0(additional_data::AdditionalDataV0 {
                         key_hash: key.hash(),
                     });
-                EncString::encrypt_xchacha20_poly1305(self, additional_data, key1)
+                let padded_data = pad_bytes(self, EncString::XCHACHA20_PAD_BLOCK_SIZE);
+                EncString::encrypt_xchacha20_poly1305(&padded_data, additional_data, inner_key)
             }
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(
                 CryptoError::EncryptionOperationNotSupported("Aes256Cbc".to_string()),
@@ -374,17 +395,20 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                     additional_data,
                 },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
-            ) => crate::chacha20::decrypt_xchacha20_poly1305(
-                key.enc_key
-                    .as_slice()
-                    .try_into()
-                    .expect("XChaChaPoly1305 key is 32 bytes long"),
-                &XChaCha20Poly1305Ciphertext {
-                    nonce: *nonce,
-                    encrypted_data: data.clone(),
-                    additional_data: additional_data.clone(),
-                },
-            ),
+            ) => {
+                let plaintext_padded = crate::chacha20::decrypt_xchacha20_poly1305(
+                    key.enc_key
+                        .as_slice()
+                        .try_into()
+                        .expect("XChaChaPoly1305 key is 32 bytes long"),
+                    &XChaCha20Poly1305Ciphertext {
+                        nonce: *nonce,
+                        encrypted_data: data.clone(),
+                        additional_data: additional_data.clone(),
+                    },
+                )?;
+                Ok(unpad_bytes(&plaintext_padded).to_vec())
+            }
             _ => Err(CryptoError::WrongKeyType),
         }
     }
