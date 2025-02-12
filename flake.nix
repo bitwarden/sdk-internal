@@ -730,10 +730,10 @@
                   BASE_DIR="./crates/memory-testing"
                   mkdir -p $BASE_DIR/output
                   cargo build -p memory-testing --release
-                  sudo ./target/release/capture-dumps ./target/release/memory-testing $BASE_DIR
+                  pkexec ./target/release/capture-dumps ./target/release/memory-testing $BASE_DIR
                   ./target/release/analyze-dumps $BASE_DIR
                 '';
-                nativeBuildInputs = with pkgs; [ gdb sudo ];
+                nativeBuildInputs = with pkgs; [ gdb polkit ];
               } // {
                 __noChroot = true;
                 __impure = true;
