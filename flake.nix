@@ -3,7 +3,7 @@
 
   = Here's what it can do: =
 
-  1. Provide fully reproducible builds with locked version of key build
+  1. Provide fully reproducible builds with locked versions of key build
      technologies like rust, android dependencies, etc. Only Xcode is an
      exception to this.
   2. Enable the ability to run all of CIs builds locally in sandboxed
