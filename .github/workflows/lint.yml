@@ -15,25 +15,54 @@ jobs:
 
     runs-on: ubuntu-24.04
 
+    strategy:
+      fail-fast: false
+      matrix:
+        channel:
+          - "rust-toolchain" # The version defined in rust-toolchain
+          - "msrv" # The supported MSRV
+
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Set Rust Toolchain
+        id: toolchain
+        shell: bash
+        run: |
+          if [[ "${{ matrix.channel }}" == 'rust-toolchain' ]]; then
+            RUST_TOOLCHAIN="$(grep -oP '^channel.*"(\K.*?)(?=")' rust-toolchain.toml)"
+          elif [[ "${{ matrix.channel }}" == 'msrv' ]]; then
+            RUST_TOOLCHAIN="$(grep -oP '^rust-version.*"(\K.*?)(?=")' Cargo.toml)"
+          else
+            RUST_TOOLCHAIN="${{ matrix.channel }}"
+          fi
+          echo "RUST_TOOLCHAIN=${RUST_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
+
+      - name: Set Rust Nightly Toolchain
+        id: nightly-toolchain
+        shell: bash
+        run: |
+          RUST_NIGHTLY_TOOLCHAIN="$(grep -oP '^nightly-channel.*"(\K.*?)(?=")' rust-toolchain.toml)"
+          echo "RUST_NIGHTLY_TOOLCHAIN=${RUST_NIGHTLY_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
+
       - name: Install rust
         uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203 # stable
+        if: ${{ matrix.channel == 'rust-toolchain' }}
         with:
-          toolchain: stable
+          toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
+          components: clippy, rustfmt
 
       - name: Install rust nightly
         run: |
-          rustup toolchain install nightly
-          rustup component add rustfmt --toolchain nightly-x86_64-unknown-linux-gnu
+          rustup toolchain install "${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}"
+          rustup component add rustfmt --toolchain "${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}"-x86_64-unknown-linux-gnu
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
 
       - name: Cargo fmt
-        run: cargo +nightly fmt --check
+        run: cargo +"${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}" fmt --check
 
       - name: Install clippy-sarif and sarif-fmt
         run: cargo install clippy-sarif sarif-fmt --locked --git https://github.com/psastras/sarif-rs.git --rev 11c33a53f6ffeaed736856b86fb6b7b09fabdfd8
@@ -67,7 +96,7 @@ jobs:
         run: cargo install cargo-udeps --version 0.1.53 --locked
 
       - name: Cargo udeps
-        run: cargo +nightly udeps --workspace --all-features
+        run: cargo +"${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}" udeps --workspace --all-features
 
       - name: Set up Node
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
