@@ -27,7 +27,8 @@
   2. Enabling required experimental features by creating or editing /etc/nix/nix.conf:
      ```
      echo "experimental-features = nix-command flakes impure-derivations ca-derivations" | sudo tee -a /etc/nix/nix.conf
-     echo "extraOptions = ''trusted-users = root''" | sudo tee -a /etc/nix/nix.conf
+     echo "trusted-users = root" | sudo tee -a /etc/nix/nix.conf
+     echo "sandbox = relaxed" | sudo tee -a /etc/nix/nix.conf
      ```
      > [!] Our flake depends on these experimental features for using nix flakes, and for building the iOS library.
   3. Restarting the nix daemon:
@@ -734,16 +735,14 @@
                   mkdir -p $BASE_DIR/output
                   cargo build -p memory-testing --release
 
-                  echo 0 > /proc/sys/kernel/yama/ptrace_scope  # Temporary change
-                  ./target/release/capture-dumps ./target/release/memory-testing $BASE_DIR
-                  echo 1 > /proc/sys/kernel/yama/ptrace_scope  # Restore default
+                  sudo ./target/release/capture-dumps
+                  sudo ./target/release/memory-testing $BASE_DIR
 
                   ./target/release/analyze-dumps $BASE_DIR
                 '';
-                nativeBuildInputs = with pkgs; [ gdb libcap ];
+                nativeBuildInputs = with pkgs; [ gdb sudo ];
                 __noChroot = true;
                 __impure = true;
-                sandbox = false;
               })
             else
               pkgs.runCommand "memory-test-unsupported" { } ''
