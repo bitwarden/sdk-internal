@@ -727,7 +727,7 @@
             if pkgs.stdenv.isLinux then
               mkCheck pkgs {
                 pname = "memory-test";
-                command = "./crates/memory-testing/run_test.sh no-docker";
+                command = "$src/crates/memory-testing/run_test.sh no-docker";
                 nativeBuildInputs = with pkgs; [ gdb ];
               }
             else
