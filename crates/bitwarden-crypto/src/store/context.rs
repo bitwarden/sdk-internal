@@ -217,56 +217,6 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         self.encrypt_data_with_asymmetric_key(encryption_key, &key_to_encrypt.to_vec())
     }
 
-    /// Decrypt an asymmetric key into the context by using an already existing asymmetric key
-    ///
-    /// # Arguments
-    ///
-    /// * `encryption_key` - The key id used to decrypt the `encrypted_key`. It must already exist
-    ///   in the context
-    /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
-    ///   will be overwritten
-    /// * `encrypted_key` - The key to decrypt
-    pub fn decrypt_asymmetric_key_with_asymmetric_key(
-        &mut self,
-        encryption_key: Ids::Asymmetric,
-        new_key_id: Ids::Asymmetric,
-        encrypted_key: &AsymmetricEncString,
-    ) -> Result<Ids::Asymmetric> {
-        let new_key_material =
-            self.decrypt_data_with_asymmetric_key(encryption_key, encrypted_key)?;
-
-        #[allow(deprecated)]
-        self.set_asymmetric_key(
-            new_key_id,
-            AsymmetricCryptoKey::from_der(&new_key_material)?,
-        )?;
-
-        // Returning the new key identifier for convenience
-        Ok(new_key_id)
-    }
-
-    /// Encrypt and return an asymmetric key from the context by using an already existing
-    /// asymmetric key
-    ///
-    /// # Arguments
-    ///
-    /// * `encryption_key` - The key id used to encrypt the `key_to_encrypt`. It must already exist
-    ///   in the context
-    /// * `key_to_encrypt` - The key id to encrypt. It must already exist in the context
-    pub fn encrypt_asymmetric_key_with_asymmetric_key(
-        &self,
-        encryption_key: Ids::Asymmetric,
-        key_to_encrypt: Ids::Asymmetric,
-    ) -> Result<AsymmetricEncString> {
-        let encryption_key = self.get_asymmetric_key(encryption_key)?;
-        let key_to_encrypt = self.get_asymmetric_key(key_to_encrypt)?;
-
-        AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
-            key_to_encrypt.to_der()?.as_slice(),
-            encryption_key,
-        )
-    }
-
     /// Returns `true` if the context has a symmetric key with the given identifier
     pub fn has_symmetric_key(&self, key_id: Ids::Symmetric) -> bool {
         self.get_symmetric_key(key_id).is_ok()
