@@ -719,12 +719,23 @@
           };
 
           # The memory tests only work on linux because of the gdp dependency.
+          # It does some hacky stuff in the 
           memory-test =
             if pkgs.stdenv.isLinux then
               mkCheck pkgs {
                 pname = "memory-test";
                 command = "${toString ./crates/memory-testing/run_test.sh}";
                 nativeBuildInputs = with pkgs; [ gdb docker ];
+                buildPhase = ''
+                  cp -r $src .
+                  chmod -R +w .
+                  mkdir -p $TMPDIR/logs
+                  {
+                    set -x
+                    ./crates/memory-testing/run_test.sh
+                    set +x
+                  } 2>&1 | tee $TMPDIR/logs/${pname}.log
+                '';
               }
             else
               pkgs.runCommand "memory-test-unsupported" { } ''
