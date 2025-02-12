@@ -152,48 +152,6 @@ impl From<SymmetricCryptoKey> for SerializedSymmetricCryptoKey {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-enum SymmetricCryptoKeyAlgorithm {
-    #[serde(rename = "aes256-cbc")]
-    Aes256Cbc,
-    #[serde(rename = "aes256-cbc-hmac")]
-    Aes256CbcHmac,
-    #[serde(rename = "xchacha20-poly1305")]
-    XChaCha20Poly1305,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-struct SerializedSymmetricCryptoKey {
-    pub key_algorithm: SymmetricCryptoKeyAlgorithm,
-    pub key_data: Vec<u8>,
-}
-
-impl From<SymmetricCryptoKey> for SerializedSymmetricCryptoKey {
-    fn from(key: SymmetricCryptoKey) -> Self {
-        SerializedSymmetricCryptoKey {
-            key_algorithm: match key {
-                SymmetricCryptoKey::Aes256CbcKey(_) => SymmetricCryptoKeyAlgorithm::Aes256Cbc,
-                SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
-                    SymmetricCryptoKeyAlgorithm::Aes256CbcHmac
-                }
-                SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
-                    SymmetricCryptoKeyAlgorithm::XChaCha20Poly1305
-                }
-            },
-            key_data: match &key {
-                SymmetricCryptoKey::Aes256CbcKey(key) => key.enc_key.to_vec(),
-                SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
-                    let mut buf = Vec::with_capacity(64);
-                    buf.extend_from_slice(&key.enc_key);
-                    buf.extend_from_slice(&key.mac_key);
-                    buf
-                }
-                SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.enc_key.to_vec(),
-            },
-        }
-    }
-}
-
 impl TryFrom<String> for SymmetricCryptoKey {
     type Error = CryptoError;
 
@@ -378,7 +336,7 @@ mod tests {
     #[test]
     fn test_encode_xchacha20_poly1305_key() {
         let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let key_vec = key.to_vec(true);
+        let key_vec = key.to_encoded(true).unwrap();
         let key_vec_utf8_lossy = String::from_utf8_lossy(&key_vec);
         println!("key_vec: {:?}", key_vec_utf8_lossy);
     }

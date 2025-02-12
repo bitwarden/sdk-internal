@@ -179,7 +179,7 @@ pub(super) fn encrypt_user_key_aead(
     kdf_key: &KdfDerivedKeyMaterial,
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
-    let userkey_bytes = zeroize::Zeroizing::new(user_key.to_vec(true));
+    let userkey_bytes = zeroize::Zeroizing::new(user_key.to_encoded(true)?);
     let encrypting_key = XChaCha20Poly1305Key {
         enc_key: kdf_key.key_material.clone(),
     };
