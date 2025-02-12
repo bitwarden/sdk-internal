@@ -740,6 +740,7 @@
                 nativeBuildInputs = with pkgs; [ gdb sudo ];
                 __noChroot = true;
                 __impure = true;
+                prSetNoNewPrivileges = false;
               })
             else
               pkgs.runCommand "memory-test-unsupported" { } ''
