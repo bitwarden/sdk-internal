@@ -732,8 +732,11 @@
                   BASE_DIR="./crates/memory-testing"
                   mkdir -p $BASE_DIR/output
                   cargo build -p memory-testing --release
-                  setcap cap_sys_ptrace+ep ./target/release/capture-dumps
+
+                  echo 0 > /proc/sys/kernel/yama/ptrace_scope  # Temporary change
                   ./target/release/capture-dumps ./target/release/memory-testing $BASE_DIR
+                  echo 1 > /proc/sys/kernel/yama/ptrace_scope  # Restore default
+
                   ./target/release/analyze-dumps $BASE_DIR
                 '';
                 nativeBuildInputs = with pkgs; [ gdb libcap ];
