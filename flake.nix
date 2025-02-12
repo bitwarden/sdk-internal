@@ -742,6 +742,7 @@
                 nativeBuildInputs = with pkgs; [ gdb libcap ];
                 __noChroot = true;
                 __impure = true;
+                sandbox = false;
               })
             else
               pkgs.runCommand "memory-test-unsupported" { } ''
