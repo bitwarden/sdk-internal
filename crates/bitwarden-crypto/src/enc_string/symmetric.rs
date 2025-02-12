@@ -71,8 +71,11 @@ pub enum EncString {
 
 #[derive(PartialEq, Clone, Serialize, Deserialize)]
 struct SerializedXChaCha20Poly1305Data {
+    #[serde(with = "serde_bytes")]
     nonce: [u8; 24],
+    #[serde(with = "serde_bytes")]
     data: Vec<u8>,
+    #[serde(with = "serde_bytes")]
     additional_data: Vec<u8>,
 }
 
@@ -213,6 +216,8 @@ impl EncString {
                 data,
                 additional_data,
             } => {
+                println!("data_len = {}", data.len());
+                println!("additional_data_len = {}", additional_data.len());
                 let encoded = rmp_serde::to_vec(&SerializedXChaCha20Poly1305Data {
                     nonce: *nonce,
                     data: data.clone(),
@@ -591,7 +596,19 @@ mod tests {
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, aes::cipher::typenum::U32>::default()),
         });
-        let ciphertext = "7.k9wAGCd3zJkczMrM8gEdF8ySzNDM/0XM/cyyzJJObXDMt3oVzNI+3AAlzO/Muz4gEczozM9ZJWsQGAFtVcy7DFLM837M58z5zPjMzRHM5wRYzNQfzMjM0QjM9kMwLp7MgcyiVjDMkcyoa2V5X2hhc2g=";
+        let key1 = SymmetricCryptoKey::Aes256CbcHmacKey(crate::Aes256CbcHmacKey {
+            enc_key: Box::pin(GenericArray::<u8, aes::cipher::typenum::U32>::default()),
+            mac_key: Box::pin(GenericArray::<u8, aes::cipher::typenum::U32>::default()),
+        });
+        // encrypt
+        let payload = "encrypted_test_string";
+        let cipher: EncString = payload.encrypt_with_key(&key).unwrap();
+        let cipher1: EncString = payload.encrypt_with_key(&key1).unwrap();
+        println!("cipher: {}", cipher);
+        println!("cipher bytes: {:?}", cipher.to_buffer().unwrap());
+        println!("cipher1: {}", cipher1);
+
+        let ciphertext = "7.k9wAGMz1RQrMtMyhzKLMmW/M2czVzIAGXszTzL0OzI/Mo8yUBFcgTkHcACl/zOvM/iAfzKfMln0caMyjF8yczMDMzcyDZsyezK1oHToUDMz+NmVJLMzbamwCecyRzKlLzM/Mln7Mn9wAQ8yBzKJWMMyRzJLM3AAgKszMzNrMzMyDzMzMwczMzIHMzMyaU3LMzMzazMzM4SPMzMyPzMzMwczMzN7MzMzRI8zMzMgQT8zMzNrMzMyhWGLMzMyqzMzM7mlCzMzMihggzMzM/MzMzNrMpkJsYWtlMw==";
         let payload = "encrypted_test_string";
         let cipher: EncString = ciphertext.parse().unwrap();
         let decrypted: String = cipher.decrypt_with_key(&key).unwrap();

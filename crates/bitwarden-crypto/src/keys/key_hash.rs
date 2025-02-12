@@ -7,6 +7,7 @@ pub(crate) enum KeyHashAlgorithm {
 
 #[derive(PartialEq, Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct KeyHash {
+    #[serde(with = "serde_bytes")]
     pub(crate) hash: Vec<u8>,
     pub(crate) algorithm: KeyHashAlgorithm,
 }
