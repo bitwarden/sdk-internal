@@ -99,6 +99,7 @@ enum SymmetricCryptoKeyAlgorithm {
 #[derive(Clone, Serialize, Deserialize)]
 struct SerializedSymmetricCryptoKey {
     pub key_algorithm: SymmetricCryptoKeyAlgorithm,
+    #[serde(with = "serde_bytes")]
     pub key_data: Vec<u8>,
 }
 
@@ -253,7 +254,7 @@ mod tests {
 
     #[test]
     fn test_decode_new_symmetric_crypto_key() {
-        let key_b64 = STANDARD.decode("AJKvYWVzMjU2LWNiYy1obWFj3ABAzLTM+szoF3HMwn7M3m/MuVDM3QwUFMyLzPLMolQ0zNzMrMzBe8yCd8yHQxvM+Go9zIcEzO4AJU3MmsyMzN3MtMylzIXMusyMaGwnzKs3zKzMwl9YzMM9ecykzIrMmcztD1A=").unwrap();
+        let key_b64 = STANDARD.decode("AJKvYWVzMjU2LWNiYy1obWFjxEDzAGOkqf/KbhmURQvE3ZBFRedoJAnHerX+9LGE2lWa/tLPMNhajQLZOLNLEMyW5YRRbwCf1XE1UParuHXc7pAH").unwrap();
         let key = SymmetricCryptoKey::try_from(key_b64).unwrap();
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(_) => (),
