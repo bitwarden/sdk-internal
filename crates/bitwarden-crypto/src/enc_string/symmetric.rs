@@ -292,9 +292,17 @@ fn pad_bytes(bytes: &[u8], block_size: usize) -> Vec<u8> {
 }
 
 // Unpads the bytes
-fn unpad_bytes(bytes: &[u8]) -> &[u8] {
+fn unpad_bytes(bytes: &[u8]) -> Result<&[u8]> {
+    if bytes.is_empty() {
+        return Err(CryptoError::EncodingError);
+    }
+
     let padding_len = bytes[0] as usize;
-    &bytes[1 + padding_len..]
+    if (padding_len + 1) >= bytes.len() {
+        return Err(CryptoError::EncodingError);
+    }
+
+    Ok(&bytes[1 + padding_len..])
 }
 
 impl<'de> Deserialize<'de> for EncString {
@@ -407,7 +415,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                         additional_data: additional_data.clone(),
                     },
                 )?;
-                Ok(unpad_bytes(&plaintext_padded).to_vec())
+                Ok(unpad_bytes(&plaintext_padded)?.to_vec())
             }
             _ => Err(CryptoError::WrongKeyType),
         }
