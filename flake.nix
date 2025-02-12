@@ -60,9 +60,11 @@
   # - a check for unused dependencies
   # - a rust workspace sorter
   # - a cloc run
-  # - a memory testing test suite (linux only)
   #
-  # These are the same checks run in CI!
+  # These are most of the same checks run in CI!
+  # Some checks like memory-test requre being run as root and so have been
+  # left out of this bundle.
+  #
   # `nix build` is an alias for `nix build .#checks`
   nix build
   ```
@@ -720,8 +722,8 @@
             command = "${pkgs.cloc}/bin/cloc .";
           };
 
-          # The memory tests only work on linux because of the gdp dependency.
-          # It does some hacky stuff in the 
+          # The memory tests only work on linux because of the gdp
+          # dependency.  It does some impure stuff and must be run with sudo.
           memory-test =
             if pkgs.stdenv.isLinux then
               mkCheck pkgs {
@@ -730,14 +732,13 @@
                   BASE_DIR="./crates/memory-testing"
                   mkdir -p $BASE_DIR/output
                   cargo build -p memory-testing --release
-                  pkexec ./target/release/capture-dumps ./target/release/memory-testing $BASE_DIR
+                  ./target/release/capture-dumps ./target/release/memory-testing $BASE_DIR
                   ./target/release/analyze-dumps $BASE_DIR
                 '';
-                nativeBuildInputs = with pkgs; [ gdb polkit ];
+                nativeBuildInputs = with pkgs; [ gdb ];
               } // {
                 __noChroot = true;
                 __impure = true;
-                allowSetuidPrograms = true;
               }
             else
               pkgs.runCommand "memory-test-unsupported" { } ''
@@ -991,7 +992,8 @@
               unused-deps
               js-lint
               cloc
-              memory-test
+              # memory-test is left out intentionally because it requires
+              # sudo access.  run it seperately if you want to check that!
             ];
           };
 
