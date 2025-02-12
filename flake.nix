@@ -3,21 +3,14 @@
 
   = Here's what it can do: =
 
-  1. Fully reproducible builds with locked version of key build technologies
-     like rust, android dependencies, etc. Only Xcode is an exception to
-     this.
-  2. The ability to run all of CIs builds locally in sandboxed environments
-     without installing any software permanently on the building machine. Build
-     dependencies are garbage collected after use.
-  3. Prebuilt (and again, version locked) local development environments with painless setup and maintenance.
-
-  = It can do all of this while: =
-
-  1. Being completely reproducable and version locked (with an exception for Xcode)
-  2. Cleaning up after itself with ephemeral installs and the garbage collector
-  3. Requiring no previous environment setup. The flake brings rust, java,
-     etc. The only exception to this is that Xcode must be installed on the
-     building machine to build for iOS.
+  1. Provide fully reproducible builds with locked version of key build
+     technologies like rust, android dependencies, etc. Only Xcode is an
+     exception to this.
+  2. Enable the ability to run all of CIs builds locally in sandboxed
+     environments without installing any software permanently on the building
+     machine. Build dependencies are garbage collected after use.
+  3. Automatically setup and maintain complicated, version locked local
+     development environments painlessly.
 
   = You can use this flake by =
 
