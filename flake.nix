@@ -718,16 +718,12 @@
             command = "${pkgs.cloc}/bin/cloc .";
           };
 
-          # TODO: This is untested! The flake has only been used on a mac so
-          # far, so this linux specific behavior remains to be proven
-          # functional.
-          #
           # The memory tests only work on linux because of the gdp dependency.
           memory-test =
             if pkgs.stdenv.isLinux then
               mkCheck pkgs {
                 pname = "memory-test";
-                command = "crates/memory-testing/run_test.sh no-docker";
+                command = "crates/memory-testing/run_test.sh";
                 nativeBuildInputs = with pkgs; [ gdb ];
               }
             else
