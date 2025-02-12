@@ -730,20 +730,13 @@
                   BASE_DIR="./crates/memory-testing"
                   mkdir -p $BASE_DIR/output
                   cargo build -p memory-testing --release
-                  mkdir -p $TMPDIR/docker
-                  export DOCKER_TMPDIR=$TMPDIR/docker
-                  export DOCKER_HOST=unix:///var/run/docker.sock
-                  export DOCKER_CONFIG="$TMPDIR/docker/config"
-                  mkdir -p "$DOCKER_CONFIG"
-                  docker build -f crates/memory-testing/Dockerfile -t bitwarden/memory-testing .
-                  docker run --rm --privileged --cap-add=SYS_PTRACE -v $BASE_DIR/output:/output bitwarden/memory-testing 
+                  sudo ./target/release/capture-dumps ./target/release/memory-testing $BASE_DIR
                   ./target/release/analyze-dumps $BASE_DIR
                 '';
-                nativeBuildInputs = with pkgs; [ gdb docker ];
+                nativeBuildInputs = with pkgs; [ gdb ];
               } // {
                 __noChroot = true;
                 __impure = true;
-                requiredSystemFeatures = [ "docker" ];
               }
             else
               pkgs.runCommand "memory-test-unsupported" { } ''
