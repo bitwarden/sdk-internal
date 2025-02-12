@@ -730,10 +730,13 @@
                   mkdir -p $BASE_DIR/output
                   cargo build -p memory-testing --release
                   docker build -f crates/memory-testing/Dockerfile -t bitwarden/memory-testing .
-                  docker run --rm -it --privileged --cap-add=SYS_PTRACE -v $BASE_DIR/output:/output bitwarden/memory-testing 
+                  docker run --rm --privileged --cap-add=SYS_PTRACE -v $BASE_DIR/output:/output bitwarden/memory-testing 
                   ./target/release/analyze-dumps $BASE_DIR
                 '';
                 nativeBuildInputs = with pkgs; [ gdb docker ];
+              } // {
+                __noChroot = true;
+                __impure = true;
               }
             else
               pkgs.runCommand "memory-test-unsupported" { } ''
