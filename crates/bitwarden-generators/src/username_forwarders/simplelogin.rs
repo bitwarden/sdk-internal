@@ -6,8 +6,9 @@ pub async fn generate(
     http: &reqwest::Client,
     api_key: String,
     website: Option<String>,
+    base_url: String,
 ) -> Result<String, UsernameError> {
-    generate_with_api_url(http, api_key, website, "https://app.simplelogin.io".into()).await
+    generate_with_api_url(http, api_key, website, base_url).await
 }
 
 async fn generate_with_api_url(
