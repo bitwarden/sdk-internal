@@ -76,7 +76,7 @@ pub(crate) fn decrypt_xchacha20_poly1305(
             &mut buffer,
         )
         .map_err(|_| CryptoError::InvalidKey)?;
-    return Ok(buffer);
+    Ok(buffer)
 }
 
 mod tests {
