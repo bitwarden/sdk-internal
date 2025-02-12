@@ -157,7 +157,7 @@ pub(super) fn encrypt_user_key(
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
     let stretched_master_key = stretch_kdf_key(master_key)?;
-    let userkey_bytes = Zeroizing::new(user_key.to_vec());
+    let userkey_bytes = Zeroizing::new(user_key.to_encoded(false)?);
     EncString::encrypt_aes256_hmac(&userkey_bytes, &stretched_master_key)
 }
 
@@ -171,14 +171,14 @@ pub(super) fn decrypt_user_key(
         // moved to using `AesCbc256_HmacSha256_B64`. However, we still need to support
         // decrypting these old keys.
         EncString::AesCbc256_B64 { .. } => {
-            let legacy_key = SymmetricCryptoKey::Aes256CbcKey(super::Aes256CbcKey {
+            let master_key = SymmetricCryptoKey::Aes256CbcKey(super::Aes256CbcKey {
                 enc_key: key.key_material.clone(),
             });
-            user_key.decrypt_with_key(&legacy_key)?
+            user_key.decrypt_with_key(&master_key)?
         }
-        _ => {
-            let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_kdf_key(key)?);
-            user_key.decrypt_with_key(&stretched_key)?
+        EncString::AesCbc256_HmacSha256_B64 { .. } => {
+            let stretched_master_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_kdf_key(key)?);
+            user_key.decrypt_with_key(&stretched_master_key)?
         }
     };
 
