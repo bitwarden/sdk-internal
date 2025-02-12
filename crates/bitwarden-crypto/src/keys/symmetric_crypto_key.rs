@@ -86,59 +86,69 @@ impl SymmetricCryptoKey {
         SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
     }
 
-    // Generate a unew random AEAD [SymmetricCryptoKey]
-    // @param rng: A random number generator
-    pub fn generate_aead(mut rng: impl rand::RngCore) -> Self {
-        let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
-        rng.fill(enc_key.as_mut_slice());
-        SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key { enc_key })
+    pub fn to_base64(&self) -> Result<String, CryptoError> {
+        Ok(STANDARD.encode(self.to_encoded(false)?))
     }
 
-    fn total_len(&self) -> usize {
-        match self {
-            SymmetricCryptoKey::Aes256CbcKey(_) => 32,
-            SymmetricCryptoKey::Aes256CbcHmacKey(_) => 64,
-            SymmetricCryptoKey::XChaCha20Poly1305Key(_) => 32,
-        }
-    }
-
-    pub fn to_base64(&self) -> String {
-        STANDARD.encode(self.to_vec(false))
-    }
-
-    pub fn to_vec(&self, force_new_format: bool) -> Vec<u8> {
-        let mut buf = Vec::with_capacity(self.total_len());
-
-        if force_new_format {
-            buf.extend_from_slice(&self.encode());
-        } else {
-            match &self {
-                SymmetricCryptoKey::Aes256CbcKey(key) => {
-                    buf.extend_from_slice(&key.enc_key);
-                }
-                SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
-                    buf.extend_from_slice(&key.enc_key);
-                    buf.extend_from_slice(&key.mac_key);
-                }
-                SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
-                    buf.extend_from_slice(&self.encode());
-                }
+    pub fn to_encoded(&self, use_new_format: bool) -> Result<Vec<u8>, CryptoError> {
+        match (self, use_new_format) {
+            (SymmetricCryptoKey::Aes256CbcKey(key), false) => Ok(key.enc_key.to_vec()),
+            (SymmetricCryptoKey::Aes256CbcHmacKey(key), false) => {
+                let mut buf = Vec::with_capacity(64);
+                buf.extend_from_slice(&key.enc_key);
+                buf.extend_from_slice(&key.mac_key);
+                Ok(buf)
+            }
+            (SymmetricCryptoKey::XChaCha20Poly1305Key(_), _) | (_, true) => {
+                let serialized_key = SerializedSymmetricCryptoKey::from(self.clone());
+                let encoded_key =
+                    rmp_serde::to_vec(&serialized_key).map_err(|_| CryptoError::EncodingError)?;
+                let padded_key = pad_key(encoded_key.as_slice(), Self::AES256_CBC_HMAC_KEY_LEN + 1);
+                Ok(padded_key)
             }
         }
-
-        buf
     }
+}
 
-    fn encode(&self) -> Vec<u8> {
-        let encoded_key = SerializedSymmetricCryptoKey::from(self.clone());
-        let encoded_key = rmp_serde::to_vec(&encoded_key).unwrap();
-        let mut buf = Vec::with_capacity(encoded_key.len());
-        // prevent ambiguity by adding a null byte if the key is 64 bytes long
-        if encoded_key.len() >= 64 {
-            buf.extend_from_slice(&[0]);
+#[derive(Clone, Serialize, Deserialize)]
+enum SymmetricCryptoKeyAlgorithm {
+    #[serde(rename = "aes256-cbc")]
+    Aes256Cbc,
+    #[serde(rename = "aes256-cbc-hmac")]
+    Aes256CbcHmac,
+    #[serde(rename = "xchacha20-poly1305")]
+    XChaCha20Poly1305,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct SerializedSymmetricCryptoKey {
+    pub key_algorithm: SymmetricCryptoKeyAlgorithm,
+    pub key_data: Vec<u8>,
+}
+
+impl From<SymmetricCryptoKey> for SerializedSymmetricCryptoKey {
+    fn from(key: SymmetricCryptoKey) -> Self {
+        SerializedSymmetricCryptoKey {
+            key_algorithm: match key {
+                SymmetricCryptoKey::Aes256CbcKey(_) => SymmetricCryptoKeyAlgorithm::Aes256Cbc,
+                SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
+                    SymmetricCryptoKeyAlgorithm::Aes256CbcHmac
+                }
+                SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
+                    SymmetricCryptoKeyAlgorithm::XChaCha20Poly1305
+                }
+            },
+            key_data: match &key {
+                SymmetricCryptoKey::Aes256CbcKey(key) => key.enc_key.to_vec(),
+                SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
+                    let mut buf = Vec::with_capacity(64);
+                    buf.extend_from_slice(&key.enc_key);
+                    buf.extend_from_slice(&key.mac_key);
+                    buf
+                }
+                SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.enc_key.to_vec(),
+            },
         }
-        buf.extend_from_slice(&encoded_key);
-        buf
     }
 }
 
@@ -209,7 +219,7 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
     /// Note: This function takes the byte slice by mutable reference and will zero out all
     /// the data in it. This is to prevent the key from being left in memory.
     fn try_from(value: &mut [u8]) -> Result<Self, Self::Error> {
-        let result = if value.len() == Self::AES256_CBC_HMAC_KEY_LEN {
+        if value.len() == Self::AES256_CBC_HMAC_KEY_LEN {
             let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
             let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
 
@@ -227,27 +237,14 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
             value.zeroize();
 
             Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey { enc_key }))
-        } else {
-            let mut value = value;
-            // prevent ambiguity by removing a null byte if the key is 64 bytes long
-            if value.len() >= 65 {
-                value = &mut value[1..];
-            }
+        } else if value.len() > Self::AES256_CBC_ENC_KEY_LEN {
+            let unpadded_value = zeroize::Zeroizing::new(unpad_key(value));
             let encoded_key: SerializedSymmetricCryptoKey =
-                rmp_serde::from_slice(value).map_err(|_| CryptoError::InvalidKey)?;
+                rmp_serde::from_slice(unpadded_value.as_slice())
+                    .map_err(|_| CryptoError::EncodingError)?;
             value.zeroize();
 
             match encoded_key.key_algorithm {
-                SymmetricCryptoKeyAlgorithm::XChaCha20Poly1305 => {
-                    let mut encryption_key = Box::pin(GenericArray::<u8, U32>::default());
-                    encryption_key.copy_from_slice(&encoded_key.key_data);
-
-                    Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(
-                        XChaCha20Poly1305Key {
-                            enc_key: encryption_key,
-                        },
-                    ))
-                }
                 SymmetricCryptoKeyAlgorithm::Aes256CbcHmac => {
                     let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
                     let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
@@ -258,11 +255,41 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
                         mac_key,
                     }))
                 }
+                SymmetricCryptoKeyAlgorithm::XChaCha20Poly1305 => {
+                    let mut encryption_key = Box::pin(GenericArray::<u8, U32>::default());
+                    encryption_key.copy_from_slice(&encoded_key.key_data);
+
+                    Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(
+                        XChaCha20Poly1305Key {
+                            enc_key: encryption_key,
+                        },
+                    ))
+                }
                 _ => Err(CryptoError::InvalidKey),
             }
-        };
-        result
+        } else {
+            Err(CryptoError::InvalidKey)
+        }
     }
+}
+
+/// Pad a key to a minimum length;
+/// The first byte describes the number (N) of subsequently following null bytes
+/// Next, there are N null bytes
+/// Finally, the key bytes are appended
+fn pad_key(key_bytes: &[u8], min_length: usize) -> Vec<u8> {
+    let null_bytes = min_length.saturating_sub(1).saturating_sub(key_bytes.len());
+    let mut padded_key = Vec::with_capacity(min_length);
+    padded_key.extend_from_slice(&[null_bytes as u8]);
+    padded_key.extend_from_slice(vec![0u8; null_bytes].as_slice());
+    padded_key.extend_from_slice(key_bytes);
+    padded_key
+}
+
+// Unpad a key that was padded with pad_key
+fn unpad_key(key_bytes: &[u8]) -> Vec<u8> {
+    let null_bytes = key_bytes[0] as usize;
+    key_bytes[1 + null_bytes..].to_vec()
 }
 
 impl CryptoKey for SymmetricCryptoKey {}
@@ -287,18 +314,65 @@ pub fn derive_symmetric_key(name: &str) -> SymmetricCryptoKey {
 
 #[cfg(test)]
 mod tests {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+
     use super::{derive_symmetric_key, SymmetricCryptoKey};
+    use crate::keys::symmetric_crypto_key::{pad_key, unpad_key};
 
     #[test]
     fn test_symmetric_crypto_key() {
         let key = derive_symmetric_key("test");
-        let key2 = SymmetricCryptoKey::try_from(key.to_base64()).unwrap();
+        let key2 = SymmetricCryptoKey::try_from(key.to_base64().unwrap()).unwrap();
 
         assert_eq!(key, key2);
 
         let key = "UY4B5N4DA4UisCNClgZtRr6VLy9ZF5BXXC7cDZRqourKi4ghEMgISbCsubvgCkHf5DZctQjVot11/vVvN9NNHQ==".to_string();
         let key2 = SymmetricCryptoKey::try_from(key.clone()).unwrap();
-        assert_eq!(key, key2.to_base64());
+        assert_eq!(key, key2.to_base64().unwrap());
+    }
+
+    #[test]
+    fn test_decode_new_symmetric_crypto_key() {
+        let key_b64 = STANDARD.decode("AJKvYWVzMjU2LWNiYy1obWFj3ABAzLTM+szoF3HMwn7M3m/MuVDM3QwUFMyLzPLMolQ0zNzMrMzBe8yCd8yHQxvM+Go9zIcEzO4AJU3MmsyMzN3MtMylzIXMusyMaGwnzKs3zKzMwl9YzMM9ecykzIrMmcztD1A=").unwrap();
+        let key = SymmetricCryptoKey::try_from(key_b64).unwrap();
+        match key {
+            SymmetricCryptoKey::Aes256CbcHmacKey(_) => (),
+            _ => panic!("Invalid key type"),
+        }
+    }
+
+    #[test]
+    fn test_pad_unpad_key_63() {
+        let key_bytes = vec![1u8; 63];
+        let mut encoded_bytes = vec![1u8; 65];
+        encoded_bytes[0] = 1;
+        encoded_bytes[1] = 0;
+        let padded_key = pad_key(key_bytes.as_slice(), 65);
+        assert_eq!(encoded_bytes, padded_key);
+        let unpadded_key = unpad_key(&padded_key);
+        assert_eq!(key_bytes, unpadded_key);
+    }
+
+    #[test]
+    fn test_pad_unpad_key_64() {
+        let key_bytes = vec![1u8; 64];
+        let mut encoded_bytes = vec![1u8; 65];
+        encoded_bytes[0] = 0;
+        let padded_key = pad_key(key_bytes.as_slice(), 65);
+        assert_eq!(encoded_bytes, padded_key);
+        let unpadded_key = unpad_key(&padded_key);
+        assert_eq!(key_bytes, unpadded_key);
+    }
+
+    #[test]
+    fn test_pad_unpad_key_65() {
+        let key_bytes = vec![1u8; 65];
+        let mut encoded_bytes = vec![1u8; 66];
+        encoded_bytes[0] = 0;
+        let padded_key = pad_key(key_bytes.as_slice(), 65);
+        assert_eq!(encoded_bytes, padded_key);
+        let unpadded_key = unpad_key(&padded_key);
+        assert_eq!(key_bytes, unpadded_key);
     }
 
     #[test]

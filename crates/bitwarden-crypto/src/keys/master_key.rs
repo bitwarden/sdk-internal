@@ -170,7 +170,7 @@ pub(super) fn encrypt_user_key(
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
     let stretched_master_key = stretch_kdf_key(master_key)?;
-    let userkey_bytes = Zeroizing::new(user_key.to_vec(false));
+    let userkey_bytes = Zeroizing::new(user_key.to_encoded(false)?);
     EncString::encrypt_aes256_hmac(&userkey_bytes, &stretched_master_key)
 }
 

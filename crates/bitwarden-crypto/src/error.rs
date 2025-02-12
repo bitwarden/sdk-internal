@@ -61,6 +61,9 @@ pub enum CryptoError {
     HashParseError,
     #[error("Key encryption algorithm does not match encrypted data type")]
     WrongKeyType,
+
+    #[error("Encoding error")]
+    EncodingError,
 }
 
 #[derive(Debug, Error)]
