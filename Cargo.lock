@@ -584,6 +584,7 @@ name = "bitwarden-ssh"
 version = "1.0.0"
 dependencies = [
  "bitwarden-error",
+ "bitwarden-vault",
  "ed25519",
  "pem-rfc7468",
  "pkcs8",
