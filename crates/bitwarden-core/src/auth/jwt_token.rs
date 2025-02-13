@@ -20,7 +20,7 @@ pub struct JWTToken {
 }
 
 #[derive(Debug, Error)]
-pub enum JWTTokenParseError {
+pub enum JwtTokenParseError {
     #[error("JWT token parse error: {0}")]
     Parse(#[from] serde_json::Error),
     #[error("JWT token decode error: {0}")]
@@ -31,7 +31,7 @@ pub enum JWTTokenParseError {
 }
 
 impl FromStr for JWTToken {
-    type Err = JWTTokenParseError;
+    type Err = JwtTokenParseError;
 
     /// Parses a JWT token from a string.
     ///

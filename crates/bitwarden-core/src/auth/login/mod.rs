@@ -43,8 +43,12 @@ pub enum LoginError {
 
     #[error(transparent)]
     MissingField(#[from] crate::MissingFieldError),
+
     #[error(transparent)]
-    JWTTokenParse(#[from] super::JWTTokenParseError),
+    JwtTokenParse(#[from] super::JwtTokenParseError),
+    #[error("JWT token is missing email")]
+    JwtTokenMissingEmail,
+
     #[error(transparent)]
     Prelogin(#[from] PreloginError),
     #[error(transparent)]
@@ -58,9 +62,6 @@ pub enum LoginError {
     StateFile(#[from] crate::secrets_manager::state::StateFileError),
     #[error("Error parsing Identity response: {0}")]
     IdentityFail(crate::auth::api::response::IdentityTokenFailResponse),
-
-    #[error("Access token doesn't contain email")]
-    AccessTokenMissingEmail,
 
     #[error("The state file could not be read")]
     InvalidStateFile,

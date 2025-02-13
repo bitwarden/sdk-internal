@@ -27,7 +27,7 @@ pub(crate) async fn login_api_key(
         // This should always be Some() when logging in with an api key
         let email = access_token_obj
             .email
-            .ok_or(LoginError::AccessTokenMissingEmail)?;
+            .ok_or(LoginError::JwtTokenMissingEmail)?;
 
         let kdf = client.auth().prelogin(email.clone()).await?;
 
