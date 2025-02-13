@@ -51,6 +51,14 @@ pub enum CryptoError {
     #[error("Encryption is not implemented for key of type {0}")]
     EncryptionOperationNotSupported(String),
 
+    #[error("Encryption type mismatch")]
+    EncryptionTypeMismatch,
+
+    #[error("Invalid key hash algorithm")]
+    InvalidHashAlgorithm,
+
+    #[error("Error parsing key hash")]
+    HashParseError,
     #[error("Key encryption algorithm does not match encrypted data type")]
     WrongKeyType,
 
@@ -70,6 +78,10 @@ pub enum EncStringParseError {
     InvalidBase64(#[from] base64::DecodeError),
     #[error("Invalid length: expected {expected}, got {got}")]
     InvalidLength { expected: usize, got: usize },
+    #[error("Invalid additional data")]
+    InvalidAdditionalData,
+    #[error("Invalid encoding")]
+    InvalidEncoding,
 }
 
 #[derive(Debug, Error)]

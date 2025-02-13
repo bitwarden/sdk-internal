@@ -9,8 +9,13 @@ use zeroize::{Zeroize, Zeroizing};
 #[cfg(feature = "wasm")]
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
-use super::utils::{derive_kdf_key, stretch_kdf_key};
-use crate::{util, CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey};
+use super::{
+    key_hash::{KeyHashData, KeyHashable}, utils::{derive_kdf_key, stretch_kdf_key}, XChaCha20Poly1305Key
+};
+use crate::{
+    enc_string::additional_data::{AdditionalData, AdditionalDataV0, DomainSpecificAdditionalData}, util, CryptoError, EncString, KeyDecryptable, Result,
+    SymmetricCryptoKey, UserKey,
+};
 
 /// The entropy that gets produced after calling a KDF on a password or PIN.
 /// This should not be directly used to encrypt, but instead be explicitly
@@ -18,6 +23,12 @@ use crate::{util, CryptoError, EncString, KeyDecryptable, Result, SymmetricCrypt
 /// the key-material, or by stretching it with HKDF
 pub(crate) struct KdfDerivedKeyMaterial {
     pub(crate) key_material: Pin<Box<GenericArray<u8, U32>>>,
+}
+
+impl KeyHashData for KdfDerivedKeyMaterial {
+    fn hash_data(&self) -> Vec<u8> {
+        self.key_material.as_ref().to_vec()
+    }
 }
 
 #[cfg(not(test))]
@@ -31,7 +42,7 @@ impl std::fmt::Debug for KdfDerivedKeyMaterial {
 ///
 /// In Bitwarden accounts can use multiple KDFs to derive their master key from their password. This
 /// Enum represents all the possible KDFs.
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -95,7 +106,6 @@ impl MasterKey {
 
         rng.fill(key.as_mut_slice());
 
-        // Master Keys never contains a mac_key.
         Self::new(KdfDerivedKeyMaterial { key_material: key })
     }
 
@@ -119,13 +129,21 @@ impl MasterKey {
     }
 
     /// Generate a new random user key and encrypt it with the master key.
-    pub fn make_user_key(&self) -> Result<(UserKey, EncString)> {
-        make_user_key(rand::thread_rng(), self)
+    pub fn make_user_key(&self, use_aead: bool) -> Result<(UserKey, EncString)> {
+        make_user_key(rand::thread_rng(), self, use_aead)
     }
 
     /// Encrypt the users user key
-    pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
-        encrypt_user_key(&self.0, user_key)
+    pub fn encrypt_user_key(
+        &self,
+        user_key: &SymmetricCryptoKey,
+        use_aead: bool,
+    ) -> Result<EncString> {
+        if use_aead {
+            encrypt_user_key_aead(&self.0, user_key)
+        } else {
+            encrypt_user_key(&self.0, user_key)
+        }
     }
 
     /// Decrypt the users user key
@@ -161,6 +179,21 @@ pub(super) fn encrypt_user_key(
     EncString::encrypt_aes256_hmac(&userkey_bytes, &stretched_master_key)
 }
 
+/// Helper function to encrypt a userkey with a master or pin key using AEAD encryption.
+pub(super) fn encrypt_user_key_aead(
+    kdf_key: &KdfDerivedKeyMaterial,
+    user_key: &SymmetricCryptoKey,
+) -> Result<EncString> {
+    let userkey_bytes = zeroize::Zeroizing::new(user_key.to_encoded(true)?);
+    let encrypting_key = XChaCha20Poly1305Key {
+        enc_key: kdf_key.key_material.clone(),
+    };
+    EncString::encrypt_xchacha20_poly1305(&userkey_bytes, AdditionalData::V0(AdditionalDataV0{
+        encrypting_key_hash: kdf_key.hash(),
+        domain_ad: DomainSpecificAdditionalData::None,
+    }), &encrypting_key)
+}
+
 /// Helper function to decrypt a user key with a master or pin key.
 pub(super) fn decrypt_user_key(
     key: &KdfDerivedKeyMaterial,
@@ -180,6 +213,12 @@ pub(super) fn decrypt_user_key(
             let stretched_master_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_kdf_key(key)?);
             user_key.decrypt_with_key(&stretched_master_key)?
         }
+        EncString::XChaCha20Poly1305_B64 { .. } => {
+            let master_key = SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
+                enc_key: key.key_material.clone(),
+            });
+            user_key.decrypt_with_key(&master_key)?
+        }
     };
 
     SymmetricCryptoKey::try_from(dec.as_mut_slice())
@@ -189,9 +228,10 @@ pub(super) fn decrypt_user_key(
 fn make_user_key(
     mut rng: impl rand::RngCore,
     master_key: &MasterKey,
+    use_aead: bool,
 ) -> Result<(UserKey, EncString)> {
     let user_key = SymmetricCryptoKey::generate(&mut rng);
-    let protected = master_key.encrypt_user_key(&user_key)?;
+    let protected = master_key.encrypt_user_key(&user_key, use_aead)?;
     Ok((UserKey::new(user_key), protected))
 }
 
@@ -307,7 +347,7 @@ mod tests {
             ),
         });
 
-        let (user_key, protected) = make_user_key(&mut rng, &master_key).unwrap();
+        let (user_key, protected) = make_user_key(&mut rng, &master_key, false).unwrap();
         let SymmetricCryptoKey::Aes256CbcHmacKey(user_key_unwrapped) = &user_key.0 else {
             panic!("User key is not an Aes256CbcHmacKey");
         };
@@ -351,7 +391,7 @@ mod tests {
 
         let user_key = derive_symmetric_key("test2");
 
-        let encrypted = master_key.encrypt_user_key(&user_key).unwrap();
+        let encrypted = master_key.encrypt_user_key(&user_key, false).unwrap();
         let decrypted = master_key.decrypt_user_key(encrypted).unwrap();
 
         assert_eq!(decrypted, user_key, "Decrypted key doesn't match user key");

@@ -10,7 +10,9 @@ pub use shareable_key::derive_shareable_key;
 mod symmetric_crypto_key;
 #[cfg(test)]
 pub use symmetric_crypto_key::derive_symmetric_key;
-pub use symmetric_crypto_key::{Aes256CbcHmacKey, Aes256CbcKey, SymmetricCryptoKey};
+pub use symmetric_crypto_key::{
+    Aes256CbcHmacKey, Aes256CbcKey, SymmetricCryptoKey, XChaCha20Poly1305Key,
+};
 mod asymmetric_crypto_key;
 pub use asymmetric_crypto_key::{
     AsymmetricCryptoKey, AsymmetricEncryptable, AsymmetricPublicCryptoKey,
@@ -21,4 +23,5 @@ mod device_key;
 pub use device_key::{DeviceKey, TrustDeviceResponse};
 mod pin_key;
 pub use pin_key::PinKey;
+pub(crate) mod key_hash;
 mod utils;

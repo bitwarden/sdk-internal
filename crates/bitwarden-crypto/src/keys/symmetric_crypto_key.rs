@@ -7,7 +7,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::key_encryptable::CryptoKey;
+use super::{key_encryptable::CryptoKey, key_hash::KeyHashData};
 use crate::CryptoError;
 
 /// Aes256CbcKey is a symmetric encryption key, consisting of one 256-bit key,
@@ -36,15 +36,37 @@ pub struct Aes256CbcHmacKey {
     pub(crate) mac_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
+#[derive(Zeroize, Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+pub struct XChaCha20Poly1305Key {
+    pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
+}
+
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub enum SymmetricCryptoKey {
     Aes256CbcKey(Aes256CbcKey),
     Aes256CbcHmacKey(Aes256CbcHmacKey),
+    XChaCha20Poly1305Key(XChaCha20Poly1305Key),
 }
 
-impl ZeroizeOnDrop for SymmetricCryptoKey {}
+impl KeyHashData for SymmetricCryptoKey {
+    fn hash_data(&self) -> Vec<u8> {
+        match &self {
+            SymmetricCryptoKey::Aes256CbcKey(key) => key.enc_key.to_vec(),
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
+                let mut buf = Vec::with_capacity(64);
+                buf.extend_from_slice(&key.enc_key);
+                buf.extend_from_slice(&key.mac_key);
+                buf
+            }
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.enc_key.to_vec(),
+        }
+    }
+}
+
+impl zeroize::ZeroizeOnDrop for SymmetricCryptoKey {}
 
 impl SymmetricCryptoKey {
     const AES256_CBC_ENC_KEY_LEN: usize = 32;
@@ -77,7 +99,7 @@ impl SymmetricCryptoKey {
                 buf.extend_from_slice(&key.mac_key);
                 Ok(buf)
             }
-            (_, true) => {
+            (SymmetricCryptoKey::XChaCha20Poly1305Key(_), _) | (_, true) => {
                 let serialized_key = SerializedSymmetricCryptoKey::from(self.clone());
                 let encoded_key =
                     rmp_serde::to_vec(&serialized_key).map_err(|_| CryptoError::EncodingError)?;
@@ -94,6 +116,8 @@ enum SymmetricCryptoKeyAlgorithm {
     Aes256Cbc,
     #[serde(rename = "aes256-cbc-hmac")]
     Aes256CbcHmac,
+    #[serde(rename = "xchacha20-poly1305")]
+    XChaCha20Poly1305,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -111,6 +135,9 @@ impl From<SymmetricCryptoKey> for SerializedSymmetricCryptoKey {
                 SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
                     SymmetricCryptoKeyAlgorithm::Aes256CbcHmac
                 }
+                SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
+                    SymmetricCryptoKeyAlgorithm::XChaCha20Poly1305
+                }
             },
             key_data: match &key {
                 SymmetricCryptoKey::Aes256CbcKey(key) => key.enc_key.to_vec(),
@@ -120,6 +147,7 @@ impl From<SymmetricCryptoKey> for SerializedSymmetricCryptoKey {
                     buf.extend_from_slice(&key.mac_key);
                     buf
                 }
+                SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.enc_key.to_vec(),
             },
         }
     }
@@ -185,6 +213,16 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
                         enc_key,
                         mac_key,
                     }))
+                }
+                SymmetricCryptoKeyAlgorithm::XChaCha20Poly1305 => {
+                    let mut encryption_key = Box::pin(GenericArray::<u8, U32>::default());
+                    encryption_key.copy_from_slice(&encoded_key.key_data);
+
+                    Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(
+                        XChaCha20Poly1305Key {
+                            enc_key: encryption_key,
+                        },
+                    ))
                 }
                 _ => Err(CryptoError::InvalidKey),
             }
@@ -294,5 +332,13 @@ mod tests {
         assert_eq!(encoded_bytes, padded_key);
         let unpadded_key = unpad_key(&padded_key);
         assert_eq!(key_bytes, unpadded_key);
+    }
+
+    #[test]
+    fn test_encode_xchacha20_poly1305_key() {
+        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key_vec = key.to_encoded(true).unwrap();
+        let key_vec_utf8_lossy = String::from_utf8_lossy(&key_vec);
+        println!("key_vec: {:?}", key_vec_utf8_lossy);
     }
 }

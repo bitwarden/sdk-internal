@@ -63,7 +63,6 @@
 #[cfg(not(feature = "no-memory-hardening"))]
 #[global_allocator]
 static ALLOC: ZeroizingAllocator<std::alloc::System> = ZeroizingAllocator(std::alloc::System);
-
 mod aes;
 mod enc_string;
 pub use enc_string::{AsymmetricEncString, EncString};
@@ -85,6 +84,8 @@ pub use store::{KeyStore, KeyStoreContext};
 mod traits;
 pub use traits::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
+
+pub mod chacha20;
 
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();

@@ -1,4 +1,6 @@
-use super::master_key::{decrypt_user_key, encrypt_user_key, KdfDerivedKeyMaterial};
+use super::master_key::{
+    decrypt_user_key, encrypt_user_key, encrypt_user_key_aead, KdfDerivedKeyMaterial,
+};
 use crate::{
     keys::{
         key_encryptable::CryptoKey,
@@ -19,8 +21,19 @@ impl PinKey {
     }
 
     /// Encrypt the users user key
-    pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
-        encrypt_user_key(&self.0, user_key)
+    ///
+    /// @param user_key: The user key to encrypt
+    /// @param use_aead: Use new XChaCha20Poly1305 AEAD encryption
+    pub fn encrypt_user_key(
+        &self,
+        user_key: &SymmetricCryptoKey,
+        use_aead: bool,
+    ) -> Result<EncString> {
+        if use_aead {
+            encrypt_user_key_aead(&self.0, user_key)
+        } else {
+            encrypt_user_key(&self.0, user_key)
+        }
     }
 
     /// Decrypt the users user key

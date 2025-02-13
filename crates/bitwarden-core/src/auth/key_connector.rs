@@ -11,7 +11,7 @@ pub(super) fn make_key_connector_keys(
     mut rng: impl rand::RngCore,
 ) -> Result<KeyConnectorResponse, CryptoError> {
     let master_key = MasterKey::generate(&mut rng);
-    let (user_key, encrypted_user_key) = master_key.make_user_key()?;
+    let (user_key, encrypted_user_key) = master_key.make_user_key(false)?;
     let keys = user_key.make_key_pair()?;
 
     Ok(KeyConnectorResponse {

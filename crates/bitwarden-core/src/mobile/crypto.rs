@@ -266,7 +266,7 @@ pub fn update_password(
         LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
     };
 
-    let new_key = new_master_key.encrypt_user_key(user_key)?;
+    let new_key = new_master_key.encrypt_user_key(user_key, false)?;
 
     let password_hash = new_master_key.derive_master_key_hash(
         new_password.as_bytes(),
@@ -347,7 +347,7 @@ fn derive_pin_protected_user_key(
         LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
     };
 
-    Ok(derived_key.encrypt_user_key(user_key)?)
+    Ok(derived_key.encrypt_user_key(user_key, false)?)
 }
 
 /// Catch all errors for mobile crypto operations
@@ -781,7 +781,7 @@ mod tests {
             },
         )
         .unwrap();
-        let user_key = (master_key.make_user_key().unwrap()).0;
+        let user_key = (master_key.make_user_key(false).unwrap()).0;
         let key_pair = user_key.make_key_pair().unwrap();
 
         (user_key, key_pair)
