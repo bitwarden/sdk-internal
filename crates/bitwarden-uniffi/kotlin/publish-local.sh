@@ -12,7 +12,7 @@ cross build -p bitwarden-uniffi --release --target=aarch64-linux-android
 mv $SDK_REPO_ROOT/target/aarch64-linux-android/release/libbitwarden_uniffi.so ./sdk/src/main/jniLibs/arm64-v8a/libbitwarden_uniffi.so
 
 # Build other archs
-if [ $1 = "all" ]; then
+if [ "$1" = "all" ]; then
     echo "Building for all architectures"
     
     cross build -p bitwarden-uniffi --release --target=armv7-linux-androideabi
