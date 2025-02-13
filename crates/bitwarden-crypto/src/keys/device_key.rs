@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     fn test_trust_device() {
-        let key = derive_symmetric_key("test");
+        let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
 
         let result = DeviceKey::trust_device(&key).unwrap();
 

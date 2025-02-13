@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_symmetric_crypto_key() {
-        let key = derive_symmetric_key("test");
+        let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
         let key2 = SymmetricCryptoKey::try_from(key.to_base64()).unwrap();
 
         assert_eq!(key, key2);

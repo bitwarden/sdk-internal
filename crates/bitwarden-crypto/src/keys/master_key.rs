@@ -336,17 +336,11 @@ mod tests {
     #[test]
     fn test_make_user_key2() {
         let kdf_material = KdfDerivedKeyMaterial {
-            key_material: if let SymmetricCryptoKey::Aes256CbcHmacKey(k) =
-                &derive_symmetric_key("test1")
-            {
-                k.enc_key.clone()
-            } else {
-                panic!("Key is not an Aes256CbcHmacKey");
-            },
+            key_material: (&derive_symmetric_key("test1")).enc_key.clone(),
         };
         let master_key = MasterKey(kdf_material);
 
-        let user_key = derive_symmetric_key("test2");
+        let user_key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test2"));
 
         let encrypted = master_key.encrypt_user_key(&user_key).unwrap();
         let decrypted = master_key.decrypt_user_key(encrypted).unwrap();
