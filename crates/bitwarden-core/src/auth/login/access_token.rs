@@ -127,7 +127,7 @@ fn load_tokens_from_state(
         if time_till_expiration > 0 {
             let organization_id: Uuid = organization_id
                 .parse()
-                .map_err(|_| LoginError::BadOrganizationId)?;
+                .map_err(|_| LoginError::InvalidOrganizationId)?;
             let encryption_key = SymmetricCryptoKey::try_from(client_state.encryption_key)?;
 
             client

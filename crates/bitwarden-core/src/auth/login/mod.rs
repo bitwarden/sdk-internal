@@ -64,8 +64,8 @@ pub enum LoginError {
 
     #[error("The state file could not be read")]
     InvalidStateFile,
-    #[error("Bad organization id")]
-    BadOrganizationId,
+    #[error("Invalid organization id")]
+    InvalidOrganizationId,
 
     #[error("The response received was invalid and could not be processed")]
     InvalidResponse,
