@@ -10,11 +10,10 @@ use zeroize::{Zeroize, Zeroizing};
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use super::{
-    utils::{derive_kdf_key, stretch_kdf_key},
-    XChaCha20Poly1305Key,
+    key_hash::{KeyHashData, KeyHashable}, utils::{derive_kdf_key, stretch_kdf_key}, XChaCha20Poly1305Key
 };
 use crate::{
-    enc_string::additional_data, util, CryptoError, EncString, KeyDecryptable, Result,
+    enc_string::additional_data::{AdditionalData, AdditionalDataV0, DomainSpecificAdditionalData}, util, CryptoError, EncString, KeyDecryptable, Result,
     SymmetricCryptoKey, UserKey,
 };
 
@@ -24,6 +23,12 @@ use crate::{
 /// the key-material, or by stretching it with HKDF
 pub(crate) struct KdfDerivedKeyMaterial {
     pub(crate) key_material: Pin<Box<GenericArray<u8, U32>>>,
+}
+
+impl KeyHashData for KdfDerivedKeyMaterial {
+    fn hash_data(&self) -> Vec<u8> {
+        self.key_material.as_ref().to_vec()
+    }
 }
 
 #[cfg(not(test))]
@@ -37,7 +42,7 @@ impl std::fmt::Debug for KdfDerivedKeyMaterial {
 ///
 /// In Bitwarden accounts can use multiple KDFs to derive their master key from their password. This
 /// Enum represents all the possible KDFs.
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -183,8 +188,10 @@ pub(super) fn encrypt_user_key_aead(
     let encrypting_key = XChaCha20Poly1305Key {
         enc_key: kdf_key.key_material.clone(),
     };
-    let ad = additional_data::AdditionalData::None();
-    EncString::encrypt_xchacha20_poly1305(&userkey_bytes, ad, &encrypting_key)
+    EncString::encrypt_xchacha20_poly1305(&userkey_bytes, AdditionalData::V0(AdditionalDataV0{
+        encrypting_key_hash: kdf_key.hash(),
+        domain_ad: DomainSpecificAdditionalData::None,
+    }), &encrypting_key)
 }
 
 /// Helper function to decrypt a user key with a master or pin key.

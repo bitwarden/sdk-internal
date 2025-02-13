@@ -4,11 +4,19 @@ use crate::key_hash;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) enum AdditionalData {
-    None(),
+    // On old ciphers that do not use AEAD
+    None,
     V0(AdditionalDataV0),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) struct AdditionalDataV0 {
-    pub(crate) key_hash: key_hash::KeyHash,
+    #[serde(rename = "enc_key_hash")]
+    pub(crate) encrypting_key_hash: key_hash::KeyHash,
+    pub(crate) domain_ad: DomainSpecificAdditionalData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub(crate) enum DomainSpecificAdditionalData {
+    None,
 }

@@ -8,7 +8,7 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, enc_string::additional_data, key_hash::KeyHashable,
+    derive_shareable_key, enc_string::additional_data::AdditionalData, 
     store::backend::StoreBackend, AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString,
     KeyId, KeyIds, Result, SymmetricCryptoKey,
 };
@@ -397,10 +397,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let key = self.get_symmetric_key(key)?;
         match key {
             SymmetricCryptoKey::XChaCha20Poly1305Key(key1) => {
-                let ad = additional_data::AdditionalData::V0(additional_data::AdditionalDataV0 {
-                    key_hash: key.hash(),
-                });
-                EncString::encrypt_xchacha20_poly1305(data, ad, key1)
+                EncString::encrypt_xchacha20_poly1305(data, AdditionalData::None, key1)
             }
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
             _ => Err(CryptoError::InvalidKey),

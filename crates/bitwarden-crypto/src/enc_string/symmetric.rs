@@ -237,7 +237,7 @@ impl EncString {
     pub(crate) fn additional_authenticated_data(&self) -> additional_data::AdditionalData {
         match self {
             EncString::AesCbc256_B64 { .. } | EncString::AesCbc256_HmacSha256_B64 { .. } => {
-                additional_data::AdditionalData::None()
+                additional_data::AdditionalData::None
             }
             EncString::XChaCha20Poly1305_B64 {
                 additional_data, ..
@@ -379,7 +379,8 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
             SymmetricCryptoKey::XChaCha20Poly1305Key(inner_key) => {
                 let additional_data =
                     additional_data::AdditionalData::V0(additional_data::AdditionalDataV0 {
-                        key_hash: key.hash(),
+                        encrypting_key_hash: key.hash(),
+                        domain_ad: additional_data::DomainSpecificAdditionalData::None,
                     });
                 let padded_data = pad_bytes(self, EncString::XCHACHA20_PAD_BLOCK_SIZE);
                 EncString::encrypt_xchacha20_poly1305(&padded_data, additional_data, inner_key)
