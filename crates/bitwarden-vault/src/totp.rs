@@ -589,7 +589,7 @@ mod tests {
     }
 
     #[test]
-    fn test_totp_to_string_period() {
+    fn test_totp_to_string_with_custom_period() {
         let totp = Totp {
             account: Some("test@bitwarden.com".to_string()),
             algorithm: DEFAULT_ALGORITHM,
@@ -623,7 +623,7 @@ mod tests {
     }
 
     #[test]
-    fn test_totp_to_string_issuer_with_spaces() {
+    fn test_totp_to_string_encodes_spaces_in_issuer() {
         let totp = Totp {
             account: Some("test@bitwarden.com".to_string()),
             algorithm: DEFAULT_ALGORITHM,
@@ -640,7 +640,7 @@ mod tests {
     }
 
     #[test]
-    fn test_totp_to_string_issuer_special_characters() {
+    fn test_totp_to_string_encodes_special_characters_in_issuer() {
         let totp = Totp {
             account: Some("test@bitwarden.com".to_string()),
             algorithm: DEFAULT_ALGORITHM,
