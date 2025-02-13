@@ -12,9 +12,8 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
-    error::{NotAuthenticatedError, Result},
     key_management::SymmetricKeyId,
-    Client, VaultLockedError, WrongPasswordError,
+    Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
 };
 
 /// Catch all errors for mobile crypto operations

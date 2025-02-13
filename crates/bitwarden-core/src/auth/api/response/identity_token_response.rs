@@ -2,11 +2,14 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    auth::api::response::{
-        IdentityCaptchaResponse, IdentityTokenFailResponse, IdentityTokenPayloadResponse,
-        IdentityTokenRefreshResponse, IdentityTokenSuccessResponse, IdentityTwoFactorResponse,
+    auth::{
+        api::response::{
+            IdentityCaptchaResponse, IdentityTokenFailResponse, IdentityTokenPayloadResponse,
+            IdentityTokenRefreshResponse, IdentityTokenSuccessResponse, IdentityTwoFactorResponse,
+        },
+        login::LoginError,
     },
-    error::{Error, Result},
+    ApiError,
 };
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -21,7 +24,7 @@ pub enum IdentityTokenResponse {
 pub fn parse_identity_response(
     status: StatusCode,
     response: String,
-) -> Result<IdentityTokenResponse> {
+) -> Result<IdentityTokenResponse, LoginError> {
     if let Ok(r) = serde_json::from_str::<IdentityTokenSuccessResponse>(&response) {
         Ok(IdentityTokenResponse::Authenticated(r))
     } else if let Ok(r) = serde_json::from_str::<IdentityTokenPayloadResponse>(&response) {
@@ -33,12 +36,13 @@ pub fn parse_identity_response(
     } else if let Ok(r) = serde_json::from_str::<IdentityCaptchaResponse>(&response) {
         Ok(IdentityTokenResponse::CaptchaRequired(r))
     } else if let Ok(r) = serde_json::from_str::<IdentityTokenFailResponse>(&response) {
-        Err(Error::IdentityFail(r))
+        Err(LoginError::IdentityFail(r))
     } else {
-        Err(Error::ResponseContent {
+        Err(ApiError::ResponseContent {
             status,
             message: response,
-        })
+        }
+        .into())
     }
 }
 

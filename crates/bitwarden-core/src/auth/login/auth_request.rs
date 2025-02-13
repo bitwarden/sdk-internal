@@ -5,15 +5,15 @@ use bitwarden_api_api::{
 use bitwarden_crypto::Kdf;
 use uuid::Uuid;
 
+use super::LoginError;
 use crate::{
     auth::{
         api::{request::AuthRequestTokenRequest, response::IdentityTokenResponse},
         auth_request::new_auth_request,
     },
     client::{LoginMethod, UserLoginMethod},
-    error::Result,
     mobile::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
-    require, Client,
+    require, ApiError, Client,
 };
 
 pub struct NewAuthRequestResponse {
@@ -29,7 +29,7 @@ pub(crate) async fn send_new_auth_request(
     client: &Client,
     email: String,
     device_identifier: String,
-) -> Result<NewAuthRequestResponse> {
+) -> Result<NewAuthRequestResponse, LoginError> {
     let config = client.internal.get_api_configurations().await;
 
     let auth = new_auth_request(&email)?;
@@ -42,7 +42,9 @@ pub(crate) async fn send_new_auth_request(
         r#type: AuthRequestType::AuthenticateAndUnlock,
     };
 
-    let res = auth_requests_post(&config.api, Some(req)).await?;
+    let res = auth_requests_post(&config.api, Some(req))
+        .await
+        .map_err(ApiError::from)?;
 
     Ok(NewAuthRequestResponse {
         fingerprint: auth.fingerprint,
@@ -57,7 +59,7 @@ pub(crate) async fn send_new_auth_request(
 pub(crate) async fn complete_auth_request(
     client: &Client,
     auth_req: NewAuthRequestResponse,
-) -> Result<()> {
+) -> Result<(), LoginError> {
     let config = client.internal.get_api_configurations().await;
 
     let res = auth_requests_id_response_get(
@@ -65,12 +67,13 @@ pub(crate) async fn complete_auth_request(
         auth_req.auth_request_id,
         Some(&auth_req.access_code),
     )
-    .await?;
+    .await
+    .map_err(ApiError::from)?;
 
     let approved = res.request_approved.unwrap_or(false);
 
     if !approved {
-        return Err("Auth request was not approved".into());
+        return Err(LoginError::AuthRequestNotApproved);
     }
 
     let response = AuthRequestTokenRequest::new(
@@ -124,6 +127,6 @@ pub(crate) async fn complete_auth_request(
 
         Ok(())
     } else {
-        Err("Failed to authenticate".into())
+        Err(LoginError::AuthenticationFailed)
     }
 }

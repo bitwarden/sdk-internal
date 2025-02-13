@@ -2,7 +2,10 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{auth::api::response::IdentityTokenResponse, client::ApiConfigurations, error::Result};
+use crate::{
+    auth::{api::response::IdentityTokenResponse, login::LoginError},
+    client::ApiConfigurations,
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AccessTokenRequest {
@@ -27,7 +30,7 @@ impl AccessTokenRequest {
     pub(crate) async fn send(
         &self,
         configurations: &ApiConfigurations,
-    ) -> Result<IdentityTokenResponse> {
+    ) -> Result<IdentityTokenResponse, LoginError> {
         super::send_identity_connect_request(configurations, None, &self).await
     }
 }
