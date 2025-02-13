@@ -270,14 +270,24 @@ impl fmt::Display for Totp {
 
         let mut url = Url::parse("otpauth://totp").map_err(|_| fmt::Error)?;
 
-        let encoded_issuer = self
-            .issuer
+        // Strip out colons from issuer and account
+        let issuer = self.issuer.as_ref().map(|issuer| issuer.replace(":", ""));
+        let account = self
+            .account
+            .as_ref()
+            .map(|account| account.replace(":", ""));
+
+        let encoded_issuer = issuer
             .as_ref()
             .map(|issuer| percent_encode(issuer.as_bytes(), NON_ALPHANUMERIC));
 
-        let label = match (&encoded_issuer, &self.account) {
+        let encoded_account = account
+            .as_ref()
+            .map(|account| percent_encode(account.as_bytes(), NON_ALPHANUMERIC));
+
+        let label = match (&encoded_issuer, &encoded_account) {
             (Some(issuer), Some(account)) => format!("{}:{}", issuer, account),
-            (None, Some(account)) => account.clone(),
+            (None, Some(account)) => account.to_string(),
             _ => String::new(),
         };
 
@@ -535,6 +545,33 @@ mod tests {
     }
 
     #[test]
+    fn test_totp_to_string_strips_colons() {
+        let totp = Totp {
+            account: Some("test:account@bitwarden.com".to_string()),
+            algorithm: DEFAULT_ALGORITHM,
+            digits: DEFAULT_DIGITS,
+            issuer: Some("Acme:Inc".to_string()),
+            period: DEFAULT_PERIOD,
+            secret: decode_b32("WQIQ25BRKZYCJVYP"),
+        };
+
+        let uri = totp.to_string();
+
+        // Verify colons are stripped from both issuer and account in the URI
+        assert!(!uri.contains("Acme:Inc"));
+        assert!(!uri.contains("test:account"));
+
+        // Verify that the stripped colons are replaced
+        assert!(uri.contains("AcmeInc"));
+        assert!(uri.contains("testaccount"));
+
+        let parsed = Totp::from_str(&uri).unwrap();
+        // Verify parsed values have colon removed
+        assert_eq!(parsed.issuer.unwrap(), "acmeinc");
+        assert_eq!(parsed.account.unwrap(), "testaccount@bitwarden.com");
+    }
+
+    #[test]
     fn test_totp_to_string_with_defaults() {
         let totp = Totp {
             account: Some("test@bitwarden.com".to_string()),
@@ -547,7 +584,7 @@ mod tests {
 
         assert_eq!(
             totp.to_string(),
-            "otpauth://totp/Example:test@bitwarden.com?secret=WQIQ25BRKZYCJVYP&issuer=Example"
+            "otpauth://totp/Example:test%40bitwarden%2Ecom?secret=WQIQ25BRKZYCJVYP&issuer=Example"
         );
     }
 
@@ -564,7 +601,7 @@ mod tests {
 
         assert_eq!(
             totp.to_string(),
-            "otpauth://totp/Example:test@bitwarden.com?secret=WQIQ25BRKZYCJVYP&issuer=Example&period=60"
+            "otpauth://totp/Example:test%40bitwarden%2Ecom?secret=WQIQ25BRKZYCJVYP&issuer=Example&period=60"
         );
     }
 
@@ -581,7 +618,7 @@ mod tests {
 
         assert_eq!(
             totp.to_string(),
-            "otpauth://totp/Example:test@bitwarden.com?secret=WQIQ25BRKZYCJVYP&issuer=Example&algorithm=SHA256"
+            "otpauth://totp/Example:test%40bitwarden%2Ecom?secret=WQIQ25BRKZYCJVYP&issuer=Example&algorithm=SHA256"
         );
     }
 
@@ -598,7 +635,7 @@ mod tests {
 
         assert_eq!(
             totp.to_string(),
-            "otpauth://totp/Acme%20Inc:test@bitwarden.com?secret=WQIQ25BRKZYCJVYP&issuer=Acme%20Inc"
+            "otpauth://totp/Acme%20Inc:test%40bitwarden%2Ecom?secret=WQIQ25BRKZYCJVYP&issuer=Acme%20Inc"
         );
     }
 
@@ -615,7 +652,7 @@ mod tests {
 
         assert_eq!(
             totp.to_string(),
-            "otpauth://totp/Acme%20%26%20Inc:test@bitwarden.com?secret=WQIQ25BRKZYCJVYP&issuer=Acme%20%26%20Inc"
+            "otpauth://totp/Acme%20%26%20Inc:test%40bitwarden%2Ecom?secret=WQIQ25BRKZYCJVYP&issuer=Acme%20%26%20Inc"
         );
     }
 
@@ -632,8 +669,36 @@ mod tests {
 
         assert_eq!(
             totp.to_string(),
-            "otpauth://totp/test@bitwarden.com?secret=WQIQ25BRKZYCJVYP"
+            "otpauth://totp/test%40bitwarden%2Ecom?secret=WQIQ25BRKZYCJVYP"
         )
+    }
+
+    #[test]
+    fn test_totp_to_string_parse_roundtrip_with_special_chars() {
+        let original = Totp {
+            account: Some("test+acount@bitwarden.com".to_string()),
+            algorithm: DEFAULT_ALGORITHM,
+            digits: DEFAULT_DIGITS,
+            issuer: Some("Acme & Inc".to_string()),
+            period: DEFAULT_PERIOD,
+            secret: decode_b32("WQIQ25BRKZYCJVYP"),
+        };
+
+        let uri = original.to_string();
+        let parsed = Totp::from_str(&uri).unwrap();
+
+        assert!(parsed
+            .account
+            .unwrap()
+            .eq_ignore_ascii_case(&original.account.unwrap()));
+        assert!(parsed
+            .issuer
+            .unwrap()
+            .eq_ignore_ascii_case(&original.issuer.unwrap()));
+        assert_eq!(parsed.algorithm, original.algorithm);
+        assert_eq!(parsed.digits, original.digits);
+        assert_eq!(parsed.period, original.period);
+        assert_eq!(parsed.secret, original.secret);
     }
 
     #[test]
