@@ -5,7 +5,7 @@ use ssh_key::private::{Ed25519Keypair, RsaKeypair};
 
 use crate::{error::SshKeyImportError, UnencryptedSshKey};
 
-/// Import a PKCS8 or OpenSSH encoded private key, and returns a decoded [SshKey],
+/// Import a PKCS8 or OpenSSH encoded private key, and returns a decoded [UnencryptedSshKey],
 /// with the public key and fingerprint, and the private key in OpenSSH format.
 /// A password can be provided for encrypted keys.
 /// # Returns
