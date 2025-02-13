@@ -336,7 +336,7 @@ mod tests {
     #[test]
     fn test_make_user_key2() {
         let kdf_material = KdfDerivedKeyMaterial {
-            key_material: (&derive_symmetric_key("test1")).enc_key.clone(),
+            key_material: (derive_symmetric_key("test1")).enc_key.clone(),
         };
         let master_key = MasterKey(kdf_material);
 
