@@ -154,7 +154,6 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     ///   provide functions for that:
     ///     - [KeyStoreContext::encrypt_symmetric_key_with_symmetric_key]
     ///     - [KeyStoreContext::encrypt_symmetric_key_with_asymmetric_key]
-    ///     - [KeyStoreContext::encrypt_asymmetric_key_with_asymmetric_key]
     ///     - [KeyStoreContext::derive_shareable_key]
     pub fn context(&'_ self) -> KeyStoreContext<'_, Ids> {
         KeyStoreContext {

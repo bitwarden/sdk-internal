@@ -5,7 +5,7 @@ use bitwarden_crypto::{
 
 #[cfg(feature = "secrets")]
 use crate::auth::login::{login_access_token, AccessTokenLoginRequest, AccessTokenLoginResponse};
-use crate::{auth::renew::renew_token, error::Result, Client};
+use crate::{auth::renew::renew_token, Client};
 #[cfg(feature = "internal")]
 use crate::{
     auth::{
@@ -13,8 +13,8 @@ use crate::{
         key_connector::{make_key_connector_keys, KeyConnectorResponse},
         login::{
             login_api_key, login_password, send_two_factor_email, ApiKeyLoginRequest,
-            ApiKeyLoginResponse, NewAuthRequestResponse, PasswordLoginRequest,
-            PasswordLoginResponse, TwoFactorEmailRequest,
+            ApiKeyLoginResponse, LoginError, NewAuthRequestResponse, PasswordLoginRequest,
+            PasswordLoginResponse, PreloginError, TwoFactorEmailError, TwoFactorEmailRequest,
         },
         password::{
             password_strength, satisfies_policy, validate_password, validate_password_user_key,
@@ -23,7 +23,8 @@ use crate::{
         pin::validate_pin,
         register::{make_register_keys, register},
         tde::{make_register_tde_keys, RegisterTdeKeyResponse},
-        AuthRequestResponse, AuthValidateError, RegisterKeyResponse, RegisterRequest,
+        AuthRequestResponse, AuthValidateError, RegisterError, RegisterKeyResponse,
+        RegisterRequest,
     },
     client::encryption_settings::EncryptionSettingsError,
 };
@@ -33,7 +34,7 @@ pub struct AuthClient<'a> {
 }
 
 impl AuthClient<'_> {
-    pub async fn renew_token(&self) -> Result<()> {
+    pub async fn renew_token(&self) -> Result<(), LoginError> {
         renew_token(&self.client.internal).await
     }
 
@@ -41,7 +42,7 @@ impl AuthClient<'_> {
     pub async fn login_access_token(
         &self,
         input: &AccessTokenLoginRequest,
-    ) -> Result<AccessTokenLoginResponse> {
+    ) -> Result<AccessTokenLoginResponse, LoginError> {
         login_access_token(self.client, input).await
     }
 }
@@ -89,29 +90,34 @@ impl AuthClient<'_> {
         make_key_connector_keys(&mut rng)
     }
 
-    pub async fn register(&self, input: &RegisterRequest) -> Result<()> {
+    pub async fn register(&self, input: &RegisterRequest) -> Result<(), RegisterError> {
         register(self.client, input).await
     }
 
-    pub async fn prelogin(&self, email: String) -> Result<Kdf> {
-        use crate::auth::login::{parse_prelogin, request_prelogin};
+    pub async fn prelogin(&self, email: String) -> Result<Kdf, PreloginError> {
+        use crate::auth::login::prelogin;
 
-        let response = request_prelogin(self.client, email).await?;
-        parse_prelogin(response)
+        prelogin(self.client, email).await
     }
 
     pub async fn login_password(
         &self,
         input: &PasswordLoginRequest,
-    ) -> Result<PasswordLoginResponse> {
+    ) -> Result<PasswordLoginResponse, LoginError> {
         login_password(self.client, input).await
     }
 
-    pub async fn login_api_key(&self, input: &ApiKeyLoginRequest) -> Result<ApiKeyLoginResponse> {
+    pub async fn login_api_key(
+        &self,
+        input: &ApiKeyLoginRequest,
+    ) -> Result<ApiKeyLoginResponse, LoginError> {
         login_api_key(self.client, input).await
     }
 
-    pub async fn send_two_factor_email(&self, tf: &TwoFactorEmailRequest) -> Result<()> {
+    pub async fn send_two_factor_email(
+        &self,
+        tf: &TwoFactorEmailRequest,
+    ) -> Result<(), TwoFactorEmailError> {
         send_two_factor_email(self.client, tf).await
     }
 
@@ -161,13 +167,16 @@ impl AuthClient<'_> {
         &self,
         email: String,
         device_identifier: String,
-    ) -> Result<NewAuthRequestResponse> {
+    ) -> Result<NewAuthRequestResponse, LoginError> {
         use crate::auth::login::send_new_auth_request;
 
         send_new_auth_request(self.client, email, device_identifier).await
     }
 
-    pub async fn login_device_complete(&self, auth_req: NewAuthRequestResponse) -> Result<()> {
+    pub async fn login_device_complete(
+        &self,
+        auth_req: NewAuthRequestResponse,
+    ) -> Result<(), LoginError> {
         use crate::auth::login::complete_auth_request;
 
         complete_auth_request(self.client, auth_req).await
