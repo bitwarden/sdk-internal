@@ -4,7 +4,10 @@ use ssh_key::{rand_core::CryptoRngCore, Algorithm};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
-use crate::{error::{self, KeyGenerationError}, ssh_private_key_to_view};
+use crate::{
+    error::{self, KeyGenerationError},
+    ssh_private_key_to_view,
+};
 
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -38,8 +41,7 @@ fn generate_sshkey_internal(
         KeyAlgorithm::Rsa4096 => create_rsa_key(&mut rng, 4096),
     }?;
 
-    ssh_private_key_to_view(private_key)
-        .map_err(|_| KeyGenerationError::KeyConversionError)
+    ssh_private_key_to_view(private_key).map_err(|_| KeyGenerationError::KeyConversionError)
 }
 
 fn create_rsa_key(

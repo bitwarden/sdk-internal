@@ -72,8 +72,7 @@ fn import_pkcs8_key(
         _ => return Err(SshKeyImportError::UnsupportedKeyType),
     };
 
-    ssh_private_key_to_view(private_key)
-        .map_err(|_| SshKeyImportError::ParsingError)
+    ssh_private_key_to_view(private_key).map_err(|_| SshKeyImportError::ParsingError)
 }
 
 fn import_openssh_key(
@@ -97,8 +96,7 @@ fn import_openssh_key(
         private_key
     };
 
-    ssh_private_key_to_view(private_key)
-        .map_err(|_| SshKeyImportError::ParsingError)
+    ssh_private_key_to_view(private_key).map_err(|_| SshKeyImportError::ParsingError)
 }
 
 #[cfg(test)]
