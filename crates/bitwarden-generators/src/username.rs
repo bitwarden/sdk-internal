@@ -124,7 +124,7 @@ impl ForwarderServiceType {
                 forwardemail::generate(http, api_token, domain, website).await
             }
             SimpleLogin { api_key, base_url } => {
-                simplelogin::generate(http, api_key, website, base_url).await
+                simplelogin::generate(http, api_key, base_url, website).await
             }
         }
     }
