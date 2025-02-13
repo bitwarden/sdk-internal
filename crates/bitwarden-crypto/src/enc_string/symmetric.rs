@@ -277,7 +277,7 @@ mod tests {
 
     #[test]
     fn test_enc_string_roundtrip() {
-        let key = derive_symmetric_key("test");
+        let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
 
         let test_string = "encrypted_test_string";
         let cipher = test_string.to_owned().encrypt_with_key(&key).unwrap();
@@ -288,7 +288,7 @@ mod tests {
 
     #[test]
     fn test_enc_string_ref_roundtrip() {
-        let key = derive_symmetric_key("test");
+        let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
 
         let test_string = "encrypted_test_string";
         let cipher = test_string.encrypt_with_key(&key).unwrap();
