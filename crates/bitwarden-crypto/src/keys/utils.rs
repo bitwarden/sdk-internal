@@ -1,5 +1,6 @@
 use generic_array::GenericArray;
 use sha2::Digest;
+use zeroize::Zeroizing;
 
 use super::{master_key::KdfDerivedKeyMaterial, Aes256CbcHmacKey};
 use crate::{util::hkdf_expand, CryptoError, Kdf, Result};
@@ -23,7 +24,7 @@ pub(super) fn derive_kdf_key(
                 return Err(CryptoError::InsufficientKdfParameters);
             }
 
-            zeroize::Zeroizing::new(crate::util::pbkdf2(secret, salt, iterations))
+            Zeroizing::new(crate::util::pbkdf2(secret, salt, iterations))
         }
         Kdf::Argon2id {
             iterations,
@@ -59,7 +60,7 @@ pub(super) fn derive_kdf_key(
             }
             clear_stack();
 
-            zeroize::Zeroizing::new(hash)
+            Zeroizing::new(hash)
         }
     };
     Ok(KdfDerivedKeyMaterial {

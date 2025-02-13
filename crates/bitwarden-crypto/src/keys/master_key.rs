@@ -20,13 +20,6 @@ pub(crate) struct KdfDerivedKeyMaterial {
     pub(crate) key_material: Pin<Box<GenericArray<u8, U32>>>,
 }
 
-#[cfg(not(test))]
-impl std::fmt::Debug for KdfDerivedKeyMaterial {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("KdfDerviedKeymaterial").finish()
-    }
-}
-
 /// Key Derivation Function for Bitwarden Account
 ///
 /// In Bitwarden accounts can use multiple KDFs to derive their master key from their password. This
@@ -136,8 +129,12 @@ impl MasterKey {
     pub fn to_base64(&self) -> String {
         STANDARD.encode(self.0.key_material.as_slice())
     }
+}
 
-    pub fn try_from(value: &mut [u8]) -> Result<Self> {
+impl TryFrom<&mut [u8]> for MasterKey {
+    type Error = CryptoError;
+
+    fn try_from(value: &mut [u8]) -> Result<Self> {
         if value.len() != 32 {
             value.zeroize();
             return Err(CryptoError::InvalidKey);
@@ -157,8 +154,8 @@ pub(super) fn encrypt_user_key(
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
     let stretched_master_key = stretch_kdf_key(master_key)?;
-    let userkey_bytes = Zeroizing::new(user_key.to_vec());
-    EncString::encrypt_aes256_hmac(&userkey_bytes, &stretched_master_key)
+    let user_key_bytes = Zeroizing::new(user_key.to_vec());
+    EncString::encrypt_aes256_hmac(&user_key_bytes, &stretched_master_key)
 }
 
 /// Helper function to decrypt a user key with a master or pin key.

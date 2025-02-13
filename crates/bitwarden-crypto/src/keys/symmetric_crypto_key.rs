@@ -36,14 +36,12 @@ pub struct Aes256CbcHmacKey {
 }
 
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
-#[derive(Clone)]
+#[derive(ZeroizeOnDrop, Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub enum SymmetricCryptoKey {
     Aes256CbcKey(Aes256CbcKey),
     Aes256CbcHmacKey(Aes256CbcHmacKey),
 }
-
-impl ZeroizeOnDrop for SymmetricCryptoKey {}
 
 impl SymmetricCryptoKey {
     const KEY_LEN: usize = 32;
