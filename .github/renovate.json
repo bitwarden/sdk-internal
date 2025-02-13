@@ -2,7 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["github>bitwarden/renovate-config:non-pinned"],
   "separateMajorMinor": true,
-  "enabledManagers": ["cargo", "dockerfile", "github-actions", "gomod", "npm", "nuget"],
+  "enabledManagers": ["cargo", "dockerfile", "github-actions", "gomod", "npm", "nuget", "regex"],
   "constraints": {
     "go": "1.21"
   },
@@ -27,6 +27,11 @@
       "groupName": "go minor",
       "matchManagers": ["gomod"],
       "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "matchManagers": ["regex"],
+      "matchDepNames": ["rust", "rust-nightly"],
+      "commitMessageTopic": "Rust"
     }
   ],
   "ignoreDeps": ["dotnet-sdk"]
