@@ -19,4 +19,5 @@ pub(crate) struct AdditionalDataV0 {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) enum DomainSpecificAdditionalData {
     None,
+    // e.g. MasterKeyEncryptedUserKey, Cipher, etc.
 }
