@@ -11,7 +11,7 @@ use thiserror::Error;
 ///
 /// TODO: We need to expand this to support user based JWT tokens.
 #[derive(serde::Deserialize)]
-pub struct JWTToken {
+pub struct JwtToken {
     pub exp: u64,
     pub sub: String,
     pub email: Option<String>,
@@ -30,7 +30,7 @@ pub enum JwtTokenParseError {
     InvalidParts,
 }
 
-impl FromStr for JWTToken {
+impl FromStr for JwtToken {
     type Err = JwtTokenParseError;
 
     /// Parses a JWT token from a string.
@@ -48,7 +48,7 @@ impl FromStr for JWTToken {
 
 #[cfg(test)]
 mod tests {
-    use crate::auth::jwt_token::JWTToken;
+    use crate::auth::jwt_token::JwtToken;
 
     #[test]
     fn can_decode_jwt() {
@@ -70,7 +70,7 @@ mod tests {
         U5turoBFiiPL2XXfAjM7P0r7J91gfXc0FaD6I2jDxOmym5h7Yn5phLsbC2NlIXkZp54dKHICenPl4ve6ndDIJacVeS5\
         f3LEddAPV8cAFza4DjA8pZJLFrMyRvMXcL_PjKF8qPVzqVWh03lfJ4clOIxR2gOuWIc902Y5E";
 
-        let token: JWTToken = jwt.parse().unwrap();
+        let token: JwtToken = jwt.parse().unwrap();
         assert_eq!(token.exp, 1675107177);
         assert_eq!(token.sub, "e25d37f3-b603-40de-84ba-af96012f5a42");
         assert_eq!(token.email.as_deref(), Some("test@bitwarden.com"));

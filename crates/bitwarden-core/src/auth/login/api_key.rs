@@ -6,7 +6,7 @@ use crate::{
     auth::{
         api::{request::ApiTokenRequest, response::IdentityTokenResponse},
         login::{response::two_factor::TwoFactorProviders, LoginError, PasswordLoginResponse},
-        JWTToken,
+        JwtToken,
     },
     client::{LoginMethod, UserLoginMethod},
     require, Client,
@@ -22,7 +22,7 @@ pub(crate) async fn login_api_key(
     let response = request_api_identity_tokens(client, input).await?;
 
     if let IdentityTokenResponse::Authenticated(r) = &response {
-        let access_token_obj: JWTToken = r.access_token.parse()?;
+        let access_token_obj: JwtToken = r.access_token.parse()?;
 
         // This should always be Some() when logging in with an api key
         let email = access_token_obj
