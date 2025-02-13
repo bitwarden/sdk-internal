@@ -3,7 +3,7 @@ use ssh_key::{rand_core::CryptoRngCore, Algorithm};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
-use crate::{error, error::KeyGenerationError, SshKey};
+use crate::{error, error::KeyGenerationError, UnencryptedSshKey};
 
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -19,7 +19,9 @@ pub enum KeyAlgorithm {
  * an [SshKey] struct containing the private key, public key, and key fingerprint,
  * with the private key in OpenSSH format.
  */
-pub fn generate_sshkey(key_algorithm: KeyAlgorithm) -> Result<SshKey, error::KeyGenerationError> {
+pub fn generate_sshkey(
+    key_algorithm: KeyAlgorithm,
+) -> Result<UnencryptedSshKey, error::KeyGenerationError> {
     let rng = rand::thread_rng();
     generate_sshkey_internal(key_algorithm, rng)
 }
@@ -27,7 +29,7 @@ pub fn generate_sshkey(key_algorithm: KeyAlgorithm) -> Result<SshKey, error::Key
 fn generate_sshkey_internal(
     key_algorithm: KeyAlgorithm,
     mut rng: impl CryptoRngCore,
-) -> Result<SshKey, error::KeyGenerationError> {
+) -> Result<UnencryptedSshKey, error::KeyGenerationError> {
     let private_key = match key_algorithm {
         KeyAlgorithm::Ed25519 => ssh_key::PrivateKey::random(&mut rng, Algorithm::Ed25519)
             .map_err(KeyGenerationError::KeyGenerationError),

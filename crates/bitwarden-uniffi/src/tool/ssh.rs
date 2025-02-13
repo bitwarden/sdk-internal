@@ -13,7 +13,7 @@ impl SshClient {
     pub fn generate_ssh_key(
         &self,
         key_algorithm: bitwarden_ssh::generator::KeyAlgorithm,
-    ) -> Result<bitwarden_ssh::SshKey> {
+    ) -> Result<bitwarden_ssh::UnencryptedSshKey> {
         bitwarden_ssh::generator::generate_sshkey(key_algorithm)
             .map_err(|e| BitwardenError::E(Error::SshGeneration(e)))
     }
@@ -22,7 +22,7 @@ impl SshClient {
         &self,
         imported_key: String,
         password: Option<String>,
-    ) -> Result<bitwarden_ssh::SshKey> {
+    ) -> Result<bitwarden_ssh::UnencryptedSshKey> {
         bitwarden_ssh::import::import_key(imported_key, password)
             .map_err(|e| BitwardenError::E(Error::SshImport(e)))
     }
