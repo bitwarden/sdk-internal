@@ -8,8 +8,9 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, store::backend::StoreBackend, AsymmetricCryptoKey, AsymmetricEncString,
-    CryptoError, EncString, KeyId, KeyIds, Result, SymmetricCryptoKey,
+    derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
+    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, KeyId, KeyIds, Result,
+    SymmetricCryptoKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -395,8 +396,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ) -> Result<EncString> {
         let key = self.get_symmetric_key(key)?;
         match key {
+            SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperation::EncryptionNotImplementedForKey,
+            )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
-            _ => Err(CryptoError::InvalidKey),
         }
     }
 

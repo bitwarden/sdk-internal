@@ -48,17 +48,17 @@ pub enum CryptoError {
     #[error("Number is zero")]
     ZeroNumber,
 
-    #[error("Encryption is not implemented for {0}")]
-    EncryptionOperationNotSupported(UnsupportedKeyType),
+    #[error("Unsupported operation, {0}")]
+    OperationNotSupported(UnsupportedOperation),
 
-    #[error("Key encryption algorithm does not match encrypted data type")]
+    #[error("Key algorithm does not match encrypted data type")]
     WrongKeyType,
 }
 
 #[derive(Debug, Error)]
-pub enum UnsupportedKeyType {
-    #[error("Aes256Cbc")]
-    Aes256Cbc,
+pub enum UnsupportedOperation {
+    #[error("Encryption is not implemented for key")]
+    EncryptionNotImplementedForKey,
 }
 
 #[derive(Debug, Error)]

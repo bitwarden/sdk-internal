@@ -37,7 +37,7 @@ pub struct Aes256CbcHmacKey {
 
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
 #[derive(ZeroizeOnDrop, Clone)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum SymmetricCryptoKey {
     Aes256CbcKey(Aes256CbcKey),
     Aes256CbcHmacKey(Aes256CbcHmacKey),
@@ -49,16 +49,13 @@ impl SymmetricCryptoKey {
 
     /// Generate a new random [SymmetricCryptoKey]
     pub fn generate(mut rng: impl rand::RngCore) -> Self {
-        let mut key = Box::pin(GenericArray::<u8, U32>::default());
+        let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
         let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
 
-        rng.fill(key.as_mut_slice());
+        rng.fill(enc_key.as_mut_slice());
         rng.fill(mac_key.as_mut_slice());
 
-        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-            enc_key: key,
-            mac_key,
-        })
+        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
     }
 
     fn total_len(&self) -> usize {
@@ -115,24 +112,22 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
     /// the data in it. This is to prevent the key from being left in memory.
     fn try_from(value: &mut [u8]) -> Result<Self, Self::Error> {
         let result = if value.len() == Self::KEY_LEN + Self::MAC_LEN {
-            let mut key = Box::pin(GenericArray::<u8, U32>::default());
+            let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
             let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
 
-            key.copy_from_slice(&value[..Self::KEY_LEN]);
+            enc_key.copy_from_slice(&value[..Self::KEY_LEN]);
             mac_key.copy_from_slice(&value[Self::KEY_LEN..]);
 
             Ok(SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-                enc_key: key,
+                enc_key,
                 mac_key,
             }))
         } else if value.len() == Self::KEY_LEN {
-            let mut key = Box::pin(GenericArray::<u8, U32>::default());
+            let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
 
-            key.copy_from_slice(&value[..Self::KEY_LEN]);
+            enc_key.copy_from_slice(&value[..Self::KEY_LEN]);
 
-            Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey {
-                enc_key: key,
-            }))
+            Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey { enc_key }))
         } else {
             Err(CryptoError::InvalidKeyLen)
         };
@@ -145,7 +140,6 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
 impl CryptoKey for SymmetricCryptoKey {}
 
 // We manually implement these to make sure we don't print any sensitive data
-#[cfg(not(test))]
 impl std::fmt::Debug for SymmetricCryptoKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SymmetricCryptoKey").finish()
