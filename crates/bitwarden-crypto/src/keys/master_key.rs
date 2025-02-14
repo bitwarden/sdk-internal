@@ -1,69 +1,19 @@
-use std::{num::NonZeroU32, pin::Pin};
+use std::pin::Pin;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::{typenum::U32, GenericArray};
 use rand::Rng;
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, Zeroizing};
-#[cfg(feature = "wasm")]
-use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
-use super::utils::{derive_kdf_key, stretch_kdf_key};
-use crate::{util, CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey};
-
-/// The entropy that gets produced after calling a KDF on a password or PIN.
-/// This should not be directly used to encrypt, but instead be explicitly
-/// converted to a SymmetricCryptoKey of a specific encryption type, by re-using
-/// the key-material, or by stretching it with HKDF
-pub(crate) struct KdfDerivedKeyMaterial {
-    pub(crate) key_material: Pin<Box<GenericArray<u8, U32>>>,
-}
-
-/// Key Derivation Function for Bitwarden Account
-///
-/// In Bitwarden accounts can use multiple KDFs to derive their master key from their password. This
-/// Enum represents all the possible KDFs.
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub enum Kdf {
-    PBKDF2 {
-        iterations: NonZeroU32,
-    },
-    Argon2id {
-        iterations: NonZeroU32,
-        memory: NonZeroU32,
-        parallelism: NonZeroU32,
-    },
-}
-
-impl Default for Kdf {
-    /// Default KDF for new accounts.
-    fn default() -> Self {
-        Kdf::PBKDF2 {
-            iterations: default_pbkdf2_iterations(),
-        }
-    }
-}
-
-/// Default PBKDF2 iterations
-pub fn default_pbkdf2_iterations() -> NonZeroU32 {
-    NonZeroU32::new(600_000).expect("Non-zero number")
-}
-/// Default Argon2 iterations
-pub fn default_argon2_iterations() -> NonZeroU32 {
-    NonZeroU32::new(3).expect("Non-zero number")
-}
-/// Default Argon2 memory
-pub fn default_argon2_memory() -> NonZeroU32 {
-    NonZeroU32::new(64).expect("Non-zero number")
-}
-/// Default Argon2 parallelism
-pub fn default_argon2_parallelism() -> NonZeroU32 {
-    NonZeroU32::new(4).expect("Non-zero number")
-}
+use super::{
+    kdf::{Kdf, KdfDerivedKeyMaterial},
+    utils::stretch_key,
+};
+use crate::{
+    util::{self},
+    CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey,
+};
 
 #[derive(Copy, Clone, JsonSchema)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
@@ -75,11 +25,14 @@ pub enum HashPurpose {
 /// Master Key.
 ///
 /// Derived from the users master password, used to protect the [UserKey].
-pub struct MasterKey(KdfDerivedKeyMaterial);
+pub enum MasterKey {
+    KdfKey(KdfDerivedKeyMaterial),
+    KeyConnectorKey(Pin<Box<GenericArray<u8, U32>>>),
+}
 
 impl MasterKey {
     pub(crate) fn new(key: KdfDerivedKeyMaterial) -> Self {
-        Self(key)
+        Self::KdfKey(key)
     }
 
     /// Generate a new random master key. Primarily used for KeyConnector.
@@ -87,26 +40,26 @@ impl MasterKey {
         let mut key = Box::pin(GenericArray::<u8, U32>::default());
 
         rng.fill(key.as_mut_slice());
+        Self::KeyConnectorKey(key)
+    }
 
-        // Master Keys never contains a mac_key.
-        Self::new(KdfDerivedKeyMaterial { key_material: key })
+    fn inner_bytes(&self) -> &Pin<Box<GenericArray<u8, U32>>> {
+        match self {
+            Self::KdfKey(key) => &key.key_material,
+            Self::KeyConnectorKey(key) => key,
+        }
     }
 
     /// Derives a users master key from their password, email and KDF.
     ///
     /// Note: the email is trimmed and converted to lowercase before being used.
-    pub fn derive(password: &str, email: &str, kdf: &Kdf) -> Result<Self> {
-        derive_kdf_key(
-            password.as_bytes(),
-            email.trim().to_lowercase().as_bytes(),
-            kdf,
-        )
-        .map(Self)
+    pub fn derive(password: &str, email: &str, kdf: &Kdf) -> Result<Self, CryptoError> {
+        Ok(KdfDerivedKeyMaterial::derive(password, email, kdf)?.into())
     }
 
     /// Derive the master key hash, used for local and remote password validation.
     pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> Result<String> {
-        let hash = util::pbkdf2(&self.0.key_material, password, purpose as u32);
+        let hash = util::pbkdf2(self.inner_bytes(), password, purpose as u32);
 
         Ok(STANDARD.encode(hash))
     }
@@ -118,16 +71,16 @@ impl MasterKey {
 
     /// Encrypt the users user key
     pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
-        encrypt_user_key(&self.0, user_key)
+        encrypt_user_key(self.inner_bytes(), user_key)
     }
 
     /// Decrypt the users user key
     pub fn decrypt_user_key(&self, user_key: EncString) -> Result<SymmetricCryptoKey> {
-        decrypt_user_key(&self.0, user_key)
+        decrypt_user_key(self.inner_bytes(), user_key)
     }
 
     pub fn to_base64(&self) -> String {
-        STANDARD.encode(self.0.key_material.as_slice())
+        STANDARD.encode(self.inner_bytes().as_slice())
     }
 }
 
@@ -148,19 +101,25 @@ impl TryFrom<&mut [u8]> for MasterKey {
     }
 }
 
+impl From<KdfDerivedKeyMaterial> for MasterKey {
+    fn from(key: KdfDerivedKeyMaterial) -> Self {
+        Self::new(key)
+    }
+}
+
 /// Helper function to encrypt a user key with a master or pin key.
 pub(super) fn encrypt_user_key(
-    master_key: &KdfDerivedKeyMaterial,
+    master_key: &Pin<Box<GenericArray<u8, U32>>>,
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
-    let stretched_master_key = stretch_kdf_key(master_key)?;
+    let stretched_master_key = stretch_key(master_key)?;
     let user_key_bytes = Zeroizing::new(user_key.to_vec());
     EncString::encrypt_aes256_hmac(&user_key_bytes, &stretched_master_key)
 }
 
 /// Helper function to decrypt a user key with a master or pin key.
 pub(super) fn decrypt_user_key(
-    key: &KdfDerivedKeyMaterial,
+    key: &Pin<Box<GenericArray<u8, U32>>>,
     user_key: EncString,
 ) -> Result<SymmetricCryptoKey> {
     let mut dec: Vec<u8> = match user_key {
@@ -169,12 +128,12 @@ pub(super) fn decrypt_user_key(
         // decrypting these old keys.
         EncString::AesCbc256_B64 { .. } => {
             let legacy_key = SymmetricCryptoKey::Aes256CbcKey(super::Aes256CbcKey {
-                enc_key: key.key_material.clone(),
+                enc_key: Box::pin(GenericArray::clone_from_slice(key)),
             });
             user_key.decrypt_with_key(&legacy_key)?
         }
         _ => {
-            let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_kdf_key(key)?);
+            let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key)?);
             user_key.decrypt_with_key(&stretched_key)?
         }
     };
@@ -205,48 +164,6 @@ mod tests {
     };
 
     #[test]
-    fn test_master_key_derive_pbkdf2() {
-        let master_key = MasterKey::derive(
-            "67t9b5g67$%Dh89n",
-            "test_key",
-            &Kdf::PBKDF2 {
-                iterations: NonZeroU32::new(10000).unwrap(),
-            },
-        )
-        .unwrap();
-
-        assert_eq!(
-            [
-                31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138, 167,
-                69, 167, 254, 149, 2, 27, 39, 197, 64, 42, 22, 195, 86, 75
-            ],
-            master_key.0.key_material.as_slice()
-        );
-    }
-
-    #[test]
-    fn test_master_key_derive_argon2() {
-        let master_key = MasterKey::derive(
-            "67t9b5g67$%Dh89n",
-            "test_key",
-            &Kdf::Argon2id {
-                iterations: NonZeroU32::new(4).unwrap(),
-                memory: NonZeroU32::new(32).unwrap(),
-                parallelism: NonZeroU32::new(2).unwrap(),
-            },
-        )
-        .unwrap();
-
-        assert_eq!(
-            [
-                207, 240, 225, 177, 162, 19, 163, 76, 98, 106, 179, 175, 224, 9, 17, 240, 20, 147,
-                237, 47, 246, 150, 141, 184, 62, 225, 131, 242, 51, 53, 225, 242
-            ],
-            master_key.0.key_material.as_slice()
-        );
-    }
-
-    #[test]
     fn test_password_hash_pbkdf2() {
         let password = "asdfasdf";
         let salts = [
@@ -259,7 +176,9 @@ mod tests {
         };
 
         for salt in salts.iter() {
-            let master_key = MasterKey::derive(password, salt, &kdf).unwrap();
+            let master_key: MasterKey = KdfDerivedKeyMaterial::derive(password, salt, &kdf)
+                .unwrap()
+                .into();
 
             assert_eq!(
                 "wmyadRMyBZOH7P/a/ucTCbSghKgdzDpPqUnu/DAVtSw=",
@@ -280,7 +199,9 @@ mod tests {
             parallelism: NonZeroU32::new(2).unwrap(),
         };
 
-        let master_key = MasterKey::derive(password, salt, &kdf).unwrap();
+        let master_key: MasterKey = KdfDerivedKeyMaterial::derive(password, salt, &kdf)
+            .unwrap()
+            .into();
 
         assert_eq!(
             "PR6UjYmjmppTYcdyTiNbAhPJuQQOmynKbdEl1oyi/iQ=",
@@ -294,7 +215,7 @@ mod tests {
     fn test_make_user_key() {
         let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
 
-        let master_key = MasterKey(KdfDerivedKeyMaterial {
+        let master_key: MasterKey = KdfDerivedKeyMaterial {
             key_material: Box::pin(
                 [
                     31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138,
@@ -302,7 +223,8 @@ mod tests {
                 ]
                 .into(),
             ),
-        });
+        }
+        .into();
 
         let (user_key, protected) = make_user_key(&mut rng, &master_key).unwrap();
         let SymmetricCryptoKey::Aes256CbcHmacKey(user_key_unwrapped) = &user_key.0 else {
@@ -338,7 +260,7 @@ mod tests {
         let kdf_material = KdfDerivedKeyMaterial {
             key_material: (derive_symmetric_key("test1")).enc_key.clone(),
         };
-        let master_key = MasterKey(kdf_material);
+        let master_key = MasterKey::KdfKey(kdf_material);
 
         let user_key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test2"));
 
@@ -356,7 +278,9 @@ mod tests {
             iterations: NonZeroU32::new(600_000).unwrap(),
         };
 
-        let master_key = MasterKey::derive(password, salt, &kdf).unwrap();
+        let master_key: MasterKey = KdfDerivedKeyMaterial::derive(password, salt, &kdf)
+            .unwrap()
+            .into();
 
         let user_key: EncString = "0.8UClLa8IPE1iZT7chy5wzQ==|6PVfHnVk5S3XqEtQemnM5yb4JodxmPkkWzmDRdfyHtjORmvxqlLX40tBJZ+CKxQWmS8tpEB5w39rbgHg/gqs0haGdZG4cPbywsgGzxZ7uNI=".parse().unwrap();
 

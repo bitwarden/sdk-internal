@@ -1,100 +1,36 @@
-use generic_array::GenericArray;
-use sha2::Digest;
-use zeroize::Zeroizing;
+use std::pin::Pin;
 
-use super::{master_key::KdfDerivedKeyMaterial, Aes256CbcHmacKey};
-use crate::{util::hkdf_expand, CryptoError, Kdf, Result};
+use generic_array::{typenum::U32, GenericArray};
 
-const PBKDF2_MIN_ITERATIONS: u32 = 5000;
+use crate::{util::hkdf_expand, Result};
 
-const ARGON2ID_MIN_MEMORY: u32 = 16 * 1024;
-const ARGON2ID_MIN_ITERATIONS: u32 = 2;
-const ARGON2ID_MIN_PARALLELISM: u32 = 1;
-
-/// Derive a generic key from a secret and salt using the provided KDF.
-pub(super) fn derive_kdf_key(
-    secret: &[u8],
-    salt: &[u8],
-    kdf: &Kdf,
-) -> Result<KdfDerivedKeyMaterial> {
-    let hash = match kdf {
-        Kdf::PBKDF2 { iterations } => {
-            let iterations = iterations.get();
-            if iterations < PBKDF2_MIN_ITERATIONS {
-                return Err(CryptoError::InsufficientKdfParameters);
-            }
-
-            Zeroizing::new(crate::util::pbkdf2(secret, salt, iterations))
-        }
-        Kdf::Argon2id {
-            iterations,
-            memory,
-            parallelism,
-        } => {
-            let memory = memory.get() * 1024; // Convert MiB to KiB;
-            let iterations = iterations.get();
-            let parallelism = parallelism.get();
-
-            if memory < ARGON2ID_MIN_MEMORY
-                || iterations < ARGON2ID_MIN_ITERATIONS
-                || parallelism < ARGON2ID_MIN_PARALLELISM
-            {
-                return Err(CryptoError::InsufficientKdfParameters);
-            }
-
-            use argon2::*;
-
-            let params = Params::new(memory, iterations, parallelism, Some(32))?;
-            let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-
-            let salt_sha = sha2::Sha256::new().chain_update(salt).finalize();
-
-            let mut hash = [0u8; 32];
-            argon.hash_password_into(secret, &salt_sha, &mut hash)?;
-
-            // Argon2 is using some stack memory that is not zeroed. Eventually some function will
-            // overwrite the stack, but we use this trick to force the used stack to be zeroed.
-            #[inline(never)]
-            fn clear_stack() {
-                std::hint::black_box([0u8; 4096]);
-            }
-            clear_stack();
-
-            Zeroizing::new(hash)
-        }
-    };
-    Ok(KdfDerivedKeyMaterial {
-        key_material: Box::pin(GenericArray::clone_from_slice(hash.as_slice())),
-    })
-}
+use super::Aes256CbcHmacKey;
 
 /// Stretch the given key using HKDF.
-pub(super) fn stretch_kdf_key(k: &KdfDerivedKeyMaterial) -> Result<Aes256CbcHmacKey> {
-    Ok(Aes256CbcHmacKey {
-        enc_key: hkdf_expand(&k.key_material, Some("enc"))?,
-        mac_key: hkdf_expand(&k.key_material, Some("mac"))?,
-    })
+/// This can be either a kdf-derived key (PIN/Master password) or
+/// a random key from key connector
+pub(super) fn stretch_key(key: &Pin<Box<GenericArray<u8, U32>>>) -> Result<Aes256CbcHmacKey> {
+    let enc_key: Pin<Box<GenericArray<u8, U32>>> = hkdf_expand(&key, Some("enc"))?;
+    let mac_key: Pin<Box<GenericArray<u8, U32>>> = hkdf_expand(&key, Some("mac"))?;
+
+    Ok(Aes256CbcHmacKey { enc_key, mac_key })
 }
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZero;
-
     use super::*;
 
     #[test]
     fn test_stretch_kdf_key() {
-        let key = KdfDerivedKeyMaterial {
-            key_material: Box::pin(
-                [
-                    31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138,
-                    167, 69, 167, 254, 149, 2, 27, 39, 197, 64, 42, 22, 195, 86, 75,
-                ]
-                .into(),
-            ),
-        };
+        let key = Box::pin(
+            [
+                31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138, 167,
+                69, 167, 254, 149, 2, 27, 39, 197, 64, 42, 22, 195, 86, 75,
+            ]
+            .into(),
+        );
+        let stretched = stretch_key(&key).unwrap();
 
-        let stretched = stretch_kdf_key(&key).unwrap();
         assert_eq!(
             [
                 111, 31, 178, 45, 238, 152, 37, 114, 143, 215, 124, 83, 135, 173, 195, 23, 142,
@@ -109,44 +45,5 @@ mod tests {
             ],
             stretched.mac_key.as_slice()
         );
-    }
-
-    #[test]
-    fn test_derive_kdf_minimums() {
-        fn nz(n: u32) -> NonZero<u32> {
-            NonZero::new(n).unwrap()
-        }
-
-        let secret = [0u8; 32];
-        let salt = [0u8; 32];
-
-        for kdf in [
-            Kdf::PBKDF2 {
-                iterations: nz(4999),
-            },
-            Kdf::Argon2id {
-                iterations: nz(1),
-                memory: nz(16),
-                parallelism: nz(1),
-            },
-            Kdf::Argon2id {
-                iterations: nz(2),
-                memory: nz(15),
-                parallelism: nz(1),
-            },
-            Kdf::Argon2id {
-                iterations: nz(1),
-                memory: nz(15),
-                parallelism: nz(1),
-            },
-        ] {
-            assert_eq!(
-                derive_kdf_key(&secret, &salt, &kdf)
-                    .err()
-                    .unwrap()
-                    .to_string(),
-                "Insufficient KDF parameters"
-            );
-        }
     }
 }
