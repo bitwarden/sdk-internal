@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    auth::api::response::IdentityTokenResponse, client::ApiConfigurations, error::Result,
+    auth::{api::response::IdentityTokenResponse, login::LoginError},
+    client::ApiConfigurations,
     DeviceType,
 };
 
@@ -53,7 +54,7 @@ impl AuthRequestTokenRequest {
     pub(crate) async fn send(
         &self,
         configurations: &ApiConfigurations,
-    ) -> Result<IdentityTokenResponse> {
+    ) -> Result<IdentityTokenResponse, LoginError> {
         super::send_identity_connect_request(configurations, Some(&self.email), &self).await
     }
 }

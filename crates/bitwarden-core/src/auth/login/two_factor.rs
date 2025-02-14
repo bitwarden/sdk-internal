@@ -3,8 +3,12 @@ use bitwarden_crypto::HashPurpose;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use thiserror::Error;
 
-use crate::{auth::determine_password_hash, error::Result, Client};
+use crate::{
+    auth::{login::PreloginError, password::determine_password_hash},
+    ApiError, Client,
+};
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -15,10 +19,20 @@ pub struct TwoFactorEmailRequest {
     pub email: String,
 }
 
+#[derive(Debug, Error)]
+pub enum TwoFactorEmailError {
+    #[error(transparent)]
+    Prelogin(#[from] PreloginError),
+    #[error(transparent)]
+    Api(#[from] ApiError),
+    #[error(transparent)]
+    Crypto(#[from] bitwarden_crypto::CryptoError),
+}
+
 pub(crate) async fn send_two_factor_email(
     client: &Client,
     input: &TwoFactorEmailRequest,
-) -> Result<()> {
+) -> Result<(), TwoFactorEmailError> {
     // TODO: This should be resolved from the client
     let kdf = client.auth().prelogin(input.email.clone()).await?;
 
@@ -42,7 +56,9 @@ pub(crate) async fn send_two_factor_email(
             sso_email2_fa_session_token: None,
         }),
     )
-    .await?;
+    .await
+    .map_err(ApiError::from)?;
+
     Ok(())
 }
 

@@ -1,9 +1,13 @@
+use bitwarden_vault::SshKeyView;
 use serde::{Deserialize, Serialize};
 use ssh_key::{rand_core::CryptoRngCore, Algorithm};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
-use crate::{error, error::KeyGenerationError, SshKey};
+use crate::{
+    error::{self, KeyGenerationError},
+    ssh_private_key_to_view,
+};
 
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -16,10 +20,12 @@ pub enum KeyAlgorithm {
 
 /**
  * Generate a new SSH key pair, for the provided key algorithm, returning
- * an [SshKey] struct containing the private key, public key, and key fingerprint,
+ * an [SshKeyView] struct containing the private key, public key, and key fingerprint,
  * with the private key in OpenSSH format.
  */
-pub fn generate_sshkey(key_algorithm: KeyAlgorithm) -> Result<SshKey, error::KeyGenerationError> {
+pub fn generate_sshkey(
+    key_algorithm: KeyAlgorithm,
+) -> Result<SshKeyView, error::KeyGenerationError> {
     let rng = rand::thread_rng();
     generate_sshkey_internal(key_algorithm, rng)
 }
@@ -27,7 +33,7 @@ pub fn generate_sshkey(key_algorithm: KeyAlgorithm) -> Result<SshKey, error::Key
 fn generate_sshkey_internal(
     key_algorithm: KeyAlgorithm,
     mut rng: impl CryptoRngCore,
-) -> Result<SshKey, error::KeyGenerationError> {
+) -> Result<SshKeyView, error::KeyGenerationError> {
     let private_key = match key_algorithm {
         KeyAlgorithm::Ed25519 => ssh_key::PrivateKey::random(&mut rng, Algorithm::Ed25519)
             .map_err(KeyGenerationError::KeyGenerationError),
@@ -35,9 +41,7 @@ fn generate_sshkey_internal(
         KeyAlgorithm::Rsa4096 => create_rsa_key(&mut rng, 4096),
     }?;
 
-    private_key
-        .try_into()
-        .map_err(|_| KeyGenerationError::KeyConversionError)
+    ssh_private_key_to_view(private_key).map_err(|_| KeyGenerationError::KeyConversionError)
 }
 
 fn create_rsa_key(

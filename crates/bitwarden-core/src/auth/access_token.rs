@@ -2,10 +2,29 @@ use std::{fmt::Debug, str::FromStr};
 
 use base64::Engine;
 use bitwarden_crypto::{derive_shareable_key, SymmetricCryptoKey};
+use thiserror::Error;
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
-use crate::{error::AccessTokenInvalidError, util::STANDARD_INDIFFERENT};
+use crate::util::STANDARD_INDIFFERENT;
+
+#[derive(Debug, Error)]
+pub enum AccessTokenInvalidError {
+    #[error("Doesn't contain a decryption key")]
+    NoKey,
+    #[error("Has the wrong number of parts")]
+    WrongParts,
+    #[error("Is the wrong version")]
+    WrongVersion,
+    #[error("Has an invalid identifier")]
+    InvalidUuid,
+
+    #[error("Error decoding base64: {0}")]
+    InvalidBase64(#[from] base64::DecodeError),
+
+    #[error("Invalid base64 length: expected {expected}, got {got}")]
+    InvalidBase64Length { expected: usize, got: usize },
+}
 
 pub struct AccessToken {
     pub access_token_id: Uuid,
@@ -23,7 +42,7 @@ impl Debug for AccessToken {
 }
 
 impl FromStr for AccessToken {
-    type Err = crate::error::Error;
+    type Err = AccessTokenInvalidError;
 
     fn from_str(key: &str) -> std::result::Result<Self, Self::Err> {
         let (first_part, encryption_key) =
@@ -36,16 +55,14 @@ impl FromStr for AccessToken {
             .map_err(|_| AccessTokenInvalidError::WrongParts)?;
 
         if version != "0" {
-            return Err(AccessTokenInvalidError::WrongVersion.into());
+            return Err(AccessTokenInvalidError::WrongVersion);
         }
 
         let Ok(access_token_id) = access_token_id.parse() else {
-            return Err(AccessTokenInvalidError::InvalidUuid.into());
+            return Err(AccessTokenInvalidError::InvalidUuid);
         };
 
-        let encryption_key = STANDARD_INDIFFERENT
-            .decode(encryption_key)
-            .map_err(AccessTokenInvalidError::InvalidBase64)?;
+        let encryption_key = STANDARD_INDIFFERENT.decode(encryption_key)?;
         let encryption_key = Zeroizing::new(encryption_key.try_into().map_err(|e: Vec<_>| {
             AccessTokenInvalidError::InvalidBase64Length {
                 expected: 16,
