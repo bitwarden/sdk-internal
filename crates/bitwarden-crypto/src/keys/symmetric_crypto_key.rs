@@ -153,12 +153,7 @@ pub fn derive_symmetric_key(name: &str) -> Aes256CbcHmacKey {
     use crate::{derive_shareable_key, generate_random_bytes};
 
     let secret: Zeroizing<[u8; 16]> = generate_random_bytes();
-    let SymmetricCryptoKey::Aes256CbcHmacKey(key) =
-        &derive_shareable_key(secret, name, None).clone()
-    else {
-        panic!("Key is not Aes256CbcHmacKey");
-    };
-    key.clone()
+    derive_shareable_key(secret, name, None)
 }
 
 #[cfg(test)]

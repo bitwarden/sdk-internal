@@ -298,7 +298,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         info: Option<&str>,
     ) -> Result<Ids::Symmetric> {
         #[allow(deprecated)]
-        self.set_symmetric_key(key_id, derive_shareable_key(secret, name, info))?;
+        self.set_symmetric_key(
+            key_id,
+            SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(secret, name, info)),
+        )?;
         Ok(key_id)
     }
 
