@@ -45,7 +45,7 @@ impl MasterKey {
 
     fn inner_bytes(&self) -> &Pin<Box<GenericArray<u8, U32>>> {
         match self {
-            Self::KdfKey(key) => &key.key_material,
+            Self::KdfKey(key) => &key.0,
             Self::KeyConnectorKey(key) => key,
         }
     }
@@ -93,9 +93,8 @@ impl TryFrom<&mut [u8]> for MasterKey {
             return Err(CryptoError::InvalidKey);
         }
 
-        let material = KdfDerivedKeyMaterial {
-            key_material: Box::pin(GenericArray::<u8, U32>::clone_from_slice(value)),
-        };
+        let material =
+            KdfDerivedKeyMaterial(Box::pin(GenericArray::<u8, U32>::clone_from_slice(value)));
         value.zeroize();
         Ok(Self::new(material))
     }
@@ -215,15 +214,13 @@ mod tests {
     fn test_make_user_key() {
         let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
 
-        let master_key: MasterKey = KdfDerivedKeyMaterial {
-            key_material: Box::pin(
-                [
-                    31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138,
-                    167, 69, 167, 254, 149, 2, 27, 39, 197, 64, 42, 22, 195, 86, 75,
-                ]
-                .into(),
-            ),
-        }
+        let master_key: MasterKey = KdfDerivedKeyMaterial(Box::pin(
+            [
+                31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138, 167,
+                69, 167, 254, 149, 2, 27, 39, 197, 64, 42, 22, 195, 86, 75,
+            ]
+            .into(),
+        ))
         .into();
 
         let (user_key, protected) = make_user_key(&mut rng, &master_key).unwrap();
@@ -257,9 +254,7 @@ mod tests {
 
     #[test]
     fn test_make_user_key2() {
-        let kdf_material = KdfDerivedKeyMaterial {
-            key_material: (derive_symmetric_key("test1")).enc_key.clone(),
-        };
+        let kdf_material = KdfDerivedKeyMaterial((derive_symmetric_key("test1")).enc_key.clone());
         let master_key = MasterKey::KdfKey(kdf_material);
 
         let user_key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test2"));

@@ -16,13 +16,13 @@ const ARGON2ID_MIN_MEMORY: u32 = 16 * 1024;
 const ARGON2ID_MIN_ITERATIONS: u32 = 2;
 const ARGON2ID_MIN_PARALLELISM: u32 = 1;
 
-/// The entropy that gets produced after calling a KDF on a password or PIN.
-/// This should not be directly used to encrypt, but instead be explicitly
-/// converted to a SymmetricCryptoKey of a specific encryption type, by re-using
-/// the key-material, or by stretching it with HKDF
-pub struct KdfDerivedKeyMaterial {
-    pub(crate) key_material: Pin<Box<GenericArray<u8, U32>>>,
-}
+/// Holding struct for key material derived from a KDF.
+///
+/// The internal key material should not be used directly for cryptographic operations. Instead it
+/// MUST be converted to the appropriate type such as `SymmetricCryptoKey`, `MasterKey` or any other
+/// key type. This can be done by either directly consuming the key material or by stretching it
+/// further using HKDF (HMAC-based Key Derivation Function).
+pub struct KdfDerivedKeyMaterial(pub(crate) Pin<Box<GenericArray<u8, U32>>>);
 
 impl KdfDerivedKeyMaterial {
     /// Derive a key from a secret and salt using the provided KDF.
@@ -80,7 +80,7 @@ impl KdfDerivedKeyMaterial {
         };
         let key_material = Box::pin(GenericArray::clone_from_slice(&hash));
         hash.zeroize();
-        Ok(KdfDerivedKeyMaterial { key_material })
+        Ok(KdfDerivedKeyMaterial(key_material))
     }
 
     /// Derives a users master key from their password, email and KDF.
@@ -201,7 +201,7 @@ mod tests {
                 31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138, 167,
                 69, 167, 254, 149, 2, 27, 39, 197, 64, 42, 22, 195, 86, 75
             ],
-            kdf_key.key_material.as_slice()
+            kdf_key.0.as_slice()
         );
     }
 
@@ -223,7 +223,7 @@ mod tests {
                 207, 240, 225, 177, 162, 19, 163, 76, 98, 106, 179, 175, 224, 9, 17, 240, 20, 147,
                 237, 47, 246, 150, 141, 184, 62, 225, 131, 242, 51, 53, 225, 242
             ],
-            kdf_key.key_material.as_slice()
+            kdf_key.0.as_slice()
         );
     }
 }
