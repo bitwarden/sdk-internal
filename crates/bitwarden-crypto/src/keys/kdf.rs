@@ -4,7 +4,6 @@ use generic_array::{typenum::U32, GenericArray};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
-
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 use zeroize::Zeroize;
@@ -68,8 +67,9 @@ impl KdfDerivedKeyMaterial {
                 let mut hash = [0u8; 32];
                 argon.hash_password_into(secret, &salt_sha, &mut hash)?;
 
-                // Argon2 is using some stack memory that is not zeroed. Eventually some function will
-                // overwrite the stack, but we use this trick to force the used stack to be zeroed.
+                // Argon2 is using some stack memory that is not zeroed. Eventually some function
+                // will overwrite the stack, but we use this trick to force the used
+                // stack to be zeroed.
                 #[inline(never)]
                 fn clear_stack() {
                     std::hint::black_box([0u8; 4096]);
