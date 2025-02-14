@@ -5,9 +5,8 @@ use generic_array::{typenum::U32, GenericArray};
 use hmac::Mac;
 use zeroize::{Zeroize, Zeroizing};
 
-use crate::util::{hkdf_expand, PbkdfSha256Hmac};
-
 use super::Aes256CbcHmacKey;
+use crate::util::{hkdf_expand, PbkdfSha256Hmac};
 
 /// Derive a shareable key using hkdf from secret and name.
 ///
@@ -39,9 +38,8 @@ pub fn derive_shareable_key(
 mod tests {
     use zeroize::Zeroizing;
 
-    use crate::SymmetricCryptoKey;
-
     use super::derive_shareable_key;
+    use crate::SymmetricCryptoKey;
 
     #[test]
     fn test_derive_shareable_key() {
