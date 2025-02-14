@@ -8,8 +8,9 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, store::backend::StoreBackend, AsymmetricCryptoKey, AsymmetricEncString,
-    CryptoError, EncString, KeyId, KeyIds, Result, SymmetricCryptoKey,
+    derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
+    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, KeyId, KeyIds, Result,
+    SymmetricCryptoKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -247,7 +248,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         info: Option<&str>,
     ) -> Result<Ids::Symmetric> {
         #[allow(deprecated)]
-        self.set_symmetric_key(key_id, derive_shareable_key(secret, name, info))?;
+        self.set_symmetric_key(
+            key_id,
+            SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(secret, name, info)),
+        )?;
         Ok(key_id)
     }
 
@@ -326,17 +330,15 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ) -> Result<Vec<u8>> {
         let key = self.get_symmetric_key(key)?;
 
-        match data {
-            EncString::AesCbc256_B64 { iv, data } => {
-                let dec = crate::aes::decrypt_aes256(iv, data.clone(), &key.key)?;
-                Ok(dec)
+        match (data, key) {
+            (EncString::AesCbc256_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
+                crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
             }
-            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
-                let mac_key = key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?;
-                let dec =
-                    crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), mac_key, &key.key)?;
-                Ok(dec)
-            }
+            (
+                EncString::AesCbc256_HmacSha256_B64 { iv, mac, data },
+                SymmetricCryptoKey::Aes256CbcHmacKey(key),
+            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
+            _ => Err(CryptoError::InvalidKey),
         }
     }
 
@@ -346,11 +348,12 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         data: &[u8],
     ) -> Result<EncString> {
         let key = self.get_symmetric_key(key)?;
-        EncString::encrypt_aes256_hmac(
-            data,
-            key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?,
-            &key.key,
-        )
+        match key {
+            SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperation::EncryptionNotImplementedForKey,
+            )),
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
+        }
     }
 
     pub(crate) fn decrypt_data_with_asymmetric_key(

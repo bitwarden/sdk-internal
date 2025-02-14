@@ -75,7 +75,7 @@ impl FromStr for AccessToken {
         Ok(AccessToken {
             access_token_id,
             client_secret: client_secret.to_owned(),
-            encryption_key,
+            encryption_key: SymmetricCryptoKey::Aes256CbcHmacKey(encryption_key),
         })
     }
 }

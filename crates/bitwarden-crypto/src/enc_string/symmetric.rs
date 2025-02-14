@@ -1,14 +1,12 @@
 use std::{fmt::Display, str::FromStr};
 
-use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
-use generic_array::GenericArray;
 use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    error::{CryptoError, EncStringParseError, Result},
-    KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+    error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
+    Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
 };
 
 #[cfg(feature = "wasm")]
@@ -195,10 +193,10 @@ impl serde::Serialize for EncString {
 impl EncString {
     pub(crate) fn encrypt_aes256_hmac(
         data_dec: &[u8],
-        mac_key: &GenericArray<u8, U32>,
-        key: &GenericArray<u8, U32>,
+        key: &Aes256CbcHmacKey,
     ) -> Result<EncString> {
-        let (iv, mac, data) = crate::aes::encrypt_aes256_hmac(data_dec, mac_key, key)?;
+        let (iv, mac, data) =
+            crate::aes::encrypt_aes256_hmac(data_dec, &key.mac_key, &key.enc_key)?;
         Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
     }
 
@@ -213,31 +211,26 @@ impl EncString {
 
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        EncString::encrypt_aes256_hmac(
-            self,
-            key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?,
-            &key.key,
-        )
+        match key {
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
+            SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperation::EncryptionNotImplementedForKey,
+            )),
+        }
     }
 }
 
 impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
-        match self {
-            EncString::AesCbc256_B64 { iv, data } => {
-                if key.mac_key.is_some() {
-                    return Err(CryptoError::MacNotProvided);
-                }
-
-                let dec = crate::aes::decrypt_aes256(iv, data.clone(), &key.key)?;
-                Ok(dec)
+        match (self, key) {
+            (EncString::AesCbc256_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
+                crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
             }
-            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
-                let mac_key = key.mac_key.as_ref().ok_or(CryptoError::InvalidMac)?;
-                let dec =
-                    crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), mac_key, &key.key)?;
-                Ok(dec)
-            }
+            (
+                EncString::AesCbc256_HmacSha256_B64 { iv, mac, data },
+                SymmetricCryptoKey::Aes256CbcHmacKey(key),
+            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
+            _ => Err(CryptoError::WrongKeyType),
         }
     }
 }
@@ -284,7 +277,7 @@ mod tests {
 
     #[test]
     fn test_enc_string_roundtrip() {
-        let key = derive_symmetric_key("test");
+        let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
 
         let test_string = "encrypted_test_string";
         let cipher = test_string.to_owned().encrypt_with_key(&key).unwrap();
@@ -295,7 +288,7 @@ mod tests {
 
     #[test]
     fn test_enc_string_ref_roundtrip() {
-        let key = derive_symmetric_key("test");
+        let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
 
         let test_string = "encrypted_test_string";
         let cipher = test_string.encrypt_with_key(&key).unwrap();
@@ -390,7 +383,7 @@ mod tests {
         assert_eq!(enc_string.enc_type(), 0);
 
         let result: Result<String, CryptoError> = enc_string.decrypt_with_key(&key);
-        assert!(matches!(result, Err(CryptoError::MacNotProvided)));
+        assert!(matches!(result, Err(CryptoError::WrongKeyType)));
     }
 
     #[test]
