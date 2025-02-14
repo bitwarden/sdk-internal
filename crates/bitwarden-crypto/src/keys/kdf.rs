@@ -22,6 +22,9 @@ const ARGON2ID_MIN_PARALLELISM: u32 = 1;
 /// MUST be converted to the appropriate type such as `SymmetricCryptoKey`, `MasterKey` or any other
 /// key type. This can be done by either directly consuming the key material or by stretching it
 /// further using HKDF (HMAC-based Key Derivation Function).
+///
+/// Uses pinned heap data as described in [Pinned heap
+/// data](crate::symmetric_crypto_key::utils#pinned-heap-data).
 pub struct KdfDerivedKeyMaterial(pub(crate) Pin<Box<GenericArray<u8, U32>>>);
 
 impl KdfDerivedKeyMaterial {

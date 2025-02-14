@@ -15,10 +15,11 @@ use crate::CryptoError;
 #[derive(ZeroizeOnDrop, Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Aes256CbcKey {
-    // GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
-    // To keep the compiler from making stack copies when moving this struct around,
-    // we use a Box to keep the values on the heap. We also pin the box to make sure
-    // that the contents can't be pulled out of the box and moved
+    /// # Pinned heap data
+    /// GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
+    /// To keep the compiler from making stack copies when moving this struct around,
+    /// we use a Box to keep the values on the heap. We also pin the box to make sure
+    /// that the contents can't be pulled out of the box and movevd
     pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
@@ -27,10 +28,7 @@ pub struct Aes256CbcKey {
 #[derive(ZeroizeOnDrop, Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Aes256CbcHmacKey {
-    // GenericArray is equivalent to [u8; N], which is a Copy type placed on the stack.
-    // To keep the compiler from making stack copies when moving this struct around,
-    // we use a Box to keep the values on the heap. We also pin the box to make sure
-    // that the contents can't be pulled out of the box and moved
+    /// Uses a pinned heap data structure, as noted in [Pinned heap data]
     pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
     pub(crate) mac_key: Pin<Box<GenericArray<u8, U32>>>,
 }
