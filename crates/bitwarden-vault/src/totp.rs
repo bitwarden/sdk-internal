@@ -260,7 +260,8 @@ impl fmt::Display for Totp {
     /// Formats the TOTP as an OTP Auth URI.
     ///
     /// Returns a steam::// URI if the algorithm is Steam.
-    /// Otherwise returns an otpauth:// URI according to the Key Uri Format Specification:  <https://docs.yubico.com/yesdk/users-manual/application-oath/uri-string-format.html>
+    /// Otherwise returns an otpauth:// URI according to the Key Uri Format Specification:
+    /// <https://docs.yubico.com/yesdk/users-manual/application-oath/uri-string-format.html>
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let secret_b32 = BASE32_NOPAD.encode(&self.secret);
 
