@@ -16,8 +16,6 @@ const ARGON2ID_MIN_MEMORY: u32 = 16 * 1024;
 const ARGON2ID_MIN_ITERATIONS: u32 = 2;
 const ARGON2ID_MIN_PARALLELISM: u32 = 1;
 
-/// Derive a generic key from a secret and salt using the provided KDF.
-
 /// The entropy that gets produced after calling a KDF on a password or PIN.
 /// This should not be directly used to encrypt, but instead be explicitly
 /// converted to a SymmetricCryptoKey of a specific encryption type, by re-using
@@ -27,6 +25,7 @@ pub struct KdfDerivedKeyMaterial {
 }
 
 impl KdfDerivedKeyMaterial {
+    /// Derive a key from a secret and salt using the provided KDF.
     pub(super) fn derive_kdf_key(
         secret: &[u8],
         salt: &[u8],
