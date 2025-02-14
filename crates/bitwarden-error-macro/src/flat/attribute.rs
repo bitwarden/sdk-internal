@@ -90,6 +90,7 @@ fn flat_error_wasm(
     quote! {
         const _: () = {
             use bitwarden_error::wasm_bindgen::prelude::*;
+            use bitwarden_error::wasm_bindgen as wasm_bindgen;
 
             #[wasm_bindgen(typescript_custom_section)]
             const TS_APPEND_CONTENT: &'static str = #ts_code;

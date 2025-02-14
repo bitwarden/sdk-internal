@@ -28,12 +28,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Set Rust Toolchain
+        id: toolchain
+        shell: bash
+        run: |
+          RUST_TOOLCHAIN="$(grep -oP '^rust-version.*"(\K.*?)(?=")' Cargo.toml)"
+          echo "RUST_TOOLCHAIN=${RUST_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
+
+      - name: Set Rust Nightly Toolchain
+        id: nightly-toolchain
+        shell: bash
+        run: |
+          RUST_NIGHTLY_TOOLCHAIN="$(grep -oP '^nightly-channel.*"(\K.*?)(?=")' rust-toolchain.toml)"
+          echo "RUST_NIGHTLY_TOOLCHAIN=${RUST_NIGHTLY_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
+
       - name: Install rust
         uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203 # stable
         with:
-          # Important: When updating this, make sure to update the Readme file
-          # and also the `rust-version` field in all the `Cargo.toml`.
-          toolchain: 1.75.0
+          toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
           targets: ${{ matrix.settings.target }}
 
       - name: Cache cargo registry

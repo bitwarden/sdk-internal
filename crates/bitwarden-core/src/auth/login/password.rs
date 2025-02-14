@@ -5,25 +5,25 @@ use log::info;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::auth::{
+    api::response::IdentityTokenResponse,
+    login::{
+        response::{captcha_response::CaptchaResponse, two_factor::TwoFactorProviders},
+        LoginError,
+    },
+};
 #[cfg(feature = "internal")]
 use crate::{
     auth::{api::request::PasswordTokenRequest, login::TwoFactorRequest},
     client::LoginMethod,
     Client,
 };
-use crate::{
-    auth::{
-        api::response::IdentityTokenResponse,
-        login::response::{captcha_response::CaptchaResponse, two_factor::TwoFactorProviders},
-    },
-    error::Result,
-};
 
 #[cfg(feature = "internal")]
 pub(crate) async fn login_password(
     client: &Client,
     input: &PasswordLoginRequest,
-) -> Result<PasswordLoginResponse> {
+) -> Result<PasswordLoginResponse, LoginError> {
     use bitwarden_crypto::{EncString, HashPurpose, MasterKey};
 
     use crate::{client::UserLoginMethod, require};
@@ -58,7 +58,7 @@ pub(crate) async fn login_password(
             .initialize_user_crypto_master_key(master_key, user_key, private_key)?;
     }
 
-    PasswordLoginResponse::process_response(response)
+    Ok(PasswordLoginResponse::process_response(response))
 }
 
 #[cfg(feature = "internal")]
@@ -66,7 +66,7 @@ async fn request_identity_tokens(
     client: &Client,
     input: &PasswordLoginRequest,
     password_hash: &str,
-) -> Result<IdentityTokenResponse> {
+) -> Result<IdentityTokenResponse, LoginError> {
     use crate::DeviceType;
 
     let config = client.internal.get_api_configurations().await;
@@ -113,38 +113,36 @@ pub struct PasswordLoginResponse {
 }
 
 impl PasswordLoginResponse {
-    pub(crate) fn process_response(
-        response: IdentityTokenResponse,
-    ) -> Result<PasswordLoginResponse> {
+    pub(crate) fn process_response(response: IdentityTokenResponse) -> PasswordLoginResponse {
         match response {
-            IdentityTokenResponse::Authenticated(success) => Ok(PasswordLoginResponse {
+            IdentityTokenResponse::Authenticated(success) => PasswordLoginResponse {
                 authenticated: true,
                 reset_master_password: success.reset_master_password,
                 force_password_reset: success.force_password_reset,
                 two_factor: None,
                 captcha: None,
-            }),
-            IdentityTokenResponse::Payload(_) => Ok(PasswordLoginResponse {
+            },
+            IdentityTokenResponse::Payload(_) => PasswordLoginResponse {
                 authenticated: true,
                 reset_master_password: false,
                 force_password_reset: false,
                 two_factor: None,
                 captcha: None,
-            }),
-            IdentityTokenResponse::TwoFactorRequired(two_factor) => Ok(PasswordLoginResponse {
+            },
+            IdentityTokenResponse::TwoFactorRequired(two_factor) => PasswordLoginResponse {
                 authenticated: false,
                 reset_master_password: false,
                 force_password_reset: false,
                 two_factor: Some(two_factor.two_factor_providers.into()),
                 captcha: two_factor.captcha_token.map(Into::into),
-            }),
-            IdentityTokenResponse::CaptchaRequired(captcha) => Ok(PasswordLoginResponse {
+            },
+            IdentityTokenResponse::CaptchaRequired(captcha) => PasswordLoginResponse {
                 authenticated: false,
                 reset_master_password: false,
                 force_password_reset: false,
                 two_factor: None,
                 captcha: Some(captcha.site_key.into()),
-            }),
+            },
             IdentityTokenResponse::Refreshed(_) => {
                 unreachable!("Got a `refresh_token` answer to a login request")
             }

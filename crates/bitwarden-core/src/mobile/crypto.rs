@@ -12,9 +12,8 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
-    error::{NotAuthenticatedError, Result},
     key_management::SymmetricKeyId,
-    Client, VaultLockedError, WrongPasswordError,
+    Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
 };
 
 /// Catch all errors for mobile crypto operations
@@ -280,9 +279,9 @@ pub fn update_password(
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct DerivePinKeyResponse {
-    /// [UserKey](bitwarden_crypto::UserKey) protected by PIN
+    /// [UserKey] protected by PIN
     pin_protected_user_key: EncString,
-    /// PIN protected by [UserKey](bitwarden_crypto::UserKey)
+    /// PIN protected by [UserKey]
     encrypted_pin: EncString,
 }
 
