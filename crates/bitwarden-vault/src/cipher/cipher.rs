@@ -623,7 +623,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
                         .unwrap_or_default()
                         .is_empty()
                 }
-                _ => false
+                _ => false,
             },
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
@@ -860,7 +860,7 @@ mod tests {
                 organization_use_totp: cipher.organization_use_totp,
                 edit: cipher.edit,
                 view_password: cipher.view_password,
-                attachments: 0, 
+                attachments: 0,
                 has_fido2_credentials: true,
                 creation_date: cipher.creation_date,
                 deleted_date: cipher.deleted_date,
