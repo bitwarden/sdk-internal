@@ -51,7 +51,7 @@ where
 mod tests {
     use std::collections::HashMap;
 
-    use crate::{destination::Destination, traits::InMemorySessionRepository};
+    use crate::{endpoint::Endpoint, traits::InMemorySessionRepository};
 
     use super::*;
 
@@ -109,7 +109,7 @@ mod tests {
     async fn returns_send_error_when_crypto_provider_returns_error() {
         let message = Message {
             data: vec![],
-            destination: Destination::BrowserBackground,
+            destination: Endpoint::BrowserBackground,
             source: None,
         };
         let crypto_provider = TestCryptoProvider {

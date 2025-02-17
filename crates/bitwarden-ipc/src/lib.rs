@@ -1,4 +1,4 @@
-mod destination;
+mod endpoint;
 mod error;
 pub mod ipc_client;
 mod manager;
