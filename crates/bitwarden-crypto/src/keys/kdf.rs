@@ -23,8 +23,7 @@ const ARGON2ID_MIN_PARALLELISM: u32 = 1;
 /// key type. This can be done by either directly consuming the key material or by stretching it
 /// further using HKDF (HMAC-based Key Derivation Function).
 ///
-/// Uses pinned heap data as described in [Pinned heap
-/// data](super::symmetric_crypto_key#pinned-heap-data).
+/// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
 pub struct KdfDerivedKeyMaterial(pub(super) Pin<Box<GenericArray<u8, U32>>>);
 
 impl KdfDerivedKeyMaterial {
