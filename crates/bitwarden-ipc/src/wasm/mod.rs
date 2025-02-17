@@ -1,8 +1,8 @@
 mod communication_backend;
 mod error;
-mod manager;
+mod ipc_client;
 
 // Re-export types to make sure wasm_bindgen picks them up
 pub use communication_backend::*;
 pub use error::*;
-pub use manager::*;
+pub use ipc_client::*;
