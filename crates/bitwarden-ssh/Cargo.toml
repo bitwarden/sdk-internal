@@ -24,6 +24,7 @@ uniffi = ["dep:uniffi"] # Uniffi bindings
 
 [dependencies]
 bitwarden-error = { workspace = true }
+bitwarden-vault = { workspace = true }
 ed25519 = { version = ">=2.2.3, <3.0", features = ["pkcs8"] }
 pem-rfc7468 = "0.7.0"
 pkcs8 = { version = ">=0.10.2, <0.11", features = ["encryption"] }

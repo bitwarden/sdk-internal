@@ -5,30 +5,29 @@ use serde::{Deserialize, Serialize};
 use crate::{
     auth::{
         api::{request::ApiTokenRequest, response::IdentityTokenResponse},
-        login::{response::two_factor::TwoFactorProviders, PasswordLoginResponse},
-        JWTToken,
+        login::{response::two_factor::TwoFactorProviders, LoginError, PasswordLoginResponse},
+        JwtToken,
     },
     client::{LoginMethod, UserLoginMethod},
-    error::Result,
     require, Client,
 };
 
 pub(crate) async fn login_api_key(
     client: &Client,
     input: &ApiKeyLoginRequest,
-) -> Result<ApiKeyLoginResponse> {
+) -> Result<ApiKeyLoginResponse, LoginError> {
     //info!("api key logging in");
     //debug!("{:#?}, {:#?}", client, input);
 
     let response = request_api_identity_tokens(client, input).await?;
 
     if let IdentityTokenResponse::Authenticated(r) = &response {
-        let access_token_obj: JWTToken = r.access_token.parse()?;
+        let access_token_obj: JwtToken = r.access_token.parse()?;
 
         // This should always be Some() when logging in with an api key
         let email = access_token_obj
             .email
-            .ok_or("Access token doesn't contain email")?;
+            .ok_or(LoginError::JwtTokenMissingEmail)?;
 
         let kdf = client.auth().prelogin(email.clone()).await?;
 
@@ -57,13 +56,13 @@ pub(crate) async fn login_api_key(
             .initialize_user_crypto_master_key(master_key, user_key, private_key)?;
     }
 
-    ApiKeyLoginResponse::process_response(response)
+    Ok(ApiKeyLoginResponse::process_response(response))
 }
 
 async fn request_api_identity_tokens(
     client: &Client,
     input: &ApiKeyLoginRequest,
-) -> Result<IdentityTokenResponse> {
+) -> Result<IdentityTokenResponse, LoginError> {
     let config = client.internal.get_api_configurations().await;
     ApiTokenRequest::new(&input.client_id, &input.client_secret)
         .send(&config)
@@ -95,14 +94,14 @@ pub struct ApiKeyLoginResponse {
 }
 
 impl ApiKeyLoginResponse {
-    pub(crate) fn process_response(response: IdentityTokenResponse) -> Result<ApiKeyLoginResponse> {
-        let password_response = PasswordLoginResponse::process_response(response)?;
+    pub(crate) fn process_response(response: IdentityTokenResponse) -> ApiKeyLoginResponse {
+        let password_response = PasswordLoginResponse::process_response(response);
 
-        Ok(ApiKeyLoginResponse {
+        ApiKeyLoginResponse {
             authenticated: password_response.authenticated,
             reset_master_password: password_response.reset_master_password,
             force_password_reset: password_response.force_password_reset,
             two_factor: password_response.two_factor,
-        })
+        }
     }
 }

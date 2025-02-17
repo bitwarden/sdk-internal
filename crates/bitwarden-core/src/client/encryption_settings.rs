@@ -5,11 +5,9 @@ use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use uuid::Uuid;
 
-#[cfg(feature = "internal")]
-use crate::error::Result;
 use crate::{
     key_management::{AsymmetricKeyId, KeyIds, SymmetricKeyId},
-    VaultLockedError,
+    MissingPrivateKeyError, VaultLockedError,
 };
 
 #[bitwarden_error(flat)]
@@ -27,8 +25,8 @@ pub enum EncryptionSettingsError {
     #[error("Invalid private key")]
     InvalidPrivateKey,
 
-    #[error("Missing private key")]
-    MissingPrivateKey,
+    #[error(transparent)]
+    MissingPrivateKey(#[from] MissingPrivateKeyError),
 }
 
 pub struct EncryptionSettings {}
@@ -104,7 +102,7 @@ impl EncryptionSettings {
         }
 
         if !ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey) {
-            return Err(EncryptionSettingsError::MissingPrivateKey);
+            return Err(MissingPrivateKeyError.into());
         }
 
         // Make sure we only keep the keys given in the arguments and not any of the previous

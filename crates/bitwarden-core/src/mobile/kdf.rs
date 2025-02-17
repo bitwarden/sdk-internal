@@ -1,7 +1,5 @@
 use bitwarden_crypto::{CryptoError, HashPurpose, Kdf, MasterKey};
 
-use crate::error::Result;
-
 pub async fn hash_password(
     email: String,
     password: String,

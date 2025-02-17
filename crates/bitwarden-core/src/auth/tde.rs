@@ -4,7 +4,7 @@ use bitwarden_crypto::{
     TrustDeviceResponse, UserKey,
 };
 
-use crate::{client::encryption_settings::EncryptionSettingsError, error::Result, Client};
+use crate::{client::encryption_settings::EncryptionSettingsError, Client};
 
 /// This function generates a new user key and key pair, initializes the client's crypto with the
 /// generated user key, and encrypts the user key with the organization public key for admin

@@ -7,8 +7,9 @@ use bitwarden_crypto::{
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
-use crate::{error::Result, Client};
+use crate::{ApiError, Client};
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -19,8 +20,16 @@ pub struct RegisterRequest {
     pub password_hint: Option<String>,
 }
 
+#[derive(Debug, Error)]
+pub enum RegisterError {
+    #[error(transparent)]
+    Crypto(#[from] CryptoError),
+    #[error(transparent)]
+    Api(#[from] ApiError),
+}
+
 /// Half baked implementation of user registration
-pub(super) async fn register(client: &Client, req: &RegisterRequest) -> Result<()> {
+pub(super) async fn register(client: &Client, req: &RegisterRequest) -> Result<(), RegisterError> {
     let config = client.internal.get_api_configurations().await;
 
     let kdf = Kdf::default();
@@ -49,7 +58,8 @@ pub(super) async fn register(client: &Client, req: &RegisterRequest) -> Result<(
             reference_data: None, // TODO: Add
         }),
     )
-    .await?;
+    .await
+    .map_err(ApiError::from)?;
 
     Ok(())
 }

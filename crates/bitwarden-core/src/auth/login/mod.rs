@@ -1,94 +1,79 @@
-#[cfg(feature = "internal")]
-use bitwarden_crypto::Kdf;
-#[cfg(feature = "internal")]
-use {
-    crate::{error::Result, Client},
-    bitwarden_api_identity::{
-        apis::accounts_api::accounts_prelogin_post,
-        models::{PreloginRequestModel, PreloginResponseModel},
-    },
-};
-
 pub mod response;
+
+#[cfg(feature = "internal")]
+mod prelogin;
+#[cfg(feature = "internal")]
+pub use prelogin::*;
 
 #[cfg(any(feature = "internal", feature = "secrets"))]
 mod password;
 #[cfg(feature = "internal")]
-pub(crate) use password::login_password;
-#[cfg(feature = "internal")]
-pub use password::PasswordLoginRequest;
-#[cfg(any(feature = "internal", feature = "secrets"))]
-pub use password::PasswordLoginResponse;
+pub use password::*;
+
 #[cfg(feature = "internal")]
 mod two_factor;
 #[cfg(feature = "internal")]
-pub(crate) use two_factor::send_two_factor_email;
-#[cfg(feature = "internal")]
-pub use two_factor::{TwoFactorEmailRequest, TwoFactorProvider, TwoFactorRequest};
+pub use two_factor::*;
 
 #[cfg(feature = "internal")]
 mod api_key;
 #[cfg(feature = "internal")]
-pub(crate) use api_key::login_api_key;
-#[cfg(feature = "internal")]
-pub use api_key::{ApiKeyLoginRequest, ApiKeyLoginResponse};
+pub use api_key::*;
 
 #[cfg(feature = "internal")]
 mod auth_request;
 #[cfg(feature = "internal")]
-pub use auth_request::NewAuthRequestResponse;
-#[cfg(feature = "internal")]
-pub(crate) use auth_request::{complete_auth_request, send_new_auth_request};
+pub use auth_request::*;
 
 #[cfg(feature = "secrets")]
 mod access_token;
 #[cfg(feature = "secrets")]
-pub(super) use access_token::login_access_token;
-#[cfg(feature = "secrets")]
-pub use access_token::{AccessTokenLoginRequest, AccessTokenLoginResponse};
+pub use access_token::*;
 
-#[cfg(feature = "internal")]
-pub(crate) async fn request_prelogin(
-    client: &Client,
-    email: String,
-) -> Result<PreloginResponseModel> {
-    let request_model = PreloginRequestModel::new(email);
-    let config = client.internal.get_api_configurations().await;
-    Ok(accounts_prelogin_post(&config.identity, Some(request_model)).await?)
-}
+#[derive(Debug, thiserror::Error)]
+pub enum LoginError {
+    #[error(transparent)]
+    Api(#[from] crate::ApiError),
+    #[error(transparent)]
+    Crypto(#[from] bitwarden_crypto::CryptoError),
+    #[error(transparent)]
+    Serde(#[from] serde_json::Error),
+    #[error(transparent)]
+    InvalidBase64(#[from] base64::DecodeError),
 
-#[cfg(feature = "internal")]
-pub(crate) fn parse_prelogin(response: PreloginResponseModel) -> Result<Kdf> {
-    use std::num::NonZeroU32;
+    #[error(transparent)]
+    MissingField(#[from] crate::MissingFieldError),
 
-    use bitwarden_api_identity::models::KdfType;
-    use bitwarden_crypto::{
-        default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
-        default_pbkdf2_iterations,
-    };
+    #[error(transparent)]
+    JwtTokenParse(#[from] super::JwtTokenParseError),
+    #[error("JWT token is missing email")]
+    JwtTokenMissingEmail,
 
-    let kdf = response.kdf.ok_or("KDF not found")?;
+    #[error(transparent)]
+    Prelogin(#[from] PreloginError),
+    #[error(transparent)]
+    EncryptionSettings(#[from] crate::client::encryption_settings::EncryptionSettingsError),
+    #[error(transparent)]
+    AccessTokenInvalid(#[from] super::AccessTokenInvalidError),
+    #[error(transparent)]
+    NotAuthenticated(#[from] super::NotAuthenticatedError),
+    #[cfg(feature = "secrets")]
+    #[error(transparent)]
+    StateFile(#[from] crate::secrets_manager::state::StateFileError),
+    #[error("Error parsing Identity response: {0}")]
+    IdentityFail(crate::auth::api::response::IdentityTokenFailResponse),
 
-    Ok(match kdf {
-        KdfType::PBKDF2_SHA256 => Kdf::PBKDF2 {
-            iterations: response
-                .kdf_iterations
-                .and_then(|e| NonZeroU32::new(e as u32))
-                .unwrap_or_else(default_pbkdf2_iterations),
-        },
-        KdfType::Argon2id => Kdf::Argon2id {
-            iterations: response
-                .kdf_iterations
-                .and_then(|e| NonZeroU32::new(e as u32))
-                .unwrap_or_else(default_argon2_iterations),
-            memory: response
-                .kdf_memory
-                .and_then(|e| NonZeroU32::new(e as u32))
-                .unwrap_or_else(default_argon2_memory),
-            parallelism: response
-                .kdf_parallelism
-                .and_then(|e| NonZeroU32::new(e as u32))
-                .unwrap_or_else(default_argon2_parallelism),
-        },
-    })
+    #[error("The state file could not be read")]
+    InvalidStateFile,
+    #[error("Invalid organization id")]
+    InvalidOrganizationId,
+
+    #[error("The response received was invalid and could not be processed")]
+    InvalidResponse,
+
+    #[error("Auth request was not approved")]
+    AuthRequestNotApproved,
+
+    #[error("Failed to authenticate")]
+    AuthenticationFailed,
 }
