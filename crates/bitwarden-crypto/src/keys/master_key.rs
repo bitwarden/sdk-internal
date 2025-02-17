@@ -1,18 +1,18 @@
-use std::pin::Pin;
-
 use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::{typenum::U32, GenericArray};
 use rand::Rng;
 use schemars::JsonSchema;
-use zeroize::{Zeroize, Zeroizing};
+use zeroize::Zeroize;
 
 use super::{
-    kdf::{Kdf, KdfDerivedKeyMaterial},
-    utils::stretch_key,
+    kdf::Kdf,
+    key_material::{
+        decrypt_user_key, encrypt_user_key, KdfDerivedKeyMaterial, KeyMaterial, RandomKeyMaterial,
+    },
 };
 use crate::{
     util::{self},
-    CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey,
+    CryptoError, EncString, Result, SymmetricCryptoKey, UserKey,
 };
 
 #[derive(Copy, Clone, JsonSchema)]
@@ -25,14 +25,11 @@ pub enum HashPurpose {
 /// Master Key.
 ///
 /// Derived from the users master password, used to protect the [UserKey].
-pub enum MasterKey {
-    KdfKey(KdfDerivedKeyMaterial),
-    KeyConnectorKey(Pin<Box<GenericArray<u8, U32>>>),
-}
+pub struct MasterKey(Box<dyn KeyMaterial>);
 
 impl MasterKey {
     pub(crate) fn new(key: KdfDerivedKeyMaterial) -> Self {
-        Self::KdfKey(key)
+        Self(Box::new(key))
     }
 
     /// Generate a new random master key. Primarily used for KeyConnector.
@@ -40,14 +37,7 @@ impl MasterKey {
         let mut key = Box::pin(GenericArray::<u8, U32>::default());
 
         rng.fill(key.as_mut_slice());
-        Self::KeyConnectorKey(key)
-    }
-
-    fn inner_bytes(&self) -> &Pin<Box<GenericArray<u8, U32>>> {
-        match self {
-            Self::KdfKey(key) => &key.0,
-            Self::KeyConnectorKey(key) => key,
-        }
+        Self(Box::new(RandomKeyMaterial(key)))
     }
 
     /// Derives a users master key from their password, email and KDF.
@@ -59,7 +49,7 @@ impl MasterKey {
 
     /// Derive the master key hash, used for local and remote password validation.
     pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> Result<String> {
-        let hash = util::pbkdf2(self.inner_bytes(), password, purpose as u32);
+        let hash = util::pbkdf2(self.0.inner_bytes(), password, purpose as u32);
 
         Ok(STANDARD.encode(hash))
     }
@@ -71,16 +61,16 @@ impl MasterKey {
 
     /// Encrypt the users user key
     pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
-        encrypt_user_key(self.inner_bytes(), user_key)
+        encrypt_user_key(self.0.as_ref(), user_key)
     }
 
     /// Decrypt the users user key
     pub fn decrypt_user_key(&self, user_key: EncString) -> Result<SymmetricCryptoKey> {
-        decrypt_user_key(self.inner_bytes(), user_key)
+        decrypt_user_key(self.0.as_ref(), user_key)
     }
 
     pub fn to_base64(&self) -> String {
-        STANDARD.encode(self.inner_bytes().as_slice())
+        STANDARD.encode(self.0.inner_bytes())
     }
 }
 
@@ -104,40 +94,6 @@ impl From<KdfDerivedKeyMaterial> for MasterKey {
     fn from(key: KdfDerivedKeyMaterial) -> Self {
         Self::new(key)
     }
-}
-
-/// Helper function to encrypt a user key with a master or pin key.
-pub(super) fn encrypt_user_key(
-    master_key: &Pin<Box<GenericArray<u8, U32>>>,
-    user_key: &SymmetricCryptoKey,
-) -> Result<EncString> {
-    let stretched_master_key = stretch_key(master_key)?;
-    let user_key_bytes = Zeroizing::new(user_key.to_vec());
-    EncString::encrypt_aes256_hmac(&user_key_bytes, &stretched_master_key)
-}
-
-/// Helper function to decrypt a user key with a master or pin key.
-pub(super) fn decrypt_user_key(
-    key: &Pin<Box<GenericArray<u8, U32>>>,
-    user_key: EncString,
-) -> Result<SymmetricCryptoKey> {
-    let mut dec: Vec<u8> = match user_key {
-        // Legacy. user_keys were encrypted using `AesCbc256_B64` a long time ago. We've since
-        // moved to using `AesCbc256_HmacSha256_B64`. However, we still need to support
-        // decrypting these old keys.
-        EncString::AesCbc256_B64 { .. } => {
-            let legacy_key = SymmetricCryptoKey::Aes256CbcKey(super::Aes256CbcKey {
-                enc_key: Box::pin(GenericArray::clone_from_slice(key)),
-            });
-            user_key.decrypt_with_key(&legacy_key)?
-        }
-        _ => {
-            let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key)?);
-            user_key.decrypt_with_key(&stretched_key)?
-        }
-    };
-
-    SymmetricCryptoKey::try_from(dec.as_mut_slice())
 }
 
 /// Generate a new random user key and encrypt it with the master key.
