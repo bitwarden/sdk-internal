@@ -25,6 +25,7 @@ pub enum HashPurpose {
 /// Master Key.
 ///
 /// Derived from the users master password, used to protect the [UserKey].
+/// TODO: https://bitwarden.atlassian.net/browse/PM-18366 split KeyConnectorKey into a separate file
 pub enum MasterKey {
     KdfKey(KdfDerivedKeyMaterial),
     KeyConnectorKey(Pin<Box<GenericArray<u8, U32>>>),
@@ -116,7 +117,7 @@ pub(super) fn encrypt_user_key(
     EncString::encrypt_aes256_hmac(&user_key_bytes, &stretched_master_key)
 }
 
-/// Helper function to decrypt a user key with a master or pin key.
+/// Helper function to decrypt a user key with a master or pin key or key-connector-key.
 pub(super) fn decrypt_user_key(
     key: &Pin<Box<GenericArray<u8, U32>>>,
     user_key: EncString,

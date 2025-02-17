@@ -89,7 +89,7 @@ impl KdfDerivedKeyMaterial {
     /// Derives a users master key from their password, email and KDF.
     ///
     /// Note: the email is trimmed and converted to lowercase before being used.
-    pub fn derive(password: &str, email: &str, kdf: &Kdf) -> Result<Self, CryptoError> {
+    pub(super) fn derive(password: &str, email: &str, kdf: &Kdf) -> Result<Self, CryptoError> {
         Self::derive_kdf_key(
             password.as_bytes(),
             email.trim().to_lowercase().as_bytes(),
