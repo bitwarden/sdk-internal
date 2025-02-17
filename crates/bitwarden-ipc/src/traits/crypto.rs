@@ -3,11 +3,11 @@ use crate::{
     message::Message,
 };
 
-use super::{session::SessionRepository, CommunicationProvider};
+use super::{session::SessionRepository, CommunicationBackend};
 
 pub trait CryptoProvider<Com, Ses>
 where
-    Com: CommunicationProvider,
+    Com: CommunicationBackend,
     Ses: SessionRepository<Session = Self::Session>,
 {
     type Session;
@@ -33,7 +33,7 @@ pub struct NoEncryptionCryptoProvider;
 
 impl<Com, Ses> CryptoProvider<Com, Ses> for NoEncryptionCryptoProvider
 where
-    Com: CommunicationProvider,
+    Com: CommunicationBackend,
     Ses: SessionRepository<Session = ()>,
 {
     type Session = ();

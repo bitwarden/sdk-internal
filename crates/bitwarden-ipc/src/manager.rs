@@ -1,13 +1,13 @@
 use crate::{
     error::{ReceiveError, SendError},
     message::Message,
-    traits::{CommunicationProvider, CryptoProvider, SessionRepository},
+    traits::{CommunicationBackend, CryptoProvider, SessionRepository},
 };
 
 pub struct Manager<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationProvider,
+    Com: CommunicationBackend,
     Ses: SessionRepository<Session = Crypto::Session>,
 {
     crypto: Crypto,
@@ -18,7 +18,7 @@ where
 impl<Crypto, Com, Ses> Manager<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationProvider,
+    Com: CommunicationBackend,
     Ses: SessionRepository<Session = Crypto::Session>,
 {
     pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Self {
@@ -57,7 +57,7 @@ mod tests {
 
     struct TestCommunicationProvider;
 
-    impl CommunicationProvider for TestCommunicationProvider {
+    impl CommunicationBackend for TestCommunicationProvider {
         type SendError = ();
         type ReceiveError = ();
 
@@ -98,7 +98,7 @@ mod tests {
             (),
             SendError<
                 Self::SendError,
-                <TestCommunicationProvider as CommunicationProvider>::SendError,
+                <TestCommunicationProvider as CommunicationBackend>::SendError,
             >,
         > {
             self.send_result.clone()

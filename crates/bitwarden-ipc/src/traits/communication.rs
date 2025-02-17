@@ -2,7 +2,7 @@ use crate::message::Message;
 
 /// This trait defines the interface that will be used to send and receive messages over IPC.
 /// It is up to the platform to implement this trait and any necessary thread synchronization and broadcasting.
-pub trait CommunicationProvider {
+pub trait CommunicationBackend {
     type SendError;
     type ReceiveError;
 

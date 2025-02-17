@@ -4,12 +4,12 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     message::Message,
-    traits::{InMemorySessionProvider, NoEncryptionCryptoProvider},
+    traits::{InMemorySessionRepository, NoEncryptionCryptoProvider},
     Manager,
 };
 
 use super::{
-    communication::JsCommunicationProvider,
+    communication::JsCommunicationBackend,
     error::{JsReceiveError, JsSendError},
 };
 
@@ -17,18 +17,18 @@ use super::{
 pub struct JsManager {
     // TODO: Change session provider to a JS-implemented one
     manager:
-        Manager<NoEncryptionCryptoProvider, JsCommunicationProvider, InMemorySessionProvider<()>>,
+        Manager<NoEncryptionCryptoProvider, JsCommunicationBackend, InMemorySessionRepository<()>>,
 }
 
 #[wasm_bindgen(js_class = Manager)]
 impl JsManager {
     #[wasm_bindgen(constructor)]
-    pub fn new(communication_provider: JsCommunicationProvider) -> JsManager {
+    pub fn new(communication_provider: JsCommunicationBackend) -> JsManager {
         JsManager {
             manager: Manager::new(
                 NoEncryptionCryptoProvider,
                 communication_provider,
-                InMemorySessionProvider::new(HashMap::new()),
+                InMemorySessionRepository::new(HashMap::new()),
             ),
         }
     }

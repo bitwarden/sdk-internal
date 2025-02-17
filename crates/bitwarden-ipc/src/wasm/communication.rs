@@ -1,11 +1,11 @@
 use tsify_next::serde_wasm_bindgen;
 use wasm_bindgen::prelude::*;
 
-use crate::{message::Message, traits::CommunicationProvider};
+use crate::{message::Message, traits::CommunicationBackend};
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export interface CommunicationProvider {
+export interface CommunicationBackend {
     send(message: Message): Promise<void>;
     receive(): Promise<Message>;
 }
@@ -13,17 +13,17 @@ export interface CommunicationProvider {
 
 #[wasm_bindgen]
 extern "C" {
-    #[wasm_bindgen(js_name = CommunicationProvider, typescript_type = "CommunicationProvider")]
-    pub type JsCommunicationProvider;
+    #[wasm_bindgen(js_name = CommunicationBackend, typescript_type = "CommunicationBackend")]
+    pub type JsCommunicationBackend;
 
     #[wasm_bindgen(catch, method, structural)]
-    pub async fn send(this: &JsCommunicationProvider, message: Message) -> Result<(), JsValue>;
+    pub async fn send(this: &JsCommunicationBackend, message: Message) -> Result<(), JsValue>;
 
     #[wasm_bindgen(catch, method, structural)]
-    pub async fn receive(this: &JsCommunicationProvider) -> Result<JsValue, JsValue>;
+    pub async fn receive(this: &JsCommunicationBackend) -> Result<JsValue, JsValue>;
 }
 
-impl CommunicationProvider for JsCommunicationProvider {
+impl CommunicationBackend for JsCommunicationBackend {
     type SendError = JsValue;
     type ReceiveError = JsValue;
 
