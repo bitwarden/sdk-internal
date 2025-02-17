@@ -35,7 +35,7 @@ impl MasterKey {
         Self::KdfKey(key)
     }
 
-    /// Generate a new random master key. Primarily used for KeyConnector.
+    /// Generate a new random master key for KeyConnector.
     pub fn generate(mut rng: impl rand::RngCore) -> Self {
         let mut key = Box::pin(GenericArray::<u8, U32>::default());
 

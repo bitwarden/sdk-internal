@@ -25,7 +25,7 @@ const ARGON2ID_MIN_PARALLELISM: u32 = 1;
 ///
 /// Uses pinned heap data as described in [Pinned heap
 /// data](super::symmetric_crypto_key#pinned-heap-data).
-pub struct KdfDerivedKeyMaterial(pub(crate) Pin<Box<GenericArray<u8, U32>>>);
+pub struct KdfDerivedKeyMaterial(pub(super) Pin<Box<GenericArray<u8, U32>>>);
 
 impl KdfDerivedKeyMaterial {
     /// Derive a key from a secret and salt using the provided KDF.
