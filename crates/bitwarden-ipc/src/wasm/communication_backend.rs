@@ -1,7 +1,14 @@
+use bitwarden_error::bitwarden_error;
+use thiserror::Error;
 use tsify_next::serde_wasm_bindgen;
 use wasm_bindgen::prelude::*;
 
 use crate::{message::Message, traits::CommunicationBackend};
+
+#[derive(Debug, Error)]
+#[bitwarden_error(basic)]
+#[error("Failed to deserialize incoming message: {0}")]
+pub struct DeserializeError(String);
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
@@ -34,9 +41,7 @@ impl CommunicationBackend for JsCommunicationBackend {
     async fn receive(&self) -> Result<Message, Self::ReceiveError> {
         let js_value = self.receive().await?;
         let message: Message = serde_wasm_bindgen::from_value(js_value)
-            .map_err(|e| format!("Failed to deserialize message: {e}"))?;
+            .map_err(|e| DeserializeError(e.to_string()))?;
         Ok(message)
     }
 }
-
-// #[wasm_bindgen
