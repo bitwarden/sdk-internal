@@ -9,10 +9,10 @@ use crate::{util::hkdf_expand, Result};
 /// This can be either a kdf-derived key (PIN/Master password) or
 /// a random key from key connector
 pub(super) fn stretch_key(key: &Pin<Box<GenericArray<u8, U32>>>) -> Result<Aes256CbcHmacKey> {
-    let enc_key: Pin<Box<GenericArray<u8, U32>>> = hkdf_expand(key, Some("enc"))?;
-    let mac_key: Pin<Box<GenericArray<u8, U32>>> = hkdf_expand(key, Some("mac"))?;
-
-    Ok(Aes256CbcHmacKey { enc_key, mac_key })
+    Ok(Aes256CbcHmacKey {
+        enc_key: hkdf_expand(key, Some("enc"))?,
+        mac_key: hkdf_expand(key, Some("mac"))?,
+    })
 }
 
 #[cfg(test)]
