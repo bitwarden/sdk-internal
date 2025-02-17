@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    message::Message,
+    message::{IncomingMessage, OutgoingMessage},
     traits::{InMemorySessionRepository, NoEncryptionCryptoProvider},
     IpcClient,
 };
@@ -36,11 +36,11 @@ impl JsIpcClient {
         }
     }
 
-    pub async fn send(&self, message: Message) -> Result<(), JsSendError> {
+    pub async fn send(&self, message: OutgoingMessage) -> Result<(), JsSendError> {
         self.client.send(message).await.map_err(|e| e.into())
     }
 
-    pub async fn receive(&self) -> Result<Message, JsReceiveError> {
+    pub async fn receive(&self) -> Result<IncomingMessage, JsReceiveError> {
         self.client.receive().await.map_err(|e| e.into())
     }
 }

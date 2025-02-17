@@ -5,10 +5,15 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct Message {
+pub struct OutgoingMessage {
     pub data: Vec<u8>,
     pub destination: Endpoint,
-    // TODO: Consider splitting "Message" into "Outgoing" and "Incoming" types
-    // where only "Incoming" has a "source" field
-    pub source: Option<Endpoint>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct IncomingMessage {
+    pub data: Vec<u8>,
+    pub destination: Endpoint,
+    pub source: Endpoint,
 }

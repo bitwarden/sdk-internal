@@ -1,6 +1,6 @@
 use crate::{
     error::{ReceiveError, SendError},
-    message::Message,
+    message::{IncomingMessage, OutgoingMessage},
 };
 
 use super::{CommunicationBackend, SessionRepository};
@@ -18,14 +18,14 @@ where
         &self,
         communication: &Com,
         sessions: &Ses,
-        message: Message,
+        message: OutgoingMessage,
     ) -> impl std::future::Future<Output = Result<(), SendError<Self::SendError, Com::SendError>>>;
     fn receive(
         &self,
         communication: &Com,
         sessions: &Ses,
     ) -> impl std::future::Future<
-        Output = Result<Message, ReceiveError<Self::ReceiveError, Com::ReceiveError>>,
+        Output = Result<IncomingMessage, ReceiveError<Self::ReceiveError, Com::ReceiveError>>,
     >;
 }
 
@@ -44,7 +44,7 @@ where
         &self,
         communication: &Com,
         _sessions: &Ses,
-        message: Message,
+        message: OutgoingMessage,
     ) -> Result<(), SendError<Self::SendError, Com::SendError>> {
         communication
             .send(message)
@@ -56,7 +56,7 @@ where
         &self,
         communication: &Com,
         _sessions: &Ses,
-    ) -> Result<Message, ReceiveError<Self::ReceiveError, Com::ReceiveError>> {
+    ) -> Result<IncomingMessage, ReceiveError<Self::ReceiveError, Com::ReceiveError>> {
         let message = communication
             .receive()
             .await

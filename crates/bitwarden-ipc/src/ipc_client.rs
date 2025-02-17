@@ -1,6 +1,6 @@
 use crate::{
     error::{ReceiveError, SendError},
-    message::Message,
+    message::{IncomingMessage, OutgoingMessage},
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
 };
 
@@ -31,7 +31,7 @@ where
 
     pub async fn send(
         &self,
-        message: Message,
+        message: OutgoingMessage,
     ) -> Result<(), SendError<Crypto::SendError, Com::SendError>> {
         self.crypto
             .send(&self.communication, &self.sessions, message)
@@ -40,7 +40,7 @@ where
 
     pub async fn receive(
         &self,
-    ) -> Result<Message, ReceiveError<Crypto::ReceiveError, Com::ReceiveError>> {
+    ) -> Result<IncomingMessage, ReceiveError<Crypto::ReceiveError, Com::ReceiveError>> {
         self.crypto
             .receive(&self.communication, &self.sessions)
             .await
@@ -61,18 +61,18 @@ mod tests {
         type SendError = ();
         type ReceiveError = ();
 
-        async fn send(&self, _message: Message) -> Result<(), Self::SendError> {
+        async fn send(&self, _message: OutgoingMessage) -> Result<(), Self::SendError> {
             todo!()
         }
 
-        async fn receive(&self) -> Result<Message, Self::ReceiveError> {
+        async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
             todo!()
         }
     }
 
     struct TestCryptoProvider {
         send_result: Result<(), SendError<String, ()>>,
-        receive_result: Result<Message, ReceiveError<String, ()>>,
+        receive_result: Result<IncomingMessage, ReceiveError<String, ()>>,
     }
 
     type TestSessionRepository = InMemorySessionRepository<String>;
@@ -85,7 +85,7 @@ mod tests {
             &self,
             _communication: &TestCommunicationProvider,
             _sessions: &TestSessionRepository,
-        ) -> Result<Message, ReceiveError<String, ()>> {
+        ) -> Result<IncomingMessage, ReceiveError<String, ()>> {
             self.receive_result.clone()
         }
 
@@ -93,7 +93,7 @@ mod tests {
             &self,
             _communication: &TestCommunicationProvider,
             _sessions: &TestSessionRepository,
-            _message: Message,
+            _message: OutgoingMessage,
         ) -> Result<
             (),
             SendError<
@@ -107,14 +107,15 @@ mod tests {
 
     #[tokio::test]
     async fn returns_send_error_when_crypto_provider_returns_error() {
-        let message = Message {
+        let message = OutgoingMessage {
             data: vec![],
             destination: Endpoint::BrowserBackground,
-            source: None,
         };
         let crypto_provider = TestCryptoProvider {
             send_result: Err(SendError::CryptoError("Crypto error".to_string())),
-            receive_result: Ok(message.clone()),
+            receive_result: Err(ReceiveError::CryptoError(
+                "Should not have be called".to_string(),
+            )),
         };
         let communication_provider = TestCommunicationProvider;
         let session_map = TestSessionRepository::new(HashMap::new());
