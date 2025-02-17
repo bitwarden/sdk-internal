@@ -4,4 +4,4 @@ mod session;
 
 pub use communication::CommunicationProvider;
 pub use crypto::{CryptoProvider, NoEncryptionCryptoProvider};
-pub use session::{InMemorySessionProvider, SessionProvider};
+pub use session::{InMemorySessionRepository, SessionRepository};

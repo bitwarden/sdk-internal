@@ -1,14 +1,14 @@
 use crate::{
     error::{ReceiveError, SendError},
     message::Message,
-    traits::{CommunicationProvider, CryptoProvider, SessionProvider},
+    traits::{CommunicationProvider, CryptoProvider, SessionRepository},
 };
 
 pub struct Manager<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationProvider,
-    Ses: SessionProvider<Session = Crypto::Session>,
+    Ses: SessionRepository<Session = Crypto::Session>,
 {
     crypto: Crypto,
     communication: Com,
@@ -19,7 +19,7 @@ impl<Crypto, Com, Ses> Manager<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationProvider,
-    Ses: SessionProvider<Session = Crypto::Session>,
+    Ses: SessionRepository<Session = Crypto::Session>,
 {
     pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Self {
         Self {
@@ -51,7 +51,7 @@ where
 mod tests {
     use std::collections::HashMap;
 
-    use crate::{destination::Destination, traits::InMemorySessionProvider};
+    use crate::{destination::Destination, traits::InMemorySessionRepository};
 
     use super::*;
 
@@ -75,8 +75,8 @@ mod tests {
         receive_result: Result<Message, ReceiveError<String, ()>>,
     }
 
-    type TestSessionProvider = InMemorySessionProvider<String>;
-    impl CryptoProvider<TestCommunicationProvider, TestSessionProvider> for TestCryptoProvider {
+    type TestSessionRepository = InMemorySessionRepository<String>;
+    impl CryptoProvider<TestCommunicationProvider, TestSessionRepository> for TestCryptoProvider {
         type Session = String;
         type SendError = String;
         type ReceiveError = String;
@@ -84,7 +84,7 @@ mod tests {
         async fn receive(
             &self,
             _communication: &TestCommunicationProvider,
-            _sessions: &TestSessionProvider,
+            _sessions: &TestSessionRepository,
         ) -> Result<Message, ReceiveError<String, ()>> {
             self.receive_result.clone()
         }
@@ -92,7 +92,7 @@ mod tests {
         async fn send(
             &self,
             _communication: &TestCommunicationProvider,
-            _sessions: &TestSessionProvider,
+            _sessions: &TestSessionRepository,
             _message: Message,
         ) -> Result<
             (),
@@ -117,7 +117,7 @@ mod tests {
             receive_result: Ok(message.clone()),
         };
         let communication_provider = TestCommunicationProvider;
-        let session_map = TestSessionProvider::new(HashMap::new());
+        let session_map = TestSessionRepository::new(HashMap::new());
         let manager = Manager::new(crypto_provider, communication_provider, session_map);
 
         let error = manager.send(message).await.unwrap_err();
@@ -132,7 +132,7 @@ mod tests {
             receive_result: Err(ReceiveError::CryptoError("Crypto error".to_string())),
         };
         let communication_provider = TestCommunicationProvider;
-        let session_map = TestSessionProvider::new(HashMap::new());
+        let session_map = TestSessionRepository::new(HashMap::new());
         let manager = Manager::new(crypto_provider, communication_provider, session_map);
 
         let error = manager.receive().await.unwrap_err();

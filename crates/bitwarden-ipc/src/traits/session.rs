@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 use crate::destination::Destination;
 
 // TODO: Might want to allow the operations to fail with an error
-pub trait SessionProvider {
+pub trait SessionRepository {
     type Session;
 
     fn get(
@@ -20,8 +20,8 @@ pub trait SessionProvider {
     fn remove(&self, destination: Destination) -> impl std::future::Future<Output = ()>;
 }
 
-pub type InMemorySessionProvider<Session> = RwLock<HashMap<Destination, Session>>;
-impl<Session> SessionProvider for InMemorySessionProvider<Session>
+pub type InMemorySessionRepository<Session> = RwLock<HashMap<Destination, Session>>;
+impl<Session> SessionRepository for InMemorySessionRepository<Session>
 where
     Session: Clone,
 {
