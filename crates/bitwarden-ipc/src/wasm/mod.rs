@@ -1,3 +1,3 @@
-pub mod communication;
+pub mod communication_backend;
 pub mod error;
 pub mod manager;

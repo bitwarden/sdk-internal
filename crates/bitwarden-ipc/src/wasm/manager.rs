@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    communication::JsCommunicationBackend,
+    communication_backend::JsCommunicationBackend,
     error::{JsReceiveError, JsSendError},
 };
 

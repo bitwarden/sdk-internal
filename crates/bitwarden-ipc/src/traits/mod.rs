@@ -1,7 +1,7 @@
-mod communication;
-mod crypto;
-mod session;
+mod communication_backend;
+mod crypto_provider;
+mod session_repository;
 
-pub use communication::CommunicationBackend;
-pub use crypto::{CryptoProvider, NoEncryptionCryptoProvider};
-pub use session::{InMemorySessionRepository, SessionRepository};
+pub use communication_backend::CommunicationBackend;
+pub use crypto_provider::{CryptoProvider, NoEncryptionCryptoProvider};
+pub use session_repository::{InMemorySessionRepository, SessionRepository};

@@ -3,7 +3,7 @@ use crate::{
     message::Message,
 };
 
-use super::{session::SessionRepository, CommunicationBackend};
+use super::{CommunicationBackend, SessionRepository};
 
 pub trait CryptoProvider<Com, Ses>
 where
