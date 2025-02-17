@@ -168,6 +168,7 @@ pub struct CipherListView {
 
     /// The number of attachments
     pub attachments: u32,
+    pub has_fido2_credentials: bool,
 
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
@@ -610,6 +611,16 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
                 .as_ref()
                 .map(|a| a.len() as u32)
                 .unwrap_or(0),
+            has_fido2_credentials: match self.r#type {
+                CipherType::Login => {
+                    let login = self
+                        .login
+                        .as_ref()
+                        .ok_or(CryptoError::MissingField("login"))?;
+                    !login.fido2_credentials.as_deref().unwrap_or_default().is_empty()
+                }
+                _ => false
+            },
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
@@ -845,7 +856,8 @@ mod tests {
                 organization_use_totp: cipher.organization_use_totp,
                 edit: cipher.edit,
                 view_password: cipher.view_password,
-                attachments: 0,
+                attachments: 0, 
+                has_fido2_credentials: true,
                 creation_date: cipher.creation_date,
                 deleted_date: cipher.deleted_date,
                 revision_date: cipher.revision_date
