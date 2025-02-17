@@ -19,7 +19,7 @@ uniffi = ["dep:uniffi"] # Uniffi bindings
 [dependencies]
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
-rand = ">=0.8.5, <0.9"
+rand = ">=0.8.5, <0.10"
 reqwest = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
