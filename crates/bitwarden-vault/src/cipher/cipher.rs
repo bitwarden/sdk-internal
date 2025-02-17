@@ -617,7 +617,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
                         .login
                         .as_ref()
                         .ok_or(CryptoError::MissingField("login"))?;
-                    !login.fido2_credentials.as_deref().unwrap_or_default().is_empty()
+                    !login
+                        .fido2_credentials
+                        .as_deref()
+                        .unwrap_or_default()
+                        .is_empty()
                 }
                 _ => false
             },
