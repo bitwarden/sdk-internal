@@ -3,7 +3,7 @@ mod error;
 pub mod ipc_client;
 mod manager;
 mod message;
-mod providers;
+mod traits;
 
 #[cfg(feature = "wasm")]
 pub mod wasm;

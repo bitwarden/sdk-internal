@@ -1,7 +1,7 @@
 use crate::{
     error::{ReceiveError, SendError},
     message::Message,
-    providers::{CommunicationProvider, CryptoProvider, SessionProvider},
+    traits::{CommunicationProvider, CryptoProvider, SessionProvider},
 };
 
 pub struct Manager<Crypto, Com, Ses>
@@ -51,7 +51,7 @@ where
 mod tests {
     use std::collections::HashMap;
 
-    use crate::{destination::Destination, providers::InMemorySessionProvider};
+    use crate::{destination::Destination, traits::InMemorySessionProvider};
 
     use super::*;
 

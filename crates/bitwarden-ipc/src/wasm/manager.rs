@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     message::Message,
-    providers::{InMemorySessionProvider, NoEncryptionCryptoProvider},
+    traits::{InMemorySessionProvider, NoEncryptionCryptoProvider},
     Manager,
 };
 

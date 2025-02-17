@@ -1,7 +1,7 @@
 use tsify_next::serde_wasm_bindgen;
 use wasm_bindgen::prelude::*;
 
-use crate::{message::Message, providers::CommunicationProvider};
+use crate::{message::Message, traits::CommunicationProvider};
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
