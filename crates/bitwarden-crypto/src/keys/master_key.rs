@@ -25,7 +25,7 @@ pub enum HashPurpose {
 /// Master Key.
 ///
 /// Derived from the users master password, used to protect the [UserKey].
-/// TODO: https://bitwarden.atlassian.net/browse/PM-18366 split KeyConnectorKey into a separate file
+/// TODO: <https://bitwarden.atlassian.net/browse/PM-18366> split KeyConnectorKey into a separate file
 pub enum MasterKey {
     KdfKey(KdfDerivedKeyMaterial),
     KeyConnectorKey(Pin<Box<GenericArray<u8, U32>>>),
