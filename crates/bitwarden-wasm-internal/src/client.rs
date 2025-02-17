@@ -73,10 +73,6 @@ impl BitwardenClient {
     pub fn vault(&self) -> VaultClient {
         VaultClient::new(self.0.clone())
     }
-
-    // pub fn ipc(&self) -> IpcClient {
-    //     IpcClient::new(self.0.clone())
-    // }
 }
 
 #[bitwarden_error(basic)]

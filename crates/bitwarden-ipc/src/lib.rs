@@ -1,7 +1,6 @@
 mod endpoint;
 mod error;
-pub mod ipc_client;
-mod manager;
+mod ipc_client;
 mod message;
 mod traits;
 
@@ -9,4 +8,4 @@ mod traits;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
-pub use manager::Manager;
+pub use ipc_client::IpcClient;
