@@ -5,16 +5,17 @@ use crate::username::UsernameError;
 pub async fn generate(
     http: &reqwest::Client,
     api_key: String,
+    base_url: String,
     website: Option<String>,
 ) -> Result<String, UsernameError> {
-    generate_with_api_url(http, api_key, website, "https://app.simplelogin.io".into()).await
+    generate_with_api_url(http, api_key, base_url, website).await
 }
 
 async fn generate_with_api_url(
     http: &reqwest::Client,
     api_key: String,
-    website: Option<String>,
     api_url: String,
+    website: Option<String>,
 ) -> Result<String, UsernameError> {
     let query = website
         .as_ref()
@@ -99,8 +100,8 @@ mod tests {
         let address = super::generate_with_api_url(
             &reqwest::Client::new(),
             "MY_TOKEN".into(),
-            Some("example.com".into()),
             format!("http://{}", server.address()),
+            Some("example.com".into()),
         )
         .await
         .unwrap();
@@ -109,8 +110,8 @@ mod tests {
         let fake_token_error = super::generate_with_api_url(
             &reqwest::Client::new(),
             "MY_FAKE_TOKEN".into(),
-            Some("example.com".into()),
             format!("http://{}", server.address()),
+            Some("example.com".into()),
         )
         .await
         .unwrap_err();

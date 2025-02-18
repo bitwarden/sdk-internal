@@ -10,8 +10,8 @@ pub mod client;
 mod error;
 pub mod key_management;
 pub use error::{
-    ApiError, Error, MissingFieldError, MissingPrivateKeyError, NotAuthenticatedError,
-    VaultLockedError, WrongPasswordError,
+    ApiError, MissingFieldError, MissingPrivateKeyError, NotAuthenticatedError, VaultLockedError,
+    WrongPasswordError,
 };
 #[cfg(feature = "internal")]
 pub mod mobile;

@@ -20,16 +20,19 @@ mod auth_request_token_request;
 pub(crate) use auth_request_token_request::*;
 
 use crate::{
-    auth::api::response::{parse_identity_response, IdentityTokenResponse},
+    auth::{
+        api::response::{parse_identity_response, IdentityTokenResponse},
+        login::LoginError,
+    },
     client::ApiConfigurations,
-    error::Result,
+    ApiError,
 };
 
 async fn send_identity_connect_request(
     configurations: &ApiConfigurations,
     email: Option<&str>,
     body: impl serde::Serialize,
-) -> Result<IdentityTokenResponse> {
+) -> Result<IdentityTokenResponse, LoginError> {
     let mut request = configurations
         .identity
         .client
@@ -55,10 +58,11 @@ async fn send_identity_connect_request(
     let response = request
         .body(serde_qs::to_string(&body).expect("Serialize should be infallible"))
         .send()
-        .await?;
+        .await
+        .map_err(ApiError::from)?;
 
     let status = response.status();
-    let text = response.text().await?;
+    let text = response.text().await.map_err(ApiError::from)?;
 
     parse_identity_response(status, text)
 }

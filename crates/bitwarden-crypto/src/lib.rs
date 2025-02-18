@@ -60,6 +60,14 @@
 //!   allocator, and we advise to still define a `global_allocator` using the
 //!   [`ZeroizingAllocator`].
 
+//! # Pinned heap data
+//!
+//! This crate uses a `Pin<Box<>>` strategy to ensure data is stored on the heap and not moved
+//! around. This pattern is commonly used for `GenericArray` since it's equivalent to `[u8; N]`
+//! which is a Copy type placed on the stack. To keep the compiler from making stack copies when
+//! moving this struct around, we use a Box to keep the values on the heap. We also pin the box to
+//! make sure that the contents can't be pulled out of the box and moved.
+
 #[cfg(not(feature = "no-memory-hardening"))]
 #[global_allocator]
 static ALLOC: ZeroizingAllocator<std::alloc::System> = ZeroizingAllocator(std::alloc::System);
