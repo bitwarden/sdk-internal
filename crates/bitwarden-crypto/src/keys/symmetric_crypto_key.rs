@@ -5,12 +5,11 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::GenericArray;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use subtle::{Choice, ConstantTimeEq};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use super::key_encryptable::CryptoKey;
 use crate::CryptoError;
-
-use subtle::{Choice, ConstantTimeEq};
 
 /// Aes256CbcKey is a symmetric encryption key, consisting of one 256-bit key,
 /// used to decrypt legacy type 0 encstrings. The data is not autenticated
@@ -107,7 +106,9 @@ impl SymmetricCryptoKey {
 impl ConstantTimeEq for SymmetricCryptoKey {
     fn ct_eq(&self, other: &SymmetricCryptoKey) -> Choice {
         match (self, other) {
-            (SymmetricCryptoKey::Aes256CbcKey(a), SymmetricCryptoKey::Aes256CbcKey(b)) => a.ct_eq(b),
+            (SymmetricCryptoKey::Aes256CbcKey(a), SymmetricCryptoKey::Aes256CbcKey(b)) => {
+                a.ct_eq(b)
+            }
             (SymmetricCryptoKey::Aes256CbcHmacKey(a), SymmetricCryptoKey::Aes256CbcHmacKey(b)) => {
                 a.ct_eq(b)
             }
