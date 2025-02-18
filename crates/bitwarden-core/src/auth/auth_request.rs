@@ -102,8 +102,7 @@ pub(crate) fn approve_auth_request(
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
-        &key.to_encoded(false)
-            .map_err(ApproveAuthRequestError::Crypto)?,
+        &key.to_encoded(false).map_err(ApproveAuthRequestError::Crypto)?,
         &public_key,
     )?)
 }

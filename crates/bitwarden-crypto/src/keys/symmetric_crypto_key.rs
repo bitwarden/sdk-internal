@@ -163,14 +163,15 @@ impl std::fmt::Debug for SymmetricCryptoKey {
 
 #[derive(Clone, Serialize, Deserialize)]
 enum SymmetricCryptoKeyAlgorithm {
-    #[serde(rename = "aes256-cbc")]
+    #[serde(rename = "0")]
     Aes256Cbc,
-    #[serde(rename = "aes256-cbc-hmac")]
+    #[serde(rename = "2")]
     Aes256CbcHmac,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 struct SerializedSymmetricCryptoKey {
+    #[serde(rename = "alg")]
     pub algorithm: SymmetricCryptoKeyAlgorithm,
     #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
@@ -248,7 +249,7 @@ mod tests {
 
     #[test]
     fn test_decode_new_symmetric_crypto_key() {
-        let key_b64 = STANDARD.decode("AKJpYWxnb3JpdGhtb2FlczI1Ni1jYmMtaG1hY2RkYXRhWEAxFgTe5v56/n+IwzLpv5HKP/DK5H2bEOh2ocN7eIDefv0za7rwISKpa8P+nhTvROFRxJ2jrpVJndWbLeyBT3kR").unwrap();
+        let key_b64 = STANDARD.decode("AKJjYWxnYTJkZGF0YVhAlmp8MGsin9Qe58RGBpEK3JWLHOFBaqG5kOILdJPta2hMAzaiJtgGcGDsPgLs3g/fDnjS/RL0ZewwQ8Mo27npfw==").unwrap();
         let key = SymmetricCryptoKey::try_from(key_b64).unwrap();
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(_) => (),
