@@ -10,20 +10,32 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use super::key_encryptable::CryptoKey;
 use crate::CryptoError;
 
+use subtle::{Choice, ConstantTimeEq};
+
 /// Aes256CbcKey is a symmetric encryption key, consisting of one 256-bit key,
 /// used to decrypt legacy type 0 encstrings. The data is not autenticated
 /// so this should be used with caution, and removed where possible.
 #[derive(ZeroizeOnDrop, Clone)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Aes256CbcKey {
     /// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
     pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
+impl ConstantTimeEq for Aes256CbcKey {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.enc_key.ct_eq(&other.enc_key)
+    }
+}
+
+impl PartialEq for Aes256CbcKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.ct_eq(other).into()
+    }
+}
+
 /// Aes256CbcHmacKey is a symmetric encryption key consisting
 /// of two 256-bit keys, one for encryption and one for MAC
 #[derive(ZeroizeOnDrop, Clone)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Aes256CbcHmacKey {
     /// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
     pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
@@ -31,9 +43,20 @@ pub struct Aes256CbcHmacKey {
     pub(crate) mac_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
+impl ConstantTimeEq for Aes256CbcHmacKey {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.enc_key.ct_eq(&other.enc_key) & self.mac_key.ct_eq(&other.mac_key)
+    }
+}
+
+impl PartialEq for Aes256CbcHmacKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.ct_eq(other).into()
+    }
+}
+
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
 #[derive(ZeroizeOnDrop, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
 pub enum SymmetricCryptoKey {
     Aes256CbcKey(Aes256CbcKey),
     Aes256CbcHmacKey(Aes256CbcHmacKey),
@@ -78,6 +101,24 @@ impl SymmetricCryptoKey {
 
     pub fn to_base64(&self) -> Result<String, CryptoError> {
         Ok(STANDARD.encode(self.to_encoded(false)?))
+    }
+}
+
+impl ConstantTimeEq for SymmetricCryptoKey {
+    fn ct_eq(&self, other: &SymmetricCryptoKey) -> Choice {
+        match (self, other) {
+            (SymmetricCryptoKey::Aes256CbcKey(a), SymmetricCryptoKey::Aes256CbcKey(b)) => a.ct_eq(b),
+            (SymmetricCryptoKey::Aes256CbcHmacKey(a), SymmetricCryptoKey::Aes256CbcHmacKey(b)) => {
+                a.ct_eq(b)
+            }
+            _ => Choice::from(0),
+        }
+    }
+}
+
+impl PartialEq for SymmetricCryptoKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.ct_eq(other).into()
     }
 }
 
