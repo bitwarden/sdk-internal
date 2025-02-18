@@ -198,7 +198,6 @@ impl From<SymmetricCryptoKey> for SerializedSymmetricCryptoKey {
     }
 }
 
-
 /// Pad a key to a minimum length;
 /// The first byte describes the number (N) of subsequently following null bytes
 /// Next, there are N null bytes
@@ -231,9 +230,9 @@ pub fn derive_symmetric_key(name: &str) -> Aes256CbcHmacKey {
 #[cfg(test)]
 mod tests {
     use base64::{engine::general_purpose::STANDARD, Engine};
-    use crate::keys::symmetric_crypto_key::{pad_key, unpad_key};
 
     use super::{derive_symmetric_key, SymmetricCryptoKey};
+    use crate::keys::symmetric_crypto_key::{pad_key, unpad_key};
 
     #[test]
     fn test_symmetric_crypto_key() {
