@@ -21,8 +21,8 @@ mod tests {
         store.upsert(TestSymmKey::A(0), key.clone());
 
         assert_eq!(
-            store.get(TestSymmKey::A(0)).unwrap().to_base64(),
-            key.to_base64()
+            store.get(TestSymmKey::A(0)).unwrap().to_base64().unwrap(),
+            key.to_base64().unwrap()
         );
     }
 }
