@@ -172,17 +172,14 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
                     .map_err(|_| CryptoError::EncodingError)?;
             value.zeroize();
 
-            match decoded_key.algorithm {
-                SymmetricCryptoKeyAlgorithm::Aes256CbcHmac => {
-                    let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
-                    let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
-                    enc_key.copy_from_slice(&decoded_key.data[..32]);
-                    mac_key.copy_from_slice(&decoded_key.data[32..]);
-                    Ok(SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-                        enc_key,
-                        mac_key,
-                    }))
-                }
+            match decoded_key {
+                SerializedSymmetricCryptoKey::Aes256CbcHmac {
+                    encryption_key,
+                    authentication_key,
+                } => Ok(SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
+                    enc_key: Box::pin(*GenericArray::from_slice(encryption_key.as_slice())),
+                    mac_key: Box::pin(*GenericArray::from_slice(authentication_key.as_slice())),
+                })),
                 _ => Err(CryptoError::InvalidKey),
             }
         } else {
@@ -204,39 +201,34 @@ impl std::fmt::Debug for SymmetricCryptoKey {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-enum SymmetricCryptoKeyAlgorithm {
-    #[serde(rename = "0")]
-    Aes256Cbc,
-    #[serde(rename = "2")]
-    Aes256CbcHmac,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-struct SerializedSymmetricCryptoKey {
-    #[serde(rename = "alg")]
-    pub algorithm: SymmetricCryptoKeyAlgorithm,
-    #[serde(with = "serde_bytes")]
-    pub data: Vec<u8>,
+#[serde(tag = "alg")]
+enum SerializedSymmetricCryptoKey {
+    #[serde(rename = "A256C")]
+    Aes256Cbc {
+        #[serde(with = "serde_bytes", rename = "ek")]
+        encryption_key: Vec<u8>,
+    },
+    #[serde(rename = "A256C-H")]
+    Aes256CbcHmac {
+        #[serde(with = "serde_bytes", rename = "ek")]
+        encryption_key: Vec<u8>,
+        #[serde(with = "serde_bytes", rename = "ak")]
+        authentication_key: Vec<u8>,
+    },
 }
 
 impl From<SymmetricCryptoKey> for SerializedSymmetricCryptoKey {
     fn from(key: SymmetricCryptoKey) -> Self {
-        SerializedSymmetricCryptoKey {
-            algorithm: match key {
-                SymmetricCryptoKey::Aes256CbcKey(_) => SymmetricCryptoKeyAlgorithm::Aes256Cbc,
-                SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
-                    SymmetricCryptoKeyAlgorithm::Aes256CbcHmac
-                }
+        match &key {
+            SymmetricCryptoKey::Aes256CbcKey(k) => SerializedSymmetricCryptoKey::Aes256Cbc {
+                encryption_key: k.enc_key.to_vec(),
             },
-            data: match &key {
-                SymmetricCryptoKey::Aes256CbcKey(key) => key.enc_key.to_vec(),
-                SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
-                    let mut buf = Vec::with_capacity(SymmetricCryptoKey::AES256_CBC_HMAC_KEY_LEN);
-                    buf.extend_from_slice(&key.enc_key);
-                    buf.extend_from_slice(&key.mac_key);
-                    buf
+            SymmetricCryptoKey::Aes256CbcHmacKey(k) => {
+                SerializedSymmetricCryptoKey::Aes256CbcHmac {
+                    encryption_key: k.enc_key.to_vec(),
+                    authentication_key: k.mac_key.to_vec(),
                 }
-            },
+            }
         }
     }
 }
@@ -291,7 +283,7 @@ mod tests {
 
     #[test]
     fn test_decode_new_symmetric_crypto_key() {
-        let key_b64 = STANDARD.decode("AKJjYWxnYTJkZGF0YVhAlmp8MGsin9Qe58RGBpEK3JWLHOFBaqG5kOILdJPta2hMAzaiJtgGcGDsPgLs3g/fDnjS/RL0ZewwQ8Mo27npfw==").unwrap();
+        let key_b64 = STANDARD.decode("AKNjYWxnZ0EyNTZDLUhiZWtYIAtsdVJIYcRrWMrV7M9RNH9pL0SWF8T9XwwJethAjVMJYmFrWCAnEUA5iKocRCHoq7rU3Tm7TbLWC+JXp1ywMCLjtLJvcw==").unwrap();
         let key = SymmetricCryptoKey::try_from(key_b64).unwrap();
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(_) => (),
