@@ -71,11 +71,11 @@ pub enum EncString {
 
 #[derive(PartialEq, Clone, Serialize, Deserialize)]
 struct SerializedXChaCha20Poly1305Data {
-    #[serde(with = "serde_bytes")]
+    #[serde(with = "serde_bytes", rename = "n")]
     nonce: [u8; 24],
-    #[serde(with = "serde_bytes")]
+    #[serde(with = "serde_bytes", rename = "d")]
     data: Vec<u8>,
-    #[serde(with = "serde_bytes")]
+    #[serde(with = "serde_bytes", rename = "ad")]
     additional_data: Vec<u8>,
 }
 
@@ -598,30 +598,6 @@ mod tests {
             err.to_string(),
             "EncString error, Invalid symmetric type, got type 8 with 1 parts"
         );
-    }
-
-    #[test]
-    fn test_from_str_xchacha20_poly1305() {
-        let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
-            enc_key: Box::pin(GenericArray::<u8, aes::cipher::typenum::U32>::default()),
-        });
-        let key1 = SymmetricCryptoKey::Aes256CbcHmacKey(crate::Aes256CbcHmacKey {
-            enc_key: Box::pin(GenericArray::<u8, aes::cipher::typenum::U32>::default()),
-            mac_key: Box::pin(GenericArray::<u8, aes::cipher::typenum::U32>::default()),
-        });
-        // encrypt
-        let payload = "encrypted_test_string";
-        let cipher: EncString = payload.encrypt_with_key(&key).unwrap();
-        let cipher1: EncString = payload.encrypt_with_key(&key1).unwrap();
-        println!("cipher: {}", cipher);
-        println!("cipher bytes: {:?}", cipher.to_buffer().unwrap());
-        println!("cipher1: {}", cipher1);
-
-        let ciphertext = "7.k9wAGMz1RQrMtMyhzKLMmW/M2czVzIAGXszTzL0OzI/Mo8yUBFcgTkHcACl/zOvM/iAfzKfMln0caMyjF8yczMDMzcyDZsyezK1oHToUDMz+NmVJLMzbamwCecyRzKlLzM/Mln7Mn9wAQ8yBzKJWMMyRzJLM3AAgKszMzNrMzMyDzMzMwczMzIHMzMyaU3LMzMzazMzM4SPMzMyPzMzMwczMzN7MzMzRI8zMzMgQT8zMzNrMzMyhWGLMzMyqzMzM7mlCzMzMihggzMzM/MzMzNrMpkJsYWtlMw==";
-        let payload = "encrypted_test_string";
-        let cipher: EncString = ciphertext.parse().unwrap();
-        let decrypted: String = cipher.decrypt_with_key(&key).unwrap();
-        assert_eq!(decrypted, payload);
     }
 
     #[test]

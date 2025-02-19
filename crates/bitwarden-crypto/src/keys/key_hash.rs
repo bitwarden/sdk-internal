@@ -2,13 +2,15 @@ use serde::{Deserialize, Serialize};
 
 #[derive(PartialEq, Serialize, Deserialize, Debug, Clone)]
 pub(crate) enum KeyHashAlgorithm {
+    #[serde(rename = "b3")]
     Blake3,
 }
 
 #[derive(PartialEq, Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct KeyHash {
-    #[serde(with = "serde_bytes")]
+    #[serde(with = "serde_bytes", rename = "h")]
     pub(crate) hash: Vec<u8>,
+    #[serde(rename = "alg")]
     pub(crate) algorithm: KeyHashAlgorithm,
 }
 
