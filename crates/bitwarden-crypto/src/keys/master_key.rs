@@ -132,9 +132,15 @@ pub(super) fn decrypt_user_key(
             });
             user_key.decrypt_with_key(&legacy_key)?
         }
-        _ => {
+        EncString::AesCbc256_HmacSha256_B64 { .. } => {
             let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key)?);
             user_key.decrypt_with_key(&stretched_key)?
+        }
+        EncString::XChaCha20Poly1305_B64 { .. } => {
+            let key = SymmetricCryptoKey::XChaCha20Poly1305Key(super::XChaCha20Poly1305Key {
+                enc_key: Box::pin(GenericArray::clone_from_slice(key)),
+            });
+            user_key.decrypt_with_key(&key)?
         }
     };
 

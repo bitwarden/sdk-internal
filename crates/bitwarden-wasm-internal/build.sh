@@ -12,15 +12,17 @@ git rev-parse HEAD > ./crates/bitwarden-wasm-internal/npm/VERSION
 if [ "$1" != "-r" ]; then
   echo "Building in debug mode"
   RELEASE_FLAG=""
+  BUILD_FLAG="--config 'patch.crates-io.pkcs5.git=\"https://github.com/bitwarden/rustcrypto-formats.git\"'  --config 'patch.crates-io.pkcs5.rev=\"2b27c63034217dd126bbf5ed874da51b84f8c705\"'"
   BUILD_FOLDER="debug"
 else
   echo "Building in release mode"
   RELEASE_FLAG="--release"
+  BUILD_FLAG="--config 'patch.crates-io.pkcs5.git=\"https://github.com/bitwarden/rustcrypto-formats.git\"'  --config 'patch.crates-io.pkcs5.rev=\"2b27c63034217dd126bbf5ed874da51b84f8c705\"'"
   BUILD_FOLDER="release"
 fi
 
 # Build normally
-cargo build -p bitwarden-wasm-internal --target wasm32-unknown-unknown ${RELEASE_FLAG}
+cargo build -p bitwarden-wasm-internal --target wasm32-unknown-unknown ${RELEASE_FLAG} $BUILD_FLAG
 wasm-bindgen --target bundler --out-dir crates/bitwarden-wasm-internal/npm ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 wasm-bindgen --target nodejs --out-dir crates/bitwarden-wasm-internal/npm/node ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 

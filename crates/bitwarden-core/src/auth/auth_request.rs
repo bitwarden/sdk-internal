@@ -262,6 +262,7 @@ mod tests {
             ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
+                .unwrap()
         };
 
         let new_key = {
@@ -271,8 +272,9 @@ mod tests {
             ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
+                .unwrap()
         };
 
-        assert_eq!(existing_key.unwrap(), new_key.unwrap());
+        assert_eq!(existing_key, new_key);
     }
 }
