@@ -27,8 +27,8 @@ argon2 = { version = ">=0.5.0, <0.6", features = [
     "zeroize",
 ], default-features = false }
 base64 = ">=0.22.1, <0.23"
-blake3 = { version = "1.5.5", features = ["zeroize"] }
 bitwarden-error = { workspace = true }
+blake3 = { version = "1.5.5", features = ["zeroize"] }
 cbc = { version = ">=0.1.2, <0.2", features = ["alloc", "zeroize"] }
 chacha20 = { version = ">=0.8.2, <0.9", features = ["zeroize"] }
 chacha20poly1305 = { version = "0.10.1" }
