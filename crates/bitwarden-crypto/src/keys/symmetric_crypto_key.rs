@@ -282,6 +282,14 @@ mod tests {
     }
 
     #[test]
+    fn test_encode_decode_new_symmetric_crypto_key() {
+        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let encoded = key.to_encoded(true).unwrap();
+        let decoded = SymmetricCryptoKey::try_from(encoded).unwrap();
+        assert_eq!(key, decoded);
+    }
+
+    #[test]
     fn test_decode_new_symmetric_crypto_key() {
         let key_b64 = STANDARD.decode("AKNjYWxnZ0EyNTZDLUhiZWtYIAtsdVJIYcRrWMrV7M9RNH9pL0SWF8T9XwwJethAjVMJYmFrWCAnEUA5iKocRCHoq7rU3Tm7TbLWC+JXp1ywMCLjtLJvcw==").unwrap();
         let key = SymmetricCryptoKey::try_from(key_b64).unwrap();
