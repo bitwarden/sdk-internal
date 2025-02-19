@@ -469,7 +469,6 @@ fn unpad_bytes(bytes: &[u8]) -> Result<&[u8]> {
 
 #[cfg(test)]
 mod tests {
-    use generic_array::GenericArray;
     use schemars::schema_for;
 
     use super::EncString;
