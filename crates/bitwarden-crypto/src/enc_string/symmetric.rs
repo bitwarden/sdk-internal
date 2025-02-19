@@ -244,9 +244,7 @@ impl EncString {
             }
             EncString::XChaCha20Poly1305_B64 {
                 additional_data, ..
-            } => ciborium::from_reader(&additional_data[..])
-                .map_err(|_| CryptoError::EncString(EncStringParseError::InvalidAdditionalData))
-                .unwrap(),
+            } => ciborium::from_reader(&additional_data[..]).expect("Valid cbor"),
         }
     }
 }
