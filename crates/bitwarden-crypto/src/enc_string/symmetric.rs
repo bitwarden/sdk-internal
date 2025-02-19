@@ -5,7 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use super::{additional_data, check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    chacha20::XChaCha20Poly1305Ciphertext, error::{CryptoError, EncStringParseError, Result, UnsupportedOperation}, key_hash::KeyHashable, Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key
+    chacha20::XChaCha20Poly1305Ciphertext,
+    error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
+    key_hash::KeyHashable,
+    Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key,
 };
 
 #[cfg(feature = "wasm")]
@@ -91,7 +94,8 @@ impl From<XChaCha20Poly1305Ciphertext> for SerializedXChaCha20Poly1305Data {
         SerializedXChaCha20Poly1305Data {
             nonce: data.nonce,
             data: data.encrypted_data.clone(),
-            additional_data: ciborium::from_reader(data.additional_data.as_slice()).expect("Valid cbor"),
+            additional_data: ciborium::from_reader(data.additional_data.as_slice())
+                .expect("Valid cbor"),
         }
     }
 }
@@ -126,8 +130,8 @@ impl FromStr for EncString {
             ("7", 1) => {
                 let buffer = from_b64_vec(parts[0])?;
 
-                let decoded: SerializedXChaCha20Poly1305Data = ciborium::from_reader(buffer.as_slice())
-                    .map_err(|_| {
+                let decoded: SerializedXChaCha20Poly1305Data =
+                    ciborium::from_reader(buffer.as_slice()).map_err(|_| {
                         CryptoError::EncString(EncStringParseError::InvalidTypeSymm {
                             enc_type: enc_type.to_string(),
                             parts: 1,
@@ -214,11 +218,15 @@ impl EncString {
                 additional_data,
             } => {
                 let mut encoded = Vec::new();
-                ciborium::into_writer(&SerializedXChaCha20Poly1305Data {
-                    nonce: *nonce,
-                    data: data.clone(),
-                    additional_data: additional_data.clone(),
-                }, &mut encoded).map_err(|_| CryptoError::EncodingError)?;
+                ciborium::into_writer(
+                    &SerializedXChaCha20Poly1305Data {
+                        nonce: *nonce,
+                        data: data.clone(),
+                        additional_data: additional_data.clone(),
+                    },
+                    &mut encoded,
+                )
+                .map_err(|_| CryptoError::EncodingError)?;
                 buf = Vec::with_capacity(1 + encoded.len());
                 buf.push(self.enc_type());
                 buf.extend_from_slice(&encoded);
@@ -236,11 +244,9 @@ impl EncString {
             }
             EncString::XChaCha20Poly1305_B64 {
                 additional_data, ..
-            } => {
-                ciborium::from_reader(&additional_data[..])
-                    .map_err(|_| CryptoError::EncString(EncStringParseError::InvalidAdditionalData))
-                    .unwrap()
-            }
+            } => ciborium::from_reader(&additional_data[..])
+                .map_err(|_| CryptoError::EncString(EncStringParseError::InvalidAdditionalData))
+                .unwrap(),
         }
     }
 }
@@ -267,13 +273,16 @@ impl Display for EncString {
                 data,
                 additional_data,
             } => {
-                let mut  encoded = Vec::new();
-                ciborium::into_writer(&SerializedXChaCha20Poly1305Data {
-                    nonce: *nonce,
-                    data: data.clone(),
-                    additional_data: additional_data.clone(),
-                }, &mut encoded)
-                    .map_err(|_| std::fmt::Error)?;
+                let mut encoded = Vec::new();
+                ciborium::into_writer(
+                    &SerializedXChaCha20Poly1305Data {
+                        nonce: *nonce,
+                        data: data.clone(),
+                        additional_data: additional_data.clone(),
+                    },
+                    &mut encoded,
+                )
+                .map_err(|_| std::fmt::Error)?;
 
                 write!(f, "{}.{}", self.enc_type(), STANDARD.encode(&encoded))?;
 
@@ -282,7 +291,6 @@ impl Display for EncString {
         }
     }
 }
-
 
 impl<'de> Deserialize<'de> for EncString {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -360,9 +368,9 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
                 let padded_data = pad_bytes(self, EncString::XCHACHA20_PAD_BLOCK_SIZE);
                 EncString::encrypt_xchacha20_poly1305(&padded_data, additional_data, inner_key)
             }
-            SymmetricCryptoKey::Aes256CbcKey(_) => Err(
-                CryptoError::OperationNotSupported(UnsupportedOperation::EncryptionNotImplementedForKey),
-            ),
+            SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperation::EncryptionNotImplementedForKey,
+            )),
         }
     }
 }

@@ -1,11 +1,10 @@
-use super::master_key::{
-    decrypt_user_key, encrypt_user_key,
+use super::{
+    kdf::{Kdf, KdfDerivedKeyMaterial},
+    master_key::{decrypt_user_key, encrypt_user_key},
+    utils::stretch_key,
 };
-use super::kdf::{Kdf, KdfDerivedKeyMaterial};
-use super::utils::stretch_key;
 use crate::{
-    keys::key_encryptable::CryptoKey,
-    EncString, KeyEncryptable, Result, SymmetricCryptoKey,
+    keys::key_encryptable::CryptoKey, EncString, KeyEncryptable, Result, SymmetricCryptoKey,
 };
 
 /// Pin Key.
@@ -22,11 +21,8 @@ impl PinKey {
     /// Encrypt the users user key
     ///
     /// @param user_key: The user key to encrypt
-    pub fn encrypt_user_key(
-        &self,
-        user_key: &SymmetricCryptoKey,
-    ) -> Result<EncString> {
-        encrypt_user_key(&self.0.0, user_key)
+    pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
+        encrypt_user_key(&self.0 .0, user_key)
     }
 
     /// Decrypt the users user key
@@ -39,7 +35,7 @@ impl CryptoKey for PinKey {}
 
 impl KeyEncryptable<PinKey, EncString> for &[u8] {
     fn encrypt_with_key(self, key: &PinKey) -> Result<EncString> {
-        let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&key.0.0)?);
+        let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&key.0 .0)?);
         self.encrypt_with_key(&stretched_key)
     }
 }

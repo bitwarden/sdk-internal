@@ -95,7 +95,6 @@ impl KeyHashData for SymmetricCryptoKey {
     }
 }
 
-
 impl SymmetricCryptoKey {
     // enc type 0 old static format
     const AES256_CBC_KEY_LEN: usize = 32;
@@ -269,7 +268,7 @@ impl From<SymmetricCryptoKey> for SerializedSymmetricCryptoKey {
                     encryption_key: k.enc_key.to_vec(),
                     authentication_key: k.mac_key.to_vec(),
                 }
-            },
+            }
             SymmetricCryptoKey::XChaCha20Poly1305Key(k) => {
                 SerializedSymmetricCryptoKey::XChaCha20Poly1305 {
                     encryption_key: k.enc_key.to_vec(),

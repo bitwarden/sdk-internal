@@ -20,8 +20,8 @@ mod device_key;
 pub use device_key::{DeviceKey, TrustDeviceResponse};
 mod pin_key;
 pub use pin_key::PinKey;
-pub(crate) mod key_hash;
 mod kdf;
+pub(crate) mod key_hash;
 pub use kdf::{
     default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
     default_pbkdf2_iterations, Kdf,
