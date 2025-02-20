@@ -90,6 +90,9 @@ impl SymmetricCryptoKey {
             (_, true) => {
                 let serialized_key = SerializedSymmetricCryptoKey::from(self.clone());
                 let mut encoded_key = Vec::new();
+
+                // This is safe because we are writing to Vec<u8>
+                #[allow(clippy::unwrap_used)]
                 ciborium::into_writer(&serialized_key, &mut encoded_key).unwrap();
                 pad_key(&mut encoded_key, Self::AES256_CBC_HMAC_KEY_LEN + 1);
                 encoded_key
@@ -251,6 +254,8 @@ fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
 
 // Unpad a key
 fn unpad_key(key_bytes: &[u8]) -> &[u8] {
+    // this unwrap is safe, the input is always at least 1 byte long
+    #[allow(clippy::unwrap_used)]
     let pad_len = *key_bytes.last().unwrap() as usize;
     key_bytes[..key_bytes.len() - pad_len].as_ref()
 }
