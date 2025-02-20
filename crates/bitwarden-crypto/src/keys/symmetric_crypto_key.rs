@@ -294,7 +294,7 @@ mod tests {
 
     #[test]
     fn test_decode_new_symmetric_crypto_key() {
-        let key_b64 = STANDARD.decode("AKNjYWxnZ0EyNTZDLUhiZWtYIAtsdVJIYcRrWMrV7M9RNH9pL0SWF8T9XwwJethAjVMJYmFrWCAnEUA5iKocRCHoq7rU3Tm7TbLWC+JXp1ywMCLjtLJvcw==").unwrap();
+        let key_b64 = STANDARD.decode("o2NhbGdnQTI1NkMtSGJla1ggE59xZ8cwZ/RNny2YV/38z3QOOTsQm17jSPX+qXGxmqNiYWtYIMJwkGi9PwrnRF5aul3QKGpiR85DPwQTuRf9m6VI1gPxAQ==").unwrap();
         let key = SymmetricCryptoKey::try_from(key_b64).unwrap();
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(_) => (),
