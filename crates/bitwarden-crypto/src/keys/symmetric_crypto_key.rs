@@ -1,4 +1,4 @@
-use std::pin::Pin;
+use std::{cmp::max, pin::Pin};
 
 use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -89,11 +89,11 @@ impl SymmetricCryptoKey {
             }
             (_, true) => {
                 let serialized_key = SerializedSymmetricCryptoKey::from(self.clone());
-                let mut encoded_key = Vec::with_capacity(1024);
+                let mut encoded_key = Vec::new();
                 ciborium::into_writer(&serialized_key, &mut encoded_key)
                     .map_err(|_| CryptoError::EncodingError)?;
-                let padded_key = pad_key(encoded_key.as_slice(), Self::AES256_CBC_HMAC_KEY_LEN + 1);
-                Ok(padded_key)
+                pad_key(&mut encoded_key, Self::AES256_CBC_HMAC_KEY_LEN + 1);
+                Ok(encoded_key)
             }
         }
     }
@@ -166,9 +166,9 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
 
             Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey { enc_key }))
         } else if value.len() > Self::AES256_CBC_HMAC_KEY_LEN {
-            let unpadded_value = zeroize::Zeroizing::new(unpad_key(value));
+            let unpadded_value = unpad_key(value);
             let decoded_key: SerializedSymmetricCryptoKey =
-                ciborium::from_reader(unpadded_value.as_slice())
+                ciborium::from_reader(unpadded_value)
                     .map_err(|_| CryptoError::EncodingError)?;
             value.zeroize();
 
@@ -232,24 +232,18 @@ impl From<SymmetricCryptoKey> for SerializedSymmetricCryptoKey {
         }
     }
 }
-
-/// Pad a key to a minimum length;
-/// The first byte describes the number (N) of subsequently following null bytes
-/// Next, there are N null bytes
-/// Finally, the key bytes are appended
-fn pad_key(key_bytes: &[u8], min_length: usize) -> Vec<u8> {
-    let null_bytes = min_length.saturating_sub(1).saturating_sub(key_bytes.len());
-    let mut padded_key = Vec::with_capacity(min_length);
-    padded_key.extend_from_slice(&[null_bytes as u8]);
-    padded_key.extend_from_slice(vec![0u8; null_bytes].as_slice());
-    padded_key.extend_from_slice(key_bytes);
-    padded_key
+/// Pad a key to a minimum length using PKCS7-like padding
+fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
+    // at least 1 byte of padding is required
+    let pad_bytes = min_length.saturating_sub(key_bytes.len()).max(1);
+    let padded_length = max(min_length, key_bytes.len() + 1);
+    key_bytes.resize(padded_length, pad_bytes as u8);
 }
 
-// Unpad a key that was padded with pad_key
-fn unpad_key(key_bytes: &[u8]) -> Vec<u8> {
-    let null_bytes = key_bytes[0] as usize;
-    key_bytes[1 + null_bytes..].to_vec()
+// Unpad a key
+fn unpad_key(key_bytes: &[u8]) -> &[u8] {
+    let pad_len = *key_bytes.last().unwrap() as usize;
+    key_bytes[..key_bytes.len() - pad_len].as_ref()
 }
 
 #[cfg(test)]
@@ -301,35 +295,38 @@ mod tests {
 
     #[test]
     fn test_pad_unpad_key_63() {
-        let key_bytes = vec![1u8; 63];
+        let original_key = vec![1u8; 63];
+        let mut key_bytes = original_key.clone();
         let mut encoded_bytes = vec![1u8; 65];
-        encoded_bytes[0] = 1;
-        encoded_bytes[1] = 0;
-        let padded_key = pad_key(key_bytes.as_slice(), 65);
-        assert_eq!(encoded_bytes, padded_key);
-        let unpadded_key = unpad_key(&padded_key);
-        assert_eq!(key_bytes, unpadded_key);
+        encoded_bytes[63] = 2;
+        encoded_bytes[64] = 2;
+        pad_key(&mut key_bytes, 65);
+        assert_eq!(encoded_bytes, key_bytes);
+        let unpadded_key = unpad_key(&key_bytes);
+        assert_eq!(original_key, unpadded_key);
     }
 
     #[test]
     fn test_pad_unpad_key_64() {
-        let key_bytes = vec![1u8; 64];
+        let original_key = vec![1u8; 64];
+        let mut key_bytes = original_key.clone();
         let mut encoded_bytes = vec![1u8; 65];
-        encoded_bytes[0] = 0;
-        let padded_key = pad_key(key_bytes.as_slice(), 65);
-        assert_eq!(encoded_bytes, padded_key);
-        let unpadded_key = unpad_key(&padded_key);
-        assert_eq!(key_bytes, unpadded_key);
+        encoded_bytes[64] = 1;
+        pad_key(&mut key_bytes, 65);
+        assert_eq!(encoded_bytes, key_bytes);
+        let unpadded_key = unpad_key(&key_bytes);
+        assert_eq!(original_key, unpadded_key);
     }
 
     #[test]
     fn test_pad_unpad_key_65() {
-        let key_bytes = vec![1u8; 65];
+        let original_key = vec![1u8; 65];
+        let mut key_bytes = original_key.clone();
         let mut encoded_bytes = vec![1u8; 66];
-        encoded_bytes[0] = 0;
-        let padded_key = pad_key(key_bytes.as_slice(), 65);
-        assert_eq!(encoded_bytes, padded_key);
-        let unpadded_key = unpad_key(&padded_key);
-        assert_eq!(key_bytes, unpadded_key);
+        encoded_bytes[65] = 1;
+        pad_key(&mut key_bytes, 65);
+        assert_eq!(encoded_bytes, key_bytes);
+        let unpadded_key = unpad_key(&key_bytes);
+        assert_eq!(original_key, unpadded_key);
     }
 }
