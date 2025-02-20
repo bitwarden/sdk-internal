@@ -227,7 +227,7 @@ pub async fn get_user_encryption_key(client: &Client) -> Result<String, MobileCr
     #[allow(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
-    user_key.to_base64().map_err(Into::into)
+    Ok(user_key.to_base64())
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
@@ -375,7 +375,7 @@ pub(super) fn enroll_admin_password_reset(
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
-        &key.to_encoded(false)?,
+        &key.to_encoded(false),
         &public_key,
     )?)
 }
@@ -586,7 +586,6 @@ mod tests {
             ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
-                .unwrap()
         };
 
         let client2_key = {
@@ -596,7 +595,6 @@ mod tests {
             ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
-                .unwrap()
         };
 
         assert_eq!(client_key, client2_key);
@@ -653,7 +651,6 @@ mod tests {
             ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
-                .unwrap()
         };
 
         let client2_key = {
@@ -663,7 +660,6 @@ mod tests {
             ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
-                .unwrap()
         };
 
         assert_eq!(client_key, client2_key);
@@ -708,7 +704,7 @@ mod tests {
                 .to_base64()
         };
 
-        assert_eq!(client_key.unwrap(), client3_key.unwrap());
+        assert_eq!(client_key, client3_key);
     }
 
     #[test]
@@ -750,7 +746,7 @@ mod tests {
             .dangerous_get_symmetric_key(SymmetricKeyId::User)
             .unwrap();
 
-        assert_eq!(&decrypted, &expected.to_encoded(false).unwrap())
+        assert_eq!(&decrypted, &expected.to_encoded(false))
     }
 
     #[test]
@@ -788,7 +784,7 @@ mod tests {
     fn test_make_key_pair() {
         let (user_key, _) = setup_asymmetric_keys_test();
 
-        let response = make_key_pair(user_key.0.to_base64().unwrap()).unwrap();
+        let response = make_key_pair(user_key.0.to_base64()).unwrap();
 
         assert!(!response.user_public_key.is_empty());
         let encrypted_private_key = response.user_key_encrypted_private_key;
@@ -801,7 +797,7 @@ mod tests {
         let (user_key, key_pair) = setup_asymmetric_keys_test();
 
         let request = VerifyAsymmetricKeysRequest {
-            user_key: user_key.0.to_base64().unwrap(),
+            user_key: user_key.0.to_base64(),
             user_public_key: key_pair.public,
             user_key_encrypted_private_key: key_pair.private,
         };
@@ -817,7 +813,7 @@ mod tests {
         let undecryptable_private_key = "2.cqD39M4erPZ3tWaz2Fng9w==|+Bsp/xvM30oo+HThKN12qirK0A63EjMadcwethCX7kEgfL5nEXgAFsSgRBMpByc1djgpGDMXzUTLOE+FejXRsrEHH/ICZ7jPMgSR+lV64Mlvw3fgvDPQdJ6w3MCmjPueGQtrlPj1K78BkRomN3vQwwRBFUIJhLAnLshTOIFrSghoyG78na7McqVMMD0gmC0zmRaSs2YWu/46ES+2Rp8V5OC4qdeeoJM9MQfaOtmaqv7NRVDeDM3DwoyTJAOcon8eovMKE4jbFPUboiXjNQBkBgjvLhco3lVJnFcQuYgmjqrwuUQRsfAtZjxFXg/RQSH2D+SI5uRaTNQwkL4iJqIw7BIKtI0gxDz6eCVdq/+DLhpImgCV/aaIhF/jkpGqLCceFsYMbuqdULMM1VYKgV+IAuyC65R+wxOaKS+1IevvPnNp7tgKAvT5+shFg8piusj+rQ49daX2SmV2OImwdWMmmX93bcVV0xJ/WYB1yrqmyRUcTwyvX3RQF25P5okIIzFasRp8jXFZe8C6f93yzkn1TPQbp95zF4OsWjfPFVH4hzca07ACt2HjbAB75JakWbFA5MbCF8aOIwIfeLVhVlquQXCldOHCsl22U/f3HTGLB9OS8F83CDAy7qZqpKha9Im8RUhHoyf+lXrky0gyd6un7Ky8NSkVOGd8CEG7bvZfutxv/qtAjEM9/lV78fh8TQIy9GNgioMzplpuzPIJOgMaY/ZFZj6a8H9OMPneN5Je0H/DwHEglSyWy7CMgwcbQgXYGXc8rXTTxL71GUAFHzDr4bAJvf40YnjndoL9tf+oBw8vVNUccoD4cjyOT5w8h7M3Liaxk9/0O8JR98PKxxpv1Xw6XjFCSEHeG2y9FgDUASFR4ZwG1qQBiiLMnJ7e9kvxsdnmasBux9H0tOdhDhAM16Afk3NPPKA8eztJVHJBAfQiaNiUA4LIJ48d8EpUAe2Tvz0WW/gQThplUINDTpvPf+FojLwc5lFwNIPb4CVN1Ui8jOJI5nsOw4BSWJvLzJLxawHxX/sBuK96iXza+4aMH+FqYKt/twpTJtiVXo26sPtHe6xXtp7uO4b+bL9yYUcaAci69L0W8aNdu8iF0lVX6kFn2lOL8dBLRleGvixX9gYEVEsiI7BQBjxEBHW/YMr5F4M4smqCpleZIAxkse1r2fQ33BSOJVQKInt4zzgdKwrxDzuVR7RyiIUuNXHsprKtRHNJrSc4x5kWFUeivahed2hON+Ir/ZvrxYN6nJJPeYYH4uEm1Nn4osUzzfWILlqpmDPK1yYy365T38W8wT0cbdcJrI87ycS37HeB8bzpFJZSY/Dzv48Yy19mDZJHLJLCRqyxNeIlBPsVC8fvxQhzr+ZyS3Wi8Dsa2Sgjt/wd0xPULLCJlb37s+1aWgYYylr9QR1uhXheYfkXFED+saGWwY1jlYL5e2Oo9n3sviBYwJxIZ+RTKFgwlXV5S+Jx/MbDpgnVHP1KaoU6vvzdWYwMChdHV/6PhZVbeT2txq7Qt+zQN59IGrOWf6vlMkHxfUzMTD58CE+xAaz/D05ljHMesLj9hb3MSrymw0PcwoFGWUMIzIQE73pUVYNE7fVHa8HqUOdoxZ5dRZqXRVox1xd9siIPE3e6CuVQIMabTp1YLno=|Y38qtTuCwNLDqFnzJ3Cgbjm1SE15OnhDm9iAMABaQBA=".parse().unwrap();
 
         let request = VerifyAsymmetricKeysRequest {
-            user_key: user_key.0.to_base64().unwrap(),
+            user_key: user_key.0.to_base64(),
             user_public_key: key_pair.public,
             user_key_encrypted_private_key: undecryptable_private_key,
         };
@@ -838,7 +834,7 @@ mod tests {
             .unwrap();
 
         let request = VerifyAsymmetricKeysRequest {
-            user_key: user_key.0.to_base64().unwrap(),
+            user_key: user_key.0.to_base64(),
             user_public_key: key_pair.public,
             user_key_encrypted_private_key: invalid_private_key,
         };
@@ -854,7 +850,7 @@ mod tests {
         let new_key_pair = user_key.make_key_pair().unwrap();
 
         let request = VerifyAsymmetricKeysRequest {
-            user_key: user_key.0.to_base64().unwrap(),
+            user_key: user_key.0.to_base64(),
             user_public_key: key_pair.public,
             user_key_encrypted_private_key: new_key_pair.private,
         };

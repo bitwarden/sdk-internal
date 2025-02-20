@@ -170,7 +170,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key_to_encrypt: Ids::Symmetric,
     ) -> Result<EncString> {
         let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
-        self.encrypt_data_with_symmetric_key(encryption_key, &key_to_encrypt.to_encoded(false)?)
+        self.encrypt_data_with_symmetric_key(encryption_key, &key_to_encrypt.to_encoded(false))
     }
 
     /// Decrypt a symmetric key into the context by using an already existing asymmetric key
@@ -215,7 +215,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key_to_encrypt: Ids::Symmetric,
     ) -> Result<AsymmetricEncString> {
         let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
-        self.encrypt_data_with_asymmetric_key(encryption_key, &key_to_encrypt.to_encoded(false)?)
+        self.encrypt_data_with_asymmetric_key(encryption_key, &key_to_encrypt.to_encoded(false))
     }
 
     /// Returns `true` if the context has a symmetric key with the given identifier

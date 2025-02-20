@@ -78,28 +78,27 @@ impl SymmetricCryptoKey {
         SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
     }
 
-    pub fn to_encoded(&self, use_new_format: bool) -> Result<Vec<u8>, CryptoError> {
+    pub fn to_encoded(&self, use_new_format: bool) -> Vec<u8> {
         match (self, use_new_format) {
-            (SymmetricCryptoKey::Aes256CbcKey(key), false) => Ok(key.enc_key.to_vec()),
+            (SymmetricCryptoKey::Aes256CbcKey(key), false) => key.enc_key.to_vec(),
             (SymmetricCryptoKey::Aes256CbcHmacKey(key), false) => {
                 let mut buf = Vec::with_capacity(64);
                 buf.extend_from_slice(&key.enc_key);
                 buf.extend_from_slice(&key.mac_key);
-                Ok(buf)
+                buf
             }
             (_, true) => {
                 let serialized_key = SerializedSymmetricCryptoKey::from(self.clone());
                 let mut encoded_key = Vec::new();
-                ciborium::into_writer(&serialized_key, &mut encoded_key)
-                    .map_err(|_| CryptoError::EncodingError)?;
+                ciborium::into_writer(&serialized_key, &mut encoded_key).unwrap();
                 pad_key(&mut encoded_key, Self::AES256_CBC_HMAC_KEY_LEN + 1);
-                Ok(encoded_key)
+                encoded_key
             }
         }
     }
 
-    pub fn to_base64(&self) -> Result<String, CryptoError> {
-        Ok(STANDARD.encode(self.to_encoded(false)?))
+    pub fn to_base64(&self) -> String {
+        STANDARD.encode(self.to_encoded(false))
     }
 }
 
@@ -171,17 +170,7 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
                 ciborium::from_reader(unpadded_value)
                     .map_err(|_| CryptoError::EncodingError)?;
             value.zeroize();
-
-            match decoded_key {
-                SerializedSymmetricCryptoKey::Aes256CbcHmac {
-                    encryption_key,
-                    authentication_key,
-                } => Ok(SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-                    enc_key: Box::pin(*GenericArray::from_slice(encryption_key.as_slice())),
-                    mac_key: Box::pin(*GenericArray::from_slice(authentication_key.as_slice())),
-                })),
-                _ => Err(CryptoError::InvalidKey),
-            }
+            SymmetricCryptoKey::try_from(decoded_key)
         } else {
             Err(CryptoError::InvalidKeyLen)
         };
@@ -197,6 +186,25 @@ impl CryptoKey for SymmetricCryptoKey {}
 impl std::fmt::Debug for SymmetricCryptoKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SymmetricCryptoKey").finish()
+    }
+}
+
+impl TryFrom<SerializedSymmetricCryptoKey> for SymmetricCryptoKey {
+    type Error = CryptoError;
+
+    fn try_from(value: SerializedSymmetricCryptoKey) -> Result<Self, Self::Error> {
+        match value {
+            SerializedSymmetricCryptoKey::Aes256CbcHmac {
+                encryption_key,
+                authentication_key,
+            } => Ok(SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
+                enc_key: Box::pin(*GenericArray::from_slice(encryption_key.as_slice())),
+                mac_key: Box::pin(*GenericArray::from_slice(authentication_key.as_slice())),
+            })),
+            SerializedSymmetricCryptoKey::Aes256Cbc { encryption_key } => Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey {
+                enc_key: Box::pin(*GenericArray::from_slice(encryption_key.as_slice())),
+            })),
+        }
     }
 }
 
@@ -266,19 +274,19 @@ mod tests {
     #[test]
     fn test_symmetric_crypto_key() {
         let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
-        let key2 = SymmetricCryptoKey::try_from(key.to_base64().unwrap()).unwrap();
+        let key2 = SymmetricCryptoKey::try_from(key.to_base64()).unwrap();
 
         assert_eq!(key, key2);
 
         let key = "UY4B5N4DA4UisCNClgZtRr6VLy9ZF5BXXC7cDZRqourKi4ghEMgISbCsubvgCkHf5DZctQjVot11/vVvN9NNHQ==".to_string();
         let key2 = SymmetricCryptoKey::try_from(key.clone()).unwrap();
-        assert_eq!(key, key2.to_base64().unwrap());
+        assert_eq!(key, key2.to_base64());
     }
 
     #[test]
     fn test_encode_decode_new_symmetric_crypto_key() {
         let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let encoded = key.to_encoded(true).unwrap();
+        let encoded = key.to_encoded(true);
         let decoded = SymmetricCryptoKey::try_from(encoded).unwrap();
         assert_eq!(key, decoded);
     }

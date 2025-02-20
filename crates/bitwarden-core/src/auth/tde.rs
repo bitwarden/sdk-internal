@@ -23,7 +23,7 @@ pub(super) fn make_register_tde_keys(
     let key_pair = user_key.make_key_pair()?;
 
     let admin_reset = AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
-        &user_key.0.to_encoded(false)?,
+        &user_key.0.to_encoded(false),
         &public_key,
     )?;
 
