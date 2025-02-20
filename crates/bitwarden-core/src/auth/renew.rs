@@ -80,7 +80,7 @@ pub(crate) async fn renew_token(client: &InternalClient) -> Result<(), LoginErro
                         #[allow(deprecated)]
                         if let Ok(enc_key) = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User) {
                             let state =
-                                ClientState::new(r.access_token.clone(), enc_key.to_base64()?);
+                                ClientState::new(r.access_token.clone(), enc_key.to_base64());
                             _ = state::set(state_file, access_token, state);
                         }
                     }
