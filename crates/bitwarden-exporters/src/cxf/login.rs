@@ -5,23 +5,12 @@
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::MissingFieldError;
-use bitwarden_crypto::generate_random_bytes;
 use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
 use chrono::{DateTime, Utc};
-use credential_exchange_types::{
-    format::{BasicAuthCredential, EditableField, FieldType, PasskeyCredential},
-    B64Url,
-};
+use credential_exchange_types::format::{BasicAuthCredential, PasskeyCredential};
 use thiserror::Error;
 
 use crate::{Fido2Credential, Login, LoginUri};
-
-/// Generate a 32 byte random ID
-///
-/// TODO: This should be removed shortly.
-fn random_id() -> B64Url {
-    generate_random_bytes::<[u8; 32]>().as_slice().into()
-}
 
 pub(super) fn to_login(
     creation_date: DateTime<Utc>,
@@ -29,8 +18,8 @@ pub(super) fn to_login(
     passkey: Option<&PasskeyCredential>,
 ) -> Login {
     let login = Login {
-        username: basic_auth.and_then(|v| v.username.as_ref().map(|u| u.value.clone())),
-        password: basic_auth.and_then(|v| v.password.as_ref().map(|u| u.value.clone())),
+        username: basic_auth.and_then(|v| v.username.clone().map(|v| v.into())),
+        password: basic_auth.and_then(|v| v.password.clone().map(|u| u.into())),
         login_uris: basic_auth
             .map(|v| {
                 v.urls
@@ -72,18 +61,8 @@ impl From<Login> for BasicAuthCredential {
                 .into_iter()
                 .flat_map(|uri| uri.uri)
                 .collect(),
-            username: login.username.map(|value| EditableField {
-                id: random_id(),
-                field_type: FieldType::String,
-                value,
-                label: None,
-            }),
-            password: login.password.map(|value| EditableField {
-                id: random_id(),
-                field_type: FieldType::ConcealedString,
-                value,
-                label: None,
-            }),
+            username: login.username.map(|v| v.into()),
+            password: login.password.map(|v| v.into()),
         }
     }
 }
@@ -148,13 +127,11 @@ mod tests {
         let basic_auth: BasicAuthCredential = login.into();
 
         let username = basic_auth.username.as_ref().unwrap();
-        assert_eq!(username.field_type, FieldType::String);
-        assert_eq!(username.value, "test@bitwarden.com");
+        assert_eq!(username.value.0, "test@bitwarden.com");
         assert!(username.label.is_none());
 
         let password = basic_auth.password.as_ref().unwrap();
-        assert_eq!(password.field_type, FieldType::ConcealedString);
-        assert_eq!(password.value, "asdfasdfasdf");
+        assert_eq!(password.value.0, "asdfasdfasdf");
         assert!(password.label.is_none());
 
         assert_eq!(

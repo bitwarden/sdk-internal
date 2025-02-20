@@ -120,7 +120,7 @@ struct GroupedCredentials {
 mod tests {
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
     use chrono::Duration;
-    use credential_exchange_types::format::{CreditCardCredential, ItemType};
+    use credential_exchange_types::format::{CredentialScope, CreditCardCredential};
 
     use super::*;
 
@@ -147,13 +147,16 @@ mod tests {
             id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
-            ty: ItemType::Login,
             title: "Bitwarden".to_string(),
             subtitle: None,
             favorite: None,
             credentials: vec![],
             tags: None,
             extensions: None,
+            scope: CredentialScope {
+                urls: vec![],
+                android_apps: vec![],
+            },
         };
 
         let ciphers: Vec<ImportingCipher> = parse_item(item);
@@ -170,7 +173,6 @@ mod tests {
                 .into(),
             creation_at: Some(1732181986),
             modified_at: Some(1732182026),
-            ty: ItemType::Login,
             title: "opotonniee.github.io".to_string(),
             subtitle: None,
             favorite: None,
@@ -197,6 +199,10 @@ mod tests {
             }))],
             tags: None,
             extensions: None,
+            scope: CredentialScope {
+                urls: vec![],
+                android_apps: vec![],
+            },
         };
 
         let ciphers: Vec<ImportingCipher> = parse_item(item);
@@ -247,20 +253,24 @@ mod tests {
             id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
-            ty: ItemType::Identity,
             title: "My MasterCard".to_string(),
             subtitle: None,
             favorite: None,
             credentials: vec![Credential::CreditCard(Box::new(CreditCardCredential {
-                number: "1234 5678 9012 3456".to_string(),
-                full_name: "John Doe".to_string(),
-                card_type: Some("MasterCard".to_string()),
-                verification_number: Some("123".to_string()),
-                expiry_date: Some("2026-01".to_string()),
+                number: Some("1234 5678 9012 3456".to_string().into()),
+                full_name: Some("John Doe".to_string().into()),
+                card_type: Some("MasterCard".to_string().into()),
+                verification_number: Some("123".to_string().into()),
+                pin: None,
+                expiry_date: Some("2026-01".to_string().into()),
                 valid_from: None,
             }))],
             tags: None,
             extensions: None,
+            scope: CredentialScope {
+                urls: vec![],
+                android_apps: vec![],
+            },
         };
 
         let ciphers: Vec<ImportingCipher> = parse_item(item);
