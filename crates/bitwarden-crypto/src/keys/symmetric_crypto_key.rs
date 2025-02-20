@@ -167,8 +167,7 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
         } else if value.len() > Self::AES256_CBC_HMAC_KEY_LEN {
             let unpadded_value = unpad_key(value);
             let decoded_key: SerializedSymmetricCryptoKey =
-                ciborium::from_reader(unpadded_value)
-                    .map_err(|_| CryptoError::EncodingError)?;
+                ciborium::from_reader(unpadded_value).map_err(|_| CryptoError::EncodingError)?;
             value.zeroize();
             SymmetricCryptoKey::try_from(decoded_key)
         } else {
@@ -201,9 +200,11 @@ impl TryFrom<SerializedSymmetricCryptoKey> for SymmetricCryptoKey {
                 enc_key: Box::pin(*GenericArray::from_slice(encryption_key.as_slice())),
                 mac_key: Box::pin(*GenericArray::from_slice(authentication_key.as_slice())),
             })),
-            SerializedSymmetricCryptoKey::Aes256Cbc { encryption_key } => Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey {
-                enc_key: Box::pin(*GenericArray::from_slice(encryption_key.as_slice())),
-            })),
+            SerializedSymmetricCryptoKey::Aes256Cbc { encryption_key } => {
+                Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey {
+                    enc_key: Box::pin(*GenericArray::from_slice(encryption_key.as_slice())),
+                }))
+            }
         }
     }
 }
