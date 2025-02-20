@@ -38,7 +38,7 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         let basic_auth = grouped.basic_auth.first();
         let passkey = grouped.passkey.first();
 
-        let login = to_login(creation_date, basic_auth, passkey);
+        let login = to_login(creation_date, basic_auth, passkey, Some(value.scope));
 
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders

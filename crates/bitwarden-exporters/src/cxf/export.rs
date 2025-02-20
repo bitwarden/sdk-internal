@@ -61,9 +61,12 @@ impl TryFrom<Cipher> for Item {
             credentials,
             tags: None,
             extensions: None,
-            scope: CredentialScope {
-                urls: vec![],
-                android_apps: vec![],
+            scope: match value.r#type {
+                CipherType::Login(login) => (*login).into(),
+                _ => CredentialScope {
+                    urls: vec![],
+                    android_apps: vec![],
+                },
             },
         })
     }
@@ -239,6 +242,10 @@ mod tests {
         assert_eq!(item.title, "Bitwarden");
         assert_eq!(item.subtitle, None);
         assert_eq!(item.tags, None);
+        assert_eq!(
+            item.scope.urls,
+            vec!["https://vault.bitwarden.com".to_string()]
+        );
         assert!(item.extensions.is_none());
 
         assert_eq!(item.credentials.len(), 4);
@@ -254,11 +261,6 @@ mod tests {
                 let password = basic_auth.password.as_ref().unwrap();
                 assert_eq!(password.value.0, "asdfasdfasdf");
                 assert!(password.label.is_none());
-
-                assert_eq!(
-                    basic_auth.urls,
-                    vec!["https://vault.bitwarden.com".to_string()]
-                );
             }
             _ => panic!("Expected Credential::BasicAuth"),
         }

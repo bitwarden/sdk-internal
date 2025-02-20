@@ -7,7 +7,7 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::MissingFieldError;
 use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
 use chrono::{DateTime, Utc};
-use credential_exchange_types::format::{BasicAuthCredential, PasskeyCredential};
+use credential_exchange_types::format::{BasicAuthCredential, CredentialScope, PasskeyCredential};
 use thiserror::Error;
 
 use crate::{Fido2Credential, Login, LoginUri};
@@ -16,11 +16,12 @@ pub(super) fn to_login(
     creation_date: DateTime<Utc>,
     basic_auth: Option<&BasicAuthCredential>,
     passkey: Option<&PasskeyCredential>,
+    scope: Option<CredentialScope>,
 ) -> Login {
     let login = Login {
         username: basic_auth.and_then(|v| v.username.clone().map(|v| v.into())),
         password: basic_auth.and_then(|v| v.password.clone().map(|u| u.into())),
-        login_uris: basic_auth
+        login_uris: scope
             .map(|v| {
                 v.urls
                     .iter()
@@ -56,13 +57,18 @@ pub(super) fn to_login(
 impl From<Login> for BasicAuthCredential {
     fn from(login: Login) -> Self {
         BasicAuthCredential {
-            urls: login
-                .login_uris
-                .into_iter()
-                .flat_map(|uri| uri.uri)
-                .collect(),
+            urls: vec![],
             username: login.username.map(|v| v.into()),
             password: login.password.map(|v| v.into()),
+        }
+    }
+}
+
+impl From<Login> for CredentialScope {
+    fn from(login: Login) -> Self {
+        CredentialScope {
+            urls: login.login_uris.into_iter().filter_map(|u| u.uri).collect(),
+            android_apps: vec![],
         }
     }
 }
@@ -133,11 +139,24 @@ mod tests {
         let password = basic_auth.password.as_ref().unwrap();
         assert_eq!(password.value.0, "asdfasdfasdf");
         assert!(password.label.is_none());
+    }
 
-        assert_eq!(
-            basic_auth.urls,
-            vec!["https://vault.bitwarden.com".to_string()]
-        );
+    #[test]
+    fn test_credential_scope() {
+        let login = Login {
+            username: None,
+            password: None,
+            login_uris: vec![LoginUri {
+                uri: Some("https://vault.bitwarden.com".to_string()),
+                r#match: None,
+            }],
+            totp: None,
+            fido2_credentials: None,
+        };
+
+        let scope: CredentialScope = login.into();
+
+        assert_eq!(scope.urls, vec!["https://vault.bitwarden.com".to_string()]);
     }
 
     #[test]
