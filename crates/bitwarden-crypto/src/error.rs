@@ -48,6 +48,12 @@ pub enum CryptoError {
     #[error("Number is zero")]
     ZeroNumber,
 
+    #[error("Invalid key hash algorithm")]
+    InvalidHashAlgorithm,
+
+    #[error("Error parsing key hash")]
+    HashParseError,
+
     #[error("Unsupported operation, {0}")]
     OperationNotSupported(UnsupportedOperation),
 
@@ -76,6 +82,10 @@ pub enum EncStringParseError {
     InvalidBase64(#[from] base64::DecodeError),
     #[error("Invalid length: expected {expected}, got {got}")]
     InvalidLength { expected: usize, got: usize },
+    #[error("Invalid additional data")]
+    InvalidAdditionalData,
+    #[error("Invalid encoding")]
+    InvalidEncoding,
 }
 
 #[derive(Debug, Error)]

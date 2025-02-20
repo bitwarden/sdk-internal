@@ -8,9 +8,9 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
-    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, KeyId, KeyIds, Result,
-    SymmetricCryptoKey,
+    derive_shareable_key, enc_string::additional_data, error::UnsupportedOperation,
+    store::backend::StoreBackend, AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString,
+    KeyId, KeyIds, Result, SymmetricCryptoKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -353,6 +353,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 UnsupportedOperation::EncryptionNotImplementedForKey,
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => EncString::encrypt_xchacha20_poly1305(
+                data,
+                additional_data::AdditionalData::None,
+                key,
+            ),
         }
     }
 

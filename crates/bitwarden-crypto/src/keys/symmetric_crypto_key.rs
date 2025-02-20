@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::key_encryptable::CryptoKey;
+use super::{key_encryptable::CryptoKey, key_hash::KeyHashData};
 use crate::CryptoError;
 
 /// Aes256CbcKey is a symmetric encryption key, consisting of one 256-bit key,
@@ -54,11 +54,45 @@ impl PartialEq for Aes256CbcHmacKey {
     }
 }
 
+#[derive(Zeroize, Clone)]
+#[cfg_attr(test, derive(Debug))]
+pub struct XChaCha20Poly1305Key {
+    pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
+}
+
+impl ConstantTimeEq for XChaCha20Poly1305Key {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.enc_key.ct_eq(&other.enc_key)
+    }
+}
+
+impl PartialEq for XChaCha20Poly1305Key {
+    fn eq(&self, other: &Self) -> bool {
+        self.ct_eq(other).into()
+    }
+}
+
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
 #[derive(ZeroizeOnDrop, Clone)]
 pub enum SymmetricCryptoKey {
     Aes256CbcKey(Aes256CbcKey),
     Aes256CbcHmacKey(Aes256CbcHmacKey),
+    XChaCha20Poly1305Key(XChaCha20Poly1305Key),
+}
+
+impl KeyHashData for SymmetricCryptoKey {
+    fn hash_data(&self) -> Vec<u8> {
+        match &self {
+            SymmetricCryptoKey::Aes256CbcKey(key) => key.enc_key.to_vec(),
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
+                let mut buf = Vec::with_capacity(64);
+                buf.extend_from_slice(&key.enc_key);
+                buf.extend_from_slice(&key.mac_key);
+                buf
+            }
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.enc_key.to_vec(),
+        }
+    }
 }
 
 impl SymmetricCryptoKey {
@@ -68,6 +102,7 @@ impl SymmetricCryptoKey {
     const AES256_CBC_HMAC_KEY_LEN: usize = 64;
 
     /// Generate a new random [SymmetricCryptoKey]
+    /// @param rng: A random number generator
     pub fn generate(mut rng: impl rand::RngCore) -> Self {
         let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
         let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
@@ -87,7 +122,7 @@ impl SymmetricCryptoKey {
                 buf.extend_from_slice(&key.mac_key);
                 Ok(buf)
             }
-            (_, true) => {
+            (SymmetricCryptoKey::XChaCha20Poly1305Key(_), _) | (_, true) => {
                 let serialized_key = SerializedSymmetricCryptoKey::from(self.clone());
                 let mut encoded_key = Vec::new();
                 ciborium::into_writer(&serialized_key, &mut encoded_key)
@@ -215,6 +250,11 @@ enum SerializedSymmetricCryptoKey {
         #[serde(with = "serde_bytes", rename = "ak")]
         authentication_key: Vec<u8>,
     },
+    #[serde(rename = "XC20-PLY")]
+    XChaCha20Poly1305 {
+        #[serde(with = "serde_bytes", rename = "ek")]
+        encryption_key: Vec<u8>,
+    },
 }
 
 impl From<SymmetricCryptoKey> for SerializedSymmetricCryptoKey {
@@ -227,6 +267,11 @@ impl From<SymmetricCryptoKey> for SerializedSymmetricCryptoKey {
                 SerializedSymmetricCryptoKey::Aes256CbcHmac {
                     encryption_key: k.enc_key.to_vec(),
                     authentication_key: k.mac_key.to_vec(),
+                }
+            }
+            SymmetricCryptoKey::XChaCha20Poly1305Key(k) => {
+                SerializedSymmetricCryptoKey::XChaCha20Poly1305 {
+                    encryption_key: k.enc_key.to_vec(),
                 }
             }
         }
@@ -328,5 +373,13 @@ mod tests {
         assert_eq!(encoded_bytes, key_bytes);
         let unpadded_key = unpad_key(&key_bytes);
         assert_eq!(original_key, unpadded_key);
+    }
+
+    #[test]
+    fn test_encode_xchacha20_poly1305_key() {
+        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key_vec = key.to_encoded(true).unwrap();
+        let key_vec_utf8_lossy = String::from_utf8_lossy(&key_vec);
+        println!("key_vec: {:?}", key_vec_utf8_lossy);
     }
 }
