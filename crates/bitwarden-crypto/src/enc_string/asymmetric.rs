@@ -204,8 +204,8 @@ impl schemars::JsonSchema for AsymmetricEncString {
         "AsymmetricEncString".to_string()
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        gen.subschema_for::<String>()
+    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+        generator.subschema_for::<String>()
     }
 }
 

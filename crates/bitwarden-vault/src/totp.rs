@@ -339,10 +339,10 @@ fn derive_steam_otp(binary: u32, digits: u32) -> String {
 fn derive_binary(hash: Vec<u8>) -> u32 {
     let offset = (hash.last().unwrap_or(&0) & 15) as usize;
 
-    ((hash[offset] & 127) as u32) << 24
-        | (hash[offset + 1] as u32) << 16
-        | (hash[offset + 2] as u32) << 8
-        | hash[offset + 3] as u32
+    (((hash[offset] & 127) as u32) << 24)
+        | ((hash[offset + 1] as u32) << 16)
+        | ((hash[offset + 2] as u32) << 8)
+        | (hash[offset + 3] as u32)
 }
 
 /// This code is migrated from our javascript implementation and is not technically a correct base32
