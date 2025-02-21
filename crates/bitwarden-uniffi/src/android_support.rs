@@ -1,22 +1,43 @@
-use std::error::Error;
+use std::{error::Error, sync::OnceLock};
 
 use jni::sys::{jint, jsize, JavaVM};
 
-pub fn init() {
-    static ANDROID_INIT: std::sync::Once = std::sync::Once::new();
+pub static JAVA_VM: OnceLock<jni::JavaVM> = OnceLock::new();
 
+// This function is called when the Android app calls `System.loadLibrary("bitwarden_uniffi")`
+// Important: This function must be named `JNI_OnLoad` or otherwise it won't be called
+#[allow(non_snake_case)]
+#[no_mangle]
+pub extern "system" fn JNI_OnLoad(vm_ptr: jni::JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
+    log::info!("JNI_OnLoad initializing");
+    JAVA_VM.get_or_init(|| vm_ptr);
+    jni::sys::JNI_VERSION_1_6
+}
+
+pub fn init() {
     fn init_inner() -> Result<(), Box<dyn Error>> {
-        let jvm = java_vm()?;
+        let jvm = match JAVA_VM.get() {
+            Some(jvm) => {
+                log::info!("JavaVM already initialized");
+                jvm
+            }
+            None => {
+                log::info!("JavaVM not initialized, initializing now");
+                let jvm = java_vm()?;
+                JAVA_VM.get_or_init(|| jvm)
+            }
+        };
+
         let mut env = jvm.attach_current_thread_permanently()?;
+        log::info!("Initializing Android verifier");
         init_verifier(&mut env)?;
+        log::info!("SDK Android support initialized");
         Ok(())
     }
 
-    ANDROID_INIT.call_once(|| {
-        if let Err(e) = init_inner() {
-            log::error!("Failed to initialize Android support: {}", e);
-        }
-    });
+    if let Err(e) = init_inner() {
+        log::error!("Failed to initialize Android support: {:#?}", e);
+    }
 }
 
 type JniGetCreatedJavaVms =

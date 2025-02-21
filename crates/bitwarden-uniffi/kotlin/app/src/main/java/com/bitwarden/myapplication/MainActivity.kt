@@ -89,6 +89,12 @@ class MainActivity : FragmentActivity() {
 
     private var accessToken = ""
 
+    companion object {
+        init {
+            System.loadLibrary("bitwarden_uniffi");
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         biometric = Biometric(this)
