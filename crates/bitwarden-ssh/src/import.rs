@@ -1,11 +1,12 @@
+use bitwarden_vault::SshKeyView;
 use ed25519;
 use pem_rfc7468::PemLabel;
 use pkcs8::{der::Decode, pkcs5, DecodePrivateKey, PrivateKeyInfo, SecretDocument};
 use ssh_key::private::{Ed25519Keypair, RsaKeypair};
 
-use crate::{error::SshKeyImportError, SshKey};
+use crate::{error::SshKeyImportError, ssh_private_key_to_view};
 
-/// Import a PKCS8 or OpenSSH encoded private key, and returns a decoded [SshKey],
+/// Import a PKCS8 or OpenSSH encoded private key, and returns a decoded [SshKeyView],
 /// with the public key and fingerprint, and the private key in OpenSSH format.
 /// A password can be provided for encrypted keys.
 /// # Returns
@@ -16,7 +17,7 @@ use crate::{error::SshKeyImportError, SshKey};
 pub fn import_key(
     encoded_key: String,
     password: Option<String>,
-) -> Result<SshKey, SshKeyImportError> {
+) -> Result<SshKeyView, SshKeyImportError> {
     let label = pem_rfc7468::decode_label(encoded_key.as_bytes())
         .map_err(|_| SshKeyImportError::ParsingError)?;
 
@@ -34,7 +35,7 @@ pub fn import_key(
 fn import_pkcs8_key(
     encoded_key: String,
     password: Option<String>,
-) -> Result<SshKey, SshKeyImportError> {
+) -> Result<SshKeyView, SshKeyImportError> {
     let doc = if let Some(password) = password {
         SecretDocument::from_pkcs8_encrypted_pem(&encoded_key, password.as_bytes()).map_err(
             |err| match err {
@@ -71,15 +72,13 @@ fn import_pkcs8_key(
         _ => return Err(SshKeyImportError::UnsupportedKeyType),
     };
 
-    private_key
-        .try_into()
-        .map_err(|_| SshKeyImportError::ParsingError)
+    ssh_private_key_to_view(private_key).map_err(|_| SshKeyImportError::ParsingError)
 }
 
 fn import_openssh_key(
     encoded_key: String,
     password: Option<String>,
-) -> Result<SshKey, SshKeyImportError> {
+) -> Result<SshKeyView, SshKeyImportError> {
     let private_key =
         ssh_key::private::PrivateKey::from_openssh(&encoded_key).map_err(|err| match err {
             ssh_key::Error::AlgorithmUnknown | ssh_key::Error::AlgorithmUnsupported { .. } => {
@@ -97,9 +96,7 @@ fn import_openssh_key(
         private_key
     };
 
-    private_key
-        .try_into()
-        .map_err(|_| SshKeyImportError::ParsingError)
+    ssh_private_key_to_view(private_key).map_err(|_| SshKeyImportError::ParsingError)
 }
 
 #[cfg(test)]

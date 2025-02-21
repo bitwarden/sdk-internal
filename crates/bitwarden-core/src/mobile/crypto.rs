@@ -12,9 +12,8 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
-    error::{NotAuthenticatedError, Result},
     key_management::SymmetricKeyId,
-    Client, VaultLockedError, WrongPasswordError,
+    Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
 };
 
 /// Catch all errors for mobile crypto operations
@@ -178,7 +177,10 @@ pub async fn initialize_user_crypto(
             master_key,
             user_key,
         } => {
-            let master_key = MasterKey::new(SymmetricCryptoKey::try_from(master_key)?);
+            let mut master_key_bytes = STANDARD
+                .decode(master_key)
+                .map_err(|_| CryptoError::InvalidKey)?;
+            let master_key = MasterKey::try_from(master_key_bytes.as_mut_slice())?;
             let user_key: EncString = user_key.parse()?;
 
             client
@@ -280,9 +282,9 @@ pub fn update_password(
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct DerivePinKeyResponse {
-    /// [UserKey](bitwarden_crypto::UserKey) protected by PIN
+    /// [UserKey] protected by PIN
     pin_protected_user_key: EncString,
-    /// PIN protected by [UserKey](bitwarden_crypto::UserKey)
+    /// PIN protected by [UserKey]
     encrypted_pin: EncString,
 }
 
@@ -485,7 +487,7 @@ pub fn verify_asymmetric_keys(
             .to_public_der()
             .map_err(VerifyError::PublicFailed)?;
 
-        let derived_public_key = STANDARD.encode(&derived_public_key_vec);
+        let derived_public_key = STANDARD.encode(derived_public_key_vec);
 
         if derived_public_key != request.user_public_key {
             return Err(VerifyError::KeyMismatch);

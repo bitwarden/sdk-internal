@@ -1,3 +1,17 @@
+//! Get the user's API key.
+//!
+//! This module provides the functionality to get the user's API key.
+//!
+//! <div class="warning">
+//!
+//! This code is currently unused and unmaintained!
+//!
+//! - Prior to use it should be reviewed and tested.
+//! - Code should move to the appropriate code owner.
+//! - Secret verification should be extracted as it's a common pattern for multiple requests.
+//!
+//! </div>
+
 use std::sync::Arc;
 
 use bitwarden_api_api::{
@@ -8,27 +22,43 @@ use bitwarden_crypto::{HashPurpose, MasterKey};
 use log::{debug, info};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use super::SecretVerificationRequest;
 use crate::{
     client::{LoginMethod, UserLoginMethod},
-    error::{NotAuthenticatedError, Result},
-    require, Client,
+    require, ApiError, Client, MissingFieldError, NotAuthenticatedError,
 };
 
+#[derive(Debug, Error)]
+pub enum UserApiKeyError {
+    #[error(transparent)]
+    Api(#[from] ApiError),
+    #[error(transparent)]
+    Crypto(#[from] bitwarden_crypto::CryptoError),
+    #[error(transparent)]
+    NotAuthenticated(#[from] NotAuthenticatedError),
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError),
+    #[error("Unsupported login method")]
+    UnsupportedLoginMethod,
+}
+
+/// Get the user's API key.
 pub(crate) async fn get_user_api_key(
     client: &Client,
     input: &SecretVerificationRequest,
-) -> Result<UserApiKeyResponse> {
+) -> Result<UserApiKeyResponse, UserApiKeyError> {
     info!("Getting Api Key");
     debug!("{:?}", input);
 
     let auth_settings = get_login_method(client)?;
-    let request = get_secret_verification_request(&auth_settings, input)?;
-
     let config = client.internal.get_api_configurations().await;
 
-    let response = accounts_api_key_post(&config.api, Some(request)).await?;
+    let request = build_secret_verification_request(&auth_settings, input)?;
+    let response = accounts_api_key_post(&config.api, Some(request))
+        .await
+        .map_err(ApiError::from)?;
     UserApiKeyResponse::process_response(response)
 }
 
@@ -43,10 +73,11 @@ fn get_login_method(client: &Client) -> Result<Arc<LoginMethod>, NotAuthenticate
     }
 }
 
-fn get_secret_verification_request(
+/// Build the secret verification request.
+fn build_secret_verification_request(
     login_method: &LoginMethod,
     input: &SecretVerificationRequest,
-) -> Result<SecretVerificationRequestModel> {
+) -> Result<SecretVerificationRequestModel, UserApiKeyError> {
     if let LoginMethod::User(UserLoginMethod::Username { email, kdf, .. }) = login_method {
         let master_password_hash = input
             .master_password
@@ -64,7 +95,7 @@ fn get_secret_verification_request(
             auth_request_access_code: None,
         })
     } else {
-        Err("Unsupported login method".into())
+        Err(UserApiKeyError::UnsupportedLoginMethod)
     }
 }
 
@@ -76,7 +107,9 @@ pub struct UserApiKeyResponse {
 }
 
 impl UserApiKeyResponse {
-    pub(crate) fn process_response(response: ApiKeyResponseModel) -> Result<UserApiKeyResponse> {
+    pub(crate) fn process_response(
+        response: ApiKeyResponseModel,
+    ) -> Result<UserApiKeyResponse, UserApiKeyError> {
         let api_key = require!(response.api_key);
         Ok(UserApiKeyResponse { api_key })
     }

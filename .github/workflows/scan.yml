@@ -74,3 +74,4 @@ jobs:
             -Dsonar.organization=${{ github.repository_owner }}
             -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
             -Dsonar.exclusions=crates/bitwarden-uniffi/kotlin/**,crates/bitwarden-uniffi/swift/**
+            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}

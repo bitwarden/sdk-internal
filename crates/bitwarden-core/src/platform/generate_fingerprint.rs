@@ -1,11 +1,14 @@
+//! Fingerprint generation.
+//!
+//! This module contains the logic for generating fingerprints.
+
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::fingerprint;
-use log::info;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{error::Result, key_management::AsymmetricKeyId, VaultLockedError};
+use crate::{key_management::AsymmetricKeyId, MissingPrivateKeyError, VaultLockedError};
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -32,16 +35,10 @@ pub enum FingerprintError {
     InvalidBase64(#[from] base64::DecodeError),
 }
 
-pub(crate) fn generate_fingerprint(
-    input: &FingerprintRequest,
-) -> Result<FingerprintResponse, FingerprintError> {
-    info!("Generating fingerprint");
-
+pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String, FingerprintError> {
     let key = STANDARD.decode(&input.public_key)?;
 
-    Ok(FingerprintResponse {
-        fingerprint: fingerprint(&input.fingerprint_material, &key)?,
-    })
+    Ok(fingerprint(&input.fingerprint_material, &key)?)
 }
 
 /// Errors that can occur when computing a fingerprint.
@@ -51,16 +48,14 @@ pub enum UserFingerprintError {
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
     VaultLocked(#[from] VaultLockedError),
-    #[error("Missing private key")]
-    MissingPrivateKey,
+    #[error(transparent)]
+    MissingPrivateKey(#[from] MissingPrivateKeyError),
 }
 
 pub(crate) fn generate_user_fingerprint(
     client: &crate::Client,
     fingerprint_material: String,
 ) -> Result<String, UserFingerprintError> {
-    info!("Generating fingerprint");
-
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18110] This should be removed once the key store can handle public keys and
