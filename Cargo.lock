@@ -584,6 +584,7 @@ name = "bitwarden-ssh"
 version = "1.0.0"
 dependencies = [
  "bitwarden-error",
+ "bitwarden-vault",
  "ed25519",
  "pem-rfc7468",
  "pkcs8",
@@ -635,6 +636,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "chrono",
+ "data-encoding",
  "hmac",
  "percent-encoding",
  "rand",

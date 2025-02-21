@@ -70,7 +70,7 @@ pub(crate) fn auth_request_decrypt_master_key(
 
     let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
     let mut master_key: Vec<u8> = master_key.decrypt_with_key(&key)?;
-    let master_key = MasterKey::new(SymmetricCryptoKey::try_from(master_key.as_mut_slice())?);
+    let master_key = MasterKey::try_from(master_key.as_mut_slice())?;
 
     Ok(master_key.decrypt_user_key(user_key)?)
 }
