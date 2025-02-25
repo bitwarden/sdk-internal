@@ -35,8 +35,6 @@ impl PureCrypto {
         enc_string: String,
         key_b64: String,
     ) -> Result<String, PureCryptoError> {
-        crate::client::bitwarden_pure::setup_once();
-
         let enc_string = EncString::from_str(&enc_string)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
@@ -52,8 +50,6 @@ impl PureCrypto {
         enc_string: String,
         key_b64: String,
     ) -> Result<Vec<u8>, PureCryptoError> {
-        crate::client::bitwarden_pure::setup_once();
-
         let enc_string = EncString::from_str(&enc_string)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
@@ -75,8 +71,6 @@ impl PureCrypto {
         enc_bytes: Vec<u8>,
         key_b64: String,
     ) -> Result<Vec<u8>, PureCryptoError> {
-        crate::client::bitwarden_pure::setup_once();
-
         let enc_string = EncString::from_buffer(&enc_bytes)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
@@ -91,8 +85,6 @@ impl PureCrypto {
     /// This method is intended for use in the javascript clients at the EncryptService layer and
     /// should not be used elsewhere.
     pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, PureCryptoError> {
-        crate::client::bitwarden_pure::setup_once();
-
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
         Ok(plain.encrypt_with_key(&key)?.to_string())
@@ -109,8 +101,6 @@ impl PureCrypto {
         plain: Vec<u8>,
         key_b64: String,
     ) -> Result<Vec<u8>, PureCryptoError> {
-        crate::client::bitwarden_pure::setup_once();
-
         let key = SymmetricCryptoKey::try_from(key_b64)?;
         Ok(plain.encrypt_with_key(&key)?.to_buffer()?)
     }
