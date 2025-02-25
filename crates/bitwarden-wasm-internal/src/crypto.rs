@@ -8,8 +8,9 @@ use bitwarden_core::{
     },
     Client,
 };
-use bitwarden_crypto::CryptoError;
-use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey};
+use bitwarden_crypto::{
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use wasm_bindgen::prelude::*;
