@@ -51,9 +51,8 @@ where
 mod tests {
     use std::collections::HashMap;
 
-    use crate::{endpoint::Endpoint, traits::InMemorySessionRepository};
-
     use super::*;
+    use crate::{endpoint::Endpoint, traits::InMemorySessionRepository};
 
     struct TestCommunicationProvider;
 

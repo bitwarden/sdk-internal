@@ -1,7 +1,8 @@
-use crate::endpoint::Endpoint;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
+
+use crate::endpoint::Endpoint;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]

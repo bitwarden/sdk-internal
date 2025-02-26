@@ -5,7 +5,6 @@ mod ssh;
 mod vault;
 
 pub use bitwarden_ipc::wasm::*;
-
 pub use client::BitwardenClient;
 pub use crypto::CryptoClient;
 pub use vault::{folders::ClientFolders, VaultClient};

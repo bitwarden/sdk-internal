@@ -2,15 +2,14 @@ use std::collections::HashMap;
 
 use wasm_bindgen::prelude::*;
 
+use super::{
+    communication_backend::JsCommunicationBackend,
+    error::{JsReceiveError, JsSendError},
+};
 use crate::{
     message::{IncomingMessage, OutgoingMessage},
     traits::{InMemorySessionRepository, NoEncryptionCryptoProvider},
     IpcClient,
-};
-
-use super::{
-    communication_backend::JsCommunicationBackend,
-    error::{JsReceiveError, JsSendError},
 };
 
 #[wasm_bindgen(js_name = IpcClient)]

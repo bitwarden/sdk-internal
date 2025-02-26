@@ -1,9 +1,8 @@
+use super::{CommunicationBackend, SessionRepository};
 use crate::{
     error::{ReceiveError, SendError},
     message::{IncomingMessage, OutgoingMessage},
 };
-
-use super::{CommunicationBackend, SessionRepository};
 
 pub trait CryptoProvider<Com, Ses>
 where
