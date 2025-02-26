@@ -21,6 +21,12 @@ fn convert_level(level: LogLevel) -> Level {
 }
 
 #[wasm_bindgen]
+pub fn set_log_level(level: LogLevel) {
+    let log_level = convert_level(level);
+    set_max_level(log_level.to_level_filter());
+}
+
+#[wasm_bindgen]
 pub fn init_sdk(log_level: Option<LogLevel>) {
     console_error_panic_hook::set_once();
     let log_level = convert_level(log_level.unwrap_or(LogLevel::Info));
