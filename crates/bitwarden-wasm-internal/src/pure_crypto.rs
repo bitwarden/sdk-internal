@@ -1,4 +1,3 @@
-
 use std::str::FromStr;
 
 use bitwarden_crypto::{CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey};
