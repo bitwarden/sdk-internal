@@ -56,10 +56,9 @@ where
         communication: &Com,
         _sessions: &Ses,
     ) -> Result<IncomingMessage, ReceiveError<Self::ReceiveError, Com::ReceiveError>> {
-        let message = communication
+        communication
             .receive()
             .await
-            .map_err(ReceiveError::CommunicationError);
-        message
+            .map_err(ReceiveError::CommunicationError)
     }
 }
