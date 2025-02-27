@@ -11,16 +11,7 @@ use bitwarden_core::{
 use bitwarden_crypto::{
     CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
 };
-use bitwarden_error::bitwarden_error;
-use thiserror::Error;
 use wasm_bindgen::prelude::*;
-
-#[bitwarden_error(flat)]
-#[derive(Debug, Error)]
-pub enum PureCryptoError {
-    #[error("Cryptography error, {0}")]
-    Crypto(#[from] bitwarden_crypto::CryptoError),
-}
 
 #[wasm_bindgen]
 pub struct PureCrypto {}
@@ -35,7 +26,7 @@ impl PureCrypto {
     pub fn symmetric_decrypt(
         enc_string: String,
         key_b64: String,
-    ) -> Result<String, PureCryptoError> {
+    ) -> Result<String, CryptoError> {
         let enc_string = EncString::from_str(&enc_string)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
@@ -50,7 +41,7 @@ impl PureCrypto {
     pub fn symmetric_decrypt_to_bytes(
         enc_string: String,
         key_b64: String,
-    ) -> Result<Vec<u8>, PureCryptoError> {
+    ) -> Result<Vec<u8>, CryptoError> {
         let enc_string = EncString::from_str(&enc_string)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
@@ -71,7 +62,7 @@ impl PureCrypto {
     pub fn symmetric_decrypt_array_buffer(
         enc_bytes: Vec<u8>,
         key_b64: String,
-    ) -> Result<Vec<u8>, PureCryptoError> {
+    ) -> Result<Vec<u8>, CryptoError> {
         let enc_string = EncString::from_buffer(&enc_bytes)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
@@ -85,7 +76,7 @@ impl PureCrypto {
     ///
     /// This method is intended for use in the javascript clients at the EncryptService layer and
     /// should not be used elsewhere.
-    pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, PureCryptoError> {
+    pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, CryptoError> {
         let key = SymmetricCryptoKey::try_from(key_b64)?;
 
         Ok(plain.encrypt_with_key(&key)?.to_string())
@@ -101,7 +92,7 @@ impl PureCrypto {
     pub fn symmetric_encrypt_to_array_buffer(
         plain: Vec<u8>,
         key_b64: String,
-    ) -> Result<Vec<u8>, PureCryptoError> {
+    ) -> Result<Vec<u8>, CryptoError> {
         let key = SymmetricCryptoKey::try_from(key_b64)?;
         Ok(plain.encrypt_with_key(&key)?.to_buffer()?)
     }
