@@ -17,8 +17,7 @@ impl PureCrypto {
     pub fn symmetric_decrypt(enc_string: String, key_b64: String) -> Result<String, CryptoError> {
         let enc_string = EncString::from_str(&enc_string)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
-
-        Ok(enc_string.decrypt_with_key(&key)?)
+        enc_string.decrypt_with_key(&key)
     }
 
     pub fn symmetric_decrypt_to_bytes(
@@ -27,8 +26,7 @@ impl PureCrypto {
     ) -> Result<Vec<u8>, CryptoError> {
         let enc_string = EncString::from_str(&enc_string)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
-
-        Ok(enc_string.decrypt_with_key(&key)?)
+        enc_string.decrypt_with_key(&key)
     }
 
     pub fn symmetric_decrypt_array_buffer(
@@ -37,8 +35,7 @@ impl PureCrypto {
     ) -> Result<Vec<u8>, CryptoError> {
         let enc_string = EncString::from_buffer(&enc_bytes)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
-
-        Ok(enc_string.decrypt_with_key(&key)?)
+        enc_string.decrypt_with_key(&key)
     }
 
     pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, CryptoError> {
@@ -52,7 +49,7 @@ impl PureCrypto {
         key_b64: String,
     ) -> Result<Vec<u8>, CryptoError> {
         let key = SymmetricCryptoKey::try_from(key_b64)?;
-        Ok(plain.encrypt_with_key(&key)?.to_buffer()?)
+        plain.encrypt_with_key(&key)?.to_buffer()
     }
 }
 
