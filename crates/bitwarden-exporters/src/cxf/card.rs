@@ -3,22 +3,36 @@
 //! Handles conversion between internal [Card] and credential exchange [CreditCardCredential].
 
 use bitwarden_vault::CardBrand;
-use credential_exchange_types::format::{Credential, CreditCardCredential};
+use chrono::Month;
+use credential_exchange_types::format::{Credential, CreditCardCredential, EditableFieldYearMonth};
+use num_traits::FromPrimitive;
 
 use crate::Card;
 
 impl From<Card> for Vec<Credential> {
     fn from(value: Card) -> Self {
+        let expiry_date = match (value.exp_year, value.exp_month) {
+            (Some(year), Some(month)) => {
+                let year_parsed = year.parse().ok();
+                let numeric_month: Option<u32> = month.parse().ok();
+                let month_parsed = numeric_month.and_then(Month::from_u32);
+                match (year_parsed, month_parsed) {
+                    (Some(year), Some(month)) => {
+                        Some(EditableFieldYearMonth { year, month }.into())
+                    }
+                    _ => None,
+                }
+            }
+            _ => None,
+        };
+
         vec![Credential::CreditCard(Box::new(CreditCardCredential {
             number: value.number.map(|v| v.into()),
             full_name: value.cardholder_name.map(|v| v.into()),
             card_type: value.brand.map(|v| v.into()),
             verification_number: value.code.map(|v| v.into()),
             pin: None,
-            expiry_date: match (value.exp_year, value.exp_month) {
-                (Some(year), Some(month)) => Some((format!("{}-{}", year, month)).into()),
-                _ => None,
-            },
+            expiry_date,
             valid_from: None,
         }))]
     }
@@ -26,17 +40,13 @@ impl From<Card> for Vec<Credential> {
 
 impl From<&CreditCardCredential> for Card {
     fn from(value: &CreditCardCredential) -> Self {
-        let (year, month) = value.expiry_date.as_ref().map_or((None, None), |date| {
-            let parts: Vec<&str> = date.value.0.split('-').collect();
-            let year = parts.first().map(|s| s.to_string());
-            let month = parts.get(1).map(|s| s.to_string());
-            (year, month)
-        });
-
         Card {
             cardholder_name: value.full_name.clone().map(|v| v.into()),
-            exp_month: month,
-            exp_year: year,
+            exp_month: value
+                .expiry_date
+                .as_ref()
+                .map(|v| v.value.month.number_from_month().to_string()),
+            exp_year: value.expiry_date.as_ref().map(|v| v.value.year.to_string()),
             code: value.verification_number.clone().map(|v| v.into()),
             brand: value
                 .card_type
@@ -73,6 +83,9 @@ fn sanitize_brand(value: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use chrono::Month;
+    use credential_exchange_types::format::EditableFieldYearMonth;
+
     use super::*;
 
     #[test]
@@ -107,8 +120,11 @@ mod tests {
         if let Credential::CreditCard(credit_card) = &credentials[0] {
             assert_eq!(credit_card.full_name.as_ref().unwrap().value.0, "John Doe");
             assert_eq!(
-                credit_card.expiry_date.as_ref().unwrap().value.0,
-                "2025-12".to_string()
+                credit_card.expiry_date.as_ref().unwrap().value,
+                EditableFieldYearMonth {
+                    year: 2025,
+                    month: Month::December
+                }
             );
             assert_eq!(
                 credit_card.verification_number.as_ref().unwrap().value.0,
@@ -135,7 +151,13 @@ mod tests {
             card_type: Some("Visa".to_string().into()),
             verification_number: Some("123".to_string().into()),
             pin: None,
-            expiry_date: Some("2025-12".to_string().into()),
+            expiry_date: Some(
+                EditableFieldYearMonth {
+                    year: 2025,
+                    month: Month::December,
+                }
+                .into(),
+            ),
             valid_from: None,
         };
 

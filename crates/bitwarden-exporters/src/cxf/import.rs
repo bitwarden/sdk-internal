@@ -38,7 +38,7 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         let basic_auth = grouped.basic_auth.first();
         let passkey = grouped.passkey.first();
 
-        let login = to_login(creation_date, basic_auth, passkey, Some(value.scope));
+        let login = to_login(creation_date, basic_auth, passkey, value.scope);
 
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
@@ -119,8 +119,10 @@ struct GroupedCredentials {
 #[cfg(test)]
 mod tests {
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-    use chrono::Duration;
-    use credential_exchange_types::format::{CredentialScope, CreditCardCredential};
+    use chrono::{Duration, Month};
+    use credential_exchange_types::format::{
+        CredentialScope, CreditCardCredential, EditableFieldYearMonth,
+    };
 
     use super::*;
 
@@ -153,10 +155,10 @@ mod tests {
             credentials: vec![],
             tags: None,
             extensions: None,
-            scope: CredentialScope {
+            scope: Some(CredentialScope {
                 urls: vec![],
                 android_apps: vec![],
-            },
+            }),
         };
 
         let ciphers: Vec<ImportingCipher> = parse_item(item);
@@ -183,7 +185,7 @@ mod tests {
                     .as_slice()
                     .into(),
                 rp_id: "opotonniee.github.io".to_string(),
-                user_name: "alex muller".to_string(),
+                username: "alex muller".to_string(),
                 user_display_name: "alex muller".to_string(),
                 user_handle: URL_SAFE_NO_PAD
                     .decode("YWxleCBtdWxsZXI")
@@ -199,10 +201,10 @@ mod tests {
             }))],
             tags: None,
             extensions: None,
-            scope: CredentialScope {
+            scope: Some(CredentialScope {
                 urls: vec![],
                 android_apps: vec![],
-            },
+            }),
         };
 
         let ciphers: Vec<ImportingCipher> = parse_item(item);
@@ -262,15 +264,21 @@ mod tests {
                 card_type: Some("MasterCard".to_string().into()),
                 verification_number: Some("123".to_string().into()),
                 pin: None,
-                expiry_date: Some("2026-01".to_string().into()),
+                expiry_date: Some(
+                    EditableFieldYearMonth {
+                        year: 2026,
+                        month: Month::January,
+                    }
+                    .into(),
+                ),
                 valid_from: None,
             }))],
             tags: None,
             extensions: None,
-            scope: CredentialScope {
+            scope: Some(CredentialScope {
                 urls: vec![],
                 android_apps: vec![],
-            },
+            }),
         };
 
         let ciphers: Vec<ImportingCipher> = parse_item(item);
@@ -286,7 +294,7 @@ mod tests {
         };
 
         assert_eq!(card.cardholder_name, Some("John Doe".to_string()));
-        assert_eq!(card.exp_month, Some("01".to_string()));
+        assert_eq!(card.exp_month, Some("1".to_string()));
         assert_eq!(card.exp_year, Some("2026".to_string()));
         assert_eq!(card.code, Some("123".to_string()));
         assert_eq!(card.brand, Some("Mastercard".to_string()));

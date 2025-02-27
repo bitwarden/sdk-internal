@@ -42,7 +42,7 @@ pub(super) fn to_login(
                 key_value: URL_SAFE_NO_PAD.encode(&p.key),
                 rp_id: p.rp_id.clone(),
                 user_handle: Some(p.user_handle.to_string()),
-                user_name: Some(p.user_name.clone()),
+                user_name: Some(p.username.clone()),
                 counter: 0,
                 rp_name: Some(p.rp_id.clone()),
                 user_display_name: Some(p.user_display_name.clone()),
@@ -98,7 +98,7 @@ impl TryFrom<Fido2Credential> for PasskeyCredential {
                 .map_err(PasskeyError::InvalidGuid)?
                 .into(),
             rp_id: value.rp_id,
-            user_name: value.user_name.unwrap_or_default(),
+            username: value.user_name.unwrap_or_default(),
             user_display_name: value.user_display_name.unwrap_or_default(),
             user_handle: value
                 .user_handle
@@ -181,7 +181,7 @@ mod tests {
 
         assert_eq!(passkey.credential_id.to_string(), "6NiHiekW4ZY8vYHa-ucbvA");
         assert_eq!(passkey.rp_id, "123");
-        assert_eq!(passkey.user_name, "");
+        assert_eq!(passkey.username, "");
         assert_eq!(passkey.user_display_name, "");
         assert_eq!(String::from(passkey.user_handle.clone()), "AAECAwQFBg");
         assert_eq!(String::from(passkey.key.clone()), "AAECAwQFBg");

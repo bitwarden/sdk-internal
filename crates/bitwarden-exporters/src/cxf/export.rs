@@ -27,10 +27,9 @@ pub(crate) fn build_cxf(account: Account, ciphers: Vec<Cipher>) -> Result<String
 
     let account = CxfAccount {
         id: account.id.as_bytes().as_slice().into(),
-        user_name: "".to_owned(),
+        username: "".to_owned(),
         email: account.email,
         full_name: account.name,
-        icon: None,
         collections: vec![], // TODO: Add support for folders
         items,
         extensions: None,
@@ -62,11 +61,11 @@ impl TryFrom<Cipher> for Item {
             tags: None,
             extensions: None,
             scope: match value.r#type {
-                CipherType::Login(login) => (*login).into(),
-                _ => CredentialScope {
+                CipherType::Login(login) => Some((*login).into()),
+                _ => Some(CredentialScope {
                     urls: vec![],
                     android_apps: vec![],
-                },
+                }),
             },
         })
     }
@@ -243,7 +242,7 @@ mod tests {
         assert_eq!(item.subtitle, None);
         assert_eq!(item.tags, None);
         assert_eq!(
-            item.scope.urls,
+            item.scope.unwrap().urls,
             vec!["https://vault.bitwarden.com".to_string()]
         );
         assert!(item.extensions.is_none());
@@ -285,7 +284,7 @@ mod tests {
             Credential::Passkey(passkey) => {
                 assert_eq!(passkey.credential_id.to_string(), "6NiHiekW4ZY8vYHa-ucbvA");
                 assert_eq!(passkey.rp_id, "123");
-                assert_eq!(passkey.user_name, "");
+                assert_eq!(passkey.username, "");
                 assert_eq!(passkey.user_display_name, "");
                 assert_eq!(String::from(passkey.user_handle.clone()), "AAECAwQFBg");
                 assert_eq!(String::from(passkey.key.clone()), "AAECAwQFBg");
