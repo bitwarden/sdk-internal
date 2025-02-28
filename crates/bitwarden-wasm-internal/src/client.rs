@@ -40,6 +40,10 @@ impl BitwardenClient {
         res.text().await.map_err(|e| e.to_string())
     }
 
+    pub fn test(&self) -> crate::test::TestClient {
+        crate::test::TestClient::new(self.0.clone())
+    }
+
     pub fn crypto(&self) -> CryptoClient {
         CryptoClient::new(self.0.clone())
     }
