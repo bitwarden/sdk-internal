@@ -257,7 +257,7 @@ impl<'a> Fido2Authenticator<'a> {
             .into_iter()
             .map(
                 |cipher| -> Result<Vec<Fido2CredentialAutofillView>, SilentlyDiscoverCredentialsError> {
-                    Ok(Fido2CredentialAutofillView::from_cipher_view(&cipher, &mut ctx)?)
+                    Ok(Fido2CredentialAutofillView::from_cipher_list_view(&cipher, &mut ctx)?)
                 },
             )
             .flatten_ok()
@@ -277,7 +277,7 @@ impl<'a> Fido2Authenticator<'a> {
             .into_iter()
             .map(
                 |cipher| -> Result<Vec<Fido2CredentialAutofillView>, CredentialsForAutofillError> {
-                    Ok(Fido2CredentialAutofillView::from_cipher_view(
+                    Ok(Fido2CredentialAutofillView::from_cipher_list_view(
                         &cipher, &mut ctx,
                     )?)
                 },
