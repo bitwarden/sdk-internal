@@ -735,6 +735,7 @@ mod tests {
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
             edit: true,
+            permissions: None,
             view_password: true,
             attachments: 0,
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),

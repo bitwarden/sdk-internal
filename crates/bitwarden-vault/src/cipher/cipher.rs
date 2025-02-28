@@ -17,6 +17,7 @@ use super::{
     attachment, card, field, identity,
     local_data::{LocalData, LocalDataView},
     login::LoginListView,
+    cipher_permissions::CipherPermissions,
     secure_note, ssh_key,
 };
 use crate::{
@@ -82,6 +83,7 @@ pub struct Cipher {
     pub reprompt: CipherRepromptType,
     pub organization_use_totp: bool,
     pub edit: bool,
+    pub permissions: Option<CipherPermissions>,
     pub view_password: bool,
     pub local_data: Option<LocalData>,
 
@@ -120,6 +122,7 @@ pub struct CipherView {
     pub reprompt: CipherRepromptType,
     pub organization_use_totp: bool,
     pub edit: bool,
+    pub permissions: Option<CipherPermissions>,
     pub view_password: bool,
     pub local_data: Option<LocalDataView>,
 
@@ -164,6 +167,8 @@ pub struct CipherListView {
     pub reprompt: CipherRepromptType,
     pub organization_use_totp: bool,
     pub edit: bool,
+    pub permissions: Option<CipherPermissions>,
+    
     pub view_password: bool,
 
     /// The number of attachments
@@ -234,6 +239,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             creation_date: cipher_view.creation_date,
             deleted_date: cipher_view.deleted_date,
             revision_date: cipher_view.revision_date,
+            permissions: cipher_view.permissions,
         })
     }
 }
@@ -264,6 +270,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             reprompt: self.reprompt,
             organization_use_totp: self.organization_use_totp,
             edit: self.edit,
+            permissions: self.permissions,
             view_password: self.view_password,
             local_data: self.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
             attachments: self.attachments.decrypt(ctx, ciphers_key).ok().flatten(),
@@ -604,6 +611,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             reprompt: self.reprompt,
             organization_use_totp: self.organization_use_totp,
             edit: self.edit,
+            permissions: self.permissions,
             view_password: self.view_password,
             attachments: self
                 .attachments
@@ -669,6 +677,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
                 .unwrap_or(CipherRepromptType::None),
             organization_use_totp: cipher.organization_use_totp.unwrap_or(true),
             edit: cipher.edit.unwrap_or(true),
+            permissions: None,
             view_password: cipher.view_password.unwrap_or(true),
             local_data: None, // Not sent from server
             attachments: cipher
@@ -753,6 +762,7 @@ mod tests {
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
             edit: true,
+            permissions: None,
             view_password: true,
             local_data: None,
             attachments: None,
@@ -813,6 +823,10 @@ mod tests {
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
             edit: true,
+            permissions: Some(CipherPermissions {
+                delete: false,
+                restore: false
+            }),
             view_password: true,
             local_data: None,
             attachments: None,
@@ -844,6 +858,7 @@ mod tests {
                 reprompt: cipher.reprompt,
                 organization_use_totp: cipher.organization_use_totp,
                 edit: cipher.edit,
+                permissions: cipher.permissions,
                 view_password: cipher.view_password,
                 attachments: 0,
                 creation_date: cipher.creation_date,
@@ -1276,6 +1291,7 @@ mod tests {
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
             edit: true,
+            permissions: None,
             view_password: true,
             local_data: None,
             attachments: None,

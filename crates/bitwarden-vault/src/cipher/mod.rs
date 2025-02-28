@@ -9,6 +9,7 @@ pub(crate) mod local_data;
 pub(crate) mod login;
 pub(crate) mod secure_note;
 pub(crate) mod ssh_key;
+pub(crate) mod cipher_permissions;
 
 pub use attachment::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
