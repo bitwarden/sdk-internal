@@ -678,6 +678,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
                 .unwrap_or(CipherRepromptType::None),
             organization_use_totp: cipher.organization_use_totp.unwrap_or(true),
             edit: cipher.edit.unwrap_or(true),
+            // TODO: add permissions when api bindings have been updated
             permissions: None,
             view_password: cipher.view_password.unwrap_or(true),
             local_data: None, // Not sent from server
