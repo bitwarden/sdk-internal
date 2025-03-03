@@ -71,9 +71,10 @@ impl Fido2CredentialAutofillView {
         let credentials = cipher.decrypt_fido2_credentials(ctx)?;
 
         credentials
-            .into_iter()
+            .iter()
             .filter_map(|c| -> Option<Result<_, Fido2CredentialAutofillViewError>> {
                 c.user_handle
+                    .as_ref()
                     .map(|u| URL_SAFE_NO_PAD.decode(u))
                     .map(|user_handle| {
                         Ok(Fido2CredentialAutofillView {
@@ -107,7 +108,7 @@ impl Fido2CredentialAutofillView {
                 username,
                 ..
             }) => fido2_credentials
-                .into_iter()
+                .iter()
                 .filter_map(|c| -> Option<Result<_, Fido2CredentialAutofillViewError>> {
                     c.user_handle
                         .as_ref()
@@ -130,7 +131,7 @@ impl Fido2CredentialAutofillView {
                         })
                 })
                 .collect(),
-            _ => return Ok(vec![]),
+            _ => Ok(vec![]),
         }
     }
 }
