@@ -120,9 +120,7 @@ struct GroupedCredentials {
 mod tests {
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
     use chrono::{Duration, Month};
-    use credential_exchange_types::format::{
-        CredentialScope, CreditCardCredential, EditableFieldYearMonth,
-    };
+    use credential_exchange_types::format::{CreditCardCredential, EditableFieldYearMonth};
 
     use super::*;
 
@@ -155,10 +153,7 @@ mod tests {
             credentials: vec![],
             tags: None,
             extensions: None,
-            scope: Some(CredentialScope {
-                urls: vec![],
-                android_apps: vec![],
-            }),
+            scope: None,
         };
 
         let ciphers: Vec<ImportingCipher> = parse_item(item);
@@ -201,10 +196,7 @@ mod tests {
             }))],
             tags: None,
             extensions: None,
-            scope: Some(CredentialScope {
-                urls: vec![],
-                android_apps: vec![],
-            }),
+            scope: None,
         };
 
         let ciphers: Vec<ImportingCipher> = parse_item(item);
@@ -275,10 +267,7 @@ mod tests {
             }))],
             tags: None,
             extensions: None,
-            scope: Some(CredentialScope {
-                urls: vec![],
-                android_apps: vec![],
-            }),
+            scope: None,
         };
 
         let ciphers: Vec<ImportingCipher> = parse_item(item);
