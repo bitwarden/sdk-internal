@@ -1,6 +1,7 @@
 name: Build Swift Package
 
 on:
+  pull_request:
   push:
     branches:
       - "rc"
@@ -59,6 +60,16 @@ jobs:
 
           # SHA Short
           echo "short-sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Test build demo app
+        working-directory: crates/bitwarden-uniffi/swift/iOS
+        run: |
+          xcodebuild clean build \
+            -project App.xcodeproj \
+            -scheme App \
+            -destination generic/platform=iOS \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
 
       - name: Zip BitwardenFFI.xcframework
         run: |
