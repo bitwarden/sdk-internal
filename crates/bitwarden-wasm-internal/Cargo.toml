@@ -26,6 +26,8 @@ console_log = { version = "1.0.0", features = ["color"] }
 js-sys = "0.3.68"
 log = "0.4.20"
 serde_json = ">=1.0.96, <2.0"
+# Required for uuid to compile in a wasm context
+uuid = { workspace = true, features = ["js"] }
 # When upgrading wasm-bindgen, make sure to update the version in the workflows!
 wasm-bindgen = { version = "=0.2.100", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4.41"
