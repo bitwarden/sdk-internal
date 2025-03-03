@@ -42,7 +42,10 @@ impl CryptoClient {
 
     /// Generates a new key pair and encrypts the private key with the provided user key.
     /// Crypto initialization not required.
-    pub async fn make_key_pair(&self, user_key: String) -> Result<MakeKeyPairResponse, CryptoError> {
+    pub async fn make_key_pair(
+        &self,
+        user_key: String,
+    ) -> Result<MakeKeyPairResponse, CryptoError> {
         self.0.crypto().make_key_pair(user_key)
     }
 
