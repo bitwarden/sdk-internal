@@ -1,7 +1,6 @@
 use bitwarden_vault::{Totp, TotpAlgorithm};
 use credential_exchange_types::format::{
-    Account as CxfAccount, Credential, CredentialScope, Item, NoteCredential, OTPHashAlgorithm,
-    TotpCredential,
+    Account as CxfAccount, Credential, Item, NoteCredential, OTPHashAlgorithm, TotpCredential,
 };
 use uuid::Uuid;
 
@@ -62,10 +61,7 @@ impl TryFrom<Cipher> for Item {
             extensions: None,
             scope: match value.r#type {
                 CipherType::Login(login) => Some((*login).into()),
-                _ => Some(CredentialScope {
-                    urls: vec![],
-                    android_apps: vec![],
-                }),
+                _ => None,
             },
         })
     }
