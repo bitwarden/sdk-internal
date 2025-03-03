@@ -2,6 +2,7 @@ pub(crate) mod attachment;
 pub(crate) mod card;
 #[allow(clippy::module_inception)]
 pub(crate) mod cipher;
+pub(crate) mod cipher_permissions;
 pub(crate) mod field;
 pub(crate) mod identity;
 pub(crate) mod linked_id;
@@ -9,7 +10,6 @@ pub(crate) mod local_data;
 pub(crate) mod login;
 pub(crate) mod secure_note;
 pub(crate) mod ssh_key;
-pub(crate) mod cipher_permissions;
 
 pub use attachment::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,

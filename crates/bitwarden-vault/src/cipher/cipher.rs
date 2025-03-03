@@ -14,10 +14,11 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use super::{
-    attachment, card, field, identity,
+    attachment, card,
+    cipher_permissions::CipherPermissions,
+    field, identity,
     local_data::{LocalData, LocalDataView},
     login::LoginListView,
-    cipher_permissions::CipherPermissions,
     secure_note, ssh_key,
 };
 use crate::{
@@ -168,7 +169,7 @@ pub struct CipherListView {
     pub organization_use_totp: bool,
     pub edit: bool,
     pub permissions: Option<CipherPermissions>,
-    
+
     pub view_password: bool,
 
     /// The number of attachments
