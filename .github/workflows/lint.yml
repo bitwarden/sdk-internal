@@ -48,7 +48,6 @@ jobs:
 
       - name: Install rust
         uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203 # stable
-        if: ${{ matrix.channel == 'rust-toolchain' }}
         with:
           toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
           components: clippy, rustfmt
