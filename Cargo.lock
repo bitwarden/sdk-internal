@@ -670,7 +670,6 @@ dependencies = [
  "js-sys",
  "log",
  "serde_json",
- "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
