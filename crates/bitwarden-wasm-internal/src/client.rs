@@ -3,29 +3,9 @@ use std::{fmt::Display, rc::Rc};
 
 use bitwarden_core::{Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
-use log::{set_max_level, Level};
 use wasm_bindgen::prelude::*;
 
 use crate::{vault::VaultClient, CryptoClient};
-
-#[wasm_bindgen]
-pub enum LogLevel {
-    Trace,
-    Debug,
-    Info,
-    Warn,
-    Error,
-}
-
-fn convert_level(level: LogLevel) -> Level {
-    match level {
-        LogLevel::Trace => Level::Trace,
-        LogLevel::Debug => Level::Debug,
-        LogLevel::Info => Level::Info,
-        LogLevel::Warn => Level::Warn,
-        LogLevel::Error => Level::Error,
-    }
-}
 
 // Rc<...> is to avoid needing to take ownership of the Client during our async run_command
 // function https://github.com/rustwasm/wasm-bindgen/issues/2195#issuecomment-799588401
@@ -35,13 +15,7 @@ pub struct BitwardenClient(pub(crate) Rc<Client>);
 #[wasm_bindgen]
 impl BitwardenClient {
     #[wasm_bindgen(constructor)]
-    pub fn new(settings: Option<ClientSettings>, log_level: Option<LogLevel>) -> Self {
-        console_error_panic_hook::set_once();
-        let log_level = convert_level(log_level.unwrap_or(LogLevel::Info));
-        if let Err(_e) = console_log::init_with_level(log_level) {
-            set_max_level(log_level.to_level_filter())
-        }
-
+    pub fn new(settings: Option<ClientSettings>) -> Self {
         Self(Rc::new(Client::new(settings)))
     }
 

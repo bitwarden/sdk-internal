@@ -107,6 +107,8 @@ fn init_logger() {
 
     #[cfg(target_os = "android")]
     android_logger::init_once(
-        android_logger::Config::default().with_max_level(uniffi::deps::log::LevelFilter::Info),
+        android_logger::Config::default()
+            .with_tag("com.bitwarden.sdk")
+            .with_max_level(uniffi::deps::log::LevelFilter::Info),
     );
 }
