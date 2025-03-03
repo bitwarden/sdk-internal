@@ -140,15 +140,28 @@ pub struct ProfileOrganizationResponseModel {
     )]
     pub access_secrets_manager: Option<bool>,
     #[serde(
-        rename = "limitCollectionCreationDeletion",
+        rename = "limitCollectionCreation",
         skip_serializing_if = "Option::is_none"
     )]
-    pub limit_collection_creation_deletion: Option<bool>,
+    pub limit_collection_creation: Option<bool>,
+    #[serde(
+        rename = "limitCollectionDeletion",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub limit_collection_deletion: Option<bool>,
     #[serde(
         rename = "allowAdminAccessToAllCollectionItems",
         skip_serializing_if = "Option::is_none"
     )]
     pub allow_admin_access_to_all_collection_items: Option<bool>,
+    /// Indicates if the organization manages the user.
+    #[serde(
+        rename = "userIsManagedByOrganization",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub user_is_managed_by_organization: Option<bool>,
+    #[serde(rename = "useRiskInsights", skip_serializing_if = "Option::is_none")]
+    pub use_risk_insights: Option<bool>,
 }
 
 impl ProfileOrganizationResponseModel {
@@ -200,8 +213,11 @@ impl ProfileOrganizationResponseModel {
             family_sponsorship_valid_until: None,
             family_sponsorship_to_delete: None,
             access_secrets_manager: None,
-            limit_collection_creation_deletion: None,
+            limit_collection_creation: None,
+            limit_collection_deletion: None,
             allow_admin_access_to_all_collection_items: None,
+            user_is_managed_by_organization: None,
+            use_risk_insights: None,
         }
     }
 }

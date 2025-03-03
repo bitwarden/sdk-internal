@@ -1,6 +1,6 @@
-mod client_generator;
+mod generator_client;
 mod username_forwarders;
-pub use client_generator::{ClientGenerator, ClientGeneratorExt};
+pub use generator_client::{GeneratorClient, GeneratorClientsExt};
 pub(crate) mod passphrase;
 pub use passphrase::{PassphraseError, PassphraseGeneratorRequest};
 pub(crate) mod password;

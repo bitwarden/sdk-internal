@@ -14,6 +14,13 @@ use serde::{Deserialize, Serialize};
 use super::{configuration, Error};
 use crate::{apis::ResponseContent, models};
 
+/// struct for typed errors of method [`organizations_create_without_payment_post`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsCreateWithoutPaymentPostError {
+    UnknownValue(serde_json::Value),
+}
+
 /// struct for typed errors of method [`organizations_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -32,13 +39,6 @@ pub enum OrganizationsIdApiKeyInformationTypeGetError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum OrganizationsIdApiKeyPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_billing_status_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdBillingStatusGetError {
     UnknownValue(serde_json::Value),
 }
 
@@ -84,13 +84,6 @@ pub enum OrganizationsIdGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_id_import_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdImportPostError {
-    UnknownValue(serde_json::Value),
-}
-
 /// struct for typed errors of method [`organizations_id_keys_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -123,6 +116,13 @@ pub enum OrganizationsIdLicenseGetError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum OrganizationsIdPaymentPostError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_id_plan_type_get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsIdPlanTypeGetError {
     UnknownValue(serde_json::Value),
 }
 
@@ -259,6 +259,50 @@ pub enum OrganizationsPostError {
     UnknownValue(serde_json::Value),
 }
 
+pub async fn organizations_create_without_payment_post(
+    configuration: &configuration::Configuration,
+    organization_no_payment_create_request: Option<models::OrganizationNoPaymentCreateRequest>,
+) -> Result<models::OrganizationResponseModel, Error<OrganizationsCreateWithoutPaymentPostError>> {
+    let local_var_configuration = configuration;
+
+    let local_var_client = &local_var_configuration.client;
+
+    let local_var_uri_str = format!(
+        "{}/organizations/create-without-payment",
+        local_var_configuration.base_path
+    );
+    let mut local_var_req_builder =
+        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+        local_var_req_builder =
+            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+    local_var_req_builder = local_var_req_builder.json(&organization_no_payment_create_request);
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        serde_json::from_str(&local_var_content).map_err(Error::from)
+    } else {
+        let local_var_entity: Option<OrganizationsCreateWithoutPaymentPostError> =
+            serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent {
+            status: local_var_status,
+            content: local_var_content,
+            entity: local_var_entity,
+        };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
 pub async fn organizations_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::ProfileOrganizationResponseModelListResponseModel, Error<OrganizationsGetError>>
@@ -379,53 +423,6 @@ pub async fn organizations_id_api_key_post(
         serde_json::from_str(&local_var_content).map_err(Error::from)
     } else {
         let local_var_entity: Option<OrganizationsIdApiKeyPostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
-    }
-}
-
-pub async fn organizations_id_billing_status_get(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-) -> Result<
-    models::OrganizationBillingStatusResponseModel,
-    Error<OrganizationsIdBillingStatusGetError>,
-> {
-    let local_var_configuration = configuration;
-
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
-        "{}/organizations/{id}/billing-status",
-        local_var_configuration.base_path,
-        id = crate::apis::urlencode(id.to_string())
-    );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-    }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-    };
-
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
-
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
-    } else {
-        let local_var_entity: Option<OrganizationsIdBillingStatusGetError> =
             serde_json::from_str(&local_var_content).ok();
         let local_var_error = ResponseContent {
             status: local_var_status,
@@ -716,52 +713,6 @@ pub async fn organizations_id_get(
     }
 }
 
-pub async fn organizations_id_import_post(
-    configuration: &configuration::Configuration,
-    id: &str,
-    import_organization_users_request_model: Option<models::ImportOrganizationUsersRequestModel>,
-) -> Result<(), Error<OrganizationsIdImportPostError>> {
-    let local_var_configuration = configuration;
-
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
-        "{}/organizations/{id}/import",
-        local_var_configuration.base_path,
-        id = crate::apis::urlencode(id)
-    );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-    }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-    };
-    local_var_req_builder = local_var_req_builder.json(&import_organization_users_request_model);
-
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
-
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        Ok(())
-    } else {
-        let local_var_entity: Option<OrganizationsIdImportPostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
-    }
-}
-
 pub async fn organizations_id_keys_get(
     configuration: &configuration::Configuration,
     id: &str,
@@ -854,7 +805,7 @@ pub async fn organizations_id_keys_post(
 
 pub async fn organizations_id_leave_post(
     configuration: &configuration::Configuration,
-    id: &str,
+    id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsIdLeavePostError>> {
     let local_var_configuration = configuration;
 
@@ -863,7 +814,7 @@ pub async fn organizations_id_leave_post(
     let local_var_uri_str = format!(
         "{}/organizations/{id}/leave",
         local_var_configuration.base_path,
-        id = crate::apis::urlencode(id)
+        id = crate::apis::urlencode(id.to_string())
     );
     let mut local_var_req_builder =
         local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
@@ -981,6 +932,50 @@ pub async fn organizations_id_payment_post(
         Ok(())
     } else {
         let local_var_entity: Option<OrganizationsIdPaymentPostError> =
+            serde_json::from_str(&local_var_content).ok();
+        let local_var_error = ResponseContent {
+            status: local_var_status,
+            content: local_var_content,
+            entity: local_var_entity,
+        };
+        Err(Error::ResponseError(local_var_error))
+    }
+}
+
+pub async fn organizations_id_plan_type_get(
+    configuration: &configuration::Configuration,
+    id: &str,
+) -> Result<models::PlanType, Error<OrganizationsIdPlanTypeGetError>> {
+    let local_var_configuration = configuration;
+
+    let local_var_client = &local_var_configuration.client;
+
+    let local_var_uri_str = format!(
+        "{}/organizations/{id}/plan-type",
+        local_var_configuration.base_path,
+        id = crate::apis::urlencode(id)
+    );
+    let mut local_var_req_builder =
+        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+        local_var_req_builder =
+            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    }
+    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    };
+
+    let local_var_req = local_var_req_builder.build()?;
+    let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+    let local_var_status = local_var_resp.status();
+    let local_var_content = local_var_resp.text().await?;
+
+    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+        serde_json::from_str(&local_var_content).map_err(Error::from)
+    } else {
+        let local_var_entity: Option<OrganizationsIdPlanTypeGetError> =
             serde_json::from_str(&local_var_content).ok();
         let local_var_error = ResponseContent {
             status: local_var_status,

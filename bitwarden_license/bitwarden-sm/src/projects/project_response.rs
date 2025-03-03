@@ -1,10 +1,15 @@
 use bitwarden_api_api::models::ProjectResponseModel;
-use bitwarden_core::{client::encryption_settings::EncryptionSettings, require, Error};
-use bitwarden_crypto::{EncString, KeyDecryptable};
+use bitwarden_core::{
+    key_management::{KeyIds, SymmetricKeyId},
+    require,
+};
+use bitwarden_crypto::{Decryptable, EncString, KeyStoreContext};
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+use crate::error::SecretsManagerError;
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -19,14 +24,14 @@ pub struct ProjectResponse {
 impl ProjectResponse {
     pub(crate) fn process_response(
         response: ProjectResponseModel,
-        enc: &EncryptionSettings,
-    ) -> Result<Self, Error> {
+        ctx: &mut KeyStoreContext<KeyIds>,
+    ) -> Result<Self, SecretsManagerError> {
         let organization_id = require!(response.organization_id);
-        let enc_key = enc.get_key(&Some(organization_id))?;
+        let key = SymmetricKeyId::Organization(organization_id);
 
         let name = require!(response.name)
             .parse::<EncString>()?
-            .decrypt_with_key(enc_key)?;
+            .decrypt(ctx, key)?;
 
         Ok(ProjectResponse {
             id: require!(response.id),

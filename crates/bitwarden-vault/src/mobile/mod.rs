@@ -1,5 +1,5 @@
-mod client_attachments;
-mod client_ciphers;
-mod client_collection;
-mod client_folders;
-mod client_password_history;
+pub(crate) mod attachment_client;
+mod cipher_client;
+mod collection_client;
+mod folder_client;
+mod password_history_client;

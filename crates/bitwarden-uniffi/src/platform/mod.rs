@@ -2,18 +2,26 @@ use std::sync::Arc;
 
 use bitwarden_core::platform::FingerprintRequest;
 
-use crate::{error::Result, Client};
+use crate::{
+    error::{Error, Result},
+    Client,
+};
 
 mod fido2;
 
 #[derive(uniffi::Object)]
-pub struct ClientPlatform(pub(crate) Arc<Client>);
+pub struct PlatformClient(pub(crate) Arc<Client>);
 
 #[uniffi::export]
-impl ClientPlatform {
+impl PlatformClient {
     /// Fingerprint (public key)
     pub fn fingerprint(&self, req: FingerprintRequest) -> Result<String> {
-        Ok(self.0 .0.platform().fingerprint(&req)?.fingerprint)
+        Ok(self
+            .0
+             .0
+            .platform()
+            .fingerprint(&req)
+            .map_err(Error::Fingerprint)?)
     }
 
     /// Fingerprint using logged in user's public key
@@ -22,7 +30,8 @@ impl ClientPlatform {
             .0
              .0
             .platform()
-            .user_fingerprint(fingerprint_material)?)
+            .user_fingerprint(fingerprint_material)
+            .map_err(Error::UserFingerprint)?)
     }
 
     /// Load feature flags into the client

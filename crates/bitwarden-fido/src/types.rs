@@ -1,8 +1,9 @@
 use std::borrow::Cow;
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use bitwarden_crypto::KeyContainer;
-use bitwarden_vault::{CipherError, CipherView};
+use bitwarden_core::key_management::KeyIds;
+use bitwarden_crypto::{CryptoError, KeyStoreContext};
+use bitwarden_vault::CipherView;
 use passkey::types::webauthn::UserVerificationRequirement;
 use reqwest::Url;
 use schemars::JsonSchema;
@@ -56,7 +57,7 @@ pub enum Fido2CredentialAutofillViewError {
     InvalidGuid(#[from] InvalidGuid),
 
     #[error(transparent)]
-    CipherError(#[from] CipherError),
+    CryptoError(#[from] CryptoError),
 
     #[error(transparent)]
     Base64DecodeError(#[from] base64::DecodeError),
@@ -65,9 +66,9 @@ pub enum Fido2CredentialAutofillViewError {
 impl Fido2CredentialAutofillView {
     pub fn from_cipher_view(
         cipher: &CipherView,
-        enc: &dyn KeyContainer,
+        ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<Vec<Fido2CredentialAutofillView>, Fido2CredentialAutofillViewError> {
-        let credentials = cipher.decrypt_fido2_credentials(enc)?;
+        let credentials = cipher.decrypt_fido2_credentials(ctx)?;
 
         credentials
             .into_iter()
@@ -390,7 +391,7 @@ pub enum Origin {
     Android(UnverifiedAssetLink),
 }
 
-impl<'a> TryFrom<Origin> for passkey::client::Origin<'a> {
+impl TryFrom<Origin> for passkey::client::Origin<'_> {
     type Error = InvalidOriginError;
 
     fn try_from(value: Origin) -> Result<Self, Self::Error> {
@@ -404,7 +405,7 @@ impl<'a> TryFrom<Origin> for passkey::client::Origin<'a> {
     }
 }
 
-impl<'a> TryFrom<UnverifiedAssetLink> for passkey::client::UnverifiedAssetLink<'a> {
+impl TryFrom<UnverifiedAssetLink> for passkey::client::UnverifiedAssetLink<'_> {
     type Error = InvalidOriginError;
 
     fn try_from(value: UnverifiedAssetLink) -> Result<Self, Self::Error> {

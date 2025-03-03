@@ -4,10 +4,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     auth::{
         api::response::IdentityTokenResponse,
-        login::{TwoFactorProvider, TwoFactorRequest},
+        login::{LoginError, TwoFactorProvider, TwoFactorRequest},
     },
     client::ApiConfigurations,
-    error::Result,
     DeviceType,
 };
 
@@ -31,7 +30,7 @@ pub struct PasswordTokenRequest {
     two_factor_token: Option<String>,
     #[serde(rename = "twoFactorProvider")]
     two_factor_provider: Option<TwoFactorProvider>,
-    #[serde(rename = "twoFactorToken")]
+    #[serde(rename = "twoFactorRemember")]
     two_factor_remember: Option<bool>,
 }
 
@@ -64,7 +63,7 @@ impl PasswordTokenRequest {
     pub(crate) async fn send(
         &self,
         configurations: &ApiConfigurations,
-    ) -> Result<IdentityTokenResponse> {
+    ) -> Result<IdentityTokenResponse, LoginError> {
         super::send_identity_connect_request(configurations, Some(&self.email), &self).await
     }
 }

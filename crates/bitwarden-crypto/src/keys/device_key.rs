@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     fn test_trust_device() {
-        let key = derive_symmetric_key("test");
+        let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
 
         let result = DeviceKey::trust_device(&key).unwrap();
 
@@ -103,8 +103,8 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(key.key, decrypted.key);
-        assert_eq!(key.mac_key, decrypted.mac_key);
+        assert_eq!(key, decrypted);
+        assert_eq!(key, decrypted);
     }
 
     #[test]
@@ -134,7 +134,6 @@ mod tests {
             .decrypt_user_key(protected_device_private_key, protected_user_key)
             .unwrap();
 
-        assert_eq!(decrypted.key, user_key.key);
-        assert_eq!(decrypted.mac_key, user_key.mac_key);
+        assert_eq!(decrypted, user_key);
     }
 }

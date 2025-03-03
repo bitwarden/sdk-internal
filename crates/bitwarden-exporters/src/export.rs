@@ -1,10 +1,13 @@
-use bitwarden_core::Client;
-use bitwarden_crypto::KeyDecryptable;
+use bitwarden_core::{key_management::KeyIds, Client};
+use bitwarden_crypto::{Encryptable, IdentifyKey, KeyStoreContext};
 use bitwarden_vault::{Cipher, CipherView, Collection, Folder, FolderView};
 
 use crate::{
-    csv::export_csv, encrypted_json::export_encrypted_json, json::export_json, ExportError,
-    ExportFormat,
+    csv::export_csv,
+    cxf::{build_cxf, parse_cxf, Account},
+    encrypted_json::export_encrypted_json,
+    json::export_json,
+    ExportError, ExportFormat, ImportingCipher,
 };
 
 pub(crate) fn export_vault(
@@ -13,14 +16,15 @@ pub(crate) fn export_vault(
     ciphers: Vec<Cipher>,
     format: ExportFormat,
 ) -> Result<String, ExportError> {
-    let enc = client.internal.get_encryption_settings()?;
-    let key = enc.get_key(&None)?;
+    let key_store = client.internal.get_key_store();
 
-    let folders: Vec<FolderView> = folders.decrypt_with_key(key)?;
+    let folders: Vec<FolderView> = key_store.decrypt_list(&folders)?;
     let folders: Vec<crate::Folder> = folders.into_iter().flat_map(|f| f.try_into()).collect();
 
-    let ciphers: Vec<CipherView> = ciphers.decrypt_with_key(key)?;
-    let ciphers: Vec<crate::Cipher> = ciphers.into_iter().flat_map(|c| c.try_into()).collect();
+    let ciphers: Vec<crate::Cipher> = ciphers
+        .into_iter()
+        .flat_map(|c| crate::Cipher::from_cipher(key_store, c))
+        .collect();
 
     match format {
         ExportFormat::Csv => Ok(export_csv(folders, ciphers)?),
@@ -40,4 +44,57 @@ pub(crate) fn export_organization_vault(
     _format: ExportFormat,
 ) -> Result<String, ExportError> {
     todo!();
+}
+
+/// See [crate::ExporterClient::export_cxf] for more documentation.
+pub(crate) fn export_cxf(
+    client: &Client,
+    account: Account,
+    ciphers: Vec<Cipher>,
+) -> Result<String, ExportError> {
+    let key_store = client.internal.get_key_store();
+
+    let ciphers: Vec<crate::Cipher> = ciphers
+        .into_iter()
+        .flat_map(|c| crate::Cipher::from_cipher(key_store, c))
+        .collect();
+
+    Ok(build_cxf(account, ciphers)?)
+}
+
+fn encrypt_import(
+    ctx: &mut KeyStoreContext<KeyIds>,
+    cipher: ImportingCipher,
+) -> Result<Cipher, ExportError> {
+    let mut view: CipherView = cipher.clone().into();
+
+    // Get passkey from cipher if cipher is type login
+    let passkey = match cipher.r#type {
+        crate::CipherType::Login(login) => login.fido2_credentials,
+        _ => None,
+    };
+
+    if let Some(passkey) = passkey {
+        let passkeys = passkey.into_iter().map(|p| p.into()).collect();
+
+        view.set_new_fido2_credentials(ctx, passkeys)?;
+    }
+
+    let new_cipher = view.encrypt(ctx, view.key_identifier())?;
+
+    Ok(new_cipher)
+}
+
+/// See [crate::ExporterClient::import_cxf] for more documentation.
+pub(crate) fn import_cxf(client: &Client, payload: String) -> Result<Vec<Cipher>, ExportError> {
+    let key_store = client.internal.get_key_store();
+    let mut ctx = key_store.context();
+
+    let ciphers = parse_cxf(payload)?;
+    let ciphers: Result<Vec<Cipher>, _> = ciphers
+        .into_iter()
+        .map(|c| encrypt_import(&mut ctx, c))
+        .collect();
+
+    ciphers
 }
