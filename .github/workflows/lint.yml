@@ -23,11 +23,7 @@ jobs:
         id: toolchain
         shell: bash
         run: |
-          if [[ "${{ matrix.channel }}" == 'rust-toolchain' ]]; then
-            RUST_TOOLCHAIN="$(grep -oP '^channel.*"(\K.*?)(?=")' rust-toolchain.toml)"
-          else
-            RUST_TOOLCHAIN="${{ matrix.channel }}"
-          fi
+          RUST_TOOLCHAIN="$(grep -oP '^channel.*"(\K.*?)(?=")' rust-toolchain.toml)"
           echo "RUST_TOOLCHAIN=${RUST_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
 
       - name: Set Rust Nightly Toolchain
