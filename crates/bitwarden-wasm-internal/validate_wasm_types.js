@@ -45,21 +45,27 @@ ast.forEachChild((child) => {
           return;
         }
 
-        // Get the return type of the method. If it's a class, add it to the transitions table
+        // Check if the return type is a reference type (class/promise)
         if (
           member.type &&
           ts.isTypeReferenceNode(member.type) &&
           ts.isIdentifier(member.type.typeName)
         ) {
           const returnType = member.type.typeName.text;
+          //  If it's a class that we define, add it to the transitions table.
           if (allClasses.has(returnType)) {
             allTransitions[className] ??= {};
             allTransitions[className][returnType] = methodName;
+            return;
           }
-          return;
+
+          // If it's a Promise, return early so it's not added to the syncMethods list.
+          if (returnType === "Promise") {
+            return;
+          }
         }
 
-        // Check if the method is async, and take note of them if not
+        // Check if the method is using the async keyword
         if (!member.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword)) {
           syncMethods.push({ className, methodName });
         }
