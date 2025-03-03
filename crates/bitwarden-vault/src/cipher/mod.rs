@@ -16,6 +16,7 @@ pub use attachment::{
 };
 pub use card::{CardBrand, CardView};
 pub use cipher::{Cipher, CipherError, CipherListView, CipherRepromptType, CipherType, CipherView};
+pub use cipher_permissions::CipherPermissions;
 pub use field::FieldView;
 pub use identity::IdentityView;
 pub use login::{
