@@ -17,9 +17,9 @@ pub mod vault;
 mod android_support;
 
 use crypto::CryptoClient;
-use error::Result;
+use error::{Error, Result};
 use platform::PlatformClient;
-use tool::{ExporterClient, GeneratorClients, SendClient};
+use tool::{ExporterClient, GeneratorClients, SendClient, SshClient};
 use vault::VaultClient;
 
 #[derive(uniffi::Object)]
@@ -67,6 +67,11 @@ impl Client {
         Arc::new(SendClient(self))
     }
 
+    /// SSH operations
+    pub fn ssh(self: Arc<Self>) -> Arc<SshClient> {
+        Arc::new(SshClient(self))
+    }
+
     /// Auth operations
     pub fn auth(self: Arc<Self>) -> Arc<AuthClient> {
         Arc::new(AuthClient(self))
@@ -84,9 +89,9 @@ impl Client {
             .get(&url)
             .send()
             .await
-            .map_err(bitwarden_core::Error::Reqwest)?;
+            .map_err(|e| Error::Api(e.into()))?;
 
-        Ok(res.text().await.map_err(bitwarden_core::Error::Reqwest)?)
+        Ok(res.text().await.map_err(|e| Error::Api(e.into()))?)
     }
 }
 
@@ -102,6 +107,8 @@ fn init_logger() {
 
     #[cfg(target_os = "android")]
     android_logger::init_once(
-        android_logger::Config::default().with_max_level(uniffi::deps::log::LevelFilter::Info),
+        android_logger::Config::default()
+            .with_tag("com.bitwarden.sdk")
+            .with_max_level(uniffi::deps::log::LevelFilter::Info),
     );
 }

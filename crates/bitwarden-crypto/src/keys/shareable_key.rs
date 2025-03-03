@@ -1,14 +1,12 @@
 use std::pin::Pin;
 
 use aes::cipher::typenum::U64;
-use generic_array::GenericArray;
+use generic_array::{typenum::U32, GenericArray};
 use hmac::Mac;
-use zeroize::Zeroizing;
+use zeroize::{Zeroize, Zeroizing};
 
-use crate::{
-    keys::SymmetricCryptoKey,
-    util::{hkdf_expand, PbkdfSha256Hmac},
-};
+use super::Aes256CbcHmacKey;
+use crate::util::{hkdf_expand, PbkdfSha256Hmac};
 
 /// Derive a shareable key using hkdf from secret and name.
 ///
@@ -18,7 +16,7 @@ pub fn derive_shareable_key(
     secret: Zeroizing<[u8; 16]>,
     name: &str,
     info: Option<&str>,
-) -> SymmetricCryptoKey {
+) -> Aes256CbcHmacKey {
     // Because all inputs are fixed size, we can unwrap all errors here without issue
     let res = Zeroizing::new(
         PbkdfSha256Hmac::new_from_slice(format!("bitwarden-{}", name).as_bytes())
@@ -30,8 +28,10 @@ pub fn derive_shareable_key(
 
     let mut key: Pin<Box<GenericArray<u8, U64>>> =
         hkdf_expand(&res, info).expect("Input is a valid size");
-
-    SymmetricCryptoKey::try_from(key.as_mut_slice()).expect("Key is a valid size")
+    let enc_key = Box::pin(GenericArray::<u8, U32>::clone_from_slice(&key[..32]));
+    let mac_key = Box::pin(GenericArray::<u8, U32>::clone_from_slice(&key[32..]));
+    key.zeroize();
+    Aes256CbcHmacKey { enc_key, mac_key }
 }
 
 #[cfg(test)]
@@ -39,17 +39,18 @@ mod tests {
     use zeroize::Zeroizing;
 
     use super::derive_shareable_key;
+    use crate::SymmetricCryptoKey;
 
     #[test]
     fn test_derive_shareable_key() {
         let key = derive_shareable_key(Zeroizing::new(*b"&/$%F1a895g67HlX"), "test_key", None);
-        assert_eq!(key.to_base64(), "4PV6+PcmF2w7YHRatvyMcVQtI7zvCyssv/wFWmzjiH6Iv9altjmDkuBD1aagLVaLezbthbSe+ktR+U6qswxNnQ==");
+        assert_eq!(SymmetricCryptoKey::Aes256CbcHmacKey(key).to_base64(), "4PV6+PcmF2w7YHRatvyMcVQtI7zvCyssv/wFWmzjiH6Iv9altjmDkuBD1aagLVaLezbthbSe+ktR+U6qswxNnQ==");
 
         let key = derive_shareable_key(
             Zeroizing::new(*b"67t9b5g67$%Dh89n"),
             "test_key",
             Some("test"),
         );
-        assert_eq!(key.to_base64(), "F9jVQmrACGx9VUPjuzfMYDjr726JtL300Y3Yg+VYUnVQtQ1s8oImJ5xtp1KALC9h2nav04++1LDW4iFD+infng==");
+        assert_eq!(SymmetricCryptoKey::Aes256CbcHmacKey(key).to_base64(), "F9jVQmrACGx9VUPjuzfMYDjr726JtL300Y3Yg+VYUnVQtQ1s8oImJ5xtp1KALC9h2nav04++1LDW4iFD+infng==");
     }
 }

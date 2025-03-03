@@ -6,9 +6,7 @@
 //! [KeyEncryptable][crate::KeyEncryptable] & [KeyDecryptable][crate::KeyDecryptable] instead.
 
 use aes::cipher::{
-    block_padding::Pkcs7,
-    typenum::{U16, U32},
-    BlockDecryptMut, BlockEncryptMut, KeyIvInit,
+    block_padding::Pkcs7, typenum::U32, BlockDecryptMut, BlockEncryptMut, KeyIvInit,
 };
 use generic_array::GenericArray;
 use hmac::Mac;
@@ -59,24 +57,7 @@ pub(crate) fn decrypt_aes256_hmac(
     decrypt_aes256(iv, data, key)
 }
 
-/// Encrypt using AES-256 in CBC mode.
-///
-/// Behaves similar to [encrypt_aes256_hmac], but does't generate a MAC.
-///
-/// ## Returns
-///
-/// A AesCbc256_B64 EncString
-#[allow(unused)]
-pub(crate) fn encrypt_aes256(data_dec: &[u8], key: &GenericArray<u8, U32>) -> ([u8; 16], Vec<u8>) {
-    let rng = rand::thread_rng();
-    let (iv, data) = encrypt_aes256_internal(rng, data_dec, key);
-
-    (iv, data)
-}
-
 /// Encrypt using AES-256 in CBC mode with MAC.
-///
-/// Behaves similar to [encrypt_aes256], but also generate a MAC.
 ///
 /// ## Returns
 ///
@@ -96,7 +77,6 @@ pub(crate) fn encrypt_aes256_hmac(
 /// Encrypt using AES-256 in CBC mode.
 ///
 /// Used internally by:
-/// - [encrypt_aes256]
 /// - [encrypt_aes256_hmac]
 fn encrypt_aes256_internal(
     mut rng: impl rand::RngCore,
@@ -109,42 +89,6 @@ fn encrypt_aes256_internal(
         .encrypt_padded_vec_mut::<Pkcs7>(data_dec);
 
     (iv, data)
-}
-
-/// Decrypt using AES-128 in CBC mode.
-///
-/// Behaves similar to [decrypt_aes128_hmac], but does not validate the MAC.
-fn decrypt_aes128(iv: &[u8; 16], data: Vec<u8>, key: &GenericArray<u8, U16>) -> Result<Vec<u8>> {
-    // Decrypt data
-    let iv = GenericArray::from_slice(iv);
-    let mut data = data;
-    let decrypted_key_slice = cbc::Decryptor::<aes::Aes128>::new(key, iv)
-        .decrypt_padded_mut::<Pkcs7>(&mut data)
-        .map_err(|_| CryptoError::KeyDecrypt)?;
-
-    // Data is decrypted in place and returns a subslice of the original Vec, to avoid cloning it,
-    // we truncate to the subslice length
-    let decrypted_len = decrypted_key_slice.len();
-    data.truncate(decrypted_len);
-
-    Ok(data)
-}
-
-/// Decrypt using AES-128 in CBC mode with MAC.
-///
-/// Behaves similar to [decrypt_aes128], but also validates the MAC.
-pub(crate) fn decrypt_aes128_hmac(
-    iv: &[u8; 16],
-    mac: &[u8; 32],
-    data: Vec<u8>,
-    mac_key: &GenericArray<u8, U16>,
-    key: &GenericArray<u8, U16>,
-) -> Result<Vec<u8>> {
-    let res = generate_mac(mac_key, iv, &data)?;
-    if res.ct_ne(mac).into() {
-        return Err(CryptoError::InvalidMac);
-    }
-    decrypt_aes128(iv, data, key)
 }
 
 /// Generate a MAC using HMAC-SHA256.
@@ -213,19 +157,6 @@ mod tests {
     }
 
     #[test]
-    fn test_decrypt_aes128() {
-        let iv = generate_vec(16, 0, 1);
-        let iv: &[u8; 16] = iv.as_slice().try_into().unwrap();
-        let key = generate_generic_array(0, 1);
-
-        let data = STANDARD.decode("dC0X+2IjFbeL4WLLg2jX7Q==").unwrap();
-
-        let decrypted = decrypt_aes128(iv, data, &key).unwrap();
-
-        assert_eq!(String::from_utf8(decrypted).unwrap(), "EncryptMe!");
-    }
-
-    #[test]
     fn test_decrypt_aes256() {
         let iv = generate_vec(16, 0, 1);
         let iv: &[u8; 16] = iv.as_slice().try_into().unwrap();
@@ -233,17 +164,6 @@ mod tests {
         let data = STANDARD.decode("ByUF8vhyX4ddU9gcooznwA==").unwrap();
 
         let decrypted = decrypt_aes256(iv, data, &key).unwrap();
-
-        assert_eq!(String::from_utf8(decrypted).unwrap(), "EncryptMe!");
-    }
-
-    #[test]
-    fn test_encrypt_decrypt_aes256() {
-        let key = generate_generic_array(0, 1);
-        let data = "EncryptMe!";
-
-        let (iv, encrypted) = encrypt_aes256(data.as_bytes(), &key);
-        let decrypted = decrypt_aes256(&iv, encrypted, &key).unwrap();
 
         assert_eq!(String::from_utf8(decrypted).unwrap(), "EncryptMe!");
     }

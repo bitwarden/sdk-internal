@@ -1,8 +1,7 @@
 use std::str::FromStr;
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-
-use crate::error::Result;
+use thiserror::Error;
 
 /// A Bitwarden secrets manager JWT Token.
 ///
@@ -12,7 +11,7 @@ use crate::error::Result;
 ///
 /// TODO: We need to expand this to support user based JWT tokens.
 #[derive(serde::Deserialize)]
-pub struct JWTToken {
+pub struct JwtToken {
     pub exp: u64,
     pub sub: String,
     pub email: Option<String>,
@@ -20,16 +19,27 @@ pub struct JWTToken {
     pub scope: Vec<String>,
 }
 
-impl FromStr for JWTToken {
-    type Err = crate::error::Error;
+#[derive(Debug, Error)]
+pub enum JwtTokenParseError {
+    #[error("JWT token parse error: {0}")]
+    Parse(#[from] serde_json::Error),
+    #[error("JWT token decode error: {0}")]
+    Decode(#[from] base64::DecodeError),
+
+    #[error("JWT token has an invalid number of parts")]
+    InvalidParts,
+}
+
+impl FromStr for JwtToken {
+    type Err = JwtTokenParseError;
 
     /// Parses a JWT token from a string.
     ///
     /// **Note:** This function does not validate the token signature.
-    fn from_str(s: &str) -> Result<Self> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         let split = s.split('.').collect::<Vec<_>>();
         if split.len() != 3 {
-            return Err("JWT token has an invalid number of parts".into());
+            return Err(Self::Err::InvalidParts);
         }
         let decoded = URL_SAFE_NO_PAD.decode(split[1])?;
         Ok(serde_json::from_slice(&decoded)?)
@@ -38,7 +48,7 @@ impl FromStr for JWTToken {
 
 #[cfg(test)]
 mod tests {
-    use crate::auth::jwt_token::JWTToken;
+    use crate::auth::jwt_token::JwtToken;
 
     #[test]
     fn can_decode_jwt() {
@@ -60,7 +70,7 @@ mod tests {
         U5turoBFiiPL2XXfAjM7P0r7J91gfXc0FaD6I2jDxOmym5h7Yn5phLsbC2NlIXkZp54dKHICenPl4ve6ndDIJacVeS5\
         f3LEddAPV8cAFza4DjA8pZJLFrMyRvMXcL_PjKF8qPVzqVWh03lfJ4clOIxR2gOuWIc902Y5E";
 
-        let token: JWTToken = jwt.parse().unwrap();
+        let token: JwtToken = jwt.parse().unwrap();
         assert_eq!(token.exp, 1675107177);
         assert_eq!(token.sub, "e25d37f3-b603-40de-84ba-af96012f5a42");
         assert_eq!(token.email.as_deref(), Some("test@bitwarden.com"));

@@ -15,11 +15,4 @@ pub use ::tsify_next;
 #[cfg(feature = "wasm")]
 #[doc(hidden)]
 pub use ::wasm_bindgen;
-
-pub mod prelude {
-    pub use bitwarden_error_macro::*;
-
-    pub use crate::flat_error::FlatError;
-    #[cfg(feature = "wasm")]
-    pub use crate::wasm::SdkJsError;
-}
+pub use bitwarden_error_macro::bitwarden_error;

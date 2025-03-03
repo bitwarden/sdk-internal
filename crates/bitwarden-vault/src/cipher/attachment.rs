@@ -1,5 +1,6 @@
+use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -56,22 +57,35 @@ pub struct AttachmentFileView<'a> {
     pub attachment: AttachmentView,
     pub contents: &'a [u8],
 }
+const ATTACHMENT_KEY: SymmetricKeyId = SymmetricKeyId::Local("attachment_key");
 
-impl KeyEncryptable<SymmetricCryptoKey, AttachmentEncryptResult> for AttachmentFileView<'_> {
-    fn encrypt_with_key(
-        self,
-        key: &SymmetricCryptoKey,
+impl IdentifyKey<SymmetricKeyId> for AttachmentFileView<'_> {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        self.cipher.key_identifier()
+    }
+}
+impl IdentifyKey<SymmetricKeyId> for AttachmentFile {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        self.cipher.key_identifier()
+    }
+}
+
+impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for AttachmentFileView<'_> {
+    fn encrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
     ) -> Result<AttachmentEncryptResult, CryptoError> {
-        let ciphers_key = Cipher::get_cipher_key(key, &self.cipher.key)?;
-        let ciphers_key = ciphers_key.as_ref().unwrap_or(key);
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key)?;
 
-        let mut attachment = self.attachment;
+        let mut attachment = self.attachment.clone();
 
         // Because this is a new attachment, we have to generate a key for it, encrypt the contents
         // with it, and then encrypt the key with the cipher key
-        let attachment_key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let encrypted_contents = self.contents.encrypt_with_key(&attachment_key)?;
-        attachment.key = Some(attachment_key.to_vec().encrypt_with_key(ciphers_key)?);
+        let attachment_key = ctx.generate_symmetric_key(ATTACHMENT_KEY)?;
+        let encrypted_contents = self.contents.encrypt(ctx, attachment_key)?;
+        attachment.key =
+            Some(ctx.encrypt_symmetric_key_with_symmetric_key(ciphers_key, attachment_key)?);
 
         let contents = encrypted_contents.to_buffer()?;
 
@@ -80,7 +94,7 @@ impl KeyEncryptable<SymmetricCryptoKey, AttachmentEncryptResult> for AttachmentF
         attachment.size_name = Some(size_name(contents.len()));
 
         Ok(AttachmentEncryptResult {
-            attachment: attachment.encrypt_with_key(ciphers_key)?,
+            attachment: attachment.encrypt(ctx, ciphers_key)?,
             contents,
         })
     }
@@ -96,45 +110,58 @@ fn size_name(size: usize) -> String {
     format!("{} {}", size_round, units[unit])
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for AttachmentFile {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>, CryptoError> {
-        let ciphers_key = Cipher::get_cipher_key(key, &self.cipher.key)?;
-        let ciphers_key = ciphers_key.as_ref().unwrap_or(key);
+impl Decryptable<KeyIds, SymmetricKeyId, Vec<u8>> for AttachmentFile {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<Vec<u8>, CryptoError> {
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key)?;
 
         // Version 2 or 3, `AttachmentKey` or `CipherKey(AttachmentKey)`
         if let Some(attachment_key) = &self.attachment.key {
-            let mut content_key: Vec<u8> = attachment_key.decrypt_with_key(ciphers_key)?;
-            let content_key = SymmetricCryptoKey::try_from(content_key.as_mut_slice())?;
-
-            self.contents.decrypt_with_key(&content_key)
+            let content_key = ctx.decrypt_symmetric_key_with_symmetric_key(
+                ciphers_key,
+                ATTACHMENT_KEY,
+                attachment_key,
+            )?;
+            self.contents.decrypt(ctx, content_key)
         } else {
             // Legacy attachment version 1, use user/org key
-            self.contents.decrypt_with_key(key)
+            self.contents.decrypt(ctx, key)
         }
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, Attachment> for AttachmentView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<Attachment, CryptoError> {
+impl Encryptable<KeyIds, SymmetricKeyId, Attachment> for AttachmentView {
+    fn encrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<Attachment, CryptoError> {
         Ok(Attachment {
-            id: self.id,
-            url: self.url,
-            size: self.size,
-            size_name: self.size_name,
-            file_name: self.file_name.encrypt_with_key(key)?,
-            key: self.key,
+            id: self.id.clone(),
+            url: self.url.clone(),
+            size: self.size.clone(),
+            size_name: self.size_name.clone(),
+            file_name: self.file_name.encrypt(ctx, key)?,
+            key: self.key.clone(),
         })
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, AttachmentView> for Attachment {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<AttachmentView, CryptoError> {
+impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<AttachmentView, CryptoError> {
         Ok(AttachmentView {
             id: self.id.clone(),
             url: self.url.clone(),
             size: self.size.clone(),
             size_name: self.size_name.clone(),
-            file_name: self.file_name.decrypt_with_key(key)?,
+            file_name: self.file_name.decrypt(ctx, key)?,
             key: self.key.clone(),
         })
     }
@@ -160,7 +187,8 @@ impl TryFrom<bitwarden_api_api::models::AttachmentResponseModel> for Attachment 
 #[cfg(test)]
 mod tests {
     use base64::{engine::general_purpose::STANDARD, Engine};
-    use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey};
+    use bitwarden_core::key_management::create_test_crypto_with_user_key;
+    use bitwarden_crypto::{EncString, SymmetricCryptoKey};
 
     use crate::{
         cipher::cipher::{CipherRepromptType, CipherType},
@@ -182,6 +210,7 @@ mod tests {
     #[test]
     fn test_encrypt_attachment() {
         let user_key: SymmetricCryptoKey = "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string().try_into().unwrap();
+        let key_store = create_test_crypto_with_user_key(user_key);
 
         let attachment = AttachmentView {
             id: None,
@@ -226,7 +255,7 @@ mod tests {
             contents: contents.as_slice(),
         };
 
-        let result = attachment_file.encrypt_with_key(&user_key).unwrap();
+        let result = key_store.encrypt(attachment_file).unwrap();
 
         assert_eq!(result.contents.len(), 161);
         assert_eq!(result.attachment.size, Some("161".into()));
@@ -236,6 +265,7 @@ mod tests {
     #[test]
     fn test_attachment_key() {
         let user_key: SymmetricCryptoKey = "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string().try_into().unwrap();
+        let key_store = create_test_crypto_with_user_key(user_key);
 
         let attachment = Attachment {
             id: None,
@@ -277,13 +307,13 @@ mod tests {
         let enc_file = STANDARD.decode(b"Ao00qr1xLsV+ZNQpYZ/UwEwOWo3hheKwCYcOGIbsorZ6JIG2vLWfWEXCVqP0hDuzRvmx8otApNZr8pJYLNwCe1aQ+ySHQYGkdubFjoMojulMbQ959Y4SJ6Its/EnVvpbDnxpXTDpbutDxyhxfq1P3lstL2G9rObJRrxiwdGlRGu1h94UA1fCCkIUQux5LcqUee6W4MyQmRnsUziH8gGzmtI=").unwrap();
         let original = STANDARD.decode(b"rMweTemxOL9D0iWWfRxiY3enxiZ5IrwWD6ef2apGO6MvgdGhy2fpwmATmn7BpSj9lRumddLLXm7u8zSp6hnXt1hS71YDNh78LjGKGhGL4sbg8uNnpa/I6GK/83jzqGYN7+ESbg==").unwrap();
 
-        let dec = AttachmentFile {
-            cipher,
-            attachment,
-            contents: EncString::from_buffer(&enc_file).unwrap(),
-        }
-        .decrypt_with_key(&user_key)
-        .unwrap();
+        let dec = key_store
+            .decrypt(&AttachmentFile {
+                cipher,
+                attachment,
+                contents: EncString::from_buffer(&enc_file).unwrap(),
+            })
+            .unwrap();
 
         assert_eq!(dec, original);
     }
@@ -291,6 +321,7 @@ mod tests {
     #[test]
     fn test_attachment_without_key() {
         let user_key: SymmetricCryptoKey = "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string().try_into().unwrap();
+        let key_store = create_test_crypto_with_user_key(user_key);
 
         let attachment = Attachment {
             id: None,
@@ -332,13 +363,13 @@ mod tests {
         let enc_file = STANDARD.decode(b"AsQLXOBHrJ8porroTUlPxeJOm9XID7LL9D2+KwYATXEpR1EFjLBpcCvMmnqcnYLXIEefe9TCeY4Us50ux43kRSpvdB7YkjxDKV0O1/y6tB7qC4vvv9J9+O/uDEnMx/9yXuEhAW/LA/TsU/WAgxkOM0uTvm8JdD9LUR1z9Ql7zOWycMVzkvGsk2KBNcqAdrotS5FlDftZOXyU8pWecNeyA/w=").unwrap();
         let original = STANDARD.decode(b"rMweTemxOL9D0iWWfRxiY3enxiZ5IrwWD6ef2apGO6MvgdGhy2fpwmATmn7BpSj9lRumddLLXm7u8zSp6hnXt1hS71YDNh78LjGKGhGL4sbg8uNnpa/I6GK/83jzqGYN7+ESbg==").unwrap();
 
-        let dec = AttachmentFile {
-            cipher,
-            attachment,
-            contents: EncString::from_buffer(&enc_file).unwrap(),
-        }
-        .decrypt_with_key(&user_key)
-        .unwrap();
+        let dec = key_store
+            .decrypt(&AttachmentFile {
+                cipher,
+                attachment,
+                contents: EncString::from_buffer(&enc_file).unwrap(),
+            })
+            .unwrap();
 
         assert_eq!(dec, original);
     }

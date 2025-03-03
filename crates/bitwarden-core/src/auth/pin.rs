@@ -1,31 +1,35 @@
 use bitwarden_crypto::{EncString, PinKey};
 
 use crate::{
+    auth::AuthValidateError,
     client::{LoginMethod, UserLoginMethod},
-    error::{Error, Result},
-    Client,
+    key_management::SymmetricKeyId,
+    Client, NotAuthenticatedError,
 };
 
 pub(crate) fn validate_pin(
     client: &Client,
     pin: String,
     pin_protected_user_key: EncString,
-) -> Result<bool> {
+) -> Result<bool, AuthValidateError> {
     let login_method = client
         .internal
         .get_login_method()
-        .ok_or(Error::NotAuthenticated)?;
+        .ok_or(NotAuthenticatedError)?;
 
     #[allow(irrefutable_let_patterns)]
     let LoginMethod::User(login_method) = login_method.as_ref() else {
-        return Err(Error::NotAuthenticated);
+        return Err(NotAuthenticatedError)?;
     };
 
     match login_method {
         UserLoginMethod::Username { email, kdf, .. }
         | UserLoginMethod::ApiKey { email, kdf, .. } => {
-            let enc = client.internal.get_encryption_settings()?;
-            let user_key = enc.get_key(&None)?;
+            let key_store = client.internal.get_key_store();
+            let ctx = key_store.context();
+            // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
+            #[allow(deprecated)]
+            let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
             let pin_key = PinKey::derive(pin.as_bytes(), email.as_bytes(), kdf)?;
 

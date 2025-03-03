@@ -1,8 +1,9 @@
-use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
-};
+use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
+use tsify_next::Tsify;
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -19,6 +20,7 @@ pub struct SshKey {
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SshKeyView {
     /// SSH private key (ed25519/rsa) in unencrypted openssh private key format [OpenSSH private key](https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key)
     pub private_key: String,
@@ -28,22 +30,30 @@ pub struct SshKeyView {
     pub fingerprint: String,
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, SshKey> for SshKeyView {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<SshKey, CryptoError> {
+impl Encryptable<KeyIds, SymmetricKeyId, SshKey> for SshKeyView {
+    fn encrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<SshKey, CryptoError> {
         Ok(SshKey {
-            private_key: self.private_key.encrypt_with_key(key)?,
-            public_key: self.public_key.encrypt_with_key(key)?,
-            fingerprint: self.fingerprint.encrypt_with_key(key)?,
+            private_key: self.private_key.encrypt(ctx, key)?,
+            public_key: self.public_key.encrypt(ctx, key)?,
+            fingerprint: self.fingerprint.encrypt(ctx, key)?,
         })
     }
 }
 
-impl KeyDecryptable<SymmetricCryptoKey, SshKeyView> for SshKey {
-    fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<SshKeyView, CryptoError> {
+impl Decryptable<KeyIds, SymmetricKeyId, SshKeyView> for SshKey {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<SshKeyView, CryptoError> {
         Ok(SshKeyView {
-            private_key: self.private_key.decrypt_with_key(key)?,
-            public_key: self.public_key.decrypt_with_key(key)?,
-            fingerprint: self.fingerprint.decrypt_with_key(key)?,
+            private_key: self.private_key.decrypt(ctx, key)?,
+            public_key: self.public_key.decrypt(ctx, key)?,
+            fingerprint: self.fingerprint.decrypt(ctx, key)?,
         })
     }
 }

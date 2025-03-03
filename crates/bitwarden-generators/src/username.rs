@@ -59,6 +59,7 @@ pub enum ForwarderServiceType {
     },
     SimpleLogin {
         api_key: String,
+        base_url: String,
     },
 }
 
@@ -122,7 +123,9 @@ impl ForwarderServiceType {
             ForwardEmail { api_token, domain } => {
                 forwardemail::generate(http, api_token, domain, website).await
             }
-            SimpleLogin { api_key } => simplelogin::generate(http, api_key, website).await,
+            SimpleLogin { api_key, base_url } => {
+                simplelogin::generate(http, api_key, base_url, website).await
+            }
         }
     }
 }

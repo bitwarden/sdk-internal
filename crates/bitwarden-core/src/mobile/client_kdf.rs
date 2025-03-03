@@ -1,19 +1,19 @@
-use bitwarden_crypto::{HashPurpose, Kdf};
+use bitwarden_crypto::{CryptoError, HashPurpose, Kdf};
 
-use crate::{error::Result, mobile::kdf::hash_password, Client};
+use crate::{mobile::kdf::hash_password, Client};
 
 pub struct ClientKdf<'a> {
     pub(crate) _client: &'a crate::Client,
 }
 
-impl<'a> ClientKdf<'a> {
+impl ClientKdf<'_> {
     pub async fn hash_password(
         &self,
         email: String,
         password: String,
         kdf_params: Kdf,
         purpose: HashPurpose,
-    ) -> Result<String> {
+    ) -> Result<String, CryptoError> {
         hash_password(email, password, kdf_params, purpose).await
     }
 }

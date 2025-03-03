@@ -1,5 +1,6 @@
 use std::sync::{Arc, RwLock};
 
+use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
@@ -12,14 +13,14 @@ use super::login_method::ServiceAccountLoginMethod;
 use crate::{
     auth::renew::renew_token,
     client::{encryption_settings::EncryptionSettings, login_method::LoginMethod},
-    error::{Result, VaultLocked},
+    key_management::KeyIds,
     DeviceType,
 };
 #[cfg(feature = "internal")]
 use crate::{
     client::encryption_settings::EncryptionSettingsError,
     client::{flags::Flags, login_method::UserLoginMethod},
-    error::Error,
+    error::NotAuthenticatedError,
 };
 
 #[derive(Debug, Clone)]
@@ -58,7 +59,7 @@ pub struct InternalClient {
     #[allow(unused)]
     pub(crate) external_client: reqwest::Client,
 
-    pub(super) encryption_settings: RwLock<Option<Arc<EncryptionSettings>>>,
+    pub(super) key_store: KeyStore<KeyIds>,
 }
 
 impl InternalClient {
@@ -138,7 +139,7 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
-    pub fn get_kdf(&self) -> Result<Kdf> {
+    pub fn get_kdf(&self) -> Result<Kdf, NotAuthenticatedError> {
         match self
             .login_method
             .read()
@@ -148,7 +149,7 @@ impl InternalClient {
             Some(LoginMethod::User(
                 UserLoginMethod::Username { kdf, .. } | UserLoginMethod::ApiKey { kdf, .. },
             )) => Ok(kdf.clone()),
-            _ => Err(Error::NotAuthenticated),
+            _ => Err(NotAuthenticatedError),
         }
     }
 
@@ -167,12 +168,8 @@ impl InternalClient {
         &self.external_client
     }
 
-    pub fn get_encryption_settings(&self) -> Result<Arc<EncryptionSettings>, VaultLocked> {
-        self.encryption_settings
-            .read()
-            .expect("RwLock is not poisoned")
-            .clone()
-            .ok_or(VaultLocked)
+    pub fn get_key_store(&self) -> &KeyStore<KeyIds> {
+        &self.key_store
     }
 
     #[cfg(feature = "internal")]
@@ -182,14 +179,8 @@ impl InternalClient {
         user_key: EncString,
         private_key: EncString,
     ) -> Result<(), EncryptionSettingsError> {
-        *self
-            .encryption_settings
-            .write()
-            .expect("RwLock is not poisoned") = Some(Arc::new(EncryptionSettings::new(
-            master_key,
-            user_key,
-            private_key,
-        )?));
+        let user_key = master_key.decrypt_user_key(user_key)?;
+        EncryptionSettings::new_decrypted_key(user_key, private_key, &self.key_store)?;
 
         Ok(())
     }
@@ -200,12 +191,7 @@ impl InternalClient {
         user_key: SymmetricCryptoKey,
         private_key: EncString,
     ) -> Result<(), EncryptionSettingsError> {
-        *self
-            .encryption_settings
-            .write()
-            .expect("RwLock is not poisoned") = Some(Arc::new(
-            EncryptionSettings::new_decrypted_key(user_key, private_key)?,
-        ));
+        EncryptionSettings::new_decrypted_key(user_key, private_key, &self.key_store)?;
 
         Ok(())
     }
@@ -223,30 +209,14 @@ impl InternalClient {
 
     #[cfg(feature = "secrets")]
     pub(crate) fn initialize_crypto_single_key(&self, key: SymmetricCryptoKey) {
-        *self
-            .encryption_settings
-            .write()
-            .expect("RwLock is not poisoned") =
-            Some(Arc::new(EncryptionSettings::new_single_key(key)));
+        EncryptionSettings::new_single_key(key, &self.key_store);
     }
 
     #[cfg(feature = "internal")]
     pub fn initialize_org_crypto(
         &self,
         org_keys: Vec<(Uuid, AsymmetricEncString)>,
-    ) -> Result<Arc<EncryptionSettings>, EncryptionSettingsError> {
-        let mut guard = self
-            .encryption_settings
-            .write()
-            .expect("RwLock is not poisoned");
-
-        let Some(enc) = guard.as_mut() else {
-            return Err(VaultLocked.into());
-        };
-
-        let inner = Arc::make_mut(enc);
-        inner.set_org_keys(org_keys)?;
-
-        Ok(enc.clone())
+    ) -> Result<(), EncryptionSettingsError> {
+        EncryptionSettings::set_org_keys(org_keys, &self.key_store)
     }
 }
