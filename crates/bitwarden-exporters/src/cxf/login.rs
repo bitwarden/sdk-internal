@@ -57,7 +57,6 @@ pub(super) fn to_login(
 impl From<Login> for BasicAuthCredential {
     fn from(login: Login) -> Self {
         BasicAuthCredential {
-            urls: vec![],
             username: login.username.map(|v| v.into()),
             password: login.password.map(|v| v.into()),
         }

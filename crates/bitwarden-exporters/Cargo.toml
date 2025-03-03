@@ -24,7 +24,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
-credential-exchange-types = { git = "https://github.com/bitwarden/credential-exchange.git", rev = "0bc76ff9dcda5c1543844899f77863a1ea576ce3" }
+credential-exchange-types = { git = "https://github.com/bitwarden/credential-exchange.git", rev = "03f29bc63cea5bc8c9c8bfe27f002b3e90f9e051" }
 csv = "1.3.0"
 num-traits = ">=0.2, <0.3"
 schemars = { workspace = true }
