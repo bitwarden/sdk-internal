@@ -409,11 +409,11 @@ class Fido2UserInterfaceImpl: Fido2UserInterface {
 }
 
 class Fido2CredentialStoreImpl: Fido2CredentialStore {
-    func allCredentials() async throws -> [BitwardenSdk.CipherView] {
+    func allCredentials() async throws -> [BitwardenSdk.CipherListView] {
         abort()
     }
     
-    func findCredentials(ids: [Data]?, ripId: String) async throws -> [BitwardenSdk.CipherView] {
+    func findCredentials(ids: [Data]?, ripId: String) async  throws -> [BitwardenSdk.CipherView] {
         abort()
     }
 

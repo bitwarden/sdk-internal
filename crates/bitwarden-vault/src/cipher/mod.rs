@@ -14,12 +14,15 @@ pub use attachment::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
 };
 pub use card::{CardBrand, CardView};
-pub use cipher::{Cipher, CipherError, CipherListView, CipherRepromptType, CipherType, CipherView};
+pub use cipher::{
+    Cipher, CipherError, CipherListView, CipherListViewType, CipherRepromptType, CipherType,
+    CipherView,
+};
 pub use field::FieldView;
 pub use identity::IdentityView;
 pub use login::{
     Fido2Credential, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView, Login,
-    LoginUriView, LoginView, UriMatchType,
+    LoginListView, LoginUriView, LoginView, UriMatchType,
 };
 pub use secure_note::{SecureNoteType, SecureNoteView};
 pub use ssh_key::SshKeyView;

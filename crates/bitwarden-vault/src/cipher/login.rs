@@ -95,20 +95,10 @@ pub struct Fido2Credential {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct Fido2CredentialListView {
     pub credential_id: String,
-    // pub key_type: String,
-    // pub key_algorithm: String,
-    // pub key_curve: String,
-    // // This value doesn't need to be returned to the client
-    // // so we keep it encrypted until we need it
-    // pub key_value: EncString,
     pub rp_id: String,
-    // pub user_handle: Option<String>,
-    // pub user_name: Option<String>,
-    // pub counter: String,
-    // pub rp_name: Option<String>,
-    // pub user_display_name: Option<String>,
-    // pub discoverable: String,
-    // pub creation_date: DateTime<Utc>,
+    pub user_handle: Option<String>,
+    pub user_name: Option<String>,
+    pub user_display_name: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
@@ -303,6 +293,7 @@ pub struct LoginView {
 pub struct LoginListView {
     pub fido2_credentials: Option<Vec<Fido2CredentialListView>>,
     pub has_fido2: bool,
+    pub username: Option<String>,
     /// The TOTP key is not decrypted. Useable as is with [`crate::generate_totp_cipher_view`].
     pub totp: Option<EncString>,
     pub uris: Option<Vec<LoginUriView>>,
@@ -385,6 +376,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, LoginListView> for Login {
                 .map(|fido2_credentials| fido2_credentials.decrypt(ctx, key))
                 .transpose()?,
             has_fido2: self.fido2_credentials.is_some(),
+            username: self.username.decrypt(ctx, key).ok().flatten(),
             totp: self.totp.clone(),
             uris: self.uris.decrypt(ctx, key).ok().flatten(),
         })
@@ -455,18 +447,10 @@ impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialListView> for Fido2Crede
     ) -> Result<Fido2CredentialListView, CryptoError> {
         Ok(Fido2CredentialListView {
             credential_id: self.credential_id.decrypt(ctx, key)?,
-            // key_type: self.key_type.decrypt(ctx, key)?,
-            // key_algorithm: self.key_algorithm.decrypt(ctx, key)?,
-            // key_curve: self.key_curve.decrypt(ctx, key)?,
-            // key_value: self.key_value.clone(),
             rp_id: self.rp_id.decrypt(ctx, key)?,
-            // user_handle: self.user_handle.decrypt(ctx, key)?,
-            // user_name: self.user_name.decrypt(ctx, key)?,
-            // counter: self.counter.decrypt(ctx, key)?,
-            // rp_name: self.rp_name.decrypt(ctx, key)?,
-            // user_display_name: self.user_display_name.decrypt(ctx, key)?,
-            // discoverable: self.discoverable.decrypt(ctx, key)?,
-            // creation_date: self.creation_date,
+            user_handle: self.user_handle.decrypt(ctx, key)?,
+            user_name: self.user_name.decrypt(ctx, key)?,
+            user_display_name: self.user_display_name.decrypt(ctx, key)?,
         })
     }
 }

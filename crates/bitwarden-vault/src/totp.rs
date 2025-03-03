@@ -727,7 +727,9 @@ mod tests {
             name: "My test login".to_string(),
             subtitle: "test_username".to_string(),
             r#type: CipherListViewType::Login(LoginListView{
+                fido2_credentials: None,
                 has_fido2: true,
+                username: None,
                 totp: Some("2.hqdioUAc81FsKQmO1XuLQg==|oDRdsJrQjoFu9NrFVy8tcJBAFKBx95gHaXZnWdXbKpsxWnOr2sKipIG43pKKUFuq|3gKZMiboceIB5SLVOULKg2iuyu6xzos22dfJbvx0EHk=".parse().unwrap()),
                 uris: None,
             }),

@@ -839,8 +839,12 @@ mod tests {
                     fido2_credentials: Some(vec![Fido2CredentialListView {
                         credential_id: "123".to_string(),
                         rp_id: "123".to_string(),
+                        user_handle: None,
+                        user_name: None,
+                        user_display_name: None,
                     }]),
                     has_fido2: true,
+                    username: Some("test_username".to_string()),
                     totp: cipher.login.as_ref().unwrap().totp.clone(),
                     uris: None,
                 }),
