@@ -490,6 +490,7 @@ dependencies = [
  "chrono",
  "credential-exchange-types",
  "csv",
+ "num-traits",
  "rand",
  "schemars",
  "serde",
@@ -1043,8 +1044,9 @@ dependencies = [
 [[package]]
 name = "credential-exchange-types"
 version = "0.1.0"
-source = "git+https://github.com/bitwarden/credential-exchange.git?rev=60bf99f097af72144b0eaa757ccb50fd46049f24#60bf99f097af72144b0eaa757ccb50fd46049f24"
+source = "git+https://github.com/bitwarden/credential-exchange.git?rev=03f29bc63cea5bc8c9c8bfe27f002b3e90f9e051#03f29bc63cea5bc8c9c8bfe27f002b3e90f9e051"
 dependencies = [
+ "chrono",
  "data-encoding",
  "jose-jwk",
  "serde",
@@ -2289,9 +2291,6 @@ checksum = "280fa263807fe0782ecb6f2baadc28dffc04e00558a58e33bfdb801d11fd58e7"
 dependencies = [
  "jose-b64",
  "jose-jwa",
- "p256",
- "p384",
- "rsa",
  "serde",
  "zeroize",
 ]
@@ -2599,16 +2598,6 @@ dependencies = [
  "elliptic-curve",
  "primeorder",
  "sha2",
-]
-
-[[package]]
-name = "p384"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe42f1670a52a47d448f14b6a5c61dd78fce51856e68edaa38f7ae3a46b8d6b6"
-dependencies = [
- "elliptic-curve",
- "primeorder",
 ]
 
 [[package]]
