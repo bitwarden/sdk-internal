@@ -2,6 +2,7 @@ use std::pin::Pin;
 
 use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
+use coset::{iana::{self, EnumI64}, CborSerializable, Label, RegisteredLabelWithPrivate};
 use generic_array::GenericArray;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -9,7 +10,7 @@ use subtle::{Choice, ConstantTimeEq};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use super::{key_encryptable::CryptoKey, key_hash::KeyHashData};
-use crate::CryptoError;
+use crate::{cose, CryptoError};
 
 /// Aes256CbcKey is a symmetric encryption key, consisting of one 256-bit key,
 /// used to decrypt legacy type 0 encstrings. The data is not autenticated
@@ -77,6 +78,7 @@ impl PartialEq for XChaCha20Poly1305Key {
 pub enum SymmetricCryptoKey {
     Aes256CbcKey(Aes256CbcKey),
     Aes256CbcHmacKey(Aes256CbcHmacKey),
+    // always encode with cose
     XChaCha20Poly1305Key(XChaCha20Poly1305Key),
 }
 
@@ -113,28 +115,33 @@ impl SymmetricCryptoKey {
         SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
     }
 
-    pub fn to_encoded(&self, use_new_format: bool) -> Result<Vec<u8>, CryptoError> {
-        match (self, use_new_format) {
-            (SymmetricCryptoKey::Aes256CbcKey(key), false) => Ok(key.enc_key.to_vec()),
-            (SymmetricCryptoKey::Aes256CbcHmacKey(key), false) => {
+    pub fn to_encoded(&self) -> Result<Vec<u8>, CryptoError> {
+        match self {
+            SymmetricCryptoKey::Aes256CbcKey(key) => Ok(key.enc_key.to_vec()),
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
                 let mut buf = Vec::with_capacity(64);
                 buf.extend_from_slice(&key.enc_key);
                 buf.extend_from_slice(&key.mac_key);
                 Ok(buf)
             }
-            (SymmetricCryptoKey::XChaCha20Poly1305Key(_), _) | (_, true) => {
-                let serialized_key = SerializedSymmetricCryptoKey::from(self.clone());
-                let mut encoded_key = Vec::with_capacity(1024);
-                ciborium::into_writer(&serialized_key, &mut encoded_key)
-                    .map_err(|_| CryptoError::EncodingError)?;
-                let padded_key = pad_key(encoded_key.as_slice(), Self::AES256_CBC_HMAC_KEY_LEN + 1);
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
+                let builder = coset::CoseKeyBuilder::new_symmetric_key(key.enc_key.to_vec());
+                let mut cose_key = builder
+                    .add_key_op(iana::KeyOperation::Decrypt)
+                    .add_key_op(iana::KeyOperation::Encrypt)
+                    .add_key_op(iana::KeyOperation::WrapKey)
+                    .add_key_op(iana::KeyOperation::UnwrapKey)
+                    .build();
+                cose_key.alg = Some(RegisteredLabelWithPrivate::PrivateUse(cose::XCHACHA20_POLY1305));
+                let encoded_key = cose_key.to_vec().map_err(|_| CryptoError::EncodingError)?;
+                let padded_key = pad_key(&encoded_key, Self::AES256_CBC_HMAC_KEY_LEN + 1);
                 Ok(padded_key)
             }
         }
     }
 
     pub fn to_base64(&self) -> Result<String, CryptoError> {
-        Ok(STANDARD.encode(self.to_encoded(false)?))
+        Ok(STANDARD.encode(self.to_encoded()?))
     }
 }
 
@@ -202,21 +209,9 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
             Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey { enc_key }))
         } else if value.len() > Self::AES256_CBC_HMAC_KEY_LEN {
             let unpadded_value = zeroize::Zeroizing::new(unpad_key(value));
-            let decoded_key: SerializedSymmetricCryptoKey =
-                ciborium::from_reader(unpadded_value.as_slice())
-                    .map_err(|_| CryptoError::EncodingError)?;
-            value.zeroize();
-
-            match decoded_key {
-                SerializedSymmetricCryptoKey::Aes256CbcHmac {
-                    encryption_key,
-                    authentication_key,
-                } => Ok(SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-                    enc_key: Box::pin(*GenericArray::from_slice(encryption_key.as_slice())),
-                    mac_key: Box::pin(*GenericArray::from_slice(authentication_key.as_slice())),
-                })),
-                _ => Err(CryptoError::InvalidKey),
-            }
+            let cose_key = coset::CoseKey::from_slice(&unpadded_value.as_slice())
+                .map_err(|_| CryptoError::InvalidKey)?;
+            parse_cose_key(&cose_key)
         } else {
             Err(CryptoError::InvalidKeyLen)
         };
@@ -226,55 +221,35 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
     }
 }
 
+fn parse_cose_key(cose_key: &coset::CoseKey) -> Result<SymmetricCryptoKey, CryptoError> {
+    let key_bytes = cose_key.params.iter().find_map(|(label, value)| {
+        if let (Label::Int(cose::SYMMETRIC_KEY), ciborium::Value::Bytes(bytes)) = (label, value) {
+            Some(bytes)
+        } else {
+            None
+        }
+    }).ok_or(CryptoError::InvalidKey)?;
+
+    match cose_key.alg.clone().ok_or(CryptoError::InvalidKey)? {
+        coset::RegisteredLabelWithPrivate::PrivateUse(cose::XCHACHA20_POLY1305) => {
+            if key_bytes.len() == 32 {
+                let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+                enc_key.copy_from_slice(key_bytes);
+                Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key { enc_key }))
+            } else {
+                Err(CryptoError::InvalidKey)
+            }
+        }
+        _ => Err(CryptoError::InvalidKey),
+    }
+}
+
 impl CryptoKey for SymmetricCryptoKey {}
 
 // We manually implement these to make sure we don't print any sensitive data
 impl std::fmt::Debug for SymmetricCryptoKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SymmetricCryptoKey").finish()
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(tag = "alg")]
-enum SerializedSymmetricCryptoKey {
-    #[serde(rename = "A256C")]
-    Aes256Cbc {
-        #[serde(with = "serde_bytes", rename = "ek")]
-        encryption_key: Vec<u8>,
-    },
-    #[serde(rename = "A256C-H")]
-    Aes256CbcHmac {
-        #[serde(with = "serde_bytes", rename = "ek")]
-        encryption_key: Vec<u8>,
-        #[serde(with = "serde_bytes", rename = "ak")]
-        authentication_key: Vec<u8>,
-    },
-    #[serde(rename = "XC20-PLY")]
-    XChaCha20Poly1305 {
-        #[serde(with = "serde_bytes", rename = "ek")]
-        encryption_key: Vec<u8>,
-    },
-}
-
-impl From<SymmetricCryptoKey> for SerializedSymmetricCryptoKey {
-    fn from(key: SymmetricCryptoKey) -> Self {
-        match &key {
-            SymmetricCryptoKey::Aes256CbcKey(k) => SerializedSymmetricCryptoKey::Aes256Cbc {
-                encryption_key: k.enc_key.to_vec(),
-            },
-            SymmetricCryptoKey::Aes256CbcHmacKey(k) => {
-                SerializedSymmetricCryptoKey::Aes256CbcHmac {
-                    encryption_key: k.enc_key.to_vec(),
-                    authentication_key: k.mac_key.to_vec(),
-                }
-            }
-            SymmetricCryptoKey::XChaCha20Poly1305Key(k) => {
-                SerializedSymmetricCryptoKey::XChaCha20Poly1305 {
-                    encryption_key: k.enc_key.to_vec(),
-                }
-            }
-        }
     }
 }
 
@@ -329,7 +304,7 @@ mod tests {
     #[test]
     fn test_encode_decode_new_symmetric_crypto_key() {
         let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let encoded = key.to_encoded(true).unwrap();
+        let encoded = key.to_encoded().unwrap();
         let decoded = SymmetricCryptoKey::try_from(encoded).unwrap();
         assert_eq!(key, decoded);
     }
@@ -381,7 +356,7 @@ mod tests {
     #[test]
     fn test_encode_xchacha20_poly1305_key() {
         let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let key_vec = key.to_encoded(true).unwrap();
+        let key_vec = key.to_encoded().unwrap();
         let key_vec_utf8_lossy = String::from_utf8_lossy(&key_vec);
         println!("key_vec: {:?}", key_vec_utf8_lossy);
     }

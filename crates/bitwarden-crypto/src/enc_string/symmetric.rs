@@ -1,14 +1,12 @@
 use std::{fmt::Display, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use serde::{Deserialize, Serialize};
+use coset::CborSerializable;
+use serde::Deserialize;
 
 use super::{additional_data, check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    chacha20::XChaCha20Poly1305Ciphertext,
-    error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
-    key_hash::KeyHashable,
-    Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    chacha20::XChaCha20Poly1305Ciphertext, cose, error::{CryptoError, EncStringParseError, Result, UnsupportedOperation}, key_hash::KeyHashable, Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key
 };
 
 #[cfg(feature = "wasm")]
@@ -61,43 +59,10 @@ pub enum EncString {
         mac: [u8; 32],
         data: Vec<u8>,
     },
-    // 7
-    XChaCha20Poly1305_B64 {
-        nonce: [u8; 24],
+    // 7 The actual enc type is contained in the cose struct
+    COSE_B64 {
         data: Vec<u8>,
-        additional_data: Vec<u8>,
     },
-}
-
-#[derive(PartialEq, Clone, Serialize, Deserialize)]
-struct SerializedXChaCha20Poly1305Data {
-    #[serde(with = "serde_bytes", rename = "n")]
-    nonce: [u8; 24],
-    #[serde(with = "serde_bytes", rename = "d")]
-    data: Vec<u8>,
-    #[serde(with = "serde_bytes", rename = "ad")]
-    additional_data: Vec<u8>,
-}
-
-impl From<SerializedXChaCha20Poly1305Data> for EncString {
-    fn from(data: SerializedXChaCha20Poly1305Data) -> Self {
-        EncString::XChaCha20Poly1305_B64 {
-            nonce: data.nonce,
-            data: data.data,
-            additional_data: data.additional_data,
-        }
-    }
-}
-
-impl From<XChaCha20Poly1305Ciphertext> for SerializedXChaCha20Poly1305Data {
-    fn from(data: XChaCha20Poly1305Ciphertext) -> Self {
-        SerializedXChaCha20Poly1305Data {
-            nonce: data.nonce,
-            data: data.encrypted_data.clone(),
-            additional_data: ciborium::from_reader(data.additional_data.as_slice())
-                .expect("Valid cbor"),
-        }
-    }
 }
 
 /// To avoid printing sensitive information, [EncString] debug prints to `EncString`.
@@ -130,15 +95,7 @@ impl FromStr for EncString {
             ("7", 1) => {
                 let buffer = from_b64_vec(parts[0])?;
 
-                let decoded: SerializedXChaCha20Poly1305Data =
-                    ciborium::from_reader(buffer.as_slice()).map_err(|_| {
-                        CryptoError::EncString(EncStringParseError::InvalidTypeSymm {
-                            enc_type: enc_type.to_string(),
-                            parts: 1,
-                        })
-                    })?;
-
-                Ok(decoded.into())
+                Ok(EncString::COSE_B64 { data: buffer })
             }
             (enc_type, parts) => Err(EncStringParseError::InvalidTypeSymm {
                 enc_type: enc_type.to_string(),
@@ -178,14 +135,7 @@ impl EncString {
                 Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
             }
             7 => {
-                let decoded: SerializedXChaCha20Poly1305Data = ciborium::from_reader(&buf[1..])
-                    .map_err(|_| {
-                        CryptoError::EncString(EncStringParseError::InvalidTypeSymm {
-                            enc_type: enc_type.to_string(),
-                            parts: 1,
-                        })
-                    })?;
-                Ok(decoded.into())
+                Ok(EncString::COSE_B64 { data: buf[1..].to_vec() })
             }
             _ => Err(EncStringParseError::InvalidTypeSymm {
                 enc_type: enc_type.to_string(),
@@ -212,40 +162,16 @@ impl EncString {
                 buf.extend_from_slice(mac);
                 buf.extend_from_slice(data);
             }
-            EncString::XChaCha20Poly1305_B64 {
-                nonce,
+            EncString::COSE_B64 {
                 data,
-                additional_data,
             } => {
-                let mut encoded = Vec::new();
-                ciborium::into_writer(
-                    &SerializedXChaCha20Poly1305Data {
-                        nonce: *nonce,
-                        data: data.clone(),
-                        additional_data: additional_data.clone(),
-                    },
-                    &mut encoded,
-                )
-                .map_err(|_| CryptoError::EncodingError)?;
-                buf = Vec::with_capacity(1 + encoded.len());
+                buf = Vec::with_capacity(1 + data.len());
                 buf.push(self.enc_type());
-                buf.extend_from_slice(&encoded);
+                buf.extend_from_slice(&data);
             }
         }
 
         Ok(buf)
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn additional_authenticated_data(&self) -> additional_data::AdditionalData {
-        match self {
-            EncString::AesCbc256_B64 { .. } | EncString::AesCbc256_HmacSha256_B64 { .. } => {
-                additional_data::AdditionalData::None
-            }
-            EncString::XChaCha20Poly1305_B64 {
-                additional_data, ..
-            } => ciborium::from_reader(&additional_data[..]).expect("Valid cbor"),
-        }
     }
 }
 
@@ -266,23 +192,10 @@ impl Display for EncString {
 
                 Ok(())
             }
-            EncString::XChaCha20Poly1305_B64 {
-                nonce,
+            EncString::COSE_B64 {
                 data,
-                additional_data,
             } => {
-                let mut encoded = Vec::new();
-                ciborium::into_writer(
-                    &SerializedXChaCha20Poly1305Data {
-                        nonce: *nonce,
-                        data: data.clone(),
-                        additional_data: additional_data.clone(),
-                    },
-                    &mut encoded,
-                )
-                .map_err(|_| std::fmt::Error)?;
-
-                write!(f, "{}.{}", self.enc_type(), STANDARD.encode(&encoded))?;
+                write!(f, "{}.{}", self.enc_type(), STANDARD.encode(&data))?;
 
                 Ok(())
             }
@@ -325,21 +238,30 @@ impl EncString {
         additional_data: additional_data::AdditionalData,
         key: &XChaCha20Poly1305Key,
     ) -> Result<EncString> {
-        let mut serialized_additional_data = Vec::new();
-        ciborium::into_writer(&additional_data, &mut serialized_additional_data)
-            .map_err(|_| CryptoError::EncString(EncStringParseError::InvalidAdditionalData))?;
-        let ciphertext = crate::chacha20::encrypt_xchacha20_poly1305(
-            &key.enc_key
-                .as_slice()
-                .try_into()
-                .expect("XChaChaPoly1305 key is 32 bytes long"),
-            data_dec,
-            &serialized_additional_data,
-        )?;
-        Ok(EncString::XChaCha20Poly1305_B64 {
-            nonce: ciphertext.nonce,
-            data: ciphertext.encrypted_data.to_vec(),
-            additional_data: serialized_additional_data,
+        let mut header = coset::HeaderBuilder::new()
+            .build();
+        header.alg = Some(coset::Algorithm::PrivateUse(cose::XCHACHA20_POLY1305));
+
+        let cose = coset::CoseEncrypt0Builder::new()
+            .protected(
+                header,
+            )
+            .try_create_ciphertext(data_dec, &[], |data, aad| {
+                let ciphertext = crate::chacha20::encrypt_xchacha20_poly1305(
+                    key.enc_key
+                        .as_slice()
+                        .try_into()
+                        .expect("XChaChaPoly1305 key is 32 bytes long"),
+                    data,
+                    aad,
+                )?;
+
+                Ok(ciphertext.encrypted_data.clone())
+            }).map_err(|_a: CryptoError| CryptoError::EncodingError)?
+            .build();
+
+        Ok(EncString::COSE_B64 {
+            data: cose.to_vec().map_err(|_| CryptoError::EncodingError)?,
         })
     }
 
@@ -348,7 +270,7 @@ impl EncString {
         match self {
             EncString::AesCbc256_B64 { .. } => 0,
             EncString::AesCbc256_HmacSha256_B64 { .. } => 2,
-            EncString::XChaCha20Poly1305_B64 { .. } => 7,
+            EncString::COSE_B64 { .. } => 7,
         }
     }
 }
@@ -384,25 +306,30 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
             (
-                EncString::XChaCha20Poly1305_B64 {
-                    nonce,
+                EncString::COSE_B64 {
                     data,
-                    additional_data,
                 },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let plaintext_padded = crate::chacha20::decrypt_xchacha20_poly1305(
-                    key.enc_key
-                        .as_slice()
-                        .try_into()
-                        .expect("XChaChaPoly1305 key is 32 bytes long"),
-                    &XChaCha20Poly1305Ciphertext {
-                        nonce: *nonce,
-                        encrypted_data: data.clone(),
-                        additional_data: additional_data.clone(),
-                    },
-                )?;
-                Ok(unpad_bytes(&plaintext_padded)?.to_vec())
+                // parse cose
+                let msg = coset::CoseEncrypt0::from_slice(data.as_slice()).map_err(|_| {
+                    CryptoError::EncString(EncStringParseError::InvalidEncoding)
+                })?;
+                let decrypted_message = msg.decrypt(&[], |data, aad| {
+                    let nonce = msg.protected.header.iv.as_slice();
+                    crate::chacha20::decrypt_xchacha20_poly1305(
+                        key.enc_key
+                            .as_slice()
+                            .try_into()
+                            .expect("XChaChaPoly1305 key is 32 bytes long"),
+                        &XChaCha20Poly1305Ciphertext {
+                            nonce: nonce.try_into().expect("Nonce is 24 bytes"),
+                            encrypted_data: data.to_vec(),
+                            additional_data: aad.to_vec(),
+                        },
+                    )
+                }).map_err(|_| CryptoError::EncodingError)?;
+                Ok(unpad_bytes(&decrypted_message)?.to_vec())
             }
             _ => Err(CryptoError::WrongKeyType),
         }
