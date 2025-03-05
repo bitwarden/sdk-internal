@@ -5,33 +5,23 @@
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::MissingFieldError;
-use bitwarden_crypto::generate_random_bytes;
 use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
 use chrono::{DateTime, Utc};
-use credential_exchange_types::{
-    format::{BasicAuthCredential, EditableField, FieldType, PasskeyCredential},
-    B64Url,
-};
+use credential_exchange_types::format::{BasicAuthCredential, CredentialScope, PasskeyCredential};
 use thiserror::Error;
 
 use crate::{Fido2Credential, Login, LoginUri};
-
-/// Generate a 32 byte random ID
-///
-/// TODO: This should be removed shortly.
-fn random_id() -> B64Url {
-    generate_random_bytes::<[u8; 32]>().as_slice().into()
-}
 
 pub(super) fn to_login(
     creation_date: DateTime<Utc>,
     basic_auth: Option<&BasicAuthCredential>,
     passkey: Option<&PasskeyCredential>,
+    scope: Option<CredentialScope>,
 ) -> Login {
     let login = Login {
-        username: basic_auth.and_then(|v| v.username.as_ref().map(|u| u.value.clone())),
-        password: basic_auth.and_then(|v| v.password.as_ref().map(|u| u.value.clone())),
-        login_uris: basic_auth
+        username: basic_auth.and_then(|v| v.username.clone().map(|v| v.into())),
+        password: basic_auth.and_then(|v| v.password.clone().map(|u| u.into())),
+        login_uris: scope
             .map(|v| {
                 v.urls
                     .iter()
@@ -52,7 +42,7 @@ pub(super) fn to_login(
                 key_value: URL_SAFE_NO_PAD.encode(&p.key),
                 rp_id: p.rp_id.clone(),
                 user_handle: Some(p.user_handle.to_string()),
-                user_name: Some(p.user_name.clone()),
+                user_name: Some(p.username.clone()),
                 counter: 0,
                 rp_name: Some(p.rp_id.clone()),
                 user_display_name: Some(p.user_display_name.clone()),
@@ -67,23 +57,17 @@ pub(super) fn to_login(
 impl From<Login> for BasicAuthCredential {
     fn from(login: Login) -> Self {
         BasicAuthCredential {
-            urls: login
-                .login_uris
-                .into_iter()
-                .flat_map(|uri| uri.uri)
-                .collect(),
-            username: login.username.map(|value| EditableField {
-                id: random_id(),
-                field_type: FieldType::String,
-                value,
-                label: None,
-            }),
-            password: login.password.map(|value| EditableField {
-                id: random_id(),
-                field_type: FieldType::ConcealedString,
-                value,
-                label: None,
-            }),
+            username: login.username.map(|v| v.into()),
+            password: login.password.map(|v| v.into()),
+        }
+    }
+}
+
+impl From<Login> for CredentialScope {
+    fn from(login: Login) -> Self {
+        CredentialScope {
+            urls: login.login_uris.into_iter().filter_map(|u| u.uri).collect(),
+            android_apps: vec![],
         }
     }
 }
@@ -113,7 +97,7 @@ impl TryFrom<Fido2Credential> for PasskeyCredential {
                 .map_err(PasskeyError::InvalidGuid)?
                 .into(),
             rp_id: value.rp_id,
-            user_name: value.user_name.unwrap_or_default(),
+            username: value.user_name.unwrap_or_default(),
             user_display_name: value.user_display_name.unwrap_or_default(),
             user_handle: value
                 .user_handle
@@ -148,19 +132,30 @@ mod tests {
         let basic_auth: BasicAuthCredential = login.into();
 
         let username = basic_auth.username.as_ref().unwrap();
-        assert_eq!(username.field_type, FieldType::String);
-        assert_eq!(username.value, "test@bitwarden.com");
+        assert_eq!(username.value.0, "test@bitwarden.com");
         assert!(username.label.is_none());
 
         let password = basic_auth.password.as_ref().unwrap();
-        assert_eq!(password.field_type, FieldType::ConcealedString);
-        assert_eq!(password.value, "asdfasdfasdf");
+        assert_eq!(password.value.0, "asdfasdfasdf");
         assert!(password.label.is_none());
+    }
 
-        assert_eq!(
-            basic_auth.urls,
-            vec!["https://vault.bitwarden.com".to_string()]
-        );
+    #[test]
+    fn test_credential_scope() {
+        let login = Login {
+            username: None,
+            password: None,
+            login_uris: vec![LoginUri {
+                uri: Some("https://vault.bitwarden.com".to_string()),
+                r#match: None,
+            }],
+            totp: None,
+            fido2_credentials: None,
+        };
+
+        let scope: CredentialScope = login.into();
+
+        assert_eq!(scope.urls, vec!["https://vault.bitwarden.com".to_string()]);
     }
 
     #[test]
@@ -185,7 +180,7 @@ mod tests {
 
         assert_eq!(passkey.credential_id.to_string(), "6NiHiekW4ZY8vYHa-ucbvA");
         assert_eq!(passkey.rp_id, "123");
-        assert_eq!(passkey.user_name, "");
+        assert_eq!(passkey.username, "");
         assert_eq!(passkey.user_display_name, "");
         assert_eq!(String::from(passkey.user_handle.clone()), "AAECAwQFBg");
         assert_eq!(String::from(passkey.key.clone()), "AAECAwQFBg");

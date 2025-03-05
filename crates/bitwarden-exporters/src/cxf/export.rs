@@ -1,7 +1,6 @@
 use bitwarden_vault::{Totp, TotpAlgorithm};
 use credential_exchange_types::format::{
-    Account as CxfAccount, Credential, Item, ItemType, NoteCredential, OTPHashAlgorithm,
-    TotpCredential,
+    Account as CxfAccount, Credential, Item, NoteCredential, OTPHashAlgorithm, TotpCredential,
 };
 use uuid::Uuid;
 
@@ -27,10 +26,9 @@ pub(crate) fn build_cxf(account: Account, ciphers: Vec<Cipher>) -> Result<String
 
     let account = CxfAccount {
         id: account.id.as_bytes().as_slice().into(),
-        user_name: "".to_owned(),
+        username: "".to_owned(),
         email: account.email,
         full_name: account.name,
-        icon: None,
         collections: vec![], // TODO: Add support for folders
         items,
         extensions: None,
@@ -46,38 +44,26 @@ impl TryFrom<Cipher> for Item {
         let mut credentials: Vec<Credential> = value.r#type.clone().into();
 
         if let Some(note) = value.notes {
-            credentials.push(Credential::Note(Box::new(NoteCredential { content: note })));
+            credentials.push(Credential::Note(Box::new(NoteCredential {
+                content: note.into(),
+            })));
         }
 
         Ok(Self {
             id: value.id.as_bytes().as_slice().into(),
             creation_at: Some(value.creation_date.timestamp() as u64),
             modified_at: Some(value.revision_date.timestamp() as u64),
-            ty: value.r#type.try_into()?,
             title: value.name,
             subtitle: None,
             favorite: Some(value.favorite),
             credentials,
             tags: None,
             extensions: None,
+            scope: match value.r#type {
+                CipherType::Login(login) => Some((*login).into()),
+                _ => None,
+            },
         })
-    }
-}
-
-impl TryFrom<CipherType> for ItemType {
-    type Error = CxfError;
-
-    fn try_from(value: CipherType) -> Result<Self, Self::Error> {
-        match value {
-            CipherType::Login(_) => Ok(ItemType::Login),
-            CipherType::Card(_) => Ok(ItemType::Identity),
-            CipherType::Identity(_) => Ok(ItemType::Identity),
-            CipherType::SecureNote(_) => Ok(ItemType::Document),
-            CipherType::SshKey(_) => {
-                // TODO(PM-15448): Add support for SSH Keys
-                Err(CxfError::Internal("Unsupported CipherType: SshKey".into()))
-            }
-        }
     }
 }
 
@@ -131,7 +117,7 @@ fn convert_totp(totp: Totp) -> TotpCredential {
         secret: totp.secret.into(),
         period: totp.period as u8,
         digits: totp.digits as u8,
-        username: totp.account.unwrap_or("".to_string()),
+        username: totp.account,
         algorithm: match totp.algorithm {
             TotpAlgorithm::Sha1 => OTPHashAlgorithm::Sha1,
             TotpAlgorithm::Sha256 => OTPHashAlgorithm::Sha256,
@@ -144,7 +130,6 @@ fn convert_totp(totp: Totp) -> TotpCredential {
 
 #[cfg(test)]
 mod tests {
-    use credential_exchange_types::format::FieldType;
 
     use super::*;
     use crate::{Fido2Credential, Field, LoginUri};
@@ -164,7 +149,7 @@ mod tests {
         assert_eq!(String::from(credential.secret), "ONSWG4TFOQ");
         assert_eq!(credential.period, 60);
         assert_eq!(credential.digits, 4);
-        assert_eq!(credential.username, "test-account@example.com");
+        assert_eq!(credential.username.unwrap(), "test-account@example.com");
         assert_eq!(credential.algorithm, OTPHashAlgorithm::Sha1);
         assert_eq!(credential.issuer, Some("test-issuer".to_string()));
     }
@@ -249,10 +234,13 @@ mod tests {
         assert_eq!(item.id.to_string(), "JcjEFLRGSOmhvbEHALvXQA");
         assert_eq!(item.creation_at, Some(1706613834));
         assert_eq!(item.modified_at, Some(1706623773));
-        assert_eq!(item.ty, ItemType::Login);
         assert_eq!(item.title, "Bitwarden");
         assert_eq!(item.subtitle, None);
         assert_eq!(item.tags, None);
+        assert_eq!(
+            item.scope.unwrap().urls,
+            vec!["https://vault.bitwarden.com".to_string()]
+        );
         assert!(item.extensions.is_none());
 
         assert_eq!(item.credentials.len(), 4);
@@ -262,19 +250,12 @@ mod tests {
         match credential {
             Credential::BasicAuth(basic_auth) => {
                 let username = basic_auth.username.as_ref().unwrap();
-                assert_eq!(username.field_type, FieldType::String);
-                assert_eq!(username.value, "test@bitwarden.com");
+                assert_eq!(username.value.0, "test@bitwarden.com");
                 assert!(username.label.is_none());
 
                 let password = basic_auth.password.as_ref().unwrap();
-                assert_eq!(password.field_type, FieldType::ConcealedString);
-                assert_eq!(password.value, "asdfasdfasdf");
+                assert_eq!(password.value.0, "asdfasdfasdf");
                 assert!(password.label.is_none());
-
-                assert_eq!(
-                    basic_auth.urls,
-                    vec!["https://vault.bitwarden.com".to_string()]
-                );
             }
             _ => panic!("Expected Credential::BasicAuth"),
         }
@@ -286,7 +267,7 @@ mod tests {
                 assert_eq!(String::from(totp.secret.clone()), "JBSWY3DPEHPK3PXP");
                 assert_eq!(totp.period, 30);
                 assert_eq!(totp.digits, 6);
-                assert_eq!(totp.username, "");
+                assert_eq!(totp.username, None);
                 assert_eq!(totp.algorithm, OTPHashAlgorithm::Sha1);
                 assert!(totp.issuer.is_none());
             }
@@ -299,7 +280,7 @@ mod tests {
             Credential::Passkey(passkey) => {
                 assert_eq!(passkey.credential_id.to_string(), "6NiHiekW4ZY8vYHa-ucbvA");
                 assert_eq!(passkey.rp_id, "123");
-                assert_eq!(passkey.user_name, "");
+                assert_eq!(passkey.username, "");
                 assert_eq!(passkey.user_display_name, "");
                 assert_eq!(String::from(passkey.user_handle.clone()), "AAECAwQFBg");
                 assert_eq!(String::from(passkey.key.clone()), "AAECAwQFBg");
@@ -312,7 +293,7 @@ mod tests {
 
         match credential {
             Credential::Note(n) => {
-                assert_eq!(n.content, "My note");
+                assert_eq!(n.content.value.0, "My note");
             }
             _ => panic!("Expected Credential::Passkey"),
         }

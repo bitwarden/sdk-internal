@@ -2,16 +2,24 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["github>bitwarden/renovate-config:non-pinned"],
   "separateMajorMinor": true,
-  "enabledManagers": ["cargo", "dockerfile", "github-actions", "gomod", "npm", "nuget", "regex"],
+  "enabledManagers": [
+    "cargo",
+    "dockerfile",
+    "github-actions",
+    "gomod",
+    "npm",
+    "nuget",
+    "custom.regex"
+  ],
   "constraints": {
     "go": "1.21"
   },
   "packageRules": [
     {
       "matchManagers": ["cargo"],
-      "matchPackagePatterns": ["pyo3*"],
       "matchUpdateTypes": ["minor", "patch"],
-      "groupName": "pyo3 non-major"
+      "groupName": "pyo3 non-major",
+      "matchPackageNames": ["/pyo3*/"]
     },
     {
       "groupName": "dockerfile minor",
@@ -29,7 +37,7 @@
       "matchUpdateTypes": ["minor", "patch"]
     },
     {
-      "matchManagers": ["regex"],
+      "matchManagers": ["custom.regex"],
       "matchDepNames": ["rust", "rust-nightly"],
       "commitMessageTopic": "Rust"
     }
