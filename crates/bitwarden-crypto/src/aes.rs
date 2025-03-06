@@ -61,7 +61,7 @@ pub(crate) fn decrypt_aes256_hmac(
 ///
 /// ## Returns
 ///
-/// A AesCbc256_HmacSha256_B64 EncString
+/// A Aes256Cbc_HmacSha256_B64 EncString
 pub(crate) fn encrypt_aes256_hmac(
     data_dec: &[u8],
     mac_key: &GenericArray<u8, U32>,

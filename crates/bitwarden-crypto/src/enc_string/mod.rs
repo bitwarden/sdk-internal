@@ -52,9 +52,9 @@ fn split_enc_string(s: &str) -> (&str, Vec<&str>) {
         // Support legacy format with no header
         let parts: Vec<_> = s.split('|').collect();
         if parts.len() == 3 {
-            ("1", parts) // AesCbc128_HmacSha256_B64
+            ("1", parts) // Aes128Cbc_HmacSha256_B64
         } else {
-            ("0", parts) // AesCbc256_B64
+            ("0", parts) // Aes256Cbc_B64
         }
     }
 }
