@@ -107,6 +107,7 @@ mod tests {
                 reprompt: CipherRepromptType::None,
                 organization_use_totp: true,
                 edit: true,
+                permissions: None,
                 view_password: true,
                 local_data: None,
                 attachments: None,
@@ -124,7 +125,7 @@ mod tests {
 
     fn test_cipher() -> Cipher {
         Cipher {
-    id: Some("358f2b2b-9326-4e5e-94a8-b18100bb0908".parse().unwrap()),
+            id: Some("358f2b2b-9326-4e5e-94a8-b18100bb0908".parse().unwrap()),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
@@ -149,6 +150,7 @@ mod tests {
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
             edit: true,
+            permissions: None,
             view_password: true,
             local_data: None,
             attachments: None,
