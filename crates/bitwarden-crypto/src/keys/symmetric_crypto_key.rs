@@ -103,16 +103,32 @@ impl SymmetricCryptoKey {
     // enc type 2 old static format
     const AES256_CBC_HMAC_KEY_LEN: usize = 64;
 
+    pub fn generate() -> Self {
+        let mut rng = rand::thread_rng();
+        Self::generate_internal(&mut rng, false)
+    }
+    
+    pub fn generate_cose() -> Self {
+        let mut rng = rand::thread_rng();
+        Self::generate_internal(&mut rng, true)
+    }
+
     /// Generate a new random [SymmetricCryptoKey]
     /// @param rng: A random number generator
-    pub fn generate(mut rng: impl rand::RngCore) -> Self {
-        let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
-        let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
+    fn generate_internal(mut rng: impl rand::RngCore, cose: bool) -> Self {
+        if !cose {
+            let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+            let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
 
-        rng.fill(enc_key.as_mut_slice());
-        rng.fill(mac_key.as_mut_slice());
+            rng.fill(enc_key.as_mut_slice());
+            rng.fill(mac_key.as_mut_slice());
 
-        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
+            SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
+        } else {
+            let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+            rng.fill(enc_key.as_mut_slice());
+            SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key { enc_key })
+        }
     }
 
     pub fn to_encoded(&self) -> Result<Vec<u8>, CryptoError> {
@@ -303,7 +319,7 @@ mod tests {
 
     #[test]
     fn test_encode_decode_new_symmetric_crypto_key() {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate_internal(rand::thread_rng(), false);
         let encoded = key.to_encoded().unwrap();
         let decoded = SymmetricCryptoKey::try_from(encoded).unwrap();
         assert_eq!(key, decoded);
@@ -355,7 +371,7 @@ mod tests {
 
     #[test]
     fn test_encode_xchacha20_poly1305_key() {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate_internal(rand::thread_rng(), true);
         let key_vec = key.to_encoded().unwrap();
         let key_vec_utf8_lossy = String::from_utf8_lossy(&key_vec);
         println!("key_vec: {:?}", key_vec_utf8_lossy);

@@ -6,7 +6,7 @@
 //! [KeyEncryptable][crate::KeyEncryptable] & [KeyDecryptable][crate::KeyDecryptable] instead.
 
 use chacha20poly1305::{AeadCore, AeadInPlace, KeyInit, XChaCha20Poly1305};
-use generic_array::GenericArray;
+use generic_array::{typenum::U24, GenericArray};
 
 /**
  * Note:
@@ -27,13 +27,20 @@ pub(crate) struct XChaCha20Poly1305Ciphertext {
     pub(crate) additional_data: Vec<u8>,
 }
 
+pub(crate) fn generate_nonce() -> GenericArray<u8, U24> {
+    let rng = rand::thread_rng();
+    let nonce = XChaCha20Poly1305::generate_nonce(rng);
+    nonce
+}
+
 pub(crate) fn encrypt_xchacha20_poly1305(
+    nonce: &[u8; 24],
     key: &[u8; 32],
     plaintext_secret_data: &[u8],
     authenticated_data: &[u8],
 ) -> Result<XChaCha20Poly1305Ciphertext, CryptoError> {
     encrypt_xchacha20_poly1305_internal(
-        rand::thread_rng(),
+        nonce,
         key,
         plaintext_secret_data,
         authenticated_data,
@@ -41,13 +48,12 @@ pub(crate) fn encrypt_xchacha20_poly1305(
 }
 
 fn encrypt_xchacha20_poly1305_internal(
-    rng: impl rand::CryptoRng + rand::RngCore,
+    nonce: &[u8; 24],
     key: &[u8; 32],
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
 ) -> Result<XChaCha20Poly1305Ciphertext, CryptoError> {
-    let nonce = XChaCha20Poly1305::generate_nonce(rng);
-
+    let nonce = GenericArray::from_slice(nonce);
     // This buffer contains the plaintext, that will be encrypted in-place
     let mut buffer = Vec::from(plaintext_secret_data);
     XChaCha20Poly1305::new(GenericArray::from_slice(key))

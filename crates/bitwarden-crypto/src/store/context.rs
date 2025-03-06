@@ -230,7 +230,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
     /// Generate a new random symmetric key and store it in the context
     pub fn generate_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<Ids::Symmetric> {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate();
         #[allow(deprecated)]
         self.set_symmetric_key(key_id, key)?;
         Ok(key_id)
@@ -405,12 +405,11 @@ mod tests {
 
     #[test]
     fn test_set_keys_for_encryption() {
-        let mut rng = rand::thread_rng();
         let store: KeyStore<TestIds> = KeyStore::default();
 
         // Generate and insert a key
         let key_a0_id = TestSymmKey::A(0);
-        let key_a0 = SymmetricCryptoKey::generate(&mut rng);
+        let key_a0 = SymmetricCryptoKey::generate();
 
         store
             .context_mut()
@@ -426,14 +425,13 @@ mod tests {
 
     #[test]
     fn test_key_encryption() {
-        let mut rng = rand::thread_rng();
         let store: KeyStore<TestIds> = KeyStore::default();
 
         let mut ctx = store.context();
 
         // Generate and insert a key
         let key_1_id = TestSymmKey::C(1);
-        let key_1 = SymmetricCryptoKey::generate(&mut rng);
+        let key_1 = SymmetricCryptoKey::generate();
 
         ctx.set_symmetric_key(key_1_id, key_1.clone()).unwrap();
 
@@ -441,7 +439,7 @@ mod tests {
 
         // Generate and insert a new key
         let key_2_id = TestSymmKey::C(2);
-        let key_2 = SymmetricCryptoKey::generate(&mut rng);
+        let key_2 = SymmetricCryptoKey::generate();
 
         ctx.set_symmetric_key(key_2_id, key_2.clone()).unwrap();
 

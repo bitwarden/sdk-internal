@@ -102,7 +102,7 @@ pub(crate) fn approve_auth_request(
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
-        &key.to_encoded(false)
+        &key.to_encoded()
             .map_err(ApproveAuthRequestError::Crypto)?,
         &public_key,
     )?)
@@ -126,7 +126,7 @@ fn test_auth_request() {
 
     let decrypted = auth_request_decrypt_user_key(request.private_key, encrypted).unwrap();
 
-    assert_eq!(&decrypted.to_encoded(false).unwrap(), secret);
+    assert_eq!(&decrypted.to_encoded().unwrap(), secret);
 }
 
 #[cfg(test)]
@@ -179,7 +179,7 @@ mod tests {
         let dec = auth_request_decrypt_user_key(private_key.to_owned(), enc_user_key).unwrap();
 
         assert_eq!(
-            &dec.to_encoded(false).unwrap(),
+            &dec.to_encoded().unwrap(),
             &[
                 201, 37, 234, 213, 21, 75, 40, 70, 149, 213, 234, 16, 19, 251, 162, 245, 161, 74,
                 34, 245, 211, 151, 211, 192, 95, 10, 117, 50, 88, 223, 23, 157
@@ -198,7 +198,7 @@ mod tests {
                 .unwrap();
 
         assert_eq!(
-            &dec.to_encoded(false).unwrap(),
+            &dec.to_encoded().unwrap(),
             &[
                 109, 128, 172, 147, 206, 123, 134, 95, 16, 36, 155, 113, 201, 18, 186, 230, 216,
                 212, 173, 188, 74, 11, 134, 131, 137, 242, 105, 178, 105, 126, 52, 139, 248, 91,

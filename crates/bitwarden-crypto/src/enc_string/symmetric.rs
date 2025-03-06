@@ -235,12 +235,13 @@ impl EncString {
 
     pub(crate) fn encrypt_xchacha20_poly1305(
         data_dec: &[u8],
-        additional_data: additional_data::AdditionalData,
         key: &XChaCha20Poly1305Key,
     ) -> Result<EncString> {
         let mut header = coset::HeaderBuilder::new()
             .build();
         header.alg = Some(coset::Algorithm::PrivateUse(cose::XCHACHA20_POLY1305));
+        let nonce = crate::chacha20::generate_nonce();
+        header.iv = nonce.to_vec();
 
         let cose = coset::CoseEncrypt0Builder::new()
             .protected(
@@ -248,6 +249,7 @@ impl EncString {
             )
             .try_create_ciphertext(data_dec, &[], |data, aad| {
                 let ciphertext = crate::chacha20::encrypt_xchacha20_poly1305(
+                    nonce.as_slice().try_into().map_err(|_| CryptoError::InvalidKey)?,
                     key.enc_key
                         .as_slice()
                         .try_into()
@@ -255,7 +257,6 @@ impl EncString {
                     data,
                     aad,
                 )?;
-
                 Ok(ciphertext.encrypted_data.clone())
             }).map_err(|_a: CryptoError| CryptoError::EncodingError)?
             .build();
@@ -280,13 +281,8 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(inner_key) => {
-                let additional_data =
-                    additional_data::AdditionalData::V0(additional_data::AdditionalDataV0 {
-                        encrypting_key_hash: key.hash(),
-                        domain_ad: additional_data::DomainSpecificAdditionalData::None,
-                    });
                 let padded_data = pad_bytes(self, EncString::XCHACHA20_PAD_BLOCK_SIZE);
-                EncString::encrypt_xchacha20_poly1305(&padded_data, additional_data, inner_key)
+                EncString::encrypt_xchacha20_poly1305(&padded_data, inner_key)
             }
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperation::EncryptionNotImplementedForKey,
