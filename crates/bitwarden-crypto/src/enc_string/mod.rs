@@ -16,7 +16,6 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 pub use symmetric::EncString;
 
 use crate::error::{EncStringParseError, Result};
-pub(crate) mod additional_data;
 
 fn check_length(buf: &[u8], expected: usize) -> Result<()> {
     if buf.len() < expected {

@@ -4,9 +4,9 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use coset::CborSerializable;
 use serde::Deserialize;
 
-use super::{additional_data, check_length, from_b64, from_b64_vec, split_enc_string};
+use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    chacha20::XChaCha20Poly1305Ciphertext, cose, error::{CryptoError, EncStringParseError, Result, UnsupportedOperation}, key_hash::KeyHashable, Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key
+    cose, error::{CryptoError, EncStringParseError, Result, UnsupportedOperation}, key_hash::KeyHashable, Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key
 };
 
 #[cfg(feature = "wasm")]
@@ -240,7 +240,7 @@ impl EncString {
         let mut header = coset::HeaderBuilder::new()
             .build();
         header.alg = Some(coset::Algorithm::PrivateUse(cose::XCHACHA20_POLY1305));
-        let nonce = crate::chacha20::generate_nonce();
+        let nonce = crate::xchacha20::generate_nonce();
         header.iv = nonce.to_vec();
 
         let cose = coset::CoseEncrypt0Builder::new()
@@ -248,7 +248,7 @@ impl EncString {
                 header,
             )
             .try_create_ciphertext(data_dec, &[], |data, aad| {
-                let ciphertext = crate::chacha20::encrypt_xchacha20_poly1305(
+                let ciphertext = crate::xchacha20::encrypt_xchacha20_poly1305(
                     nonce.as_slice().try_into().map_err(|_| CryptoError::InvalidKey)?,
                     key.enc_key
                         .as_slice()
@@ -257,7 +257,7 @@ impl EncString {
                     data,
                     aad,
                 )?;
-                Ok(ciphertext.encrypted_data.clone())
+                Ok(ciphertext)
             }).map_err(|_a: CryptoError| CryptoError::EncodingError)?
             .build();
 
@@ -312,19 +312,18 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                     CryptoError::EncString(EncStringParseError::InvalidEncoding)
                 })?;
                 let decrypted_message = msg.decrypt(&[], |data, aad| {
-                    let nonce = msg.protected.header.iv.as_slice();
-                    crate::chacha20::decrypt_xchacha20_poly1305(
-                        key.enc_key
-                            .as_slice()
-                            .try_into()
-                            .expect("XChaChaPoly1305 key is 32 bytes long"),
-                        &XChaCha20Poly1305Ciphertext {
-                            nonce: nonce.try_into().expect("Nonce is 24 bytes"),
-                            encrypted_data: data.to_vec(),
-                            additional_data: aad.to_vec(),
-                        },
-                    )
-                }).map_err(|_| CryptoError::EncodingError)?;
+                        let nonce = msg.protected.header.iv.as_slice();
+                        crate::xchacha20::decrypt_xchacha20_poly1305(
+                                nonce.try_into().map_err(|_| CryptoError::EncodingError)?,
+                                key.enc_key
+                                    .as_slice()
+                                    .try_into()
+                                    .expect("XChaChaPoly1305 key is 32 bytes long"),
+                                data,
+                                aad
+                        ).map_err(|_| CryptoError::EncodingError)
+                    }
+                ).map_err(|_| CryptoError::EncodingError)?;
                 Ok(unpad_bytes(&decrypted_message)?.to_vec())
             }
             _ => Err(CryptoError::WrongKeyType),

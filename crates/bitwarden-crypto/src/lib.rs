@@ -15,7 +15,7 @@
 //! use bitwarden_crypto::{SymmetricCryptoKey, KeyEncryptable, KeyDecryptable, CryptoError};
 //!
 //! async fn example() -> Result<(), CryptoError> {
-//!   let key = SymmetricCryptoKey::generate(rand::thread_rng());
+//!   let key = SymmetricCryptoKey::generate();
 //!
 //!   let data = "Hello, World!".to_owned();
 //!   let encrypted = data.clone().encrypt_with_key(&key)?;
@@ -73,7 +73,7 @@
 static ALLOC: ZeroizingAllocator<std::alloc::System> = ZeroizingAllocator(std::alloc::System);
 
 mod aes;
-mod chacha20;
+mod xchacha20;
 mod enc_string;
 pub use enc_string::{AsymmetricEncString, EncString};
 mod error;
