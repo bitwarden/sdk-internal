@@ -45,3 +45,6 @@ npx terser ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.
 
 # Remove unneeded files
 rm -rf ./crates/bitwarden-wasm-internal/npm/mvp
+
+# Validate the generated types and generate the subclient map
+node ./crates/bitwarden-wasm-internal/validate_wasm_types.js

@@ -28,7 +28,7 @@ impl ClientTotp {
     /// # Returns
     /// - `Ok(TotpResponse)` containing the generated code and period
     /// - `Err(TotpError)` if code generation fails
-    pub fn generate_totp(
+    pub async fn generate_totp(
         &self,
         key: String,
         time_ms: Option<f64>,
