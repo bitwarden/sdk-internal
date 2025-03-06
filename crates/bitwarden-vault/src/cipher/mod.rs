@@ -2,6 +2,7 @@ pub(crate) mod attachment;
 pub(crate) mod card;
 #[allow(clippy::module_inception)]
 pub(crate) mod cipher;
+pub(crate) mod cipher_permissions;
 pub(crate) mod field;
 pub(crate) mod identity;
 pub(crate) mod linked_id;

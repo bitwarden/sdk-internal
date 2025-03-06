@@ -3,3 +3,6 @@ incompatible-rust-versions = "fallback"
 
 [target.'cfg(target_arch="aarch64")']
 rustflags = ["--cfg", "aes_armv8"]
+
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
