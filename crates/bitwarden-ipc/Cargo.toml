@@ -1,0 +1,31 @@
+[package]
+name = "bitwarden-ipc"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[features]
+wasm = [
+    "dep:tsify-next",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+    "dep:js-sys"
+] # WASM support
+
+[dependencies]
+bitwarden-error = { workspace = true }
+js-sys = { workspace = true, optional = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tokio = { features = ["sync"], workspace = true }
+tsify-next = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+
+[lints]
+workspace = true
