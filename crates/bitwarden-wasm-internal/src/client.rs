@@ -12,7 +12,6 @@ use crate::{vault::VaultClient, CryptoClient};
 #[wasm_bindgen]
 pub struct BitwardenClient(pub(crate) Rc<Client>);
 
-#[allow(clippy::unused_async)]
 #[wasm_bindgen]
 impl BitwardenClient {
     #[wasm_bindgen(constructor)]

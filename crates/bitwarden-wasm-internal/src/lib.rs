@@ -1,3 +1,7 @@
+// We define the WASM API as async so that we can use the same API for the IPC remote API.
+// This means that some methods will need to be async even though they do no async work.
+#![allow(clippy::unused_async)]
+
 mod client;
 mod crypto;
 mod custom_types;
