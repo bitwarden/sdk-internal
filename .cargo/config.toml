@@ -11,5 +11,8 @@ rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
 # https://android-developers.googleblog.com/2024/08/adding-16-kb-page-size-to-android.html
 [target.'cfg(target_os = "android")']
 rustflags = [
-    "-C", "link-arg=-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384",
+    "-C",
+    "link-arg=-Wl,-z,max-page-size=16384",
+    "-C",
+    "link-arg=-Wl,-z,common-page-size=16384",
 ]
