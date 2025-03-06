@@ -38,7 +38,7 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         let basic_auth = grouped.basic_auth.first();
         let passkey = grouped.passkey.first();
 
-        let login = to_login(creation_date, basic_auth, passkey);
+        let login = to_login(creation_date, basic_auth, passkey, value.scope);
 
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
@@ -119,8 +119,8 @@ struct GroupedCredentials {
 #[cfg(test)]
 mod tests {
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-    use chrono::Duration;
-    use credential_exchange_types::format::{CreditCardCredential, ItemType};
+    use chrono::{Duration, Month};
+    use credential_exchange_types::format::{CreditCardCredential, EditableFieldYearMonth};
 
     use super::*;
 
@@ -147,13 +147,13 @@ mod tests {
             id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
-            ty: ItemType::Login,
             title: "Bitwarden".to_string(),
             subtitle: None,
             favorite: None,
             credentials: vec![],
             tags: None,
             extensions: None,
+            scope: None,
         };
 
         let ciphers: Vec<ImportingCipher> = parse_item(item);
@@ -170,7 +170,6 @@ mod tests {
                 .into(),
             creation_at: Some(1732181986),
             modified_at: Some(1732182026),
-            ty: ItemType::Login,
             title: "opotonniee.github.io".to_string(),
             subtitle: None,
             favorite: None,
@@ -181,7 +180,7 @@ mod tests {
                     .as_slice()
                     .into(),
                 rp_id: "opotonniee.github.io".to_string(),
-                user_name: "alex muller".to_string(),
+                username: "alex muller".to_string(),
                 user_display_name: "alex muller".to_string(),
                 user_handle: URL_SAFE_NO_PAD
                     .decode("YWxleCBtdWxsZXI")
@@ -197,6 +196,7 @@ mod tests {
             }))],
             tags: None,
             extensions: None,
+            scope: None,
         };
 
         let ciphers: Vec<ImportingCipher> = parse_item(item);
@@ -247,20 +247,27 @@ mod tests {
             id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
-            ty: ItemType::Identity,
             title: "My MasterCard".to_string(),
             subtitle: None,
             favorite: None,
             credentials: vec![Credential::CreditCard(Box::new(CreditCardCredential {
-                number: "1234 5678 9012 3456".to_string(),
-                full_name: "John Doe".to_string(),
-                card_type: Some("MasterCard".to_string()),
-                verification_number: Some("123".to_string()),
-                expiry_date: Some("2026-01".to_string()),
+                number: Some("1234 5678 9012 3456".to_string().into()),
+                full_name: Some("John Doe".to_string().into()),
+                card_type: Some("MasterCard".to_string().into()),
+                verification_number: Some("123".to_string().into()),
+                pin: None,
+                expiry_date: Some(
+                    EditableFieldYearMonth {
+                        year: 2026,
+                        month: Month::January,
+                    }
+                    .into(),
+                ),
                 valid_from: None,
             }))],
             tags: None,
             extensions: None,
+            scope: None,
         };
 
         let ciphers: Vec<ImportingCipher> = parse_item(item);
@@ -276,7 +283,7 @@ mod tests {
         };
 
         assert_eq!(card.cardholder_name, Some("John Doe".to_string()));
-        assert_eq!(card.exp_month, Some("01".to_string()));
+        assert_eq!(card.exp_month, Some("1".to_string()));
         assert_eq!(card.exp_year, Some("2026".to_string()));
         assert_eq!(card.code, Some("123".to_string()));
         assert_eq!(card.brand, Some("Mastercard".to_string()));

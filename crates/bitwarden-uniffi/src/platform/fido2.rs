@@ -7,7 +7,7 @@ use bitwarden_fido::{
     PublicKeyCredentialAuthenticatorAttestationResponse, PublicKeyCredentialRpEntity,
     PublicKeyCredentialUserEntity,
 };
-use bitwarden_vault::{Cipher, CipherView, Fido2CredentialNewView};
+use bitwarden_vault::{Cipher, CipherListView, CipherView, Fido2CredentialNewView};
 
 use crate::{
     error::{Error, Result},
@@ -255,7 +255,7 @@ pub trait Fido2CredentialStore: Send + Sync {
         rip_id: String,
     ) -> Result<Vec<CipherView>, Fido2CallbackError>;
 
-    async fn all_credentials(&self) -> Result<Vec<CipherView>, Fido2CallbackError>;
+    async fn all_credentials(&self) -> Result<Vec<CipherListView>, Fido2CallbackError>;
 
     async fn save_credential(&self, cred: Cipher) -> Result<(), Fido2CallbackError>;
 }
@@ -279,7 +279,7 @@ impl bitwarden_fido::Fido2CredentialStore for UniffiTraitBridge<&dyn Fido2Creden
             .map_err(Into::into)
     }
 
-    async fn all_credentials(&self) -> Result<Vec<CipherView>, BitFido2CallbackError> {
+    async fn all_credentials(&self) -> Result<Vec<CipherListView>, BitFido2CallbackError> {
         self.0.all_credentials().await.map_err(Into::into)
     }
 
