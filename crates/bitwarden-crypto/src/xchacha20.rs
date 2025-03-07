@@ -74,8 +74,10 @@ mod tests {
         let nonce = generate_nonce().into();
 
         let encrypted =
-            encrypt_xchacha20_poly1305(&nonce, &key, plaintext_secret_data, authenticated_data).unwrap();
-        let decrypted = decrypt_xchacha20_poly1305(&nonce, &key, &encrypted, authenticated_data).unwrap();
+            encrypt_xchacha20_poly1305(&nonce, &key, plaintext_secret_data, authenticated_data)
+                .unwrap();
+        let decrypted =
+            decrypt_xchacha20_poly1305(&nonce, &key, &encrypted, authenticated_data).unwrap();
         assert_eq!(plaintext_secret_data, decrypted.as_slice());
     }
 
@@ -87,7 +89,8 @@ mod tests {
         let nonce = generate_nonce().into();
 
         let mut encrypted =
-            encrypt_xchacha20_poly1305(&nonce, &key, plaintext_secret_data, authenticated_data).unwrap();
+            encrypt_xchacha20_poly1305(&nonce, &key, plaintext_secret_data, authenticated_data)
+                .unwrap();
         encrypted[0] = encrypted[0].wrapping_add(1);
         let result = decrypt_xchacha20_poly1305(&nonce, &key, &encrypted, authenticated_data);
         assert!(result.is_err());
@@ -100,9 +103,20 @@ mod tests {
         let mut authenticated_data = b"My authenticated data".to_vec();
         let nonce = generate_nonce().into();
 
-        let encrypted = encrypt_xchacha20_poly1305(&nonce, &key, plaintext_secret_data, authenticated_data.as_slice()).unwrap();
+        let encrypted = encrypt_xchacha20_poly1305(
+            &nonce,
+            &key,
+            plaintext_secret_data,
+            authenticated_data.as_slice(),
+        )
+        .unwrap();
         authenticated_data[0] = authenticated_data[0].wrapping_add(1);
-        let result = decrypt_xchacha20_poly1305(&nonce, &key, encrypted.as_slice(), authenticated_data.as_slice());
+        let result = decrypt_xchacha20_poly1305(
+            &nonce,
+            &key,
+            encrypted.as_slice(),
+            authenticated_data.as_slice(),
+        );
         assert!(result.is_err());
     }
 
@@ -114,7 +128,8 @@ mod tests {
         let mut nonce = generate_nonce().into();
 
         let encrypted =
-            encrypt_xchacha20_poly1305(&nonce, &key, plaintext_secret_data, authenticated_data).unwrap();
+            encrypt_xchacha20_poly1305(&nonce, &key, plaintext_secret_data, authenticated_data)
+                .unwrap();
         nonce[0] = nonce[0].wrapping_add(1);
         let result = decrypt_xchacha20_poly1305(&nonce, &key, &encrypted, authenticated_data);
         assert!(result.is_err());
