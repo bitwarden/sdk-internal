@@ -30,12 +30,12 @@ impl DeviceKey {
     /// from EncSettings.
     pub fn trust_device(user_key: &SymmetricCryptoKey) -> Result<TrustDeviceResponse> {
         let mut rng = rand::thread_rng();
-        let device_key = DeviceKey(SymmetricCryptoKey::generate(&mut rng));
+        let device_key = DeviceKey(SymmetricCryptoKey::generate());
 
         let device_private_key = AsymmetricCryptoKey::generate(&mut rng);
 
         // Encrypt both the key and mac_key of the user key
-        let data = user_key.to_vec();
+        let data = user_key.to_encoded()?;
 
         let protected_user_key =
             AsymmetricEncString::encrypt_rsa2048_oaep_sha1(&data, &device_private_key)?;
@@ -49,7 +49,7 @@ impl DeviceKey {
             .encrypt_with_key(&device_key.0)?;
 
         Ok(TrustDeviceResponse {
-            device_key: device_key.to_base64(),
+            device_key: device_key.to_base64()?,
             protected_user_key,
             protected_device_private_key,
             protected_device_public_key,
@@ -71,7 +71,7 @@ impl DeviceKey {
         Ok(user_key)
     }
 
-    fn to_base64(&self) -> String {
+    fn to_base64(&self) -> Result<String> {
         self.0.to_base64()
     }
 }

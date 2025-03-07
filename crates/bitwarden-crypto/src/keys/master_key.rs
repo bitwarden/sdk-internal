@@ -60,7 +60,7 @@ impl MasterKey {
 
     /// Derive the master key hash, used for local and remote password validation.
     pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> Result<String> {
-        let hash = util::pbkdf2(self.inner_bytes(), password, purpose as u32);
+        let hash = util::pbkdf2(self.inner_bytes().as_slice(), password, purpose as u32);
 
         Ok(STANDARD.encode(hash))
     }
@@ -113,7 +113,7 @@ pub(super) fn encrypt_user_key(
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
     let stretched_master_key = stretch_key(master_key)?;
-    let user_key_bytes = Zeroizing::new(user_key.to_vec());
+    let user_key_bytes = Zeroizing::new(user_key.to_encoded()?);
     EncString::encrypt_aes256_hmac(&user_key_bytes, &stretched_master_key)
 }
 
@@ -132,9 +132,16 @@ pub(super) fn decrypt_user_key(
             });
             user_key.decrypt_with_key(&legacy_key)?
         }
-        _ => {
+        EncString::AesCbc256_HmacSha256_B64 { .. } => {
             let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key)?);
             user_key.decrypt_with_key(&stretched_key)?
+        }
+        EncString::COSE_B64 { .. } => {
+            let key = SymmetricCryptoKey::XChaCha20Poly1305Key(super::XChaCha20Poly1305Key {
+                enc_key: Box::pin(GenericArray::clone_from_slice(key)),
+            });
+
+            user_key.decrypt_with_key(&key)?
         }
     };
 
@@ -146,7 +153,7 @@ fn make_user_key(
     mut rng: impl rand::RngCore,
     master_key: &MasterKey,
 ) -> Result<(UserKey, EncString)> {
-    let user_key = SymmetricCryptoKey::generate(&mut rng);
+    let user_key = SymmetricCryptoKey::generate();
     let protected = master_key.encrypt_user_key(&user_key)?;
     Ok((UserKey::new(user_key), protected))
 }

@@ -17,12 +17,12 @@ mod tests {
     fn test_creates_a_valid_store() {
         let mut store = create_store::<TestSymmKey>();
 
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate();
         store.upsert(TestSymmKey::A(0), key.clone());
 
         assert_eq!(
-            store.get(TestSymmKey::A(0)).unwrap().to_base64(),
-            key.to_base64()
+            store.get(TestSymmKey::A(0)).unwrap().to_base64().unwrap(),
+            key.to_base64().unwrap()
         );
     }
 }
