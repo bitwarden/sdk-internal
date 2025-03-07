@@ -29,6 +29,7 @@ argon2 = { version = ">=0.5.0, <0.6", features = [
 base64 = ">=0.22.1, <0.23"
 bitwarden-error = { workspace = true }
 cbc = { version = ">=0.1.2, <0.2", features = ["alloc", "zeroize"] }
+chacha20poly1305 = { version = "0.10.1" }
 generic-array = { version = ">=0.14.7, <1.0", features = ["zeroize"] }
 hkdf = ">=0.12.3, <0.13"
 hmac = ">=0.12.1, <0.13"
