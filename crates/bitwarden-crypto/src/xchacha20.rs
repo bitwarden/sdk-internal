@@ -22,9 +22,7 @@ use crate::CryptoError;
 
 #[allow(unused)]
 pub(crate) fn generate_nonce() -> GenericArray<u8, U24> {
-    let rng = rand::thread_rng();
-    let nonce = XChaCha20Poly1305::generate_nonce(rng);
-    nonce
+    XChaCha20Poly1305::generate_nonce(rand::thread_rng())
 }
 
 #[allow(unused)]
@@ -34,11 +32,14 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
-    let nonce = GenericArray::from_slice(nonce);
     // This buffer contains the plaintext, that will be encrypted in-place
     let mut buffer = Vec::from(plaintext_secret_data);
     XChaCha20Poly1305::new(GenericArray::from_slice(key))
-        .encrypt_in_place(&nonce, associated_data, &mut buffer)
+        .encrypt_in_place(
+            GenericArray::from_slice(nonce),
+            associated_data,
+            &mut buffer,
+        )
         .map_err(|_| CryptoError::InvalidKey)?;
     Ok(buffer)
 }
@@ -50,9 +51,8 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     ciphertext: &[u8],
     associated_data: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
-    let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(key));
     let mut buffer = ciphertext.to_vec();
-    cipher
+    XChaCha20Poly1305::new(GenericArray::from_slice(key))
         .decrypt_in_place(
             GenericArray::from_slice(nonce),
             associated_data,
