@@ -46,7 +46,7 @@ fn encrypt_xchacha20_poly1305_internal(
     // This buffer contains the plaintext, that will be encrypted in-place
     let mut buffer = plaintext_secret_data.to_vec();
     XChaCha20Poly1305::new(GenericArray::from_slice(key))
-        .encrypt_in_place(&nonce, associated_data, &mut buffer)
+        .encrypt_in_place(nonce, associated_data, &mut buffer)
         .expect("encryption failed");
 
     XChaCha20Poly1305Ciphertext {
