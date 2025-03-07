@@ -4,20 +4,20 @@
 //!
 //! In most cases you should use the [EncString][crate::EncString] with
 //! [KeyEncryptable][crate::KeyEncryptable] & [KeyDecryptable][crate::KeyDecryptable] instead.
+//!
+//! Note:
+//! XChaCha20Poly1305 encrypts data, and authenticates both the cipher text and associated
+//! data. This does not provide key-commitment, and assumes there can only be one key.
+//!
+//! If multiple keys are possible, a key-committing cipher such as
+//! XChaCha20Poly1305Blake3CTX should be used: `https://github.com/bitwarden/sdk-internal/pull/41` to prevent invisible-salamander style attacks.
+//! `https://eprint.iacr.org/2019/016.pdf`
+//! `https://soatok.blog/2024/09/10/invisible-salamanders-are-not-what-you-think/`
+//!
 
 use chacha20poly1305::{AeadCore, AeadInPlace, KeyInit, XChaCha20Poly1305};
 use generic_array::{typenum::U24, GenericArray};
 
-/**
- * Note:
- * XChaCha20Poly1305 encrypts data, and authenticates both the cipher text and associated
- * data. This does not provide key-commitment, and assumes there can only be one key.
- *
- * If multiple keys are possible, a key-committing cipher such as
- * XChaCha20Poly1305Blake3CTX should be used: `https://github.com/bitwarden/sdk-internal/pull/41` to prevent invisible-salamander style attacks.
- * `https://eprint.iacr.org/2019/016.pdf`
- * `https://soatok.blog/2024/09/10/invisible-salamanders-are-not-what-you-think/`
- */
 use crate::CryptoError;
 
 #[allow(unused)]
