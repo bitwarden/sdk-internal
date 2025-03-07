@@ -129,6 +129,7 @@ impl From<ImportingCipher> for CipherView {
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
             edit: true,
+            permissions: None,
             view_password: true,
             local_data: None,
             attachments: None,

@@ -21,9 +21,7 @@ use generic_array::{typenum::U24, GenericArray};
 use crate::CryptoError;
 
 pub(crate) fn generate_nonce() -> GenericArray<u8, U24> {
-    let rng = rand::thread_rng();
-    let nonce = XChaCha20Poly1305::generate_nonce(rng);
-    nonce
+    XChaCha20Poly1305::generate_nonce(rand::thread_rng())
 }
 
 pub(crate) fn encrypt_xchacha20_poly1305(
@@ -32,11 +30,14 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
-    let nonce = GenericArray::from_slice(nonce);
     // This buffer contains the plaintext, that will be encrypted in-place
     let mut buffer = Vec::from(plaintext_secret_data);
     XChaCha20Poly1305::new(GenericArray::from_slice(key))
-        .encrypt_in_place(&nonce, associated_data, &mut buffer)
+        .encrypt_in_place(
+            GenericArray::from_slice(nonce),
+            associated_data,
+            &mut buffer,
+        )
         .map_err(|_| CryptoError::InvalidKey)?;
     Ok(buffer)
 }
@@ -47,9 +48,8 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     ciphertext: &[u8],
     associated_data: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
-    let cipher = XChaCha20Poly1305::new(GenericArray::from_slice(key));
     let mut buffer = ciphertext.to_vec();
-    cipher
+    XChaCha20Poly1305::new(GenericArray::from_slice(key))
         .decrypt_in_place(
             GenericArray::from_slice(nonce),
             associated_data,
@@ -71,8 +71,10 @@ mod tests {
         let nonce = generate_nonce().into();
 
         let encrypted =
-            encrypt_xchacha20_poly1305(&nonce, &key, plaintext_secret_data, authenticated_data).unwrap();
-        let decrypted = decrypt_xchacha20_poly1305(&nonce, &key, &encrypted, authenticated_data).unwrap();
+            encrypt_xchacha20_poly1305(&nonce, &key, plaintext_secret_data, authenticated_data)
+                .unwrap();
+        let decrypted =
+            decrypt_xchacha20_poly1305(&nonce, &key, &encrypted, authenticated_data).unwrap();
         assert_eq!(plaintext_secret_data, decrypted.as_slice());
     }
 
@@ -84,7 +86,8 @@ mod tests {
         let nonce = generate_nonce().into();
 
         let mut encrypted =
-            encrypt_xchacha20_poly1305(&nonce, &key, plaintext_secret_data, authenticated_data).unwrap();
+            encrypt_xchacha20_poly1305(&nonce, &key, plaintext_secret_data, authenticated_data)
+                .unwrap();
         encrypted[0] = encrypted[0].wrapping_add(1);
         let result = decrypt_xchacha20_poly1305(&nonce, &key, &encrypted, authenticated_data);
         assert!(result.is_err());
@@ -97,9 +100,20 @@ mod tests {
         let mut authenticated_data = b"My authenticated data".to_vec();
         let nonce = generate_nonce().into();
 
-        let encrypted = encrypt_xchacha20_poly1305(&nonce, &key, plaintext_secret_data, authenticated_data.as_slice()).unwrap();
+        let encrypted = encrypt_xchacha20_poly1305(
+            &nonce,
+            &key,
+            plaintext_secret_data,
+            authenticated_data.as_slice(),
+        )
+        .unwrap();
         authenticated_data[0] = authenticated_data[0].wrapping_add(1);
-        let result = decrypt_xchacha20_poly1305(&nonce, &key, encrypted.as_slice(), authenticated_data.as_slice());
+        let result = decrypt_xchacha20_poly1305(
+            &nonce,
+            &key,
+            encrypted.as_slice(),
+            authenticated_data.as_slice(),
+        );
         assert!(result.is_err());
     }
 
@@ -111,7 +125,8 @@ mod tests {
         let mut nonce = generate_nonce().into();
 
         let encrypted =
-            encrypt_xchacha20_poly1305(&nonce, &key, plaintext_secret_data, authenticated_data).unwrap();
+            encrypt_xchacha20_poly1305(&nonce, &key, plaintext_secret_data, authenticated_data)
+                .unwrap();
         nonce[0] = nonce[0].wrapping_add(1);
         let result = decrypt_xchacha20_poly1305(&nonce, &key, &encrypted, authenticated_data);
         assert!(result.is_err());

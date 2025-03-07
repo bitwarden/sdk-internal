@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::key_management::KeyIds;
 use bitwarden_crypto::{CryptoError, KeyStoreContext};
-use bitwarden_vault::CipherView;
+use bitwarden_vault::{CipherListView, CipherListViewType, CipherView, LoginListView};
 use passkey::types::webauthn::UserVerificationRequirement;
 use reqwest::Url;
 use schemars::JsonSchema;
@@ -71,9 +71,10 @@ impl Fido2CredentialAutofillView {
         let credentials = cipher.decrypt_fido2_credentials(ctx)?;
 
         credentials
-            .into_iter()
+            .iter()
             .filter_map(|c| -> Option<Result<_, Fido2CredentialAutofillViewError>> {
                 c.user_handle
+                    .as_ref()
                     .map(|u| URL_SAFE_NO_PAD.decode(u))
                     .map(|user_handle| {
                         Ok(Fido2CredentialAutofillView {
@@ -96,6 +97,42 @@ impl Fido2CredentialAutofillView {
                     })
             })
             .collect()
+    }
+
+    pub fn from_cipher_list_view(
+        cipher: &CipherListView,
+    ) -> Result<Vec<Fido2CredentialAutofillView>, Fido2CredentialAutofillViewError> {
+        match &cipher.r#type {
+            CipherListViewType::Login(LoginListView {
+                fido2_credentials: Some(fido2_credentials),
+                username,
+                ..
+            }) => fido2_credentials
+                .iter()
+                .filter_map(|c| -> Option<Result<_, Fido2CredentialAutofillViewError>> {
+                    c.user_handle
+                        .as_ref()
+                        .map(|u| URL_SAFE_NO_PAD.decode(u))
+                        .map(|user_handle| {
+                            Ok(Fido2CredentialAutofillView {
+                                credential_id: string_to_guid_bytes(&c.credential_id)?,
+                                cipher_id: cipher
+                                    .id
+                                    .ok_or(Fido2CredentialAutofillViewError::MissingCipherId)?,
+                                rp_id: c.rp_id.clone(),
+                                user_handle: user_handle?,
+                                user_name_for_ui: c
+                                    .user_name
+                                    .none_whitespace()
+                                    .or(c.user_display_name.none_whitespace())
+                                    .or(username.none_whitespace())
+                                    .or(cipher.name.none_whitespace()),
+                            })
+                        })
+                })
+                .collect(),
+            _ => Ok(vec![]),
+        }
     }
 }
 

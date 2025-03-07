@@ -269,17 +269,13 @@ impl<'a> Fido2Authenticator<'a> {
     pub async fn credentials_for_autofill(
         &mut self,
     ) -> Result<Vec<Fido2CredentialAutofillView>, CredentialsForAutofillError> {
-        let key_store = self.client.internal.get_key_store();
         let all_credentials = self.credential_store.all_credentials().await?;
 
-        let mut ctx = key_store.context();
         all_credentials
             .into_iter()
             .map(
                 |cipher| -> Result<Vec<Fido2CredentialAutofillView>, CredentialsForAutofillError> {
-                    Ok(Fido2CredentialAutofillView::from_cipher_view(
-                        &cipher, &mut ctx,
-                    )?)
+                    Ok(Fido2CredentialAutofillView::from_cipher_list_view(&cipher)?)
                 },
             )
             .flatten_ok()
