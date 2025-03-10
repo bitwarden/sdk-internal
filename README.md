@@ -117,13 +117,16 @@ The list of developer tools is:
 
 ## Formatting & Linting
 
-This repository uses various tools to check formatting and linting before it's merged. It's recommended to run the checks prior to submitting a PR.
+This repository uses various tools to check formatting and linting before it's merged. It's
+recommended to run the checks prior to submitting a PR.
 
 ### Installation
 
-Please see the [lint.yml](./.github/workflows/lint.yml) file for example installation commands & versions. Here are the cli tools we use:
+Please see the [lint.yml](./.github/workflows/lint.yml) file for example installation commands &
+versions. Here are the cli tools we use:
 
-- Nightly [cargo fmt](https://github.com/rust-lang/rustfmt) and [cargo udeps](https://github.com/est31/cargo-udeps)
+- Nightly [cargo fmt](https://github.com/rust-lang/rustfmt) and
+  [cargo udeps](https://github.com/est31/cargo-udeps)
 - [rust clippy](https://github.com/rust-lang/rust-clippy)
 - [cargo sort](https://github.com/DevinR528/cargo-sort)
 - [prettier](https://github.com/prettier/prettier)
