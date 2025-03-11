@@ -1,6 +1,6 @@
-use bitwarden_crypto::{CryptoError, SymmetricCryptoKey};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{AsymmetricEncString, EncString};
+use bitwarden_crypto::{CryptoError, SymmetricCryptoKey};
 
 use super::crypto::{
     derive_key_connector, make_key_pair, verify_asymmetric_keys, DeriveKeyConnectorError,
@@ -99,7 +99,13 @@ impl CryptoClient<'_> {
         userkey: SymmetricCryptoKey,
     ) -> Result<bitwarden_crypto::opaque_ke::RegistrationFinishResult, bitwarden_crypto::OpaqueError>
     {
-        bitwarden_crypto::opaque_ke::register_finish(registration_start_state, registration_start_response, password, config, userkey)
+        bitwarden_crypto::opaque_ke::register_finish(
+            registration_start_state,
+            registration_start_response,
+            password,
+            config,
+            userkey,
+        )
     }
 
     pub fn opaque_login_start(
@@ -117,7 +123,13 @@ impl CryptoClient<'_> {
         config: &bitwarden_crypto::opaque_ke::CipherConfiguration,
         keyset: bitwarden_crypto::rotateable_keyset::RotateableKeyset,
     ) -> Result<bitwarden_crypto::opaque_ke::LoginFinishResult, bitwarden_crypto::OpaqueError> {
-        bitwarden_crypto::opaque_ke::login_finish(login_start_state, login_start_response, password, config, keyset)
+        bitwarden_crypto::opaque_ke::login_finish(
+            login_start_state,
+            login_start_response,
+            password,
+            config,
+            keyset,
+        )
     }
 }
 

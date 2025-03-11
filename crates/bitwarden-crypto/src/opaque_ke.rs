@@ -9,9 +9,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
-use crate::{
-    error::OpaqueError, keys, rotateable_keyset::RotateableKeyset, SymmetricCryptoKey
-};
+use crate::{error::OpaqueError, keys, rotateable_keyset::RotateableKeyset, SymmetricCryptoKey};
 
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -217,7 +215,9 @@ pub fn login_finish(
         )))
         .map_err(|_| OpaqueError::Message("Error stretching key".to_string()))?,
     );
-    let userkey = rotateable_keyset.decrypt_encapsulated_key(&stretched_export_key).map_err(|e| OpaqueError::Message(e.to_string()))?;
+    let userkey = rotateable_keyset
+        .decrypt_encapsulated_key(&stretched_export_key)
+        .map_err(|e| OpaqueError::Message(e.to_string()))?;
 
     Ok(LoginFinishResult {
         login_finish_result_message: client_login.message.serialize().to_vec(),

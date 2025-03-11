@@ -3,7 +3,8 @@ use std::rc::Rc;
 use bitwarden_core::{
     client::encryption_settings::EncryptionSettingsError,
     mobile::crypto::{
-        InitOrgCryptoRequest, InitUserCryptoRequest, MakeKeyPairResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse
+        InitOrgCryptoRequest, InitUserCryptoRequest, MakeKeyPairResponse,
+        VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
     },
     Client,
 };
@@ -70,7 +71,8 @@ impl CryptoClient {
         configuration: &opaque_ke::CipherConfiguration,
         userkey: &[u8],
     ) -> Result<opaque_ke::RegistrationFinishResult, OpaqueError> {
-        let userkey = SymmetricCryptoKey::try_from(userkey.to_vec()).map_err(|_| OpaqueError::Message("Invalid user key".to_string()))?;
+        let userkey = SymmetricCryptoKey::try_from(userkey.to_vec())
+            .map_err(|_| OpaqueError::Message("Invalid user key".to_string()))?;
         self.0.crypto().opaque_register_finish(
             registration_start_state,
             registration_start_response,
@@ -95,8 +97,12 @@ impl CryptoClient {
         configuration: &opaque_ke::CipherConfiguration,
         keyset: bitwarden_crypto::rotateable_keyset::RotateableKeyset,
     ) -> Result<opaque_ke::LoginFinishResult, OpaqueError> {
-        self.0
-            .crypto()
-            .opaque_login_finish(login_start_state, login_start_response, password, configuration, keyset)
+        self.0.crypto().opaque_login_finish(
+            login_start_state,
+            login_start_response,
+            password,
+            configuration,
+            keyset,
+        )
     }
 }
