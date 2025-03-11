@@ -95,6 +95,7 @@ mod traits;
 pub use traits::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
 pub mod opaque_ke;
+pub mod rotateable_keyset;
 
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
