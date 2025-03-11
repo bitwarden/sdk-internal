@@ -14,7 +14,7 @@ wasm = [
     "dep:tsify-next",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
-    "dep:js-sys"
+    "dep:js-sys",
 ] # WASM support
 
 [dependencies]
@@ -26,6 +26,10 @@ tokio = { features = ["sync"], workspace = true }
 tsify-next = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["rt"] }
 
 [lints]
 workspace = true
