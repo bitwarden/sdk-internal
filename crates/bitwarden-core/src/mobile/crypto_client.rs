@@ -3,7 +3,9 @@ use bitwarden_crypto::CryptoError;
 use bitwarden_crypto::{AsymmetricEncString, EncString};
 
 use super::crypto::{
-    derive_key_connector, make_key_pair, verify_asymmetric_keys, DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError, MakeKeyPairResponse, MobileCryptoError, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse
+    derive_key_connector, make_key_pair, verify_asymmetric_keys, DeriveKeyConnectorError,
+    DeriveKeyConnectorRequest, EnrollAdminPasswordResetError, MakeKeyPairResponse,
+    MobileCryptoError, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
 };
 #[cfg(feature = "internal")]
 use crate::mobile::crypto::{
@@ -80,19 +82,39 @@ impl CryptoClient<'_> {
         verify_asymmetric_keys(request)
     }
 
-    pub fn opaque_register_start(&self, password: &[u8]) -> Result<bitwarden_crypto::opaque_ke::RegistrationStartResult, bitwarden_crypto::OpaqueError> {
+    pub fn opaque_register_start(
+        &self,
+        password: &[u8],
+    ) -> Result<bitwarden_crypto::opaque_ke::RegistrationStartResult, bitwarden_crypto::OpaqueError>
+    {
         bitwarden_crypto::opaque_ke::register_start(&password)
     }
 
-    pub fn opaque_register_finish(&self, start: &[u8], finish: &[u8], password: &[u8], config: &bitwarden_crypto::opaque_ke::CipherConfiguration) -> Result<bitwarden_crypto::opaque_ke::RegistrationFinishResult, bitwarden_crypto::OpaqueError> {
+    pub fn opaque_register_finish(
+        &self,
+        start: &[u8],
+        finish: &[u8],
+        password: &[u8],
+        config: &bitwarden_crypto::opaque_ke::CipherConfiguration,
+    ) -> Result<bitwarden_crypto::opaque_ke::RegistrationFinishResult, bitwarden_crypto::OpaqueError>
+    {
         bitwarden_crypto::opaque_ke::register_finish(start, finish, password, config)
     }
 
-    pub fn opaque_login_start(&self, password: &[u8]) -> Result<bitwarden_crypto::opaque_ke::LoginStartResult, bitwarden_crypto::OpaqueError> {
+    pub fn opaque_login_start(
+        &self,
+        password: &[u8],
+    ) -> Result<bitwarden_crypto::opaque_ke::LoginStartResult, bitwarden_crypto::OpaqueError> {
         bitwarden_crypto::opaque_ke::login_start(password)
     }
 
-    pub fn opaque_login_finish(&self, start: &[u8], finish: &[u8], password: &[u8], config: &bitwarden_crypto::opaque_ke::CipherConfiguration) -> Result<bitwarden_crypto::opaque_ke::LoginFinishResult, bitwarden_crypto::OpaqueError> {
+    pub fn opaque_login_finish(
+        &self,
+        start: &[u8],
+        finish: &[u8],
+        password: &[u8],
+        config: &bitwarden_crypto::opaque_ke::CipherConfiguration,
+    ) -> Result<bitwarden_crypto::opaque_ke::LoginFinishResult, bitwarden_crypto::OpaqueError> {
         bitwarden_crypto::opaque_ke::login_finish(start, finish, password, config)
     }
 }

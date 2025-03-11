@@ -56,7 +56,10 @@ impl CryptoClient {
         self.0.crypto().verify_asymmetric_keys(request)
     }
 
-    pub fn opaque_register_start(&self, password: &[u8]) -> Result<opaque_ke::RegistrationStartResult, OpaqueError> {
+    pub fn opaque_register_start(
+        &self,
+        password: &[u8],
+    ) -> Result<opaque_ke::RegistrationStartResult, OpaqueError> {
         self.0.crypto().opaque_register_start(password)
     }
 
@@ -67,14 +70,30 @@ impl CryptoClient {
         password: &[u8],
         configuration: &opaque_ke::CipherConfiguration,
     ) -> Result<opaque_ke::RegistrationFinishResult, OpaqueError> {
-        self.0.crypto().opaque_register_finish(registration_start, registration_finish, password, configuration)
+        self.0.crypto().opaque_register_finish(
+            registration_start,
+            registration_finish,
+            password,
+            configuration,
+        )
     }
 
-    pub fn opaque_login_start(&self, password: &[u8]) -> Result<opaque_ke::LoginStartResult, OpaqueError> {
+    pub fn opaque_login_start(
+        &self,
+        password: &[u8],
+    ) -> Result<opaque_ke::LoginStartResult, OpaqueError> {
         self.0.crypto().opaque_login_start(password)
     }
 
-    pub fn opaque_login_finish(&self, start: &[u8], finish: &[u8], password: &[u8], configuration: &opaque_ke::CipherConfiguration) -> Result<opaque_ke::LoginFinishResult, OpaqueError> {
-        self.0.crypto().opaque_login_finish(start, finish, password, configuration)
+    pub fn opaque_login_finish(
+        &self,
+        start: &[u8],
+        finish: &[u8],
+        password: &[u8],
+        configuration: &opaque_ke::CipherConfiguration,
+    ) -> Result<opaque_ke::LoginFinishResult, OpaqueError> {
+        self.0
+            .crypto()
+            .opaque_login_finish(start, finish, password, configuration)
     }
 }

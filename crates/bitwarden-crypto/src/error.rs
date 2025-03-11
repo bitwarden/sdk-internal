@@ -90,8 +90,7 @@ pub enum RsaError {
 /// Alias for `Result<T, CryptoError>`.
 pub(crate) type Result<T, E = CryptoError> = std::result::Result<T, E>;
 
-#[derive(Debug, Error)]
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Error, Deserialize, Serialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum OpaqueError {
     #[error("Error creating message {0}")]

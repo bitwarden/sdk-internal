@@ -1,6 +1,10 @@
 use argon2::Params;
 use generic_array::{ArrayLength, GenericArray};
-use opaque_ke::{errors::InternalError, ksf::Ksf, CipherSuite, ClientLogin, ClientLoginFinishParameters, ClientRegistration, ClientRegistrationFinishParameters, CredentialResponse, Identifiers, RegistrationResponse};
+use opaque_ke::{
+    errors::InternalError, ksf::Ksf, CipherSuite, ClientLogin, ClientLoginFinishParameters,
+    ClientRegistration, ClientRegistrationFinishParameters, CredentialResponse, Identifiers,
+    RegistrationResponse,
+};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "wasm")]
@@ -56,8 +60,7 @@ impl CipherSuite for CipherConfiguration {
     type Ksf = Argon2Id;
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Argon2Id {
     t_cost: u32,
@@ -71,7 +74,11 @@ impl Ksf for Argon2Id {
         input: GenericArray<u8, L>,
     ) -> Result<GenericArray<u8, L>, InternalError> {
         let mut output = GenericArray::default();
-        let res = argon2::Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, Params::new(self.m_cost, self.t_cost, self.p_cost, Some(32)).unwrap());
+        let res = argon2::Argon2::new(
+            argon2::Algorithm::Argon2id,
+            argon2::Version::V0x13,
+            Params::new(self.m_cost, self.t_cost, self.p_cost, Some(32)).unwrap(),
+        );
         res.hash_password_into(&input, &[0; argon2::RECOMMENDED_SALT_LEN], &mut output)
             .map_err(|_| InternalError::KsfError)?;
         Ok(output)
@@ -81,20 +88,17 @@ impl Ksf for Argon2Id {
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct RegistrationStartResult {
-    pub state: Vec<u8>, 
+    pub state: Vec<u8>,
     pub message: Vec<u8>,
 }
 
-pub fn register_start(
-    password: &[u8],
-) -> Result<RegistrationStartResult, OpaqueError> {
-    let registration_start_result = ClientRegistration::<CipherConfiguration>::start(&mut rand::thread_rng(), password).map_err(|e| OpaqueError::Message(e.to_string()))?;
+pub fn register_start(password: &[u8]) -> Result<RegistrationStartResult, OpaqueError> {
+    let registration_start_result =
+        ClientRegistration::<CipherConfiguration>::start(&mut rand::thread_rng(), password)
+            .map_err(|e| OpaqueError::Message(e.to_string()))?;
     let state = registration_start_result.state.serialize().to_vec();
     let message = registration_start_result.message.serialize().to_vec();
-    Ok(RegistrationStartResult {
-        state,
-        message,
-    })
+    Ok(RegistrationStartResult { state, message })
 }
 
 #[derive(Serialize, Deserialize)]
@@ -108,16 +112,26 @@ pub fn register_finish(
     registration_start_state: &[u8],
     registration_finish: &[u8],
     password: &[u8],
-    cipher_config: &CipherConfiguration
+    cipher_config: &CipherConfiguration,
 ) -> Result<RegistrationFinishResult, OpaqueError> {
-    let start_message = ClientRegistration::<CipherConfiguration>::deserialize(registration_start_state).map_err(|_| OpaqueError::Deserialize)?;
+    let start_message =
+        ClientRegistration::<CipherConfiguration>::deserialize(registration_start_state)
+            .map_err(|_| OpaqueError::Deserialize)?;
     let ksf = Argon2Id {
         t_cost: cipher_config.ksf.t_cost,
-        m_cost: cipher_config.ksf.m_cost, 
+        m_cost: cipher_config.ksf.m_cost,
         p_cost: cipher_config.ksf.p_cost,
     };
     let params = ClientRegistrationFinishParameters::new(Identifiers::default(), Some(&ksf));
-    let client_registration = start_message.finish(&mut rand::thread_rng(), password,  RegistrationResponse::deserialize(registration_finish).map_err(|_| OpaqueError::Deserialize)?, params).map_err(|e| OpaqueError::Message(e.to_string()))?;
+    let client_registration = start_message
+        .finish(
+            &mut rand::thread_rng(),
+            password,
+            RegistrationResponse::deserialize(registration_finish)
+                .map_err(|_| OpaqueError::Deserialize)?,
+            params,
+        )
+        .map_err(|e| OpaqueError::Message(e.to_string()))?;
     Ok(RegistrationFinishResult {
         message: client_registration.message.serialize().to_vec(),
         exported_key: client_registration.export_key.to_vec(),
@@ -133,10 +147,10 @@ pub struct LoginStartResult {
     pub login_start_message: Vec<u8>,
 }
 
-pub fn login_start(
-    password: &[u8],
-) -> Result<LoginStartResult, OpaqueError> {
-    let login_start_result = ClientLogin::<CipherConfiguration>::start(&mut rand::thread_rng(), password).map_err(|e| OpaqueError::Message(e.to_string()))?;
+pub fn login_start(password: &[u8]) -> Result<LoginStartResult, OpaqueError> {
+    let login_start_result =
+        ClientLogin::<CipherConfiguration>::start(&mut rand::thread_rng(), password)
+            .map_err(|e| OpaqueError::Message(e.to_string()))?;
     Ok(LoginStartResult {
         login_start_state: login_start_result.state.serialize().to_vec(),
         login_start_message: login_start_result.message.serialize().to_vec(),
@@ -155,16 +169,24 @@ pub fn login_finish(
     login_start_state: &[u8],
     login_start_response: &[u8],
     password: &[u8],
-    cipher_config: &CipherConfiguration
+    cipher_config: &CipherConfiguration,
 ) -> Result<LoginFinishResult, OpaqueError> {
-    let start_message = ClientLogin::<CipherConfiguration>::deserialize(login_start_state).map_err(|_| OpaqueError::Deserialize)?;
+    let start_message = ClientLogin::<CipherConfiguration>::deserialize(login_start_state)
+        .map_err(|_| OpaqueError::Deserialize)?;
     let ksf = Argon2Id {
         t_cost: cipher_config.ksf.t_cost,
-        m_cost: cipher_config.ksf.m_cost, 
+        m_cost: cipher_config.ksf.m_cost,
         p_cost: cipher_config.ksf.p_cost,
     };
     let params = ClientLoginFinishParameters::new(None, Identifiers::default(), Some(&ksf));
-    let client_login = start_message.finish(password, CredentialResponse::deserialize(login_start_response).map_err(|_| OpaqueError::Deserialize)?, params).map_err(|e| OpaqueError::Message(e.to_string()))?;
+    let client_login = start_message
+        .finish(
+            password,
+            CredentialResponse::deserialize(login_start_response)
+                .map_err(|_| OpaqueError::Deserialize)?,
+            params,
+        )
+        .map_err(|e| OpaqueError::Message(e.to_string()))?;
     Ok(LoginFinishResult {
         message: client_login.message.serialize().to_vec(),
         exported_key: client_login.export_key.to_vec(),
