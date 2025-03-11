@@ -5,6 +5,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 use crate::endpoint::Endpoint;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct OutgoingMessage {
     pub payload: Vec<u8>,
@@ -12,6 +13,7 @@ pub struct OutgoingMessage {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct IncomingMessage {
     pub payload: Vec<u8>,
@@ -20,6 +22,7 @@ pub struct IncomingMessage {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct TypedOutgoingMessage<Payload> {
     pub payload: Payload,
     pub destination: Endpoint,
@@ -39,19 +42,22 @@ where
     }
 }
 
-impl<Payload> From<TypedOutgoingMessage<Payload>> for OutgoingMessage
+impl<Payload> TryFrom<TypedOutgoingMessage<Payload>> for OutgoingMessage
 where
-    Payload: Into<Vec<u8>>,
+    Payload: TryInto<Vec<u8>>,
 {
-    fn from(value: TypedOutgoingMessage<Payload>) -> Self {
-        Self {
-            payload: value.payload.into(),
+    type Error = <Payload as TryInto<Vec<u8>>>::Error;
+
+    fn try_from(value: TypedOutgoingMessage<Payload>) -> Result<Self, Self::Error> {
+        Ok(Self {
+            payload: value.payload.try_into()?,
             destination: value.destination,
-        }
+        })
     }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct TypedIncomingMessage<Payload> {
     pub payload: Payload,
     pub destination: Endpoint,
@@ -73,15 +79,17 @@ where
     }
 }
 
-impl<Payload> From<TypedIncomingMessage<Payload>> for IncomingMessage
+impl<Payload> TryFrom<TypedIncomingMessage<Payload>> for IncomingMessage
 where
-    Payload: Into<Vec<u8>>,
+    Payload: TryInto<Vec<u8>>,
 {
-    fn from(value: TypedIncomingMessage<Payload>) -> Self {
-        Self {
-            payload: value.payload.into(),
+    type Error = <Payload as TryInto<Vec<u8>>>::Error;
+
+    fn try_from(value: TypedIncomingMessage<Payload>) -> Result<Self, Self::Error> {
+        Ok(Self {
+            payload: value.payload.try_into()?,
             destination: value.destination,
             source: value.source,
-        }
+        })
     }
 }
