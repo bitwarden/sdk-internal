@@ -1,0 +1,121 @@
+use argon2::Params;
+use generic_array::{ArrayLength, GenericArray};
+use opaque_ke::{errors::InternalError, ksf::Ksf, CipherSuite, ClientRegistration, ClientRegistrationFinishParameters, Identifiers, RegistrationResponse};
+use serde::{Deserialize, Serialize};
+use tsify_next::Tsify;
+
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+pub enum OprfCS {
+    #[serde(rename = "ristretto255")]
+    Ristretto255,
+}
+
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+pub enum KeGroup {
+    #[serde(rename = "ristretto255")]
+    Ristretto255,
+}
+
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+pub enum KeyExchange {
+    #[serde(rename = "triple-dh")]
+    TripleDH,
+}
+
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+pub enum KSF {
+    #[serde(rename = "argon2id")]
+    Argon2id(u32, u32, u32),
+}
+
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct CipherConfiguration {
+    pub oprf: OprfCS,
+    pub ke_group: KeGroup,
+    pub key_exchange: KeyExchange,
+    pub ksf: Argon2Id,
+}
+
+impl CipherSuite for CipherConfiguration {
+    type OprfCs = opaque_ke::Ristretto255;
+    type KeGroup = opaque_ke::Ristretto255;
+    type KeyExchange = opaque_ke::key_exchange::tripledh::TripleDh;
+    type Ksf = Argon2Id;
+}
+
+#[derive(Serialize, Deserialize)]
+#[derive(Default)]
+pub struct Argon2Id {
+    t_cost: u32,
+    m_cost: u32,
+    p_cost: u32,
+}
+
+impl Ksf for Argon2Id {
+    fn hash<L: ArrayLength<u8>>(
+        &self,
+        input: GenericArray<u8, L>,
+    ) -> Result<GenericArray<u8, L>, InternalError> {
+        let mut output = GenericArray::default();
+        let res = argon2::Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, Params::new(self.m_cost, self.t_cost, self.p_cost, Some(32)).unwrap());
+        res.hash_password_into(&input, &[0; argon2::RECOMMENDED_SALT_LEN], &mut output)
+            .map_err(|_| InternalError::KsfError)?;
+        Ok(output)
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct RegistrationStartResult {
+    pub state: Vec<u8>, 
+    pub message: Vec<u8>,
+}
+
+pub fn register_start(
+    password: &[u8],
+) -> RegistrationStartResult {
+    let registration_start_result = ClientRegistration::<CipherConfiguration>::start(&mut rand::thread_rng(), password)
+        .unwrap();
+    let state = registration_start_result.state.serialize().to_vec();
+    let message = registration_start_result.message.serialize().to_vec();
+    RegistrationStartResult {
+        state,
+        message,
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct RegistrationFinishResult {
+    pub message: Vec<u8>,
+    pub exported_key: Vec<u8>,
+}
+
+pub fn register_finish(
+    registration_start: &[u8],
+    registration_finish: &[u8],
+    password: &[u8],
+    cipher_config: &CipherConfiguration
+) -> RegistrationFinishResult {
+    let start_message = ClientRegistration::<CipherConfiguration>::deserialize(registration_start).unwrap();
+    let ksf = Argon2Id {
+        t_cost: cipher_config.ksf.t_cost,
+        m_cost: cipher_config.ksf.m_cost, 
+        p_cost: cipher_config.ksf.p_cost,
+    };
+    let params = ClientRegistrationFinishParameters::new(Identifiers::default(), Some(&ksf));
+    let client_registration = start_message.finish(&mut rand::thread_rng(), password,  RegistrationResponse::deserialize(registration_finish).unwrap(), params).unwrap();
+    RegistrationFinishResult {
+        message: client_registration.message.serialize().to_vec(),
+        exported_key: client_registration.export_key.to_vec(),
+    }
+}

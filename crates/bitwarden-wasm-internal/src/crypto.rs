@@ -8,7 +8,7 @@ use bitwarden_core::{
     },
     Client,
 };
-use bitwarden_crypto::CryptoError;
+use bitwarden_crypto::{opaque_ke, CryptoError};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -54,5 +54,19 @@ impl CryptoClient {
         request: VerifyAsymmetricKeysRequest,
     ) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
         self.0.crypto().verify_asymmetric_keys(request)
+    }
+
+    pub fn opaque_register_start(&self, password: &[u8]) -> opaque_ke::RegistrationStartResult {
+        self.0.crypto().opaque_register_start(password)
+    }
+
+    pub fn opaque_register_finish(
+        &self,
+        registration_start: &[u8],
+        registration_finish: &[u8],
+        password: &[u8],
+        configuration: &opaque_ke::CipherConfiguration,
+    ) -> opaque_ke::RegistrationFinishResult {
+        self.0.crypto().opaque_register_finish(registration_start, registration_finish, password, configuration)
     }
 }

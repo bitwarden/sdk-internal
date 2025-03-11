@@ -34,6 +34,7 @@ hkdf = ">=0.12.3, <0.13"
 hmac = ">=0.12.1, <0.13"
 num-bigint = ">=0.4, <0.5"
 num-traits = ">=0.2.15, <0.3"
+opaque-ke = "3.0.0"
 pbkdf2 = { version = ">=0.12.1, <0.13", default-features = false }
 rand = ">=0.8.5, <0.9"
 rayon = ">=1.8.1, <2.0"
