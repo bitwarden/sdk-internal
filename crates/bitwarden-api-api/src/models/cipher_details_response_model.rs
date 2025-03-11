@@ -69,6 +69,8 @@ pub struct CipherDetailsResponseModel {
     pub view_password: Option<bool>,
     #[serde(rename = "collectionIds", skip_serializing_if = "Option::is_none")]
     pub collection_ids: Option<Vec<uuid::Uuid>>,
+    #[serde(rename = "archivedDate", skip_serializing_if = "Option::is_none")]
+    pub archived_date: Option<String>,
 }
 
 impl CipherDetailsResponseModel {
@@ -100,6 +102,7 @@ impl CipherDetailsResponseModel {
             edit: None,
             view_password: None,
             collection_ids: None,
+            archived_date: None,
         }
     }
 }

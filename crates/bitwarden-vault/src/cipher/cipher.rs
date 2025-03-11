@@ -95,6 +95,7 @@ pub struct Cipher {
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
+    pub archived_date: Option<DateTime<Utc>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
@@ -134,6 +135,7 @@ pub struct CipherView {
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
+    pub archived_date: Option<DateTime<Utc>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq)]
@@ -178,6 +180,7 @@ pub struct CipherListView {
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
+    pub archived_date: Option<DateTime<Utc>>,
 }
 
 impl CipherListView {
@@ -241,6 +244,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             deleted_date: cipher_view.deleted_date,
             revision_date: cipher_view.revision_date,
             permissions: cipher_view.permissions,
+            archived_date: cipher_view.archived_date,
         })
     }
 }
@@ -284,6 +288,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
+            archived_date: self.archived_date,
         };
 
         // For compatibility we only remove URLs with invalid checksums if the cipher has a key
@@ -622,6 +627,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
+            archived_date: self.archived_date,
         })
     }
 }
@@ -698,6 +704,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             deleted_date: cipher.deleted_date.map(|d| d.parse()).transpose()?,
             revision_date: require!(cipher.revision_date).parse()?,
             key: EncString::try_from_optional(cipher.key)?,
+            archived_date: cipher.archived_date.map(|d| d.parse()).transpose()?,
         })
     }
 }
@@ -773,6 +780,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
         }
     }
 
@@ -837,6 +845,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
         };
 
         let view: CipherListView = key_store.decrypt(&cipher).unwrap();
@@ -873,7 +882,8 @@ mod tests {
                 attachments: 0,
                 creation_date: cipher.creation_date,
                 deleted_date: cipher.deleted_date,
-                revision_date: cipher.revision_date
+                revision_date: cipher.revision_date,
+                archived_date: cipher.archived_date,
             }
         )
     }
@@ -1310,6 +1320,7 @@ mod tests {
             creation_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
+            archived_date: None,
         };
         let subtitle = ssh_key_cipher
             .get_decrypted_subtitle(&mut ctx, key)
