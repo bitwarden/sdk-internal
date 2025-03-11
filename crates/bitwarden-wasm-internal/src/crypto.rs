@@ -1,14 +1,13 @@
-use std::{rc::Rc, str::FromStr};
+use std::rc::Rc;
 
 use bitwarden_core::{
     client::encryption_settings::EncryptionSettingsError,
     mobile::crypto::{
-        InitOrgCryptoRequest, InitUserCryptoRequest, MakeKeyPairResponse,
-        VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
+        InitOrgCryptoRequest, InitUserCryptoRequest, MakeKeyPairResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse
     },
     Client,
 };
-use bitwarden_crypto::{opaque_ke, CryptoError, EncString, OpaqueError};
+use bitwarden_crypto::{opaque_ke, CryptoError, OpaqueError, SymmetricCryptoKey};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -71,6 +70,7 @@ impl CryptoClient {
         configuration: &opaque_ke::CipherConfiguration,
         userkey: &[u8],
     ) -> Result<opaque_ke::RegistrationFinishResult, OpaqueError> {
+        let userkey = SymmetricCryptoKey::try_from(userkey.to_vec()).map_err(|_| OpaqueError::Message("Invalid user key".to_string()))?;
         self.0.crypto().opaque_register_finish(
             registration_start_state,
             registration_start_response,
@@ -93,11 +93,10 @@ impl CryptoClient {
         login_start_response: &[u8],
         password: &[u8],
         configuration: &opaque_ke::CipherConfiguration,
-        userkey: &str,
+        keyset: bitwarden_crypto::rotateable_keyset::RotateableKeyset,
     ) -> Result<opaque_ke::LoginFinishResult, OpaqueError> {
-        let userkey = EncString::from_str(userkey).map_err(|_| OpaqueError::Message("Invalid user key".to_string()))?;
         self.0
             .crypto()
-            .opaque_login_finish(login_start_state, login_start_response, password, configuration, userkey)
+            .opaque_login_finish(login_start_state, login_start_response, password, configuration, keyset)
     }
 }

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use tsify_next::Tsify;
 
 use crate::{
-    error::OpaqueError, keys, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+    error::OpaqueError, keys, rotateable_keyset::RotateableKeyset, SymmetricCryptoKey
 };
 
 #[derive(Serialize, Deserialize)]
@@ -112,7 +112,7 @@ pub fn register_start(password: &[u8]) -> Result<RegistrationStartResult, Opaque
 pub struct RegistrationFinishResult {
     #[serde(with = "serde_bytes")]
     pub registration_finish_message: Vec<u8>,
-    pub wrapped_user_key: EncString,
+    pub keyset: RotateableKeyset,
 }
 
 pub fn register_finish(
@@ -120,7 +120,7 @@ pub fn register_finish(
     registration_start_response: &[u8],
     password: &[u8],
     cipher_config: &CipherConfiguration,
-    userkey: &[u8],
+    userkey: SymmetricCryptoKey,
 ) -> Result<RegistrationFinishResult, OpaqueError> {
     let start_message =
         ClientRegistration::<CipherConfiguration>::deserialize(registration_start_state)
@@ -147,13 +147,11 @@ pub fn register_finish(
         )))
         .map_err(|_| OpaqueError::Message("Error stretching key".to_string()))?,
     );
-    let wrapped_user_key = userkey
-        .encrypt_with_key(&stretched_export_key)
+    let keyset = RotateableKeyset::new(&stretched_export_key, &userkey)
         .map_err(|e| OpaqueError::Message(e.to_string()))?;
-
     Ok(RegistrationFinishResult {
         registration_finish_message: client_registration.message.serialize().to_vec(),
-        wrapped_user_key: wrapped_user_key,
+        keyset: keyset,
     })
 }
 
@@ -194,7 +192,7 @@ pub fn login_finish(
     login_start_response: &[u8],
     password: &[u8],
     cipher_config: &CipherConfiguration,
-    encrypted_user_key: EncString,
+    rotateable_keyset: RotateableKeyset,
 ) -> Result<LoginFinishResult, OpaqueError> {
     let start_message = ClientLogin::<CipherConfiguration>::deserialize(login_start_state)
         .map_err(|_| OpaqueError::Deserialize)?;
@@ -213,20 +211,17 @@ pub fn login_finish(
         )
         .map_err(|e| OpaqueError::Message(e.to_string()))?;
 
-    let decryption_key = if let EncString::AesCbc256_HmacSha256_B64 { .. } = encrypted_user_key {
-        let key = GenericArray::from_slice(client_login.export_key.as_slice());
-        let stretched_export_key = crate::keys::stretch_key(&Box::pin(*key))
-            .map_err(|_| OpaqueError::Message("Error stretching key".to_string()))?;
-        encrypted_user_key
-            .decrypt_with_key(&SymmetricCryptoKey::Aes256CbcHmacKey(stretched_export_key))
-    } else {
-        return Err(OpaqueError::Message("Invalid key type".to_string()));
-    }
-    .map_err(|e| OpaqueError::Message(e.to_string()))?;
+    let stretched_export_key = SymmetricCryptoKey::Aes256CbcHmacKey(
+        keys::stretch_key(&Box::pin(*GenericArray::from_slice(
+            &client_login.export_key,
+        )))
+        .map_err(|_| OpaqueError::Message("Error stretching key".to_string()))?,
+    );
+    let userkey = rotateable_keyset.decrypt_encapsulated_key(&stretched_export_key).map_err(|e| OpaqueError::Message(e.to_string()))?;
 
     Ok(LoginFinishResult {
         login_finish_result_message: client_login.message.serialize().to_vec(),
-        user_key: decryption_key,
+        user_key: userkey.to_vec(),
         session_key: client_login.session_key.to_vec(),
     })
 }

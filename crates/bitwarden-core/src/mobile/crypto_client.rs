@@ -1,4 +1,4 @@
-use bitwarden_crypto::CryptoError;
+use bitwarden_crypto::{CryptoError, SymmetricCryptoKey};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{AsymmetricEncString, EncString};
 
@@ -96,7 +96,7 @@ impl CryptoClient<'_> {
         registration_start_response: &[u8],
         password: &[u8],
         config: &bitwarden_crypto::opaque_ke::CipherConfiguration,
-        userkey: &[u8]
+        userkey: SymmetricCryptoKey,
     ) -> Result<bitwarden_crypto::opaque_ke::RegistrationFinishResult, bitwarden_crypto::OpaqueError>
     {
         bitwarden_crypto::opaque_ke::register_finish(registration_start_state, registration_start_response, password, config, userkey)
@@ -115,9 +115,9 @@ impl CryptoClient<'_> {
         login_start_response: &[u8],
         password: &[u8],
         config: &bitwarden_crypto::opaque_ke::CipherConfiguration,
-        userkey: EncString,
+        keyset: bitwarden_crypto::rotateable_keyset::RotateableKeyset,
     ) -> Result<bitwarden_crypto::opaque_ke::LoginFinishResult, bitwarden_crypto::OpaqueError> {
-        bitwarden_crypto::opaque_ke::login_finish(login_start_state, login_start_response, password, config, userkey)
+        bitwarden_crypto::opaque_ke::login_finish(login_start_state, login_start_response, password, config, keyset)
     }
 }
 
