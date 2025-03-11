@@ -149,7 +149,7 @@ pub fn register_finish(
         .map_err(|e| OpaqueError::Message(e.to_string()))?;
     Ok(RegistrationFinishResult {
         registration_finish_message: client_registration.message.serialize().to_vec(),
-        keyset: keyset,
+        keyset,
     })
 }
 

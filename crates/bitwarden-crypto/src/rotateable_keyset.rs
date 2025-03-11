@@ -31,7 +31,7 @@ impl RotateableKeyset {
         encapsulating_key: &SymmetricCryptoKey,
         encapsulated_key: &SymmetricCryptoKey,
     ) -> Result<Self, CryptoError> {
-        let keypair = make_key_pair(encapsulating_key).unwrap();
+        let keypair = make_key_pair(encapsulating_key).map_err(|_| CryptoError::InvalidKey)?;
         let spki = STANDARD
             .decode(keypair.public.clone())
             .map_err(|_| CryptoError::InvalidKey)?;
@@ -55,7 +55,7 @@ impl RotateableKeyset {
         let private_key_bytes: Vec<u8> = self.private_key.decrypt_with_key(encapsulating_key)?;
         let private_key = AsymmetricCryptoKey::from_der(&private_key_bytes)?;
         let encapsulated_key: Vec<u8> = self.encapsulated_key.decrypt_with_key(&private_key)?;
-        Ok(SymmetricCryptoKey::try_from(encapsulated_key)?)
+        SymmetricCryptoKey::try_from(encapsulated_key)
     }
 }
 
