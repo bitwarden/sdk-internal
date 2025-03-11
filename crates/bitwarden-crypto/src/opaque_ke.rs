@@ -1,6 +1,6 @@
 use argon2::Params;
 use generic_array::{ArrayLength, GenericArray};
-use opaque_ke::{errors::InternalError, ksf::Ksf, CipherSuite, ClientRegistration, ClientRegistrationFinishParameters, Identifiers, RegistrationResponse};
+use opaque_ke::{errors::InternalError, ksf::Ksf, CipherSuite, ClientLogin, ClientLoginFinishParameters, ClientRegistration, ClientRegistrationFinishParameters, CredentialResponse, Identifiers, RegistrationResponse};
 use serde::{Deserialize, Serialize};
 use tsify_next::Tsify;
 
@@ -54,6 +54,7 @@ impl CipherSuite for CipherConfiguration {
 
 #[derive(Serialize, Deserialize)]
 #[derive(Default)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Argon2Id {
     t_cost: u32,
     m_cost: u32,
@@ -117,5 +118,54 @@ pub fn register_finish(
     RegistrationFinishResult {
         message: client_registration.message.serialize().to_vec(),
         exported_key: client_registration.export_key.to_vec(),
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct LoginStartResult {
+    pub state: Vec<u8>,
+    pub message: Vec<u8>,
+}
+
+pub fn login_start(
+    password: &[u8],
+) -> LoginStartResult {
+    let login_start_result = ClientLogin::<CipherConfiguration>::start(&mut rand::thread_rng(), password)
+        .unwrap();
+    let state = login_start_result.state.serialize().to_vec();
+    let message = login_start_result.message.serialize().to_vec();
+    LoginStartResult {
+        state,
+        message,
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct LoginFinishResult {
+    pub message: Vec<u8>,
+    pub exported_key: Vec<u8>,
+    pub session_key: Vec<u8>,
+}
+
+pub fn login_finish(
+    login_start: &[u8],
+    response: &[u8],
+    password: &[u8],
+    cipher_config: &CipherConfiguration
+) -> LoginFinishResult {
+    let start_message = ClientLogin::<CipherConfiguration>::deserialize(login_start).unwrap();
+    let ksf = Argon2Id {
+        t_cost: cipher_config.ksf.t_cost,
+        m_cost: cipher_config.ksf.m_cost, 
+        p_cost: cipher_config.ksf.p_cost,
+    };
+    let params = ClientLoginFinishParameters::new(None, Identifiers::default(), Some(&ksf));
+    let client_login = start_message.finish(password, CredentialResponse::deserialize(response).unwrap(), params).unwrap();
+    LoginFinishResult {
+        message: client_login.message.serialize().to_vec(),
+        exported_key: client_login.export_key.to_vec(),
+        session_key: client_login.session_key.to_vec(),
     }
 }

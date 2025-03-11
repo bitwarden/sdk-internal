@@ -69,4 +69,12 @@ impl CryptoClient {
     ) -> opaque_ke::RegistrationFinishResult {
         self.0.crypto().opaque_register_finish(registration_start, registration_finish, password, configuration)
     }
+
+    pub fn opaque_login_start(&self, password: &[u8]) -> opaque_ke::LoginStartResult {
+        self.0.crypto().opaque_login_start(password)
+    }
+
+    pub fn opaque_login_finish(&self, start: &[u8], finish: &[u8], password: &[u8], configuration: &opaque_ke::CipherConfiguration) -> opaque_ke::LoginFinishResult {
+        self.0.crypto().opaque_login_finish(start, finish, password, configuration)
+    }
 }
