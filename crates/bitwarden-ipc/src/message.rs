@@ -23,6 +23,7 @@ pub struct IncomingMessage {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct TypedOutgoingMessage<Payload> {
     pub payload: Payload,
     pub destination: Endpoint,
@@ -58,6 +59,7 @@ where
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct TypedIncomingMessage<Payload> {
     pub payload: Payload,
     pub destination: Endpoint,
