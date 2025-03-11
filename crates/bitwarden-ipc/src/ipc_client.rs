@@ -1,6 +1,6 @@
 use crate::{
     error::{ReceiveError, SendError},
-    message::{IncomingMessage, OutgoingMessage},
+    message::{IncomingMessage, OutgoingMessage, TypedIncomingMessage},
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
 };
 
@@ -44,6 +44,15 @@ where
         self.crypto
             .receive(&self.communication, &self.sessions)
             .await
+    }
+
+    /// R
+    async fn receive_only<Payload>(
+        &self,
+    ) -> Result<TypedIncomingMessage<Payload>, ReceiveError<Crypto::ReceiveError, Com::ReceiveError>>
+    {
+        todo!()
+        // self.receive(&self.communication, &self.sessions).await
     }
 }
 
@@ -107,7 +116,7 @@ mod tests {
     #[tokio::test]
     async fn returns_send_error_when_crypto_provider_returns_error() {
         let message = OutgoingMessage {
-            data: vec![],
+            payload: vec![],
             destination: Endpoint::BrowserBackground,
         };
         let crypto_provider = TestCryptoProvider {

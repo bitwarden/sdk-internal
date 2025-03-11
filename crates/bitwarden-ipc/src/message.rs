@@ -7,14 +7,81 @@ use crate::endpoint::Endpoint;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct OutgoingMessage {
-    pub data: Vec<u8>,
+    pub payload: Vec<u8>,
     pub destination: Endpoint,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct IncomingMessage {
-    pub data: Vec<u8>,
+    pub payload: Vec<u8>,
     pub destination: Endpoint,
     pub source: Endpoint,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TypedOutgoingMessage<Payload> {
+    pub payload: Payload,
+    pub destination: Endpoint,
+}
+
+impl<Payload> TryFrom<OutgoingMessage> for TypedOutgoingMessage<Payload>
+where
+    Payload: TryFrom<Vec<u8>>,
+{
+    type Error = <Payload as TryFrom<Vec<u8>>>::Error;
+
+    fn try_from(value: OutgoingMessage) -> Result<Self, Self::Error> {
+        Ok(Self {
+            payload: Payload::try_from(value.payload)?,
+            destination: value.destination,
+        })
+    }
+}
+
+impl<Payload> From<TypedOutgoingMessage<Payload>> for OutgoingMessage
+where
+    Payload: Into<Vec<u8>>,
+{
+    fn from(value: TypedOutgoingMessage<Payload>) -> Self {
+        Self {
+            payload: value.payload.into(),
+            destination: value.destination,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TypedIncomingMessage<Payload> {
+    pub payload: Payload,
+    pub destination: Endpoint,
+    pub source: Endpoint,
+}
+
+impl<Payload> TryFrom<IncomingMessage> for TypedIncomingMessage<Payload>
+where
+    Payload: TryFrom<Vec<u8>>,
+{
+    type Error = <Payload as TryFrom<Vec<u8>>>::Error;
+
+    fn try_from(value: IncomingMessage) -> Result<Self, Self::Error> {
+        Ok(Self {
+            payload: Payload::try_from(value.payload)?,
+            destination: value.destination,
+            source: value.source,
+        })
+    }
+}
+
+impl<Payload> From<TypedIncomingMessage<Payload>> for IncomingMessage
+where
+    Payload: Into<Vec<u8>>,
+{
+    fn from(value: TypedIncomingMessage<Payload>) -> Self {
+        Self {
+            payload: value.payload.into(),
+            destination: value.destination,
+            source: value.source,
+        }
+    }
 }
