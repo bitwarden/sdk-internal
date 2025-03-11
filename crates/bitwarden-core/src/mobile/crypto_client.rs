@@ -87,7 +87,7 @@ impl CryptoClient<'_> {
         password: &[u8],
     ) -> Result<bitwarden_crypto::opaque_ke::RegistrationStartResult, bitwarden_crypto::OpaqueError>
     {
-        bitwarden_crypto::opaque_ke::register_start(&password)
+        bitwarden_crypto::opaque_ke::register_start(password)
     }
 
     pub fn opaque_register_finish(
