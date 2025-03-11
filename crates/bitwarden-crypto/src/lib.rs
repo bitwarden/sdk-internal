@@ -77,6 +77,7 @@ mod enc_string;
 pub use enc_string::{AsymmetricEncString, EncString};
 mod error;
 pub use error::CryptoError;
+pub use error::OpaqueError;
 pub(crate) use error::Result;
 mod fingerprint;
 pub use fingerprint::fingerprint;

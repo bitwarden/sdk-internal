@@ -8,7 +8,7 @@ use bitwarden_core::{
     },
     Client,
 };
-use bitwarden_crypto::{opaque_ke, CryptoError};
+use bitwarden_crypto::{opaque_ke, CryptoError, OpaqueError};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -56,7 +56,7 @@ impl CryptoClient {
         self.0.crypto().verify_asymmetric_keys(request)
     }
 
-    pub fn opaque_register_start(&self, password: &[u8]) -> opaque_ke::RegistrationStartResult {
+    pub fn opaque_register_start(&self, password: &[u8]) -> Result<opaque_ke::RegistrationStartResult, OpaqueError> {
         self.0.crypto().opaque_register_start(password)
     }
 
@@ -66,15 +66,15 @@ impl CryptoClient {
         registration_finish: &[u8],
         password: &[u8],
         configuration: &opaque_ke::CipherConfiguration,
-    ) -> opaque_ke::RegistrationFinishResult {
+    ) -> Result<opaque_ke::RegistrationFinishResult, OpaqueError> {
         self.0.crypto().opaque_register_finish(registration_start, registration_finish, password, configuration)
     }
 
-    pub fn opaque_login_start(&self, password: &[u8]) -> opaque_ke::LoginStartResult {
+    pub fn opaque_login_start(&self, password: &[u8]) -> Result<opaque_ke::LoginStartResult, OpaqueError> {
         self.0.crypto().opaque_login_start(password)
     }
 
-    pub fn opaque_login_finish(&self, start: &[u8], finish: &[u8], password: &[u8], configuration: &opaque_ke::CipherConfiguration) -> opaque_ke::LoginFinishResult {
+    pub fn opaque_login_finish(&self, start: &[u8], finish: &[u8], password: &[u8], configuration: &opaque_ke::CipherConfiguration) -> Result<opaque_ke::LoginFinishResult, OpaqueError> {
         self.0.crypto().opaque_login_finish(start, finish, password, configuration)
     }
 }
