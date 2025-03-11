@@ -76,7 +76,7 @@ impl Ksf for Argon2Id {
         let res = argon2::Argon2::new(
             argon2::Algorithm::Argon2id,
             argon2::Version::V0x13,
-            Params::new(self.m_cost, self.t_cost, self.p_cost, Some(32)).unwrap(),
+            Params::new(self.m_cost, self.t_cost, self.p_cost, Some(32)).map_err(|_| InternalError::KsfError)?,
         );
         res.hash_password_into(&input, &[0; argon2::RECOMMENDED_SALT_LEN], &mut output)
             .map_err(|_| InternalError::KsfError)?;
