@@ -2,6 +2,8 @@ use argon2::Params;
 use generic_array::{ArrayLength, GenericArray};
 use opaque_ke::{errors::InternalError, ksf::Ksf, CipherSuite, ClientLogin, ClientLoginFinishParameters, ClientRegistration, ClientRegistrationFinishParameters, CredentialResponse, Identifiers, RegistrationResponse};
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
 #[derive(Serialize, Deserialize)]
