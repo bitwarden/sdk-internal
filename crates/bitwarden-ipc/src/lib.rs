@@ -10,4 +10,3 @@ mod typed_ipc_client;
 pub mod wasm;
 
 pub use ipc_client::IpcClient;
-pub use typed_ipc_client::IpcClientTypedExtensions;

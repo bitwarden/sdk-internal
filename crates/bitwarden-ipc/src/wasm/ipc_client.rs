@@ -12,8 +12,15 @@ use crate::{
     IpcClient,
 };
 
+/// The type of the IpcClient that will be used in the JS code. Use this to create
+/// typed wrappers around the IpcClient that can be used from JS.
+pub type WasmIpcClient =
+    IpcClient<NoEncryptionCryptoProvider, JsCommunicationBackend, InMemorySessionRepository<()>>;
+
+/// A wrapper around the IpcClient that can be used from JS, don't use this directly
+/// in Rust code.
 #[wasm_bindgen(js_name = IpcClient)]
-pub struct JsIpcClient {
+pub struct JsIpcClientWrapper {
     // TODO: Change session provider to a JS-implemented one
     client: IpcClient<
         NoEncryptionCryptoProvider,
@@ -23,10 +30,10 @@ pub struct JsIpcClient {
 }
 
 #[wasm_bindgen(js_class = IpcClient)]
-impl JsIpcClient {
+impl JsIpcClientWrapper {
     #[wasm_bindgen(constructor)]
-    pub fn new(communication_provider: JsCommunicationBackend) -> JsIpcClient {
-        JsIpcClient {
+    pub fn new(communication_provider: JsCommunicationBackend) -> JsIpcClientWrapper {
+        JsIpcClientWrapper {
             client: IpcClient::new(
                 NoEncryptionCryptoProvider,
                 communication_provider,
