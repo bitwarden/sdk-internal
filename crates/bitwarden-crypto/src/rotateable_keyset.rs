@@ -1,6 +1,5 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
-
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
@@ -62,9 +61,8 @@ impl RotateableKeyset {
 
 #[cfg(test)]
 mod test {
-    use crate::SymmetricCryptoKey;
-
     use super::RotateableKeyset;
+    use crate::SymmetricCryptoKey;
 
     #[test]
     fn test_rotateable_keyset() {
