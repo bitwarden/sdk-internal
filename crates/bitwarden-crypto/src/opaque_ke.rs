@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
-use crate::{error::OpaqueError, keys, rotateable_keyset::RotateableKeyset, SymmetricCryptoKey};
+use crate::{error::OpaqueError, keys, rotateable_keyset::RotateableKeyset, Aes256CbcHmacKey, SymmetricCryptoKey};
 
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -76,7 +76,7 @@ impl Ksf for Argon2Id {
         let res = argon2::Argon2::new(
             argon2::Algorithm::Argon2id,
             argon2::Version::V0x13,
-            Params::new(self.m_cost, self.t_cost, self.p_cost, Some(32))
+            Params::new(self.m_cost, self.t_cost, self.p_cost, Some(64))
                 .map_err(|_| InternalError::KsfError)?,
         );
         res.hash_password_into(&input, &[0; argon2::RECOMMENDED_SALT_LEN], &mut output)
@@ -140,13 +140,9 @@ pub fn register_finish(
         )
         .map_err(|e| OpaqueError::Message(e.to_string()))?;
 
-    let stretched_export_key = SymmetricCryptoKey::Aes256CbcHmacKey(
-        keys::stretch_key(&Box::pin(*GenericArray::from_slice(
-            &client_registration.export_key,
-        )))
-        .map_err(|_| OpaqueError::Message("Error stretching key".to_string()))?,
-    );
-    let keyset = RotateableKeyset::new(&stretched_export_key, &userkey)
+    let encapsulating_key = SymmetricCryptoKey::try_from(client_registration.export_key.to_vec())
+        .map_err(|_| OpaqueError::Message("Failed parsing export key".to_string()))?;
+    let keyset = RotateableKeyset::new(&encapsulating_key, &userkey)
         .map_err(|e| OpaqueError::Message(e.to_string()))?;
     Ok(RegistrationFinishResult {
         registration_finish_message: client_registration.message.serialize().to_vec(),
@@ -210,14 +206,11 @@ pub fn login_finish(
         )
         .map_err(|e| OpaqueError::Message(e.to_string()))?;
 
-    let stretched_export_key = SymmetricCryptoKey::Aes256CbcHmacKey(
-        keys::stretch_key(&Box::pin(*GenericArray::from_slice(
-            &client_login.export_key,
-        )))
-        .map_err(|_| OpaqueError::Message("Error stretching key".to_string()))?,
-    );
+    let encapsulating_key = SymmetricCryptoKey::try_from(client_login.export_key.to_vec())
+        .map_err(|_| OpaqueError::Message("Failed parsing export key".to_string()))?;
+
     let userkey = rotateable_keyset
-        .decrypt_encapsulated_key(&stretched_export_key)
+        .decrypt_encapsulated_key(&encapsulating_key)
         .map_err(|e| OpaqueError::Message(e.to_string()))?;
 
     Ok(LoginFinishResult {
@@ -225,4 +218,113 @@ pub fn login_finish(
         user_key: userkey.to_vec(),
         session_key: client_login.session_key.to_vec(),
     })
+}
+
+#[cfg(test)]
+mod test {
+    use opaque_ke::{CredentialRequest, RegistrationRequest, RegistrationUpload, ServerLogin, ServerLoginStartParameters, ServerLoginStartResult, ServerRegistration, ServerSetup};
+
+    use super::*;
+    use crate::SymmetricCryptoKey;
+
+    struct MockServer {
+        server_setup: Option<ServerSetup<CipherConfiguration>>,
+        password_file: Option<Vec<u8>>,
+        server_login_state: Option<Vec<u8>>,
+    }
+
+    impl MockServer {
+        fn new() -> Self {
+            MockServer {
+                server_setup: None,
+                password_file: None,
+                server_login_state: None,
+            }
+        }
+
+        fn register_start(&mut self, register_start_message: &[u8]) -> Result<Vec<u8>, OpaqueError> {
+            let server_setup = ServerSetup::<CipherConfiguration>::new(&mut rand::thread_rng());
+            self.server_setup = Some(server_setup.clone());
+            let registration = ServerRegistration::<CipherConfiguration>::start(
+                &server_setup,
+                RegistrationRequest::deserialize(&register_start_message).unwrap(),
+                "username".as_bytes(),
+            ).unwrap();
+            Ok(registration.message.serialize().to_vec())
+        }
+
+        fn register_finish(&mut self, register_finish_message: &[u8]) -> Result<(), OpaqueError> {
+            let password_file = ServerRegistration::finish(
+                RegistrationUpload::<CipherConfiguration>::deserialize(&register_finish_message).unwrap(),
+            );
+            self.password_file = Some(password_file.serialize().to_vec());
+            Ok(())
+        }
+
+        fn login_start(&mut self, login_start_message: &[u8]) -> Result<Vec<u8>, OpaqueError> {
+            let server_setup = self.server_setup.as_ref().unwrap();
+            let login = ServerLogin::<CipherConfiguration>::start(
+                &mut rand::thread_rng(),
+                server_setup,
+                Some(ServerRegistration::deserialize(&self.password_file.as_ref().unwrap()).unwrap()),
+                CredentialRequest::deserialize(login_start_message).unwrap(),
+                "username".as_bytes(),
+                ServerLoginStartParameters::default(),
+            ).unwrap();
+            Ok(login.message.serialize().to_vec())
+        }
+
+        fn login_finish(&self, login_finish_message: &[u8]) -> Result<(), OpaqueError> {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn test_opaque_register() {
+        let mut server = MockServer::new();
+
+        let password = b"password";
+        let registration_start = register_start(password).unwrap();
+        let registration_finish = server.register_start(&registration_start.registration_start_message).unwrap();
+        let userkey = SymmetricCryptoKey::generate(&mut rand::thread_rng());
+        let registration_finish = register_finish(
+            &registration_start.registration_start_state,
+            &registration_finish,
+            password,
+            &CipherConfiguration {
+                oprf: OprfCS::Ristretto255,
+                ke_group: KeGroup::Ristretto255,
+                key_exchange: KeyExchange::TripleDH,
+                ksf: Argon2Id {
+                    t_cost: 1,
+                    m_cost: 65536,
+                    p_cost: 1,
+                },
+            },
+            userkey.clone(),
+        )
+        .unwrap();
+        server.register_finish(&registration_finish.registration_finish_message).unwrap();
+
+        let login_start = login_start(password).unwrap();
+        let login_finish_message = server.login_start(&login_start.login_start_message).unwrap();
+        let login_finish = login_finish(
+            &login_start.login_start_state,
+            &login_finish_message,
+            password,
+            &CipherConfiguration {
+                oprf: OprfCS::Ristretto255,
+                ke_group: KeGroup::Ristretto255,
+                key_exchange: KeyExchange::TripleDH,
+                ksf: Argon2Id {
+                    t_cost: 1,
+                    m_cost: 65536,
+                    p_cost: 1,
+                },
+            },
+            registration_finish.keyset,
+        )
+        .unwrap();
+        assert_eq!(login_finish.user_key, userkey.to_vec());
+    }
 }
