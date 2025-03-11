@@ -6,7 +6,6 @@ use opaque_ke::{
     RegistrationResponse,
 };
 use serde::{Deserialize, Serialize};
-
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
