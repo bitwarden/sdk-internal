@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{rc::Rc, str::FromStr};
 
 use bitwarden_core::{
     client::encryption_settings::EncryptionSettingsError,
@@ -8,7 +8,7 @@ use bitwarden_core::{
     },
     Client,
 };
-use bitwarden_crypto::{opaque_ke, CryptoError, OpaqueError};
+use bitwarden_crypto::{opaque_ke, CryptoError, EncString, OpaqueError};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -65,16 +65,18 @@ impl CryptoClient {
 
     pub fn opaque_register_finish(
         &self,
-        registration_start: &[u8],
-        registration_finish: &[u8],
+        registration_start_state: &[u8],
+        registration_start_response: &[u8],
         password: &[u8],
         configuration: &opaque_ke::CipherConfiguration,
+        userkey: &[u8],
     ) -> Result<opaque_ke::RegistrationFinishResult, OpaqueError> {
         self.0.crypto().opaque_register_finish(
-            registration_start,
-            registration_finish,
+            registration_start_state,
+            registration_start_response,
             password,
             configuration,
+            userkey,
         )
     }
 
@@ -87,13 +89,15 @@ impl CryptoClient {
 
     pub fn opaque_login_finish(
         &self,
-        start: &[u8],
-        finish: &[u8],
+        login_start_state: &[u8],
+        login_start_response: &[u8],
         password: &[u8],
         configuration: &opaque_ke::CipherConfiguration,
+        userkey: &str,
     ) -> Result<opaque_ke::LoginFinishResult, OpaqueError> {
+        let userkey = EncString::from_str(userkey).map_err(|_| OpaqueError::Message("Invalid user key".to_string()))?;
         self.0
             .crypto()
-            .opaque_login_finish(start, finish, password, configuration)
+            .opaque_login_finish(login_start_state, login_start_response, password, configuration, userkey)
     }
 }

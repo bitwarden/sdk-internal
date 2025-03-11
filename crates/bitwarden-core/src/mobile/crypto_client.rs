@@ -92,13 +92,14 @@ impl CryptoClient<'_> {
 
     pub fn opaque_register_finish(
         &self,
-        start: &[u8],
-        finish: &[u8],
+        registration_start_state: &[u8],
+        registration_start_response: &[u8],
         password: &[u8],
         config: &bitwarden_crypto::opaque_ke::CipherConfiguration,
+        userkey: &[u8]
     ) -> Result<bitwarden_crypto::opaque_ke::RegistrationFinishResult, bitwarden_crypto::OpaqueError>
     {
-        bitwarden_crypto::opaque_ke::register_finish(start, finish, password, config)
+        bitwarden_crypto::opaque_ke::register_finish(registration_start_state, registration_start_response, password, config, userkey)
     }
 
     pub fn opaque_login_start(
@@ -110,12 +111,13 @@ impl CryptoClient<'_> {
 
     pub fn opaque_login_finish(
         &self,
-        start: &[u8],
-        finish: &[u8],
+        login_start_state: &[u8],
+        login_start_response: &[u8],
         password: &[u8],
         config: &bitwarden_crypto::opaque_ke::CipherConfiguration,
+        userkey: EncString,
     ) -> Result<bitwarden_crypto::opaque_ke::LoginFinishResult, bitwarden_crypto::OpaqueError> {
-        bitwarden_crypto::opaque_ke::login_finish(start, finish, password, config)
+        bitwarden_crypto::opaque_ke::login_finish(login_start_state, login_start_response, password, config, userkey)
     }
 }
 

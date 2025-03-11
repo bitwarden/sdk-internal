@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
-use crate::error::OpaqueError;
+use crate::{
+    error::OpaqueError, keys, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+};
 
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -87,8 +89,10 @@ impl Ksf for Argon2Id {
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct RegistrationStartResult {
-    pub state: Vec<u8>,
-    pub message: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub registration_start_state: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub registration_start_message: Vec<u8>,
 }
 
 pub fn register_start(password: &[u8]) -> Result<RegistrationStartResult, OpaqueError> {
@@ -97,21 +101,26 @@ pub fn register_start(password: &[u8]) -> Result<RegistrationStartResult, Opaque
             .map_err(|e| OpaqueError::Message(e.to_string()))?;
     let state = registration_start_result.state.serialize().to_vec();
     let message = registration_start_result.message.serialize().to_vec();
-    Ok(RegistrationStartResult { state, message })
+    Ok(RegistrationStartResult {
+        registration_start_state: state,
+        registration_start_message: message,
+    })
 }
 
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct RegistrationFinishResult {
-    pub message: Vec<u8>,
-    pub exported_key: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub registration_finish_message: Vec<u8>,
+    pub wrapped_user_key: EncString,
 }
 
 pub fn register_finish(
     registration_start_state: &[u8],
-    registration_finish: &[u8],
+    registration_start_response: &[u8],
     password: &[u8],
     cipher_config: &CipherConfiguration,
+    userkey: &[u8],
 ) -> Result<RegistrationFinishResult, OpaqueError> {
     let start_message =
         ClientRegistration::<CipherConfiguration>::deserialize(registration_start_state)
@@ -126,14 +135,25 @@ pub fn register_finish(
         .finish(
             &mut rand::thread_rng(),
             password,
-            RegistrationResponse::deserialize(registration_finish)
+            RegistrationResponse::deserialize(registration_start_response)
                 .map_err(|_| OpaqueError::Deserialize)?,
             params,
         )
         .map_err(|e| OpaqueError::Message(e.to_string()))?;
+
+    let stretched_export_key = SymmetricCryptoKey::Aes256CbcHmacKey(
+        keys::stretch_key(&Box::pin(*GenericArray::from_slice(
+            &client_registration.export_key,
+        )))
+        .map_err(|_| OpaqueError::Message("Error stretching key".to_string()))?,
+    );
+    let wrapped_user_key = userkey
+        .encrypt_with_key(&stretched_export_key)
+        .map_err(|e| OpaqueError::Message(e.to_string()))?;
+
     Ok(RegistrationFinishResult {
-        message: client_registration.message.serialize().to_vec(),
-        exported_key: client_registration.export_key.to_vec(),
+        registration_finish_message: client_registration.message.serialize().to_vec(),
+        wrapped_user_key: wrapped_user_key,
     })
 }
 
@@ -141,8 +161,10 @@ pub fn register_finish(
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct LoginStartResult {
     /// The serialized state of the started login attempt
+    #[serde(with = "serde_bytes")]
     pub login_start_state: Vec<u8>,
     /// The serialized LoginStart message from the client to be sent to the server
+    #[serde(with = "serde_bytes")]
     pub login_start_message: Vec<u8>,
 }
 
@@ -159,8 +181,11 @@ pub fn login_start(password: &[u8]) -> Result<LoginStartResult, OpaqueError> {
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct LoginFinishResult {
-    pub message: Vec<u8>,
-    pub exported_key: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub login_finish_result_message: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub user_key: Vec<u8>,
+    #[serde(with = "serde_bytes")]
     pub session_key: Vec<u8>,
 }
 
@@ -169,6 +194,7 @@ pub fn login_finish(
     login_start_response: &[u8],
     password: &[u8],
     cipher_config: &CipherConfiguration,
+    encrypted_user_key: EncString,
 ) -> Result<LoginFinishResult, OpaqueError> {
     let start_message = ClientLogin::<CipherConfiguration>::deserialize(login_start_state)
         .map_err(|_| OpaqueError::Deserialize)?;
@@ -186,9 +212,21 @@ pub fn login_finish(
             params,
         )
         .map_err(|e| OpaqueError::Message(e.to_string()))?;
+
+    let decryption_key = if let EncString::AesCbc256_HmacSha256_B64 { .. } = encrypted_user_key {
+        let key = GenericArray::from_slice(client_login.export_key.as_slice());
+        let stretched_export_key = crate::keys::stretch_key(&Box::pin(*key))
+            .map_err(|_| OpaqueError::Message("Error stretching key".to_string()))?;
+        encrypted_user_key
+            .decrypt_with_key(&SymmetricCryptoKey::Aes256CbcHmacKey(stretched_export_key))
+    } else {
+        return Err(OpaqueError::Message("Invalid key type".to_string()));
+    }
+    .map_err(|e| OpaqueError::Message(e.to_string()))?;
+
     Ok(LoginFinishResult {
-        message: client_login.message.serialize().to_vec(),
-        exported_key: client_login.export_key.to_vec(),
+        login_finish_result_message: client_login.message.serialize().to_vec(),
+        user_key: decryption_key,
         session_key: client_login.session_key.to_vec(),
     })
 }
