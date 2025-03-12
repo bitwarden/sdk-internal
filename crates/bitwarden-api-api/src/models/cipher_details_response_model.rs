@@ -100,7 +100,6 @@ impl CipherDetailsResponseModel {
             edit: None,
             view_password: None,
             collection_ids: None,
-            archived_date: None,
         }
     }
 }
