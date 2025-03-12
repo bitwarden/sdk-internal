@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
-use crate::{error::OpaqueError, keys, rotateable_keyset::RotateableKeyset, Aes256CbcHmacKey, SymmetricCryptoKey};
+use crate::{error::OpaqueError, rotateable_keyset::RotateableKeyset, SymmetricCryptoKey};
 
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -177,7 +177,7 @@ pub struct LoginFinishResult {
     #[serde(with = "serde_bytes")]
     pub login_finish_result_message: Vec<u8>,
     #[serde(with = "serde_bytes")]
-    pub user_key: Vec<u8>,
+    pub export_key: Vec<u8>,
     #[serde(with = "serde_bytes")]
     pub session_key: Vec<u8>,
 }
@@ -187,7 +187,6 @@ pub fn login_finish(
     login_start_response: &[u8],
     password: &[u8],
     cipher_config: &CipherConfiguration,
-    rotateable_keyset: RotateableKeyset,
 ) -> Result<LoginFinishResult, OpaqueError> {
     let start_message = ClientLogin::<CipherConfiguration>::deserialize(login_start_state)
         .map_err(|_| OpaqueError::Deserialize)?;
@@ -206,16 +205,10 @@ pub fn login_finish(
         )
         .map_err(|e| OpaqueError::Message(e.to_string()))?;
 
-    let encapsulating_key = SymmetricCryptoKey::try_from(client_login.export_key.to_vec())
-        .map_err(|_| OpaqueError::Message("Failed parsing export key".to_string()))?;
-
-    let userkey = rotateable_keyset
-        .decrypt_encapsulated_key(&encapsulating_key)
-        .map_err(|e| OpaqueError::Message(e.to_string()))?;
-
     Ok(LoginFinishResult {
         login_finish_result_message: client_login.message.serialize().to_vec(),
-        user_key: userkey.to_vec(),
+        // ristretto255 uses sha512, but we want to deal with 256 bit keys
+        export_key: client_login.export_key.as_slice()[..32].to_vec(),
         session_key: client_login.session_key.to_vec(),
     })
 }
@@ -328,10 +321,9 @@ mod test {
                     p_cost: 1,
                 },
             },
-            registration_finish.keyset,
         )
         .unwrap();
-        assert_eq!(login_finish.user_key, userkey.to_vec());
+        assert_eq!(login_finish.export_key, userkey.to_vec());
         let session_key = server.login_finish(&login_finish.login_finish_result_message).unwrap();
         assert_eq!(login_finish.session_key, session_key);
     }

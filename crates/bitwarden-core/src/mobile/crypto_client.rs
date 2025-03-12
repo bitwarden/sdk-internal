@@ -121,15 +121,21 @@ impl CryptoClient<'_> {
         login_start_response: &[u8],
         password: &[u8],
         config: &bitwarden_crypto::opaque_ke::CipherConfiguration,
-        keyset: bitwarden_crypto::rotateable_keyset::RotateableKeyset,
     ) -> Result<bitwarden_crypto::opaque_ke::LoginFinishResult, bitwarden_crypto::OpaqueError> {
         bitwarden_crypto::opaque_ke::login_finish(
             login_start_state,
             login_start_response,
             password,
             config,
-            keyset,
         )
+    }
+
+    pub fn decapsulate_key_from_rotateablekeyset(
+        &self,
+        rotateable_keyset: bitwarden_crypto::rotateable_keyset::RotateableKeyset,
+        encapsulating_key: &SymmetricCryptoKey,
+    ) -> Result<SymmetricCryptoKey, CryptoError> {
+        rotateable_keyset.decrypt_encapsulated_key(encapsulating_key)
     }
 }
 

@@ -8,7 +8,7 @@ use bitwarden_core::{
     },
     Client,
 };
-use bitwarden_crypto::{opaque_ke, CryptoError, OpaqueError, SymmetricCryptoKey};
+use bitwarden_crypto::{opaque_ke, rotateable_keyset::{RotateableKeyset}, CryptoError, OpaqueError, SymmetricCryptoKey};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -95,14 +95,22 @@ impl CryptoClient {
         login_start_response: &[u8],
         password: &[u8],
         configuration: &opaque_ke::CipherConfiguration,
-        keyset: bitwarden_crypto::rotateable_keyset::RotateableKeyset,
     ) -> Result<opaque_ke::LoginFinishResult, OpaqueError> {
         self.0.crypto().opaque_login_finish(
             login_start_state,
             login_start_response,
             password,
             configuration,
-            keyset,
         )
     }
+
+    pub fn decapsulate_key_from_rotateablekeyset(
+        &self,
+        rotateable_keyset: RotateableKeyset,
+        encapsulating_key: &[u8],
+    ) -> Result<Vec<u8>, CryptoError> {
+        let key = SymmetricCryptoKey::try_from(encapsulating_key.to_vec())?;
+        Ok(self.0.crypto().decapsulate_key_from_rotateablekeyset(rotateable_keyset, &key)?.to_vec())
+    }
+
 }
