@@ -41,6 +41,7 @@ impl JsIpcClient {
 
     pub async fn send(
         &self,
+        #[wasm_bindgen(unchecked_param_type = "TypedOutgoingMessage<JsIpcPayload>")]
         message: TypedOutgoingMessage<JsIpcPayload>,
     ) -> Result<(), JsSendError> {
         let message = message.try_into().map_err(
@@ -56,7 +57,8 @@ impl JsIpcClient {
         self.client.receive().await.map_err(|e| e.into())
     }
 
-    pub async fn receive(&self) -> Result<TypedIncomingMessage<JsIpcPayload>, JsReceiveError> {
-        self.client.receive_typed().await.map_err(|e| e.into())
+    #[wasm_bindgen(unchecked_return_type = "TypedIncomingMessage<JsIpcPayload>")]
+    pub async fn receive(&self) -> TypedIncomingMessage<JsIpcPayload> {
+        self.client.receive_typed().await.unwrap()
     }
 }
