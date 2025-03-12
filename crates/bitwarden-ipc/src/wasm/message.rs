@@ -4,7 +4,9 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 #[derive(Tsify, Serialize, Deserialize)]
 #[tsify(into_wasm_abi, from_wasm_abi)]
+// #[wasm_bindgen]
 pub struct JsIpcPayload {
+    // pub payload: Box<[u8]>,
     pub json_payload: String,
 }
 
