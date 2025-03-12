@@ -1,30 +1,57 @@
-use serde::{Deserialize, Serialize};
+use std::str;
+use wasm_bindgen::prelude::*;
 
-use {tsify_next::Tsify, wasm_bindgen::prelude::*};
+use crate::{
+    endpoint::Endpoint,
+    message::{IncomingMessage, OutgoingMessage},
+};
 
-#[derive(Tsify, Serialize, Deserialize)]
-#[tsify(into_wasm_abi, from_wasm_abi)]
-// #[wasm_bindgen]
-pub struct JsIpcPayload {
-    // pub payload: Box<[u8]>,
-    pub json_payload: String,
-}
+#[wasm_bindgen]
+impl OutgoingMessage {
+    #[wasm_bindgen(constructor)]
+    pub fn new(payload: Vec<u8>, destination: Endpoint) -> OutgoingMessage {
+        OutgoingMessage {
+            payload,
+            destination,
+        }
+    }
 
-impl TryFrom<Vec<u8>> for JsIpcPayload {
-    type Error = serde_json::Error;
-
-    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        // Might want to consider a more efficient way to do this, like converting from the Vec<u8> directly to utf8
-        let payload = serde_json::from_slice(&value)?;
-        Ok(payload)
+    /// Create a new message and encode the payload as JSON.
+    pub fn new_json_payload(
+        payload: JsValue,
+        destination: Endpoint,
+    ) -> Result<OutgoingMessage, JsValue> {
+        let payload = js_sys::JSON::stringify(&payload)?;
+        let payload: String = payload
+            .as_string()
+            .ok_or_else(|| JsValue::from_str("Failed to convert JSON payload to string"))?;
+        let payload = payload.into_bytes();
+        Ok(OutgoingMessage {
+            payload,
+            destination,
+        })
     }
 }
 
-impl TryFrom<JsIpcPayload> for Vec<u8> {
-    type Error = serde_json::Error;
+#[wasm_bindgen]
+impl IncomingMessage {
+    #[wasm_bindgen(constructor)]
+    pub fn new(payload: Vec<u8>, destination: Endpoint, source: Endpoint) -> IncomingMessage {
+        IncomingMessage {
+            payload,
+            destination,
+            source,
+        }
+    }
 
-    fn try_from(value: JsIpcPayload) -> Result<Self, Self::Error> {
-        let payload = serde_json::to_vec(&value)?;
-        Ok(payload)
+    /// Try to parse the payload as JSON.
+    #[wasm_bindgen(
+        return_description = "The parsed JSON value, or undefined if the payload is not valid JSON."
+    )]
+    pub fn parse_payload_as_json(&self) -> JsValue {
+        str::from_utf8(&self.payload)
+            .ok()
+            .and_then(|payload| js_sys::JSON::parse(payload).ok())
+            .unwrap_or(JsValue::UNDEFINED)
     }
 }

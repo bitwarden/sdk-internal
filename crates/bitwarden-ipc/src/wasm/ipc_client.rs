@@ -6,9 +6,8 @@ use super::{
     error::{JsReceiveError, JsSendError},
 };
 use crate::{
-    message::{IncomingMessage, OutgoingMessage, TypedIncomingMessage, TypedOutgoingMessage},
+    message::{IncomingMessage, OutgoingMessage},
     traits::{InMemorySessionRepository, NoEncryptionCryptoProvider},
-    wasm::message::JsIpcPayload,
     IpcClient,
 };
 
@@ -35,30 +34,11 @@ impl JsIpcClient {
         }
     }
 
-    pub async fn send_raw(&self, message: OutgoingMessage) -> Result<(), JsSendError> {
+    pub async fn send(&self, message: OutgoingMessage) -> Result<(), JsSendError> {
         self.client.send(message).await.map_err(|e| e.into())
     }
 
-    pub async fn send(
-        &self,
-        #[wasm_bindgen(unchecked_param_type = "TypedOutgoingMessage<JsIpcPayload>")]
-        message: TypedOutgoingMessage<JsIpcPayload>,
-    ) -> Result<(), JsSendError> {
-        let message = message.try_into().map_err(
-            |e: <TypedOutgoingMessage<JsIpcPayload> as TryInto<OutgoingMessage>>::Error| {
-                JsSendError::new_wasm_error(&e.to_string())
-            },
-        )?;
-
-        self.client.send(message).await.map_err(|e| e.into())
-    }
-
-    pub async fn receive_raw(&self) -> Result<IncomingMessage, JsReceiveError> {
+    pub async fn receive(&self) -> Result<IncomingMessage, JsReceiveError> {
         self.client.receive().await.map_err(|e| e.into())
-    }
-
-    #[wasm_bindgen(unchecked_return_type = "TypedIncomingMessage<JsIpcPayload>")]
-    pub async fn receive(&self) -> TypedIncomingMessage<JsIpcPayload> {
-        self.client.receive_typed().await.unwrap()
     }
 }
