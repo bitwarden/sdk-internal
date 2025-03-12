@@ -1,29 +1,30 @@
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use {tsify_next::Tsify, wasm_bindgen::prelude::*};
+use wasm_bindgen::prelude::*;
 
 use crate::endpoint::Endpoint;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct OutgoingMessage {
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub payload: Vec<u8>,
     pub destination: Endpoint,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct IncomingMessage {
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub payload: Vec<u8>,
     pub destination: Endpoint,
     pub source: Endpoint,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct TypedOutgoingMessage<Payload> {
     pub payload: Payload,
     pub destination: Endpoint,
@@ -57,9 +58,8 @@ where
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct TypedIncomingMessage<Payload> {
     pub payload: Payload,
     pub destination: Endpoint,
