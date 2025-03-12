@@ -1,5 +1,5 @@
 use argon2::Params;
-use generic_array::{ArrayLength, GenericArray};
+use generic_array::{typenum::U32, ArrayLength, GenericArray};
 use opaque_ke::{
     errors::InternalError, ksf::Ksf, CipherSuite, ClientLogin, ClientLoginFinishParameters,
     ClientRegistration, ClientRegistrationFinishParameters, CredentialResponse, Identifiers,
@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
-use crate::{error::OpaqueError, rotateable_keyset::RotateableKeyset, SymmetricCryptoKey};
+use crate::{
+    error::OpaqueError, rotateable_keyset::RotateableKeyset, stretch_key, SymmetricCryptoKey,
+};
 
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -140,10 +142,15 @@ pub fn register_finish(
         )
         .map_err(|e| OpaqueError::Message(e.to_string()))?;
 
-    let encapsulating_key =
-        SymmetricCryptoKey::try_from(client_registration.export_key.to_vec())
-            .map_err(|_| OpaqueError::Message("Failed parsing export key".to_string()))?;
-    let keyset = RotateableKeyset::new(&encapsulating_key, &userkey)
+    let sliced_export_key = Box::pin(*GenericArray::from_slice(
+        &client_registration.export_key.as_slice()[..32],
+    ));
+    let stretched_export_key = SymmetricCryptoKey::Aes256CbcHmacKey(
+        stretch_key(&sliced_export_key)
+            .map_err(|_| OpaqueError::Message("Failed stretching export key".to_string()))?,
+    );
+
+    let keyset = RotateableKeyset::new(&stretched_export_key, &userkey)
         .map_err(|e| OpaqueError::Message(e.to_string()))?;
     Ok(RegistrationFinishResult {
         registration_finish_message: client_registration.message.serialize().to_vec(),
@@ -177,8 +184,9 @@ pub fn login_start(password: &[u8]) -> Result<LoginStartResult, OpaqueError> {
 pub struct LoginFinishResult {
     #[serde(with = "serde_bytes")]
     pub login_finish_result_message: Vec<u8>,
-    #[serde(with = "serde_bytes")]
-    pub export_key: Vec<u8>,
+    /// The client-side only export key result from the AKE. Note: This is limited to 256 bits,
+    /// if the cipher parameters have a larger key size, the key will be truncated.
+    pub export_key: GenericArray<u8, U32>,
     #[serde(with = "serde_bytes")]
     pub session_key: Vec<u8>,
 }
@@ -209,7 +217,7 @@ pub fn login_finish(
     Ok(LoginFinishResult {
         login_finish_result_message: client_login.message.serialize().to_vec(),
         // ristretto255 uses sha512, but we want to deal with 256 bit keys
-        export_key: client_login.export_key.as_slice()[..32].to_vec(),
+        export_key: *GenericArray::from_slice(&client_login.export_key.as_slice()[..32]),
         session_key: client_login.session_key.to_vec(),
     })
 }
@@ -218,8 +226,7 @@ pub fn login_finish(
 mod test {
     use opaque_ke::{
         CredentialFinalization, CredentialRequest, RegistrationRequest, RegistrationUpload,
-        ServerLogin, ServerLoginStartParameters, ServerLoginStartResult, ServerRegistration,
-        ServerSetup,
+        ServerLogin, ServerLoginStartParameters, ServerRegistration, ServerSetup,
     };
 
     use super::*;
@@ -345,7 +352,16 @@ mod test {
             },
         )
         .unwrap();
-        assert_eq!(login_finish.export_key, userkey.to_vec());
+
+        let stretched_export_key = SymmetricCryptoKey::Aes256CbcHmacKey(
+            stretch_key(&Box::pin(login_finish.export_key)).unwrap(),
+        );
+        let userkey1 = registration_finish
+            .keyset
+            .decrypt_encapsulated_key(&stretched_export_key)
+            .unwrap();
+        assert_eq!(userkey, userkey1);
+
         let session_key = server
             .login_finish(&login_finish.login_finish_result_message)
             .unwrap();
