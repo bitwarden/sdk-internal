@@ -222,7 +222,7 @@ pub fn login_finish(
 
 #[cfg(test)]
 mod test {
-    use opaque_ke::{CredentialRequest, RegistrationRequest, RegistrationUpload, ServerLogin, ServerLoginStartParameters, ServerLoginStartResult, ServerRegistration, ServerSetup};
+    use opaque_ke::{CredentialFinalization, CredentialRequest, RegistrationRequest, RegistrationUpload, ServerLogin, ServerLoginStartParameters, ServerLoginStartResult, ServerRegistration, ServerSetup};
 
     use super::*;
     use crate::SymmetricCryptoKey;
@@ -271,11 +271,17 @@ mod test {
                 "username".as_bytes(),
                 ServerLoginStartParameters::default(),
             ).unwrap();
+            self.server_login_state = Some(login.state.serialize().to_vec());
+
             Ok(login.message.serialize().to_vec())
         }
 
-        fn login_finish(&self, login_finish_message: &[u8]) -> Result<(), OpaqueError> {
-            unimplemented!()
+        fn login_finish(&self, login_finish_message: &[u8]) -> Result<Vec<u8>, OpaqueError> {
+            let login_start = ServerLogin::<CipherConfiguration>::deserialize(&self.server_login_state.as_ref().unwrap()).unwrap();
+            let login = login_start.finish(
+                CredentialFinalization::deserialize(login_finish_message).unwrap(),
+            ).unwrap();
+            Ok(login.session_key.to_vec())
         }
     }
 
@@ -326,5 +332,7 @@ mod test {
         )
         .unwrap();
         assert_eq!(login_finish.user_key, userkey.to_vec());
+        let session_key = server.login_finish(&login_finish.login_finish_result_message).unwrap();
+        assert_eq!(login_finish.session_key, session_key);
     }
 }
