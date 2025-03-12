@@ -14,7 +14,7 @@ wasm = [
     "dep:tsify-next",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
-    "dep:js-sys",
+    "dep:js-sys"
 ] # WASM support
 
 [dependencies]
