@@ -186,7 +186,7 @@ pub struct LoginFinishResult {
     pub login_finish_result_message: Vec<u8>,
     /// The client-side only export key result from the AKE. Note: This is limited to 256 bits,
     /// if the cipher parameters have a larger key size, the key will be truncated.
-    pub export_key: GenericArray<u8, U32>,
+    pub export_key: Vec<u8>,
     #[serde(with = "serde_bytes")]
     pub session_key: Vec<u8>,
 }
@@ -217,7 +217,7 @@ pub fn login_finish(
     Ok(LoginFinishResult {
         login_finish_result_message: client_login.message.serialize().to_vec(),
         // ristretto255 uses sha512, but we want to deal with 256 bit keys
-        export_key: *GenericArray::from_slice(&client_login.export_key.as_slice()[..32]),
+        export_key: client_login.export_key.as_slice()[..32].to_vec(),
         session_key: client_login.session_key.to_vec(),
     })
 }
