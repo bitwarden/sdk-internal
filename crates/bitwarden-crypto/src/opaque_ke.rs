@@ -140,8 +140,9 @@ pub fn register_finish(
         )
         .map_err(|e| OpaqueError::Message(e.to_string()))?;
 
-    let encapsulating_key = SymmetricCryptoKey::try_from(client_registration.export_key.to_vec())
-        .map_err(|_| OpaqueError::Message("Failed parsing export key".to_string()))?;
+    let encapsulating_key =
+        SymmetricCryptoKey::try_from(client_registration.export_key.to_vec())
+            .map_err(|_| OpaqueError::Message("Failed parsing export key".to_string()))?;
     let keyset = RotateableKeyset::new(&encapsulating_key, &userkey)
         .map_err(|e| OpaqueError::Message(e.to_string()))?;
     Ok(RegistrationFinishResult {
@@ -215,7 +216,11 @@ pub fn login_finish(
 
 #[cfg(test)]
 mod test {
-    use opaque_ke::{CredentialFinalization, CredentialRequest, RegistrationRequest, RegistrationUpload, ServerLogin, ServerLoginStartParameters, ServerLoginStartResult, ServerRegistration, ServerSetup};
+    use opaque_ke::{
+        CredentialFinalization, CredentialRequest, RegistrationRequest, RegistrationUpload,
+        ServerLogin, ServerLoginStartParameters, ServerLoginStartResult, ServerRegistration,
+        ServerSetup,
+    };
 
     use super::*;
     use crate::SymmetricCryptoKey;
@@ -235,20 +240,25 @@ mod test {
             }
         }
 
-        fn register_start(&mut self, register_start_message: &[u8]) -> Result<Vec<u8>, OpaqueError> {
+        fn register_start(
+            &mut self,
+            register_start_message: &[u8],
+        ) -> Result<Vec<u8>, OpaqueError> {
             let server_setup = ServerSetup::<CipherConfiguration>::new(&mut rand::thread_rng());
             self.server_setup = Some(server_setup.clone());
             let registration = ServerRegistration::<CipherConfiguration>::start(
                 &server_setup,
                 RegistrationRequest::deserialize(&register_start_message).unwrap(),
                 "username".as_bytes(),
-            ).unwrap();
+            )
+            .unwrap();
             Ok(registration.message.serialize().to_vec())
         }
 
         fn register_finish(&mut self, register_finish_message: &[u8]) -> Result<(), OpaqueError> {
             let password_file = ServerRegistration::finish(
-                RegistrationUpload::<CipherConfiguration>::deserialize(&register_finish_message).unwrap(),
+                RegistrationUpload::<CipherConfiguration>::deserialize(&register_finish_message)
+                    .unwrap(),
             );
             self.password_file = Some(password_file.serialize().to_vec());
             Ok(())
@@ -259,21 +269,27 @@ mod test {
             let login = ServerLogin::<CipherConfiguration>::start(
                 &mut rand::thread_rng(),
                 server_setup,
-                Some(ServerRegistration::deserialize(&self.password_file.as_ref().unwrap()).unwrap()),
+                Some(
+                    ServerRegistration::deserialize(&self.password_file.as_ref().unwrap()).unwrap(),
+                ),
                 CredentialRequest::deserialize(login_start_message).unwrap(),
                 "username".as_bytes(),
                 ServerLoginStartParameters::default(),
-            ).unwrap();
+            )
+            .unwrap();
             self.server_login_state = Some(login.state.serialize().to_vec());
 
             Ok(login.message.serialize().to_vec())
         }
 
         fn login_finish(&self, login_finish_message: &[u8]) -> Result<Vec<u8>, OpaqueError> {
-            let login_start = ServerLogin::<CipherConfiguration>::deserialize(&self.server_login_state.as_ref().unwrap()).unwrap();
-            let login = login_start.finish(
-                CredentialFinalization::deserialize(login_finish_message).unwrap(),
-            ).unwrap();
+            let login_start = ServerLogin::<CipherConfiguration>::deserialize(
+                &self.server_login_state.as_ref().unwrap(),
+            )
+            .unwrap();
+            let login = login_start
+                .finish(CredentialFinalization::deserialize(login_finish_message).unwrap())
+                .unwrap();
             Ok(login.session_key.to_vec())
         }
     }
@@ -284,7 +300,9 @@ mod test {
 
         let password = b"password";
         let registration_start = register_start(password).unwrap();
-        let registration_finish = server.register_start(&registration_start.registration_start_message).unwrap();
+        let registration_finish = server
+            .register_start(&registration_start.registration_start_message)
+            .unwrap();
         let userkey = SymmetricCryptoKey::generate(&mut rand::thread_rng());
         let registration_finish = register_finish(
             &registration_start.registration_start_state,
@@ -303,10 +321,14 @@ mod test {
             userkey.clone(),
         )
         .unwrap();
-        server.register_finish(&registration_finish.registration_finish_message).unwrap();
+        server
+            .register_finish(&registration_finish.registration_finish_message)
+            .unwrap();
 
         let login_start = login_start(password).unwrap();
-        let login_finish_message = server.login_start(&login_start.login_start_message).unwrap();
+        let login_finish_message = server
+            .login_start(&login_start.login_start_message)
+            .unwrap();
         let login_finish = login_finish(
             &login_start.login_start_state,
             &login_finish_message,
@@ -324,7 +346,9 @@ mod test {
         )
         .unwrap();
         assert_eq!(login_finish.export_key, userkey.to_vec());
-        let session_key = server.login_finish(&login_finish.login_finish_result_message).unwrap();
+        let session_key = server
+            .login_finish(&login_finish.login_finish_result_message)
+            .unwrap();
         assert_eq!(login_finish.session_key, session_key);
     }
 }
