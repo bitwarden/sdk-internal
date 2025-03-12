@@ -11,19 +11,6 @@ pub struct JsSendError {
     pub crypto_error: JsValue,
     #[wasm_bindgen(getter_with_clone)]
     pub communication_error: JsValue,
-    #[wasm_bindgen(getter_with_clone)]
-    /// Error that occurred in the rust/wasm glue
-    pub wasm_error: JsValue,
-}
-
-impl JsSendError {
-    pub(crate) fn new_wasm_error(s: &str) -> Self {
-        JsSendError {
-            crypto_error: JsValue::UNDEFINED,
-            communication_error: JsValue::UNDEFINED,
-            wasm_error: JsError::new(s).into(),
-        }
-    }
 }
 
 #[wasm_bindgen(js_name = ReceiveError)]
@@ -40,12 +27,10 @@ impl From<SendError<JsValue, JsValue>> for JsSendError {
             SendError::CryptoError(e) => JsSendError {
                 crypto_error: e,
                 communication_error: JsValue::UNDEFINED,
-                wasm_error: JsValue::UNDEFINED,
             },
             SendError::CommunicationError(e) => JsSendError {
                 crypto_error: JsValue::UNDEFINED,
                 communication_error: e,
-                wasm_error: JsValue::UNDEFINED,
             },
         }
     }
