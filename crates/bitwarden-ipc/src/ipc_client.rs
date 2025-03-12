@@ -48,7 +48,8 @@ where
             .await
     }
 
-    /// Receive a message, skipping any messages that cannot be deserialized into the expected payload type.
+    /// Receive a message, skipping any messages that cannot be deserialized into the expected
+    /// payload type.
     pub async fn receive_typed<Payload>(
         &self,
     ) -> Result<TypedIncomingMessage<Payload>, ReceiveError<Crypto::ReceiveError, Com::ReceiveError>>

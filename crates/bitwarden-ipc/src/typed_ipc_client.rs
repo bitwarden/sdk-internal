@@ -98,8 +98,8 @@
 //     }
 
 //     type TestSessionRepository = InMemorySessionRepository<String>;
-//     impl CryptoProvider<TestCommunicationProvider, TestSessionRepository> for TestCryptoProvider {
-//         type Session = String;
+//     impl CryptoProvider<TestCommunicationProvider, TestSessionRepository> for TestCryptoProvider
+// {         type Session = String;
 //         type SendError = String;
 //         type ReceiveError = String;
 
@@ -122,8 +122,7 @@
 //                 Self::SendError,
 //                 <TestCommunicationProvider as CommunicationBackend>::SendError,
 //             >,
-//         > {
-//             self.send_result.clone()
+//         > { self.send_result.clone()
 //         }
 //     }
 

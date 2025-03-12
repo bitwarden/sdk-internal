@@ -24,6 +24,7 @@ pub trait CommunicationBackend {
 #[cfg(test)]
 pub mod tests {
     use std::{collections::VecDeque, rc::Rc};
+
     use thiserror::Error;
     use tokio::sync::RwLock;
 
@@ -44,8 +45,8 @@ pub mod tests {
             }
         }
 
-        /// Add an incoming message to the queue. This message will be returned by the receive function
-        /// in the order it was added.
+        /// Add an incoming message to the queue. This message will be returned by the receive
+        /// function in the order it was added.
         pub async fn push_incoming(&self, message: IncomingMessage) {
             self.incoming.write().await.push_back(message);
         }
