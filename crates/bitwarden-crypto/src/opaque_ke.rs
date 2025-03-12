@@ -310,7 +310,7 @@ mod test {
         let registration_finish = server
             .register_start(&registration_start.registration_start_message)
             .unwrap();
-        let userkey = SymmetricCryptoKey::generate(&mut rand::thread_rng());
+        let initial_userkey = SymmetricCryptoKey::generate(&mut rand::thread_rng());
         let registration_finish = register_finish(
             &registration_start.registration_start_state,
             &registration_finish,
@@ -325,7 +325,7 @@ mod test {
                     p_cost: 1,
                 },
             },
-            userkey.clone(),
+            initial_userkey.clone(),
         )
         .unwrap();
         server
@@ -356,11 +356,11 @@ mod test {
         let stretched_export_key = SymmetricCryptoKey::Aes256CbcHmacKey(
             stretch_key(&Box::pin(login_finish.export_key)).unwrap(),
         );
-        let userkey1 = registration_finish
+        let authentication_userkey = registration_finish
             .keyset
             .decrypt_encapsulated_key(&stretched_export_key)
             .unwrap();
-        assert_eq!(userkey, userkey1);
+        assert_eq!(initial_userkey, authentication_userkey);
 
         let session_key = server
             .login_finish(&login_finish.login_finish_result_message)
