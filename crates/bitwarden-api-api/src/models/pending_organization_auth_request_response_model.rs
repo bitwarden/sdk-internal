@@ -35,6 +35,8 @@ pub struct PendingOrganizationAuthRequestResponseModel {
     pub request_device_type: Option<String>,
     #[serde(rename = "requestIpAddress", skip_serializing_if = "Option::is_none")]
     pub request_ip_address: Option<String>,
+    #[serde(rename = "requestCountryName", skip_serializing_if = "Option::is_none")]
+    pub request_country_name: Option<String>,
     #[serde(rename = "creationDate", skip_serializing_if = "Option::is_none")]
     pub creation_date: Option<String>,
 }
@@ -51,6 +53,7 @@ impl PendingOrganizationAuthRequestResponseModel {
             request_device_identifier: None,
             request_device_type: None,
             request_ip_address: None,
+            request_country_name: None,
             creation_date: None,
         }
     }

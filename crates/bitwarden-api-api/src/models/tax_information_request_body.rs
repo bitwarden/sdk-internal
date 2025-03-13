@@ -20,6 +20,8 @@ pub struct TaxInformationRequestBody {
     pub postal_code: String,
     #[serde(rename = "taxId", skip_serializing_if = "Option::is_none")]
     pub tax_id: Option<String>,
+    #[serde(rename = "taxIdType", skip_serializing_if = "Option::is_none")]
+    pub tax_id_type: Option<String>,
     #[serde(rename = "line1", skip_serializing_if = "Option::is_none")]
     pub line1: Option<String>,
     #[serde(rename = "line2", skip_serializing_if = "Option::is_none")]
@@ -36,6 +38,7 @@ impl TaxInformationRequestBody {
             country,
             postal_code,
             tax_id: None,
+            tax_id_type: None,
             line1: None,
             line2: None,
             city: None,
