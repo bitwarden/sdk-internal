@@ -26,6 +26,10 @@ pub struct PushSendRequestModel {
     pub r#type: models::PushType,
     #[serde(rename = "payload")]
     pub payload: Option<serde_json::Value>,
+    #[serde(rename = "clientType", skip_serializing_if = "Option::is_none")]
+    pub client_type: Option<models::ClientType>,
+    #[serde(rename = "installationId", skip_serializing_if = "Option::is_none")]
+    pub installation_id: Option<String>,
 }
 
 impl PushSendRequestModel {
@@ -40,6 +44,8 @@ impl PushSendRequestModel {
             identifier: None,
             r#type,
             payload,
+            client_type: None,
+            installation_id: None,
         }
     }
 }

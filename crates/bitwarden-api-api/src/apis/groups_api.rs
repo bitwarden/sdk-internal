@@ -255,10 +255,7 @@ pub async fn organizations_org_id_groups_details_get(
 pub async fn organizations_org_id_groups_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
-) -> Result<
-    models::GroupDetailsResponseModelListResponseModel,
-    Error<OrganizationsOrgIdGroupsGetError>,
-> {
+) -> Result<models::GroupResponseModelListResponseModel, Error<OrganizationsOrgIdGroupsGetError>> {
     let local_var_configuration = configuration;
 
     let local_var_client = &local_var_configuration.client;
