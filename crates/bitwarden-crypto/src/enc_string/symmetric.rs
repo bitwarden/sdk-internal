@@ -30,8 +30,8 @@ export type EncString = string;
 /// variants, but we should be opinionated in which variants are used for encrypting.
 ///
 /// ## Variants
-/// - [AesCbc256_B64](EncString::AesCbc256_B64)
-/// - [AesCbc256_HmacSha256_B64](EncString::AesCbc256_HmacSha256_B64)
+/// - [Aes256Cbc_B64](EncString::Aes256Cbc_B64)
+/// - [Aes256Cbc_HmacSha256_B64](EncString::Aes256Cbc_HmacSha256_B64)
 ///
 /// ## Serialization
 ///
@@ -51,10 +51,10 @@ export type EncString = string;
 #[allow(unused, non_camel_case_types)]
 pub enum EncString {
     /// 0
-    AesCbc256_B64 { iv: [u8; 16], data: Vec<u8> },
-    /// 1 was the now removed `AesCbc128_HmacSha256_B64`.
+    Aes256Cbc_B64 { iv: [u8; 16], data: Vec<u8> },
+    /// 1 was the now removed `Aes128Cbc_HmacSha256_B64`.
     /// 2
-    AesCbc256_HmacSha256_B64 {
+    Aes256Cbc_HmacSha256_B64 {
         iv: [u8; 16],
         mac: [u8; 32],
         data: Vec<u8>,
@@ -79,14 +79,14 @@ impl FromStr for EncString {
                 let iv = from_b64(parts[0])?;
                 let data = from_b64_vec(parts[1])?;
 
-                Ok(EncString::AesCbc256_B64 { iv, data })
+                Ok(EncString::Aes256Cbc_B64 { iv, data })
             }
             ("2", 3) => {
                 let iv = from_b64(parts[0])?;
                 let data = from_b64_vec(parts[1])?;
                 let mac = from_b64(parts[2])?;
 
-                Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
+                Ok(EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data })
             }
 
             (enc_type, parts) => Err(EncStringParseError::InvalidTypeSymm {
@@ -116,7 +116,7 @@ impl EncString {
                 let iv = buf[1..17].try_into().expect("Valid length");
                 let data = buf[17..].to_vec();
 
-                Ok(EncString::AesCbc256_B64 { iv, data })
+                Ok(EncString::Aes256Cbc_B64 { iv, data })
             }
             2 => {
                 check_length(buf, 50)?;
@@ -124,7 +124,7 @@ impl EncString {
                 let mac = buf[17..49].try_into().expect("Valid length");
                 let data = buf[49..].to_vec();
 
-                Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
+                Ok(EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data })
             }
             _ => Err(EncStringParseError::InvalidTypeSymm {
                 enc_type: enc_type.to_string(),
@@ -138,13 +138,13 @@ impl EncString {
         let mut buf;
 
         match self {
-            EncString::AesCbc256_B64 { iv, data } => {
+            EncString::Aes256Cbc_B64 { iv, data } => {
                 buf = Vec::with_capacity(1 + 16 + data.len());
                 buf.push(self.enc_type());
                 buf.extend_from_slice(iv);
                 buf.extend_from_slice(data);
             }
-            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
+            EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data } => {
                 buf = Vec::with_capacity(1 + 16 + 32 + data.len());
                 buf.push(self.enc_type());
                 buf.extend_from_slice(iv);
@@ -160,8 +160,8 @@ impl EncString {
 impl Display for EncString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let parts: Vec<&[u8]> = match self {
-            EncString::AesCbc256_B64 { iv, data } => vec![iv, data],
-            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
+            EncString::Aes256Cbc_B64 { iv, data } => vec![iv, data],
+            EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
         };
 
         let encoded_parts: Vec<String> = parts.iter().map(|part| STANDARD.encode(part)).collect();
@@ -197,14 +197,14 @@ impl EncString {
     ) -> Result<EncString> {
         let (iv, mac, data) =
             crate::aes::encrypt_aes256_hmac(data_dec, &key.mac_key, &key.enc_key)?;
-        Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
+        Ok(EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data })
     }
 
     /// The numerical representation of the encryption type of the [EncString].
     const fn enc_type(&self) -> u8 {
         match self {
-            EncString::AesCbc256_B64 { .. } => 0,
-            EncString::AesCbc256_HmacSha256_B64 { .. } => 2,
+            EncString::Aes256Cbc_B64 { .. } => 0,
+            EncString::Aes256Cbc_HmacSha256_B64 { .. } => 2,
         }
     }
 }
@@ -223,11 +223,11 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
 impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
         match (self, key) {
-            (EncString::AesCbc256_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
+            (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
                 crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
             }
             (
-                EncString::AesCbc256_HmacSha256_B64 { iv, mac, data },
+                EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
             _ => Err(CryptoError::WrongKeyType),
@@ -341,7 +341,7 @@ mod tests {
         let enc_string: EncString = enc_str.parse().unwrap();
 
         assert_eq!(enc_string.enc_type(), 0);
-        if let EncString::AesCbc256_B64 { iv, data } = &enc_string {
+        if let EncString::Aes256Cbc_B64 { iv, data } = &enc_string {
             assert_eq!(
                 iv,
                 &[164, 196, 186, 254, 39, 19, 64, 0, 109, 186, 92, 57, 218, 154, 182, 150]
@@ -375,8 +375,8 @@ mod tests {
         let key = "hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string();
         let key = SymmetricCryptoKey::try_from(key).unwrap();
 
-        // A "downgraded" `EncString` from `EncString::AesCbc256_HmacSha256_B64` (2) to
-        // `EncString::AesCbc256_B64` (0), with the mac portion removed.
+        // A "downgraded" `EncString` from `EncString::Aes256Cbc_HmacSha256_B64` (2) to
+        // `EncString::Aes256Cbc_B64` (0), with the mac portion removed.
         // <enc_string>
         let enc_str = "0.NQfjHLr6za7VQVAbrpL81w==|wfrjmyJ0bfwkQlySrhw8dA==";
         let enc_string: EncString = enc_str.parse().unwrap();

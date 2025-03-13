@@ -139,7 +139,7 @@ pub fn test_bitwarden_com_account() -> TestAccount {
 
 /// ### `legacy@bitwarden.com`
 ///
-/// Account which has a user_key of type `AesCbc256_B64` which is deprecated.
+/// Account which has a user_key of type `Aes256Cbc_B64` which is deprecated.
 ///
 /// - Email: `legacy@bitwarden.com`
 /// - Password: `asdfasdfasdf`
