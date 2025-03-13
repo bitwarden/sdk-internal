@@ -13,18 +13,13 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct KeysRequestModel {
-    #[serde(rename = "publicKey")]
-    pub public_key: String,
-    #[serde(rename = "encryptedPrivateKey")]
-    pub encrypted_private_key: String,
+pub struct DeleteAttachmentResponseData {
+    #[serde(rename = "cipher", skip_serializing_if = "Option::is_none")]
+    pub cipher: Option<Box<models::Cipher>>,
 }
 
-impl KeysRequestModel {
-    pub fn new(public_key: String, encrypted_private_key: String) -> KeysRequestModel {
-        KeysRequestModel {
-            public_key,
-            encrypted_private_key,
-        }
+impl DeleteAttachmentResponseData {
+    pub fn new() -> DeleteAttachmentResponseData {
+        DeleteAttachmentResponseData { cipher: None }
     }
 }
