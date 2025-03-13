@@ -251,6 +251,7 @@ mod tests {
                 creation_date: "2023-07-24T12:05:09.466666700Z".parse().unwrap(),
                 deleted_date: None,
                 revision_date: "2023-07-27T19:28:05.240Z".parse().unwrap(),
+                archived_date: None,
             },
             attachment,
             contents: contents.as_slice(),
@@ -304,6 +305,7 @@ mod tests {
             creation_date: "2023-07-24T12:05:09.466666700Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2023-07-27T19:28:05.240Z".parse().unwrap(),
+            archived_date: None,
         };
 
         let enc_file = STANDARD.decode(b"Ao00qr1xLsV+ZNQpYZ/UwEwOWo3hheKwCYcOGIbsorZ6JIG2vLWfWEXCVqP0hDuzRvmx8otApNZr8pJYLNwCe1aQ+ySHQYGkdubFjoMojulMbQ959Y4SJ6Its/EnVvpbDnxpXTDpbutDxyhxfq1P3lstL2G9rObJRrxiwdGlRGu1h94UA1fCCkIUQux5LcqUee6W4MyQmRnsUziH8gGzmtI=").unwrap();
@@ -361,6 +363,7 @@ mod tests {
             creation_date: "2023-07-24T12:05:09.466666700Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2023-07-27T19:28:05.240Z".parse().unwrap(),
+            archived_date: None,
         };
 
         let enc_file = STANDARD.decode(b"AsQLXOBHrJ8porroTUlPxeJOm9XID7LL9D2+KwYATXEpR1EFjLBpcCvMmnqcnYLXIEefe9TCeY4Us50ux43kRSpvdB7YkjxDKV0O1/y6tB7qC4vvv9J9+O/uDEnMx/9yXuEhAW/LA/TsU/WAgxkOM0uTvm8JdD9LUR1z9Ql7zOWycMVzkvGsk2KBNcqAdrotS5FlDftZOXyU8pWecNeyA/w=").unwrap();
