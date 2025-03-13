@@ -46,7 +46,7 @@ pub(super) async fn register(client: &Client, req: &RegisterRequest) -> Result<(
             captcha_response: None, // TODO: Add
             key: Some(keys.encrypted_user_key.to_string()),
             keys: Some(Box::new(KeysRequestModel {
-                public_key: Some(keys.keys.public),
+                public_key: keys.keys.public,
                 encrypted_private_key: keys.keys.private.to_string(),
             })),
             token: None,
