@@ -24,4 +24,3 @@ pub use kdf::{
     default_pbkdf2_iterations, Kdf,
 };
 mod utils;
-pub(crate) use utils::stretch_key;

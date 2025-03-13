@@ -28,31 +28,46 @@ pub struct RotateableKeyset {
 
 impl RotateableKeyset {
     pub fn new(
-        encapsulating_key: &SymmetricCryptoKey,
+        encapsulating_key_material: &[u8],
         encapsulated_key: &SymmetricCryptoKey,
     ) -> Result<Self, CryptoError> {
-        let keypair = make_key_pair(encapsulating_key).map_err(|_| CryptoError::InvalidKey)?;
-        let spki = STANDARD
-            .decode(keypair.public.clone())
-            .map_err(|_| CryptoError::InvalidKey)?;
-        let encrypted_public_key = keypair.public.encrypt_with_key(encapsulating_key)?;
-        let encrypted_private_key = keypair.private;
+        let key = if encapsulating_key_material.len() == 64 {
+            SymmetricCryptoKey::try_from(encapsulating_key_material.to_vec())?
+        } else {
+            return Err(CryptoError::InvalidKey);
+        };
 
-        let pubkey = AsymmetricPublicCryptoKey::from_der(&spki)?;
-        let public_key_encrypted_encapsulated_key =
-            AsymmetricEncString::encrypt_rsa2048_oaep_sha1(&encapsulated_key.to_vec(), &pubkey)?;
+        let keypair = make_key_pair(&key).map_err(|_| CryptoError::InvalidKey)?;
+        let public_key = STANDARD
+            .decode(keypair.public.clone())
+            .map_err(|_| CryptoError::InvalidKey)
+            .map(|key_bytes| AsymmetricPublicCryptoKey::from_der(&key_bytes))??;
         Ok(RotateableKeyset {
-            private_key: encrypted_private_key,
-            public_key: encrypted_public_key,
-            encapsulated_key: public_key_encrypted_encapsulated_key,
+            private_key: keypair.private,
+            public_key: keypair.public.encrypt_with_key(&key)?,
+            encapsulated_key: AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
+                &encapsulated_key.to_vec(),
+                &public_key,
+            )?,
         })
     }
 
-    pub fn decrypt_encapsulated_key(
+    pub fn decapsulate_key(
         &self,
-        encapsulating_key: &SymmetricCryptoKey,
+        encapsulating_key_material: &[u8],
     ) -> Result<SymmetricCryptoKey, CryptoError> {
-        let private_key_bytes: Vec<u8> = self.private_key.decrypt_with_key(encapsulating_key)?;
+        let key = match self.private_key {
+            EncString::AesCbc256_HmacSha256_B64 { .. } => {
+                if encapsulating_key_material.len() == 64 {
+                    SymmetricCryptoKey::try_from(encapsulating_key_material.to_vec())?
+                } else {
+                    return Err(CryptoError::InvalidKey);
+                }
+            }
+            EncString::AesCbc256_B64 { .. } => return Err(CryptoError::InvalidKey),
+        };
+
+        let private_key_bytes: Vec<u8> = self.private_key.decrypt_with_key(&key)?;
         let private_key = AsymmetricCryptoKey::from_der(&private_key_bytes)?;
         let encapsulated_key: Vec<u8> = self.encapsulated_key.decrypt_with_key(&private_key)?;
         SymmetricCryptoKey::try_from(encapsulated_key)
@@ -66,10 +81,10 @@ mod test {
 
     #[test]
     fn test_rotateable_keyset() {
-        let key1 = SymmetricCryptoKey::generate(&mut rand::thread_rng());
-        let key2 = SymmetricCryptoKey::generate(&mut rand::thread_rng());
-        let keyset = RotateableKeyset::new(&key1, &key2).unwrap();
-        let decrypted_key = keyset.decrypt_encapsulated_key(&key1).unwrap();
-        assert_eq!(key2.to_vec(), decrypted_key.to_vec());
+        let key_material = vec![0; 64];
+        let key_to_encapsulate = SymmetricCryptoKey::generate(rand::thread_rng());
+        let keyset = RotateableKeyset::new(&key_material, &key_to_encapsulate).unwrap();
+        let decrypted_key = keyset.decapsulate_key(&key_material).unwrap();
+        assert_eq!(key_to_encapsulate.to_vec(), decrypted_key.to_vec());
     }
 }

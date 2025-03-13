@@ -1,10 +1,7 @@
 use std::fmt::Debug;
 
 use bitwarden_error::bitwarden_error;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use tsify_next::Tsify;
 use uuid::Uuid;
 
 use crate::fingerprint::FingerprintError;
@@ -90,12 +87,3 @@ pub enum RsaError {
 
 /// Alias for `Result<T, CryptoError>`.
 pub(crate) type Result<T, E = CryptoError> = std::result::Result<T, E>;
-
-#[derive(Debug, Error, Deserialize, Serialize)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub enum OpaqueError {
-    #[error("Error creating message {0}")]
-    Message(String),
-    #[error("Error deserializing message")]
-    Deserialize,
-}

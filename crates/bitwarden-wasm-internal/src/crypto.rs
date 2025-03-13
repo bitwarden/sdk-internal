@@ -58,64 +58,74 @@ impl CryptoClient {
         self.0.crypto().verify_asymmetric_keys(request)
     }
 
+    /// Starts an opaque registration based on the provided password and cipher configuration
     pub fn opaque_register_start(
         &self,
-        password: &[u8],
-    ) -> Result<opaque_ke::RegistrationStartResult, OpaqueError> {
-        self.0.crypto().opaque_register_start(password)
+        password: &str,
+        config: &opaque_ke::types::CipherConfiguration,
+    ) -> Result<opaque_ke::types::ClientRegistrationStartResult, OpaqueError> {
+        self.0.crypto().opaque_register_start(password, config)
     }
 
+    /// Finishes an opaque registration based on the provided password, cipher configuration
+    /// registration response from the server and client state
     pub fn opaque_register_finish(
         &self,
-        registration_start_state: &[u8],
-        registration_start_response: &[u8],
-        password: &[u8],
-        configuration: &opaque_ke::CipherConfiguration,
-        userkey: &[u8],
-    ) -> Result<opaque_ke::RegistrationFinishResult, OpaqueError> {
-        let userkey = SymmetricCryptoKey::try_from(userkey.to_vec())
-            .map_err(|_| OpaqueError::Message("Invalid user key".to_string()))?;
-        self.0.crypto().opaque_register_finish(
-            registration_start_state,
-            registration_start_response,
-            password,
-            configuration,
-            userkey,
-        )
+        password: &str,
+        config: &opaque_ke::types::CipherConfiguration,
+        registration_response: &[u8],
+        state: &[u8],
+    ) -> Result<opaque_ke::types::ClientRegistrationFinishResult, OpaqueError> {
+        self.0
+            .crypto()
+            .opaque_register_finish(password, config, registration_response, state)
     }
 
+    /// Starts an opaque authentication based on the provided password and cipher configuration
     pub fn opaque_login_start(
         &self,
-        password: &[u8],
-    ) -> Result<opaque_ke::LoginStartResult, OpaqueError> {
-        self.0.crypto().opaque_login_start(password)
+        password: &str,
+        config: &opaque_ke::types::CipherConfiguration,
+    ) -> Result<opaque_ke::types::ClientLoginStartResult, OpaqueError> {
+        self.0.crypto().opaque_login_start(password, config)
     }
 
+    /// Finishes an opaque authentication based on the provided password, cipher configuration,
+    /// login response from the server and client state
     pub fn opaque_login_finish(
         &self,
-        login_start_state: &[u8],
-        login_start_response: &[u8],
-        password: &[u8],
-        configuration: &opaque_ke::CipherConfiguration,
-    ) -> Result<opaque_ke::LoginFinishResult, OpaqueError> {
-        self.0.crypto().opaque_login_finish(
-            login_start_state,
-            login_start_response,
-            password,
-            configuration,
-        )
+        password: &str,
+        config: &opaque_ke::types::CipherConfiguration,
+        login_response: &[u8],
+        state: &[u8],
+    ) -> Result<opaque_ke::types::ClientLoginFinishResult, OpaqueError> {
+        self.0
+            .crypto()
+            .opaque_login_finish(password, config, login_response, state)
     }
 
+    /// Creates a new rotateable keyset from an export key and an encapsulated key
+    pub fn create_rotateablekeyset_from_exportkey(
+        &self,
+        export_key: &mut [u8],
+        encapsulated_key: &[u8],
+    ) -> Result<RotateableKeyset, CryptoError> {
+        let key = SymmetricCryptoKey::try_from(encapsulated_key.to_vec())?;
+        self.0
+            .crypto()
+            .create_rotateablekeyset_from_exportkey(export_key, &key)
+    }
+
+    /// Decapsulates a key from a rotateable keyset
     pub fn decapsulate_key_from_rotateablekeyset(
         &self,
         rotateable_keyset: RotateableKeyset,
         encapsulating_key: &[u8],
     ) -> Result<Vec<u8>, CryptoError> {
-        let key = SymmetricCryptoKey::try_from(encapsulating_key.to_vec())?;
         Ok(self
             .0
             .crypto()
-            .decapsulate_key_from_rotateablekeyset(rotateable_keyset, &key)?
+            .decapsulate_key_from_rotateablekeyset(rotateable_keyset, encapsulating_key)?
             .to_vec())
     }
 }

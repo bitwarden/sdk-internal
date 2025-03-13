@@ -1,6 +1,6 @@
+use bitwarden_crypto::{opaque_ke::opaque::OpaqueImpl, CryptoError, SymmetricCryptoKey};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{AsymmetricEncString, EncString};
-use bitwarden_crypto::{CryptoError, SymmetricCryptoKey};
 
 use super::crypto::{
     derive_key_connector, make_key_pair, verify_asymmetric_keys, DeriveKeyConnectorError,
@@ -84,58 +84,68 @@ impl CryptoClient<'_> {
 
     pub fn opaque_register_start(
         &self,
-        password: &[u8],
-    ) -> Result<bitwarden_crypto::opaque_ke::RegistrationStartResult, bitwarden_crypto::OpaqueError>
-    {
-        bitwarden_crypto::opaque_ke::register_start(password)
+        password: &str,
+        config: &bitwarden_crypto::opaque_ke::types::CipherConfiguration,
+    ) -> Result<
+        bitwarden_crypto::opaque_ke::types::ClientRegistrationStartResult,
+        bitwarden_crypto::OpaqueError,
+    > {
+        config.start_client_registration(password)
     }
 
     pub fn opaque_register_finish(
         &self,
-        registration_start_state: &[u8],
-        registration_start_response: &[u8],
-        password: &[u8],
-        config: &bitwarden_crypto::opaque_ke::CipherConfiguration,
-        userkey: SymmetricCryptoKey,
-    ) -> Result<bitwarden_crypto::opaque_ke::RegistrationFinishResult, bitwarden_crypto::OpaqueError>
-    {
-        bitwarden_crypto::opaque_ke::register_finish(
-            registration_start_state,
-            registration_start_response,
-            password,
-            config,
-            userkey,
-        )
+        password: &str,
+        config: &bitwarden_crypto::opaque_ke::types::CipherConfiguration,
+        registration_response: &[u8],
+        state: &[u8],
+    ) -> Result<
+        bitwarden_crypto::opaque_ke::types::ClientRegistrationFinishResult,
+        bitwarden_crypto::OpaqueError,
+    > {
+        config.finish_client_registration(state, registration_response, password)
     }
 
     pub fn opaque_login_start(
         &self,
-        password: &[u8],
-    ) -> Result<bitwarden_crypto::opaque_ke::LoginStartResult, bitwarden_crypto::OpaqueError> {
-        bitwarden_crypto::opaque_ke::login_start(password)
+        password: &str,
+        config: &bitwarden_crypto::opaque_ke::types::CipherConfiguration,
+    ) -> Result<
+        bitwarden_crypto::opaque_ke::types::ClientLoginStartResult,
+        bitwarden_crypto::OpaqueError,
+    > {
+        config.start_client_login(password)
     }
 
     pub fn opaque_login_finish(
         &self,
-        login_start_state: &[u8],
-        login_start_response: &[u8],
-        password: &[u8],
-        config: &bitwarden_crypto::opaque_ke::CipherConfiguration,
-    ) -> Result<bitwarden_crypto::opaque_ke::LoginFinishResult, bitwarden_crypto::OpaqueError> {
-        bitwarden_crypto::opaque_ke::login_finish(
-            login_start_state,
-            login_start_response,
-            password,
-            config,
-        )
+        password: &str,
+        config: &bitwarden_crypto::opaque_ke::types::CipherConfiguration,
+        login_response: &[u8],
+        state: &[u8],
+    ) -> Result<
+        bitwarden_crypto::opaque_ke::types::ClientLoginFinishResult,
+        bitwarden_crypto::OpaqueError,
+    > {
+        config.finish_client_login(state, login_response, password)
+    }
+
+    /// Create a new rotateable keyset from an export key and an encapsulated key
+    /// Note: The export key must be 32 bytes
+    pub fn create_rotateablekeyset_from_exportkey(
+        &self,
+        export_key: &mut [u8],
+        encapsulated_key: &SymmetricCryptoKey,
+    ) -> Result<bitwarden_crypto::rotateable_keyset::RotateableKeyset, CryptoError> {
+        bitwarden_crypto::rotateable_keyset::RotateableKeyset::new(export_key, encapsulated_key)
     }
 
     pub fn decapsulate_key_from_rotateablekeyset(
         &self,
         rotateable_keyset: bitwarden_crypto::rotateable_keyset::RotateableKeyset,
-        encapsulating_key: &SymmetricCryptoKey,
+        encapsulating_key: &[u8],
     ) -> Result<SymmetricCryptoKey, CryptoError> {
-        rotateable_keyset.decrypt_encapsulated_key(encapsulating_key)
+        rotateable_keyset.decapsulate_key(encapsulating_key)
     }
 }
 
