@@ -112,6 +112,8 @@ pub struct OrganizationSubscriptionResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub limit_collection_deletion: Option<bool>,
+    #[serde(rename = "limitItemDeletion", skip_serializing_if = "Option::is_none")]
+    pub limit_item_deletion: Option<bool>,
     #[serde(
         rename = "allowAdminAccessToAllCollectionItems",
         skip_serializing_if = "Option::is_none"
@@ -183,6 +185,7 @@ impl OrganizationSubscriptionResponseModel {
             max_autoscale_sm_service_accounts: None,
             limit_collection_creation: None,
             limit_collection_deletion: None,
+            limit_item_deletion: None,
             allow_admin_access_to_all_collection_items: None,
             use_risk_insights: None,
             storage_name: None,

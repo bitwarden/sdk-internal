@@ -149,6 +149,8 @@ pub struct ProfileProviderOrganizationResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub limit_collection_deletion: Option<bool>,
+    #[serde(rename = "limitItemDeletion", skip_serializing_if = "Option::is_none")]
+    pub limit_item_deletion: Option<bool>,
     #[serde(
         rename = "allowAdminAccessToAllCollectionItems",
         skip_serializing_if = "Option::is_none"
@@ -215,6 +217,7 @@ impl ProfileProviderOrganizationResponseModel {
             access_secrets_manager: None,
             limit_collection_creation: None,
             limit_collection_deletion: None,
+            limit_item_deletion: None,
             allow_admin_access_to_all_collection_items: None,
             user_is_managed_by_organization: None,
             use_risk_insights: None,

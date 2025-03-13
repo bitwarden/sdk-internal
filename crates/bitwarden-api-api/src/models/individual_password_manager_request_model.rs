@@ -13,18 +13,15 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct KeysRequestModel {
-    #[serde(rename = "publicKey")]
-    pub public_key: String,
-    #[serde(rename = "encryptedPrivateKey")]
-    pub encrypted_private_key: String,
+pub struct IndividualPasswordManagerRequestModel {
+    #[serde(rename = "additionalStorage", skip_serializing_if = "Option::is_none")]
+    pub additional_storage: Option<i32>,
 }
 
-impl KeysRequestModel {
-    pub fn new(public_key: String, encrypted_private_key: String) -> KeysRequestModel {
-        KeysRequestModel {
-            public_key,
-            encrypted_private_key,
+impl IndividualPasswordManagerRequestModel {
+    pub fn new() -> IndividualPasswordManagerRequestModel {
+        IndividualPasswordManagerRequestModel {
+            additional_storage: None,
         }
     }
 }
