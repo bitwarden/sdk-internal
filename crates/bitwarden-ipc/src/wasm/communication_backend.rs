@@ -1,11 +1,10 @@
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-use tsify_next::serde_wasm_bindgen;
 use wasm_bindgen::prelude::*;
 
 use crate::{
     message::{IncomingMessage, OutgoingMessage},
-    traits::CommunicationBackend,
+    traits::{CommunicationBackend, CommunicationBackendReceiver},
 };
 
 #[derive(Debug, Error)]
@@ -20,14 +19,14 @@ pub struct ChannelError(String);
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export interface CommunicationBackendSender {
+export interface IpcCommunicationBackendSender {
     send(message: OutgoingMessage): Promise<void>;
 }
 "#;
 
 #[wasm_bindgen]
 extern "C" {
-    #[wasm_bindgen(js_name = CommunicationBackendSender, typescript_type = "CommunicationBackendSender")]
+    #[wasm_bindgen(js_name = IpcCommunicationBackendSender, typescript_type = "IpcCommunicationBackendSender")]
     pub type JsCommunicationBackendSender;
 
     #[wasm_bindgen(catch, method, structural)]
@@ -40,15 +39,16 @@ extern "C" {
     pub async fn receive(this: &JsCommunicationBackendSender) -> Result<JsValue, JsValue>;
 }
 
-#[wasm_bindgen]
+#[wasm_bindgen(js_name = IpcCommunicationBackend)]
 pub struct JsCommunicationBackend {
     sender: JsCommunicationBackendSender,
     receive_rx: tokio::sync::broadcast::Receiver<IncomingMessage>,
     receive_tx: tokio::sync::broadcast::Sender<IncomingMessage>,
 }
 
-#[wasm_bindgen]
+#[wasm_bindgen(js_class = IpcCommunicationBackend)]
 impl JsCommunicationBackend {
+    #[wasm_bindgen(constructor)]
     pub fn new(sender: JsCommunicationBackendSender) -> Self {
         let (receive_tx, receive_rx) = tokio::sync::broadcast::channel(20);
         Self {
@@ -59,9 +59,7 @@ impl JsCommunicationBackend {
     }
 
     /// JavaScript function to provide a received message to the backend/IPC framework.
-    pub fn receive_tx(&self, message: JsValue) -> Result<(), JsValue> {
-        let message: IncomingMessage =
-            serde_wasm_bindgen::from_value(message).map_err(|e| DeserializeError(e.to_string()))?;
+    pub fn deliver_message(&self, message: IncomingMessage) -> Result<(), JsValue> {
         self.receive_tx
             .send(message)
             .map_err(|e| ChannelError(e.to_string()))?;
@@ -84,5 +82,21 @@ impl CommunicationBackend for JsCommunicationBackend {
             .await
             .map_err(|e| ChannelError(e.to_string()))?;
         Ok(message)
+    }
+
+    fn subscribe(&self) -> impl CommunicationBackendReceiver<ReceiveError = Self::ReceiveError> {
+        self.receive_rx.resubscribe()
+    }
+}
+
+impl CommunicationBackendReceiver for tokio::sync::broadcast::Receiver<IncomingMessage> {
+    type ReceiveError = JsValue;
+
+    async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
+        Ok(self
+            .resubscribe()
+            .recv()
+            .await
+            .map_err(|e| ChannelError(e.to_string()))?)
     }
 }
