@@ -1,6 +1,7 @@
 mod client;
 mod crypto;
 mod custom_types;
+mod generators;
 mod init;
 mod pure_crypto;
 mod ssh;
