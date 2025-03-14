@@ -20,7 +20,27 @@ pub trait CommunicationBackend {
     fn receive(
         &self,
     ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>>;
+
+    /// Subscribe to receive messages. This function will return a receiver that can be used to
+    /// receive messages asynchronously. Multiple receivers may be created, and all receivers will
+    /// receive the same messages.
+    ///
+    /// Use this function if you are expecting to receive a message as a response to a message you
+    /// sent. Subscribing will start buffering messages and help you avoid missing messages.
+    fn subscribe(&self) -> impl CommunicationBackendReceiver<ReceiveError = Self::ReceiveError>;
 }
+
+pub trait CommunicationBackendReceiver {
+    type ReceiveError;
+
+    /// Receive a message. This function will block asynchronously until a message is received.
+    /// Multiple calls to this function may be made from different threads, in which case all
+    /// threads will receive the same message.
+    fn receive(
+        &self,
+    ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>>;
+}
+
 #[cfg(test)]
 pub mod tests {
     use std::{collections::VecDeque, rc::Rc};
@@ -74,6 +94,24 @@ pub mod tests {
 
         async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
             if let Some(message) = self.incoming.write().await.pop_front() {
+                Ok(message)
+            } else {
+                Err(TestCommunicationBackendReceiveError::NoQueuedMessages)
+            }
+        }
+
+        fn subscribe(
+            &self,
+        ) -> impl CommunicationBackendReceiver<ReceiveError = Self::ReceiveError> {
+            Rc::new(RwLock::new(self.incoming.blocking_read().clone()))
+        }
+    }
+
+    impl CommunicationBackendReceiver for Rc<RwLock<VecDeque<IncomingMessage>>> {
+        type ReceiveError = TestCommunicationBackendReceiveError;
+
+        async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
+            if let Some(message) = self.write().await.pop_front() {
                 Ok(message)
             } else {
                 Err(TestCommunicationBackendReceiveError::NoQueuedMessages)
