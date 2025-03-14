@@ -5,7 +5,7 @@ use bitwarden_core::{Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
 use wasm_bindgen::prelude::*;
 
-use crate::{vault::VaultClient, CryptoClient};
+use crate::{CryptoClient, VaultClient};
 
 // Rc<...> is to avoid needing to take ownership of the Client during our async run_command
 // function https://github.com/rustwasm/wasm-bindgen/issues/2195#issuecomment-799588401
