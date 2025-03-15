@@ -95,9 +95,10 @@ strive towards modifying the templates as little as possible to ease future upgr
 
 ### Note
 
-- If you don't have the nightly toolchain installed, the `build-api.sh` script will install it
-for you.
-- This process also changes the `Cargo.toml` file. When creating a PR updating the bindings, please revert (do not include) the updates to the `Cargo.toml` file.
+- If you don't have the nightly toolchain installed, the `build-api.sh` script will install it for
+  you.
+- This process also changes the `Cargo.toml` file. When creating a PR updating the bindings, please
+  revert (do not include) the updates to the `Cargo.toml` file.
 
 ## Developer tools
 
