@@ -14,23 +14,29 @@ use serde::{Deserialize, Serialize};
 use super::{configuration, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`plans_get`]
+/// struct for typed errors of method [`invoices_preview_organization_post`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum PlansGetError {
+pub enum InvoicesPreviewOrganizationPostError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn plans_get(
+pub async fn invoices_preview_organization_post(
     configuration: &configuration::Configuration,
-) -> Result<models::PlanResponseModelListResponseModel, Error<PlansGetError>> {
+    preview_organization_invoice_request_body: Option<
+        models::PreviewOrganizationInvoiceRequestBody,
+    >,
+) -> Result<(), Error<InvoicesPreviewOrganizationPostError>> {
     let local_var_configuration = configuration;
 
     let local_var_client = &local_var_configuration.client;
 
-    let local_var_uri_str = format!("{}/plans", local_var_configuration.base_path);
+    let local_var_uri_str = format!(
+        "{}/invoices/preview-organization",
+        local_var_configuration.base_path
+    );
     let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
     if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
         local_var_req_builder =
@@ -39,6 +45,7 @@ pub async fn plans_get(
     if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
         local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
     };
+    local_var_req_builder = local_var_req_builder.json(&preview_organization_invoice_request_body);
 
     let local_var_req = local_var_req_builder.build()?;
     let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -47,9 +54,10 @@ pub async fn plans_get(
     let local_var_content = local_var_resp.text().await?;
 
     if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+        Ok(())
     } else {
-        let local_var_entity: Option<PlansGetError> = serde_json::from_str(&local_var_content).ok();
+        let local_var_entity: Option<InvoicesPreviewOrganizationPostError> =
+            serde_json::from_str(&local_var_content).ok();
         let local_var_error = ResponseContent {
             status: local_var_status,
             content: local_var_content,

@@ -36,6 +36,7 @@ pub enum PolicyType {
     ActivateAutofill = 11,           // Activates autofill with page load on the browser extension
     AutomaticAppLogIn = 12,
     FreeFamiliesSponsorshipPolicy = 13,
+    RemoveUnlockWithPin = 14,
 }
 
 impl TryFrom<PolicyResponseModel> for Policy {
@@ -82,6 +83,9 @@ impl From<bitwarden_api_api::models::PolicyType> for PolicyType {
             }
             bitwarden_api_api::models::PolicyType::FreeFamiliesSponsorshipPolicy => {
                 PolicyType::FreeFamiliesSponsorshipPolicy
+            }
+            bitwarden_api_api::models::PolicyType::RemoveUnlockWithPin => {
+                PolicyType::RemoveUnlockWithPin
             }
         }
     }

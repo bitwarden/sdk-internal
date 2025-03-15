@@ -13,18 +13,13 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct KeysRequestModel {
-    #[serde(rename = "publicKey")]
-    pub public_key: String,
-    #[serde(rename = "encryptedPrivateKey")]
-    pub encrypted_private_key: String,
+pub struct BulkCreateSecurityTasksRequestModel {
+    #[serde(rename = "tasks", skip_serializing_if = "Option::is_none")]
+    pub tasks: Option<Vec<models::SecurityTaskCreateRequest>>,
 }
 
-impl KeysRequestModel {
-    pub fn new(public_key: String, encrypted_private_key: String) -> KeysRequestModel {
-        KeysRequestModel {
-            public_key,
-            encrypted_private_key,
-        }
+impl BulkCreateSecurityTasksRequestModel {
+    pub fn new() -> BulkCreateSecurityTasksRequestModel {
+        BulkCreateSecurityTasksRequestModel { tasks: None }
     }
 }

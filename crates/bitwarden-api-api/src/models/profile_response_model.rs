@@ -49,6 +49,8 @@ pub struct ProfileResponseModel {
     pub avatar_color: Option<String>,
     #[serde(rename = "creationDate", skip_serializing_if = "Option::is_none")]
     pub creation_date: Option<String>,
+    #[serde(rename = "verifyDevices", skip_serializing_if = "Option::is_none")]
+    pub verify_devices: Option<bool>,
     #[serde(rename = "organizations", skip_serializing_if = "Option::is_none")]
     pub organizations: Option<Vec<models::ProfileOrganizationResponseModel>>,
     #[serde(rename = "providers", skip_serializing_if = "Option::is_none")]
@@ -79,6 +81,7 @@ impl ProfileResponseModel {
             uses_key_connector: None,
             avatar_color: None,
             creation_date: None,
+            verify_devices: None,
             organizations: None,
             providers: None,
             provider_organizations: None,
