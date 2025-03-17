@@ -15,7 +15,6 @@ keywords.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
-binaryen = "0.13.0"
 bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
 bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-error = { version = "1.0.0", path = "../bitwarden-error" }
