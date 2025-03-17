@@ -90,6 +90,17 @@ pub struct Fido2Credential {
     pub creation_date: DateTime<Utc>,
 }
 
+#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct Fido2CredentialListView {
+    pub credential_id: String,
+    pub rp_id: String,
+    pub user_handle: Option<String>,
+    pub user_name: Option<String>,
+    pub user_display_name: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -280,7 +291,9 @@ pub struct LoginView {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct LoginListView {
+    pub fido2_credentials: Option<Vec<Fido2CredentialListView>>,
     pub has_fido2: bool,
+    pub username: Option<String>,
     /// The TOTP key is not decrypted. Useable as is with [`crate::generate_totp_cipher_view`].
     pub totp: Option<EncString>,
     pub uris: Option<Vec<LoginUriView>>,
@@ -357,7 +370,13 @@ impl Decryptable<KeyIds, SymmetricKeyId, LoginListView> for Login {
         key: SymmetricKeyId,
     ) -> Result<LoginListView, CryptoError> {
         Ok(LoginListView {
+            fido2_credentials: self
+                .fido2_credentials
+                .as_ref()
+                .map(|fido2_credentials| fido2_credentials.decrypt(ctx, key))
+                .transpose()?,
             has_fido2: self.fido2_credentials.is_some(),
+            username: self.username.decrypt(ctx, key).ok().flatten(),
             totp: self.totp.clone(),
             uris: self.uris.decrypt(ctx, key).ok().flatten(),
         })
@@ -416,6 +435,22 @@ impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialView> for Fido2Credentia
             user_display_name: self.user_display_name.decrypt(ctx, key)?,
             discoverable: self.discoverable.decrypt(ctx, key)?,
             creation_date: self.creation_date,
+        })
+    }
+}
+
+impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialListView> for Fido2Credential {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<Fido2CredentialListView, CryptoError> {
+        Ok(Fido2CredentialListView {
+            credential_id: self.credential_id.decrypt(ctx, key)?,
+            rp_id: self.rp_id.decrypt(ctx, key)?,
+            user_handle: self.user_handle.decrypt(ctx, key)?,
+            user_name: self.user_name.decrypt(ctx, key)?,
+            user_display_name: self.user_display_name.decrypt(ctx, key)?,
         })
     }
 }

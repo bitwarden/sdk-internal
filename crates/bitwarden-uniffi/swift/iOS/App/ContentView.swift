@@ -402,17 +402,17 @@ class Fido2UserInterfaceImpl: Fido2UserInterface {
     func checkUser(options: BitwardenSdk.CheckUserOptions, hint: UiHint) async throws -> BitwardenSdk.CheckUserResult {
         return CheckUserResult(userPresent: true, userVerified: true)
     }
-    
+
     func isVerificationEnabled() async  -> Bool {
         true
     }
 }
 
 class Fido2CredentialStoreImpl: Fido2CredentialStore {
-    func allCredentials() async throws -> [BitwardenSdk.CipherView] {
+    func allCredentials() async throws -> [BitwardenSdk.CipherListView] {
         abort()
     }
-    
+
     func findCredentials(ids: [Data]?, ripId: String) async throws -> [BitwardenSdk.CipherView] {
         abort()
     }

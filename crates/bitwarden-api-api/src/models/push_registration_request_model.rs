@@ -24,6 +24,10 @@ pub struct PushRegistrationRequestModel {
     pub r#type: models::DeviceType,
     #[serde(rename = "identifier")]
     pub identifier: String,
+    #[serde(rename = "organizationIds", skip_serializing_if = "Option::is_none")]
+    pub organization_ids: Option<Vec<String>>,
+    #[serde(rename = "installationId", skip_serializing_if = "Option::is_none")]
+    pub installation_id: Option<uuid::Uuid>,
 }
 
 impl PushRegistrationRequestModel {
@@ -40,6 +44,8 @@ impl PushRegistrationRequestModel {
             user_id,
             r#type,
             identifier,
+            organization_ids: None,
+            installation_id: None,
         }
     }
 }

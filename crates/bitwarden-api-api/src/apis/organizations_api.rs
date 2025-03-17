@@ -1264,7 +1264,8 @@ pub async fn organizations_id_sm_subscription_post(
     secrets_manager_subscription_update_request_model: Option<
         models::SecretsManagerSubscriptionUpdateRequestModel,
     >,
-) -> Result<(), Error<OrganizationsIdSmSubscriptionPostError>> {
+) -> Result<models::ProfileOrganizationResponseModel, Error<OrganizationsIdSmSubscriptionPostError>>
+{
     let local_var_configuration = configuration;
 
     let local_var_client = &local_var_configuration.client;
@@ -1294,7 +1295,7 @@ pub async fn organizations_id_sm_subscription_post(
     let local_var_content = local_var_resp.text().await?;
 
     if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        Ok(())
+        serde_json::from_str(&local_var_content).map_err(Error::from)
     } else {
         let local_var_entity: Option<OrganizationsIdSmSubscriptionPostError> =
             serde_json::from_str(&local_var_content).ok();
@@ -1543,7 +1544,7 @@ pub async fn organizations_id_subscription_post(
     organization_subscription_update_request_model: Option<
         models::OrganizationSubscriptionUpdateRequestModel,
     >,
-) -> Result<(), Error<OrganizationsIdSubscriptionPostError>> {
+) -> Result<models::ProfileOrganizationResponseModel, Error<OrganizationsIdSubscriptionPostError>> {
     let local_var_configuration = configuration;
 
     let local_var_client = &local_var_configuration.client;
@@ -1573,7 +1574,7 @@ pub async fn organizations_id_subscription_post(
     let local_var_content = local_var_resp.text().await?;
 
     if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        Ok(())
+        serde_json::from_str(&local_var_content).map_err(Error::from)
     } else {
         let local_var_entity: Option<OrganizationsIdSubscriptionPostError> =
             serde_json::from_str(&local_var_content).ok();
