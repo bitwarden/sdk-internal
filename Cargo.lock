@@ -544,6 +544,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-jobs"
+version = "1.0.0"
+dependencies = [
+ "js-sys",
+ "serde",
+ "trybuild",
+ "tsify-next",
+ "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+]
+
+[[package]]
 name = "bitwarden-send"
 version = "1.0.0"
 dependencies = [
