@@ -94,6 +94,7 @@ pub fn parse_deep_object(prefix: &str, value: &serde_json::Value) -> Vec<(String
 pub mod access_policies_api;
 pub mod accounts_api;
 pub mod accounts_billing_api;
+pub mod accounts_key_management_api;
 pub mod auth_requests_api;
 pub mod ciphers_api;
 pub mod collections_api;
@@ -108,8 +109,10 @@ pub mod hibp_api;
 pub mod import_ciphers_api;
 pub mod info_api;
 pub mod installations_api;
+pub mod invoices_api;
 pub mod licenses_api;
 pub mod misc_api;
+pub mod notifications_api;
 pub mod organization_auth_requests_api;
 pub mod organization_billing_api;
 pub mod organization_connections_api;
