@@ -37,5 +37,5 @@ wasm-opt -Os ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.was
 wasm-opt -Os ./crates/bitwarden-wasm-internal/npm/node/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/npm/node/bitwarden_wasm_internal_bg.wasm
 
 # Transpile to JS
-wasm2js ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.js
+wasm2js -Os ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.js
 npx terser ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.js -o ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.js
