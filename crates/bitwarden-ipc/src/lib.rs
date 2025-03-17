@@ -3,7 +3,6 @@ mod error;
 mod ipc_client;
 mod message;
 mod traits;
-mod typed_ipc_client;
 
 // Re-export types to make sure wasm_bindgen picks them up
 #[cfg(feature = "wasm")]
