@@ -177,7 +177,7 @@ mod tests {
     async fn returns_received_message_when_received_from_backend() {
         let message = IncomingMessage {
             payload: vec![],
-            source: Endpoint::Web(9001),
+            source: Endpoint::Web { id: 9001 },
             destination: Endpoint::BrowserBackground,
         };
         let crypto_provider = NoEncryptionCryptoProvider;
@@ -216,14 +216,14 @@ mod tests {
 
         let non_deserializable_message = IncomingMessage {
             payload: vec![],
-            source: Endpoint::Web(9001),
+            source: Endpoint::Web { id: 9001 },
             destination: Endpoint::BrowserBackground,
         };
         let typed_message = TypedIncomingMessage {
             payload: TestPayload {
                 some_data: "Hello, world!".to_string(),
             },
-            source: Endpoint::Web(9001),
+            source: Endpoint::Web { id: 9001 },
             destination: Endpoint::BrowserBackground,
         };
 
