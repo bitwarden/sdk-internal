@@ -14,7 +14,12 @@ if ($args[0] -ne "-r") {
     $BUILD_FOLDER = "release"
 }
 
-# Build with MVP CPU target
+# Build with MVP CPU target, two reasons:
+# 1. It is required for wasm2js support
+# 2. While webpack supports it, it has some compatibility issues that lead to strange results
+# Note that this requirest build-std which is an unstable feature,
+# this normally requires a nightly build, but we can also use the 
+# RUSTC_BOOTSTRAP hack to use the same stable version as the normal build
 $env:RUSTFLAGS = "-Ctarget-cpu=mvp"
 $env:RUSTC_BOOTSTRAP = "1"
 cargo build -p bitwarden-wasm-internal -Zbuild-std="panic_abort,std" --target wasm32-unknown-unknown $RELEASE_FLAG
