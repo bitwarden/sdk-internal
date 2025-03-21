@@ -6,3 +6,14 @@ rustflags = ["--cfg", "aes_armv8"]
 
 [target.wasm32-unknown-unknown]
 rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
+
+# Enable support for 16k pages on Android, JNA is using these same flags
+# https://android-developers.googleblog.com/2024/08/adding-16-kb-page-size-to-android.html
+# https://github.com/java-native-access/jna/issues/1647
+[target.'cfg(target_os = "android")']
+rustflags = [
+    "-C",
+    "link-arg=-Wl,-z,max-page-size=16384",
+    "-C",
+    "link-arg=-Wl,-z,common-page-size=16384",
+]

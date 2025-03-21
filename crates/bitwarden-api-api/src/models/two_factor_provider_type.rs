@@ -35,6 +35,7 @@ pub enum TwoFactorProviderType {
     Remember = 5,
     OrganizationDuo = 6,
     WebAuthn = 7,
+    RecoveryCode = 8,
 }
 
 impl std::fmt::Display for TwoFactorProviderType {
@@ -48,6 +49,7 @@ impl std::fmt::Display for TwoFactorProviderType {
             Self::Remember => write!(f, "5"),
             Self::OrganizationDuo => write!(f, "6"),
             Self::WebAuthn => write!(f, "7"),
+            Self::RecoveryCode => write!(f, "8"),
         }
     }
 }
