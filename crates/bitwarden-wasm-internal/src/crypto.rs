@@ -8,7 +8,9 @@ use bitwarden_core::{
     },
     Client,
 };
-use bitwarden_crypto::CryptoError;
+use bitwarden_crypto::{
+    opaque_ke, rotateable_keyset::RotateableKeyset, CryptoError, OpaqueError, SymmetricCryptoKey,
+};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -54,5 +56,76 @@ impl CryptoClient {
         request: VerifyAsymmetricKeysRequest,
     ) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
         self.0.crypto().verify_asymmetric_keys(request)
+    }
+
+    /// Starts an opaque registration based on the provided password and cipher configuration
+    pub fn opaque_register_start(
+        &self,
+        password: &str,
+        config: &opaque_ke::types::CipherConfiguration,
+    ) -> Result<opaque_ke::types::ClientRegistrationStartResult, OpaqueError> {
+        self.0.crypto().opaque_register_start(password, config)
+    }
+
+    /// Finishes an opaque registration based on the provided password, cipher configuration
+    /// registration response from the server and client state
+    pub fn opaque_register_finish(
+        &self,
+        password: &str,
+        config: &opaque_ke::types::CipherConfiguration,
+        registration_response: &[u8],
+        state: &[u8],
+    ) -> Result<opaque_ke::types::ClientRegistrationFinishResult, OpaqueError> {
+        self.0
+            .crypto()
+            .opaque_register_finish(password, config, registration_response, state)
+    }
+
+    /// Starts an opaque authentication based on the provided password and cipher configuration
+    pub fn opaque_login_start(
+        &self,
+        password: &str,
+        config: &opaque_ke::types::CipherConfiguration,
+    ) -> Result<opaque_ke::types::ClientLoginStartResult, OpaqueError> {
+        self.0.crypto().opaque_login_start(password, config)
+    }
+
+    /// Finishes an opaque authentication based on the provided password, cipher configuration,
+    /// login response from the server and client state
+    pub fn opaque_login_finish(
+        &self,
+        password: &str,
+        config: &opaque_ke::types::CipherConfiguration,
+        login_response: &[u8],
+        state: &[u8],
+    ) -> Result<opaque_ke::types::ClientLoginFinishResult, OpaqueError> {
+        self.0
+            .crypto()
+            .opaque_login_finish(password, config, login_response, state)
+    }
+
+    /// Creates a new rotateable keyset from an export key and an encapsulated key
+    pub fn create_rotateablekeyset_from_exportkey(
+        &self,
+        export_key: &mut [u8],
+        encapsulated_key: &[u8],
+    ) -> Result<RotateableKeyset, CryptoError> {
+        let key = SymmetricCryptoKey::try_from(encapsulated_key.to_vec())?;
+        self.0
+            .crypto()
+            .create_rotateablekeyset_from_exportkey(export_key, &key)
+    }
+
+    /// Decapsulates a key from a rotateable keyset
+    pub fn decapsulate_key_from_rotateablekeyset(
+        &self,
+        rotateable_keyset: RotateableKeyset,
+        encapsulating_key: &[u8],
+    ) -> Result<Vec<u8>, CryptoError> {
+        Ok(self
+            .0
+            .crypto()
+            .decapsulate_key_from_rotateablekeyset(rotateable_keyset, encapsulating_key)?
+            .to_vec())
     }
 }
