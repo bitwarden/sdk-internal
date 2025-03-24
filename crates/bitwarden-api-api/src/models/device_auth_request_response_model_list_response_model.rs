@@ -13,18 +13,18 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct DeviceResponseModelListResponseModel {
+pub struct DeviceAuthRequestResponseModelListResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
     #[serde(rename = "data", skip_serializing_if = "Option::is_none")]
-    pub data: Option<Vec<models::DeviceResponseModel>>,
+    pub data: Option<Vec<models::DeviceAuthRequestResponseModel>>,
     #[serde(rename = "continuationToken", skip_serializing_if = "Option::is_none")]
     pub continuation_token: Option<String>,
 }
 
-impl DeviceResponseModelListResponseModel {
-    pub fn new() -> DeviceResponseModelListResponseModel {
-        DeviceResponseModelListResponseModel {
+impl DeviceAuthRequestResponseModelListResponseModel {
+    pub fn new() -> DeviceAuthRequestResponseModelListResponseModel {
+        DeviceAuthRequestResponseModelListResponseModel {
             object: None,
             data: None,
             continuation_token: None,
