@@ -5,16 +5,16 @@ use bitwarden_generators::{GeneratorClientsExt, PasswordGeneratorRequest, Passph
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub struct ClientGenerator(Rc<Client>);
+pub struct GeneratorClient(Rc<Client>);
 
-impl ClientGenerator {
+impl GeneratorClient {
     pub fn new(client: Rc<Client>) -> Self {
         Self(client)
     }
 }
 
 #[wasm_bindgen]
-impl ClientGenerator {
+impl GeneratorClient {
     /// Generates a password from a provided request
     ///
     /// # Arguments
