@@ -1,4 +1,4 @@
-use bitwarden_vault::{Cipher, CipherView, Fido2CredentialNewView};
+use bitwarden_vault::{Cipher, CipherListView, CipherView, Fido2CredentialNewView};
 use passkey::authenticator::UIHint;
 use thiserror::Error;
 
@@ -41,7 +41,7 @@ pub trait Fido2CredentialStore: Send + Sync {
         rip_id: String,
     ) -> Result<Vec<CipherView>, Fido2CallbackError>;
 
-    async fn all_credentials(&self) -> Result<Vec<CipherView>, Fido2CallbackError>;
+    async fn all_credentials(&self) -> Result<Vec<CipherListView>, Fido2CallbackError>;
 
     async fn save_credential(&self, cred: Cipher) -> Result<(), Fido2CallbackError>;
 }
