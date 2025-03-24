@@ -17,13 +17,13 @@ pub(super) fn make_register_tde_keys(
 ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
     let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(org_public_key)?)?;
 
-    let mut rng = rand::thread_rng();
-
-    let user_key = UserKey::new(SymmetricCryptoKey::generate(&mut rng));
+    let user_key = UserKey::new(SymmetricCryptoKey::generate());
     let key_pair = user_key.make_key_pair()?;
 
-    let admin_reset =
-        AsymmetricEncString::encrypt_rsa2048_oaep_sha1(&user_key.0.to_vec(), &public_key)?;
+    let admin_reset = AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
+        &user_key.0.to_encoded(),
+        &public_key,
+    )?;
 
     let device_key = if remember_device {
         Some(DeviceKey::trust_device(&user_key.0)?)

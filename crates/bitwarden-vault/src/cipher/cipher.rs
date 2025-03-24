@@ -880,7 +880,7 @@ mod tests {
 
     #[test]
     fn test_generate_cipher_key() {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate();
         let key_store = create_test_crypto_with_user_key(key);
 
         let original_cipher = generate_cipher();
@@ -906,7 +906,7 @@ mod tests {
 
     #[test]
     fn test_generate_cipher_key_when_a_cipher_key_already_exists() {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate();
         let key_store = create_test_crypto_with_user_key(key);
 
         let mut original_cipher = generate_cipher();
@@ -935,7 +935,7 @@ mod tests {
 
     #[test]
     fn test_generate_cipher_key_ignores_attachments_without_key() {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate();
         let key_store = create_test_crypto_with_user_key(key);
 
         let mut cipher = generate_cipher();
@@ -958,8 +958,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_to_org() {
         let org = uuid::Uuid::new_v4();
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let org_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate();
+        let org_key = SymmetricCryptoKey::generate();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         // Create a cipher with a user key
@@ -983,8 +983,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_to_org_manually() {
         let org = uuid::Uuid::new_v4();
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let org_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate();
+        let org_key = SymmetricCryptoKey::generate();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         // Create a cipher with a user key
@@ -1003,8 +1003,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_with_attachment_without_key_to_org() {
         let org = uuid::Uuid::new_v4();
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let org_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate();
+        let org_key = SymmetricCryptoKey::generate();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         let mut cipher = generate_cipher();
@@ -1027,8 +1027,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_with_attachment_with_key_to_org() {
         let org = uuid::Uuid::new_v4();
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let org_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate();
+        let org_key = SymmetricCryptoKey::generate();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
         let org_key = SymmetricKeyId::Organization(org);
 
@@ -1077,7 +1077,10 @@ mod tests {
             .unwrap();
         let new_attachment_key_dec: SymmetricCryptoKey = new_attachment_key_dec.try_into().unwrap();
 
-        assert_eq!(new_attachment_key_dec.to_vec(), attachment_key_val.to_vec());
+        assert_eq!(
+            new_attachment_key_dec.to_encoded().unwrap(),
+            attachment_key_val.to_encoded().unwrap()
+        );
 
         let cred2: Fido2CredentialFullView = cipher
             .login
@@ -1095,8 +1098,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_with_key_with_attachment_with_key_to_org() {
         let org = uuid::Uuid::new_v4();
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let org_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate();
+        let org_key = SymmetricCryptoKey::generate();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
         let org_key = SymmetricKeyId::Organization(org);
 
@@ -1148,7 +1151,10 @@ mod tests {
         #[allow(deprecated)]
         let cipher_key_val = ctx.dangerous_get_symmetric_key(cipher_key).unwrap();
 
-        assert_eq!(new_cipher_key_dec.to_vec(), cipher_key_val.to_vec());
+        assert_eq!(
+            new_cipher_key_dec.to_encoded().unwrap(),
+            cipher_key_val.to_encoded().unwrap()
+        );
 
         // Check that the attachment key hasn't changed
         assert_eq!(

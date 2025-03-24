@@ -375,7 +375,7 @@ pub(super) fn enroll_admin_password_reset(
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
-        &key.to_vec(),
+        &key.to_encoded(),
         &public_key,
     )?)
 }
@@ -746,7 +746,7 @@ mod tests {
             .dangerous_get_symmetric_key(SymmetricKeyId::User)
             .unwrap();
 
-        assert_eq!(&decrypted, &expected.to_vec());
+        assert_eq!(&decrypted, &expected.to_encoded())
     }
 
     #[test]

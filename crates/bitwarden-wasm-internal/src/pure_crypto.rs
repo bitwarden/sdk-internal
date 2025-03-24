@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+    CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, SymmetricCryptoKey
 };
 use wasm_bindgen::prelude::*;
 
@@ -14,7 +14,7 @@ pub struct PureCrypto {}
 
 #[wasm_bindgen]
 impl PureCrypto {
-    pub fn symmetric_decrypt(enc_string: String, key_b64: String) -> Result<String, CryptoError> {
+    pub fn symmetric_decrypt(enc_string: String, key_b64: Vec<u8>) -> Result<String, CryptoError> {
         let enc_string = EncString::from_str(&enc_string)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
         enc_string.decrypt_with_key(&key)
@@ -22,7 +22,7 @@ impl PureCrypto {
 
     pub fn symmetric_decrypt_to_bytes(
         enc_string: String,
-        key_b64: String,
+        key_b64: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         let enc_string = EncString::from_str(&enc_string)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
@@ -31,25 +31,53 @@ impl PureCrypto {
 
     pub fn symmetric_decrypt_array_buffer(
         enc_bytes: Vec<u8>,
-        key_b64: String,
+        key_b64: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         let enc_string = EncString::from_buffer(&enc_bytes)?;
         let key = SymmetricCryptoKey::try_from(key_b64)?;
         enc_string.decrypt_with_key(&key)
     }
 
-    pub fn symmetric_encrypt(plain: String, key_b64: String) -> Result<String, CryptoError> {
+    pub fn symmetric_encrypt(plain: Vec<u8>, key_b64: Vec<u8>) -> Result<String, CryptoError> {
         let key = SymmetricCryptoKey::try_from(key_b64)?;
-
         Ok(plain.encrypt_with_key(&key)?.to_string())
     }
 
     pub fn symmetric_encrypt_to_array_buffer(
         plain: Vec<u8>,
-        key_b64: String,
+        key_b64: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         let key = SymmetricCryptoKey::try_from(key_b64)?;
         plain.encrypt_with_key(&key)?.to_buffer()
+    }
+
+    pub fn decrypt_userkey_with_masterpassword(
+        encrypted_userkey: String,
+        master_password: String,
+        email: String,
+        kdf: Kdf,
+    ) -> Result<Vec<u8>, CryptoError> {
+        let masterkey = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
+        let encrypted_userkey = EncString::from_str(&encrypted_userkey)?;
+        let result = masterkey.decrypt_user_key(encrypted_userkey).map_err(|_| CryptoError::InvalidKey)?;
+        Ok(result.to_encoded())
+    }
+
+    pub fn encrypt_userkey_with_masterpassword(
+        userkey: Vec<u8>,
+        master_password: String,
+        email: String,
+        kdf: Kdf,
+    ) -> Result<String, CryptoError> {
+        let masterkey = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
+        let userkey = SymmetricCryptoKey::try_from(userkey)?;
+        let result = masterkey.encrypt_user_key(&userkey)?;
+        Ok(result.to_string())
+    }
+
+    pub fn generate_userkey(cose: bool) -> Result<Vec<u8>, CryptoError> {
+        let key = if !cose { SymmetricCryptoKey::generate() } else { SymmetricCryptoKey::generate_cose() };
+        Ok(key.to_encoded())
     }
 }
 

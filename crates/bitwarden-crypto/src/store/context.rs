@@ -8,9 +8,9 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
-    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, KeyId, KeyIds, Result,
-    SymmetricCryptoKey,
+    derive_shareable_key, error::UnsupportedOperation,
+    store::backend::StoreBackend, AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString,
+    KeyId, KeyIds, Result, SymmetricCryptoKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -169,8 +169,30 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         encryption_key: Ids::Symmetric,
         key_to_encrypt: Ids::Symmetric,
     ) -> Result<EncString> {
-        let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
-        self.encrypt_data_with_symmetric_key(encryption_key, &key_to_encrypt.to_vec())
+        let wrapping_key = self.get_symmetric_key(encryption_key)?;
+        match wrapping_key {
+            // These keys wrap directly by encrypting the key bytes of the inner key, with padding applied in case it is needed
+            SymmetricCryptoKey::Aes256CbcKey(_) | SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
+                let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
+                self.encrypt_data_with_symmetric_key(encryption_key, &key_to_encrypt.to_encoded())
+            }
+            // These keys wrap using CBOR. The content type needs to indicate what the format of the inner key is
+            SymmetricCryptoKey::XChaCha20Poly1305Key(k) => {
+               let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?; 
+               match key_to_encrypt {
+                    SymmetricCryptoKey::Aes256CbcKey(_) | SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
+                        let encoded_key = key_to_encrypt.to_encoded_raw();
+                        let encrypted = EncString::encrypt_xchacha20_poly1305(encoded_key.as_slice(), k, coset::iana::CoapContentFormat::OctetStream);
+                        encrypted
+                    }
+                    SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
+                        let cose_encoded_key = key_to_encrypt.to_encoded_raw();
+                        let encrypted = EncString::encrypt_xchacha20_poly1305(cose_encoded_key.as_slice(), k, coset::iana::CoapContentFormat::CoseKey);
+                        encrypted
+                    }
+               }
+            }
+        }
     }
 
     /// Decrypt a symmetric key into the context by using an already existing asymmetric key
@@ -215,7 +237,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key_to_encrypt: Ids::Symmetric,
     ) -> Result<AsymmetricEncString> {
         let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
-        self.encrypt_data_with_asymmetric_key(encryption_key, &key_to_encrypt.to_vec())
+        self.encrypt_data_with_asymmetric_key(encryption_key, &key_to_encrypt.to_encoded())
     }
 
     /// Returns `true` if the context has a symmetric key with the given identifier
@@ -230,7 +252,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
     /// Generate a new random symmetric key and store it in the context
     pub fn generate_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<Ids::Symmetric> {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::generate();
         #[allow(deprecated)]
         self.set_symmetric_key(key_id, key)?;
         Ok(key_id)
@@ -353,6 +375,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 UnsupportedOperation::EncryptionNotImplementedForKey,
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => EncString::encrypt_xchacha20_poly1305(
+                data,
+                key,
+                coset::iana::CoapContentFormat::OctetStream,
+            ),
         }
     }
 
@@ -400,12 +427,11 @@ mod tests {
 
     #[test]
     fn test_set_keys_for_encryption() {
-        let mut rng = rand::thread_rng();
         let store: KeyStore<TestIds> = KeyStore::default();
 
         // Generate and insert a key
         let key_a0_id = TestSymmKey::A(0);
-        let key_a0 = SymmetricCryptoKey::generate(&mut rng);
+        let key_a0 = SymmetricCryptoKey::generate();
 
         store
             .context_mut()
@@ -421,14 +447,13 @@ mod tests {
 
     #[test]
     fn test_key_encryption() {
-        let mut rng = rand::thread_rng();
         let store: KeyStore<TestIds> = KeyStore::default();
 
         let mut ctx = store.context();
 
         // Generate and insert a key
         let key_1_id = TestSymmKey::C(1);
-        let key_1 = SymmetricCryptoKey::generate(&mut rng);
+        let key_1 = SymmetricCryptoKey::generate();
 
         ctx.set_symmetric_key(key_1_id, key_1.clone()).unwrap();
 
@@ -436,7 +461,7 @@ mod tests {
 
         // Generate and insert a new key
         let key_2_id = TestSymmKey::C(2);
-        let key_2 = SymmetricCryptoKey::generate(&mut rng);
+        let key_2 = SymmetricCryptoKey::generate();
 
         ctx.set_symmetric_key(key_2_id, key_2.clone()).unwrap();
 
