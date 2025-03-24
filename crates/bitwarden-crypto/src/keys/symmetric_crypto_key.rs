@@ -8,7 +8,7 @@ use rand::Rng;
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::{key_encryptable::CryptoKey, key_hash::KeyHashData};
+use super::key_encryptable::CryptoKey;
 use crate::{cose, CryptoError};
 
 /// Aes256CbcKey is a symmetric encryption key, consisting of one 256-bit key,
@@ -81,21 +81,6 @@ pub enum SymmetricCryptoKey {
     XChaCha20Poly1305Key(XChaCha20Poly1305Key),
 }
 
-impl KeyHashData for SymmetricCryptoKey {
-    fn hash_data(&self) -> Vec<u8> {
-        match &self {
-            SymmetricCryptoKey::Aes256CbcKey(key) => key.enc_key.to_vec(),
-            SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
-                let mut buf = Vec::with_capacity(64);
-                buf.extend_from_slice(&key.enc_key);
-                buf.extend_from_slice(&key.mac_key);
-                buf
-            }
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.enc_key.to_vec(),
-        }
-    }
-}
-
 impl SymmetricCryptoKey {
     // enc type 0 old static format
     const AES256_CBC_KEY_LEN: usize = 32;
@@ -148,9 +133,6 @@ impl SymmetricCryptoKey {
         }
     }
 
-    /**
-     * 
-     */
     pub(crate) fn to_encoded_raw(&self) -> Vec<u8> {
         match self {
             SymmetricCryptoKey::Aes256CbcKey(key) => key.enc_key.to_vec(),
@@ -327,7 +309,7 @@ mod tests {
     #[test]
     fn test_symmetric_crypto_key() {
         let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
-        let key2 = SymmetricCryptoKey::try_from(key.to_base64().unwrap()).unwrap();
+        let key2 = SymmetricCryptoKey::try_from(key.to_base64()).unwrap();
 
         assert_eq!(key, key2);
 
