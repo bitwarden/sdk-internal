@@ -41,6 +41,7 @@ pub enum PolicyType {
     ActivateAutofill = 11,
     AutomaticAppLogIn = 12,
     FreeFamiliesSponsorshipPolicy = 13,
+    RemoveUnlockWithPin = 14,
 }
 
 impl std::fmt::Display for PolicyType {
@@ -60,6 +61,7 @@ impl std::fmt::Display for PolicyType {
             Self::ActivateAutofill => write!(f, "11"),
             Self::AutomaticAppLogIn => write!(f, "12"),
             Self::FreeFamiliesSponsorshipPolicy => write!(f, "13"),
+            Self::RemoveUnlockWithPin => write!(f, "14"),
         }
     }
 }
