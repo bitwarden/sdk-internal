@@ -23,9 +23,9 @@ fi
 # 1. It is required for wasm2js support
 # 2. While webpack supports it, it has some compatibility issues that lead to strange results
 # Note that this requirest build-std which is an unstable feature,
-# this normally requires a nightly build, but we can also use the 
+# this normally requires a nightly build, but we can also use the
 # RUSTC_BOOTSTRAP hack to use the same stable version as the normal build
-RUSTFLAGS=-Ctarget-cpu=mvp RUSTC_BOOTSTRAP=1 cargo build -p bitwarden-wasm-internal -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown ${RELEASE_FLAG}
+RUSTFLAGS=-Ctarget-cpu=mvp RUSTC_BOOTSTRAP=1 cargo build -p bitwarden-wasm-internal -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown ${RELEASE_FLAG} --config 'patch.crates-io.pkcs5.git="https://github.com/bitwarden/rustcrypto-formats.git"' --config 'patch.crates-io.pkcs5.rev="2b27c63034217dd126bbf5ed874da51b84f8c705"'
 wasm-bindgen --target bundler --out-dir crates/bitwarden-wasm-internal/npm ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 wasm-bindgen --target nodejs --out-dir crates/bitwarden-wasm-internal/npm/node ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 
