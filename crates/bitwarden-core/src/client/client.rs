@@ -12,10 +12,10 @@ use crate::client::{
 };
 
 /// The main struct to interact with the Bitwarden SDK.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Client {
     #[doc(hidden)]
-    pub internal: InternalClient,
+    pub internal: Arc<InternalClient>,
 }
 
 impl Client {
@@ -70,7 +70,7 @@ impl Client {
         };
 
         Self {
-            internal: InternalClient {
+            internal: Arc::new(InternalClient {
                 tokens: RwLock::new(Tokens::default()),
                 login_method: RwLock::new(None),
                 #[cfg(feature = "internal")]
@@ -82,7 +82,7 @@ impl Client {
                 })),
                 external_client,
                 key_store: KeyStore::default(),
-            },
+            }),
         }
     }
 }

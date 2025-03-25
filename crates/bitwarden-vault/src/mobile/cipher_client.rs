@@ -6,11 +6,11 @@ use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError, VaultClient,
 };
 
-pub struct ClientCiphers<'a> {
-    pub(crate) client: &'a Client,
+pub struct ClientCiphers {
+    pub(crate) client: Client,
 }
 
-impl ClientCiphers<'_> {
+impl ClientCiphers {
     pub fn encrypt(&self, mut cipher_view: CipherView) -> Result<Cipher, EncryptError> {
         let key_store = self.client.internal.get_key_store();
 
@@ -63,10 +63,10 @@ impl ClientCiphers<'_> {
     }
 }
 
-impl<'a> VaultClient<'a> {
-    pub fn ciphers(&'a self) -> ClientCiphers<'a> {
+impl VaultClient {
+    pub fn ciphers(&self) -> ClientCiphers {
         ClientCiphers {
-            client: self.client,
+            client: self.client.clone(),
         }
     }
 }

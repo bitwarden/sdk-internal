@@ -7,11 +7,11 @@ use crate::{
     Client,
 };
 
-pub struct PlatformClient<'a> {
-    pub(crate) client: &'a Client,
+pub struct PlatformClient {
+    pub(crate) client: Client,
 }
 
-impl PlatformClient<'_> {
+impl PlatformClient {
     pub fn fingerprint(&self, input: &FingerprintRequest) -> Result<String, FingerprintError> {
         generate_fingerprint(input)
     }
@@ -20,19 +20,21 @@ impl PlatformClient<'_> {
         self,
         fingerprint_material: String,
     ) -> Result<String, UserFingerprintError> {
-        generate_user_fingerprint(self.client, fingerprint_material)
+        generate_user_fingerprint(&self.client, fingerprint_material)
     }
 
     pub async fn get_user_api_key(
         &mut self,
         input: SecretVerificationRequest,
     ) -> Result<UserApiKeyResponse, UserApiKeyError> {
-        get_user_api_key(self.client, &input).await
+        get_user_api_key(&self.client, &input).await
     }
 }
 
-impl<'a> Client {
-    pub fn platform(&'a self) -> PlatformClient<'a> {
-        PlatformClient { client: self }
+impl Client {
+    pub fn platform(&self) -> PlatformClient {
+        PlatformClient {
+            client: self.clone(),
+        }
     }
 }

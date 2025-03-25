@@ -1,30 +1,23 @@
-use std::{path::Path, sync::Arc};
+use std::path::Path;
 
-use bitwarden_send::{Send, SendClientExt, SendListView, SendView};
+use bitwarden_send::{Send, SendListView, SendView};
 
-use crate::{error::Error, Client, Result};
+use crate::{error::Error, Result};
 
 #[derive(uniffi::Object)]
-pub struct SendClient(pub Arc<Client>);
+pub struct SendClient(pub(crate) bitwarden_send::SendClient);
 
 #[uniffi::export]
 impl SendClient {
     /// Encrypt send
     pub fn encrypt(&self, send: SendView) -> Result<Send> {
-        Ok(self
-            .0
-             .0
-            .sends()
-            .encrypt(send)
-            .map_err(Error::SendEncrypt)?)
+        Ok(self.0.encrypt(send).map_err(Error::SendEncrypt)?)
     }
 
     /// Encrypt a send file in memory
     pub fn encrypt_buffer(&self, send: Send, buffer: Vec<u8>) -> Result<Vec<u8>> {
         Ok(self
             .0
-             .0
-            .sends()
             .encrypt_buffer(send, &buffer)
             .map_err(Error::SendEncrypt)?)
     }
@@ -38,8 +31,6 @@ impl SendClient {
     ) -> Result<()> {
         Ok(self
             .0
-             .0
-            .sends()
             .encrypt_file(
                 send,
                 Path::new(&decrypted_file_path),
@@ -50,30 +41,18 @@ impl SendClient {
 
     /// Decrypt send
     pub fn decrypt(&self, send: Send) -> Result<SendView> {
-        Ok(self
-            .0
-             .0
-            .sends()
-            .decrypt(send)
-            .map_err(Error::SendDecrypt)?)
+        Ok(self.0.decrypt(send).map_err(Error::SendDecrypt)?)
     }
 
     /// Decrypt send list
     pub fn decrypt_list(&self, sends: Vec<Send>) -> Result<Vec<SendListView>> {
-        Ok(self
-            .0
-             .0
-            .sends()
-            .decrypt_list(sends)
-            .map_err(Error::SendDecrypt)?)
+        Ok(self.0.decrypt_list(sends).map_err(Error::SendDecrypt)?)
     }
 
     /// Decrypt a send file in memory
     pub fn decrypt_buffer(&self, send: Send, buffer: Vec<u8>) -> Result<Vec<u8>> {
         Ok(self
             .0
-             .0
-            .sends()
             .decrypt_buffer(send, &buffer)
             .map_err(Error::SendDecrypt)?)
     }
@@ -87,8 +66,6 @@ impl SendClient {
     ) -> Result<()> {
         Ok(self
             .0
-             .0
-            .sends()
             .decrypt_file(
                 send,
                 Path::new(&encrypted_file_path),

@@ -2,11 +2,11 @@ use bitwarden_crypto::{CryptoError, HashPurpose, Kdf};
 
 use crate::{mobile::kdf::hash_password, Client};
 
-pub struct ClientKdf<'a> {
-    pub(crate) _client: &'a crate::Client,
+pub struct ClientKdf {
+    pub(crate) _client: crate::Client,
 }
 
-impl ClientKdf<'_> {
+impl ClientKdf {
     pub async fn hash_password(
         &self,
         email: String,
@@ -18,8 +18,10 @@ impl ClientKdf<'_> {
     }
 }
 
-impl<'a> Client {
-    pub fn kdf(&'a self) -> ClientKdf<'a> {
-        ClientKdf { _client: self }
+impl Client {
+    pub fn kdf(&self) -> ClientKdf {
+        ClientKdf {
+            _client: self.clone(),
+        }
     }
 }
