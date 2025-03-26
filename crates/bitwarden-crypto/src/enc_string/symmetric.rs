@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    cose, error::{CryptoError, EncStringParseError, Result, UnsupportedOperation}, Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key
+    cose::{self, ContentFormat}, error::{CryptoError, EncStringParseError, Result, UnsupportedOperation}, Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key
 };
 
 #[cfg(feature = "wasm")]
@@ -236,10 +236,9 @@ impl EncString {
     pub(crate) fn encrypt_xchacha20_poly1305(
         data_dec: &[u8],
         key: &XChaCha20Poly1305Key,
-        content_format: CoapContentFormat,
+        content_format: ContentFormat,
     ) -> Result<EncString> {
         let mut protected_header = coset::HeaderBuilder::new()
-            .content_format(content_format)
             .build();
         protected_header.alg = Some(coset::Algorithm::PrivateUse(cose::XCHACHA20_POLY1305));
 
@@ -364,31 +363,19 @@ impl schemars::JsonSchema for EncString {
     }
 }
 
-// Pads the bytes to the next block size
-// The format is as follows:
-// N|0x00..0x00|data
-//   ^ N null bytes
-fn pad_bytes(bytes: &[u8], block_size: usize) -> Vec<u8> {
+/// Pads bytes to a minimum length using PKCS7-like padding
+fn pad_bytes(bytes: &mut Vec<u8>, block_size: usize) {
     let padding_len = block_size - (bytes.len() % block_size);
-    let mut padded = vec![0; 1 + padding_len + bytes.len()];
-    padded[0] = padding_len as u8;
-    padded[1..=padding_len].fill(0);
-    padded[1 + padding_len..].copy_from_slice(bytes);
-    padded
+    let padded_length = padding_len + bytes.len();
+    bytes.resize(padded_length, padding_len as u8);
 }
 
 // Unpads the bytes
-fn unpad_bytes(bytes: &[u8]) -> Result<&[u8]> {
-    if bytes.is_empty() {
-        return Err(CryptoError::EncodingError);
-    }
-
-    let padding_len = bytes[0] as usize;
-    if (padding_len + 1) >= bytes.len() {
-        return Err(CryptoError::EncodingError);
-    }
-
-    Ok(&bytes[1 + padding_len..])
+fn unpad_bytes(bytes: &[u8]) -> &[u8] {
+    // this unwrap is safe, the input is always at least 1 byte long
+    #[allow(clippy::unwrap_used)]
+    let pad_len = *bytes.last().unwrap() as usize;
+    bytes[..bytes.len() - pad_len].as_ref()
 }
 
 #[cfg(test)]
