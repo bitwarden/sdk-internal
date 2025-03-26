@@ -4,7 +4,7 @@ use bitwarden_crypto::{
     AsymmetricPublicCryptoKey, CryptoError,
 };
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{EncString, KeyDecryptable, SymmetricCryptoKey};
+use bitwarden_crypto::{EncString, SymmetricCryptoKey};
 use thiserror::Error;
 
 #[cfg(feature = "internal")]
@@ -54,7 +54,7 @@ pub(crate) fn auth_request_decrypt_user_key(
     user_key: AsymmetricEncString,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
     let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
-    let mut key: Vec<u8> = user_key.decrypt_with_key(&key)?;
+    let mut key: Vec<u8> = user_key.decapsulate_key_unsigned(&key)?;
 
     Ok(SymmetricCryptoKey::try_from(key.as_mut_slice())?)
 }
@@ -69,7 +69,7 @@ pub(crate) fn auth_request_decrypt_master_key(
     use bitwarden_crypto::MasterKey;
 
     let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
-    let mut master_key: Vec<u8> = master_key.decrypt_with_key(&key)?;
+    let mut master_key: Vec<u8> = master_key.decapsulate_key_unsigned(&key)?;
     let master_key = MasterKey::try_from(master_key.as_mut_slice())?;
 
     Ok(master_key.decrypt_user_key(user_key)?)
@@ -101,7 +101,7 @@ pub(crate) fn approve_auth_request(
     #[allow(deprecated)]
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
-    Ok(AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
+    Ok(AsymmetricEncString::encapsulate_key_unsigned(
         &key.to_vec(),
         &public_key,
     )?)
@@ -121,7 +121,7 @@ fn test_auth_request() {
     let private_key =
         AsymmetricCryptoKey::from_der(&STANDARD.decode(&request.private_key).unwrap()).unwrap();
 
-    let encrypted = AsymmetricEncString::encrypt_rsa2048_oaep_sha1(secret, &private_key).unwrap();
+    let encrypted = AsymmetricEncString::encapsulate_key_unsigned(secret, &private_key).unwrap();
 
     let decrypted = auth_request_decrypt_user_key(request.private_key, encrypted).unwrap();
 

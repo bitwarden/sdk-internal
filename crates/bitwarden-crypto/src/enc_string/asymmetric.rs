@@ -9,7 +9,7 @@ use super::{from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result},
     rsa::encrypt_rsa2048_oaep_sha1,
-    AsymmetricCryptoKey, AsymmetricEncryptable, KeyDecryptable,
+    AsymmetricCryptoKey, AsymmetricEncryptable,
 };
 // This module is a workaround to avoid deprecated warnings that come from the ZeroizeOnDrop
 // macro expansion
@@ -150,11 +150,11 @@ impl serde::Serialize for AsymmetricEncString {
 
 impl AsymmetricEncString {
     /// Encrypt and produce a [AsymmetricEncString::Rsa2048_OaepSha1_B64] variant.
-    pub fn encrypt_rsa2048_oaep_sha1(
+    pub fn encapsulate_key_unsigned(
         data_dec: &[u8],
-        key: &dyn AsymmetricEncryptable,
+        encapsulation_key: &dyn AsymmetricEncryptable,
     ) -> Result<AsymmetricEncString> {
-        let enc = encrypt_rsa2048_oaep_sha1(key.to_public_key(), data_dec)?;
+        let enc = encrypt_rsa2048_oaep_sha1(encapsulation_key.to_public_key(), data_dec)?;
         Ok(AsymmetricEncString::Rsa2048_OaepSha1_B64 { data: enc })
     }
 
@@ -171,29 +171,29 @@ impl AsymmetricEncString {
     }
 }
 
-impl KeyDecryptable<AsymmetricCryptoKey, Vec<u8>> for AsymmetricEncString {
-    fn decrypt_with_key(&self, key: &AsymmetricCryptoKey) -> Result<Vec<u8>> {
+impl AsymmetricEncString {
+    pub fn decapsulate_key_unsigned(
+        &self,
+        decapsulation_key: &AsymmetricCryptoKey,
+    ) -> Result<Vec<u8>> {
         use AsymmetricEncString::*;
         match self {
-            Rsa2048_OaepSha256_B64 { data } => key.key.decrypt(Oaep::new::<sha2::Sha256>(), data),
-            Rsa2048_OaepSha1_B64 { data } => key.key.decrypt(Oaep::new::<sha1::Sha1>(), data),
+            Rsa2048_OaepSha256_B64 { data } => decapsulation_key
+                .key
+                .decrypt(Oaep::new::<sha2::Sha256>(), data),
+            Rsa2048_OaepSha1_B64 { data } => decapsulation_key
+                .key
+                .decrypt(Oaep::new::<sha1::Sha1>(), data),
             #[allow(deprecated)]
-            Rsa2048_OaepSha256_HmacSha256_B64 { data, .. } => {
-                key.key.decrypt(Oaep::new::<sha2::Sha256>(), data)
-            }
+            Rsa2048_OaepSha256_HmacSha256_B64 { data, .. } => decapsulation_key
+                .key
+                .decrypt(Oaep::new::<sha2::Sha256>(), data),
             #[allow(deprecated)]
-            Rsa2048_OaepSha1_HmacSha256_B64 { data, .. } => {
-                key.key.decrypt(Oaep::new::<sha1::Sha1>(), data)
-            }
+            Rsa2048_OaepSha1_HmacSha256_B64 { data, .. } => decapsulation_key
+                .key
+                .decrypt(Oaep::new::<sha1::Sha1>(), data),
         }
         .map_err(|_| CryptoError::KeyDecrypt)
-    }
-}
-
-impl KeyDecryptable<AsymmetricCryptoKey, String> for AsymmetricEncString {
-    fn decrypt_with_key(&self, key: &AsymmetricCryptoKey) -> Result<String> {
-        let dec: Vec<u8> = self.decrypt_with_key(key)?;
-        String::from_utf8(dec).map_err(|_| CryptoError::InvalidUtf8String)
     }
 }
 
@@ -213,7 +213,7 @@ impl schemars::JsonSchema for AsymmetricEncString {
 mod tests {
     use schemars::schema_for;
 
-    use super::{AsymmetricCryptoKey, AsymmetricEncString, KeyDecryptable};
+    use super::{AsymmetricCryptoKey, AsymmetricEncString};
 
     const RSA_PRIVATE_KEY: &str = "-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCXRVrCX+2hfOQS
@@ -252,8 +252,8 @@ XKZBokBGnjFnTnKcs7nv/O8=
 
         assert_eq!(enc_string.enc_type(), 3);
 
-        let res: String = enc_string.decrypt_with_key(&private_key).unwrap();
-        assert_eq!(res, "EncryptMe!");
+        let res = enc_string.decapsulate_key_unsigned(&private_key).unwrap();
+        assert_eq!(res, "EncryptMe!".as_bytes());
     }
 
     #[test]
@@ -264,8 +264,8 @@ XKZBokBGnjFnTnKcs7nv/O8=
 
         assert_eq!(enc_string.enc_type(), 4);
 
-        let res: String = enc_string.decrypt_with_key(&private_key).unwrap();
-        assert_eq!(res, "EncryptMe!");
+        let res = enc_string.decapsulate_key_unsigned(&private_key).unwrap();
+        assert_eq!(res, "EncryptMe!".as_bytes());
     }
 
     #[test]
@@ -276,8 +276,8 @@ XKZBokBGnjFnTnKcs7nv/O8=
 
         assert_eq!(enc_string.enc_type(), 6);
 
-        let res: String = enc_string.decrypt_with_key(&private_key).unwrap();
-        assert_eq!(res, "EncryptMe!");
+        let res = enc_string.decapsulate_key_unsigned(&private_key).unwrap();
+        assert_eq!(res, "EncryptMe!".as_bytes());
     }
 
     #[test]
