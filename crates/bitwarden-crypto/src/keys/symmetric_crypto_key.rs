@@ -8,7 +8,7 @@ use rand::Rng;
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::key_encryptable::CryptoKey;
+use super::{key_encryptable::CryptoKey, key_id::KeyId};
 use crate::{cose, CryptoError};
 
 /// Aes256CbcKey is a symmetric encryption key, consisting of one 256-bit key,
@@ -57,6 +57,7 @@ impl PartialEq for Aes256CbcHmacKey {
 #[derive(Zeroize, Clone)]
 #[cfg_attr(test, derive(Debug))]
 pub struct XChaCha20Poly1305Key {
+    pub(crate) key_id: [u8; 24],
     pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
@@ -106,8 +107,8 @@ impl SymmetricCryptoKey {
     /// Generate a new random [SymmetricCryptoKey]
     /// @param rng: A random number generator
     /// @param xchacha: If true, generate an XChaCha20Poly1305 key, otherwise generate an AES256_CBC_HMAC key
-    pub(crate) fn generate_internal(mut rng: impl rand::RngCore, xchacha: bool) -> Self {
-        if !xchacha {
+    pub(crate) fn generate_internal(mut rng: impl rand::RngCore, xchacha20: bool) -> Self {
+        if !xchacha20 {
             let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
             let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
 
@@ -118,7 +119,7 @@ impl SymmetricCryptoKey {
         } else {
             let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
             rng.fill(enc_key.as_mut_slice());
-            SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key { enc_key })
+            SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key { enc_key, key_id: *KeyId::generate().as_bytes() })
         }
     }
 
@@ -152,6 +153,7 @@ impl SymmetricCryptoKey {
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
                 let builder = coset::CoseKeyBuilder::new_symmetric_key(key.enc_key.to_vec());
                 let mut cose_key = builder
+                    .key_id(key.key_id.to_vec())
                     .add_key_op(iana::KeyOperation::Decrypt)
                     .add_key_op(iana::KeyOperation::Encrypt)
                     .add_key_op(iana::KeyOperation::WrapKey)
@@ -258,7 +260,7 @@ fn parse_cose_key(cose_key: &coset::CoseKey) -> Result<SymmetricCryptoKey, Crypt
             if key_bytes.len() == 32 {
                 let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
                 enc_key.copy_from_slice(key_bytes);
-                Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key { enc_key }))
+                Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key { enc_key, key_id: cose_key.key_id.clone().try_into().map_err(|_| CryptoError::InvalidKey)? }))
             } else {
                 Err(CryptoError::InvalidKey)
             }

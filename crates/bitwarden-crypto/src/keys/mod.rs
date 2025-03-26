@@ -20,6 +20,7 @@ mod device_key;
 pub use device_key::{DeviceKey, TrustDeviceResponse};
 mod pin_key;
 pub use pin_key::PinKey;
+mod key_id;
 mod kdf;
 pub use kdf::{
     default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,

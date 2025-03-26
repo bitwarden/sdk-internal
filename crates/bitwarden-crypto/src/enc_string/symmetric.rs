@@ -60,7 +60,7 @@ pub enum EncString {
         data: Vec<u8>,
     },
     // 7 The actual enc type is contained in the cose struct
-    COSE_B64 {
+    XChaCha20_Poly1305_Cose_B64 {
         data: Vec<u8>,
     },
 }
@@ -95,7 +95,7 @@ impl FromStr for EncString {
             ("7", 1) => {
                 let buffer = from_b64_vec(parts[0])?;
 
-                Ok(EncString::COSE_B64 { data: buffer })
+                Ok(EncString::XChaCha20_Poly1305_Cose_B64 { data: buffer })
             }
             (enc_type, parts) => Err(EncStringParseError::InvalidTypeSymm {
                 enc_type: enc_type.to_string(),
@@ -135,7 +135,7 @@ impl EncString {
                 Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
             }
             7 => {
-                Ok(EncString::COSE_B64 { data: buf[1..].to_vec() })
+                Ok(EncString::XChaCha20_Poly1305_Cose_B64 { data: buf[1..].to_vec() })
             }
             _ => Err(EncStringParseError::InvalidTypeSymm {
                 enc_type: enc_type.to_string(),
@@ -162,7 +162,7 @@ impl EncString {
                 buf.extend_from_slice(mac);
                 buf.extend_from_slice(data);
             }
-            EncString::COSE_B64 {
+            EncString::XChaCha20_Poly1305_Cose_B64 {
                 data,
             } => {
                 buf = Vec::with_capacity(1 + data.len());
@@ -192,7 +192,7 @@ impl Display for EncString {
 
                 Ok(())
             }
-            EncString::COSE_B64 {
+            EncString::XChaCha20_Poly1305_Cose_B64 {
                 data,
             } => {
                 write!(f, "{}.{}", self.enc_type(), STANDARD.encode(data))?;
@@ -263,7 +263,7 @@ impl EncString {
                 .build())
             .build();
 
-        Ok(EncString::COSE_B64 {
+        Ok(EncString::XChaCha20_Poly1305_Cose_B64 {
             data: cose_encrypt0.to_vec().map_err(|_| CryptoError::EncodingError)?,
         })
     }
@@ -273,7 +273,7 @@ impl EncString {
         match self {
             EncString::AesCbc256_B64 { .. } => 0,
             EncString::AesCbc256_HmacSha256_B64 { .. } => 2,
-            EncString::COSE_B64 { .. } => 7,
+            EncString::XChaCha20_Poly1305_Cose_B64 { .. } => 7,
         }
     }
 }
@@ -304,7 +304,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
             (
-                EncString::COSE_B64 {
+                EncString::XChaCha20_Poly1305_Cose_B64 {
                     data,
                 },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
