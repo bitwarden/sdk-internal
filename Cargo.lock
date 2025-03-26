@@ -433,7 +433,6 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "pbkdf2",
- "poly1305",
  "rand",
  "rand_chacha",
  "rayon",
@@ -2841,7 +2840,6 @@ dependencies = [
  "cpufeatures",
  "opaque-debug",
  "universal-hash",
- "zeroize",
 ]
 
 [[package]]
