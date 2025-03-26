@@ -1,7 +1,9 @@
 use std::rc::Rc;
 
 use bitwarden_core::Client;
-use bitwarden_generators::{GeneratorClientsExt, PasswordGeneratorRequest, PassphraseGeneratorRequest};
+use bitwarden_generators::{
+    GeneratorClientsExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
+};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
