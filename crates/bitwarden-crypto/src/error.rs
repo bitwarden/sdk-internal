@@ -50,12 +50,6 @@ pub enum CryptoError {
     #[error("Number is zero")]
     ZeroNumber,
 
-    #[error("Invalid key hash algorithm")]
-    InvalidHashAlgorithm,
-
-    #[error("Error parsing key hash")]
-    HashParseError,
-
     #[error("Unsupported operation, {0}")]
     OperationNotSupported(UnsupportedOperation),
 
