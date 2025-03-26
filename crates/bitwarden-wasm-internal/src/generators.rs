@@ -8,6 +8,13 @@ use wasm_bindgen::prelude::*;
 pub struct GeneratorClient(Rc<Client>);
 
 impl GeneratorClient {
+    /// Constructs a new SDK client for generating random passwords and passphrases
+    ///
+    /// # Arguments
+    /// - `client` - The client used to access the SDK
+    ///
+    /// # Returns
+    /// - `Self` - Returns newly constructed client
     pub fn new(client: Rc<Client>) -> Self {
         Self(client)
     }
@@ -18,7 +25,7 @@ impl GeneratorClient {
     /// Generates a password from a provided request
     ///
     /// # Arguments
-    /// - `request` - PasswordGeneratorRequest
+    /// - `request` - Settings for the character sets and password length
     ///
     /// # Returns
     /// - `Ok(String)` containing the generated password
@@ -33,7 +40,7 @@ impl GeneratorClient {
     /// Generates a passphrase from a provided request
     ///
     /// # Arguments
-    /// - `request` - PassphraseGeneratorRequest
+    /// - `request` - Settings for the word count, word separators character sets
     ///
     /// # Returns
     /// - `Ok(String)` containing the generated passphrase

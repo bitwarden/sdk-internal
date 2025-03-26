@@ -48,6 +48,7 @@ impl BitwardenClient {
         VaultClient::new(self.0.clone())
     }
 
+    /// Constructs a specific client for generating passwords and passphrases
     pub fn generator(&self) -> GeneratorClient {
         GeneratorClient::new(self.0.clone())
     }
