@@ -3,15 +3,16 @@ name = "bitwarden-core"
 description = """
 Internal crate for the bitwarden crate. Do not use.
 """
-keywords = ["bitwarden"]
 
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license-file.workspace = true
+keywords.workspace = true
 
 [features]
 internal = ["dep:zxcvbn"]
