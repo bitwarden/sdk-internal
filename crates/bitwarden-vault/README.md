@@ -1,3 +1,4 @@
 # Bitwarden Vault
 
-Contains the implementation of the vault functionality for the Bitwarden Password Manager.
+Defines the data model for the vault items both encrypted and decrypted. It also handles conversions
+between the two states by implementing `Encryptable`.
