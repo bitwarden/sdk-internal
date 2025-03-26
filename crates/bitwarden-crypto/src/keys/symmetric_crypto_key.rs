@@ -1,4 +1,4 @@
-use std::pin::Pin;
+use std::{cmp::max, pin::Pin};
 
 use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -87,20 +87,27 @@ impl SymmetricCryptoKey {
     // enc type 2 old static format
     const AES256_CBC_HMAC_KEY_LEN: usize = 64;
 
+    /**
+     * Generate a new random AES256_CBC_HMAC [SymmetricCryptoKey]
+     */
     pub fn generate() -> Self {
         let mut rng = rand::thread_rng();
         Self::generate_internal(&mut rng, false)
     }
     
-    pub fn generate_cose() -> Self {
+    /**
+     * Generate a new random XChaCha20Poly1305 [SymmetricCryptoKey]
+     */
+    pub fn generate_xchacha20() -> Self {
         let mut rng = rand::thread_rng();
         Self::generate_internal(&mut rng, true)
     }
 
     /// Generate a new random [SymmetricCryptoKey]
     /// @param rng: A random number generator
-    fn generate_internal(mut rng: impl rand::RngCore, cose: bool) -> Self {
-        if !cose {
+    /// @param xchacha: If true, generate an XChaCha20Poly1305 key, otherwise generate an AES256_CBC_HMAC key
+    pub(crate) fn generate_internal(mut rng: impl rand::RngCore, xchacha: bool) -> Self {
+        if !xchacha {
             let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
             let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
 
@@ -121,14 +128,14 @@ impl SymmetricCryptoKey {
      * the key.
      */
     pub fn to_encoded(&self) -> Vec<u8> {
-        let encoded_key = self.to_encoded_raw();
+        let mut encoded_key = self.to_encoded_raw();
         match self {
             SymmetricCryptoKey::Aes256CbcKey(_) | SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
                 encoded_key
             }
             SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
-                let padded_key = pad_key(&encoded_key, Self::AES256_CBC_HMAC_KEY_LEN + 1);
-                padded_key
+                pad_key(&mut encoded_key, Self::AES256_CBC_HMAC_KEY_LEN + 1);
+                encoded_key
             }
         }
     }
@@ -151,8 +158,7 @@ impl SymmetricCryptoKey {
                     .add_key_op(iana::KeyOperation::UnwrapKey)
                     .build();
                 cose_key.alg = Some(RegisteredLabelWithPrivate::PrivateUse(cose::XCHACHA20_POLY1305));
-                let encoded_key = cose_key.to_vec().map_err(|_| CryptoError::InvalidKey).unwrap();
-                encoded_key
+                cose_key.to_vec().map_err(|_| CryptoError::InvalidKey).expect("Failed to encode key")
             }
         }
     }
@@ -225,8 +231,8 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
 
             Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey { enc_key }))
         } else if value.len() > Self::AES256_CBC_HMAC_KEY_LEN {
-            let unpadded_value = zeroize::Zeroizing::new(unpad_key(value));
-            let cose_key = coset::CoseKey::from_slice(&unpadded_value.as_slice())
+            let unpadded_value = unpad_key(value);
+            let cose_key = coset::CoseKey::from_slice(unpadded_value)
                 .map_err(|_| CryptoError::InvalidKey)?;
             parse_cose_key(&cose_key)
         } else {
@@ -270,23 +276,20 @@ impl std::fmt::Debug for SymmetricCryptoKey {
     }
 }
 
-/// Pad a key to a minimum length;
-/// The first byte describes the number (N) of subsequently following null bytes
-/// Next, there are N null bytes
-/// Finally, the key bytes are appended
-fn pad_key(key_bytes: &[u8], min_length: usize) -> Vec<u8> {
-    let null_bytes = min_length.saturating_sub(1).saturating_sub(key_bytes.len());
-    let mut padded_key = Vec::with_capacity(min_length);
-    padded_key.extend_from_slice(&[null_bytes as u8]);
-    padded_key.extend_from_slice(vec![0u8; null_bytes].as_slice());
-    padded_key.extend_from_slice(key_bytes);
-    padded_key
+/// Pad a key to a minimum length using PKCS7-like padding
+fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
+    // at least 1 byte of padding is required
+    let pad_bytes = min_length.saturating_sub(key_bytes.len()).max(1);
+    let padded_length = max(min_length, key_bytes.len() + 1);
+    key_bytes.resize(padded_length, pad_bytes as u8);
 }
 
-// Unpad a key that was padded with pad_key
-fn unpad_key(key_bytes: &[u8]) -> Vec<u8> {
-    let null_bytes = key_bytes[0] as usize;
-    key_bytes[1 + null_bytes..].to_vec()
+// Unpad a key
+fn unpad_key(key_bytes: &[u8]) -> &[u8] {
+    // this unwrap is safe, the input is always at least 1 byte long
+    #[allow(clippy::unwrap_used)]
+    let pad_len = *key_bytes.last().unwrap() as usize;
+    key_bytes[..key_bytes.len() - pad_len].as_ref()
 }
 
 #[cfg(test)]
@@ -335,45 +338,47 @@ mod tests {
             _ => panic!("Invalid key type"),
         }
     }
-
     #[test]
     fn test_pad_unpad_key_63() {
-        let key_bytes = vec![1u8; 63];
+        let original_key = vec![1u8; 63];
+        let mut key_bytes = original_key.clone();
         let mut encoded_bytes = vec![1u8; 65];
-        encoded_bytes[0] = 1;
-        encoded_bytes[1] = 0;
-        let padded_key = pad_key(key_bytes.as_slice(), 65);
-        assert_eq!(encoded_bytes, padded_key);
-        let unpadded_key = unpad_key(&padded_key);
-        assert_eq!(key_bytes, unpadded_key);
+        encoded_bytes[63] = 2;
+        encoded_bytes[64] = 2;
+        pad_key(&mut key_bytes, 65);
+        assert_eq!(encoded_bytes, key_bytes);
+        let unpadded_key = unpad_key(&key_bytes);
+        assert_eq!(original_key, unpadded_key);
     }
 
     #[test]
     fn test_pad_unpad_key_64() {
-        let key_bytes = vec![1u8; 64];
+        let original_key = vec![1u8; 64];
+        let mut key_bytes = original_key.clone();
         let mut encoded_bytes = vec![1u8; 65];
-        encoded_bytes[0] = 0;
-        let padded_key = pad_key(key_bytes.as_slice(), 65);
-        assert_eq!(encoded_bytes, padded_key);
-        let unpadded_key = unpad_key(&padded_key);
-        assert_eq!(key_bytes, unpadded_key);
+        encoded_bytes[64] = 1;
+        pad_key(&mut key_bytes, 65);
+        assert_eq!(encoded_bytes, key_bytes);
+        let unpadded_key = unpad_key(&key_bytes);
+        assert_eq!(original_key, unpadded_key);
     }
 
     #[test]
     fn test_pad_unpad_key_65() {
-        let key_bytes = vec![1u8; 65];
+        let original_key = vec![1u8; 65];
+        let mut key_bytes = original_key.clone();
         let mut encoded_bytes = vec![1u8; 66];
-        encoded_bytes[0] = 0;
-        let padded_key = pad_key(key_bytes.as_slice(), 65);
-        assert_eq!(encoded_bytes, padded_key);
-        let unpadded_key = unpad_key(&padded_key);
-        assert_eq!(key_bytes, unpadded_key);
+        encoded_bytes[65] = 1;
+        pad_key(&mut key_bytes, 65);
+        assert_eq!(encoded_bytes, key_bytes);
+        let unpadded_key = unpad_key(&key_bytes);
+        assert_eq!(original_key, unpadded_key);
     }
 
     #[test]
     fn test_encode_xchacha20_poly1305_key() {
         let key = SymmetricCryptoKey::generate_internal(rand::thread_rng(), true);
-        let key_vec = key.to_encoded().unwrap();
+        let key_vec = key.to_encoded();
         let key_vec_utf8_lossy = String::from_utf8_lossy(&key_vec);
         println!("key_vec: {:?}", key_vec_utf8_lossy);
     }

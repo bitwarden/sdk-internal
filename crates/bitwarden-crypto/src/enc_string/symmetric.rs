@@ -167,7 +167,7 @@ impl EncString {
             } => {
                 buf = Vec::with_capacity(1 + data.len());
                 buf.push(self.enc_type());
-                buf.extend_from_slice(&data);
+                buf.extend_from_slice(data);
             }
         }
 
@@ -195,7 +195,7 @@ impl Display for EncString {
             EncString::COSE_B64 {
                 data,
             } => {
-                write!(f, "{}.{}", self.enc_type(), STANDARD.encode(&data))?;
+                write!(f, "{}.{}", self.enc_type(), STANDARD.encode(data))?;
 
                 Ok(())
             }
@@ -238,34 +238,33 @@ impl EncString {
         key: &XChaCha20Poly1305Key,
         content_format: CoapContentFormat,
     ) -> Result<EncString> {
-
         let mut protected_header = coset::HeaderBuilder::new()
             .content_format(content_format)
             .build();
         protected_header.alg = Some(coset::Algorithm::PrivateUse(cose::XCHACHA20_POLY1305));
 
-        let mut unprotected_header = coset::HeaderBuilder::new()
-            .build();
-        let nonce = crate::xchacha20::generate_nonce();
-        unprotected_header.iv = nonce.to_vec();
-        let cose = coset::CoseEncrypt0Builder::new()
+        let mut nonce = [0u8; 24];
+        let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
+            .protected(protected_header)
             .try_create_ciphertext(data_dec, &[], |data, aad| {
                 let ciphertext = crate::xchacha20::encrypt_xchacha20_poly1305(
-                    nonce.as_slice().try_into().map_err(|_| CryptoError::InvalidKey)?,
                     key.enc_key
                         .as_slice()
                         .try_into()
                         .expect("XChaChaPoly1305 key is 32 bytes long"),
                     data,
                     aad,
-                )?;
-                Ok(ciphertext)
-            }).map_err(|_a: CryptoError| CryptoError::EncodingError)?;
-        let cose = cose.unprotected(unprotected_header)
+                );
+                nonce.copy_from_slice(ciphertext.nonce.as_slice());
+                Ok(ciphertext.ciphertext)
+            }).map_err(|_a: CryptoError| CryptoError::EncodingError)?
+            .unprotected(coset::HeaderBuilder::new()
+                .iv(nonce.to_vec())
+                .build())
             .build();
 
         Ok(EncString::COSE_B64 {
-            data: cose.to_vec().map_err(|_| CryptoError::EncodingError)?,
+            data: cose_encrypt0.to_vec().map_err(|_| CryptoError::EncodingError)?,
         })
     }
 

@@ -75,8 +75,8 @@ impl PureCrypto {
         Ok(result.to_string())
     }
 
-    pub fn generate_userkey(cose: bool) -> Result<Vec<u8>, CryptoError> {
-        let key = if !cose { SymmetricCryptoKey::generate() } else { SymmetricCryptoKey::generate_cose() };
+    pub fn generate_userkey(use_xchacha20: bool) -> Result<Vec<u8>, CryptoError> {
+        let key = if !use_xchacha20 { SymmetricCryptoKey::generate() } else { SymmetricCryptoKey::generate_xchacha20() };
         Ok(key.to_encoded())
     }
 }
@@ -105,14 +105,14 @@ mod tests {
     fn test_symmetric_decrypt() {
         let enc_string = EncString::from_str(ENCRYPTED).unwrap();
 
-        let result = PureCrypto::symmetric_decrypt(enc_string.to_string(), KEY_B64.to_string());
+        let result = PureCrypto::symmetric_decrypt(enc_string.to_string(), KEY_B64.as_bytes().to_vec());
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), DECRYPTED);
     }
 
     #[test]
     fn test_symmetric_encrypt() {
-        let result = PureCrypto::symmetric_encrypt(DECRYPTED.to_string(), KEY_B64.to_string());
+        let result = PureCrypto::symmetric_encrypt(DECRYPTED.as_bytes().to_vec(), KEY_B64.as_bytes().to_vec());
         assert!(result.is_ok());
         // Cannot test encrypted string content because IV is unique per encryption
     }
@@ -120,9 +120,9 @@ mod tests {
     #[test]
     fn test_symmetric_round_trip() {
         let encrypted =
-            PureCrypto::symmetric_encrypt(DECRYPTED.to_string(), KEY_B64.to_string()).unwrap();
+            PureCrypto::symmetric_encrypt(DECRYPTED.as_bytes().to_vec(), KEY_B64.as_bytes().to_vec()).unwrap();
         let decrypted =
-            PureCrypto::symmetric_decrypt(encrypted.clone(), KEY_B64.to_string()).unwrap();
+            PureCrypto::symmetric_decrypt(encrypted.clone(), KEY_B64.as_bytes().to_vec()).unwrap();
         assert_eq!(decrypted, DECRYPTED);
     }
 
@@ -130,7 +130,7 @@ mod tests {
     fn test_symmetric_decrypt_array_buffer() {
         let result = PureCrypto::symmetric_decrypt_array_buffer(
             ENCRYPTED_BYTES.to_vec(),
-            KEY_B64.to_string(),
+            KEY_B64.as_bytes().to_vec(),
         );
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), DECRYPTED_BYTES);
@@ -140,7 +140,7 @@ mod tests {
     fn test_symmetric_encrypt_to_array_buffer() {
         let result = PureCrypto::symmetric_encrypt_to_array_buffer(
             DECRYPTED_BYTES.to_vec(),
-            KEY_B64.to_string(),
+            KEY_B64.as_bytes().to_vec(),
         );
         assert!(result.is_ok());
         // Cannot test encrypted string content because IV is unique per encryption
@@ -150,11 +150,11 @@ mod tests {
     fn test_symmetric_buffer_round_trip() {
         let encrypted = PureCrypto::symmetric_encrypt_to_array_buffer(
             DECRYPTED_BYTES.to_vec(),
-            KEY_B64.to_string(),
+            KEY_B64.as_bytes().to_vec(),
         )
         .unwrap();
         let decrypted =
-            PureCrypto::symmetric_decrypt_array_buffer(encrypted.clone(), KEY_B64.to_string())
+            PureCrypto::symmetric_decrypt_array_buffer(encrypted.clone(), KEY_B64.as_bytes().to_vec())
                 .unwrap();
         assert_eq!(decrypted, DECRYPTED_BYTES);
     }

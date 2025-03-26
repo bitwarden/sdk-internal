@@ -73,7 +73,6 @@
 static ALLOC: ZeroizingAllocator<std::alloc::System> = ZeroizingAllocator(std::alloc::System);
 
 mod aes;
-mod xchacha20;
 mod enc_string;
 pub use enc_string::{AsymmetricEncString, EncString};
 mod error;

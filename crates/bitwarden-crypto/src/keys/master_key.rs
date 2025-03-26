@@ -67,7 +67,8 @@ impl MasterKey {
 
     /// Generate a new random user key and encrypt it with the master key.
     pub fn make_user_key(&self) -> Result<(UserKey, EncString)> {
-        make_user_key(self)
+        let mut rng = rand::thread_rng();
+        make_user_key(&mut rng, self)
     }
 
     /// Encrypt the users user key
@@ -150,9 +151,10 @@ pub(super) fn decrypt_user_key(
 
 /// Generate a new random user key and encrypt it with the master key.
 fn make_user_key(
+    rng: impl rand::RngCore,
     master_key: &MasterKey,
 ) -> Result<(UserKey, EncString)> {
-    let user_key = SymmetricCryptoKey::generate();
+    let user_key = SymmetricCryptoKey::generate_internal(rng, false);
     let protected = master_key.encrypt_user_key(&user_key)?;
     Ok((UserKey::new(user_key), protected))
 }
