@@ -38,7 +38,7 @@ impl DeviceKey {
         let data = user_key.to_encoded();
 
         let protected_user_key =
-            AsymmetricEncString::encrypt_rsa2048_oaep_sha1(&data, &device_private_key)?;
+            AsymmetricEncString::encapsulate_key_unsigned(&data, &device_private_key)?;
 
         let protected_device_public_key = device_private_key
             .to_public_der()?
@@ -65,7 +65,7 @@ impl DeviceKey {
         let device_private_key: Vec<u8> = protected_device_private_key.decrypt_with_key(&self.0)?;
         let device_private_key = AsymmetricCryptoKey::from_der(&device_private_key)?;
 
-        let dec: Vec<u8> = protected_user_key.decrypt_with_key(&device_private_key)?;
+        let dec: Vec<u8> = protected_user_key.decapsulate_key_unsigned(&device_private_key)?;
         let user_key = SymmetricCryptoKey::try_from(dec)?;
 
         Ok(user_key)

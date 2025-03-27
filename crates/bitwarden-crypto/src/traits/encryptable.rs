@@ -1,4 +1,4 @@
-use crate::{store::KeyStoreContext, AsymmetricEncString, CryptoError, EncString, KeyId, KeyIds};
+use crate::{store::KeyStoreContext, CryptoError, EncString, KeyId, KeyIds};
 
 /// An encryption operation that takes the input value and encrypts it into the output value.
 /// Implementations should generally consist of calling [Encryptable::encrypt] for all the fields of
@@ -17,16 +17,6 @@ impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for &[u8] {
     }
 }
 
-impl<Ids: KeyIds> Encryptable<Ids, Ids::Asymmetric, AsymmetricEncString> for &[u8] {
-    fn encrypt(
-        &self,
-        ctx: &mut KeyStoreContext<Ids>,
-        key: Ids::Asymmetric,
-    ) -> Result<AsymmetricEncString, CryptoError> {
-        ctx.encrypt_data_with_asymmetric_key(key, self)
-    }
-}
-
 impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for Vec<u8> {
     fn encrypt(
         &self,
@@ -34,16 +24,6 @@ impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for Vec<u8> {
         key: Ids::Symmetric,
     ) -> Result<EncString, CryptoError> {
         ctx.encrypt_data_with_symmetric_key(key, self)
-    }
-}
-
-impl<Ids: KeyIds> Encryptable<Ids, Ids::Asymmetric, AsymmetricEncString> for Vec<u8> {
-    fn encrypt(
-        &self,
-        ctx: &mut KeyStoreContext<Ids>,
-        key: Ids::Asymmetric,
-    ) -> Result<AsymmetricEncString, CryptoError> {
-        ctx.encrypt_data_with_asymmetric_key(key, self)
     }
 }
 
@@ -57,32 +37,12 @@ impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for &str {
     }
 }
 
-impl<Ids: KeyIds> Encryptable<Ids, Ids::Asymmetric, AsymmetricEncString> for &str {
-    fn encrypt(
-        &self,
-        ctx: &mut KeyStoreContext<Ids>,
-        key: Ids::Asymmetric,
-    ) -> Result<AsymmetricEncString, CryptoError> {
-        self.as_bytes().encrypt(ctx, key)
-    }
-}
-
 impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for String {
     fn encrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         key: Ids::Symmetric,
     ) -> Result<EncString, CryptoError> {
-        self.as_bytes().encrypt(ctx, key)
-    }
-}
-
-impl<Ids: KeyIds> Encryptable<Ids, Ids::Asymmetric, AsymmetricEncString> for String {
-    fn encrypt(
-        &self,
-        ctx: &mut KeyStoreContext<Ids>,
-        key: Ids::Asymmetric,
-    ) -> Result<AsymmetricEncString, CryptoError> {
         self.as_bytes().encrypt(ctx, key)
     }
 }
@@ -164,44 +124,6 @@ mod tests {
         let store = test_store();
         let mut ctx = store.context();
         let key = TestSymmKey::A(0);
-
-        let string_data = "Hello, World!".to_string();
-        let str_data: &str = string_data.as_str();
-
-        let string_encrypted = string_data.encrypt(&mut ctx, key).unwrap();
-        let str_encrypted = str_data.encrypt(&mut ctx, key).unwrap();
-
-        let string_decrypted: String = string_encrypted.decrypt(&mut ctx, key).unwrap();
-        let str_decrypted: String = str_encrypted.decrypt(&mut ctx, key).unwrap();
-
-        assert_eq!(string_data, string_decrypted);
-        assert_eq!(str_data, str_decrypted);
-    }
-
-    #[test]
-    fn test_encryptable_bytes_asymmetric() {
-        let store = test_store();
-        let mut ctx = store.context();
-        let key = TestAsymmKey::A(0);
-
-        let vec_data = vec![1, 2, 3, 4, 5];
-        let slice_data: &[u8] = &vec_data;
-
-        let vec_encrypted = vec_data.encrypt(&mut ctx, key).unwrap();
-        let slice_encrypted = slice_data.encrypt(&mut ctx, key).unwrap();
-
-        let vec_decrypted: Vec<u8> = vec_encrypted.decrypt(&mut ctx, key).unwrap();
-        let slice_decrypted: Vec<u8> = slice_encrypted.decrypt(&mut ctx, key).unwrap();
-
-        assert_eq!(vec_data, vec_decrypted);
-        assert_eq!(slice_data, slice_decrypted);
-    }
-
-    #[test]
-    fn test_encryptable_string_asymmetric() {
-        let store = test_store();
-        let mut ctx = store.context();
-        let key = TestAsymmKey::A(0);
 
         let string_data = "Hello, World!".to_string();
         let str_data: &str = string_data.as_str();

@@ -412,7 +412,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         data: &[u8],
     ) -> Result<AsymmetricEncString> {
         let key = self.get_asymmetric_key(key)?;
-        AsymmetricEncString::encrypt_rsa2048_oaep_sha1(data, key)
+        AsymmetricEncString::encapsulate_key_unsigned(data, key)
     }
 }
 
