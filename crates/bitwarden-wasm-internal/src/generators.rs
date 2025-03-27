@@ -32,7 +32,7 @@ impl GeneratorClient {
     /// # Returns
     /// - `Ok(String)` containing the generated password
     /// - `Err(PasswordError)` if password generation fails
-    pub fn generate_password(
+    pub fn password(
         &self,
         request: PasswordGeneratorRequest,
     ) -> Result<String, bitwarden_generators::PasswordError> {
@@ -47,7 +47,7 @@ impl GeneratorClient {
     /// # Returns
     /// - `Ok(String)` containing the generated passphrase
     /// - `Err(PassphraseError)` if passphrase generation fails
-    pub fn generate_passphrase(
+    pub fn passphrase(
         &self,
         request: PassphraseGeneratorRequest,
     ) -> Result<String, bitwarden_generators::PassphraseError> {
