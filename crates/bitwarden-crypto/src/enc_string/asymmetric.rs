@@ -283,7 +283,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
     #[test]
     fn test_enc_string_rsa2048_oaep_sha1_hmac_sha256_b64() {
         let private_key = AsymmetricCryptoKey::from_pem(RSA_PRIVATE_KEY).unwrap();
-        let enc_str: &str = "4.KhZmkc7f2WYuZGm/xlKZOK4c5JSwd9JtJvmyk0R+ZCqbRnZi5XNJaqnMiJjiqeLztE97bHRGWyDPvhyIisr7jLi35vL/Znpg3QzSMEDNI7aAM2FwJbCzdUrFDa/h08edv816AL1hAOqtGmjpfRL1j+47hlAiF3/srFCeePHkj0+CmHpHN13BN1XkLKk58mETKh8ky/ZUW2s4NjZaZ/Wxh6I9sv28L+u1hekKxDOdNKBnmqsh8WRBOtmZm1ZM9WI6aPA5tXgp30vxWrc1AsZ5Ts0aVkm8UzPTWuU9d/O9ICAQkr1hX58qO6M5geP+NvaG3UGymw0zp6Hdgz239XYpKg==|AA==";
+        let enc_str: &str = "6.KhZmkc7f2WYuZGm/xlKZOK4c5JSwd9JtJvmyk0R+ZCqbRnZi5XNJaqnMiJjiqeLztE97bHRGWyDPvhyIisr7jLi35vL/Znpg3QzSMEDNI7aAM2FwJbCzdUrFDa/h08edv816AL1hAOqtGmjpfRL1j+47hlAiF3/srFCeePHkj0+CmHpHN13BN1XkLKk58mETKh8ky/ZUW2s4NjZaZ/Wxh6I9sv28L+u1hekKxDOdNKBnmqsh8WRBOtmZm1ZM9WI6aPA5tXgp30vxWrc1AsZ5Ts0aVkm8UzPTWuU9d/O9ICAQkr1hX58qO6M5geP+NvaG3UGymw0zp6Hdgz239XYpKg==|AA==";
         let enc_string: AsymmetricEncString = enc_str.parse().unwrap();
 
         let mut test_bytes = vec![0u8; 64];
