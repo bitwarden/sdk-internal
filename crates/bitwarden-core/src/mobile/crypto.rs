@@ -517,7 +517,7 @@ pub fn verify_asymmetric_keys(
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::{ContentFormat, RsaKeyPair};
+    use bitwarden_crypto::{ContentFormat, KeyEncryptable, RsaKeyPair};
 
     use super::*;
     use crate::Client;

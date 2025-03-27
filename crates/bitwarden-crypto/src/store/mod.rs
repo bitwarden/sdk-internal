@@ -304,7 +304,6 @@ fn batch_chunk_size(len: usize) -> usize {
 #[cfg(test)]
 pub(crate) mod tests {
     use crate::{
-        cose::ContentFormat,
         store::{KeyStore, KeyStoreContext},
         traits::tests::{TestIds, TestSymmKey},
         EncString, SymmetricCryptoKey,
@@ -330,19 +329,9 @@ pub(crate) mod tests {
             &self,
             ctx: &mut KeyStoreContext<TestIds>,
             key: TestSymmKey,
+            _content_format: crate::cose::ContentFormat,
         ) -> Result<Data, crate::CryptoError> {
-            Ok(Data(self.0.encrypt(ctx, key)?, key))
-        }
-    }
-
-    impl crate::Encryptable<TestIds, TestSymmKey, EncString> for DataView {
-        fn encrypt(
-            &self,
-            ctx: &mut KeyStoreContext<TestIds>,
-            key: TestSymmKey,
-            content_format: crate::cose::ContentFormat,
-        ) -> Result<EncString, crate::CryptoError> {
-            self.0.encrypt(ctx, key, content_format)
+            Ok(Data(self.0.encrypt(ctx, key, _content_format)?, key))
         }
     }
 

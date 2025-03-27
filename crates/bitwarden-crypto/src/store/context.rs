@@ -435,7 +435,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 mod tests {
     use crate::{
         cose::ContentFormat,
-        store::{tests::DataView, KeyStore},
+        store::{tests::{Data, DataView}, KeyStore},
         traits::tests::{TestIds, TestSymmKey},
         Decryptable, Encryptable, SymmetricCryptoKey,
     };
@@ -457,7 +457,7 @@ mod tests {
 
         // Encrypt some data with the key
         let data = DataView("Hello, World!".to_string(), key_a0_id);
-        let _encrypted = data
+        let _encrypted: Data = data
             .encrypt(&mut store.context(), key_a0_id, ContentFormat::DomainObject)
             .unwrap();
     }

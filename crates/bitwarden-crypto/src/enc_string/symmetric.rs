@@ -406,7 +406,7 @@ mod tests {
 
     use super::EncString;
     use crate::{
-        cose::ContentFormat, derive_symmetric_key, CryptoError, KeyDecryptable, SymmetricCryptoKey,
+        derive_symmetric_key, CryptoError, KeyDecryptable, SymmetricCryptoKey,
         TypedKeyEncryptable,
     };
 

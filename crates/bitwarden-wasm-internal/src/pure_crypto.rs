@@ -128,6 +128,7 @@ mod tests {
         let result = PureCrypto::symmetric_encrypt(
             DECRYPTED.as_bytes().to_vec(),
             KEY_B64.as_bytes().to_vec(),
+            ContentFormat::Utf8,
         );
         assert!(result.is_ok());
         // Cannot test encrypted string content because IV is unique per encryption
@@ -138,6 +139,7 @@ mod tests {
         let encrypted = PureCrypto::symmetric_encrypt(
             DECRYPTED.as_bytes().to_vec(),
             KEY_B64.as_bytes().to_vec(),
+            ContentFormat::Utf8,
         )
         .unwrap();
         let decrypted =
@@ -160,6 +162,7 @@ mod tests {
         let result = PureCrypto::symmetric_encrypt_to_array_buffer(
             DECRYPTED_BYTES.to_vec(),
             KEY_B64.as_bytes().to_vec(),
+            ContentFormat::Utf8,
         );
         assert!(result.is_ok());
         // Cannot test encrypted string content because IV is unique per encryption
@@ -170,6 +173,7 @@ mod tests {
         let encrypted = PureCrypto::symmetric_encrypt_to_array_buffer(
             DECRYPTED_BYTES.to_vec(),
             KEY_B64.as_bytes().to_vec(),
+            ContentFormat::Utf8,
         )
         .unwrap();
         let decrypted = PureCrypto::symmetric_decrypt_array_buffer(

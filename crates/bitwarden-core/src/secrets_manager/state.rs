@@ -1,6 +1,6 @@
 use std::{fmt::Debug, path::Path};
 
-use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable};
+use bitwarden_crypto::{EncString, KeyDecryptable, TypedKeyEncryptable};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::AccessToken;
