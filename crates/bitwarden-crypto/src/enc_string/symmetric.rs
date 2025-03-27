@@ -243,7 +243,8 @@ impl EncString {
         let mut protected_header = coset::HeaderBuilder::new();
         match content_format {
             ContentFormat::Utf8 => {
-                protected_header = protected_header.content_type("application/utf8-padded".to_string());
+                protected_header =
+                    protected_header.content_type("application/utf8-padded".to_string());
             }
             ContentFormat::Pkcs8 => {
                 protected_header = protected_header.content_format(CoapContentFormat::Pkcs8);
@@ -258,7 +259,7 @@ impl EncString {
             ContentFormat::DomainObject => unreachable!(),
         }
 
-        let mut data = data_dec.to_vec(); 
+        let mut data = data_dec.to_vec();
         if content_format != ContentFormat::Utf8 {
             // Pad the data to a block size in order to hide plaintext length
             pad_bytes(&mut data, Self::XCHACHA20_TEXT_PAD_BLOCK_SIZE);
@@ -359,7 +360,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                         if content_type == "application/utf8-padded" {
                             decrypted_message = unpad_bytes(&decrypted_message.as_slice()).to_vec();
                         } else {
-                            return Err(CryptoError::EncodingError)
+                            return Err(CryptoError::EncodingError);
                         }
                     }
                     _ => {}
