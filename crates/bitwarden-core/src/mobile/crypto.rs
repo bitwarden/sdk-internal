@@ -375,7 +375,7 @@ pub(super) fn enroll_admin_password_reset(
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(AsymmetricEncString::encapsulate_key_unsigned(
-        &key,
+        key,
         &public_key,
     )?)
 }

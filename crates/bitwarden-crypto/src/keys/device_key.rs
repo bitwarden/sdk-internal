@@ -35,7 +35,7 @@ impl DeviceKey {
         let device_private_key = AsymmetricCryptoKey::generate(&mut rng);
 
         let protected_user_key =
-            AsymmetricEncString::encapsulate_key_unsigned(&user_key, &device_private_key)?;
+            AsymmetricEncString::encapsulate_key_unsigned(user_key, &device_private_key)?;
 
         let protected_device_public_key = device_private_key
             .to_public_der()?
