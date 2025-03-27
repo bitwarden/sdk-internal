@@ -3,7 +3,7 @@ use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
-use bitwarden_crypto::{CryptoError, Decryptable, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{ContentFormat, CryptoError, Decryptable, Encryptable, KeyStoreContext};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -36,6 +36,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, SecureNote> for SecureNoteView {
         &self,
         _ctx: &mut KeyStoreContext<KeyIds>,
         _key: SymmetricKeyId,
+        _content_format: ContentFormat,
     ) -> Result<SecureNote, CryptoError> {
         Ok(SecureNote {
             r#type: self.r#type,

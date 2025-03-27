@@ -4,7 +4,7 @@ use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
-use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -185,24 +185,25 @@ impl Encryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2CredentialFul
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
+        _content_format: ContentFormat,
     ) -> Result<Fido2Credential, CryptoError> {
         Ok(Fido2Credential {
-            credential_id: self.credential_id.encrypt(ctx, key)?,
-            key_type: self.key_type.encrypt(ctx, key)?,
-            key_algorithm: self.key_algorithm.encrypt(ctx, key)?,
-            key_curve: self.key_curve.encrypt(ctx, key)?,
-            key_value: self.key_value.encrypt(ctx, key)?,
-            rp_id: self.rp_id.encrypt(ctx, key)?,
+            credential_id: self.credential_id.encrypt(ctx, key, ContentFormat::Utf8)?,
+            key_type: self.key_type.encrypt(ctx, key, ContentFormat::Utf8)?,
+            key_algorithm: self.key_algorithm.encrypt(ctx, key, ContentFormat::Utf8)?,
+            key_curve: self.key_curve.encrypt(ctx, key, ContentFormat::Utf8)?,
+            key_value: self.key_value.encrypt(ctx, key, ContentFormat::Utf8)?,
+            rp_id: self.rp_id.encrypt(ctx, key, ContentFormat::Utf8)?,
             user_handle: self
                 .user_handle
                 .as_ref()
-                .map(|h| h.encrypt(ctx, key))
+                .map(|h| h.encrypt(ctx, key, ContentFormat::Utf8))
                 .transpose()?,
-            user_name: self.user_name.encrypt(ctx, key)?,
-            counter: self.counter.encrypt(ctx, key)?,
-            rp_name: self.rp_name.encrypt(ctx, key)?,
-            user_display_name: self.user_display_name.encrypt(ctx, key)?,
-            discoverable: self.discoverable.encrypt(ctx, key)?,
+            user_name: self.user_name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            counter: self.counter.encrypt(ctx, key, ContentFormat::Utf8)?,
+            rp_name: self.rp_name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            user_display_name: self.user_display_name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            discoverable: self.discoverable.encrypt(ctx, key, ContentFormat::Utf8)?,
             creation_date: self.creation_date,
         })
     }
@@ -304,11 +305,12 @@ impl Encryptable<KeyIds, SymmetricKeyId, LoginUri> for LoginUriView {
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
+        _content_format: ContentFormat,
     ) -> Result<LoginUri, CryptoError> {
         Ok(LoginUri {
-            uri: self.uri.encrypt(ctx, key)?,
+            uri: self.uri.encrypt(ctx, key, ContentFormat::Utf8)?,
             r#match: self.r#match,
-            uri_checksum: self.uri_checksum.encrypt(ctx, key)?,
+            uri_checksum: self.uri_checksum.encrypt(ctx, key, ContentFormat::Utf8)?,
         })
     }
 }
@@ -318,13 +320,14 @@ impl Encryptable<KeyIds, SymmetricKeyId, Login> for LoginView {
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
+        _content_format: ContentFormat,
     ) -> Result<Login, CryptoError> {
         Ok(Login {
-            username: self.username.encrypt(ctx, key)?,
-            password: self.password.encrypt(ctx, key)?,
+            username: self.username.encrypt(ctx, key, ContentFormat::Utf8)?,
+            password: self.password.encrypt(ctx, key, ContentFormat::Utf8)?,
             password_revision_date: self.password_revision_date,
-            uris: self.uris.encrypt(ctx, key)?,
-            totp: self.totp.encrypt(ctx, key)?,
+            uris: self.uris.encrypt(ctx, key, ContentFormat::Utf8)?,
+            totp: self.totp.encrypt(ctx, key, ContentFormat::Utf8)?,
             autofill_on_page_load: self.autofill_on_page_load,
             fido2_credentials: self.fido2_credentials.clone(),
         })
@@ -388,28 +391,29 @@ impl Encryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2CredentialVie
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
+        content_format: ContentFormat,
     ) -> Result<Fido2Credential, CryptoError> {
         Ok(Fido2Credential {
-            credential_id: self.credential_id.encrypt(ctx, key)?,
-            key_type: self.key_type.encrypt(ctx, key)?,
-            key_algorithm: self.key_algorithm.encrypt(ctx, key)?,
-            key_curve: self.key_curve.encrypt(ctx, key)?,
+            credential_id: self.credential_id.encrypt(ctx, key, ContentFormat::Utf8)?,
+            key_type: self.key_type.encrypt(ctx, key, ContentFormat::Utf8)?,
+            key_algorithm: self.key_algorithm.encrypt(ctx, key, ContentFormat::Utf8)?,
+            key_curve: self.key_curve.encrypt(ctx, key, ContentFormat::Utf8)?,
             key_value: self.key_value.clone(),
-            rp_id: self.rp_id.encrypt(ctx, key)?,
+            rp_id: self.rp_id.encrypt(ctx, key, ContentFormat::Utf8)?,
             user_handle: self
                 .user_handle
                 .as_ref()
-                .map(|h| h.encrypt(ctx, key))
+                .map(|h| h.encrypt(ctx, key, ContentFormat::Utf8))
                 .transpose()?,
             user_name: self
                 .user_name
                 .as_ref()
-                .map(|n| n.encrypt(ctx, key))
+                .map(|n| n.encrypt(ctx, key, ContentFormat::Utf8))
                 .transpose()?,
-            counter: self.counter.encrypt(ctx, key)?,
-            rp_name: self.rp_name.encrypt(ctx, key)?,
-            user_display_name: self.user_display_name.encrypt(ctx, key)?,
-            discoverable: self.discoverable.encrypt(ctx, key)?,
+            counter: self.counter.encrypt(ctx, key, ContentFormat::Utf8)?,
+            rp_name: self.rp_name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            user_display_name: self.user_display_name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            discoverable: self.discoverable.encrypt(ctx, key, ContentFormat::Utf8)?,
             creation_date: self.creation_date,
         })
     }

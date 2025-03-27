@@ -92,6 +92,7 @@ mod store;
 pub use store::{KeyStore, KeyStoreContext};
 mod traits;
 mod cose;
+pub use cose::ContentFormat;
 mod xchacha20;
 pub use traits::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;

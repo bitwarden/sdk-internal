@@ -2,8 +2,7 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, SymmetricCryptoKey, UserKey,
+    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, SymmetricCryptoKey, TypedKeyEncryptable, UserKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -517,7 +516,7 @@ pub fn verify_asymmetric_keys(
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::RsaKeyPair;
+    use bitwarden_crypto::{ContentFormat, RsaKeyPair};
 
     use super::*;
     use crate::Client;
@@ -830,7 +829,7 @@ mod tests {
         let invalid_private_key = "bad_key"
             .to_string()
             .into_bytes()
-            .encrypt_with_key(&user_key.0)
+            .encrypt_with_key(&user_key.0, ContentFormat::Utf8)
             .unwrap();
 
         let request = VerifyAsymmetricKeysRequest {

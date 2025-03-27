@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    cose::{self, ContentFormat}, error::{CryptoError, EncStringParseError, Result, UnsupportedOperation}, Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key
+    cose::{self, ContentFormat}, error::{CryptoError, EncStringParseError, Result, UnsupportedOperation}, Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, TypedKeyEncryptable, XChaCha20Poly1305Key
 };
 
 #[cfg(feature = "wasm")]
@@ -238,8 +238,24 @@ impl EncString {
         key: &XChaCha20Poly1305Key,
         content_format: ContentFormat,
     ) -> Result<EncString> {
-        let mut protected_header = coset::HeaderBuilder::new()
-            .build();
+        let mut protected_header = coset::HeaderBuilder::new();
+        match content_format {
+            ContentFormat::Utf8 => {
+                protected_header = protected_header.content_format(CoapContentFormat::TextPlainUtf8);
+            },
+            ContentFormat::Pkcs8 => {
+                protected_header = protected_header.content_format(CoapContentFormat::Pkcs8);
+            },
+            ContentFormat::CoseKey => {
+                protected_header = protected_header.content_format(CoapContentFormat::CoseKey);
+            },
+            ContentFormat::OctetStream => {
+                protected_header = protected_header.content_format(CoapContentFormat::OctetStream);
+            },
+            ContentFormat::Unknown => todo!(),
+            ContentFormat::DomainObject => unreachable!(),
+        }
+        let mut protected_header = protected_header.build();
         protected_header.alg = Some(coset::Algorithm::PrivateUse(cose::XCHACHA20_POLY1305));
 
         let mut nonce = [0u8; 24];
@@ -278,12 +294,11 @@ impl EncString {
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey, content_format: ContentFormat) -> Result<EncString> {
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(inner_key) => {
-                let padded_data = pad_bytes(self, EncString::XCHACHA20_PAD_BLOCK_SIZE);
-                EncString::encrypt_xchacha20_poly1305(&padded_data, inner_key, CoapContentFormat::OctetStream)
+                EncString::encrypt_xchacha20_poly1305(self, inner_key, content_format)
             }
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperation::EncryptionNotImplementedForKey,
@@ -325,22 +340,22 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                         ).map_err(|_| CryptoError::EncodingError)
                     }
                 ).map_err(|_| CryptoError::EncodingError)?;
-                Ok(unpad_bytes(&decrypted_message)?.to_vec())
+                Ok(decrypted_message)
             }
             _ => Err(CryptoError::WrongKeyType),
         }
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, EncString> for String {
+impl TypedKeyEncryptable<SymmetricCryptoKey, EncString> for String {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        self.as_bytes().encrypt_with_key(key)
+        self.as_bytes().encrypt_with_key(key, ContentFormat::Utf8) 
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
+impl TypedKeyEncryptable<SymmetricCryptoKey, EncString> for &str {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        self.as_bytes().encrypt_with_key(key)
+        self.as_bytes().encrypt_with_key(key, ContentFormat::Utf8)
     }
 }
 
@@ -384,7 +399,7 @@ mod tests {
 
     use super::EncString;
     use crate::{
-        derive_symmetric_key, CryptoError, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+        cose::ContentFormat, derive_symmetric_key, CryptoError, KeyDecryptable, SymmetricCryptoKey, TypedKeyEncryptable,
     };
 
     #[test]

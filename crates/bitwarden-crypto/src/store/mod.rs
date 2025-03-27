@@ -26,7 +26,7 @@ use std::sync::{Arc, RwLock};
 
 use rayon::prelude::*;
 
-use crate::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
+use crate::{cose::ContentFormat, Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
 
 mod backend;
 mod context;
@@ -214,7 +214,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         data: Data,
     ) -> Result<Output, crate::CryptoError> {
         let key = data.key_identifier();
-        data.encrypt(&mut self.context(), key)
+        data.encrypt(&mut self.context(), key, ContentFormat::OctetStream)
     }
 
     /// Decrypt a list of items using this key store. The keys returned by
@@ -272,7 +272,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
 
                 for item in chunk {
                     let key = item.key_identifier();
-                    result.push(item.encrypt(&mut ctx, key));
+                    result.push(item.encrypt(&mut ctx, key, ContentFormat::DomainObject));
                     ctx.clear_local();
                 }
 
@@ -304,9 +304,7 @@ fn batch_chunk_size(len: usize) -> usize {
 #[cfg(test)]
 pub(crate) mod tests {
     use crate::{
-        store::{KeyStore, KeyStoreContext},
-        traits::tests::{TestIds, TestSymmKey},
-        EncString, SymmetricCryptoKey,
+        cose::ContentFormat, store::{KeyStore, KeyStoreContext}, traits::tests::{TestIds, TestSymmKey}, EncString, SymmetricCryptoKey
     };
 
     pub struct DataView(pub String, pub TestSymmKey);
@@ -331,6 +329,17 @@ pub(crate) mod tests {
             key: TestSymmKey,
         ) -> Result<Data, crate::CryptoError> {
             Ok(Data(self.0.encrypt(ctx, key)?, key))
+        }
+    }
+
+    impl crate::Encryptable<TestIds, TestSymmKey, EncString> for DataView {
+        fn encrypt(
+            &self,
+            ctx: &mut KeyStoreContext<TestIds>,
+            key: TestSymmKey,
+            content_format: crate::cose::ContentFormat,
+        ) -> Result<EncString, crate::CryptoError> {
+            self.0.encrypt(ctx, key, content_format)
         }
     }
 

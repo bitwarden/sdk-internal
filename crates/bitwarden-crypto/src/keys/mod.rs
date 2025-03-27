@@ -1,5 +1,5 @@
 mod key_encryptable;
-pub use key_encryptable::{CryptoKey, KeyContainer, KeyDecryptable, KeyEncryptable};
+pub use key_encryptable::{CryptoKey, KeyContainer, KeyDecryptable, KeyEncryptable, TypedKeyEncryptable};
 mod master_key;
 pub use master_key::{HashPurpose, MasterKey};
 mod shareable_key;
