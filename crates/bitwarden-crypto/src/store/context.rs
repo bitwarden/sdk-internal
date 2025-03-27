@@ -181,7 +181,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
     /// * `encrypted_key` - The key to decrypt
-    pub fn decapsulate_symmetric_key_unsigned(
+    pub fn decapsulate_key_unsigned(
         &mut self,
         decapsulation_key: Ids::Asymmetric,
         new_key_id: Ids::Symmetric,
@@ -205,7 +205,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// * `encapsulation_key` - The key id used to encrypt the `encapsulated_key`. It must already
     ///   exist in the context
     /// * `encapsulated_key` - The key id to encrypt. It must already exist in the context
-    pub fn encapsulate_symmetric_key_unsigned(
+    pub fn encapsulate_key_unsigned(
         &self,
         encapsulation_key: Ids::Asymmetric,
         encapsulated_key: Ids::Symmetric,
