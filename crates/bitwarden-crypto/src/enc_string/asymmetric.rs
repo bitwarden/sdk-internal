@@ -149,7 +149,8 @@ impl serde::Serialize for AsymmetricEncString {
 }
 
 impl AsymmetricEncString {
-    /// Encrypt and produce a [AsymmetricEncString::Rsa2048_OaepSha1_B64] variant.
+    /// Encapsulate a symmetric key, to be shared asymmetrically. Produces a [AsymmetricEncString::Rsa2048_OaepSha1_B64] variant.
+    /// Note, this does not sign the data and thus does not guarantee sender authenticity.
     pub fn encapsulate_key_unsigned(
         encapsulated_key: &SymmetricCryptoKey,
         encapsulation_key: &dyn AsymmetricEncryptable,
@@ -175,6 +176,8 @@ impl AsymmetricEncString {
 }
 
 impl AsymmetricEncString {
+    /// Decapsulate a symmetric key, shared asymmetrically. 
+    /// Note: The shared key does not have a sender signature and sender authenticity is not guaranteed.
     pub fn decapsulate_key_unsigned(
         &self,
         decapsulation_key: &AsymmetricCryptoKey,
