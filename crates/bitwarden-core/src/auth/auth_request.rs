@@ -54,9 +54,8 @@ pub(crate) fn auth_request_decrypt_user_key(
     user_key: AsymmetricEncString,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
     let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
-    let mut key: Vec<u8> = user_key.decapsulate_key_unsigned(&key)?;
-
-    Ok(SymmetricCryptoKey::try_from(key.as_mut_slice())?)
+    let key: SymmetricCryptoKey = user_key.decapsulate_key_unsigned(&key)?;
+    Ok(key)
 }
 
 /// Decrypt the user key using the private key generated previously.
@@ -69,8 +68,8 @@ pub(crate) fn auth_request_decrypt_master_key(
     use bitwarden_crypto::MasterKey;
 
     let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
-    let mut master_key: Vec<u8> = master_key.decapsulate_key_unsigned(&key)?;
-    let master_key = MasterKey::try_from(master_key.as_mut_slice())?;
+    let master_key: SymmetricCryptoKey = master_key.decapsulate_key_unsigned(&key)?;
+    let master_key = MasterKey::try_from(&master_key)?;
 
     Ok(master_key.decrypt_user_key(user_key)?)
 }
@@ -102,7 +101,7 @@ pub(crate) fn approve_auth_request(
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(AsymmetricEncString::encapsulate_key_unsigned(
-        &key.to_vec(),
+        &key,
         &public_key,
     )?)
 }
@@ -117,15 +116,16 @@ fn test_auth_request() {
         96, 31, 114, 127, 212, 187, 167, 110, 205, 116, 198, 243, 218, 72, 137, 53, 248, 43, 255,
         67, 35, 61, 245, 93,
     ];
+    let secret = secret.to_vec();
 
     let private_key =
         AsymmetricCryptoKey::from_der(&STANDARD.decode(&request.private_key).unwrap()).unwrap();
 
-    let encrypted = AsymmetricEncString::encapsulate_key_unsigned(secret, &private_key).unwrap();
+    let encrypted = AsymmetricEncString::encapsulate_key_unsigned(&SymmetricCryptoKey::try_from(secret.clone()).unwrap(), &private_key).unwrap();
 
     let decrypted = auth_request_decrypt_user_key(request.private_key, encrypted).unwrap();
 
-    assert_eq!(&decrypted.to_vec(), secret);
+    assert_eq!(decrypted.to_vec(), secret);
 }
 
 #[cfg(test)]
