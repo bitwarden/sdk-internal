@@ -435,7 +435,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 mod tests {
     use crate::{
         cose::ContentFormat,
-        store::{tests::{Data, DataView}, KeyStore},
+        store::{
+            tests::{Data, DataView},
+            KeyStore,
+        },
         traits::tests::{TestIds, TestSymmKey},
         Decryptable, Encryptable, SymmetricCryptoKey,
     };

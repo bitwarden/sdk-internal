@@ -1,7 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use coset::{iana::CoapContentFormat, CborSerializable};
+use coset::{iana::CoapContentFormat, CborSerializable, ContentType};
 use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
@@ -224,7 +224,7 @@ impl serde::Serialize for EncString {
 }
 
 impl EncString {
-    const XCHACHA20_PAD_BLOCK_SIZE: usize = 24;
+    const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 24;
 
     pub(crate) fn encrypt_aes256_hmac(
         data_dec: &[u8],
@@ -243,8 +243,7 @@ impl EncString {
         let mut protected_header = coset::HeaderBuilder::new();
         match content_format {
             ContentFormat::Utf8 => {
-                protected_header =
-                    protected_header.content_format(CoapContentFormat::TextPlainUtf8);
+                protected_header = protected_header.content_type("application/utf8-padded".to_string());
             }
             ContentFormat::Pkcs8 => {
                 protected_header = protected_header.content_format(CoapContentFormat::Pkcs8);
@@ -258,13 +257,20 @@ impl EncString {
             ContentFormat::Unknown => todo!(),
             ContentFormat::DomainObject => unreachable!(),
         }
+
+        let mut data = data_dec.to_vec(); 
+        if content_format != ContentFormat::Utf8 {
+            // Pad the data to a block size in order to hide plaintext length
+            pad_bytes(&mut data, Self::XCHACHA20_TEXT_PAD_BLOCK_SIZE);
+        }
+
         let mut protected_header = protected_header.build();
         protected_header.alg = Some(coset::Algorithm::PrivateUse(cose::XCHACHA20_POLY1305));
 
         let mut nonce = [0u8; 24];
         let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
             .protected(protected_header)
-            .try_create_ciphertext(data_dec, &[], |data, aad| {
+            .try_create_ciphertext(&data, &[], |data, aad| {
                 let ciphertext = crate::xchacha20::encrypt_xchacha20_poly1305(
                     key.enc_key
                         .as_slice()
@@ -332,7 +338,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 // parse cose
                 let msg = coset::CoseEncrypt0::from_slice(data.as_slice())
                     .map_err(|_| CryptoError::EncString(EncStringParseError::InvalidEncoding))?;
-                let decrypted_message = msg
+                let mut decrypted_message = msg
                     .decrypt(&[], |data, aad| {
                         let nonce = msg.protected.header.iv.as_slice();
                         crate::xchacha20::decrypt_xchacha20_poly1305(
@@ -347,6 +353,18 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                         .map_err(|_| CryptoError::EncodingError)
                     })
                     .map_err(|_| CryptoError::EncodingError)?;
+
+                match msg.protected.header.content_type {
+                    Some(ContentType::Text(content_type)) => {
+                        if content_type == "application/utf8-padded" {
+                            decrypted_message = unpad_bytes(&decrypted_message.as_slice()).to_vec();
+                        } else {
+                            return Err(CryptoError::EncodingError)
+                        }
+                    }
+                    _ => {}
+                }
+
                 Ok(decrypted_message)
             }
             _ => Err(CryptoError::WrongKeyType),
@@ -406,8 +424,7 @@ mod tests {
 
     use super::EncString;
     use crate::{
-        derive_symmetric_key, CryptoError, KeyDecryptable, SymmetricCryptoKey,
-        TypedKeyEncryptable,
+        derive_symmetric_key, CryptoError, KeyDecryptable, SymmetricCryptoKey, TypedKeyEncryptable,
     };
 
     #[test]
