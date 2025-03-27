@@ -120,7 +120,9 @@ impl std::fmt::Debug for AsymmetricCryptoKey {
 mod tests {
     use base64::{engine::general_purpose::STANDARD, Engine};
 
-    use crate::{AsymmetricCryptoKey, AsymmetricEncString, AsymmetricPublicCryptoKey, SymmetricCryptoKey};
+    use crate::{
+        AsymmetricCryptoKey, AsymmetricEncString, AsymmetricPublicCryptoKey, SymmetricCryptoKey,
+    };
 
     #[test]
     fn test_asymmetric_crypto_key() {

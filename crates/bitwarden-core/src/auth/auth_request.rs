@@ -121,7 +121,11 @@ fn test_auth_request() {
     let private_key =
         AsymmetricCryptoKey::from_der(&STANDARD.decode(&request.private_key).unwrap()).unwrap();
 
-    let encrypted = AsymmetricEncString::encapsulate_key_unsigned(&SymmetricCryptoKey::try_from(secret.clone()).unwrap(), &private_key).unwrap();
+    let encrypted = AsymmetricEncString::encapsulate_key_unsigned(
+        &SymmetricCryptoKey::try_from(secret.clone()).unwrap(),
+        &private_key,
+    )
+    .unwrap();
 
     let decrypted = auth_request_decrypt_user_key(request.private_key, encrypted).unwrap();
 

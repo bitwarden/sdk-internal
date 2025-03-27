@@ -154,7 +154,10 @@ impl AsymmetricEncString {
         encapsulated_key: &SymmetricCryptoKey,
         encapsulation_key: &dyn AsymmetricEncryptable,
     ) -> Result<AsymmetricEncString> {
-        let enc = encrypt_rsa2048_oaep_sha1(encapsulation_key.to_public_key(), &encapsulated_key.to_vec())?;
+        let enc = encrypt_rsa2048_oaep_sha1(
+            encapsulation_key.to_public_key(),
+            &encapsulated_key.to_vec(),
+        )?;
         Ok(AsymmetricEncString::Rsa2048_OaepSha1_B64 { data: enc })
     }
 
@@ -214,9 +217,8 @@ impl schemars::JsonSchema for AsymmetricEncString {
 mod tests {
     use schemars::schema_for;
 
-    use crate::SymmetricCryptoKey;
-
     use super::{AsymmetricCryptoKey, AsymmetricEncString};
+    use crate::SymmetricCryptoKey;
 
     const RSA_PRIVATE_KEY: &str = "-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCXRVrCX+2hfOQS

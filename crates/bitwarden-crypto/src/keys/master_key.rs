@@ -112,7 +112,9 @@ impl TryFrom<&SymmetricCryptoKey> for MasterKey {
 
     fn try_from(value: &SymmetricCryptoKey) -> Result<Self> {
         match value {
-            SymmetricCryptoKey::Aes256CbcKey(key) => Ok(Self::KdfKey(KdfDerivedKeyMaterial(key.enc_key.clone()))),
+            SymmetricCryptoKey::Aes256CbcKey(key) => {
+                Ok(Self::KdfKey(KdfDerivedKeyMaterial(key.enc_key.clone())))
+            }
             _ => Err(CryptoError::InvalidKey),
         }
     }

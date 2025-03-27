@@ -62,7 +62,8 @@ impl DeviceKey {
         let device_private_key: Vec<u8> = protected_device_private_key.decrypt_with_key(&self.0)?;
         let device_private_key = AsymmetricCryptoKey::from_der(&device_private_key)?;
 
-        let user_key: SymmetricCryptoKey = protected_user_key.decapsulate_key_unsigned(&device_private_key)?;
+        let user_key: SymmetricCryptoKey =
+            protected_user_key.decapsulate_key_unsigned(&device_private_key)?;
         Ok(user_key)
     }
 

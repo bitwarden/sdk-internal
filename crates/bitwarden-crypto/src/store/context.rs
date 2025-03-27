@@ -9,7 +9,7 @@ use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
     AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, KeyId, KeyIds, Result,
-    SymmetricCryptoKey
+    SymmetricCryptoKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -191,29 +191,29 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let decapsulated_key = encapsulated_key.decapsulate_key_unsigned(decapsulation_key)?;
 
         #[allow(deprecated)]
-        self.set_symmetric_key(
-            new_key_id,
-            decapsulated_key
-        )?;
+        self.set_symmetric_key(new_key_id, decapsulated_key)?;
 
         // Returning the new key identifier for convenience
         Ok(new_key_id)
     }
 
-    /// Encapsulate and return a symmetric key from the context by using an already existing asymmetric
-    /// key
+    /// Encapsulate and return a symmetric key from the context by using an already existing
+    /// asymmetric key
     ///
     /// # Arguments
     ///
-    /// * `encapsulation_key` - The key id used to encrypt the `encapsulated_key`. It must already exist
-    ///   in the context
+    /// * `encapsulation_key` - The key id used to encrypt the `encapsulated_key`. It must already
+    ///   exist in the context
     /// * `encapsulated_key` - The key id to encrypt. It must already exist in the context
     pub fn encapsulate_symmetric_key_unsigned(
         &self,
         encapsulation_key: Ids::Asymmetric,
         encapsulated_key: Ids::Symmetric,
     ) -> Result<AsymmetricEncString> {
-        AsymmetricEncString::encapsulate_key_unsigned(self.get_symmetric_key(encapsulated_key)?, self.get_asymmetric_key(encapsulation_key)?)
+        AsymmetricEncString::encapsulate_key_unsigned(
+            self.get_symmetric_key(encapsulated_key)?,
+            self.get_asymmetric_key(encapsulation_key)?,
+        )
     }
 
     /// Returns `true` if the context has a symmetric key with the given identifier
