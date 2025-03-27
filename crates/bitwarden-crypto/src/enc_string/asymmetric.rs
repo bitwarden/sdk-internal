@@ -212,12 +212,9 @@ impl schemars::JsonSchema for AsymmetricEncString {
 
 #[cfg(test)]
 mod tests {
-    use rsa::Oaep;
     use schemars::schema_for;
-    use sha1::Sha1;
-    use sha2::Sha256;
 
-    use crate::{AsymmetricEncryptable, SymmetricCryptoKey};
+    use crate::SymmetricCryptoKey;
 
     use super::{AsymmetricCryptoKey, AsymmetricEncString};
 
