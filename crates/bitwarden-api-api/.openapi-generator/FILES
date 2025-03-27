@@ -4,6 +4,7 @@ README.md
 src/apis/access_policies_api.rs
 src/apis/accounts_api.rs
 src/apis/accounts_billing_api.rs
+src/apis/accounts_key_management_api.rs
 src/apis/auth_requests_api.rs
 src/apis/ciphers_api.rs
 src/apis/collections_api.rs
@@ -19,9 +20,11 @@ src/apis/hibp_api.rs
 src/apis/import_ciphers_api.rs
 src/apis/info_api.rs
 src/apis/installations_api.rs
+src/apis/invoices_api.rs
 src/apis/licenses_api.rs
 src/apis/misc_api.rs
 src/apis/mod.rs
+src/apis/notifications_api.rs
 src/apis/organization_auth_requests_api.rs
 src/apis/organization_billing_api.rs
 src/apis/organization_connections_api.rs
@@ -62,6 +65,7 @@ src/models/access_token_create_request_model.rs
 src/models/access_token_creation_response_model.rs
 src/models/access_token_response_model.rs
 src/models/access_token_response_model_list_response_model.rs
+src/models/add_existing_organization_request_body.rs
 src/models/admin_auth_request_update_request_model.rs
 src/models/algorithm.rs
 src/models/api_key_response_model.rs
@@ -96,9 +100,11 @@ src/models/billing_subscription_upcoming_invoice.rs
 src/models/billing_transaction.rs
 src/models/bit_pay_invoice_request_model.rs
 src/models/bulk_collection_access_request_model.rs
+src/models/bulk_create_security_tasks_request_model.rs
 src/models/bulk_delete_response_model.rs
 src/models/bulk_delete_response_model_list_response_model.rs
 src/models/bulk_deny_admin_auth_request_request_model.rs
+src/models/cipher.rs
 src/models/cipher_attachment_model.rs
 src/models/cipher_bulk_delete_request_model.rs
 src/models/cipher_bulk_move_request_model.rs
@@ -121,6 +127,7 @@ src/models/cipher_mini_response_model.rs
 src/models/cipher_mini_response_model_list_response_model.rs
 src/models/cipher_partial_request_model.rs
 src/models/cipher_password_history_model.rs
+src/models/cipher_permissions_response_model.rs
 src/models/cipher_reprompt_type.rs
 src/models/cipher_request_model.rs
 src/models/cipher_response_model.rs
@@ -129,6 +136,7 @@ src/models/cipher_share_request_model.rs
 src/models/cipher_ssh_key_model.rs
 src/models/cipher_type.rs
 src/models/cipher_with_id_request_model.rs
+src/models/client_type.rs
 src/models/collection_access_details_response_model.rs
 src/models/collection_access_details_response_model_list_response_model.rs
 src/models/collection_bulk_delete_request_model.rs
@@ -141,12 +149,14 @@ src/models/collection_with_id_request_model.rs
 src/models/config_response_model.rs
 src/models/create_client_organization_request_body.rs
 src/models/credential_create_options.rs
+src/models/delete_attachment_response_data.rs
 src/models/delete_recover_request_model.rs
+src/models/device_auth_request_response_model.rs
+src/models/device_auth_request_response_model_list_response_model.rs
 src/models/device_keys_request_model.rs
 src/models/device_keys_update_request_model.rs
 src/models/device_request_model.rs
 src/models/device_response_model.rs
-src/models/device_response_model_list_response_model.rs
 src/models/device_token_request_model.rs
 src/models/device_type.rs
 src/models/device_verification_request_model.rs
@@ -192,8 +202,10 @@ src/models/group_details_response_model.rs
 src/models/group_details_response_model_list_response_model.rs
 src/models/group_request_model.rs
 src/models/group_response_model.rs
+src/models/group_response_model_list_response_model.rs
 src/models/import_ciphers_request_model.rs
 src/models/import_organization_ciphers_request_model.rs
+src/models/individual_password_manager_request_model.rs
 src/models/inner_project_export_response_model.rs
 src/models/inner_project_import_request_model.rs
 src/models/inner_secret_export_response_model.rs
@@ -205,6 +217,7 @@ src/models/kdf_request_model.rs
 src/models/kdf_type.rs
 src/models/key_model.rs
 src/models/key_pair_request_body.rs
+src/models/key_regeneration_request_model.rs
 src/models/keys_request_model.rs
 src/models/keys_response_model.rs
 src/models/license_type.rs
@@ -214,6 +227,8 @@ src/models/member_access_report_response_model.rs
 src/models/member_cipher_details_response_model.rs
 src/models/member_decryption_type.rs
 src/models/mod.rs
+src/models/notification_response_model.rs
+src/models/notification_response_model_list_response_model.rs
 src/models/open_id_connect_redirect_behavior.rs
 src/models/optional_cipher_details_response_model.rs
 src/models/organization_api_key_information.rs
@@ -237,6 +252,7 @@ src/models/organization_keys_request_model.rs
 src/models/organization_keys_response_model.rs
 src/models/organization_license.rs
 src/models/organization_no_payment_create_request.rs
+src/models/organization_password_manager_request_model.rs
 src/models/organization_public_key_response_model.rs
 src/models/organization_response_model.rs
 src/models/organization_seat_request_model.rs
@@ -286,6 +302,7 @@ src/models/password_request_model.rs
 src/models/payment_method_type.rs
 src/models/payment_request_model.rs
 src/models/payment_response_model.rs
+src/models/pending_auth_request.rs
 src/models/pending_organization_auth_request_response_model.rs
 src/models/pending_organization_auth_request_response_model_list_response_model.rs
 src/models/people_access_policies_request_model.rs
@@ -302,6 +319,9 @@ src/models/policy_type.rs
 src/models/potential_grantee_response_model.rs
 src/models/potential_grantee_response_model_list_response_model.rs
 src/models/pre_validate_sponsorship_response_model.rs
+src/models/preview_individual_invoice_request_body.rs
+src/models/preview_organization_invoice_request_body.rs
+src/models/priority.rs
 src/models/product_tier_type.rs
 src/models/profile_organization_response_model.rs
 src/models/profile_organization_response_model_list_response_model.rs
@@ -351,6 +371,8 @@ src/models/public_key_credential_type.rs
 src/models/push_device_request_model.rs
 src/models/push_registration_request_model.rs
 src/models/push_send_request_model.rs
+src/models/push_settings.rs
+src/models/push_technology_type.rs
 src/models/push_type.rs
 src/models/push_update_request_model.rs
 src/models/request_sm_access_request_model.rs
@@ -370,11 +392,13 @@ src/models/secret_verification_request_model.rs
 src/models/secret_with_projects_inner_project.rs
 src/models/secret_with_projects_list_response_model.rs
 src/models/secrets_manager_plan_features_response_model.rs
+src/models/secrets_manager_request_model.rs
 src/models/secrets_manager_subscribe_request_model.rs
 src/models/secrets_manager_subscription_update_request_model.rs
 src/models/secrets_sync_response_model.rs
 src/models/secrets_with_projects_inner_secret.rs
 src/models/secure_note_type.rs
+src/models/security_task_create_request.rs
 src/models/security_task_status.rs
 src/models/security_task_type.rs
 src/models/security_tasks_response_model.rs
@@ -405,6 +429,7 @@ src/models/service_account_secrets_details_response_model_list_response_model.rs
 src/models/service_account_update_request_model.rs
 src/models/set_key_connector_key_request_model.rs
 src/models/set_password_request_model.rs
+src/models/set_verify_devices_request_model.rs
 src/models/sm_export_response_model.rs
 src/models/sm_import_request_model.rs
 src/models/sso_configuration_data.rs
@@ -418,8 +443,7 @@ src/models/sync_response_model.rs
 src/models/tax_info_response_model.rs
 src/models/tax_info_update_request_model.rs
 src/models/tax_information_request_body.rs
-src/models/tax_rate_response_model.rs
-src/models/tax_rate_response_model_list_response_model.rs
+src/models/tax_information_request_model.rs
 src/models/tokenized_payment_source_request_body.rs
 src/models/transaction_type.rs
 src/models/two_factor_authenticator_disable_request_model.rs
@@ -437,6 +461,7 @@ src/models/two_factor_web_authn_delete_request_model.rs
 src/models/two_factor_web_authn_request_model.rs
 src/models/two_factor_web_authn_response_model.rs
 src/models/two_factor_yubi_key_response_model.rs
+src/models/unauthenticated_secret_verification_request_model.rs
 src/models/update_avatar_request_model.rs
 src/models/update_client_organization_request_body.rs
 src/models/update_devices_trust_request_model.rs
@@ -469,3 +494,4 @@ src/models/web_authn_login_credential_create_request_model.rs
 src/models/web_authn_login_credential_update_request_model.rs
 src/models/web_authn_login_rotate_key_request_model.rs
 src/models/web_authn_prf_status.rs
+src/models/web_push_auth_request_model.rs

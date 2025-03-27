@@ -26,6 +26,8 @@ pub struct ConfigResponseModel {
     pub environment: Option<Box<models::EnvironmentConfigResponseModel>>,
     #[serde(rename = "featureStates", skip_serializing_if = "Option::is_none")]
     pub feature_states: Option<std::collections::HashMap<String, serde_json::Value>>,
+    #[serde(rename = "push", skip_serializing_if = "Option::is_none")]
+    pub push: Option<Box<models::PushSettings>>,
     #[serde(rename = "settings", skip_serializing_if = "Option::is_none")]
     pub settings: Option<Box<models::ServerSettingsResponseModel>>,
 }
@@ -39,6 +41,7 @@ impl ConfigResponseModel {
             server: None,
             environment: None,
             feature_states: None,
+            push: None,
             settings: None,
         }
     }
