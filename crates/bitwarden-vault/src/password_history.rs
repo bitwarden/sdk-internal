@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::CipherPasswordHistoryModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext
+    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;

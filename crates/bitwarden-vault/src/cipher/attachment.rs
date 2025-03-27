@@ -1,6 +1,6 @@
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext
+    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -84,7 +84,9 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         // Because this is a new attachment, we have to generate a key for it, encrypt the contents
         // with it, and then encrypt the key with the cipher key
         let attachment_key = ctx.generate_symmetric_key(ATTACHMENT_KEY)?;
-        let encrypted_contents = self.contents.encrypt(ctx, attachment_key, ContentFormat::OctetStream)?;
+        let encrypted_contents =
+            self.contents
+                .encrypt(ctx, attachment_key, ContentFormat::OctetStream)?;
         attachment.key =
             Some(ctx.encrypt_symmetric_key_with_symmetric_key(ciphers_key, attachment_key)?);
 

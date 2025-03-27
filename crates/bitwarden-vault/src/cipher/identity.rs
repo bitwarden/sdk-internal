@@ -1,6 +1,8 @@
 use bitwarden_api_api::models::CipherIdentityModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-use bitwarden_crypto::{ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{
+    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -78,7 +80,9 @@ impl Encryptable<KeyIds, SymmetricKeyId, Identity> for IdentityView {
             phone: self.phone.encrypt(ctx, key, ContentFormat::Utf8)?,
             ssn: self.ssn.encrypt(ctx, key, ContentFormat::Utf8)?,
             username: self.username.encrypt(ctx, key, ContentFormat::Utf8)?,
-            passport_number: self.passport_number.encrypt(ctx, key, ContentFormat::Utf8)?,
+            passport_number: self
+                .passport_number
+                .encrypt(ctx, key, ContentFormat::Utf8)?,
             license_number: self.license_number.encrypt(ctx, key, ContentFormat::Utf8)?,
         })
     }

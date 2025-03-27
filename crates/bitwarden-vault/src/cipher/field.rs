@@ -3,7 +3,9 @@ use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
-use bitwarden_crypto::{ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{
+    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};

@@ -33,7 +33,8 @@ impl<T: KeyEncryptable<Key, Output>, Key: CryptoKey, Output> KeyEncryptable<Key,
     for Option<T>
 {
     fn encrypt_with_key(self, key: &Key, content_format: ContentFormat) -> Result<Option<Output>> {
-        self.map(|e| e.encrypt_with_key(key, content_format)).transpose()
+        self.map(|e| e.encrypt_with_key(key, content_format))
+            .transpose()
     }
 }
 
@@ -94,7 +95,11 @@ impl<
         Id: Hash + Eq + Send + Sync,
     > KeyEncryptable<Key, HashMap<Id, Output>> for HashMap<Id, T>
 {
-    fn encrypt_with_key(self, key: &Key, content_format: ContentFormat) -> Result<HashMap<Id, Output>> {
+    fn encrypt_with_key(
+        self,
+        key: &Key,
+        content_format: ContentFormat,
+    ) -> Result<HashMap<Id, Output>> {
         self.into_par_iter()
             .map(|(id, e)| Ok((id, e.encrypt_with_key(key, content_format)?)))
             .collect()

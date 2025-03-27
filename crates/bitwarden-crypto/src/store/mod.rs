@@ -304,7 +304,10 @@ fn batch_chunk_size(len: usize) -> usize {
 #[cfg(test)]
 pub(crate) mod tests {
     use crate::{
-        cose::ContentFormat, store::{KeyStore, KeyStoreContext}, traits::tests::{TestIds, TestSymmKey}, EncString, SymmetricCryptoKey
+        cose::ContentFormat,
+        store::{KeyStore, KeyStoreContext},
+        traits::tests::{TestIds, TestSymmKey},
+        EncString, SymmetricCryptoKey,
     };
 
     pub struct DataView(pub String, pub TestSymmKey);

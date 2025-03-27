@@ -40,8 +40,17 @@ pub(crate) async fn create_secret(
     let secret = {
         let mut ctx = key_store.context();
         Some(SecretCreateRequestModel {
-            key: input.key.clone().trim().encrypt(&mut ctx, key, ContentFormat::Utf8)?.to_string(),
-            value: input.value.clone().encrypt(&mut ctx, key, ContentFormat::Utf8)?.to_string(),
+            key: input
+                .key
+                .clone()
+                .trim()
+                .encrypt(&mut ctx, key, ContentFormat::Utf8)?
+                .to_string(),
+            value: input
+                .value
+                .clone()
+                .encrypt(&mut ctx, key, ContentFormat::Utf8)?
+                .to_string(),
             note: input
                 .note
                 .clone()

@@ -8,7 +8,8 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    generate_random_bytes, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext
+    generate_random_bytes, ContentFormat, CryptoError, Decryptable, EncString, Encryptable,
+    IdentifyKey, KeyStoreContext,
 };
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;

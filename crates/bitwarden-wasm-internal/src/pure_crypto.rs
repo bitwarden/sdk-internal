@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
 use bitwarden_crypto::{
-    ContentFormat, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, SymmetricCryptoKey
+    ContentFormat, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
+    SymmetricCryptoKey,
 };
 use wasm_bindgen::prelude::*;
 
@@ -38,7 +39,11 @@ impl PureCrypto {
         enc_string.decrypt_with_key(&key)
     }
 
-    pub fn symmetric_encrypt(plain: Vec<u8>, key_b64: Vec<u8>, content_format: ContentFormat) -> Result<String, CryptoError> {
+    pub fn symmetric_encrypt(
+        plain: Vec<u8>,
+        key_b64: Vec<u8>,
+        content_format: ContentFormat,
+    ) -> Result<String, CryptoError> {
         let key = SymmetricCryptoKey::try_from(key_b64)?;
         Ok(plain.encrypt_with_key(&key, content_format)?.to_string())
     }
@@ -46,7 +51,7 @@ impl PureCrypto {
     pub fn symmetric_encrypt_to_array_buffer(
         plain: Vec<u8>,
         key_b64: Vec<u8>,
-        content_format: ContentFormat
+        content_format: ContentFormat,
     ) -> Result<Vec<u8>, CryptoError> {
         let key = SymmetricCryptoKey::try_from(key_b64)?;
         plain.encrypt_with_key(&key, content_format)?.to_buffer()
@@ -60,7 +65,9 @@ impl PureCrypto {
     ) -> Result<Vec<u8>, CryptoError> {
         let masterkey = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
         let encrypted_userkey = EncString::from_str(&encrypted_userkey)?;
-        let result = masterkey.decrypt_user_key(encrypted_userkey).map_err(|_| CryptoError::InvalidKey)?;
+        let result = masterkey
+            .decrypt_user_key(encrypted_userkey)
+            .map_err(|_| CryptoError::InvalidKey)?;
         Ok(result.to_encoded())
     }
 
@@ -77,7 +84,11 @@ impl PureCrypto {
     }
 
     pub fn generate_userkey(use_xchacha20: bool) -> Result<Vec<u8>, CryptoError> {
-        let key = if !use_xchacha20 { SymmetricCryptoKey::generate() } else { SymmetricCryptoKey::generate_xchacha20() };
+        let key = if !use_xchacha20 {
+            SymmetricCryptoKey::generate()
+        } else {
+            SymmetricCryptoKey::generate_xchacha20()
+        };
         Ok(key.to_encoded())
     }
 }
@@ -106,22 +117,29 @@ mod tests {
     fn test_symmetric_decrypt() {
         let enc_string = EncString::from_str(ENCRYPTED).unwrap();
 
-        let result = PureCrypto::symmetric_decrypt(enc_string.to_string(), KEY_B64.as_bytes().to_vec());
+        let result =
+            PureCrypto::symmetric_decrypt(enc_string.to_string(), KEY_B64.as_bytes().to_vec());
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), DECRYPTED);
     }
 
     #[test]
     fn test_symmetric_encrypt() {
-        let result = PureCrypto::symmetric_encrypt(DECRYPTED.as_bytes().to_vec(), KEY_B64.as_bytes().to_vec());
+        let result = PureCrypto::symmetric_encrypt(
+            DECRYPTED.as_bytes().to_vec(),
+            KEY_B64.as_bytes().to_vec(),
+        );
         assert!(result.is_ok());
         // Cannot test encrypted string content because IV is unique per encryption
     }
 
     #[test]
     fn test_symmetric_round_trip() {
-        let encrypted =
-            PureCrypto::symmetric_encrypt(DECRYPTED.as_bytes().to_vec(), KEY_B64.as_bytes().to_vec()).unwrap();
+        let encrypted = PureCrypto::symmetric_encrypt(
+            DECRYPTED.as_bytes().to_vec(),
+            KEY_B64.as_bytes().to_vec(),
+        )
+        .unwrap();
         let decrypted =
             PureCrypto::symmetric_decrypt(encrypted.clone(), KEY_B64.as_bytes().to_vec()).unwrap();
         assert_eq!(decrypted, DECRYPTED);
@@ -154,9 +172,11 @@ mod tests {
             KEY_B64.as_bytes().to_vec(),
         )
         .unwrap();
-        let decrypted =
-            PureCrypto::symmetric_decrypt_array_buffer(encrypted.clone(), KEY_B64.as_bytes().to_vec())
-                .unwrap();
+        let decrypted = PureCrypto::symmetric_decrypt_array_buffer(
+            encrypted.clone(),
+            KEY_B64.as_bytes().to_vec(),
+        )
+        .unwrap();
         assert_eq!(decrypted, DECRYPTED_BYTES);
     }
 }

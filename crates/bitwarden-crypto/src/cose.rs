@@ -2,7 +2,6 @@
  * This file contains private-use constants for COSE encoded key types and algorithms.
  */
 use coset::iana;
-
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
@@ -19,6 +18,7 @@ pub enum ContentFormat {
     CoseKey,
     OctetStream,
     Unknown,
-    // This should never be serialized. It is used to indicate when we call an encrypt operation on a complex object that consists of multiple, individually encrypted fields
-    DomainObject
+    // This should never be serialized. It is used to indicate when we call an encrypt operation
+    // on a complex object that consists of multiple, individually encrypted fields
+    DomainObject,
 }

@@ -4,7 +4,7 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext
+    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;

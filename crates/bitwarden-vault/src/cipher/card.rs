@@ -1,6 +1,8 @@
 use bitwarden_api_api::models::CipherCardModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-use bitwarden_crypto::{ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{
+    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -55,7 +57,9 @@ impl Encryptable<KeyIds, SymmetricKeyId, Card> for CardView {
         _content_format: ContentFormat,
     ) -> Result<Card, CryptoError> {
         Ok(Card {
-            cardholder_name: self.cardholder_name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            cardholder_name: self
+                .cardholder_name
+                .encrypt(ctx, key, ContentFormat::Utf8)?,
             exp_month: self.exp_month.encrypt(ctx, key, ContentFormat::Utf8)?,
             exp_year: self.exp_year.encrypt(ctx, key, ContentFormat::Utf8)?,
             code: self.code.encrypt(ctx, key, ContentFormat::Utf8)?,

@@ -4,7 +4,9 @@ use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
-use bitwarden_crypto::{ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{
+    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext,
+};
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -202,7 +204,9 @@ impl Encryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2CredentialFul
             user_name: self.user_name.encrypt(ctx, key, ContentFormat::Utf8)?,
             counter: self.counter.encrypt(ctx, key, ContentFormat::Utf8)?,
             rp_name: self.rp_name.encrypt(ctx, key, ContentFormat::Utf8)?,
-            user_display_name: self.user_display_name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            user_display_name: self
+                .user_display_name
+                .encrypt(ctx, key, ContentFormat::Utf8)?,
             discoverable: self.discoverable.encrypt(ctx, key, ContentFormat::Utf8)?,
             creation_date: self.creation_date,
         })
@@ -391,7 +395,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2CredentialVie
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
-        content_format: ContentFormat,
+        _content_format: ContentFormat,
     ) -> Result<Fido2Credential, CryptoError> {
         Ok(Fido2Credential {
             credential_id: self.credential_id.encrypt(ctx, key, ContentFormat::Utf8)?,
@@ -412,7 +416,9 @@ impl Encryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2CredentialVie
                 .transpose()?,
             counter: self.counter.encrypt(ctx, key, ContentFormat::Utf8)?,
             rp_name: self.rp_name.encrypt(ctx, key, ContentFormat::Utf8)?,
-            user_display_name: self.user_display_name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            user_display_name: self
+                .user_display_name
+                .encrypt(ctx, key, ContentFormat::Utf8)?,
             discoverable: self.discoverable.encrypt(ctx, key, ContentFormat::Utf8)?,
             creation_date: self.creation_date,
         })
