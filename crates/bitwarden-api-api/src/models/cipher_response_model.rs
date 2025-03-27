@@ -67,6 +67,8 @@ pub struct CipherResponseModel {
     pub edit: Option<bool>,
     #[serde(rename = "viewPassword", skip_serializing_if = "Option::is_none")]
     pub view_password: Option<bool>,
+    #[serde(rename = "permissions", skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Box<models::CipherPermissionsResponseModel>>,
 }
 
 impl CipherResponseModel {
@@ -97,6 +99,7 @@ impl CipherResponseModel {
             favorite: None,
             edit: None,
             view_password: None,
+            permissions: None,
         }
     }
 }

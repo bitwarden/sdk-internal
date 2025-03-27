@@ -45,6 +45,11 @@ pub enum PushType {
     AuthRequest = 15,
     AuthRequestResponse = 16,
     SyncOrganizations = 17,
+    SyncOrganizationStatusChanged = 18,
+    SyncOrganizationCollectionSettingChanged = 19,
+    Notification = 20,
+    NotificationStatus = 21,
+    PendingSecurityTasks = 22,
 }
 
 impl std::fmt::Display for PushType {
@@ -68,6 +73,11 @@ impl std::fmt::Display for PushType {
             Self::AuthRequest => write!(f, "15"),
             Self::AuthRequestResponse => write!(f, "16"),
             Self::SyncOrganizations => write!(f, "17"),
+            Self::SyncOrganizationStatusChanged => write!(f, "18"),
+            Self::SyncOrganizationCollectionSettingChanged => write!(f, "19"),
+            Self::Notification => write!(f, "20"),
+            Self::NotificationStatus => write!(f, "21"),
+            Self::PendingSecurityTasks => write!(f, "22"),
         }
     }
 }
