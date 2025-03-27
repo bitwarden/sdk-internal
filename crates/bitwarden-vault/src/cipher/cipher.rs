@@ -13,6 +13,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
 use tsify_next::Tsify;
 use uuid::Uuid;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     attachment, card,
@@ -42,6 +43,7 @@ pub enum CipherError {
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, JsonSchema, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[wasm_bindgen]
 pub enum CipherType {
     Login = 1,
     SecureNote = 2,
@@ -53,6 +55,7 @@ pub enum CipherType {
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, JsonSchema, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[wasm_bindgen]
 pub enum CipherRepromptType {
     None = 0,
     Password = 1,
@@ -142,6 +145,7 @@ pub struct CipherView {
 #[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum CipherListViewType {
     Login(LoginListView),
     SecureNote,
@@ -153,6 +157,7 @@ pub enum CipherListViewType {
 #[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherListView {
     pub id: Option<Uuid>,
     pub organization_id: Option<Uuid>,

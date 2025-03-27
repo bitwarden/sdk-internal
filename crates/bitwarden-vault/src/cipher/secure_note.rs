@@ -7,12 +7,15 @@ use bitwarden_crypto::{CryptoError, Decryptable, Encryptable, KeyStoreContext};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use tsify_next::Tsify;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::VaultParseError;
 
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, JsonSchema)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[wasm_bindgen]
 pub enum SecureNoteType {
     Generic = 0,
 }
@@ -20,6 +23,7 @@ pub enum SecureNoteType {
 #[derive(Clone, Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SecureNote {
     r#type: SecureNoteType,
 }
@@ -27,6 +31,7 @@ pub struct SecureNote {
 #[derive(Clone, Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SecureNoteView {
     pub r#type: SecureNoteType,
 }
