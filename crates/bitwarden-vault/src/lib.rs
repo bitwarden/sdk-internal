@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
 #[cfg(feature = "uniffi")]

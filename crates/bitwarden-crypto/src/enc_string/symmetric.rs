@@ -260,7 +260,7 @@ impl EncString {
         }
 
         let mut data = data_dec.to_vec();
-        if content_format != ContentFormat::Utf8 {
+        if content_format == ContentFormat::Utf8 {
             // Pad the data to a block size in order to hide plaintext length
             pad_bytes(&mut data, Self::XCHACHA20_TEXT_PAD_BLOCK_SIZE);
         }
@@ -341,7 +341,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                     .map_err(|_| CryptoError::EncString(EncStringParseError::InvalidEncoding))?;
                 let mut decrypted_message = msg
                     .decrypt(&[], |data, aad| {
-                        let nonce = msg.protected.header.iv.as_slice();
+                        let nonce = msg.unprotected.iv.as_slice();
                         crate::xchacha20::decrypt_xchacha20_poly1305(
                             nonce.try_into().map_err(|_| CryptoError::EncodingError)?,
                             key.enc_key
@@ -355,15 +355,12 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                     })
                     .map_err(|_| CryptoError::EncodingError)?;
 
-                match msg.protected.header.content_type {
-                    Some(ContentType::Text(content_type)) => {
-                        if content_type == "application/utf8-padded" {
-                            decrypted_message = unpad_bytes(&decrypted_message.as_slice()).to_vec();
-                        } else {
-                            return Err(CryptoError::EncodingError);
-                        }
+                if let Some(ContentType::Text(content_type)) = msg.protected.header.content_type {
+                    if content_type == "application/utf8-padded" {
+                        decrypted_message = unpad_bytes(decrypted_message.as_slice()).to_vec();
+                    } else {
+                        return Err(CryptoError::EncodingError);
                     }
-                    _ => {}
                 }
 
                 Ok(decrypted_message)
@@ -421,12 +418,28 @@ fn unpad_bytes(bytes: &[u8]) -> &[u8] {
 
 #[cfg(test)]
 mod tests {
+    use generic_array::GenericArray;
     use schemars::schema_for;
 
     use super::EncString;
     use crate::{
         derive_symmetric_key, CryptoError, KeyDecryptable, SymmetricCryptoKey, TypedKeyEncryptable,
     };
+
+    #[test]
+    fn test_enc_roundtrip_xchacha20() {
+        let key_id = [0u8; 24];
+        let enc_key = [0u8; 32];
+        let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
+            key_id,
+            enc_key: Box::pin(*GenericArray::from_slice(enc_key.as_slice())),
+        });
+
+        let test_string = "encrypted_test_string";
+        let cipher = test_string.to_owned().encrypt_with_key(&key).unwrap();
+        let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
+        assert_eq!(decrypted_str, test_string);
+    }
 
     #[test]
     fn test_enc_string_roundtrip() {

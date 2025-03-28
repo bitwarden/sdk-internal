@@ -75,8 +75,8 @@ pub use context::KeyStoreContext;
 ///    }
 /// }
 /// impl Encryptable<Ids, SymmKeyId, EncString> for Data {
-///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
-///         self.0.encrypt(ctx, key)
+///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId, content_format: ContentFormat) -> Result<EncString, CryptoError> {
+///         self.0.encrypt(ctx, key, content_format)
 ///     }
 /// }
 ///
@@ -153,7 +153,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     ///   If you want to access the key material to encrypt it or derive a new key from it, we
     ///   provide functions for that:
     ///     - [KeyStoreContext::encrypt_symmetric_key_with_symmetric_key]
-    ///     - [KeyStoreContext::encrypt_symmetric_key_with_asymmetric_key]
+    ///     - [KeyStoreContext::encapsulate_key_unsigned]
     ///     - [KeyStoreContext::derive_shareable_key]
     pub fn context(&'_ self) -> KeyStoreContext<'_, Ids> {
         KeyStoreContext {

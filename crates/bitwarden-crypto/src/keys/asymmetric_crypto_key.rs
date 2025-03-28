@@ -120,7 +120,9 @@ impl std::fmt::Debug for AsymmetricCryptoKey {
 mod tests {
     use base64::{engine::general_purpose::STANDARD, Engine};
 
-    use crate::{AsymmetricCryptoKey, AsymmetricEncString, AsymmetricPublicCryptoKey};
+    use crate::{
+        AsymmetricCryptoKey, AsymmetricEncString, AsymmetricPublicCryptoKey, SymmetricCryptoKey,
+    };
 
     #[test]
     fn test_asymmetric_crypto_key() {
@@ -213,11 +215,11 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
         let public_key = AsymmetricPublicCryptoKey::from_der(&public_key).unwrap();
 
-        let plaintext = "Hello, world!".as_bytes();
+        let raw_key = SymmetricCryptoKey::generate();
         let encrypted =
-            AsymmetricEncString::encapsulate_key_unsigned(plaintext, &public_key).unwrap();
+            AsymmetricEncString::encapsulate_key_unsigned(&raw_key, &public_key).unwrap();
         let decrypted = encrypted.decapsulate_key_unsigned(&private_key).unwrap();
 
-        assert_eq!(plaintext, decrypted);
+        assert_eq!(raw_key, decrypted);
     }
 }
