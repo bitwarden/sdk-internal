@@ -1077,10 +1077,7 @@ mod tests {
             .unwrap();
         let new_attachment_key_dec: SymmetricCryptoKey = new_attachment_key_dec.try_into().unwrap();
 
-        assert_eq!(
-            new_attachment_key_dec.to_encoded().unwrap(),
-            attachment_key_val.to_encoded().unwrap()
-        );
+        assert_eq!(new_attachment_key_dec, attachment_key_val);
 
         let cred2: Fido2CredentialFullView = cipher
             .login
@@ -1151,10 +1148,7 @@ mod tests {
         #[allow(deprecated)]
         let cipher_key_val = ctx.dangerous_get_symmetric_key(cipher_key).unwrap();
 
-        assert_eq!(
-            new_cipher_key_dec.to_encoded().unwrap(),
-            cipher_key_val.to_encoded().unwrap()
-        );
+        assert_eq!(new_cipher_key_dec, *cipher_key_val);
 
         // Check that the attachment key hasn't changed
         assert_eq!(

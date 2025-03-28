@@ -34,11 +34,8 @@ impl DeviceKey {
 
         let device_private_key = AsymmetricCryptoKey::generate(&mut rng);
 
-        // Encrypt both the key and mac_key of the user key
-        let data = user_key.to_encoded();
-
         let protected_user_key =
-            AsymmetricEncString::encapsulate_key_unsigned(&data, &device_private_key)?;
+            AsymmetricEncString::encapsulate_key_unsigned(user_key, &device_private_key)?;
 
         let protected_device_public_key = device_private_key
             .to_public_der()?
@@ -65,9 +62,8 @@ impl DeviceKey {
         let device_private_key: Vec<u8> = protected_device_private_key.decrypt_with_key(&self.0)?;
         let device_private_key = AsymmetricCryptoKey::from_der(&device_private_key)?;
 
-        let dec: Vec<u8> = protected_user_key.decapsulate_key_unsigned(&device_private_key)?;
-        let user_key = SymmetricCryptoKey::try_from(dec)?;
-
+        let user_key: SymmetricCryptoKey =
+            protected_user_key.decapsulate_key_unsigned(&device_private_key)?;
         Ok(user_key)
     }
 

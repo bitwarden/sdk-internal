@@ -224,6 +224,10 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
     /// Note: This function takes the byte slice by mutable reference and will zero out all
     /// the data in it. This is to prevent the key from being left in memory.
     fn try_from(value: &mut [u8]) -> Result<Self, Self::Error> {
+        // Raw byte serialized keys are either 32, 64, or more bytes long. If they are 32/64, they
+        // are the raw serializations of the AES256-CBC, and AES256-CBC-HMAC keys. If they
+        // are longer, they are COSE keys. The COSE keys are padded to the minimum length of
+        // 65 bytes, when serialized to raw byte arrays.
         let result = if value.len() == Self::AES256_CBC_HMAC_KEY_LEN {
             let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
             let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
@@ -274,15 +278,13 @@ fn parse_cose_key(cose_key: &coset::CoseKey) -> Result<SymmetricCryptoKey, Crypt
             if key_bytes.len() == 32 {
                 let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
                 enc_key.copy_from_slice(key_bytes);
+                let key_id = cose_key
+                    .key_id
+                    .clone()
+                    .try_into()
+                    .map_err(|_| CryptoError::InvalidKey)?;
                 Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(
-                    XChaCha20Poly1305Key {
-                        enc_key,
-                        key_id: cose_key
-                            .key_id
-                            .clone()
-                            .try_into()
-                            .map_err(|_| CryptoError::InvalidKey)?,
-                    },
+                    XChaCha20Poly1305Key { enc_key, key_id },
                 ))
             } else {
                 Err(CryptoError::InvalidKey)
@@ -301,7 +303,9 @@ impl std::fmt::Debug for SymmetricCryptoKey {
     }
 }
 
-/// Pad a key to a minimum length using PKCS7-like padding
+/// Pad a key to a minimum length using PKCS7-like padding.
+/// The last N bytes of the padded bytes all have the value N.
+/// For example, padded to size 4, the value [0,0] becomes [0,0,2,2].
 fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
     // at least 1 byte of padding is required
     let pad_bytes = min_length.saturating_sub(key_bytes.len()).max(1);
@@ -347,7 +351,7 @@ mod tests {
     }
 
     #[test]
-    fn test_encode_decode_new_symmetric_crypto_key() {
+    fn test_encode_decode_old_symmetric_crypto_key() {
         let key = SymmetricCryptoKey::generate_internal(rand::thread_rng(), false);
         let encoded = key.to_encoded();
         let decoded = SymmetricCryptoKey::try_from(encoded).unwrap();
@@ -356,13 +360,22 @@ mod tests {
 
     #[test]
     fn test_decode_new_symmetric_crypto_key() {
-        let key_b64 = STANDARD.decode("AKNjYWxnZ0EyNTZDLUhiZWtYIAtsdVJIYcRrWMrV7M9RNH9pL0SWF8T9XwwJethAjVMJYmFrWCAnEUA5iKocRCHoq7rU3Tm7TbLWC+JXp1ywMCLjtLJvcw==").unwrap();
+        let key_b64 = STANDARD.decode("pQEEAlgYsfduEfedSKOr789AUhNKgVKXMAS2xUHlAzoAARFvBIQDBAUGIFggewlpLfp0GhDar/kSozu3KLaWShfwuiMAPrO+vrIG2m4B").unwrap();
         let key = SymmetricCryptoKey::try_from(key_b64).unwrap();
         match key {
-            SymmetricCryptoKey::Aes256CbcHmacKey(_) => (),
+            SymmetricCryptoKey::XChaCha20Poly1305Key(_) => (),
             _ => panic!("Invalid key type"),
         }
     }
+
+    #[test]
+    fn test_encode_xchacha20_poly1305_key() {
+        let key = SymmetricCryptoKey::generate_internal(rand::thread_rng(), true);
+        let key_vec = key.to_encoded();
+        let key_vec_utf8_lossy = String::from_utf8_lossy(&key_vec);
+        println!("key_vec: {:?}", key_vec_utf8_lossy);
+    }
+
     #[test]
     fn test_pad_unpad_key_63() {
         let original_key = vec![1u8; 63];
@@ -398,13 +411,5 @@ mod tests {
         assert_eq!(encoded_bytes, key_bytes);
         let unpadded_key = unpad_key(&key_bytes);
         assert_eq!(original_key, unpadded_key);
-    }
-
-    #[test]
-    fn test_encode_xchacha20_poly1305_key() {
-        let key = SymmetricCryptoKey::generate_internal(rand::thread_rng(), true);
-        let key_vec = key.to_encoded();
-        let key_vec_utf8_lossy = String::from_utf8_lossy(&key_vec);
-        println!("key_vec: {:?}", key_vec_utf8_lossy);
     }
 }

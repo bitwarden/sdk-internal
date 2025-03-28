@@ -9,7 +9,7 @@ use super::{from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result},
     rsa::encrypt_rsa2048_oaep_sha1,
-    AsymmetricCryptoKey, AsymmetricEncryptable,
+    AsymmetricCryptoKey, AsymmetricEncryptable, SymmetricCryptoKey,
 };
 // This module is a workaround to avoid deprecated warnings that come from the ZeroizeOnDrop
 // macro expansion
@@ -149,12 +149,17 @@ impl serde::Serialize for AsymmetricEncString {
 }
 
 impl AsymmetricEncString {
-    /// Encrypt and produce a [AsymmetricEncString::Rsa2048_OaepSha1_B64] variant.
+    /// Encapsulate a symmetric key, to be shared asymmetrically. Produces a
+    /// [AsymmetricEncString::Rsa2048_OaepSha1_B64] variant. Note, this does not sign the data
+    /// and thus does not guarantee sender authenticity.
     pub fn encapsulate_key_unsigned(
-        data_dec: &[u8],
+        encapsulated_key: &SymmetricCryptoKey,
         encapsulation_key: &dyn AsymmetricEncryptable,
     ) -> Result<AsymmetricEncString> {
-        let enc = encrypt_rsa2048_oaep_sha1(encapsulation_key.to_public_key(), data_dec)?;
+        let enc = encrypt_rsa2048_oaep_sha1(
+            encapsulation_key.to_public_key(),
+            &encapsulated_key.to_encoded(),
+        )?;
         Ok(AsymmetricEncString::Rsa2048_OaepSha1_B64 { data: enc })
     }
 
@@ -172,12 +177,15 @@ impl AsymmetricEncString {
 }
 
 impl AsymmetricEncString {
+    /// Decapsulate a symmetric key, shared asymmetrically.
+    /// Note: The shared key does not have a sender signature and sender authenticity is not
+    /// guaranteed.
     pub fn decapsulate_key_unsigned(
         &self,
         decapsulation_key: &AsymmetricCryptoKey,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<SymmetricCryptoKey> {
         use AsymmetricEncString::*;
-        match self {
+        let mut key_data = match self {
             Rsa2048_OaepSha256_B64 { data } => decapsulation_key
                 .key
                 .decrypt(Oaep::new::<sha2::Sha256>(), data),
@@ -193,7 +201,8 @@ impl AsymmetricEncString {
                 .key
                 .decrypt(Oaep::new::<sha1::Sha1>(), data),
         }
-        .map_err(|_| CryptoError::KeyDecrypt)
+        .map_err(|_| CryptoError::KeyDecrypt)?;
+        SymmetricCryptoKey::try_from(key_data.as_mut_slice())
     }
 }
 
@@ -214,6 +223,7 @@ mod tests {
     use schemars::schema_for;
 
     use super::{AsymmetricCryptoKey, AsymmetricEncString};
+    use crate::SymmetricCryptoKey;
 
     const RSA_PRIVATE_KEY: &str = "-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCXRVrCX+2hfOQS
@@ -246,38 +256,44 @@ XKZBokBGnjFnTnKcs7nv/O8=
 
     #[test]
     fn test_enc_string_rsa2048_oaep_sha256_b64() {
-        let private_key = AsymmetricCryptoKey::from_pem(RSA_PRIVATE_KEY).unwrap();
-        let enc_str: &str = "3.YFqzW9LL/uLjCnl0RRLtndzGJ1FV27mcwQwGjfJPOVrgCX9nJSUYCCDd0iTIyOZ/zRxG47b6L1Z3qgkEfcxjmrSBq60gijc3E2TBMAg7OCLVcjORZ+i1sOVOudmOPWro6uA8refMrg4lqbieDlbLMzjVEwxfi5WpcL876cD0vYyRwvLO3bzFrsE7x33HHHtZeOPW79RqMn5efsB5Dj9wVheC9Ix9AYDjbo+rjg9qR6guwKmS7k2MSaIQlrDR7yu8LP+ePtiSjx+gszJV5jQGfcx60dtiLQzLS/mUD+RmU7B950Bpx0H7x56lT5yXZbWK5YkoP6qd8B8D2aKbP68Ywg==";
+        let key_pair = AsymmetricCryptoKey::from_pem(RSA_PRIVATE_KEY).unwrap();
+        let enc_str: &str = "3.BfwZTwBYbU5WQ5X7Vm8yl0hYmHTRdkVACCRZYcqhcjicoaPVDEP03CIRmtnppu0aXOppoQzhw5S2OKTUaqoOGKZg7+PrmVEhjiUFfVAptInBD6XGHZ0Z3u3F+JY1E3xIFebOFiX7KLQ+7D0bJhBEnl8P7phmanKF3Cil5ayDGRpAjAsBHMwlNRKXy05YpYs3/x+V+zjlxVrBU9gYFCpacKUbxT51I8tf21ISqo6H9ZBwqDE2QUPhYJl5op7SJgySdd3YCKnsObXa8fFj2OwxGLAXJAyvF6qZyl08RO/ZYUOOOPlbC7ywXxAISw3qmrwxqpLSBqAm9BYPa/zxBnTHrA==";
         let enc_string: AsymmetricEncString = enc_str.parse().unwrap();
 
+        let mut test_key = vec![0u8; 64];
+        let test_key = SymmetricCryptoKey::try_from(test_key.as_mut_slice()).unwrap();
         assert_eq!(enc_string.enc_type(), 3);
 
-        let res = enc_string.decapsulate_key_unsigned(&private_key).unwrap();
-        assert_eq!(res, "EncryptMe!".as_bytes());
+        let res = enc_string.decapsulate_key_unsigned(&key_pair).unwrap();
+        assert_eq!(res, test_key);
     }
 
     #[test]
     fn test_enc_string_rsa2048_oaep_sha1_b64() {
         let private_key = AsymmetricCryptoKey::from_pem(RSA_PRIVATE_KEY).unwrap();
-        let enc_str: &str = "4.ZheRb3PCfAunyFdQYPfyrFqpuvmln9H9w5nDjt88i5A7ug1XE0LJdQHCIYJl0YOZ1gCOGkhFu/CRY2StiLmT3iRKrrVBbC1+qRMjNNyDvRcFi91LWsmRXhONVSPjywzrJJXglsztDqGkLO93dKXNhuKpcmtBLsvgkphk/aFvxbaOvJ/FHdK/iV0dMGNhc/9tbys8laTdwBlI5xIChpRcrfH+XpSFM88+Bu03uK67N9G6eU1UmET+pISJwJvMuIDMqH+qkT7OOzgL3t6I0H2LDj+CnsumnQmDsvQzDiNfTR0IgjpoE9YH2LvPXVP2wVUkiTwXD9cG/E7XeoiduHyHjw==";
+        let enc_str: &str = "4.KhZmkc7f2WYuZGm/xlKZOK4c5JSwd9JtJvmyk0R+ZCqbRnZi5XNJaqnMiJjiqeLztE97bHRGWyDPvhyIisr7jLi35vL/Znpg3QzSMEDNI7aAM2FwJbCzdUrFDa/h08edv816AL1hAOqtGmjpfRL1j+47hlAiF3/srFCeePHkj0+CmHpHN13BN1XkLKk58mETKh8ky/ZUW2s4NjZaZ/Wxh6I9sv28L+u1hekKxDOdNKBnmqsh8WRBOtmZm1ZM9WI6aPA5tXgp30vxWrc1AsZ5Ts0aVkm8UzPTWuU9d/O9ICAQkr1hX58qO6M5geP+NvaG3UGymw0zp6Hdgz239XYpKg==";
         let enc_string: AsymmetricEncString = enc_str.parse().unwrap();
 
+        let mut test_bytes = vec![0u8; 64];
+        let test_key = SymmetricCryptoKey::try_from(test_bytes.as_mut_slice()).unwrap();
         assert_eq!(enc_string.enc_type(), 4);
 
         let res = enc_string.decapsulate_key_unsigned(&private_key).unwrap();
-        assert_eq!(res, "EncryptMe!".as_bytes());
+        assert_eq!(res, test_key);
     }
 
     #[test]
     fn test_enc_string_rsa2048_oaep_sha1_hmac_sha256_b64() {
         let private_key = AsymmetricCryptoKey::from_pem(RSA_PRIVATE_KEY).unwrap();
-        let enc_str: &str = "6.ThnNc67nNr7GELyuhGGfsXNP2zJnNqhrIsjntEQ27r2qmn8vwdHbTbfO0cwt6YgSibDN0PjiCZ1O3Wb/IFq+vwvyRwFqF9145wBF8CQCbkhV+M0XvO99kh0daovtt120Nve/5ETI5PbPag9VdalKRQWZypJaqQHm5TAQVf4F5wtLlCLMBkzqTk+wkFe7BPMTGn07T+O3eJbTxXvyMZewQ7icJF0MZVA7VyWX9qElmZ89FCKowbf1BMr5pbcQ+0KdXcSVW3to43VkTp7k7COwsuH3M/i1AuVP5YN8ixjyRpvaeGqX/ap2nCHK2Wj5VxgCGT7XEls6ZknnAp9nB9qVjQ==|s3ntw5H/KKD/qsS0lUghTHl5Sm9j6m7YEdNHf0OeAFQ=";
+        let enc_str: &str = "6.KhZmkc7f2WYuZGm/xlKZOK4c5JSwd9JtJvmyk0R+ZCqbRnZi5XNJaqnMiJjiqeLztE97bHRGWyDPvhyIisr7jLi35vL/Znpg3QzSMEDNI7aAM2FwJbCzdUrFDa/h08edv816AL1hAOqtGmjpfRL1j+47hlAiF3/srFCeePHkj0+CmHpHN13BN1XkLKk58mETKh8ky/ZUW2s4NjZaZ/Wxh6I9sv28L+u1hekKxDOdNKBnmqsh8WRBOtmZm1ZM9WI6aPA5tXgp30vxWrc1AsZ5Ts0aVkm8UzPTWuU9d/O9ICAQkr1hX58qO6M5geP+NvaG3UGymw0zp6Hdgz239XYpKg==|AA==";
         let enc_string: AsymmetricEncString = enc_str.parse().unwrap();
 
+        let mut test_bytes = vec![0u8; 64];
+        let test_key = SymmetricCryptoKey::try_from(test_bytes.as_mut_slice()).unwrap();
         assert_eq!(enc_string.enc_type(), 6);
 
         let res = enc_string.decapsulate_key_unsigned(&private_key).unwrap();
-        assert_eq!(res, "EncryptMe!".as_bytes());
+        assert_eq!(res, test_key);
     }
 
     #[test]
