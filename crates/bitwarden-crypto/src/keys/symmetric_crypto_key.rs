@@ -95,7 +95,7 @@ impl SymmetricCryptoKey {
         let mut rng = rand::thread_rng();
         Self::generate_internal(&mut rng, false)
     }
-    
+
     /**
      * Generate a new random XChaCha20Poly1305 [SymmetricCryptoKey]
      */
@@ -106,7 +106,8 @@ impl SymmetricCryptoKey {
 
     /// Generate a new random [SymmetricCryptoKey]
     /// @param rng: A random number generator
-    /// @param xchacha: If true, generate an XChaCha20Poly1305 key, otherwise generate an AES256_CBC_HMAC key
+    /// @param xchacha: If true, generate an XChaCha20Poly1305 key, otherwise generate an
+    /// AES256_CBC_HMAC key
     pub(crate) fn generate_internal(mut rng: impl rand::RngCore, xchacha20: bool) -> Self {
         if !xchacha20 {
             let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
@@ -119,14 +120,17 @@ impl SymmetricCryptoKey {
         } else {
             let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
             rng.fill(enc_key.as_mut_slice());
-            SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key { enc_key, key_id: *KeyId::generate().as_bytes() })
+            SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
+                enc_key,
+                key_id: *KeyId::generate().as_bytes(),
+            })
         }
     }
 
     /**
-     * Encodes the key to a byte array representation. This can be used for storage and transmission
-     * in the old byte array format. When the wrapping key is a COSE key, then COSE MUST be used to encode
-     * the key.
+     * Encodes the key to a byte array representation. This can be used for storage and
+     * transmission in the old byte array format. When the wrapping key is a COSE key, then
+     * COSE MUST be used to encode the key.
      */
     pub fn to_encoded(&self) -> Vec<u8> {
         let mut encoded_key = self.to_encoded_raw();
@@ -159,8 +163,13 @@ impl SymmetricCryptoKey {
                     .add_key_op(iana::KeyOperation::WrapKey)
                     .add_key_op(iana::KeyOperation::UnwrapKey)
                     .build();
-                cose_key.alg = Some(RegisteredLabelWithPrivate::PrivateUse(cose::XCHACHA20_POLY1305));
-                cose_key.to_vec().map_err(|_| CryptoError::InvalidKey).expect("Failed to encode key")
+                cose_key.alg = Some(RegisteredLabelWithPrivate::PrivateUse(
+                    cose::XCHACHA20_POLY1305,
+                ));
+                cose_key
+                    .to_vec()
+                    .map_err(|_| CryptoError::InvalidKey)
+                    .expect("Failed to encode key")
             }
         }
     }
@@ -234,8 +243,8 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
             Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey { enc_key }))
         } else if value.len() > Self::AES256_CBC_HMAC_KEY_LEN {
             let unpadded_value = unpad_key(value);
-            let cose_key = coset::CoseKey::from_slice(unpadded_value)
-                .map_err(|_| CryptoError::InvalidKey)?;
+            let cose_key =
+                coset::CoseKey::from_slice(unpadded_value).map_err(|_| CryptoError::InvalidKey)?;
             parse_cose_key(&cose_key)
         } else {
             Err(CryptoError::InvalidKeyLen)
@@ -247,20 +256,34 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
 }
 
 fn parse_cose_key(cose_key: &coset::CoseKey) -> Result<SymmetricCryptoKey, CryptoError> {
-    let key_bytes = cose_key.params.iter().find_map(|(label, value)| {
-        if let (Label::Int(cose::SYMMETRIC_KEY), ciborium::Value::Bytes(bytes)) = (label, value) {
-            Some(bytes)
-        } else {
-            None
-        }
-    }).ok_or(CryptoError::InvalidKey)?;
+    let key_bytes = cose_key
+        .params
+        .iter()
+        .find_map(|(label, value)| {
+            const SYMMETRIC_KEY: i64 = iana::SymmetricKeyParameter::K as i64;
+            if let (Label::Int(SYMMETRIC_KEY), ciborium::Value::Bytes(bytes)) = (label, value) {
+                Some(bytes)
+            } else {
+                None
+            }
+        })
+        .ok_or(CryptoError::InvalidKey)?;
 
     match cose_key.alg.clone().ok_or(CryptoError::InvalidKey)? {
         coset::RegisteredLabelWithPrivate::PrivateUse(cose::XCHACHA20_POLY1305) => {
             if key_bytes.len() == 32 {
                 let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
                 enc_key.copy_from_slice(key_bytes);
-                Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key { enc_key, key_id: cose_key.key_id.clone().try_into().map_err(|_| CryptoError::InvalidKey)? }))
+                Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(
+                    XChaCha20Poly1305Key {
+                        enc_key,
+                        key_id: cose_key
+                            .key_id
+                            .clone()
+                            .try_into()
+                            .map_err(|_| CryptoError::InvalidKey)?,
+                    },
+                ))
             } else {
                 Err(CryptoError::InvalidKey)
             }

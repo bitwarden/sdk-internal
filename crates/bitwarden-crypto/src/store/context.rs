@@ -8,9 +8,9 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, error::UnsupportedOperation,
-    store::backend::StoreBackend, AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString,
-    KeyId, KeyIds, Result, SymmetricCryptoKey,
+    derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
+    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, KeyId, KeyIds, Result,
+    SymmetricCryptoKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -171,26 +171,31 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ) -> Result<EncString> {
         let wrapping_key = self.get_symmetric_key(encryption_key)?;
         match wrapping_key {
-            // These keys wrap directly by encrypting the key bytes of the inner key, with padding applied in case it is needed
+            // These keys wrap directly by encrypting the key bytes of the inner key, with padding
+            // applied in case it is needed
             SymmetricCryptoKey::Aes256CbcKey(_) | SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
                 let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
                 self.encrypt_data_with_symmetric_key(encryption_key, &key_to_encrypt.to_encoded())
             }
-            // These keys wrap using CBOR. The content type needs to indicate what the format of the inner key is
+            // These keys wrap using CBOR. The content type needs to indicate what the format of the
+            // inner key is
             SymmetricCryptoKey::XChaCha20Poly1305Key(k) => {
-               let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?; 
-               match key_to_encrypt {
-                    SymmetricCryptoKey::Aes256CbcKey(_) | SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
+                let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
+                match key_to_encrypt {
+                    SymmetricCryptoKey::Aes256CbcKey(_)
+                    | SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
                         let encoded_key = key_to_encrypt.to_encoded_raw();
-                        let encrypted = EncString::encrypt_xchacha20_poly1305(encoded_key.as_slice(), k, coset::iana::CoapContentFormat::OctetStream);
+                        let encrypted =
+                            EncString::encrypt_xchacha20_poly1305(encoded_key.as_slice(), k);
                         encrypted
                     }
                     SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
                         let cose_encoded_key = key_to_encrypt.to_encoded_raw();
-                        let encrypted = EncString::encrypt_xchacha20_poly1305(cose_encoded_key.as_slice(), k, coset::iana::CoapContentFormat::CoseKey);
+                        let encrypted =
+                            EncString::encrypt_xchacha20_poly1305(cose_encoded_key.as_slice(), k);
                         encrypted
                     }
-               }
+                }
             }
         }
     }
@@ -375,11 +380,9 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 UnsupportedOperation::EncryptionNotImplementedForKey,
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => EncString::encrypt_xchacha20_poly1305(
-                data,
-                key,
-                coset::iana::CoapContentFormat::OctetStream,
-            ),
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
+                EncString::encrypt_xchacha20_poly1305(data, key)
+            }
         }
     }
 

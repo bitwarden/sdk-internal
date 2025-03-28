@@ -1,12 +1,14 @@
 use std::{fmt::Display, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use coset::{iana::CoapContentFormat, CborSerializable};
+use coset::CborSerializable;
 use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    cose::{self, ContentFormat}, error::{CryptoError, EncStringParseError, Result, UnsupportedOperation}, Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key
+    cose,
+    error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
+    Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key,
 };
 
 #[cfg(feature = "wasm")]
@@ -51,7 +53,10 @@ export type EncString = string;
 #[allow(unused, non_camel_case_types)]
 pub enum EncString {
     /// 0
-    AesCbc256_B64 { iv: [u8; 16], data: Vec<u8> },
+    AesCbc256_B64 {
+        iv: [u8; 16],
+        data: Vec<u8>,
+    },
     /// 1 was the now removed `AesCbc128_HmacSha256_B64`.
     /// 2
     AesCbc256_HmacSha256_B64 {
@@ -134,9 +139,9 @@ impl EncString {
 
                 Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
             }
-            7 => {
-                Ok(EncString::XChaCha20_Poly1305_Cose_B64 { data: buf[1..].to_vec() })
-            }
+            7 => Ok(EncString::XChaCha20_Poly1305_Cose_B64 {
+                data: buf[1..].to_vec(),
+            }),
             _ => Err(EncStringParseError::InvalidTypeSymm {
                 enc_type: enc_type.to_string(),
                 parts: 1,
@@ -162,9 +167,7 @@ impl EncString {
                 buf.extend_from_slice(mac);
                 buf.extend_from_slice(data);
             }
-            EncString::XChaCha20_Poly1305_Cose_B64 {
-                data,
-            } => {
+            EncString::XChaCha20_Poly1305_Cose_B64 { data } => {
                 buf = Vec::with_capacity(1 + data.len());
                 buf.push(self.enc_type());
                 buf.extend_from_slice(data);
@@ -192,9 +195,7 @@ impl Display for EncString {
 
                 Ok(())
             }
-            EncString::XChaCha20_Poly1305_Cose_B64 {
-                data,
-            } => {
+            EncString::XChaCha20_Poly1305_Cose_B64 { data } => {
                 write!(f, "{}.{}", self.enc_type(), STANDARD.encode(data))?;
 
                 Ok(())
@@ -222,8 +223,6 @@ impl serde::Serialize for EncString {
 }
 
 impl EncString {
-    const XCHACHA20_PAD_BLOCK_SIZE: usize = 24;
-
     pub(crate) fn encrypt_aes256_hmac(
         data_dec: &[u8],
         key: &Aes256CbcHmacKey,
@@ -236,10 +235,8 @@ impl EncString {
     pub(crate) fn encrypt_xchacha20_poly1305(
         data_dec: &[u8],
         key: &XChaCha20Poly1305Key,
-        content_format: ContentFormat,
     ) -> Result<EncString> {
-        let mut protected_header = coset::HeaderBuilder::new()
-            .build();
+        let mut protected_header = coset::HeaderBuilder::new().build();
         protected_header.alg = Some(coset::Algorithm::PrivateUse(cose::XCHACHA20_POLY1305));
 
         let mut nonce = [0u8; 24];
@@ -256,14 +253,15 @@ impl EncString {
                 );
                 nonce.copy_from_slice(ciphertext.nonce.as_slice());
                 Ok(ciphertext.ciphertext)
-            }).map_err(|_a: CryptoError| CryptoError::EncodingError)?
-            .unprotected(coset::HeaderBuilder::new()
-                .iv(nonce.to_vec())
-                .build())
+            })
+            .map_err(|_a: CryptoError| CryptoError::EncodingError)?
+            .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
             .build();
 
         Ok(EncString::XChaCha20_Poly1305_Cose_B64 {
-            data: cose_encrypt0.to_vec().map_err(|_| CryptoError::EncodingError)?,
+            data: cose_encrypt0
+                .to_vec()
+                .map_err(|_| CryptoError::EncodingError)?,
         })
     }
 
@@ -282,8 +280,7 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(inner_key) => {
-                let padded_data = pad_bytes(self, EncString::XCHACHA20_PAD_BLOCK_SIZE);
-                EncString::encrypt_xchacha20_poly1305(&padded_data, inner_key, CoapContentFormat::OctetStream)
+                EncString::encrypt_xchacha20_poly1305(self, inner_key)
             }
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperation::EncryptionNotImplementedForKey,
@@ -303,29 +300,27 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
             (
-                EncString::XChaCha20_Poly1305_Cose_B64 {
-                    data,
-                },
+                EncString::XChaCha20_Poly1305_Cose_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                // parse cose
-                let msg = coset::CoseEncrypt0::from_slice(data.as_slice()).map_err(|_| {
-                    CryptoError::EncString(EncStringParseError::InvalidEncoding)
-                })?;
-                let decrypted_message = msg.decrypt(&[], |data, aad| {
-                        let nonce = msg.protected.header.iv.as_slice();
+                let msg = coset::CoseEncrypt0::from_slice(data.as_slice())
+                    .map_err(|_| CryptoError::EncString(EncStringParseError::InvalidEncoding))?;
+                let decrypted_message = msg
+                    .decrypt(&[], |data, aad| {
+                        let nonce = msg.unprotected.iv.as_slice();
                         crate::xchacha20::decrypt_xchacha20_poly1305(
-                                nonce.try_into().map_err(|_| CryptoError::EncodingError)?,
-                                key.enc_key
-                                    .as_slice()
-                                    .try_into()
-                                    .expect("XChaChaPoly1305 key is 32 bytes long"),
-                                data,
-                                aad
-                        ).map_err(|_| CryptoError::EncodingError)
-                    }
-                ).map_err(|_| CryptoError::EncodingError)?;
-                Ok(unpad_bytes(&decrypted_message)?.to_vec())
+                            nonce.try_into().map_err(|_| CryptoError::EncodingError)?,
+                            key.enc_key
+                                .as_slice()
+                                .try_into()
+                                .expect("XChaChaPoly1305 key is 32 bytes long"),
+                            data,
+                            aad,
+                        )
+                        .map_err(|_| CryptoError::EncodingError)
+                    })
+                    .map_err(|_| CryptoError::EncodingError)?;
+                Ok(decrypted_message)
             }
             _ => Err(CryptoError::WrongKeyType),
         }
@@ -363,29 +358,30 @@ impl schemars::JsonSchema for EncString {
     }
 }
 
-/// Pads bytes to a minimum length using PKCS7-like padding
-fn pad_bytes(bytes: &mut Vec<u8>, block_size: usize) {
-    let padding_len = block_size - (bytes.len() % block_size);
-    let padded_length = padding_len + bytes.len();
-    bytes.resize(padded_length, padding_len as u8);
-}
-
-// Unpads the bytes
-fn unpad_bytes(bytes: &[u8]) -> &[u8] {
-    // this unwrap is safe, the input is always at least 1 byte long
-    #[allow(clippy::unwrap_used)]
-    let pad_len = *bytes.last().unwrap() as usize;
-    bytes[..bytes.len() - pad_len].as_ref()
-}
-
 #[cfg(test)]
 mod tests {
+    use generic_array::GenericArray;
     use schemars::schema_for;
 
     use super::EncString;
     use crate::{
         derive_symmetric_key, CryptoError, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
     };
+
+    #[test]
+    fn test_enc_roundtrip_xchacha20() {
+        let key_id = [0u8; 24];
+        let enc_key = [0u8; 32];
+        let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
+            key_id,
+            enc_key: Box::pin(*GenericArray::from_slice(&enc_key.as_slice())),
+        });
+
+        let test_string = "encrypted_test_string";
+        let cipher = test_string.to_owned().encrypt_with_key(&key).unwrap();
+        let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
+        assert_eq!(decrypted_str, test_string);
+    }
 
     #[test]
     fn test_enc_string_roundtrip() {

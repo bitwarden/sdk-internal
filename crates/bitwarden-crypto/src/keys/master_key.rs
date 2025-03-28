@@ -138,7 +138,9 @@ pub(super) fn decrypt_user_key(
             user_key.decrypt_with_key(&stretched_key)?
         }
         EncString::XChaCha20_Poly1305_Cose_B64 { .. } => {
-            return Err(CryptoError::OperationNotSupported(crate::error::UnsupportedOperation::EncryptionNotImplementedForKey));
+            return Err(CryptoError::OperationNotSupported(
+                crate::error::UnsupportedOperation::EncryptionNotImplementedForKey,
+            ));
         }
     };
 
@@ -146,10 +148,7 @@ pub(super) fn decrypt_user_key(
 }
 
 /// Generate a new random user key and encrypt it with the master key.
-fn make_user_key(
-    rng: impl rand::RngCore,
-    master_key: &MasterKey,
-) -> Result<(UserKey, EncString)> {
+fn make_user_key(rng: impl rand::RngCore, master_key: &MasterKey) -> Result<(UserKey, EncString)> {
     let user_key = SymmetricCryptoKey::generate_internal(rng, false);
     let protected = master_key.encrypt_user_key(&user_key)?;
     Ok((UserKey::new(user_key), protected))
@@ -225,8 +224,7 @@ mod tests {
                 69, 167, 254, 149, 2, 27, 39, 197, 64, 42, 22, 195, 86, 75,
             ]
             .into(),
-            )
-        )
+        ))
         .into();
 
         let (user_key, protected) = make_user_key(&mut rng, &master_key).unwrap();
