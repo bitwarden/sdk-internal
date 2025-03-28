@@ -305,7 +305,7 @@ impl std::fmt::Debug for SymmetricCryptoKey {
 
 /// Pad a key to a minimum length using PKCS7-like padding.
 /// The last N bytes of the padded bytes all have the value N.
-/// For example, padded to size 4, the value [0,0] becomes [0,0,2,2].
+/// For example, padded to size 4, the value 0,0 becomes 0,0,2,2.
 fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
     // at least 1 byte of padding is required
     let pad_bytes = min_length.saturating_sub(key_bytes.len()).max(1);
