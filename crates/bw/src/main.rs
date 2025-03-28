@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use bitwarden_cli::{install_color_eyre, text_prompt_when_none, Color};
 use bitwarden_core::{auth::RegisterRequest, ClientSettings};
 use bitwarden_generators::{

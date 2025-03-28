@@ -93,8 +93,12 @@ This project uses customized templates which lives in the `support/openapi-templ
 These templates resolves some outstanding issues we've experienced with the rust generator. But we
 strive towards modifying the templates as little as possible to ease future upgrades.
 
-Note: If you don't have the nightly toolchain installed, the `build-api.sh` script will install it
-for you.
+### Note
+
+- If you don't have the nightly toolchain installed, the `build-api.sh` script will install it for
+  you.
+- This process also changes the `Cargo.toml` file. When creating a PR updating the bindings, please
+  revert (do not include) the updates to the `Cargo.toml` file.
 
 ## Developer tools
 
@@ -115,20 +119,34 @@ The list of developer tools is:
   `cargo install cargo-nextest --locked`. It can be manually run using
   `cargo nextest run --all-features`
 
-## Cargo fmt
+## Formatting & Linting
 
-We use certain unstable features for formatting which require the nightly version of cargo-fmt.
+This repository uses various tools to check formatting and linting before it's merged. It's
+recommended to run the checks prior to submitting a PR.
 
-To install:
+### Installation
+
+Please see the [lint.yml](./.github/workflows/lint.yml) file for example installation commands &
+versions. Here are the cli tools we use:
+
+- Nightly [cargo fmt](https://github.com/rust-lang/rustfmt) and
+  [cargo udeps](https://github.com/est31/cargo-udeps)
+- [rust clippy](https://github.com/rust-lang/rust-clippy)
+- [cargo sort](https://github.com/DevinR528/cargo-sort)
+- [prettier](https://github.com/prettier/prettier)
+
+### Checks
+
+To verify if changes need to be made, here are examples for the above tools:
 
 ```
-rustup component add rustfmt --toolchain nightly
-```
+export RUSTFLAGS="-D warnings"
 
-To run:
-
-```
-cargo +nightly fmt
+cargo +nightly fmt --check
+cargo +nightly udeps --workspace --all-features
+cargo clippy --all-features --tests
+cargo sort --workspace --check
+npm run lint
 ```
 
 ## Contribute
