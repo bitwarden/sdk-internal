@@ -6,12 +6,12 @@ use crate::{
     UsernameGeneratorRequest,
 };
 
-pub struct GeneratorClient<'a> {
-    client: &'a Client,
+pub struct GeneratorClient {
+    client: Client,
 }
 
-impl<'a> GeneratorClient<'a> {
-    fn new(client: &'a Client) -> Self {
+impl GeneratorClient {
+    fn new(client: Client) -> Self {
         Self { client }
     }
 
@@ -95,12 +95,12 @@ impl<'a> GeneratorClient<'a> {
     }
 }
 
-pub trait GeneratorClientsExt<'a> {
-    fn generator(&'a self) -> GeneratorClient<'a>;
+pub trait GeneratorClientsExt {
+    fn generator(&self) -> GeneratorClient;
 }
 
-impl<'a> GeneratorClientsExt<'a> for Client {
-    fn generator(&'a self) -> GeneratorClient<'a> {
-        GeneratorClient::new(self)
+impl GeneratorClientsExt for Client {
+    fn generator(&self) -> GeneratorClient {
+        GeneratorClient::new(self.clone())
     }
 }
