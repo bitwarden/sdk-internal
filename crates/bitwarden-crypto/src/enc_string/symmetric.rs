@@ -1,14 +1,15 @@
 use std::{fmt::Display, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use coset::CborSerializable;
+use coset::{iana::CoapContentFormat, CborSerializable, ContentType};
 use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    cose,
+    cose::{self, ContentFormat},
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
-    Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, TypedKeyEncryptable,
+    XChaCha20Poly1305Key,
 };
 
 #[cfg(feature = "wasm")]
@@ -223,6 +224,8 @@ impl serde::Serialize for EncString {
 }
 
 impl EncString {
+    const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 24;
+
     pub(crate) fn encrypt_aes256_hmac(
         data_dec: &[u8],
         key: &Aes256CbcHmacKey,
@@ -235,14 +238,40 @@ impl EncString {
     pub(crate) fn encrypt_xchacha20_poly1305(
         data_dec: &[u8],
         key: &XChaCha20Poly1305Key,
+        content_format: ContentFormat,
     ) -> Result<EncString> {
-        let mut protected_header = coset::HeaderBuilder::new().build();
+        let mut protected_header = coset::HeaderBuilder::new();
+        match content_format {
+            ContentFormat::Utf8 => {
+                protected_header =
+                    protected_header.content_type("application/utf8-padded".to_string());
+            }
+            ContentFormat::Pkcs8 => {
+                protected_header = protected_header.content_format(CoapContentFormat::Pkcs8);
+            }
+            ContentFormat::CoseKey => {
+                protected_header = protected_header.content_format(CoapContentFormat::CoseKey);
+            }
+            ContentFormat::OctetStream => {
+                protected_header = protected_header.content_format(CoapContentFormat::OctetStream);
+            }
+            ContentFormat::Unknown => todo!(),
+            ContentFormat::DomainObject => unreachable!(),
+        }
+
+        let mut data = data_dec.to_vec();
+        if content_format == ContentFormat::Utf8 {
+            // Pad the data to a block size in order to hide plaintext length
+            pad_bytes(&mut data, Self::XCHACHA20_TEXT_PAD_BLOCK_SIZE);
+        }
+
+        let mut protected_header = protected_header.build();
         protected_header.alg = Some(coset::Algorithm::PrivateUse(cose::XCHACHA20_POLY1305));
 
         let mut nonce = [0u8; 24];
         let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
             .protected(protected_header)
-            .try_create_ciphertext(data_dec, &[], |data, aad| {
+            .try_create_ciphertext(&data, &[], |data, aad| {
                 let ciphertext = crate::xchacha20::encrypt_xchacha20_poly1305(
                     key.enc_key
                         .as_slice()
@@ -276,11 +305,15 @@ impl EncString {
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
+    fn encrypt_with_key(
+        self,
+        key: &SymmetricCryptoKey,
+        content_format: ContentFormat,
+    ) -> Result<EncString> {
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(inner_key) => {
-                EncString::encrypt_xchacha20_poly1305(self, inner_key)
+                EncString::encrypt_xchacha20_poly1305(self, inner_key, content_format)
             }
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperation::EncryptionNotImplementedForKey,
@@ -303,9 +336,10 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 EncString::XChaCha20_Poly1305_Cose_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
+                // parse cose
                 let msg = coset::CoseEncrypt0::from_slice(data.as_slice())
                     .map_err(|_| CryptoError::EncString(EncStringParseError::InvalidEncoding))?;
-                let decrypted_message = msg
+                let mut decrypted_message = msg
                     .decrypt(&[], |data, aad| {
                         let nonce = msg.unprotected.iv.as_slice();
                         crate::xchacha20::decrypt_xchacha20_poly1305(
@@ -320,6 +354,15 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                         .map_err(|_| CryptoError::EncodingError)
                     })
                     .map_err(|_| CryptoError::EncodingError)?;
+
+                if let Some(ContentType::Text(content_type)) = msg.protected.header.content_type {
+                    if content_type == "application/utf8-padded" {
+                        decrypted_message = unpad_bytes(decrypted_message.as_slice()).to_vec();
+                    } else {
+                        return Err(CryptoError::EncodingError);
+                    }
+                }
+
                 Ok(decrypted_message)
             }
             _ => Err(CryptoError::WrongKeyType),
@@ -327,15 +370,15 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, EncString> for String {
+impl TypedKeyEncryptable<SymmetricCryptoKey, EncString> for String {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        self.as_bytes().encrypt_with_key(key)
+        self.as_bytes().encrypt_with_key(key, ContentFormat::Utf8)
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
+impl TypedKeyEncryptable<SymmetricCryptoKey, EncString> for &str {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        self.as_bytes().encrypt_with_key(key)
+        self.as_bytes().encrypt_with_key(key, ContentFormat::Utf8)
     }
 }
 
@@ -358,6 +401,21 @@ impl schemars::JsonSchema for EncString {
     }
 }
 
+/// Pads bytes to a minimum length using PKCS7-like padding
+fn pad_bytes(bytes: &mut Vec<u8>, block_size: usize) {
+    let padding_len = block_size - (bytes.len() % block_size);
+    let padded_length = padding_len + bytes.len();
+    bytes.resize(padded_length, padding_len as u8);
+}
+
+// Unpads the bytes
+fn unpad_bytes(bytes: &[u8]) -> &[u8] {
+    // this unwrap is safe, the input is always at least 1 byte long
+    #[allow(clippy::unwrap_used)]
+    let pad_len = *bytes.last().unwrap() as usize;
+    bytes[..bytes.len() - pad_len].as_ref()
+}
+
 #[cfg(test)]
 mod tests {
     use generic_array::GenericArray;
@@ -365,7 +423,7 @@ mod tests {
 
     use super::EncString;
     use crate::{
-        derive_symmetric_key, CryptoError, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+        derive_symmetric_key, CryptoError, KeyDecryptable, SymmetricCryptoKey, TypedKeyEncryptable,
     };
 
     #[test]

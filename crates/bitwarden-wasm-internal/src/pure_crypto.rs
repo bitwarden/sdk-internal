@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
 use bitwarden_crypto::{
-    CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, SymmetricCryptoKey,
+    ContentFormat, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
+    SymmetricCryptoKey, TypedKeyEncryptable,
 };
 use wasm_bindgen::prelude::*;
 
@@ -41,9 +42,10 @@ impl PureCrypto {
     pub fn symmetric_encrypt_to_array_buffer(
         plain: Vec<u8>,
         key: Vec<u8>,
+        content_format: ContentFormat,
     ) -> Result<Vec<u8>, CryptoError> {
         plain
-            .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)?
+            .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?, content_format)?
             .to_buffer()
     }
 
@@ -141,17 +143,23 @@ mod tests {
 
     #[test]
     fn test_symmetric_encrypt_to_array_buffer() {
-        let result =
-            PureCrypto::symmetric_encrypt_to_array_buffer(DECRYPTED_BYTES.to_vec(), KEY.to_vec());
+        let result = PureCrypto::symmetric_encrypt_to_array_buffer(
+            DECRYPTED_BYTES.to_vec(),
+            KEY.to_vec(),
+            ContentFormat::Utf8,
+        );
         assert!(result.is_ok());
         // Cannot test encrypted string content because IV is unique per encryption
     }
 
     #[test]
     fn test_symmetric_buffer_round_trip() {
-        let encrypted =
-            PureCrypto::symmetric_encrypt_to_array_buffer(DECRYPTED_BYTES.to_vec(), KEY.to_vec())
-                .unwrap();
+        let encrypted = PureCrypto::symmetric_encrypt_to_array_buffer(
+            DECRYPTED_BYTES.to_vec(),
+            KEY.to_vec(),
+            ContentFormat::Utf8,
+        )
+        .unwrap();
         let decrypted =
             PureCrypto::symmetric_decrypt_array_buffer(encrypted.clone(), KEY.to_vec()).unwrap();
         assert_eq!(decrypted, DECRYPTED_BYTES);

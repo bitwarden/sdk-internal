@@ -1,6 +1,6 @@
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
+    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -75,6 +75,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
+        _content_format: ContentFormat,
     ) -> Result<AttachmentEncryptResult, CryptoError> {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key)?;
 
@@ -83,7 +84,9 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         // Because this is a new attachment, we have to generate a key for it, encrypt the contents
         // with it, and then encrypt the key with the cipher key
         let attachment_key = ctx.generate_symmetric_key(ATTACHMENT_KEY)?;
-        let encrypted_contents = self.contents.encrypt(ctx, attachment_key)?;
+        let encrypted_contents =
+            self.contents
+                .encrypt(ctx, attachment_key, ContentFormat::OctetStream)?;
         attachment.key =
             Some(ctx.encrypt_symmetric_key_with_symmetric_key(ciphers_key, attachment_key)?);
 
@@ -94,7 +97,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         attachment.size_name = Some(size_name(contents.len()));
 
         Ok(AttachmentEncryptResult {
-            attachment: attachment.encrypt(ctx, ciphers_key)?,
+            attachment: attachment.encrypt(ctx, ciphers_key, ContentFormat::DomainObject)?,
             contents,
         })
     }
@@ -138,13 +141,14 @@ impl Encryptable<KeyIds, SymmetricKeyId, Attachment> for AttachmentView {
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
+        _content_format: ContentFormat,
     ) -> Result<Attachment, CryptoError> {
         Ok(Attachment {
             id: self.id.clone(),
             url: self.url.clone(),
             size: self.size.clone(),
             size_name: self.size_name.clone(),
-            file_name: self.file_name.encrypt(ctx, key)?,
+            file_name: self.file_name.encrypt(ctx, key, ContentFormat::Utf8)?,
             key: self.key.clone(),
         })
     }
