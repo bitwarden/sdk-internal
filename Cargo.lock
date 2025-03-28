@@ -545,6 +545,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-ipc"
+version = "1.0.0"
+dependencies = [
+ "bitwarden-error",
+ "js-sys",
+ "serde",
+ "thiserror 1.0.69",
+ "tokio",
+ "tsify-next",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-send"
 version = "1.0.0"
 dependencies = [
@@ -664,6 +678,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-ipc",
  "bitwarden-ssh",
  "bitwarden-vault",
  "chrono",
