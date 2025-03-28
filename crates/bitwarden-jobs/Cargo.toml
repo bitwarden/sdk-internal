@@ -1,0 +1,27 @@
+[package]
+name = "bitwarden-jobs"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[features]
+wasm = ["dep:js-sys", "dep:tsify-next", "dep:wasm-bindgen"]
+
+[dependencies]
+js-sys = { workspace = true, optional = true }
+tsify-next = { workspace = true, optional = true }
+uuid = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+serde.workspace = true
+trybuild = "1.0.101"
+wasm-bindgen-test = "0.3.45"
