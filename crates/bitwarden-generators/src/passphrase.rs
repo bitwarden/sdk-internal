@@ -1,11 +1,15 @@
 use bitwarden_crypto::EFF_LONG_WORD_LIST;
+use bitwarden_error::bitwarden_error;
 use rand::{seq::SliceRandom, Rng, RngCore};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use tsify_next::Tsify;
 
 use crate::util::capitalize_first_letter;
 
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum PassphraseError {
     #[error("'num_words' must be between {} and {}", minimum, maximum)]
@@ -16,6 +20,7 @@ pub enum PassphraseError {
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PassphraseGeneratorRequest {
     /// Number of words in the generated passphrase.
     /// This value must be between 3 and 20.
