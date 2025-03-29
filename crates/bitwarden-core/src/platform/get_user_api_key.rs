@@ -30,6 +30,7 @@ use crate::{
     require, ApiError, Client, MissingFieldError, NotAuthenticatedError,
 };
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum UserApiKeyError {
     #[error(transparent)]
@@ -99,6 +100,7 @@ fn build_secret_verification_request(
     }
 }
 
+/// The response from the server when requesting the user's API key.
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct UserApiKeyResponse {
