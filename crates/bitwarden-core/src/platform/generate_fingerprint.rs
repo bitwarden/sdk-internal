@@ -10,6 +10,7 @@ use thiserror::Error;
 
 use crate::{key_management::AsymmetricKeyId, MissingPrivateKeyError, VaultLockedError};
 
+/// Request to generate a fingerprint.
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -20,13 +21,18 @@ pub struct FingerprintRequest {
     pub public_key: String,
 }
 
+/// Response containing a generated fingerprint.
+///
+/// TODO: We should attempt to remove this and just return a string.
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FingerprintResponse {
+    /// The generated fingerprint.
     pub fingerprint: String,
 }
 
 /// Errors that can occur when computing a fingerprint.
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum FingerprintError {
     #[error(transparent)]
@@ -42,6 +48,7 @@ pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String,
 }
 
 /// Errors that can occur when computing a fingerprint.
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum UserFingerprintError {
     #[error(transparent)]
