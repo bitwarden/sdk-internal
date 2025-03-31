@@ -1,5 +1,5 @@
 pub mod crypto;
-pub mod kdf;
+mod kdf;
 
 mod client_kdf;
 mod crypto_client;

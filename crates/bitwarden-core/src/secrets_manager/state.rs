@@ -10,7 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::auth::AccessToken;
 
-/// Current version of the state file. This should be incremented whenever backwards incompatible changes are done.
+/// Current version of the state file. This should be incremented whenever backwards incompatible
+/// changes are done.
 const STATE_VERSION: u32 = 1;
 
 /// The content of the state file.
