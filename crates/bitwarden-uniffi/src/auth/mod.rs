@@ -1,18 +1,13 @@
-use std::sync::Arc;
-
 use bitwarden_core::auth::{
     password::MasterPasswordPolicyOptions, AuthRequestResponse, KeyConnectorResponse,
     RegisterKeyResponse, RegisterTdeKeyResponse,
 };
 use bitwarden_crypto::{AsymmetricEncString, EncString, HashPurpose, Kdf, TrustDeviceResponse};
 
-use crate::{
-    error::{Error, Result},
-    Client,
-};
+use crate::error::{Error, Result};
 
 #[derive(uniffi::Object)]
-pub struct AuthClient(pub(crate) Arc<Client>);
+pub struct AuthClient(pub(crate) bitwarden_core::Client);
 
 #[uniffi::export(async_runtime = "tokio")]
 impl AuthClient {
@@ -24,7 +19,6 @@ impl AuthClient {
         additional_inputs: Vec<String>,
     ) -> u8 {
         self.0
-             .0
             .auth()
             .password_strength(password, email, additional_inputs)
     }
@@ -36,10 +30,7 @@ impl AuthClient {
         strength: u8,
         policy: MasterPasswordPolicyOptions,
     ) -> bool {
-        self.0
-             .0
-            .auth()
-            .satisfies_policy(password, strength, &policy)
+        self.0.auth().satisfies_policy(password, strength, &policy)
     }
 
     /// Hash the user password
@@ -52,7 +43,6 @@ impl AuthClient {
     ) -> Result<String> {
         Ok(self
             .0
-             .0
             .kdf()
             .hash_password(email, password, kdf_params, purpose)
             .await
@@ -68,7 +58,6 @@ impl AuthClient {
     ) -> Result<RegisterKeyResponse> {
         Ok(self
             .0
-             .0
             .auth()
             .make_register_keys(email, password, kdf)
             .map_err(Error::Crypto)?)
@@ -83,7 +72,6 @@ impl AuthClient {
     ) -> Result<RegisterTdeKeyResponse> {
         Ok(self
             .0
-             .0
             .auth()
             .make_register_tde_keys(email, org_public_key, remember_device)
             .map_err(Error::EncryptionSettings)?)
@@ -93,7 +81,6 @@ impl AuthClient {
     pub fn make_key_connector_keys(&self) -> Result<KeyConnectorResponse> {
         Ok(self
             .0
-             .0
             .auth()
             .make_key_connector_keys()
             .map_err(Error::Crypto)?)
@@ -107,7 +94,6 @@ impl AuthClient {
     pub fn validate_password(&self, password: String, password_hash: String) -> Result<bool> {
         Ok(self
             .0
-             .0
             .auth()
             .validate_password(password, password_hash)
             .map_err(Error::AuthValidate)?)
@@ -126,7 +112,6 @@ impl AuthClient {
     ) -> Result<String> {
         Ok(self
             .0
-             .0
             .auth()
             .validate_password_user_key(password, encrypted_user_key)
             .map_err(Error::AuthValidate)?)
@@ -142,7 +127,6 @@ impl AuthClient {
     pub fn validate_pin(&self, pin: String, pin_protected_user_key: EncString) -> Result<bool> {
         Ok(self
             .0
-             .0
             .auth()
             .validate_pin(pin, pin_protected_user_key)
             .map_err(Error::AuthValidate)?)
@@ -152,7 +136,6 @@ impl AuthClient {
     pub fn new_auth_request(&self, email: String) -> Result<AuthRequestResponse> {
         Ok(self
             .0
-             .0
             .auth()
             .new_auth_request(&email)
             .map_err(Error::Crypto)?)
@@ -162,7 +145,6 @@ impl AuthClient {
     pub fn approve_auth_request(&self, public_key: String) -> Result<AsymmetricEncString> {
         Ok(self
             .0
-             .0
             .auth()
             .approve_auth_request(public_key)
             .map_err(Error::ApproveAuthRequest)?)
@@ -170,11 +152,6 @@ impl AuthClient {
 
     /// Trust the current device
     pub fn trust_device(&self) -> Result<TrustDeviceResponse> {
-        Ok(self
-            .0
-             .0
-            .auth()
-            .trust_device()
-            .map_err(Error::TrustDevice)?)
+        Ok(self.0.auth().trust_device().map_err(Error::TrustDevice)?)
     }
 }
