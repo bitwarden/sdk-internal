@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 mod color;
 
 pub use color::{install_color_eyre, Color};
