@@ -260,8 +260,8 @@ XKZBokBGnjFnTnKcs7nv/O8=
         let enc_str: &str = "3.BfwZTwBYbU5WQ5X7Vm8yl0hYmHTRdkVACCRZYcqhcjicoaPVDEP03CIRmtnppu0aXOppoQzhw5S2OKTUaqoOGKZg7+PrmVEhjiUFfVAptInBD6XGHZ0Z3u3F+JY1E3xIFebOFiX7KLQ+7D0bJhBEnl8P7phmanKF3Cil5ayDGRpAjAsBHMwlNRKXy05YpYs3/x+V+zjlxVrBU9gYFCpacKUbxT51I8tf21ISqo6H9ZBwqDE2QUPhYJl5op7SJgySdd3YCKnsObXa8fFj2OwxGLAXJAyvF6qZyl08RO/ZYUOOOPlbC7ywXxAISw3qmrwxqpLSBqAm9BYPa/zxBnTHrA==";
         let enc_string: AsymmetricEncString = enc_str.parse().unwrap();
 
-        let mut test_key = vec![0u8; 64];
-        let test_key = SymmetricCryptoKey::try_from(test_key.as_mut_slice()).unwrap();
+        let test_bytes = vec![0u8; 64];
+        let test_key = SymmetricCryptoKey::try_from(test_bytes).unwrap();
         assert_eq!(enc_string.enc_type(), 3);
 
         let res = enc_string.decapsulate_key_unsigned(&key_pair).unwrap();
@@ -274,12 +274,12 @@ XKZBokBGnjFnTnKcs7nv/O8=
         let enc_str: &str = "4.KhZmkc7f2WYuZGm/xlKZOK4c5JSwd9JtJvmyk0R+ZCqbRnZi5XNJaqnMiJjiqeLztE97bHRGWyDPvhyIisr7jLi35vL/Znpg3QzSMEDNI7aAM2FwJbCzdUrFDa/h08edv816AL1hAOqtGmjpfRL1j+47hlAiF3/srFCeePHkj0+CmHpHN13BN1XkLKk58mETKh8ky/ZUW2s4NjZaZ/Wxh6I9sv28L+u1hekKxDOdNKBnmqsh8WRBOtmZm1ZM9WI6aPA5tXgp30vxWrc1AsZ5Ts0aVkm8UzPTWuU9d/O9ICAQkr1hX58qO6M5geP+NvaG3UGymw0zp6Hdgz239XYpKg==";
         let enc_string: AsymmetricEncString = enc_str.parse().unwrap();
 
-        let mut test_bytes = vec![0u8; 64];
-        let test_key = SymmetricCryptoKey::try_from(test_bytes.as_mut_slice()).unwrap();
+        let test_bytes = vec![0u8; 64];
+        let test_bytes = SymmetricCryptoKey::try_from(test_bytes).unwrap();
         assert_eq!(enc_string.enc_type(), 4);
 
         let res = enc_string.decapsulate_key_unsigned(&private_key).unwrap();
-        assert_eq!(res, test_key);
+        assert_eq!(res, test_bytes);
     }
 
     #[test]
@@ -288,8 +288,8 @@ XKZBokBGnjFnTnKcs7nv/O8=
         let enc_str: &str = "6.KhZmkc7f2WYuZGm/xlKZOK4c5JSwd9JtJvmyk0R+ZCqbRnZi5XNJaqnMiJjiqeLztE97bHRGWyDPvhyIisr7jLi35vL/Znpg3QzSMEDNI7aAM2FwJbCzdUrFDa/h08edv816AL1hAOqtGmjpfRL1j+47hlAiF3/srFCeePHkj0+CmHpHN13BN1XkLKk58mETKh8ky/ZUW2s4NjZaZ/Wxh6I9sv28L+u1hekKxDOdNKBnmqsh8WRBOtmZm1ZM9WI6aPA5tXgp30vxWrc1AsZ5Ts0aVkm8UzPTWuU9d/O9ICAQkr1hX58qO6M5geP+NvaG3UGymw0zp6Hdgz239XYpKg==|AA==";
         let enc_string: AsymmetricEncString = enc_str.parse().unwrap();
 
-        let mut test_bytes = vec![0u8; 64];
-        let test_key = SymmetricCryptoKey::try_from(test_bytes.as_mut_slice()).unwrap();
+        let test_bytes = vec![0u8; 64];
+        let test_key = SymmetricCryptoKey::try_from(test_bytes).unwrap();
         assert_eq!(enc_string.enc_type(), 6);
 
         let res = enc_string.decapsulate_key_unsigned(&private_key).unwrap();
