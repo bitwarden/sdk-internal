@@ -176,19 +176,19 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// # Arguments
     ///
-    /// * `encryption_key` - The key id used to decrypt the `encrypted_key`. It must already exist
+    /// * `decapsulation_key` - The key id used to decrypt the `encrypted_key`. It must already exist
     ///   in the context
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
-    /// * `encrypted_key` - The key to decrypt
+    /// * `encapsulated_shared_key` - The symmetric key to decrypt
     pub fn decapsulate_key_unsigned(
         &mut self,
         decapsulation_key: Ids::Asymmetric,
         new_key_id: Ids::Symmetric,
-        encapsulated_key: &AsymmetricEncString,
+        encapsulated_shared_key: &AsymmetricEncString,
     ) -> Result<Ids::Symmetric> {
         let decapsulation_key = self.get_asymmetric_key(decapsulation_key)?;
-        let decapsulated_key = encapsulated_key.decapsulate_key_unsigned(decapsulation_key)?;
+        let decapsulated_key = encapsulated_shared_key.decapsulate_key_unsigned(decapsulation_key)?;
 
         #[allow(deprecated)]
         self.set_symmetric_key(new_key_id, decapsulated_key)?;
@@ -204,14 +204,14 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// * `encapsulation_key` - The key id used to encrypt the `encapsulated_key`. It must already
     ///   exist in the context
-    /// * `encapsulated_key` - The key id to encrypt. It must already exist in the context
+    /// * `shared_key` - The key id to encrypt. It must already exist in the context
     pub fn encapsulate_key_unsigned(
         &self,
         encapsulation_key: Ids::Asymmetric,
-        encapsulated_key: Ids::Symmetric,
+        shared_key: Ids::Symmetric,
     ) -> Result<AsymmetricEncString> {
         AsymmetricEncString::encapsulate_key_unsigned(
-            self.get_symmetric_key(encapsulated_key)?,
+            self.get_symmetric_key(shared_key)?,
             self.get_asymmetric_key(encapsulation_key)?,
         )
     }
