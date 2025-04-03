@@ -176,8 +176,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// # Arguments
     ///
-    /// * `decapsulation_key` - The key id used to decrypt the `encrypted_key`. It must already exist
-    ///   in the context
+    /// * `decapsulation_key` - The key id used to decrypt the `encrypted_key`. It must already
+    ///   exist in the context
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
     /// * `encapsulated_shared_key` - The symmetric key to decrypt
@@ -188,7 +188,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         encapsulated_shared_key: &AsymmetricEncString,
     ) -> Result<Ids::Symmetric> {
         let decapsulation_key = self.get_asymmetric_key(decapsulation_key)?;
-        let decapsulated_key = encapsulated_shared_key.decapsulate_key_unsigned(decapsulation_key)?;
+        let decapsulated_key =
+            encapsulated_shared_key.decapsulate_key_unsigned(decapsulation_key)?;
 
         #[allow(deprecated)]
         self.set_symmetric_key(new_key_id, decapsulated_key)?;
