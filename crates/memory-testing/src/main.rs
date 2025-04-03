@@ -28,7 +28,7 @@ fn main() {
         match case.command {
             memory_testing::CaseCommand::SymmetricKey { key } => {
                 let key = SymmetricCryptoKey::try_from(key).unwrap();
-                symmetric_keys.push((key.to_vec(), key));
+                symmetric_keys.push((key.to_encoded(), key));
             }
             memory_testing::CaseCommand::AsymmetricKey { private_key } => {
                 let key = bitwarden_crypto::AsymmetricCryptoKey::from_pem(&private_key).unwrap();

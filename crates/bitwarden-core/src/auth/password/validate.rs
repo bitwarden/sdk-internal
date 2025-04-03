@@ -65,7 +65,7 @@ pub(crate) fn validate_password_user_key(
                 #[allow(deprecated)]
                 let existing_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
-                if user_key.to_vec() != existing_key.to_vec() {
+                if user_key != *existing_key {
                     return Err(AuthValidateError::WrongUserKey);
                 }
 
