@@ -107,6 +107,19 @@ impl From<KdfDerivedKeyMaterial> for MasterKey {
     }
 }
 
+impl TryFrom<&SymmetricCryptoKey> for MasterKey {
+    type Error = CryptoError;
+
+    fn try_from(value: &SymmetricCryptoKey) -> Result<Self> {
+        match value {
+            SymmetricCryptoKey::Aes256CbcKey(key) => {
+                Ok(Self::KdfKey(KdfDerivedKeyMaterial(key.enc_key.clone())))
+            }
+            _ => Err(CryptoError::InvalidKey),
+        }
+    }
+}
+
 /// Helper function to encrypt a user key with a master or pin key.
 pub(super) fn encrypt_user_key(
     master_key: &Pin<Box<GenericArray<u8, U32>>>,

@@ -153,7 +153,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     ///   If you want to access the key material to encrypt it or derive a new key from it, we
     ///   provide functions for that:
     ///     - [KeyStoreContext::encrypt_symmetric_key_with_symmetric_key]
-    ///     - [KeyStoreContext::encrypt_symmetric_key_with_asymmetric_key]
+    ///     - [KeyStoreContext::encapsulate_key_unsigned]
     ///     - [KeyStoreContext::derive_shareable_key]
     pub fn context(&'_ self) -> KeyStoreContext<'_, Ids> {
         KeyStoreContext {
