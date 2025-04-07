@@ -2,7 +2,13 @@
 
 **Note:** This is only for internal use. Bitwarden will not provide any support for this crate.
 
-Requirements:
+Bitwarden WASM internal exposes WebAssembly bindings for the Bitwarden SDK. This crate should
+contain no logic but rather only handle WASM unique conversions and bindings. Business logic
+**MUST** be placed in the relevant feature crates.
+
+## Getting Started
+
+### Requirements
 
 - `wasm32-unknown-unknown` rust target.
 - `wasm-bindgen-cli` installed.
@@ -14,7 +20,7 @@ cargo install -f wasm-bindgen-cli
 brew install binaryen
 ```
 
-#### Build
+### Building
 
 ```bash
 # dev
