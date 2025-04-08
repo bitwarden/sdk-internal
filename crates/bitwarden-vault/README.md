@@ -1,6 +1,4 @@
 # Bitwarden Vault
 
-This is an internal crate for the Bitwarden SDK do not depend on this directly and use the
-[`bitwarden`](https://crates.io/crates/bitwarden) crate instead.
-
-This crate does not follow semantic versioning and the public interface may change at any time.
+Defines the data model for the vault items both encrypted and decrypted. It also handles conversions
+between the two states by implementing `Encryptable`.
