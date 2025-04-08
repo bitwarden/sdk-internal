@@ -323,7 +323,7 @@ fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
 /// The last N bytes of the padded bytes all have the value N.
 /// For example, padded to size 4, the value 0,0 becomes 0,0,2,2.
 ///
-/// keys that have the type `SymmetricCryptoKey::XChaCha20Poly1305Key` must be distinguishable
+/// Keys that have the type `SymmetricCryptoKey::XChaCha20Poly1305Key` must be distinguishable
 /// from `SymmetricCryptoKey::Aes256CbcHmacKey` keys, when both are encoded as byte arrays
 /// with no additional content format included in the encoding message. For this reason, the
 /// padding is used to make sure that the byte representation uniquely separates the keys by
