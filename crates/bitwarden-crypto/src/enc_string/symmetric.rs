@@ -199,7 +199,7 @@ impl Display for EncString {
                 if let Ok(msg) = coset::CoseEncrypt0::from_slice(data.as_slice()) {
                     write!(f, "{}.{:?}", self.enc_type(), msg)?;
                 } else {
-                    write!(f, "{}.{}", self.enc_type(), "Invalid Cose")?;
+                    write!(f, "{}.INVALID_COSE", self.enc_type())?;
                 }
 
                 Ok(())
@@ -383,7 +383,6 @@ mod tests {
 
         let test_string = "encrypted_test_string";
         let cipher = test_string.to_owned().encrypt_with_key(&key).unwrap();
-        println!("Cipher: {}", cipher);
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);
     }
