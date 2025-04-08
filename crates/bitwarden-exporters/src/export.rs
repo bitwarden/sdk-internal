@@ -80,7 +80,11 @@ fn encrypt_import(
         view.set_new_fido2_credentials(ctx, passkeys)?;
     }
 
-    let new_cipher = view.encrypt(ctx, view.key_identifier())?;
+    let new_cipher = view.encrypt(
+        ctx,
+        view.key_identifier(),
+        bitwarden_crypto::ContentFormat::DomainObject,
+    )?;
 
     Ok(new_cipher)
 }

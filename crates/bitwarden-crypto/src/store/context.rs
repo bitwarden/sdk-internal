@@ -7,9 +7,9 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
-    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, KeyId, KeyIds, Result,
-    SymmetricCryptoKey,
+    cose::ContentFormat, derive_shareable_key, error::UnsupportedOperation,
+    store::backend::StoreBackend, AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString,
+    KeyId, KeyIds, Result, SymmetricCryptoKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -54,9 +54,9 @@ use crate::{
 /// const LOCAL_KEY: SymmKeyId = SymmKeyId::Local("local_key_id");
 ///
 /// impl Encryptable<Ids, SymmKeyId, EncString> for Data {
-///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
+///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId, content_format: ContentFormat) -> Result<EncString, CryptoError> {
 ///         let local_key_id = ctx.decrypt_symmetric_key_with_symmetric_key(key, LOCAL_KEY, &self.key)?;
-///         self.name.encrypt(ctx, local_key_id)
+///         self.name.encrypt(ctx, local_key_id, content_format)
 ///     }
 /// }
 /// ```
@@ -174,7 +174,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             // applied in case it is needed
             SymmetricCryptoKey::Aes256CbcKey(_) | SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
                 let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
-                self.encrypt_data_with_symmetric_key(encryption_key, &key_to_encrypt.to_encoded())
+                self.encrypt_data_with_symmetric_key(
+                    encryption_key,
+                    &key_to_encrypt.to_encoded(),
+                    ContentFormat::OctetStream,
+                )
             }
             // These keys wrap using CBOR. The content type needs to indicate what the format of the
             // inner key is
@@ -184,14 +188,20 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                     SymmetricCryptoKey::Aes256CbcKey(_)
                     | SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
                         let encoded_key = key_to_encrypt.to_encoded_raw();
-                        let encrypted =
-                            EncString::encrypt_xchacha20_poly1305(encoded_key.as_slice(), k);
+                        let encrypted = EncString::encrypt_xchacha20_poly1305(
+                            encoded_key.as_slice(),
+                            k,
+                            ContentFormat::OctetStream,
+                        );
                         encrypted
                     }
                     SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
                         let cose_encoded_key = key_to_encrypt.to_encoded_raw();
-                        let encrypted =
-                            EncString::encrypt_xchacha20_poly1305(cose_encoded_key.as_slice(), k);
+                        let encrypted = EncString::encrypt_xchacha20_poly1305(
+                            cose_encoded_key.as_slice(),
+                            k,
+                            ContentFormat::CoseKey,
+                        );
                         encrypted
                     }
                 }
@@ -371,6 +381,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         &self,
         key: Ids::Symmetric,
         data: &[u8],
+        content_format: ContentFormat,
     ) -> Result<EncString> {
         let key = self.get_symmetric_key(key)?;
         match key {
@@ -379,7 +390,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
-                EncString::encrypt_xchacha20_poly1305(data, key)
+                EncString::encrypt_xchacha20_poly1305(data, key, content_format)
             }
         }
     }
@@ -389,7 +400,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 #[allow(deprecated)]
 mod tests {
     use crate::{
-        store::{tests::DataView, KeyStore},
+        cose::ContentFormat,
+        store::{
+            tests::{Data, DataView},
+            KeyStore,
+        },
         traits::tests::{TestIds, TestSymmKey},
         Decryptable, Encryptable, SymmetricCryptoKey,
     };
@@ -411,7 +426,9 @@ mod tests {
 
         // Encrypt some data with the key
         let data = DataView("Hello, World!".to_string(), key_a0_id);
-        let _encrypted = data.encrypt(&mut store.context(), key_a0_id).unwrap();
+        let _encrypted: Data = data
+            .encrypt(&mut store.context(), key_a0_id, ContentFormat::DomainObject)
+            .unwrap();
     }
 
     #[test]
@@ -451,7 +468,9 @@ mod tests {
         // with one and decrypt with the other
 
         let data = DataView("Hello, World!".to_string(), key_2_id);
-        let encrypted = data.encrypt(&mut ctx, key_2_id).unwrap();
+        let encrypted = data
+            .encrypt(&mut ctx, key_2_id, ContentFormat::OctetStream)
+            .unwrap();
 
         let decrypted1 = encrypted.decrypt(&mut ctx, key_2_id).unwrap();
         let decrypted2 = encrypted.decrypt(&mut ctx, new_key_id).unwrap();
