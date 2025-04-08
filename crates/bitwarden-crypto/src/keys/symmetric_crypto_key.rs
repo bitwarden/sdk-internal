@@ -311,7 +311,8 @@ impl std::fmt::Debug for SymmetricCryptoKey {
 /// from `SymmetricCryptoKey::Aes256CbcHmacKey` keys, when both are encoded as byte arrays
 /// with no additional content format included in the encoding message. For this reason, the
 /// padding is used to make sure that the byte representation uniquely separates the keys by
-/// size of the byte array.
+/// size of the byte array. The previous key types `SymmetricCryptoKey::Aes256CbcHmacKey` and
+/// `SymmetricCryptoKey::Aes256CbcKey` are 64 and 32 bytes long respectively.
 fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
     // at least 1 byte of padding is required
     let pad_bytes = min_length.saturating_sub(key_bytes.len()).max(1);
@@ -327,7 +328,8 @@ fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
 /// from `SymmetricCryptoKey::Aes256CbcHmacKey` keys, when both are encoded as byte arrays
 /// with no additional content format included in the encoding message. For this reason, the
 /// padding is used to make sure that the byte representation uniquely separates the keys by
-/// size of the byte array.
+/// size of the byte array the previous key types `SymmetricCryptoKey::Aes256CbcHmacKey` and
+/// `SymmetricCryptoKey::Aes256CbcKey` are 64 and 32 bytes long respectively.
 fn unpad_key(key_bytes: &[u8]) -> &[u8] {
     // this unwrap is safe, the input is always at least 1 byte long
     #[allow(clippy::unwrap_used)]
