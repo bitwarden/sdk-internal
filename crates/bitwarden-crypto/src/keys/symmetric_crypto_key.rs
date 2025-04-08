@@ -130,7 +130,7 @@ impl SymmetricCryptoKey {
     /**
      * Encodes the key to a byte array representation. This can be used for storage and
      * transmission in the old byte array format. When the wrapping key is a COSE key, then
-     * the returned Vec<u8> is a COSE encoded message. 
+     * the returned Vec<u8> is a COSE encoded message.
      */
     pub fn to_encoded(&self) -> Vec<u8> {
         let mut encoded_key = self.to_encoded_raw();
@@ -306,6 +306,12 @@ impl std::fmt::Debug for SymmetricCryptoKey {
 /// Pad a key to a minimum length using PKCS7-like padding.
 /// The last N bytes of the padded bytes all have the value N.
 /// For example, padded to size 4, the value 0,0 becomes 0,0,2,2.
+///
+/// Keys that have the type `SymmetricCryptoKey::XChaCha20Poly1305Key` must be distinguishable
+/// from `SymmetricCryptoKey::Aes256CbcHmacKey` keys, when both are encoded as byte arrays
+/// with no additional content format included in the encoding message. For this reason, the
+/// padding is used to make sure that the byte representation uniquely separates the keys by
+/// size of the byte array.
 fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
     // at least 1 byte of padding is required
     let pad_bytes = min_length.saturating_sub(key_bytes.len()).max(1);
@@ -316,6 +322,12 @@ fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
 /// Unpad a key that is padded using the PKCS7-like padding defined by `pad_key`.
 /// The last N bytes of the padded bytes all have the value N.
 /// For example, padded to size 4, the value 0,0 becomes 0,0,2,2.
+///
+/// keys that have the type `SymmetricCryptoKey::XChaCha20Poly1305Key` must be distinguishable
+/// from `SymmetricCryptoKey::Aes256CbcHmacKey` keys, when both are encoded as byte arrays
+/// with no additional content format included in the encoding message. For this reason, the
+/// padding is used to make sure that the byte representation uniquely separates the keys by
+/// size of the byte array.
 fn unpad_key(key_bytes: &[u8]) -> &[u8] {
     // this unwrap is safe, the input is always at least 1 byte long
     #[allow(clippy::unwrap_used)]
