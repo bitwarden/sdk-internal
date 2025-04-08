@@ -20,15 +20,15 @@ impl BitwardenClient {
     }
 
     /// Test method, echoes back the input
-    pub async fn echo(&self, msg: String) -> String {
+    pub fn echo(&self, msg: String) -> String {
         msg
     }
 
-    pub async fn version(&self) -> String {
+    pub fn version(&self) -> String {
         env!("SDK_VERSION").to_owned()
     }
 
-    pub async fn throw(&self, msg: String) -> Result<(), TestError> {
+    pub fn throw(&self, msg: String) -> Result<(), TestError> {
         Err(TestError(msg))
     }
 

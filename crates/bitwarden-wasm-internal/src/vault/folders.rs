@@ -16,7 +16,7 @@ impl ClientFolders {
 #[wasm_bindgen]
 impl ClientFolders {
     /// Decrypt folder
-    pub async fn decrypt(&self, folder: Folder) -> Result<FolderView, DecryptError> {
+    pub fn decrypt(&self, folder: Folder) -> Result<FolderView, DecryptError> {
         self.0.vault().folders().decrypt(folder)
     }
 }
