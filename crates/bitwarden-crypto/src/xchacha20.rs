@@ -22,12 +22,12 @@ use crate::CryptoError;
 
 #[allow(unused)]
 pub(crate) struct XChaCha20Poly1305Ciphertext {
-    nonce: GenericArray<u8, <XChaCha20Poly1305 as AeadCore>::NonceSize>,
-    ciphertext: Vec<u8>,
+    pub(crate) nonce: GenericArray<u8, <XChaCha20Poly1305 as AeadCore>::NonceSize>,
+    pub(crate) ciphertext: Vec<u8>,
 }
 
 #[allow(unused)]
-fn encrypt_xchacha20_poly1305(
+pub(crate) fn encrypt_xchacha20_poly1305(
     key: &[u8; 32],
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
