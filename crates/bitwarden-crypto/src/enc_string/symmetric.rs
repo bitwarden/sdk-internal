@@ -196,7 +196,11 @@ impl Display for EncString {
                 Ok(())
             }
             EncString::XChaCha20_Poly1305_Cose_B64 { data } => {
-                write!(f, "{}.{}", self.enc_type(), STANDARD.encode(data))?;
+                if let Ok(msg) = coset::CoseEncrypt0::from_slice(data.as_slice()) {
+                    write!(f, "{}.{:?}", self.enc_type(), msg)?;
+                } else {
+                    write!(f, "{}.{}", self.enc_type(), "Invalid Cose")?;
+                }
 
                 Ok(())
             }
@@ -379,6 +383,7 @@ mod tests {
 
         let test_string = "encrypted_test_string";
         let cipher = test_string.to_owned().encrypt_with_key(&key).unwrap();
+        println!("Cipher: {}", cipher);
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);
     }
