@@ -2,6 +2,10 @@ use rand::RngCore;
 
 pub(crate) struct KeyId([u8; 24]);
 
+/// Fixed length identifiers for keys.
+/// These are intended to be unique and constant per-key.
+///
+/// Currently these are randomly generated 24 byte identifiers, which is considered safe to randomly generate with vanishingly small collision chance. However, the generation of IDs is an internal concern and may change in the future.
 impl KeyId {
     pub fn as_bytes(&self) -> &[u8; 24] {
         &self.0
