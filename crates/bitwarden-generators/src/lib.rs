@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 mod generator_client;
 mod username_forwarders;
 pub use generator_client::{GeneratorClient, GeneratorClientsExt};

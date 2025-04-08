@@ -6,7 +6,7 @@ use bitwarden_error::bitwarden_error;
 use bitwarden_vault::VaultClientExt;
 use wasm_bindgen::prelude::*;
 
-use crate::{vault::VaultClient, CryptoClient};
+use crate::{CryptoClient, VaultClient};
 
 #[wasm_bindgen]
 pub struct BitwardenClient(pub(crate) Client);
