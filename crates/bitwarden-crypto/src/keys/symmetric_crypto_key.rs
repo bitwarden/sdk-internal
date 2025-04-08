@@ -130,7 +130,7 @@ impl SymmetricCryptoKey {
     /**
      * Encodes the key to a byte array representation. This can be used for storage and
      * transmission in the old byte array format. When the wrapping key is a COSE key, then
-     * COSE MUST be used to encode the key.
+     * the returned Vec<u8> is a COSE encoded message. 
      */
     pub fn to_encoded(&self) -> Vec<u8> {
         let mut encoded_key = self.to_encoded_raw();
@@ -313,7 +313,9 @@ fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
     key_bytes.resize(padded_length, pad_bytes as u8);
 }
 
-// Unpad a key
+/// Unpad a key that is padded using the PKCS7-like padding defined by `pad_key`.
+/// The last N bytes of the padded bytes all have the value N.
+/// For example, padded to size 4, the value 0,0 becomes 0,0,2,2.
 fn unpad_key(key_bytes: &[u8]) -> &[u8] {
     // this unwrap is safe, the input is always at least 1 byte long
     #[allow(clippy::unwrap_used)]
