@@ -7,9 +7,9 @@ use crate::{
     Fido2CredentialStore, Fido2UserInterface,
 };
 
-pub struct ClientFido2<'a> {
-    #[allow(dead_code)]
-    pub(crate) client: &'a Client,
+#[derive(Clone)]
+pub struct ClientFido2 {
+    pub(crate) client: Client,
 }
 
 #[derive(Debug, Error)]
@@ -20,20 +20,20 @@ pub enum DecryptFido2AutofillCredentialsError {
     Fido2CredentialAutofillViewError(#[from] Fido2CredentialAutofillViewError),
 }
 
-impl<'a> ClientFido2<'a> {
-    pub fn new(client: &'a Client) -> Self {
+impl ClientFido2 {
+    pub fn new(client: Client) -> Self {
         Self { client }
     }
 
-    pub fn create_authenticator(
+    pub fn create_authenticator<'a>(
         &'a self,
         user_interface: &'a dyn Fido2UserInterface,
         credential_store: &'a dyn Fido2CredentialStore,
     ) -> Fido2Authenticator<'a> {
-        Fido2Authenticator::new(self.client, user_interface, credential_store)
+        Fido2Authenticator::new(&self.client, user_interface, credential_store)
     }
 
-    pub fn create_client(
+    pub fn create_client<'a>(
         &'a self,
         user_interface: &'a dyn Fido2UserInterface,
         credential_store: &'a dyn Fido2CredentialStore,
@@ -44,7 +44,7 @@ impl<'a> ClientFido2<'a> {
     }
 
     pub fn decrypt_fido2_autofill_credentials(
-        &'a self,
+        &self,
         cipher_view: CipherView,
     ) -> Result<Vec<Fido2CredentialAutofillView>, DecryptFido2AutofillCredentialsError> {
         let key_store = self.client.internal.get_key_store();
@@ -56,12 +56,12 @@ impl<'a> ClientFido2<'a> {
     }
 }
 
-pub trait ClientFido2Ext<'a> {
-    fn fido2(&'a self) -> ClientFido2<'a>;
+pub trait ClientFido2Ext {
+    fn fido2(&self) -> ClientFido2;
 }
 
-impl<'a> ClientFido2Ext<'a> for Client {
-    fn fido2(&'a self) -> ClientFido2<'a> {
-        ClientFido2::new(self)
+impl ClientFido2Ext for Client {
+    fn fido2(&self) -> ClientFido2 {
+        ClientFido2::new(self.clone())
     }
 }

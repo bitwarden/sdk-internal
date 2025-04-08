@@ -5,26 +5,27 @@ use crate::{
     SyncRequest, SyncResponse,
 };
 
-pub struct VaultClient<'a> {
-    pub(crate) client: &'a Client,
+#[derive(Clone)]
+pub struct VaultClient {
+    pub(crate) client: Client,
 }
 
-impl<'a> VaultClient<'a> {
-    fn new(client: &'a Client) -> Self {
+impl VaultClient {
+    fn new(client: Client) -> Self {
         Self { client }
     }
 
     pub async fn sync(&self, input: &SyncRequest) -> Result<SyncResponse, SyncError> {
-        sync(self.client, input).await
+        sync(&self.client, input).await
     }
 }
 
-pub trait VaultClientExt<'a> {
-    fn vault(&'a self) -> VaultClient<'a>;
+pub trait VaultClientExt {
+    fn vault(&self) -> VaultClient;
 }
 
-impl<'a> VaultClientExt<'a> for Client {
-    fn vault(&'a self) -> VaultClient<'a> {
-        VaultClient::new(self)
+impl VaultClientExt for Client {
+    fn vault(&self) -> VaultClient {
+        VaultClient::new(self.clone())
     }
 }

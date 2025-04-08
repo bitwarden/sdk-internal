@@ -24,7 +24,14 @@ pub use error::{DecryptError, EncryptError, VaultParseError};
 mod vault_client;
 pub use vault_client::{VaultClient, VaultClientExt};
 mod mobile;
-pub use mobile::attachment_client::{DecryptFileError, EncryptFileError};
+pub use mobile::{
+    attachment_client::{ClientAttachments, DecryptFileError, EncryptFileError},
+    cipher_client::ClientCiphers,
+    collection_client::ClientCollections,
+    folder_client::ClientFolders,
+    password_history_client::ClientPasswordHistory,
+};
+
 mod sync;
 mod totp_client;
 pub use sync::{SyncRequest, SyncResponse};

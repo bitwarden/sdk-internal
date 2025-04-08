@@ -1,16 +1,12 @@
-use std::sync::Arc;
-
 use bitwarden_core::platform::FingerprintRequest;
+use bitwarden_fido::ClientFido2Ext;
 
-use crate::{
-    error::{Error, Result},
-    Client,
-};
+use crate::error::{Error, Result};
 
 mod fido2;
 
 #[derive(uniffi::Object)]
-pub struct PlatformClient(pub(crate) Arc<Client>);
+pub struct PlatformClient(pub(crate) bitwarden_core::Client);
 
 #[uniffi::export]
 impl PlatformClient {
@@ -18,7 +14,6 @@ impl PlatformClient {
     pub fn fingerprint(&self, req: FingerprintRequest) -> Result<String> {
         Ok(self
             .0
-             .0
             .platform()
             .fingerprint(&req)
             .map_err(Error::Fingerprint)?)
@@ -28,7 +23,6 @@ impl PlatformClient {
     pub fn user_fingerprint(&self, fingerprint_material: String) -> Result<String> {
         Ok(self
             .0
-             .0
             .platform()
             .user_fingerprint(fingerprint_material)
             .map_err(Error::UserFingerprint)?)
@@ -36,12 +30,12 @@ impl PlatformClient {
 
     /// Load feature flags into the client
     pub fn load_flags(&self, flags: std::collections::HashMap<String, bool>) -> Result<()> {
-        self.0 .0.internal.load_flags(flags);
+        self.0.internal.load_flags(flags);
         Ok(())
     }
 
     /// FIDO2 operations
-    pub fn fido2(self: Arc<Self>) -> Arc<fido2::ClientFido2> {
-        Arc::new(fido2::ClientFido2(self.0.clone()))
+    pub fn fido2(&self) -> fido2::ClientFido2 {
+        fido2::ClientFido2(self.0.fido2())
     }
 }

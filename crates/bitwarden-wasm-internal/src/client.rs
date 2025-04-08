@@ -1,22 +1,21 @@
 extern crate console_error_panic_hook;
-use std::{fmt::Display, rc::Rc};
+use std::fmt::Display;
 
 use bitwarden_core::{Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
+use bitwarden_vault::VaultClientExt;
 use wasm_bindgen::prelude::*;
 
 use crate::{CryptoClient, VaultClient};
 
-// Rc<...> is to avoid needing to take ownership of the Client during our async run_command
-// function https://github.com/rustwasm/wasm-bindgen/issues/2195#issuecomment-799588401
 #[wasm_bindgen]
-pub struct BitwardenClient(pub(crate) Rc<Client>);
+pub struct BitwardenClient(pub(crate) Client);
 
 #[wasm_bindgen]
 impl BitwardenClient {
     #[wasm_bindgen(constructor)]
     pub fn new(settings: Option<ClientSettings>) -> Self {
-        Self(Rc::new(Client::new(settings)))
+        Self(Client::new(settings))
     }
 
     /// Test method, echoes back the input
@@ -41,11 +40,11 @@ impl BitwardenClient {
     }
 
     pub fn crypto(&self) -> CryptoClient {
-        CryptoClient::new(self.0.clone())
+        CryptoClient::new(self.0.crypto())
     }
 
     pub fn vault(&self) -> VaultClient {
-        VaultClient::new(self.0.clone())
+        VaultClient::new(self.0.vault())
     }
 }
 
