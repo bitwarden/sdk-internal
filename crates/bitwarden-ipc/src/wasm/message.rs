@@ -10,10 +10,11 @@ use crate::{
 #[wasm_bindgen]
 impl OutgoingMessage {
     #[wasm_bindgen(constructor)]
-    pub fn new(payload: Vec<u8>, destination: Endpoint) -> OutgoingMessage {
+    pub fn new(payload: Vec<u8>, destination: Endpoint, topic: Option<String>) -> OutgoingMessage {
         OutgoingMessage {
             payload,
             destination,
+            topic,
         }
     }
 
@@ -21,6 +22,7 @@ impl OutgoingMessage {
     pub fn new_json_payload(
         payload: JsValue,
         destination: Endpoint,
+        topic: Option<String>,
     ) -> Result<OutgoingMessage, JsValue> {
         let payload = js_sys::JSON::stringify(&payload)?;
         let payload: String = payload
@@ -30,6 +32,7 @@ impl OutgoingMessage {
         Ok(OutgoingMessage {
             payload,
             destination,
+            topic,
         })
     }
 }
@@ -37,11 +40,17 @@ impl OutgoingMessage {
 #[wasm_bindgen]
 impl IncomingMessage {
     #[wasm_bindgen(constructor)]
-    pub fn new(payload: Vec<u8>, destination: Endpoint, source: Endpoint) -> IncomingMessage {
+    pub fn new(
+        payload: Vec<u8>,
+        destination: Endpoint,
+        source: Endpoint,
+        topic: Option<String>,
+    ) -> IncomingMessage {
         IncomingMessage {
             payload,
             destination,
             source,
+            topic,
         }
     }
 

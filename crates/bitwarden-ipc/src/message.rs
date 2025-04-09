@@ -11,6 +11,8 @@ pub struct OutgoingMessage {
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub payload: Vec<u8>,
     pub destination: Endpoint,
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
+    pub topic: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -21,6 +23,8 @@ pub struct IncomingMessage {
     pub payload: Vec<u8>,
     pub destination: Endpoint,
     pub source: Endpoint,
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
+    pub topic: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -46,7 +50,7 @@ where
 
 impl<Payload> TryFrom<TypedOutgoingMessage<Payload>> for OutgoingMessage
 where
-    Payload: TryInto<Vec<u8>>,
+    Payload: TryInto<Vec<u8>> + PayloadTypeName,
 {
     type Error = <Payload as TryInto<Vec<u8>>>::Error;
 
@@ -54,21 +58,27 @@ where
         Ok(Self {
             payload: value.payload.try_into()?,
             destination: value.destination,
+            topic: Some(Payload::name()),
         })
     }
 }
 
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-pub struct TypedIncomingMessage<Payload> {
+pub struct TypedIncomingMessage<Payload: PayloadTypeName> {
     pub payload: Payload,
     pub destination: Endpoint,
     pub source: Endpoint,
 }
 
+/// This trait is used to ensure that the payload type has a topic associated with it.
+pub trait PayloadTypeName {
+    fn name() -> String;
+}
+
 impl<Payload> TryFrom<IncomingMessage> for TypedIncomingMessage<Payload>
 where
-    Payload: TryFrom<Vec<u8>>,
+    Payload: TryFrom<Vec<u8>> + PayloadTypeName,
 {
     type Error = <Payload as TryFrom<Vec<u8>>>::Error;
 
@@ -83,7 +93,7 @@ where
 
 impl<Payload> TryFrom<TypedIncomingMessage<Payload>> for IncomingMessage
 where
-    Payload: TryInto<Vec<u8>>,
+    Payload: TryInto<Vec<u8>> + PayloadTypeName,
 {
     type Error = <Payload as TryInto<Vec<u8>>>::Error;
 
@@ -92,6 +102,7 @@ where
             payload: value.payload.try_into()?,
             destination: value.destination,
             source: value.source,
+            topic: Some(Payload::name()),
         })
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
-    error::{ReceiveError, SendError},
-    message::{IncomingMessage, OutgoingMessage, TypedIncomingMessage},
+    error::{ReceiveError, SendError, TypedReceiveError},
+    message::{IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage},
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
 };
 
@@ -48,23 +48,37 @@ where
             .await
     }
 
+    /// Receive a message, filtering by topic.
+    pub async fn receive_topic(
+        &self,
+        topic: Option<String>,
+    ) -> Result<IncomingMessage, ReceiveError<Crypto::ReceiveError, Com::ReceiveError>> {
+        loop {
+            let received = self.receive().await?;
+            if received.topic == topic {
+                return Ok(received);
+            }
+        }
+    }
+
     /// Receive a message, skipping any messages that cannot be deserialized into the expected
     /// payload type.
     pub async fn receive_typed<Payload>(
         &self,
-    ) -> Result<TypedIncomingMessage<Payload>, ReceiveError<Crypto::ReceiveError, Com::ReceiveError>>
+    ) -> Result<
+        TypedIncomingMessage<Payload>,
+        TypedReceiveError<
+            <Payload as TryFrom<Vec<u8>>>::Error,
+            Crypto::ReceiveError,
+            Com::ReceiveError,
+        >,
+    >
     where
-        Payload: TryFrom<Vec<u8>>,
+        Payload: TryFrom<Vec<u8>> + PayloadTypeName,
     {
-        loop {
-            let received = self
-                .crypto
-                .receive(&self.communication, &self.sessions)
-                .await?;
-            if let Ok(typed) = received.try_into() {
-                return Ok(typed);
-            }
-        }
+        let topic = Some(Payload::name());
+        let received = self.receive_topic(topic).await?;
+        received.try_into().map_err(TypedReceiveError::TypingError)
     }
 }
 
@@ -125,6 +139,7 @@ mod tests {
         let message = OutgoingMessage {
             payload: vec![],
             destination: Endpoint::BrowserBackground,
+            topic: None,
         };
         let crypto_provider = TestCryptoProvider {
             send_result: Err(SendError::CryptoError("Crypto error".to_string())),
@@ -161,6 +176,7 @@ mod tests {
         let message = OutgoingMessage {
             payload: vec![],
             destination: Endpoint::BrowserBackground,
+            topic: None,
         };
         let crypto_provider = NoEncryptionCryptoProvider;
         let communication_provider = TestCommunicationBackend::new();
@@ -179,6 +195,7 @@ mod tests {
             payload: vec![],
             source: Endpoint::Web { id: 9001 },
             destination: Endpoint::BrowserBackground,
+            topic: None,
         };
         let crypto_provider = NoEncryptionCryptoProvider;
         let communication_provider = TestCommunicationBackend::new();
@@ -192,10 +209,116 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn skips_non_deserializable_messages_and_returns_typed_message() {
+    async fn skips_non_matching_topics_and_returns_first_matching_message() {
+        let non_matching_message = IncomingMessage {
+            payload: vec![],
+            source: Endpoint::Web { id: 9001 },
+            destination: Endpoint::BrowserBackground,
+            topic: Some("non_matching_topic".to_owned()),
+        };
+        let matching_message = IncomingMessage {
+            payload: vec![109],
+            source: Endpoint::Web { id: 9001 },
+            destination: Endpoint::BrowserBackground,
+            topic: Some("matching_topic".to_owned()),
+        };
+
+        let crypto_provider = NoEncryptionCryptoProvider;
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = InMemorySessionRepository::new(HashMap::new());
+        let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
+        communication_provider
+            .push_incoming(non_matching_message.clone())
+            .await;
+        communication_provider
+            .push_incoming(non_matching_message.clone())
+            .await;
+        communication_provider
+            .push_incoming(matching_message.clone().try_into().unwrap())
+            .await;
+
+        let received_message: IncomingMessage = client
+            .receive_topic(Some("matching_topic".to_owned()))
+            .await
+            .unwrap();
+
+        assert_eq!(received_message, matching_message);
+    }
+
+    #[tokio::test]
+    async fn skips_unrelated_messages_and_returns_typed_message() {
         #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
         struct TestPayload {
             some_data: String,
+        }
+
+        impl PayloadTypeName for TestPayload {
+            fn name() -> String {
+                "TestPayload".to_string()
+            }
+        }
+
+        impl TryFrom<Vec<u8>> for TestPayload {
+            type Error = serde_json::Error;
+
+            fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+                serde_json::from_slice(&value)
+            }
+        }
+
+        impl TryFrom<TestPayload> for Vec<u8> {
+            type Error = serde_json::Error;
+
+            fn try_from(value: TestPayload) -> Result<Self, Self::Error> {
+                serde_json::to_vec(&value)
+            }
+        }
+
+        let unrelated = IncomingMessage {
+            payload: vec![],
+            source: Endpoint::Web { id: 9001 },
+            destination: Endpoint::BrowserBackground,
+            topic: None,
+        };
+        let typed_message = TypedIncomingMessage {
+            payload: TestPayload {
+                some_data: "Hello, world!".to_string(),
+            },
+            source: Endpoint::Web { id: 9001 },
+            destination: Endpoint::BrowserBackground,
+        };
+
+        let crypto_provider = NoEncryptionCryptoProvider;
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = InMemorySessionRepository::new(HashMap::new());
+        let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
+        communication_provider
+            .push_incoming(unrelated.clone())
+            .await;
+        communication_provider
+            .push_incoming(unrelated.clone())
+            .await;
+        communication_provider
+            .push_incoming(typed_message.clone().try_into().unwrap())
+            .await;
+
+        let received_message: TypedIncomingMessage<TestPayload> =
+            client.receive_typed().await.unwrap();
+
+        assert_eq!(received_message, typed_message);
+    }
+
+    #[tokio::test]
+    async fn returns_error_if_related_message_was_not_deserializable() {
+        #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+        struct TestPayload {
+            some_data: String,
+        }
+
+        impl PayloadTypeName for TestPayload {
+            fn name() -> String {
+                "TestPayload".to_string()
+            }
         }
 
         impl TryFrom<Vec<u8>> for TestPayload {
@@ -218,13 +341,7 @@ mod tests {
             payload: vec![],
             source: Endpoint::Web { id: 9001 },
             destination: Endpoint::BrowserBackground,
-        };
-        let typed_message = TypedIncomingMessage {
-            payload: TestPayload {
-                some_data: "Hello, world!".to_string(),
-            },
-            source: Endpoint::Web { id: 9001 },
-            destination: Endpoint::BrowserBackground,
+            topic: Some("TestPayload".to_owned()),
         };
 
         let crypto_provider = NoEncryptionCryptoProvider;
@@ -234,16 +351,12 @@ mod tests {
         communication_provider
             .push_incoming(non_deserializable_message.clone())
             .await;
-        communication_provider
-            .push_incoming(non_deserializable_message.clone())
-            .await;
-        communication_provider
-            .push_incoming(typed_message.clone().try_into().unwrap())
-            .await;
 
-        let received_message: TypedIncomingMessage<TestPayload> =
-            client.receive_typed().await.unwrap();
+        let result: Result<TypedIncomingMessage<TestPayload>, _> = client.receive_typed().await;
 
-        assert_eq!(received_message, typed_message);
+        assert!(matches!(
+            result,
+            Err(TypedReceiveError::TypingError(serde_json::Error { .. }))
+        ));
     }
 }
