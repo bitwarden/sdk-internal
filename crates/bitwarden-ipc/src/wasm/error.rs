@@ -15,6 +15,7 @@ pub struct JsSendError {
 
 #[wasm_bindgen(js_name = ReceiveError)]
 pub struct JsReceiveError {
+    pub timeout_error: bool,
     #[wasm_bindgen(getter_with_clone)]
     pub crypto_error: JsValue,
     #[wasm_bindgen(getter_with_clone)]
@@ -39,11 +40,18 @@ impl From<SendError<JsValue, JsValue>> for JsSendError {
 impl From<ReceiveError<JsValue, JsValue>> for JsReceiveError {
     fn from(error: ReceiveError<JsValue, JsValue>) -> Self {
         match error {
+            ReceiveError::TimeoutError => JsReceiveError {
+                timeout_error: true,
+                crypto_error: JsValue::UNDEFINED,
+                communication_error: JsValue::UNDEFINED,
+            },
             ReceiveError::CryptoError(e) => JsReceiveError {
+                timeout_error: false,
                 crypto_error: e,
                 communication_error: JsValue::UNDEFINED,
             },
             ReceiveError::CommunicationError(e) => JsReceiveError {
+                timeout_error: false,
                 crypto_error: JsValue::UNDEFINED,
                 communication_error: e,
             },

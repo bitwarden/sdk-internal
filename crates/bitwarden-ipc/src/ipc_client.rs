@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::{
     error::{ReceiveError, SendError, TypedReceiveError},
     message::{IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage},
@@ -52,12 +54,23 @@ where
     pub async fn receive_topic(
         &self,
         topic: Option<String>,
+        timeout: Option<Duration>,
     ) -> Result<IncomingMessage, ReceiveError<Crypto::ReceiveError, Com::ReceiveError>> {
-        loop {
-            let received = self.receive().await?;
-            if received.topic == topic {
-                return Ok(received);
+        let receive_loop = async {
+            loop {
+                let received = self.receive().await?;
+                if received.topic == topic {
+                    return Ok(received);
+                }
             }
+        };
+
+        if let Some(timeout) = timeout {
+            tokio::time::timeout(timeout, receive_loop)
+                .await
+                .map_err(|_| ReceiveError::TimeoutError)?
+        } else {
+            receive_loop.await
         }
     }
 
@@ -65,6 +78,7 @@ where
     /// payload type.
     pub async fn receive_typed<Payload>(
         &self,
+        timeout: Option<Duration>,
     ) -> Result<
         TypedIncomingMessage<Payload>,
         TypedReceiveError<
@@ -77,7 +91,7 @@ where
         Payload: TryFrom<Vec<u8>> + PayloadTypeName,
     {
         let topic = Some(Payload::name());
-        let received = self.receive_topic(topic).await?;
+        let received = self.receive_topic(topic, timeout).await?;
         received.try_into().map_err(TypedReceiveError::TypingError)
     }
 }
@@ -238,7 +252,7 @@ mod tests {
             .await;
 
         let received_message: IncomingMessage = client
-            .receive_topic(Some("matching_topic".to_owned()))
+            .receive_topic(Some("matching_topic".to_owned()), None)
             .await
             .unwrap();
 
@@ -303,7 +317,7 @@ mod tests {
             .await;
 
         let received_message: TypedIncomingMessage<TestPayload> =
-            client.receive_typed().await.unwrap();
+            client.receive_typed(None).await.unwrap();
 
         assert_eq!(received_message, typed_message);
     }
@@ -352,7 +366,7 @@ mod tests {
             .push_incoming(non_deserializable_message.clone())
             .await;
 
-        let result: Result<TypedIncomingMessage<TestPayload>, _> = client.receive_typed().await;
+        let result: Result<TypedIncomingMessage<TestPayload>, _> = client.receive_typed(None).await;
 
         assert!(matches!(
             result,
