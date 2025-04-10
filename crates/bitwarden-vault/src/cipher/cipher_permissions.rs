@@ -1,5 +1,6 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
 #[derive(Serialize, Copy, Deserialize, Debug, JsonSchema, Clone, PartialEq)]

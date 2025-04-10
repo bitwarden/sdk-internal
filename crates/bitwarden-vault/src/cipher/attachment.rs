@@ -4,6 +4,7 @@ use bitwarden_crypto::{
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
 use super::Cipher;

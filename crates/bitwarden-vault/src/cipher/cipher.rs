@@ -11,6 +11,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 use uuid::Uuid;
 use wasm_bindgen::prelude::wasm_bindgen;

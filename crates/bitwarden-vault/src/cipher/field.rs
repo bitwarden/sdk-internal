@@ -7,6 +7,7 @@ use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStor
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+#[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 use wasm_bindgen::prelude::wasm_bindgen;
 
