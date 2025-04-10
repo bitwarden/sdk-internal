@@ -68,7 +68,7 @@ where
         if let Some(timeout) = timeout {
             tokio::time::timeout(timeout, receive_loop)
                 .await
-                .map_err(|_| ReceiveError::TimeoutError)?
+                .map_err(|_| ReceiveError::Timeout)?
         } else {
             receive_loop.await
         }
@@ -92,7 +92,7 @@ where
     {
         let topic = Some(Payload::name());
         let received = self.receive_topic(topic, timeout).await?;
-        received.try_into().map_err(TypedReceiveError::TypingError)
+        received.try_into().map_err(TypedReceiveError::Typing)
     }
 }
 
@@ -156,8 +156,8 @@ mod tests {
             topic: None,
         };
         let crypto_provider = TestCryptoProvider {
-            send_result: Err(SendError::CryptoError("Crypto error".to_string())),
-            receive_result: Err(ReceiveError::CryptoError(
+            send_result: Err(SendError::Crypto("Crypto error".to_string())),
+            receive_result: Err(ReceiveError::Crypto(
                 "Should not have be called".to_string(),
             )),
         };
@@ -167,14 +167,14 @@ mod tests {
 
         let error = client.send(message).await.unwrap_err();
 
-        assert_eq!(error, SendError::CryptoError("Crypto error".to_string()));
+        assert_eq!(error, SendError::Crypto("Crypto error".to_string()));
     }
 
     #[tokio::test]
     async fn returns_receive_error_when_crypto_provider_returns_error() {
         let crypto_provider = TestCryptoProvider {
             send_result: Ok(()),
-            receive_result: Err(ReceiveError::CryptoError("Crypto error".to_string())),
+            receive_result: Err(ReceiveError::Crypto("Crypto error".to_string())),
         };
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
@@ -182,7 +182,7 @@ mod tests {
 
         let error = client.receive().await.unwrap_err();
 
-        assert_eq!(error, ReceiveError::CryptoError("Crypto error".to_string()));
+        assert_eq!(error, ReceiveError::Crypto("Crypto error".to_string()));
     }
 
     #[tokio::test]
@@ -370,7 +370,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(TypedReceiveError::TypingError(serde_json::Error { .. }))
+            Err(TypedReceiveError::Typing(serde_json::Error { .. }))
         ));
     }
 }
