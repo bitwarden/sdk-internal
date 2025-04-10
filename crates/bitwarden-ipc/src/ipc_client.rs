@@ -41,24 +41,20 @@ where
             .await
     }
 
-    /// Receive a message
+    /// Receive a message, optionally filtering by topic.
+    /// Setting the topic to `None` will receive all messages.
+    /// Setting the timeout to `None` will wait indefinitely.
     pub async fn receive(
-        &self,
-    ) -> Result<IncomingMessage, ReceiveError<Crypto::ReceiveError, Com::ReceiveError>> {
-        self.crypto
-            .receive(&self.communication, &self.sessions)
-            .await
-    }
-
-    /// Receive a message, filtering by topic.
-    pub async fn receive_topic(
         &self,
         topic: Option<String>,
         timeout: Option<Duration>,
     ) -> Result<IncomingMessage, ReceiveError<Crypto::ReceiveError, Com::ReceiveError>> {
         let receive_loop = async {
             loop {
-                let received = self.receive().await?;
+                let received = self
+                    .crypto
+                    .receive(&self.communication, &self.sessions)
+                    .await?;
                 if received.topic == topic {
                     return Ok(received);
                 }
@@ -91,7 +87,7 @@ where
         Payload: TryFrom<Vec<u8>> + PayloadTypeName,
     {
         let topic = Some(Payload::name());
-        let received = self.receive_topic(topic, timeout).await?;
+        let received = self.receive(topic, timeout).await?;
         received.try_into().map_err(TypedReceiveError::Typing)
     }
 }
@@ -180,7 +176,7 @@ mod tests {
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider, session_map);
 
-        let error = client.receive().await.unwrap_err();
+        let error = client.receive(None, None).await.unwrap_err();
 
         assert_eq!(error, ReceiveError::Crypto("Crypto error".to_string()));
     }
@@ -217,7 +213,7 @@ mod tests {
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
 
         communication_provider.push_incoming(message.clone()).await;
-        let received_message = client.receive().await.unwrap();
+        let received_message = client.receive(None, None).await.unwrap();
 
         assert_eq!(received_message, message);
     }
@@ -252,7 +248,7 @@ mod tests {
             .await;
 
         let received_message: IncomingMessage = client
-            .receive_topic(Some("matching_topic".to_owned()), None)
+            .receive(Some("matching_topic".to_owned()), None)
             .await
             .unwrap();
 
