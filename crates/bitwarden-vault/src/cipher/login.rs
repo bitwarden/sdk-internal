@@ -19,7 +19,7 @@ use crate::VaultParseError;
 #[repr(u8)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[wasm_bindgen]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum UriMatchType {
     Domain = 0,
     Host = 1,
