@@ -248,7 +248,7 @@ mod tests {
             .push_incoming(non_matching_message.clone())
             .await;
         communication_provider
-            .push_incoming(matching_message.clone().try_into().unwrap())
+            .push_incoming(matching_message.clone())
             .await;
 
         let received_message: IncomingMessage = client
