@@ -551,6 +551,7 @@ dependencies = [
  "bitwarden-error",
  "js-sys",
  "serde",
+ "serde_json",
  "thiserror 1.0.69",
  "tokio",
  "tsify-next",

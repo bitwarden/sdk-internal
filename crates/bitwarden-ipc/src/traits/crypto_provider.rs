@@ -48,7 +48,7 @@ where
         communication
             .send(message)
             .await
-            .map_err(SendError::CommunicationError)
+            .map_err(SendError::Communication)
     }
 
     async fn receive(
@@ -59,6 +59,6 @@ where
         communication
             .receive()
             .await
-            .map_err(ReceiveError::CommunicationError)
+            .map_err(ReceiveError::Communication)
     }
 }
