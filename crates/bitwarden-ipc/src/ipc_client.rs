@@ -55,7 +55,7 @@ where
                     .crypto
                     .receive(&self.communication, &self.sessions)
                     .await?;
-                if received.topic == topic {
+                if topic.is_none() || received.topic == topic {
                     return Ok(received);
                 }
             }
