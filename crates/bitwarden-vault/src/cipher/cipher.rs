@@ -14,6 +14,7 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 use uuid::Uuid;
+#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
