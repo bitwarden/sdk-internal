@@ -3,7 +3,7 @@ use std::pin::Pin;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::{typenum::U32, GenericArray};
 use rand::Rng;
-use zeroize::Zeroizing;
+use zeroize::{Zeroize, Zeroizing};
 
 use super::utils::stretch_key;
 use crate::{
@@ -34,6 +34,21 @@ impl KeyConnectorKey {
 
     pub fn to_base64(&self) -> String {
         STANDARD.encode(self.0.as_slice())
+    }
+}
+
+impl TryFrom<&mut [u8]> for KeyConnectorKey {
+    type Error = CryptoError;
+
+    fn try_from(value: &mut [u8]) -> Result<Self> {
+        if value.len() != 32 {
+            value.zeroize();
+            return Err(CryptoError::InvalidKey);
+        }
+
+        let key = Box::pin(GenericArray::<u8, U32>::default());
+        value.zeroize();
+        Ok(Self(key))
     }
 }
 

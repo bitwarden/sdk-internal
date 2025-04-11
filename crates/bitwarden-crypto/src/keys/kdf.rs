@@ -24,7 +24,13 @@ const ARGON2ID_MIN_PARALLELISM: u32 = 1;
 /// further using HKDF (HMAC-based Key Derivation Function).
 ///
 /// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
-pub struct KdfDerivedKeyMaterial(pub(super) Pin<Box<GenericArray<u8, U32>>>);
+pub struct KdfDerivedKeyMaterial{
+    pub(super) material: Pin<Box<GenericArray<u8, U32>>>,
+    #[allow(dead_code)]
+    pub(super) salt: Vec<u8>,
+    #[allow(dead_code)]
+    pub(super) kdf: Kdf,
+}
 
 impl KdfDerivedKeyMaterial {
     /// Derive a key from a secret and salt using the provided KDF.
@@ -44,14 +50,14 @@ impl KdfDerivedKeyMaterial {
             }
             Kdf::Argon2id {
                 iterations,
-                memory,
+                memory: memory_mib,
                 parallelism,
             } => {
-                let memory = memory.get() * 1024; // Convert MiB to KiB;
+                let memory_kib = memory_mib.get() * 1024; // Convert MiB to KiB;
                 let iterations = iterations.get();
                 let parallelism = parallelism.get();
 
-                if memory < ARGON2ID_MIN_MEMORY
+                if memory_kib < ARGON2ID_MIN_MEMORY
                     || iterations < ARGON2ID_MIN_ITERATIONS
                     || parallelism < ARGON2ID_MIN_PARALLELISM
                 {
@@ -60,13 +66,15 @@ impl KdfDerivedKeyMaterial {
 
                 use argon2::*;
 
-                let params = Params::new(memory, iterations, parallelism, Some(32))?;
+                let params = Params::new(memory_kib, iterations, parallelism, Some(32))?;
                 let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
 
-                let salt_sha = sha2::Sha256::new().chain_update(salt).finalize();
+                // Since the minimum salt length is 8 bytes, the input is not the raw salt,
+                // but instead the sha256 hash of the salt
+                let salt_sha256_hash = sha2::Sha256::new().chain_update(salt).finalize();
 
                 let mut hash = [0u8; 32];
-                argon.hash_password_into(secret, &salt_sha, &mut hash)?;
+                argon.hash_password_into(secret, &salt_sha256_hash, &mut hash)?;
 
                 // Argon2 is using some stack memory that is not zeroed. Eventually some function
                 // will overwrite the stack, but we use this trick to force the used
@@ -82,7 +90,12 @@ impl KdfDerivedKeyMaterial {
         };
         let key_material = Box::pin(GenericArray::clone_from_slice(&hash));
         hash.zeroize();
-        Ok(KdfDerivedKeyMaterial(key_material))
+        Ok(KdfDerivedKeyMaterial{
+            material: key_material,
+            salt: salt.to_vec(),
+            kdf: kdf.clone(),
+        })
+
     }
 
     /// Derives a users master key from their password, email and KDF.
@@ -101,6 +114,9 @@ impl KdfDerivedKeyMaterial {
 ///
 /// In Bitwarden accounts can use multiple KDFs to derive their master key from their password. This
 /// Enum represents all the possible KDFs.
+/// 
+/// Note: The argon2id KDF memory parameter is represented in MiB (Mebibytes) instead of KiB
+/// and is converted to KiB when invoking the KDF.
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
@@ -111,6 +127,7 @@ pub enum Kdf {
     },
     Argon2id {
         iterations: NonZeroU32,
+        /// Memory in MiB
         memory: NonZeroU32,
         parallelism: NonZeroU32,
     },
@@ -203,7 +220,7 @@ mod tests {
                 31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138, 167,
                 69, 167, 254, 149, 2, 27, 39, 197, 64, 42, 22, 195, 86, 75
             ],
-            kdf_key.0.as_slice()
+            kdf_key.material.as_slice()
         );
     }
 
@@ -225,7 +242,7 @@ mod tests {
                 207, 240, 225, 177, 162, 19, 163, 76, 98, 106, 179, 175, 224, 9, 17, 240, 20, 147,
                 237, 47, 246, 150, 141, 184, 62, 225, 131, 242, 51, 53, 225, 242
             ],
-            kdf_key.0.as_slice()
+            kdf_key.material.as_slice()
         );
     }
 }

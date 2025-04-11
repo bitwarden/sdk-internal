@@ -4,7 +4,7 @@ use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{AsymmetricEncString, EncString, Kdf, MasterKey, PinKey};
+use bitwarden_crypto::{AsymmetricEncString, EncString, Kdf, MasterKey, KeyConnectorKey, PinKey};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -180,6 +180,19 @@ impl InternalClient {
         private_key: EncString,
     ) -> Result<(), EncryptionSettingsError> {
         let user_key = master_key.decrypt_user_key(user_key)?;
+        EncryptionSettings::new_decrypted_key(user_key, private_key, &self.key_store)?;
+
+        Ok(())
+    }
+
+    #[cfg(feature = "internal")]
+    pub(crate) fn initialize_user_crypto_key_connector_key(
+        &self,
+        key_connector_key: KeyConnectorKey,
+        user_key: EncString,
+        private_key: EncString,
+    ) -> Result<(), EncryptionSettingsError> {
+        let user_key = key_connector_key.decrypt_user_key(user_key)?;
         EncryptionSettings::new_decrypted_key(user_key, private_key, &self.key_store)?;
 
         Ok(())

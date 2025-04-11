@@ -102,14 +102,8 @@ pub(crate) async fn complete_auth_request(
                 kdf: kdf.clone(),
             }));
 
-        let method = match res.master_password_hash {
-            Some(_) => AuthRequestMethod::MasterKey {
-                protected_master_key: require!(res.key).parse()?,
-                auth_request_key: require!(r.key).parse()?,
-            },
-            None => AuthRequestMethod::UserKey {
-                protected_user_key: require!(res.key).parse()?,
-            },
+        let method = AuthRequestMethod::UserKey {
+            protected_user_key: require!(res.key).parse()?,
         };
 
         client

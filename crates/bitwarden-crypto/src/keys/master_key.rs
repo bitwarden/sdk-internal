@@ -3,7 +3,7 @@ use std::pin::Pin;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::{typenum::U32, GenericArray};
 use schemars::JsonSchema;
-use zeroize::{Zeroize, Zeroizing};
+use zeroize::Zeroizing;
 
 use super::{
     kdf::{Kdf, KdfDerivedKeyMaterial},
@@ -24,18 +24,16 @@ pub enum HashPurpose {
 /// Master Key.
 ///
 /// Derived from the users master password, used to protect the [UserKey].
-pub enum MasterKey {
-    KdfKey(KdfDerivedKeyMaterial),
-}
+pub struct MasterKey(KdfDerivedKeyMaterial);
 
 impl MasterKey {
     pub(crate) fn new(key: KdfDerivedKeyMaterial) -> Self {
-        Self::KdfKey(key)
+        Self(key)
     }
 
     fn inner_bytes(&self) -> &Pin<Box<GenericArray<u8, U32>>> {
         match self {
-            Self::KdfKey(key) => &key.0,
+            Self(key) => &key.material,
         }
     }
 
@@ -74,38 +72,9 @@ impl MasterKey {
     }
 }
 
-impl TryFrom<&mut [u8]> for MasterKey {
-    type Error = CryptoError;
-
-    fn try_from(value: &mut [u8]) -> Result<Self> {
-        if value.len() != 32 {
-            value.zeroize();
-            return Err(CryptoError::InvalidKey);
-        }
-
-        let material =
-            KdfDerivedKeyMaterial(Box::pin(GenericArray::<u8, U32>::clone_from_slice(value)));
-        value.zeroize();
-        Ok(Self::new(material))
-    }
-}
-
 impl From<KdfDerivedKeyMaterial> for MasterKey {
     fn from(key: KdfDerivedKeyMaterial) -> Self {
         Self::new(key)
-    }
-}
-
-impl TryFrom<&SymmetricCryptoKey> for MasterKey {
-    type Error = CryptoError;
-
-    fn try_from(value: &SymmetricCryptoKey) -> Result<Self> {
-        match value {
-            SymmetricCryptoKey::Aes256CbcKey(key) => {
-                Ok(Self::KdfKey(KdfDerivedKeyMaterial(key.enc_key.clone())))
-            }
-            _ => Err(CryptoError::InvalidKey),
-        }
     }
 }
 
@@ -159,6 +128,7 @@ fn make_user_key(rng: impl rand::RngCore, master_key: &MasterKey) -> Result<(Use
 mod tests {
     use std::num::NonZeroU32;
 
+    use generic_array::GenericArray;
     use rand::SeedableRng;
 
     use super::{make_user_key, HashPurpose, Kdf, MasterKey};
@@ -219,14 +189,17 @@ mod tests {
     fn test_make_user_key() {
         let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
 
-        let master_key: MasterKey = KdfDerivedKeyMaterial(Box::pin(
-            [
-                31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138, 167,
-                69, 167, 254, 149, 2, 27, 39, 197, 64, 42, 22, 195, 86, 75,
-            ]
-            .into(),
-        ))
-        .into();
+        let test_bytes = [
+            31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138, 167,
+            69, 167, 254, 149, 2, 27, 39, 197, 64, 42, 22, 195, 86, 75,
+        ];
+        let master_key: MasterKey = MasterKey::new(KdfDerivedKeyMaterial {
+            material: Box::pin(GenericArray::clone_from_slice(&test_bytes)),
+            kdf: Kdf::PBKDF2 {
+                iterations: NonZeroU32::new(100_000).unwrap(),
+            },
+            salt: vec![],
+        });
 
         let (user_key, protected) = make_user_key(&mut rng, &master_key).unwrap();
         let SymmetricCryptoKey::Aes256CbcHmacKey(user_key_unwrapped) = &user_key.0 else {
@@ -259,8 +232,14 @@ mod tests {
 
     #[test]
     fn test_make_user_key2() {
-        let kdf_material = KdfDerivedKeyMaterial(derive_symmetric_key("test1").enc_key.clone());
-        let master_key = MasterKey::KdfKey(kdf_material);
+        let kdf_material = KdfDerivedKeyMaterial {
+            material: derive_symmetric_key("test1").enc_key.clone(),
+            kdf: Kdf::PBKDF2 {
+                iterations: NonZeroU32::new(100_000).unwrap(),
+            },
+            salt: vec![],
+        };
+        let master_key = MasterKey::new(kdf_material);
 
         let user_key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test2"));
 

@@ -2,8 +2,7 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, SymmetricCryptoKey, UserKey,
+    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, Kdf, KeyConnectorKey, KeyDecryptable, KeyEncryptable, MasterKey, SymmetricCryptoKey, UserKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -95,12 +94,6 @@ pub enum AuthRequestMethod {
         /// User Key protected by the private key provided in `AuthRequestResponse`.
         protected_user_key: AsymmetricEncString,
     },
-    MasterKey {
-        /// Master Key protected by the private key provided in `AuthRequestResponse`.
-        protected_master_key: AsymmetricEncString,
-        /// User Key protected by the MasterKey, provided by the auth response.
-        auth_request_key: EncString,
-    },
 }
 
 pub async fn initialize_user_crypto(
@@ -109,7 +102,7 @@ pub async fn initialize_user_crypto(
 ) -> Result<(), EncryptionSettingsError> {
     use bitwarden_crypto::{DeviceKey, PinKey};
 
-    use crate::auth::{auth_request_decrypt_master_key, auth_request_decrypt_user_key};
+    use crate::auth::auth_request_decrypt_user_key;
 
     let private_key: EncString = req.private_key.parse()?;
 
@@ -147,14 +140,6 @@ pub async fn initialize_user_crypto(
                 AuthRequestMethod::UserKey { protected_user_key } => {
                     auth_request_decrypt_user_key(request_private_key, protected_user_key)?
                 }
-                AuthRequestMethod::MasterKey {
-                    protected_master_key,
-                    auth_request_key,
-                } => auth_request_decrypt_master_key(
-                    request_private_key,
-                    protected_master_key,
-                    auth_request_key,
-                )?,
             };
             client
                 .internal
@@ -180,12 +165,12 @@ pub async fn initialize_user_crypto(
             let mut master_key_bytes = STANDARD
                 .decode(master_key)
                 .map_err(|_| CryptoError::InvalidKey)?;
-            let master_key = MasterKey::try_from(master_key_bytes.as_mut_slice())?;
+            let key_connector_key = KeyConnectorKey::try_from(master_key_bytes.as_mut_slice())?;
             let user_key: EncString = user_key.parse()?;
 
             client
                 .internal
-                .initialize_user_crypto_master_key(master_key, user_key, private_key)?;
+                .initialize_user_crypto_key_connector_key(key_connector_key, user_key, private_key)?;
         }
     }
 

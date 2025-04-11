@@ -20,12 +20,12 @@ impl PinKey {
 
     /// Encrypt the users user key
     pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
-        encrypt_user_key(&self.0 .0, user_key)
+        encrypt_user_key(&self.0.material, user_key)
     }
 
     /// Decrypt the users user key
     pub fn decrypt_user_key(&self, user_key: EncString) -> Result<SymmetricCryptoKey> {
-        decrypt_user_key(&self.0 .0, user_key)
+        decrypt_user_key(&self.0.material, user_key)
     }
 }
 
@@ -33,7 +33,7 @@ impl CryptoKey for PinKey {}
 
 impl KeyEncryptable<PinKey, EncString> for &[u8] {
     fn encrypt_with_key(self, key: &PinKey) -> Result<EncString> {
-        let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&key.0 .0)?);
+        let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&key.0.material)?);
         self.encrypt_with_key(&stretched_key)
     }
 }
