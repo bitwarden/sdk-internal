@@ -5,7 +5,7 @@ use bitwarden_core::{Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
 use wasm_bindgen::prelude::*;
 
-use crate::{CryptoClient, VaultClient};
+use crate::{CryptoClient, GeneratorClient, VaultClient};
 
 // Rc<...> is to avoid needing to take ownership of the Client during our async run_command
 // function https://github.com/rustwasm/wasm-bindgen/issues/2195#issuecomment-799588401
@@ -46,6 +46,11 @@ impl BitwardenClient {
 
     pub fn vault(&self) -> VaultClient {
         VaultClient::new(self.0.clone())
+    }
+
+    /// Constructs a specific client for generating passwords and passphrases
+    pub fn generator(&self) -> GeneratorClient {
+        GeneratorClient::new(self.0.clone())
     }
 }
 

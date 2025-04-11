@@ -16,17 +16,21 @@ keywords.workspace = true
 
 [features]
 uniffi = ["dep:uniffi"] # Uniffi bindings
+wasm = ["dep:tsify-next", "dep:wasm-bindgen"]
 
 [dependencies]
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
+bitwarden-error = { workspace = true }
 rand = ">=0.8.5, <0.9"
 reqwest = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+tsify-next = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 rand_chacha = "0.3.1"
