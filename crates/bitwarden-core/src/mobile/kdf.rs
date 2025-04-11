@@ -1,6 +1,6 @@
 use bitwarden_crypto::{CryptoError, HashPurpose, Kdf, MasterKey};
 
-pub async fn hash_password(
+pub(super) async fn hash_password(
     email: String,
     password: String,
     kdf_params: Kdf,

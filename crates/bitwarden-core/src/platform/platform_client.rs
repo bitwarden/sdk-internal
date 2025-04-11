@@ -7,10 +7,12 @@ use crate::{
     Client,
 };
 
+/// Wrapper for platform specific functionality.
 pub struct PlatformClient<'a> {
     pub(crate) client: &'a Client,
 }
 
+#[allow(missing_docs)]
 impl PlatformClient<'_> {
     pub fn fingerprint(&self, input: &FingerprintRequest) -> Result<String, FingerprintError> {
         generate_fingerprint(input)
@@ -32,6 +34,7 @@ impl PlatformClient<'_> {
 }
 
 impl<'a> Client {
+    /// Access to platform functionality.
     pub fn platform(&'a self) -> PlatformClient<'a> {
         PlatformClient { client: self }
     }

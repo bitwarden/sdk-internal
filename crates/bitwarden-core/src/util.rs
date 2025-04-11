@@ -6,12 +6,14 @@ use base64::{
 const INDIFFERENT: GeneralPurposeConfig =
     GeneralPurposeConfig::new().with_decode_padding_mode(DecodePaddingMode::Indifferent);
 
+/// A [GeneralPurpose] engine using the [alphabet::STANDARD] base64 alphabet with or without valid
+/// padding.
 pub const STANDARD_INDIFFERENT: GeneralPurpose =
     GeneralPurpose::new(&alphabet::STANDARD, INDIFFERENT);
 
 #[allow(dead_code)]
 #[cfg(test)]
-pub async fn start_mock(mocks: Vec<wiremock::Mock>) -> (wiremock::MockServer, crate::Client) {
+async fn start_mock(mocks: Vec<wiremock::Mock>) -> (wiremock::MockServer, crate::Client) {
     let server = wiremock::MockServer::start().await;
 
     for mock in mocks {
