@@ -82,6 +82,8 @@ impl Client {
                 })),
                 external_client,
                 key_store: KeyStore::default(),
+
+                cipher_store: RwLock::new(None),
             },
         }
     }
