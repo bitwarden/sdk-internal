@@ -1,4 +1,4 @@
-use bitwarden_crypto::{CryptoError, MasterKey, RsaKeyPair};
+use bitwarden_crypto::{CryptoError, KeyConnectorKey, RsaKeyPair};
 
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct KeyConnectorResponse {
@@ -10,12 +10,12 @@ pub struct KeyConnectorResponse {
 pub(super) fn make_key_connector_keys(
     mut rng: impl rand::RngCore,
 ) -> Result<KeyConnectorResponse, CryptoError> {
-    let master_key = MasterKey::generate(&mut rng);
-    let (user_key, encrypted_user_key) = master_key.make_user_key()?;
+    let key_connector_key = KeyConnectorKey::generate(&mut rng);
+    let (user_key, encrypted_user_key) = key_connector_key.make_user_key()?;
     let keys = user_key.make_key_pair()?;
 
     Ok(KeyConnectorResponse {
-        master_key: master_key.to_base64(),
+        master_key: key_connector_key.to_base64(),
         encrypted_user_key: encrypted_user_key.to_string(),
         keys,
     })

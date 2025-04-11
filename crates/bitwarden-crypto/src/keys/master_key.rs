@@ -2,7 +2,6 @@ use std::pin::Pin;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::{typenum::U32, GenericArray};
-use rand::Rng;
 use schemars::JsonSchema;
 use zeroize::{Zeroize, Zeroizing};
 
@@ -25,10 +24,8 @@ pub enum HashPurpose {
 /// Master Key.
 ///
 /// Derived from the users master password, used to protect the [UserKey].
-/// TODO: <https://bitwarden.atlassian.net/browse/PM-18366> split KeyConnectorKey into a separate file
 pub enum MasterKey {
     KdfKey(KdfDerivedKeyMaterial),
-    KeyConnectorKey(Pin<Box<GenericArray<u8, U32>>>),
 }
 
 impl MasterKey {
@@ -36,18 +33,9 @@ impl MasterKey {
         Self::KdfKey(key)
     }
 
-    /// Generate a new random master key for KeyConnector.
-    pub fn generate(mut rng: impl rand::RngCore) -> Self {
-        let mut key = Box::pin(GenericArray::<u8, U32>::default());
-
-        rng.fill(key.as_mut_slice());
-        Self::KeyConnectorKey(key)
-    }
-
     fn inner_bytes(&self) -> &Pin<Box<GenericArray<u8, U32>>> {
         match self {
             Self::KdfKey(key) => &key.0,
-            Self::KeyConnectorKey(key) => key,
         }
     }
 

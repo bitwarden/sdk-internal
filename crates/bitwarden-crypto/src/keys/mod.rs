@@ -26,4 +26,6 @@ pub use kdf::{
     default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
     default_pbkdf2_iterations, Kdf,
 };
+mod key_connector_key;
+pub use key_connector_key::*;
 mod utils;
