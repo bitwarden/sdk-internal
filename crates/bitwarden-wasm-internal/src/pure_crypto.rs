@@ -47,7 +47,7 @@ impl PureCrypto {
             .to_buffer()
     }
 
-    pub fn decrypt_userkey_with_masterpassword(
+    pub fn decrypt_user_key_with_master_password(
         encrypted_userkey: String,
         master_password: String,
         email: String,
