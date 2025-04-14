@@ -60,14 +60,14 @@ impl MasterKey {
 
     /// Derive the master key hash, used for local and remote password validation.
     pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> Result<String> {
-        let hash = util::pbkdf2(self.inner_bytes(), password, purpose as u32);
+        let hash = util::pbkdf2(self.inner_bytes().as_slice(), password, purpose as u32);
 
         Ok(STANDARD.encode(hash))
     }
 
     /// Generate a new random user key and encrypt it with the master key.
     pub fn make_user_key(&self) -> Result<(UserKey, EncString)> {
-        make_user_key(rand::thread_rng(), self)
+        make_user_key(&mut rand::thread_rng(), self)
     }
 
     /// Encrypt the users user key
@@ -126,7 +126,7 @@ pub(super) fn encrypt_user_key(
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
     let stretched_master_key = stretch_key(master_key)?;
-    let user_key_bytes = Zeroizing::new(user_key.to_vec());
+    let user_key_bytes = Zeroizing::new(user_key.to_encoded());
     EncString::encrypt_aes256_hmac(&user_key_bytes, &stretched_master_key)
 }
 
@@ -145,9 +145,14 @@ pub(super) fn decrypt_user_key(
             });
             user_key.decrypt_with_key(&legacy_key)?
         }
-        _ => {
+        EncString::AesCbc256_HmacSha256_B64 { .. } => {
             let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key)?);
             user_key.decrypt_with_key(&stretched_key)?
+        }
+        EncString::XChaCha20_Poly1305_Cose_B64 { .. } => {
+            return Err(CryptoError::OperationNotSupported(
+                crate::error::UnsupportedOperation::EncryptionNotImplementedForKey,
+            ));
         }
     };
 
@@ -155,11 +160,8 @@ pub(super) fn decrypt_user_key(
 }
 
 /// Generate a new random user key and encrypt it with the master key.
-fn make_user_key(
-    mut rng: impl rand::RngCore,
-    master_key: &MasterKey,
-) -> Result<(UserKey, EncString)> {
-    let user_key = SymmetricCryptoKey::generate(&mut rng);
+fn make_user_key(rng: impl rand::RngCore, master_key: &MasterKey) -> Result<(UserKey, EncString)> {
+    let user_key = SymmetricCryptoKey::generate_internal(rng, false);
     let protected = master_key.encrypt_user_key(&user_key)?;
     Ok((UserKey::new(user_key), protected))
 }
@@ -268,7 +270,7 @@ mod tests {
 
     #[test]
     fn test_make_user_key2() {
-        let kdf_material = KdfDerivedKeyMaterial((derive_symmetric_key("test1")).enc_key.clone());
+        let kdf_material = KdfDerivedKeyMaterial(derive_symmetric_key("test1").enc_key.clone());
         let master_key = MasterKey::KdfKey(kdf_material);
 
         let user_key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test2"));

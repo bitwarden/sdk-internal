@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+    CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, SymmetricCryptoKey,
 };
 use wasm_bindgen::prelude::*;
 
@@ -45,6 +45,40 @@ impl PureCrypto {
         plain
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)?
             .to_buffer()
+    }
+
+    pub fn decrypt_user_key_with_master_password(
+        encrypted_user_key: String,
+        master_password: String,
+        email: String,
+        kdf: Kdf,
+    ) -> Result<Vec<u8>, CryptoError> {
+        let master_key = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
+        let encrypted_user_key = EncString::from_str(&encrypted_user_key)?;
+        let result = master_key
+            .decrypt_user_key(encrypted_user_key)
+            .map_err(|_| CryptoError::InvalidKey)?;
+        Ok(result.to_encoded())
+    }
+
+    pub fn encrypt_user_key_with_master_password(
+        user_key: Vec<u8>,
+        master_password: String,
+        email: String,
+        kdf: Kdf,
+    ) -> Result<String, CryptoError> {
+        let master_key = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
+        let user_key = SymmetricCryptoKey::try_from(user_key)?;
+        let result = master_key.encrypt_user_key(&user_key)?;
+        Ok(result.to_string())
+    }
+
+    pub fn generate_user_key() -> Vec<u8> {
+        SymmetricCryptoKey::generate().to_encoded()
+    }
+
+    pub fn generate_user_key_xchacha20() -> Vec<u8> {
+        SymmetricCryptoKey::generate_xchacha20().to_encoded()
     }
 }
 
