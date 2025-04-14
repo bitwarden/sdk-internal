@@ -2,3 +2,4 @@
 ///! away common operations such as creating a password-protected key
 
 mod password_envelope;
+pub use password_envelope::PasswordProtectedKeyEnvelope;

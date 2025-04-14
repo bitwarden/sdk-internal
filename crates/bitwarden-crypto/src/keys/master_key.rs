@@ -3,13 +3,9 @@ use std::pin::Pin;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::{typenum::U32, GenericArray};
 use schemars::JsonSchema;
-use zeroize::Zeroizing;
 
-use super::{
-    utils::stretch_key,
-};
 use crate::{
-    kdf::{Kdf, KdfDerivedKeyMaterial}, util::{self}, CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey
+    kdf::{Kdf, KdfDerivedKeyMaterial}, util::{self}, CryptoError, EncString, Result, SymmetricCryptoKey, UserKey
 };
 
 #[derive(Copy, Clone, JsonSchema)]

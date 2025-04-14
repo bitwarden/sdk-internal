@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, Kdf, KeyConnectorKey, KeyDecryptable, KeyEncryptable, MasterKey, SymmetricCryptoKey, UserKey
+    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, Kdf, KeyConnectorKey, KeyDecryptable, KeyEncryptable, MasterKey, PasswordProtectedKeyEnvelope, SymmetricCryptoKey, UserKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -100,7 +100,7 @@ pub async fn initialize_user_crypto(
     client: &Client,
     req: InitUserCryptoRequest,
 ) -> Result<(), EncryptionSettingsError> {
-    use bitwarden_crypto::{DeviceKey, PinKey};
+    use bitwarden_crypto::DeviceKey;
 
     use crate::auth::auth_request_decrypt_user_key;
 
@@ -109,11 +109,18 @@ pub async fn initialize_user_crypto(
     match req.method {
         InitUserCryptoMethod::Password { password, user_key } => {
             let user_key: EncString = user_key.parse()?;
-
-            let master_key = MasterKey::derive(&password, &req.email, &req.kdf_params)?;
+            let envelope = PasswordProtectedKeyEnvelope::from(user_key);
+            let user_key = match envelope {
+                PasswordProtectedKeyEnvelope::WithKdfParameters(envelope) => {
+                    envelope.unseal(&password.as_bytes())?
+                }
+                PasswordProtectedKeyEnvelope::WithoutKdfParameters(envelope) => {
+                    envelope.unseal(&password.as_bytes(), &req.email.as_bytes(), &req.kdf_params)?
+                }
+            };
             client
                 .internal
-                .initialize_user_crypto_master_key(master_key, user_key, private_key)?;
+                .initialize_user_crypto_decrypted_key(user_key, private_key);
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
@@ -125,12 +132,16 @@ pub async fn initialize_user_crypto(
             pin,
             pin_protected_user_key,
         } => {
-            let pin_key = PinKey::derive(pin.as_bytes(), req.email.as_bytes(), &req.kdf_params)?;
-            client.internal.initialize_user_crypto_pin(
-                pin_key,
-                pin_protected_user_key,
-                private_key,
-            )?;
+            let envelope = PasswordProtectedKeyEnvelope::from(pin_protected_user_key);
+            let user_key = match envelope {
+                PasswordProtectedKeyEnvelope::WithKdfParameters(envelope) => {
+                    envelope.unseal(&pin.as_bytes())?
+                }
+                PasswordProtectedKeyEnvelope::WithoutKdfParameters(envelope) => {
+                    envelope.unseal(&pin.as_bytes(), &req.email.as_bytes(), &req.kdf_params)?
+                }
+            };
+            client.internal.initialize_user_crypto_decrypted_key(user_key, private_key)?;
         }
         InitUserCryptoMethod::AuthRequest {
             request_private_key,

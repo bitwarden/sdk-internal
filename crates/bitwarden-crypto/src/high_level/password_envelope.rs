@@ -7,10 +7,10 @@ use crate::kdf::{Kdf, KdfDerivedKeyMaterial};
 use crate::{cose, CryptoError, EncString, SymmetricCryptoKey};
 use crate::keys::stretch_key;
 
-struct KeyEnvelopeWithoutKdfParameters(EncString);
-struct KeyEnvelopeWithKdfParameters(EncString);
+pub struct KeyEnvelopeWithoutKdfParameters(EncString);
+pub struct KeyEnvelopeWithKdfParameters(EncString);
 
-enum PasswordProtectedKeyEnvelope {
+pub enum PasswordProtectedKeyEnvelope {
     WithKdfParameters(KeyEnvelopeWithKdfParameters),
     WithoutKdfParameters(KeyEnvelopeWithoutKdfParameters),
 }
@@ -82,7 +82,7 @@ impl PasswordProtectedKeyEnvelope {
 }
 
 impl KeyEnvelopeWithKdfParameters {
-    fn unseal(
+    pub fn unseal(
         &self,
         password: &[u8],
     ) -> Result<SymmetricCryptoKey, CryptoError> {
@@ -97,7 +97,7 @@ impl KeyEnvelopeWithKdfParameters {
 }
 
 impl KeyEnvelopeWithoutKdfParameters {
-    fn unseal(
+    pub fn unseal(
         &self,
         password: &[u8],
         salt: &[u8],
