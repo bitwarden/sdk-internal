@@ -8,29 +8,30 @@ use crate::error::{ReceiveError, SendError};
 #[wasm_bindgen(js_name = SendError)]
 pub struct JsSendError {
     #[wasm_bindgen(getter_with_clone)]
-    pub crypto_error: JsValue,
+    pub crypto: JsValue,
     #[wasm_bindgen(getter_with_clone)]
-    pub communication_error: JsValue,
+    pub communication: JsValue,
 }
 
 #[wasm_bindgen(js_name = ReceiveError)]
 pub struct JsReceiveError {
+    pub timeout: bool,
     #[wasm_bindgen(getter_with_clone)]
-    pub crypto_error: JsValue,
+    pub crypto: JsValue,
     #[wasm_bindgen(getter_with_clone)]
-    pub communication_error: JsValue,
+    pub communication: JsValue,
 }
 
 impl From<SendError<JsValue, JsValue>> for JsSendError {
     fn from(error: SendError<JsValue, JsValue>) -> Self {
         match error {
-            SendError::CryptoError(e) => JsSendError {
-                crypto_error: e,
-                communication_error: JsValue::UNDEFINED,
+            SendError::Crypto(e) => JsSendError {
+                crypto: e,
+                communication: JsValue::UNDEFINED,
             },
-            SendError::CommunicationError(e) => JsSendError {
-                crypto_error: JsValue::UNDEFINED,
-                communication_error: e,
+            SendError::Communication(e) => JsSendError {
+                crypto: JsValue::UNDEFINED,
+                communication: e,
             },
         }
     }
@@ -39,13 +40,20 @@ impl From<SendError<JsValue, JsValue>> for JsSendError {
 impl From<ReceiveError<JsValue, JsValue>> for JsReceiveError {
     fn from(error: ReceiveError<JsValue, JsValue>) -> Self {
         match error {
-            ReceiveError::CryptoError(e) => JsReceiveError {
-                crypto_error: e,
-                communication_error: JsValue::UNDEFINED,
+            ReceiveError::Timeout => JsReceiveError {
+                timeout: true,
+                crypto: JsValue::UNDEFINED,
+                communication: JsValue::UNDEFINED,
             },
-            ReceiveError::CommunicationError(e) => JsReceiveError {
-                crypto_error: JsValue::UNDEFINED,
-                communication_error: e,
+            ReceiveError::Crypto(e) => JsReceiveError {
+                timeout: false,
+                crypto: e,
+                communication: JsValue::UNDEFINED,
+            },
+            ReceiveError::Communication(e) => JsReceiveError {
+                timeout: false,
+                crypto: JsValue::UNDEFINED,
+                communication: e,
             },
         }
     }

@@ -40,6 +40,6 @@ impl JsIpcClient {
     }
 
     pub async fn receive(&self) -> Result<IncomingMessage, JsReceiveError> {
-        self.client.receive().await.map_err(|e| e.into())
+        self.client.receive(None, None).await.map_err(|e| e.into())
     }
 }
