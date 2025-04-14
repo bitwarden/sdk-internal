@@ -78,7 +78,7 @@ impl PureCrypto {
     }
 
     pub fn generate_user_key_xchacha20() -> Vec<u8> {
-        SymmetricCryptoKey::generate_xchacha20()
+        SymmetricCryptoKey::generate_xchacha20().to_encoded()
     }
 }
 
