@@ -27,8 +27,6 @@ pub enum CryptoError {
     MissingField(&'static str),
     #[error("Missing Key for Id: {0}")]
     MissingKeyId(String),
-    #[error("The provided  Id is not valid: {0}")]
-    InvalidKeyId(String),
     #[error("Crypto store is read-only")]
     ReadOnlyKeyStore,
 
