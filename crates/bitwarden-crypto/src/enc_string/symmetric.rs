@@ -249,10 +249,7 @@ impl EncString {
             .protected(protected_header)
             .create_ciphertext(data_dec, &[], |data, aad| {
                 let ciphertext = crate::xchacha20::encrypt_xchacha20_poly1305(
-                    key.enc_key
-                        .as_slice()
-                        .try_into()
-                        .expect("XChaChaPoly1305 key is 32 bytes long"),
+                    &(*key.enc_key).into(),
                     data,
                     aad,
                 );
@@ -316,10 +313,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                         nonce
                             .try_into()
                             .map_err(|_| CryptoError::InvalidNonceLength)?,
-                        key.enc_key
-                            .as_slice()
-                            .try_into()
-                            .expect("XChaChaPoly1305 key is 32 bytes long"),
+                        &(*key.enc_key).into(),
                         data,
                         aad,
                     )
