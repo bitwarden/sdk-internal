@@ -248,11 +248,8 @@ impl EncString {
         let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
             .protected(protected_header)
             .create_ciphertext(data_dec, &[], |data, aad| {
-                let ciphertext = crate::xchacha20::encrypt_xchacha20_poly1305(
-                    &(*key.enc_key).into(),
-                    data,
-                    aad,
-                );
+                let ciphertext =
+                    crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
                 nonce.copy_from_slice(ciphertext.nonce.as_slice());
                 ciphertext.ciphertext
             })
