@@ -262,9 +262,9 @@ impl EncString {
             .build();
 
         Ok(EncString::XChaCha20_Poly1305_Cose_B64 {
-            data: cose_encrypt0
-                .to_vec()
-                .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))?,
+            data: cose_encrypt0.to_vec().map_err(|err| {
+                CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err))
+            })?,
         })
     }
 
@@ -306,21 +306,23 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 EncString::XChaCha20_Poly1305_Cose_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let msg = coset::CoseEncrypt0::from_slice(data.as_slice())
-                    .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))?;
-                let decrypted_message = msg
-                    .decrypt(&[], |data, aad| {
-                        let nonce = msg.unprotected.iv.as_slice();
-                        crate::xchacha20::decrypt_xchacha20_poly1305(
-                            nonce.try_into().map_err(|_| CryptoError::InvalidNonceLength)?,
-                            key.enc_key
-                                .as_slice()
-                                .try_into()
-                                .expect("XChaChaPoly1305 key is 32 bytes long"),
-                            data,
-                            aad,
-                        )
-                    })?;
+                let msg = coset::CoseEncrypt0::from_slice(data.as_slice()).map_err(|err| {
+                    CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err))
+                })?;
+                let decrypted_message = msg.decrypt(&[], |data, aad| {
+                    let nonce = msg.unprotected.iv.as_slice();
+                    crate::xchacha20::decrypt_xchacha20_poly1305(
+                        nonce
+                            .try_into()
+                            .map_err(|_| CryptoError::InvalidNonceLength)?,
+                        key.enc_key
+                            .as_slice()
+                            .try_into()
+                            .expect("XChaChaPoly1305 key is 32 bytes long"),
+                        data,
+                        aad,
+                    )
+                })?;
                 Ok(decrypted_message)
             }
             _ => Err(CryptoError::WrongKeyType),
