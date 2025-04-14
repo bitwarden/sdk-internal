@@ -2786,8 +2786,7 @@ dependencies = [
 [[package]]
 name = "pkcs5"
 version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e847e2c91a18bfa887dd028ec33f2fe6f25db77db3619024764914affe8b69a6"
+source = "git+https://github.com/bitwarden/rustcrypto-formats.git?rev=2b27c63034217dd126bbf5ed874da51b84f8c705#2b27c63034217dd126bbf5ed874da51b84f8c705"
 dependencies = [
  "aes",
  "cbc",
