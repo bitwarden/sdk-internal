@@ -54,8 +54,8 @@ pub enum CryptoError {
     #[error("Key algorithm does not match encrypted data type")]
     WrongKeyType,
 
-    #[error("Encoding error")]
-    EncodingError,
+    #[error("Invalid nonce length")]
+    InvalidNonceLength,
 }
 
 #[derive(Debug, Error)]
@@ -76,8 +76,8 @@ pub enum EncStringParseError {
     InvalidBase64(#[from] base64::DecodeError),
     #[error("Invalid length: expected {expected}, got {got}")]
     InvalidLength { expected: usize, got: usize },
-    #[error("Invalid encoding")]
-    InvalidEncoding,
+    #[error("Invalid encoding {0}")]
+    InvalidCoseEncoding(coset::CoseError),
 }
 
 #[derive(Debug, Error)]

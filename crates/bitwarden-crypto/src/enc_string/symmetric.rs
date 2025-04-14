@@ -246,7 +246,7 @@ impl EncString {
         let mut nonce = [0u8; 24];
         let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
             .protected(protected_header)
-            .try_create_ciphertext(data_dec, &[], |data, aad| {
+            .create_ciphertext(data_dec, &[], |data, aad| {
                 let ciphertext = crate::xchacha20::encrypt_xchacha20_poly1305(
                     key.enc_key
                         .as_slice()
@@ -256,16 +256,15 @@ impl EncString {
                     aad,
                 );
                 nonce.copy_from_slice(ciphertext.nonce.as_slice());
-                Ok(ciphertext.ciphertext)
+                ciphertext.ciphertext
             })
-            .map_err(|_a: CryptoError| CryptoError::EncodingError)?
             .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
             .build();
 
         Ok(EncString::XChaCha20_Poly1305_Cose_B64 {
             data: cose_encrypt0
                 .to_vec()
-                .map_err(|_| CryptoError::EncodingError)?,
+                .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))?,
         })
     }
 
@@ -308,12 +307,12 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
                 let msg = coset::CoseEncrypt0::from_slice(data.as_slice())
-                    .map_err(|_| CryptoError::EncString(EncStringParseError::InvalidEncoding))?;
+                    .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))?;
                 let decrypted_message = msg
                     .decrypt(&[], |data, aad| {
                         let nonce = msg.unprotected.iv.as_slice();
                         crate::xchacha20::decrypt_xchacha20_poly1305(
-                            nonce.try_into().map_err(|_| CryptoError::EncodingError)?,
+                            nonce.try_into().map_err(|_| CryptoError::InvalidNonceLength)?,
                             key.enc_key
                                 .as_slice()
                                 .try_into()
@@ -321,9 +320,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                             data,
                             aad,
                         )
-                        .map_err(|_| CryptoError::EncodingError)
-                    })
-                    .map_err(|_| CryptoError::EncodingError)?;
+                    })?;
                 Ok(decrypted_message)
             }
             _ => Err(CryptoError::WrongKeyType),
