@@ -172,7 +172,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         self.encrypt_data_with_symmetric_key(encryption_key, &key_to_encrypt.to_vec())
     }
 
-    /// Decrypt a symmetric key into the context by using an already existing asymmetric key
+    /// Decapsulate a symmetric key into the context by using an already existing asymmetric key
     ///
     /// # Arguments
     ///
