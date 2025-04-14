@@ -184,14 +184,14 @@ impl SymmetricCryptoKey {
 
 impl ConstantTimeEq for SymmetricCryptoKey {
     fn ct_eq(&self, other: &SymmetricCryptoKey) -> Choice {
+        use SymmetricCryptoKey::*;
         match (self, other) {
-            (SymmetricCryptoKey::Aes256CbcKey(a), SymmetricCryptoKey::Aes256CbcKey(b)) => {
-                a.ct_eq(b)
-            }
-            (SymmetricCryptoKey::Aes256CbcHmacKey(a), SymmetricCryptoKey::Aes256CbcHmacKey(b)) => {
-                a.ct_eq(b)
-            }
-            _ => Choice::from(0),
+            (Aes256CbcKey(a), Aes256CbcKey(b)) => a.ct_eq(b),
+            (Aes256CbcKey(_), _) => Choice::from(0),
+            (Aes256CbcHmacKey(a), Aes256CbcHmacKey(b)) => a.ct_eq(b),
+            (Aes256CbcHmacKey(_), _) => Choice::from(0),
+            (XChaCha20Poly1305Key(a), XChaCha20Poly1305Key(b)) => a.ct_eq(b),
+            (XChaCha20Poly1305Key(_), _) => Choice::from(0),
         }
     }
 }
