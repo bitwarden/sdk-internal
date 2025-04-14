@@ -180,28 +180,29 @@ impl EncString {
 
 impl Display for EncString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn fmt_parts(
+            f: &mut std::fmt::Formatter<'_>,
+            enc_type: u8,
+            parts: &[&[u8]],
+        ) -> std::fmt::Result {
+            let encoded_parts: Vec<String> =
+                parts.iter().map(|part| STANDARD.encode(part)).collect();
+            write!(f, "{}.{}", enc_type, encoded_parts.join("|"))
+        }
+
+        let enc_type = self.enc_type();
+
         match self {
-            EncString::AesCbc256_B64 { .. } | EncString::AesCbc256_HmacSha256_B64 { .. } => {
-                let parts: Vec<&[u8]> = match self {
-                    EncString::AesCbc256_B64 { iv, data } => vec![iv, data],
-                    EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
-                    _ => unreachable!(),
-                };
-
-                let encoded_parts: Vec<String> =
-                    parts.iter().map(|part| STANDARD.encode(part)).collect();
-
-                write!(f, "{}.{}", self.enc_type(), encoded_parts.join("|"))?;
-
-                Ok(())
+            EncString::AesCbc256_B64 { iv, data } => fmt_parts(f, enc_type, &[iv, data]),
+            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
+                fmt_parts(f, enc_type, &[iv, data, mac])
             }
             EncString::XChaCha20_Poly1305_Cose_B64 { data } => {
                 if let Ok(msg) = coset::CoseEncrypt0::from_slice(data.as_slice()) {
-                    write!(f, "{}.{:?}", self.enc_type(), msg)?;
+                    write!(f, "{}.{:?}", enc_type, msg)?;
                 } else {
-                    write!(f, "{}.INVALID_COSE", self.enc_type())?;
+                    write!(f, "{}.INVALID_COSE", enc_type)?;
                 }
-
                 Ok(())
             }
         }
