@@ -163,7 +163,7 @@ pub fn default_argon2_parallelism() -> NonZeroU32 {
 mod tests {
     use std::num::{NonZero, NonZeroU32};
 
-    use crate::keys::kdf::{Kdf, KdfDerivedKeyMaterial};
+    use crate::kdf::{Kdf, KdfDerivedKeyMaterial};
 
     #[test]
     fn test_derive_kdf_minimums() {

@@ -31,8 +31,11 @@ pub use wordlist::EFF_LONG_WORD_LIST;
 mod store;
 pub use store::{KeyStore, KeyStoreContext};
 mod cose;
+mod kdf;
+pub use kdf::*;
 mod traits;
 mod xchacha20;
+mod high_level;
 pub use traits::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
 

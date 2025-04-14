@@ -1,10 +1,8 @@
 use super::{
-    kdf::{Kdf, KdfDerivedKeyMaterial},
-    master_key::{decrypt_user_key, encrypt_user_key},
     utils::stretch_key,
 };
 use crate::{
-    keys::key_encryptable::CryptoKey, EncString, KeyEncryptable, Result, SymmetricCryptoKey,
+    kdf::{Kdf, KdfDerivedKeyMaterial}, keys::key_encryptable::CryptoKey, EncString, KeyEncryptable, Result, SymmetricCryptoKey
 };
 
 /// Pin Key.
@@ -20,12 +18,14 @@ impl PinKey {
 
     /// Encrypt the users user key
     pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
-        encrypt_user_key(&self.0.material, user_key)
+        // encrypt_key_with_password(&self.0.material, user_key)
+        todo!();
     }
 
     /// Decrypt the users user key
-    pub fn decrypt_user_key(&self, user_key: EncString) -> Result<SymmetricCryptoKey> {
-        decrypt_user_key(&self.0.material, user_key)
+    pub fn decrypt_user_key(password: &[u8], email: &[u8], kdf: &Kdf, user_key: EncString) -> Result<SymmetricCryptoKey> {
+        // decrypt_key_with_password(password, email, kdf, user_key)
+        todo!();
     }
 }
 

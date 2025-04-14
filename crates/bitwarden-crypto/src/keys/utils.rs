@@ -8,7 +8,7 @@ use crate::{util::hkdf_expand, Result};
 /// Stretch the given key using HKDF.
 /// This can be either a kdf-derived key (PIN/Master password) or
 /// a random key from key connector
-pub(super) fn stretch_key(key: &Pin<Box<GenericArray<u8, U32>>>) -> Result<Aes256CbcHmacKey> {
+pub(crate) fn stretch_key(key: &Pin<Box<GenericArray<u8, U32>>>) -> Result<Aes256CbcHmacKey> {
     Ok(Aes256CbcHmacKey {
         enc_key: hkdf_expand(key, Some("enc"))?,
         mac_key: hkdf_expand(key, Some("mac"))?,
