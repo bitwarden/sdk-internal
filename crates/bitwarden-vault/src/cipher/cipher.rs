@@ -587,7 +587,8 @@ impl CipherView {
 
     /// Decrypts an encrypted key value using the cipher's key
     ///
-    /// This method is a temporary solution to allow typescript client access to decrypted key values, particularly for FIDO2 credentials.
+    /// This method is a temporary solution to allow typescript client access to decrypted key
+    /// values, particularly for FIDO2 credentials.
     ///
     /// # Arguments
     /// * `enc_key` - The encrypted key value to decrypt
