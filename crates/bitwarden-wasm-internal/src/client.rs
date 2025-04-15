@@ -1,11 +1,11 @@
 extern crate console_error_panic_hook;
 use std::{fmt::Display, rc::Rc, sync::Arc};
 
-use bitwarden_core::{client::internal::CipherStore, Client, ClientSettings};
+use bitwarden_core::{client::data_store::DataStore, Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
 use bitwarden_vault::Cipher;
-use js_sys::{Array, JsString, Promise};
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
+use tsify_next::serde_wasm_bindgen;
 use wasm_bindgen::prelude::*;
 
 use crate::{CryptoClient, VaultClient};
@@ -74,61 +74,6 @@ impl StoreClient {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ChannelCipherStore {
-    sender: mpsc::Sender<StoreCommand>,
-}
-
-pub enum StoreCommand {
-    Get {
-        id: String,
-        respond_to: oneshot::Sender<Option<String>>,
-    },
-    List {
-        respond_to: oneshot::Sender<Vec<String>>,
-    },
-    Set {
-        id: String,
-        value: String,
-    },
-    Remove {
-        id: String,
-    },
-}
-
-#[async_trait::async_trait]
-impl CipherStore for ChannelCipherStore {
-    async fn get(&self, id: &str) -> Option<String> {
-        let (tx, rx) = oneshot::channel();
-        let cmd = StoreCommand::Get {
-            id: id.to_string(),
-            respond_to: tx,
-        };
-        let _ = self.sender.send(cmd).await;
-        rx.await.expect("")
-    }
-
-    async fn list(&self) -> Vec<String> {
-        let (tx, rx) = oneshot::channel();
-        let cmd = StoreCommand::List { respond_to: tx };
-        let _ = self.sender.send(cmd).await;
-        rx.await.expect("")
-    }
-
-    async fn set(&self, id: &str, value: String) {
-        let cmd = StoreCommand::Set {
-            id: id.to_string(),
-            value,
-        };
-        self.sender.send(cmd).await.expect("");
-    }
-
-    async fn remove(&self, id: &str) {
-        let cmd = StoreCommand::Remove { id: id.to_string() };
-        self.sender.send(cmd).await.expect("");
-    }
-}
-
 #[wasm_bindgen(typescript_custom_section)]
 const CIPHER_STORE_CUSTOM_TS_TYPE: &'static str = r#"
 export interface CipherStore {
@@ -139,85 +84,59 @@ export interface CipherStore {
 }
 "#;
 
+#[bitwarden_error::bitwarden_wasm_ipc_channel]
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_name = CipherStore, typescript_type = "CipherStore")]
     pub type JSCipherStore;
 
     #[wasm_bindgen(method)]
-    async fn get(this: &JSCipherStore, id: String) -> JsValue;
+    async fn get(this: &JSCipherStore, id: String) -> Option<Cipher>;
 
     #[wasm_bindgen(method)]
-    async fn list(this: &JSCipherStore) -> Array;
+    async fn list(this: &JSCipherStore) -> Vec<Cipher>;
 
     #[wasm_bindgen(method)]
-    async fn set(this: &JSCipherStore, id: String, value: String);
+    async fn set(this: &JSCipherStore, id: String, value: Cipher);
 
     #[wasm_bindgen(method)]
     async fn remove(this: &JSCipherStore, id: String);
 }
 
+#[async_trait::async_trait]
+impl DataStore<Cipher> for ChannelJSCipherStore {
+    async fn get(&self, id: String) -> Option<Cipher> {
+        ChannelJSCipherStore::get(self, id).await
+    }
+
+    async fn list(&self) -> Vec<Cipher> {
+        ChannelJSCipherStore::list(self).await
+    }
+
+    async fn set(&self, id: String, value: Cipher) {
+        ChannelJSCipherStore::set(self, id, value).await;
+    }
+
+    async fn remove(&self, id: String) {
+        ChannelJSCipherStore::remove(self, id).await;
+    }
+}
+
 #[wasm_bindgen]
 impl StoreClient {
     pub async fn print_the_ciphers(&self) -> String {
-        let store = self.0.internal.get_cipher_store().expect("msg");
+        let store = self.0.internal.get_data_store::<Cipher>().expect("msg");
         let mut result = String::new();
         let ciphers = store.list().await;
         for cipher in ciphers {
-            result.push_str(&cipher);
+            result.push_str(&serde_json::to_string(&cipher).expect("msg"));
             result.push('\n');
         }
         result
     }
 
-    pub fn register_cipher_store(
-        &self,
-        store: JSCipherStore,
-        //  get: js_sys::Function,
-        //  list: js_sys::Function,
-        //  save: js_sys::Function,
-        //  delete: js_sys::Function,
-    ) {
-        let (tx, mut rx) = mpsc::channel::<StoreCommand>(32);
-
-        wasm_bindgen_futures::spawn_local(async move {
-            fn resolve_value(val: JsValue) -> Option<JsValue> {
-                if val.is_null() || val.is_undefined() {
-                    None
-                } else {
-                    Some(val)
-                }
-            }
-
-            while let Some(cmd) = rx.recv().await {
-                match cmd {
-                    StoreCommand::Get { id, respond_to } => {
-                        let result = store.get(id).await;
-                        let result = resolve_value(result).map(|v| v.try_into().expect(""));
-                        let _ = respond_to.send(result);
-                    }
-                    StoreCommand::List { respond_to } => {
-                        let result = store.list().await;
-
-                        let result: Vec<String> = result
-                            .into_iter()
-                            .map(|v| v.as_string().expect("msg"))
-                            .collect();
-
-                        let _ = respond_to.send(result);
-                    }
-                    StoreCommand::Set { id, value } => {
-                        store.set(id, value).await;
-                    }
-                    StoreCommand::Remove { id } => {
-                        store.remove(id).await;
-                    }
-                }
-            }
-        });
-
-        let store = ChannelCipherStore { sender: tx };
-
-        self.0.internal.register_cipher_store(Arc::new(store));
+    pub fn register_cipher_store(&self, store: JSCipherStore) {
+        let store = store.create_channel_impl();
+        self.0.internal.register_data_store(Arc::new(store));
     }
 }

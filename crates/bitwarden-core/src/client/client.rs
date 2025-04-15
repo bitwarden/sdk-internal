@@ -8,6 +8,7 @@ use super::internal::InternalClient;
 use crate::client::flags::Flags;
 use crate::client::{
     client_settings::ClientSettings,
+    data_store::DataStoreMap,
     internal::{ApiConfigurations, Tokens},
 };
 
@@ -82,8 +83,8 @@ impl Client {
                 })),
                 external_client,
                 key_store: KeyStore::default(),
-
-                cipher_store: RwLock::new(None),
+                #[cfg(feature = "internal")]
+                data_stores: RwLock::new(DataStoreMap::default()),
             },
         }
     }

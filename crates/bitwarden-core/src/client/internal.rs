@@ -18,6 +18,7 @@ use crate::{
 };
 #[cfg(feature = "internal")]
 use crate::{
+    client::data_store::{DataStore, DataStoreMap},
     client::encryption_settings::EncryptionSettingsError,
     client::{flags::Flags, login_method::UserLoginMethod},
     error::NotAuthenticatedError,
@@ -61,7 +62,8 @@ pub struct InternalClient {
 
     pub(super) key_store: KeyStore<KeyIds>,
 
-    pub(super) cipher_store: RwLock<Option<Arc<dyn CipherStore>>>,
+    #[cfg(feature = "internal")]
+    pub(super) data_stores: RwLock<DataStoreMap>,
 }
 
 impl InternalClient {
@@ -222,26 +224,19 @@ impl InternalClient {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
     }
 
-    pub fn register_cipher_store(&self, store: Arc<dyn CipherStore>) {
-        self.cipher_store
+    #[cfg(feature = "internal")]
+    pub fn register_data_store<T: 'static + DataStore<V>, V: 'static>(&self, store: Arc<T>) {
+        self.data_stores
             .write()
             .expect("RwLock is not poisoned")
-            .replace(store);
+            .insert(store);
     }
 
-    pub fn get_cipher_store(&self) -> Option<Arc<dyn CipherStore>> {
-        self.cipher_store
+    #[cfg(feature = "internal")]
+    pub fn get_data_store<T: 'static>(&self) -> Option<Arc<dyn DataStore<T>>> {
+        self.data_stores
             .read()
             .expect("RwLock is not poisoned")
-            .clone()
+            .get()
     }
-}
-
-// TODO: We can't expose the store as returning a bitwarden_vault::Cipher to avoid a circular dependency, we'll fix that at some point somehow
-#[async_trait::async_trait]
-pub trait CipherStore: std::fmt::Debug + Send + Sync {
-    async fn get(&self, key: &str) -> Option<String>;
-    async fn list(&self) -> Vec<String>;
-    async fn set(&self, key: &str, value: String);
-    async fn remove(&self, key: &str);
 }

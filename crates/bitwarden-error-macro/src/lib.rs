@@ -5,6 +5,7 @@ mod attribute;
 mod basic;
 mod flat;
 mod full;
+mod wasm_ipc;
 
 /// A procedural macro for generating error types with customizable serialization behavior.
 ///
@@ -119,4 +120,15 @@ pub fn bitwarden_error(
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     attribute::bitwarden_error(args, item)
+}
+
+#[proc_macro_attribute]
+pub fn bitwarden_wasm_ipc_channel(
+    args: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    match wasm_ipc::bitwarden_wasm_ipc_channel_internal(args, item) {
+        Ok(v) => v,
+        Err(e) => proc_macro::TokenStream::from(e.to_compile_error()),
+    }
 }

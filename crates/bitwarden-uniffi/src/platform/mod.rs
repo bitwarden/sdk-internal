@@ -72,49 +72,39 @@ impl<T> std::fmt::Debug for UniffiTraitBridge<T> {
 struct UniffiTraitBridge<T>(T);
 
 #[async_trait::async_trait]
-impl bitwarden_core::client::internal::CipherStore for UniffiTraitBridge<Arc<dyn CipherStore>> {
-    async fn get(&self, key: &str) -> Option<String> {
-        self.0
-            .get(key.to_string())
-            .await
-            .map(|cipher| serde_json::to_string(&cipher).expect("Failed to serialize cipher"))
+impl bitwarden_core::client::data_store::DataStore<Cipher>
+    for UniffiTraitBridge<Arc<dyn CipherStore>>
+{
+    async fn get(&self, key: String) -> Option<Cipher> {
+        self.0.get(key).await
     }
-    async fn list(&self) -> Vec<String> {
-        self.0
-            .list()
-            .await
-            .into_iter()
-            .map(|cipher| serde_json::to_string(&cipher).expect("Failed to serialize cipher"))
-            .collect()
+    async fn list(&self) -> Vec<Cipher> {
+        self.0.list().await
     }
-    async fn set(&self, key: &str, value: String) {
-        self.0
-            .set(key.to_string(), serde_json::from_str(&value).expect("msg"))
-            .await
+    async fn set(&self, key: String, value: Cipher) {
+        self.0.set(key, value).await
     }
-    async fn remove(&self, key: &str) {
-        self.0.remove(key.to_string()).await
+    async fn remove(&self, key: String) {
+        self.0.remove(key).await
     }
 }
 
 #[uniffi::export(async_runtime = "tokio")]
 impl StoreClient {
     pub async fn print_the_ciphers(&self) -> String {
-        let store = self.0 .0.internal.get_cipher_store().expect("msg");
+        let store = self.0 .0.internal.get_data_store::<Cipher>().expect("msg");
         let mut result = String::new();
         let ciphers = store.list().await;
         for cipher in ciphers {
-            result.push_str(&cipher);
+            result.push_str(&serde_json::to_string(&cipher).expect("msg"));
             result.push('\n');
         }
         result
     }
 
     pub fn register_cipher_store(&self, store: Arc<dyn CipherStore>) -> Result<()> {
-        let store_internal: Arc<dyn bitwarden_core::client::internal::CipherStore> =
-            Arc::new(UniffiTraitBridge(store));
-
-        self.0 .0.internal.register_cipher_store(store_internal);
+        let store_internal = Arc::new(UniffiTraitBridge(store));
+        self.0 .0.internal.register_data_store(store_internal);
         Ok(())
     }
 }
