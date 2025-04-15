@@ -64,6 +64,12 @@ wasm-bindgen = { version = ">=0.2.91, <0.3", features = ["serde-serialize"] }
 js-sys = { version = ">=0.3.72, <0.4" }
 wasm-bindgen-futures = "0.4.41"
 
+# There is an incompatibility when using pkcs5 and chacha20 on wasm builds. This can be removed once a new
+# rustcrypto-formats crate version is released since the fix has been upstreamed.
+# https://github.com/RustCrypto/formats/pull/1625
+[patch.crates-io]
+pkcs5 = { git = "https://github.com/bitwarden/rustcrypto-formats.git", rev = "2b27c63034217dd126bbf5ed874da51b84f8c705" }
+
 [workspace.lints.clippy]
 unused_async = "deny"
 unwrap_used = "deny"
