@@ -1,5 +1,5 @@
 use bitwarden_core::Client;
-use bitwarden_crypto::IdentifyKey;
+use bitwarden_crypto::{EncString, IdentifyKey};
 use uuid::Uuid;
 
 use crate::{
@@ -60,6 +60,17 @@ impl ClientCiphers<'_> {
         let key_store = self.client.internal.get_key_store();
         cipher_view.move_to_organization(&mut key_store.context(), organization_id)?;
         Ok(cipher_view)
+    }
+
+    pub fn decrypt_key(
+        &self,
+        cipher_view: CipherView,
+        key: String,
+    ) -> Result<String, DecryptError> {
+        let key_store = self.client.internal.get_key_store();
+        let enc_key: EncString = key.parse()?;
+        let decrypted_key = cipher_view.decrypt_key(enc_key, &mut key_store.context())?;
+        Ok(decrypted_key)
     }
 }
 

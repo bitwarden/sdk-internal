@@ -584,6 +584,30 @@ impl CipherView {
         let res = creds.decrypt(ctx, ciphers_key)?;
         Ok(res)
     }
+
+    /// Decrypts an encrypted key value using the cipher's key
+    ///
+    /// This method is a temporary solution to allow typescript client access to decrypted key values, particularly for FIDO2 credentials.
+    ///
+    /// # Arguments
+    /// * `enc_key` - The encrypted key value to decrypt
+    /// * `ctx` - The key store context to use for decryption
+    ///
+    /// # Returns
+    /// * `Ok(String)` - The decrypted key value
+    /// * `Err(CryptoError)` - An error occurred during decryption
+    pub fn decrypt_key(
+        &self,
+        enc_key: EncString,
+        ctx: &mut KeyStoreContext<KeyIds>,
+    ) -> Result<String, CryptoError> {
+        let key = self.key_identifier();
+
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+
+        let res = enc_key.decrypt(ctx, ciphers_key)?;
+        Ok(res)
+    }
 }
 
 impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
@@ -1325,5 +1349,30 @@ mod tests {
             .get_decrypted_subtitle(&mut ctx, key)
             .unwrap();
         assert_eq!(subtitle, original_subtitle);
+    }
+
+    #[test]
+    fn test_decrypt_field() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::generate(rand::thread_rng()));
+        let mut ctx = key_store.context();
+
+        let mut cipher_view = generate_cipher();
+        cipher_view
+            .generate_cipher_key(&mut ctx, cipher_view.key_identifier())
+            .unwrap();
+
+        let key_id = cipher_view.key_identifier();
+        let ciphers_key = Cipher::decrypt_cipher_key(&mut ctx, key_id, &cipher_view.key).unwrap();
+
+        let fido2_credential = generate_fido2(&mut ctx, ciphers_key);
+
+        cipher_view.login.as_mut().unwrap().fido2_credentials =
+            Some(vec![fido2_credential.clone()]);
+
+        let decrypted_key_value = cipher_view
+            .decrypt_key(fido2_credential.key_value, &mut ctx)
+            .unwrap();
+        assert_eq!(decrypted_key_value, "123");
     }
 }

@@ -71,4 +71,23 @@ impl ClientCiphers {
             .ciphers()
             .decrypt_fido2_credentials(cipher_view)
     }
+
+    /// Decrypt key
+    ///
+    /// This method is a temporary solution to allow typescript client access to decrypted key values, particularly for FIDO2 credentials.
+    ///
+    /// # Arguments
+    /// - `cipher_view` - Decrypted cipher containing the key
+    /// - `key` - The encrypted key to decrypt
+    ///
+    /// # Returns
+    /// - `Ok(String)` containing the decrypted key
+    /// - `Err(DecryptError)` if decryption fails
+    pub fn decrypt_key(
+        &self,
+        cipher_view: CipherView,
+        key: String,
+    ) -> Result<String, DecryptError> {
+        self.0.vault().ciphers().decrypt_key(cipher_view, key)
+    }
 }
