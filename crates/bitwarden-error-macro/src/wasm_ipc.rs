@@ -21,6 +21,44 @@ fn unit_tuple() -> Type {
     parse_quote! { () }
 }
 
+struct Func {
+    name: Ident,
+    args: Vec<(Ident, Type)>,
+    return_type: Type,
+    returns_value: bool,
+}
+
+impl Func {
+    fn from_item(func: &ForeignItemFn) -> Result<Func, Error> {
+        let name = func.sig.ident.clone();
+
+        let mut args = func.sig.inputs.iter();
+        let _this_arg = args.next().expect("Expected a this argument");
+
+        let args = args
+            .map(|arg| match arg {
+                FnArg::Typed(arg) => match *arg.pat {
+                    Pat::Ident(ref pat) => Ok((pat.ident.clone(), (*arg.ty).clone())),
+                    _ => Err(Error::new(arg.span(), "Expected an Ident argument")),
+                },
+                _ => Err(Error::new(arg.span(), "Expected a typed argument")),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let (return_type, returns_value) = match &func.sig.output {
+            ReturnType::Default => (unit_tuple(), false),
+            ReturnType::Type(_, ty) => ((**ty).clone(), true),
+        };
+
+        Ok(Func {
+            name,
+            args,
+            return_type,
+            returns_value,
+        })
+    }
+}
+
 pub(crate) fn bitwarden_wasm_ipc_channel_internal(
     _args: TokenStream,
     item: TokenStream,
@@ -29,60 +67,21 @@ pub(crate) fn bitwarden_wasm_ipc_channel_internal(
 
     // Validate the ABI
     match input.abi.name {
-        Some(ref name) if name.value() == "C" => { /* OK */ }
-        _ => {
-            return Err(Error::new(input.abi.span(), "Only C ABI is supported"));
-        }
-    }
+        Some(ref name) if name.value() == "C" => Ok(()),
+        _ => Err(Error::new(input.abi.span(), "Only C ABI is supported")),
+    }?;
 
-    // Check that all the items are tagged as `#[wasm_bindgen]`, and collect the type ident and function signatures
+    // Check that the extern mod is marked with #[wasm_bindgen]
     get_bindgen_attr(&input, &input.attrs)?;
 
     let mut ident = None;
     let mut functions = Vec::new();
 
-    struct Func {
-        name: Ident,
-        args: Vec<(Ident, Type)>,
-        return_type: Type,
-        returns_value: bool,
-    }
-
-    impl Func {
-        fn from_item(func: &ForeignItemFn) -> Result<Func, Error> {
-            let name = func.sig.ident.clone();
-
-            let mut args = func.sig.inputs.iter();
-            let _this_arg = args.next().expect("Expected a self argument");
-
-            let args = args
-                .map(|arg| match arg {
-                    FnArg::Typed(arg) => {
-                        let name = match *arg.pat {
-                            Pat::Ident(ref pat) => pat.ident.clone(),
-                            _ => Err(Error::new(arg.span(), "Expected an Ident argument"))?,
-                        };
-                        Ok((name, (*arg.ty).clone()))
-                    }
-                    _ => Err(Error::new(arg.span(), "Expected a typed argument")),
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-
-            let (return_type, returns_value) = match &func.sig.output {
-                ReturnType::Default => (unit_tuple(), false),
-                ReturnType::Type(_, ty) => ((**ty).clone(), true),
-            };
-
-            Ok(Func {
-                name,
-                args,
-                return_type,
-                returns_value,
-            })
-        }
-    }
-
     // Collect and parse the items (one type + multiple functions)
+    // For functions that return a value, we need to change the return type to JsValue in the
+    // #[wasm_bindgen] extern block, as only types that implement JsCast can be returned.
+    // The functions in the Channel struct will return the original values, and just use
+    // `serde_wasm_bindgen::from_value`.
     for item in &mut input.items {
         match item {
             ForeignItem::Type(typ) => {
@@ -99,8 +98,8 @@ pub(crate) fn bitwarden_wasm_ipc_channel_internal(
             }
             ForeignItem::Fn(func) => {
                 if let Ok(_bindgen) = get_bindgen_attr(&func, &func.attrs) {
+                    // Collect the function info first, then modify the function return type
                     functions.push(Func::from_item(func)?);
-
                     if let ReturnType::Type(_, ty) = &mut func.sig.output {
                         *ty = parse_quote! { ::wasm_bindgen::JsValue };
                     }
@@ -164,24 +163,23 @@ pub(crate) fn bitwarden_wasm_ipc_channel_internal(
 
     let matches = functions.iter().map(|f| {
         let name = &f.name;
-        let args1 = f.args.iter().map(|(ident, _)| {
+        let args: Vec<_> = f.args.iter().map(|(ident, _)| {
             quote::quote! { #ident }
-        });
-        let args2 = args1.clone();
+        }).collect();
 
         if f.returns_value {
             // TODO: Should these return a result?
             quote::quote! {
-                #channel_command_ident::#name { _internal_respond_to, #( #args1 ),* } => {
-                    let result = self.#name(#( #args2 ),*).await;
+                #channel_command_ident::#name { _internal_respond_to, #( #args ),* } => {
+                    let result = self.#name(#( #args ),*).await;
                     let result = serde_wasm_bindgen::from_value(result).expect("Couldn't convert to value");
                     _internal_respond_to.send(result).expect("Failed to send response");
                 }
             }
         } else {
             quote::quote! {
-                #channel_command_ident::#name { _internal_respond_to, #( #args1 ),* } => {
-                    self.#name(#( #args2 ),*).await;
+                #channel_command_ident::#name { _internal_respond_to, #( #args ),* } => {
+                    self.#name(#( #args ),*).await;
                     _internal_respond_to.send(()).expect("Failed to send response");
                 }
             }
