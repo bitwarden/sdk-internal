@@ -74,7 +74,8 @@ impl ClientCiphers {
 
     /// Decrypt key
     ///
-    /// This method is a temporary solution to allow typescript client access to decrypted key values, particularly for FIDO2 credentials.
+    /// This method is a temporary solution to allow typescript client access to decrypted key
+    /// values, particularly for FIDO2 credentials.
     ///
     /// # Arguments
     /// - `cipher_view` - Decrypted cipher containing the key
