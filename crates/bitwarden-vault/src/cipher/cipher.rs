@@ -587,8 +587,7 @@ impl CipherView {
 
     /// Decrypts an encrypted key value using the cipher's key
     ///
-    /// This method is a temporary solution to allow typescript client access to decrypted key
-    /// values, particularly for FIDO2 credentials.
+    /// This method is a temporary solution to allow typescript client access to decrypted key values, particularly for FIDO2 credentials.
     ///
     /// # Arguments
     /// * `enc_key` - The encrypted key value to decrypt
@@ -597,7 +596,7 @@ impl CipherView {
     /// # Returns
     /// * `Ok(String)` - The decrypted key value
     /// * `Err(CryptoError)` - An error occurred during decryption
-    pub fn decrypt_key(
+    pub fn decrypt_fido2_private_key(
         &self,
         enc_key: EncString,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -1372,7 +1371,7 @@ mod tests {
             Some(vec![fido2_credential.clone()]);
 
         let decrypted_key_value = cipher_view
-            .decrypt_key(fido2_credential.key_value, &mut ctx)
+            .decrypt_fido2_private_key(fido2_credential.key_value, &mut ctx)
             .unwrap();
         assert_eq!(decrypted_key_value, "123");
     }

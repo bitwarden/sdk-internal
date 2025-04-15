@@ -62,14 +62,15 @@ impl ClientCiphers<'_> {
         Ok(cipher_view)
     }
 
-    pub fn decrypt_key(
+    pub fn decrypt_fido2_private_key(
         &self,
         cipher_view: CipherView,
         key: String,
     ) -> Result<String, DecryptError> {
         let key_store = self.client.internal.get_key_store();
         let enc_key: EncString = key.parse()?;
-        let decrypted_key = cipher_view.decrypt_key(enc_key, &mut key_store.context())?;
+        let decrypted_key =
+            cipher_view.decrypt_fido2_private_key(enc_key, &mut key_store.context())?;
         Ok(decrypted_key)
     }
 }
