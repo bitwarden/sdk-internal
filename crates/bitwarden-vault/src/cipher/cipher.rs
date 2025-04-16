@@ -6,6 +6,7 @@ use bitwarden_core::{
 use bitwarden_crypto::{
     CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
+use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -30,6 +31,7 @@ use crate::{
     VaultParseError,
 };
 
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CipherError {
     #[error(transparent)]
@@ -585,29 +587,13 @@ impl CipherView {
         Ok(res)
     }
 
-    /// Decrypts an encrypted key value using the cipher's key
-    ///
-    /// This method is a temporary solution to allow typescript client access to decrypted key
-    /// values, particularly for FIDO2 credentials.
-    ///
-    /// # Arguments
-    /// * `enc_key` - The encrypted key value to decrypt
-    /// * `ctx` - The key store context to use for decryption
-    ///
-    /// # Returns
-    /// * `Ok(String)` - The decrypted key value
-    /// * `Err(CryptoError)` - An error occurred during decryption
     pub fn decrypt_fido2_private_key(
         &self,
-        enc_key: EncString,
         ctx: &mut KeyStoreContext<KeyIds>,
-    ) -> Result<String, CryptoError> {
-        let key = self.key_identifier();
+    ) -> Result<String, CipherError> {
+        let fido2_credential = self.get_fido2_credentials(ctx)?;
 
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
-
-        let res = enc_key.decrypt(ctx, ciphers_key)?;
-        Ok(res)
+        Ok(fido2_credential[0].key_value.clone())
     }
 }
 
@@ -1353,7 +1339,7 @@ mod tests {
     }
 
     #[test]
-    fn test_decrypt_field() {
+    fn test_decrypt_fido2_private_key() {
         let key_store =
             create_test_crypto_with_user_key(SymmetricCryptoKey::generate(rand::thread_rng()));
         let mut ctx = key_store.context();
@@ -1371,9 +1357,7 @@ mod tests {
         cipher_view.login.as_mut().unwrap().fido2_credentials =
             Some(vec![fido2_credential.clone()]);
 
-        let decrypted_key_value = cipher_view
-            .decrypt_fido2_private_key(fido2_credential.key_value, &mut ctx)
-            .unwrap();
+        let decrypted_key_value = cipher_view.decrypt_fido2_private_key(&mut ctx).unwrap();
         assert_eq!(decrypted_key_value, "123");
     }
 }

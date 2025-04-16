@@ -2,8 +2,8 @@ use std::rc::Rc;
 
 use bitwarden_core::Client;
 use bitwarden_vault::{
-    Cipher, CipherListView, CipherView, DecryptError, EncryptError, Fido2CredentialView,
-    VaultClientExt,
+    Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
+    Fido2CredentialView, VaultClientExt,
 };
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -72,26 +72,24 @@ impl ClientCiphers {
             .decrypt_fido2_credentials(cipher_view)
     }
 
-    /// Decrypt Fido2 private key
+    /// Decrypt key
     ///
     /// This method is a temporary solution to allow typescript client access to decrypted key
     /// values, particularly for FIDO2 credentials.
     ///
     /// # Arguments
     /// - `cipher_view` - Decrypted cipher containing the key
-    /// - `key` - The encrypted key to decrypt
     ///
     /// # Returns
     /// - `Ok(String)` containing the decrypted key
-    /// - `Err(DecryptError)` if decryption fails
+    /// - `Err(CipherError)`
     pub fn decrypt_fido2_private_key(
         &self,
         cipher_view: CipherView,
-        key: String,
-    ) -> Result<String, DecryptError> {
+    ) -> Result<String, CipherError> {
         self.0
             .vault()
             .ciphers()
-            .decrypt_fido2_private_key(cipher_view, key)
+            .decrypt_fido2_private_key(cipher_view)
     }
 }

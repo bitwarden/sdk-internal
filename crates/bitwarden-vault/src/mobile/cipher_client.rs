@@ -1,5 +1,5 @@
 use bitwarden_core::Client;
-use bitwarden_crypto::{EncString, IdentifyKey};
+use bitwarden_crypto::IdentifyKey;
 use uuid::Uuid;
 
 use crate::{
@@ -65,12 +65,9 @@ impl ClientCiphers<'_> {
     pub fn decrypt_fido2_private_key(
         &self,
         cipher_view: CipherView,
-        key: String,
-    ) -> Result<String, DecryptError> {
+    ) -> Result<String, CipherError> {
         let key_store = self.client.internal.get_key_store();
-        let enc_key: EncString = key.parse()?;
-        let decrypted_key =
-            cipher_view.decrypt_fido2_private_key(enc_key, &mut key_store.context())?;
+        let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
         Ok(decrypted_key)
     }
 }
