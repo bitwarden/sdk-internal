@@ -503,6 +503,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-ffi-macros"
+version = "1.0.0"
+dependencies = [
+ "darling",
+ "js-sys",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn",
+ "thiserror 1.0.69",
+ "tsify-next",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "bitwarden-fido"
 version = "1.0.0"
 dependencies = [
@@ -682,6 +697,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-ffi-macros",
  "bitwarden-ipc",
  "bitwarden-ssh",
  "bitwarden-vault",
