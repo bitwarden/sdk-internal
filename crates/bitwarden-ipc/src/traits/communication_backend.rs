@@ -14,16 +14,22 @@ pub trait CommunicationBackend {
         message: OutgoingMessage,
     ) -> impl std::future::Future<Output = Result<(), Self::SendError>>;
 
-    /// Receive a message. This function will block asynchronously until a message is received.
-    /// Multiple calls to this function may be made from different threads, in which case all
-    /// threads will receive the same message.
+    /// Receive a message.
+    ///
+    /// The implementation of this trait needs to guarantee that:
+    ///     - This function will block asynchronously until a message is received.
+    ///     - Multiple concurrent calls to this function may be made from different threads.
+    ///     - All concurrent threads will receive the same message.
     fn receive(
         &self,
     ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>>;
 
     /// Subscribe to receive messages. This function will return a receiver that can be used to
-    /// receive messages asynchronously. Multiple receivers may be created, and all receivers will
-    /// receive the same messages.
+    /// receive messages asynchronously.
+    ///
+    /// The implemenation of this trait needs to guarantee that:
+    ///     - Multiple concurrent receivers may be created.
+    ///     - All concurrent receivers will receive the same messages.
     ///
     /// Use this function if you are expecting to receive a message as a response to a message you
     /// sent. Subscribing will start buffering messages and help you avoid missing messages.
@@ -33,9 +39,12 @@ pub trait CommunicationBackend {
 pub trait CommunicationBackendReceiver {
     type ReceiveError;
 
-    /// Receive a message. This function will block asynchronously until a message is received.
-    /// Multiple calls to this function may be made from different threads, in which case all
-    /// threads will receive the same message.
+    /// Receive a message.
+    ///
+    /// The implementation of this trait needs to guarantee that:
+    ///     - This function will block asynchronously until a message is received.
+    ///     - Multiple concurrent calls to this function may be made from different threads.
+    ///     - All concurrent threads will receive the same message.
     fn receive(
         &self,
     ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>>;
