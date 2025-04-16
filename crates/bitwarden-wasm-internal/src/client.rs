@@ -84,7 +84,10 @@ export interface CipherStore {
 }
 "#;
 
-#[bitwarden_error::bitwarden_wasm_ipc_channel]
+#[bitwarden_ffi_macros::bitwarden_wasm_ipc_channel(
+    trait_impl = "DataStore<Cipher>",
+    async_trait = true
+)]
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_name = CipherStore, typescript_type = "CipherStore")]
@@ -103,6 +106,7 @@ extern "C" {
     async fn remove(this: &JSCipherStore, id: String);
 }
 
+/*
 #[async_trait::async_trait]
 impl DataStore<Cipher> for ChannelJSCipherStore {
     async fn get(&self, id: String) -> Option<Cipher> {
@@ -120,7 +124,7 @@ impl DataStore<Cipher> for ChannelJSCipherStore {
     async fn remove(&self, id: String) {
         ChannelJSCipherStore::remove(self, id).await;
     }
-}
+}*/
 
 #[wasm_bindgen]
 impl StoreClient {

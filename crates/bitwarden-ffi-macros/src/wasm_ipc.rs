@@ -1,5 +1,6 @@
+use darling::{ast::NestedMeta, FromMeta};
 use proc_macro::TokenStream;
-use quote::ToTokens;
+use quote::{quote, ToTokens};
 use syn::{
     parse_quote, spanned::Spanned, Attribute, Error, FnArg, ForeignItem, ForeignItemFn, Ident,
     ItemForeignMod, Pat, ReturnType, Type,
@@ -59,11 +60,20 @@ impl Func {
     }
 }
 
+#[derive(FromMeta)]
+struct WasmIpcArgs {
+    trait_impl: Option<syn::TypePath>,
+    #[darling(default)]
+    async_trait: bool,
+}
+
 pub(crate) fn bitwarden_wasm_ipc_channel_internal(
-    _args: TokenStream,
+    attr: TokenStream,
     item: TokenStream,
 ) -> Result<TokenStream, Error> {
     let mut input = syn::parse::<ItemForeignMod>(item)?;
+    let attr_args = NestedMeta::parse_meta_list(attr.into())?;
+    let attr_args = WasmIpcArgs::from_list(&attr_args)?;
 
     // Validate the ABI
     match input.abi.name {
@@ -148,9 +158,13 @@ pub(crate) fn bitwarden_wasm_ipc_channel_internal(
             quote::quote! { #ident }
         });
 
+        let vis = attr_args.trait_impl.is_none().then(|| {
+            quote::quote! { pub }
+        });
+
         quote::quote! {
             // TODO: Should these return a result?
-            pub async fn #name(&self, #( #args ),*) -> #ret {
+            #vis async fn #name(&self, #( #args ),*) -> #ret {
                 let (tx, rx) = ::tokio::sync::oneshot::channel();
                 self.sender.send(#channel_command_ident::#name {
                     _internal_respond_to: tx,
@@ -160,6 +174,27 @@ pub(crate) fn bitwarden_wasm_ipc_channel_internal(
             }
         }
     });
+
+    let channel_impl = if let Some(trait_impl) = &attr_args.trait_impl {
+        let async_trait = attr_args.async_trait.then(|| {
+            quote::quote! {
+                #[async_trait::async_trait]
+            }
+        });
+
+        quote! {
+            #async_trait
+            impl #trait_impl for #channel_ident {
+                #( #impls )*
+            }
+        }
+    } else {
+        quote! {
+            impl #channel_ident {
+                #( #impls )*
+            }
+        }
+    };
 
     let matches = functions.iter().map(|f| {
         let name = &f.name;
@@ -216,9 +251,7 @@ pub(crate) fn bitwarden_wasm_ipc_channel_internal(
             }
         }
 
-        impl #channel_ident {
-            #( #impls )*
-        }
+    #channel_impl
     }
     .into())
 }
