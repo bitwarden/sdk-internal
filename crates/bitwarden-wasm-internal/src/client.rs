@@ -106,26 +106,6 @@ extern "C" {
     async fn remove(this: &JSCipherStore, id: String);
 }
 
-/*
-#[async_trait::async_trait]
-impl DataStore<Cipher> for ChannelJSCipherStore {
-    async fn get(&self, id: String) -> Option<Cipher> {
-        ChannelJSCipherStore::get(self, id).await
-    }
-
-    async fn list(&self) -> Vec<Cipher> {
-        ChannelJSCipherStore::list(self).await
-    }
-
-    async fn set(&self, id: String, value: Cipher) {
-        ChannelJSCipherStore::set(self, id, value).await;
-    }
-
-    async fn remove(&self, id: String) {
-        ChannelJSCipherStore::remove(self, id).await;
-    }
-}*/
-
 #[wasm_bindgen]
 impl StoreClient {
     pub async fn print_the_ciphers(&self) -> String {
