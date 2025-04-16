@@ -31,17 +31,20 @@ pub(crate) fn extern_wasm_channel_internal(
     get_bindgen_attr(&input, &input.attrs)?;
 
     // Extract the type and functions from the foreign module.
-    // This will also transform the functions to use JsValue as the return type for the extern block.
+    // This will also transform the functions to use JsValue as the return type for the extern
+    // block.
     let Items { ident, functions } = Items::process_items(&mut input)?;
 
     // Prepend the ident with Channel
     let channel_ident = quote::format_ident!("Channel{ident}");
     let channel_command_ident = quote::format_ident!("Channel{ident}Command");
 
-    // Generate the command struct used in the sent messages between the WASM implementation and the IPC implementation
+    // Generate the command struct used in the sent messages between the WASM implementation and the
+    // IPC implementation
     let command_struct = generate_command_struct(&channel_command_ident, &functions);
 
-    // Generate all the functions in the IPC implementation that will call the WASM impl through channels
+    // Generate all the functions in the IPC implementation that will call the WASM impl through
+    // channels
     let channel_impl = generate_channel_impl(
         &channel_ident,
         &channel_command_ident,
@@ -49,7 +52,8 @@ pub(crate) fn extern_wasm_channel_internal(
         &attr_args,
     );
 
-    // Generate the function that, given a WASM instance, creates the channel implementation, and starts the message passing task
+    // Generate the function that, given a WASM instance, creates the channel implementation, and
+    // starts the message passing task
     let channel_init =
         generate_channel_init(&ident, &channel_ident, &channel_command_ident, &functions);
 
