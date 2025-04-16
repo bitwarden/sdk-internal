@@ -67,7 +67,7 @@ struct WasmIpcArgs {
     async_trait: bool,
 }
 
-pub(crate) fn bitwarden_wasm_ipc_channel_internal(
+pub(crate) fn extern_wasm_channel_internal(
     attr: TokenStream,
     item: TokenStream,
 ) -> Result<TokenStream, Error> {

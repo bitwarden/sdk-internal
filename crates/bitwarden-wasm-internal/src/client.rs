@@ -84,10 +84,7 @@ export interface CipherStore {
 }
 "#;
 
-#[bitwarden_ffi_macros::bitwarden_wasm_ipc_channel(
-    trait_impl = "DataStore<Cipher>",
-    async_trait = true
-)]
+#[bitwarden_ffi_macros::extern_wasm_channel(trait_impl = "DataStore<Cipher>", async_trait = true)]
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_name = CipherStore, typescript_type = "CipherStore")]
