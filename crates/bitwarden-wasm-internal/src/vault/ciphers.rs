@@ -1,5 +1,6 @@
 use bitwarden_vault::{
-    Cipher, CipherListView, CipherView, DecryptError, EncryptError, Fido2CredentialView,
+    Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
+    Fido2CredentialView,
 };
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -63,5 +64,23 @@ impl ClientCiphers {
         cipher_view: CipherView,
     ) -> Result<Vec<Fido2CredentialView>, DecryptError> {
         self.0.decrypt_fido2_credentials(cipher_view)
+    }
+
+    /// Decrypt key
+    ///
+    /// This method is a temporary solution to allow typescript client access to decrypted key
+    /// values, particularly for FIDO2 credentials.
+    ///
+    /// # Arguments
+    /// - `cipher_view` - Decrypted cipher containing the key
+    ///
+    /// # Returns
+    /// - `Ok(String)` containing the decrypted key
+    /// - `Err(CipherError)`
+    pub fn decrypt_fido2_private_key(
+        &self,
+        cipher_view: CipherView,
+    ) -> Result<String, CipherError> {
+        self.0.decrypt_fido2_private_key(cipher_view)
     }
 }
