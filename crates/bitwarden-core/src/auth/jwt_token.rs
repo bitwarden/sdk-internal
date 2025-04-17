@@ -25,8 +25,8 @@ pub struct JwtToken {
 }
 
 /// Error when parsing JWT tokens.
-#[derive(Debug, Error)]
 #[allow(missing_docs)]
+#[derive(Debug, Error)]
 pub enum JwtTokenParseError {
     #[error("JWT token parse error: {0}")]
     Parse(#[from] serde_json::Error),

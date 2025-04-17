@@ -41,8 +41,8 @@ mod key_connector;
 pub use key_connector::KeyConnectorResponse;
 
 /// Error for authentication related operations
-#[derive(Debug, Error)]
 #[allow(missing_docs)]
+#[derive(Debug, Error)]
 pub enum AuthValidateError {
     #[error(transparent)]
     NotAuthenticated(#[from] NotAuthenticatedError),

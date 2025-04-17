@@ -76,8 +76,8 @@ pub(crate) fn auth_request_decrypt_master_key(
     Ok(master_key.decrypt_user_key(user_key)?)
 }
 
-#[derive(Debug, Error)]
 #[allow(missing_docs)]
+#[derive(Debug, Error)]
 pub enum ApproveAuthRequestError {
     #[error(transparent)]
     Crypto(#[from] CryptoError),

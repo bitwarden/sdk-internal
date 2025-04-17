@@ -372,8 +372,8 @@ fn derive_pin_protected_user_key(
     Ok(derived_key.encrypt_user_key(user_key)?)
 }
 
-#[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
+#[derive(Debug, thiserror::Error)]
 pub enum EnrollAdminPasswordResetError {
     #[error(transparent)]
     VaultLocked(#[from] VaultLockedError),
@@ -416,8 +416,8 @@ pub struct DeriveKeyConnectorRequest {
     pub email: String,
 }
 
-#[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
+#[derive(Debug, thiserror::Error)]
 pub enum DeriveKeyConnectorError {
     #[error(transparent)]
     WrongPassword(#[from] WrongPasswordError),

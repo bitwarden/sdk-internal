@@ -8,8 +8,8 @@ use zeroize::Zeroizing;
 
 use crate::util::STANDARD_INDIFFERENT;
 
-#[derive(Debug, Error)]
 #[allow(missing_docs)]
+#[derive(Debug, Error)]
 pub enum AccessTokenInvalidError {
     #[error("Doesn't contain a decryption key")]
     NoKey,
