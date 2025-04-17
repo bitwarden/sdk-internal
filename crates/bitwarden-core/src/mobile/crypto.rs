@@ -372,7 +372,6 @@ fn derive_pin_protected_user_key(
     Ok(derived_key.encrypt_user_key(user_key)?)
 }
 
-/// Catch all errors for mobile crypto operations
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 pub enum EnrollAdminPasswordResetError {
