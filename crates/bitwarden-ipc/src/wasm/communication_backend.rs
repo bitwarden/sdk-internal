@@ -69,26 +69,14 @@ impl JsCommunicationBackend {
 
 impl CommunicationBackend for JsCommunicationBackend {
     type SendError = JsValue;
+    type Receiver = tokio::sync::broadcast::Receiver<IncomingMessage>;
 
     async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
         self.sender.send(message).await
     }
 
-    fn subscribe(&self) -> impl CommunicationBackendReceiver<ReceiveError = Self::ReceiveError> {
+    fn subscribe(&self) -> Self::Receiver {
         self.receive_rx.resubscribe()
-    }
-}
-
-impl CommunicationBackendReceiver for JsCommunicationBackend {
-    type ReceiveError = JsValue;
-
-    async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
-        let mut receive_rx = self.receive_rx.resubscribe();
-        let message = receive_rx
-            .recv()
-            .await
-            .map_err(|e| ChannelError(e.to_string()))?;
-        Ok(message)
     }
 }
 

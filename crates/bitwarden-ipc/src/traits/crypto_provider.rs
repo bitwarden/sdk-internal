@@ -1,4 +1,4 @@
-use super::{CommunicationBackend, SessionRepository};
+use super::{CommunicationBackend, CommunicationBackendReceiver, SessionRepository};
 use crate::{
     error::{ReceiveError, SendError},
     message::{IncomingMessage, OutgoingMessage},
@@ -19,12 +19,20 @@ where
         sessions: &Ses,
         message: OutgoingMessage,
     ) -> impl std::future::Future<Output = Result<(), SendError<Self::SendError, Com::SendError>>>;
+
     fn receive(
         &self,
         communication: &Com,
         sessions: &Ses,
+        receiver: &Com::Receiver,
     ) -> impl std::future::Future<
-        Output = Result<IncomingMessage, ReceiveError<Self::ReceiveError, Com::ReceiveError>>,
+        Output = Result<
+            IncomingMessage,
+            ReceiveError<
+                Self::ReceiveError,
+                <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
+            >,
+        >,
     >;
 }
 
@@ -37,7 +45,7 @@ where
 {
     type Session = ();
     type SendError = Com::SendError;
-    type ReceiveError = Com::ReceiveError;
+    type ReceiveError = <Com::Receiver as CommunicationBackendReceiver>::ReceiveError;
 
     async fn send(
         &self,
@@ -53,10 +61,17 @@ where
 
     async fn receive(
         &self,
-        communication: &Com,
+        _communication: &Com,
         _sessions: &Ses,
-    ) -> Result<IncomingMessage, ReceiveError<Self::ReceiveError, Com::ReceiveError>> {
-        communication
+        receiver: &Com::Receiver,
+    ) -> Result<
+        IncomingMessage,
+        ReceiveError<
+            Self::ReceiveError,
+            <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
+        >,
+    > {
+        receiver
             .receive()
             .await
             .map_err(ReceiveError::Communication)

@@ -3,7 +3,9 @@ use std::time::Duration;
 use crate::{
     error::{ReceiveError, SendError, TypedReceiveError},
     message::{IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage},
-    traits::{CommunicationBackend, CryptoProvider, SessionRepository},
+    traits::{
+        CommunicationBackend, CommunicationBackendReceiver, CryptoProvider, SessionRepository,
+    },
 };
 
 pub struct IpcClient<Crypto, Com, Ses>
@@ -48,12 +50,22 @@ where
         &self,
         topic: Option<String>,
         timeout: Option<Duration>,
-    ) -> Result<IncomingMessage, ReceiveError<Crypto::ReceiveError, Com::ReceiveError>> {
+    ) -> Result<
+        IncomingMessage,
+        ReceiveError<
+            Crypto::ReceiveError,
+            <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
+        >,
+    > {
         let receive_loop = async {
             loop {
                 let received = self
                     .crypto
-                    .receive(&self.communication, &self.sessions)
+                    .receive(
+                        &self.communication,
+                        &self.sessions,
+                        &self.communication.subscribe(),
+                    )
                     .await?;
                 if topic.is_none() || received.topic == topic {
                     return Ok(received);
@@ -80,7 +92,7 @@ where
         TypedReceiveError<
             <Payload as TryFrom<Vec<u8>>>::Error,
             Crypto::ReceiveError,
-            Com::ReceiveError,
+            <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
         >,
     >
     where
@@ -123,6 +135,7 @@ mod tests {
             &self,
             _communication: &TestCommunicationBackend,
             _sessions: &TestSessionRepository,
+            _receiver: &<TestCommunicationBackend as CommunicationBackend>::Receiver,
         ) -> Result<IncomingMessage, ReceiveError<String, TestCommunicationBackendReceiveError>>
         {
             self.receive_result.clone()

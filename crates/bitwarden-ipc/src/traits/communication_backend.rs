@@ -3,8 +3,9 @@ use crate::message::{IncomingMessage, OutgoingMessage};
 /// This trait defines the interface that will be used to send and receive messages over IPC.
 /// It is up to the platform to implement this trait and any necessary thread synchronization and
 /// broadcasting.
-pub trait CommunicationBackend: CommunicationBackendReceiver {
+pub trait CommunicationBackend {
     type SendError;
+    type Receiver: CommunicationBackendReceiver;
 
     /// Send a message to the destination specified in the message. This function may be called
     /// from any thread at any time. The implementation will handle any necessary synchronization.
@@ -13,37 +14,27 @@ pub trait CommunicationBackend: CommunicationBackendReceiver {
         message: OutgoingMessage,
     ) -> impl std::future::Future<Output = Result<(), Self::SendError>>;
 
-    // /// Receive a message.
-    // ///
-    // /// The implementation of this trait needs to guarantee that:
-    // ///     - This function will block asynchronously until a message is received.
-    // ///     - Multiple concurrent calls to this function may be made from different threads.
-    // ///     - All concurrent threads will receive the same message.
-    // fn receive(
-    //     &self,
-    // ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>>;
-
     /// Subscribe to receive messages. This function will return a receiver that can be used to
     /// receive messages asynchronously.
     ///
     /// The implemenation of this trait needs to guarantee that:
     ///     - Multiple concurrent receivers may be created.
     ///     - All concurrent receivers will receive the same messages.
-    ///
-    /// Use this function if you are expecting to receive a message as a response to a message you
-    /// sent. Subscribing will start buffering messages and help you avoid missing messages.
-    fn subscribe(&self) -> impl CommunicationBackendReceiver<ReceiveError = Self::ReceiveError>;
+    fn subscribe(&self) -> Self::Receiver;
 }
 
+/// This trait defines the interface for receiving messages from the communication backend.
+///
+/// The implemenation of this trait needs to guarantee that:
+///     - The receiver buffers messages from the creation of the receiver until the first call to receive().
+///     - The receiver buffers messages between calls to receive().
 pub trait CommunicationBackendReceiver {
     type ReceiveError;
 
-    /// Receive a message.
+    /// Receive a message. This function will block asynchronously until a message is received.
     ///
-    /// The implementation of this trait needs to guarantee that:
-    ///     - This function will block asynchronously until a message is received.
-    ///     - Multiple concurrent calls to this function may be made from different threads.
-    ///     - All concurrent threads will receive the same message.
+    /// Do not call this function from multiple threads at the same time. Use the subscribe function
+    /// to create one receiver per thread.
     fn receive(
         &self,
     ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>>;
@@ -105,15 +96,14 @@ pub mod tests {
 
     impl CommunicationBackend for TestCommunicationBackend {
         type SendError = ();
+        type Receiver = Rc<RwLock<VecDeque<IncomingMessage>>>;
 
         async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
             self.outgoing.write().await.push(message);
             Ok(())
         }
 
-        fn subscribe(
-            &self,
-        ) -> impl CommunicationBackendReceiver<ReceiveError = Self::ReceiveError> {
+        fn subscribe(&self) -> Self::Receiver {
             Rc::new(RwLock::new(self.incoming.blocking_read().clone()))
         }
     }
