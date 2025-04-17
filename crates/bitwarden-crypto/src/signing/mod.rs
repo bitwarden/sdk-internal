@@ -5,4 +5,6 @@
 #[derive(strum_macros::Display, strum_macros::EnumString)]
 pub enum SigningNamespace {
     EncryptionMetadata,
+    #[cfg(test)]
+    Test,
 }

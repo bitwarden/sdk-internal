@@ -327,6 +327,29 @@ mod tests {
     }
 
     #[test]
+    fn test_changed_signature_fails() {
+        let signing_key = SigningCryptoKey::generate().unwrap();
+        let verifying_key = signing_key.to_verifying_key();
+        let data = b"Hello, world!";
+        let namespace = SigningNamespace::EncryptionMetadata;
+
+        let signature = signing_key.sign(&namespace, data).unwrap();
+        assert!(!verifying_key.verify(&namespace, &signature, b"Goodbye, world!"));
+    }
+
+    #[test]
+    fn test_changed_namespace_fails() {
+        let signing_key = SigningCryptoKey::generate().unwrap();
+        let verifying_key = signing_key.to_verifying_key();
+        let data = b"Hello, world!";
+        let namespace = SigningNamespace::EncryptionMetadata;
+        let other_namespace = SigningNamespace::Test;
+
+        let signature = signing_key.sign(&namespace, data).unwrap();
+        assert!(!verifying_key.verify(&other_namespace, &signature, data));
+    }
+
+    #[test]
     fn test_cose_roundtrip_encode_signing() {
         let signing_key = SigningCryptoKey::generate().unwrap();
         let cose = signing_key.to_cose().unwrap();
