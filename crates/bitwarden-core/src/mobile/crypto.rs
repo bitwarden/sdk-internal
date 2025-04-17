@@ -5,6 +5,7 @@ use bitwarden_crypto::{
     AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, Kdf, KeyDecryptable,
     KeyEncryptable, MasterKey, SymmetricCryptoKey, UserKey,
 };
+use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -17,6 +18,7 @@ use crate::{
 };
 
 /// Catch all errors for mobile crypto operations
+#[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub enum MobileCryptoError {
     #[error(transparent)]
@@ -233,6 +235,7 @@ pub async fn get_user_encryption_key(client: &Client) -> Result<String, MobileCr
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct UpdatePasswordResponse {
     /// Hash of the new password
     password_hash: String,
@@ -281,6 +284,7 @@ pub fn update_password(
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct DerivePinKeyResponse {
     /// [UserKey] protected by PIN
     pin_protected_user_key: EncString,
@@ -350,6 +354,7 @@ fn derive_pin_protected_user_key(
 }
 
 /// Catch all errors for mobile crypto operations
+#[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub enum EnrollAdminPasswordResetError {
     #[error(transparent)]
@@ -380,7 +385,10 @@ pub(super) fn enroll_admin_password_reset(
     )?)
 }
 
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct DeriveKeyConnectorRequest {
     /// Encrypted user key, used to validate the master key
     pub user_key_encrypted: EncString,
@@ -390,6 +398,7 @@ pub struct DeriveKeyConnectorRequest {
     pub email: String,
 }
 
+#[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub enum DeriveKeyConnectorError {
     #[error(transparent)]

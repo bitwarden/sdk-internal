@@ -1,6 +1,8 @@
 use bitwarden_crypto::CryptoError;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{AsymmetricEncString, EncString};
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use super::crypto::{
     derive_key_connector, make_key_pair, verify_asymmetric_keys, DeriveKeyConnectorError,
@@ -15,10 +17,12 @@ use crate::mobile::crypto::{
 };
 use crate::{client::encryption_settings::EncryptionSettingsError, Client};
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CryptoClient {
     pub(crate) client: crate::Client,
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CryptoClient {
     pub async fn initialize_user_crypto(
         &self,
@@ -34,6 +38,19 @@ impl CryptoClient {
         initialize_org_crypto(&self.client, req).await
     }
 
+    pub fn make_key_pair(&self, user_key: String) -> Result<MakeKeyPairResponse, CryptoError> {
+        make_key_pair(user_key)
+    }
+
+    pub fn verify_asymmetric_keys(
+        &self,
+        request: VerifyAsymmetricKeysRequest,
+    ) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
+        verify_asymmetric_keys(request)
+    }
+}
+
+impl CryptoClient {
     pub async fn get_user_encryption_key(&self) -> Result<String, MobileCryptoError> {
         get_user_encryption_key(&self.client).await
     }
@@ -70,19 +87,9 @@ impl CryptoClient {
     ) -> Result<String, DeriveKeyConnectorError> {
         derive_key_connector(request)
     }
-
-    pub fn make_key_pair(&self, user_key: String) -> Result<MakeKeyPairResponse, CryptoError> {
-        make_key_pair(user_key)
-    }
-
-    pub fn verify_asymmetric_keys(
-        &self,
-        request: VerifyAsymmetricKeysRequest,
-    ) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
-        verify_asymmetric_keys(request)
-    }
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl Client {
     pub fn crypto(&self) -> CryptoClient {
         CryptoClient {

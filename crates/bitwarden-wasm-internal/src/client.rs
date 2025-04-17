@@ -1,12 +1,12 @@
 extern crate console_error_panic_hook;
 use std::fmt::Display;
 
-use bitwarden_core::{Client, ClientSettings};
+use bitwarden_core::{mobile::CryptoClient, Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
 use bitwarden_vault::VaultClientExt;
 use wasm_bindgen::prelude::*;
 
-use crate::{CryptoClient, VaultClient};
+use crate::VaultClient;
 
 #[wasm_bindgen]
 pub struct BitwardenClient(pub(crate) Client);
@@ -40,7 +40,7 @@ impl BitwardenClient {
     }
 
     pub fn crypto(&self) -> CryptoClient {
-        CryptoClient::new(self.0.crypto())
+        self.0.crypto()
     }
 
     pub fn vault(&self) -> VaultClient {
