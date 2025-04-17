@@ -2,10 +2,7 @@
 use ciborium::value::Integer;
 use ciborium::Value;
 use coset::{
-    iana::{
-        self, Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType,
-        OkpKeyParameter,
-    },
+    iana::{self, Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
     CborSerializable, CoseKey, Label, RegisteredLabel, RegisteredLabelWithPrivate,
 };
 use ed25519_dalek::{Signature, Signer, SigningKey};
@@ -87,7 +84,8 @@ impl SigningCryptoKey {
 
     fn from_cose(bytes: &[u8]) -> Result<Self> {
         let cose_key = CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
-        let (key_id, Some(algorithm), key_type) = (cose_key.key_id, cose_key.alg, cose_key.kty) else {
+        let (key_id, Some(algorithm), key_type) = (cose_key.key_id, cose_key.alg, cose_key.kty)
+        else {
             return Err(CryptoError::InvalidKey);
         };
         let key_id: KeyId = key_id
@@ -97,7 +95,10 @@ impl SigningCryptoKey {
 
         // Labels for supported combinations
         match (key_type, algorithm) {
-            (kty, alg) if kty == RegisteredLabel::Assigned(KeyType::OKP) && alg == RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA) => {
+            (kty, alg)
+                if kty == RegisteredLabel::Assigned(KeyType::OKP)
+                    && alg == RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA) =>
+            {
                 // https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
                 let (mut crv, mut x, mut d) = (None, None, None);
                 for (key, value) in &cose_key.params {
@@ -150,7 +151,7 @@ impl SigningCryptoKey {
                     .key_id(self.id.as_bytes().into())
                     .value(
                         SIGNING_NAMESPACE,
-                        ciborium::Value::Integer(Integer::from(namespace.as_i64()))
+                        ciborium::Value::Integer(Integer::from(namespace.as_i64())),
                     )
                     .build(),
             )
@@ -186,7 +187,6 @@ impl VerifyingKey {
             VerifyingKeyEnum::Ed25519(key) => coset::CoseKeyBuilder::new_okp_key()
                 .key_id(self.id.as_bytes().into())
                 .algorithm(Algorithm::EdDSA)
-
                 .param(
                     OkpKeyParameter::Crv.to_i64(),
                     Value::Integer(Integer::from(EllipticCurve::Ed25519.to_i64())),
@@ -195,9 +195,7 @@ impl VerifyingKey {
                     OkpKeyParameter::X.to_i64(),
                     Value::Bytes(key.to_bytes().to_vec()),
                 )
-
                 .add_key_op(KeyOperation::Verify)
-                
                 .build()
                 .to_vec()
                 .map_err(|_| CryptoError::InvalidKey),
@@ -207,7 +205,8 @@ impl VerifyingKey {
     fn from_cose(bytes: &[u8]) -> Result<Self> {
         let cose_key = coset::CoseKey::from_slice(&bytes).map_err(|_| CryptoError::InvalidKey)?;
 
-        let (key_id, Some(algorithm), key_type) = (cose_key.key_id, cose_key.alg, cose_key.kty) else {
+        let (key_id, Some(algorithm), key_type) = (cose_key.key_id, cose_key.alg, cose_key.kty)
+        else {
             return Err(CryptoError::InvalidKey);
         };
         let key_id: KeyId = key_id
@@ -216,7 +215,10 @@ impl VerifyingKey {
             .map_err(|_| CryptoError::InvalidKey)?;
 
         match (key_type, algorithm) {
-            (kty, alg) if kty == RegisteredLabel::Assigned(KeyType::OKP) && alg == RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA) => {
+            (kty, alg)
+                if kty == RegisteredLabel::Assigned(KeyType::OKP)
+                    && alg == RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA) =>
+            {
                 let (mut crv, mut x) = (None, None);
                 for (key, value) in &cose_key.params {
                     if let coset::Label::Int(i) = key {
@@ -244,8 +246,9 @@ impl VerifyingKey {
                         .as_slice()
                         .try_into()
                         .map_err(|_| CryptoError::InvalidKey)?;
-                    let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&verifying_key_bytes)
-                        .map_err(|_| CryptoError::InvalidKey)?;
+                    let verifying_key =
+                        ed25519_dalek::VerifyingKey::from_bytes(&verifying_key_bytes)
+                            .map_err(|_| CryptoError::InvalidKey)?;
                     Ok(VerifyingKey {
                         id: key_id,
                         inner: VerifyingKeyEnum::Ed25519(verifying_key),
@@ -261,7 +264,12 @@ impl VerifyingKey {
     /// Verifies the signature of the given data, for the given namespace.
     /// This should never be used directly, but only through the `verify` method, to enforce
     /// strong domain separation of the signatures.
-    pub(crate) fn verify(&self, namespace: &SigningNamespace, signature: &[u8], data: &[u8]) -> bool {
+    pub(crate) fn verify(
+        &self,
+        namespace: &SigningNamespace,
+        signature: &[u8],
+        data: &[u8],
+    ) -> bool {
         let Ok(sign1) = coset::CoseSign1::from_slice(&signature) else {
             return false;
         };
@@ -287,8 +295,10 @@ impl VerifyingKey {
         if signature_namespace != namespace.as_i64() as i128 {
             return false;
         }
-        
-        sign1.verify_detached_signature(data, &[], |sig, data| self.verify_raw(sig, data)).is_ok()
+
+        sign1
+            .verify_detached_signature(data, &[], |sig, data| self.verify_raw(sig, data))
+            .is_ok()
     }
 
     /// Verifies the signature of the given data, for the given namespace.

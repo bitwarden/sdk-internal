@@ -11,5 +11,5 @@ pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
 
 // Labels
 //
-// The label used for the namespace ensuring strong domain separation when using signatures. 
+// The label used for the namespace ensuring strong domain separation when using signatures.
 pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
