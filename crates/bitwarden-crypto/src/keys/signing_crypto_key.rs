@@ -9,6 +9,7 @@ use coset::{
     CborSerializable, CoseKey, Label, RegisteredLabel, RegisteredLabelWithPrivate,
 };
 use ed25519_dalek::{Signature, Signer, SigningKey};
+use ml_dsa::{KeyGen, MlDsa65};
 use rand::rngs::OsRng;
 
 use super::key_id::KeyId;
@@ -17,11 +18,13 @@ use crate::{error::Result, CryptoError, SigningNamespace};
 #[allow(unused)]
 enum SigningCryptoKeyEnum {
     Ed25519(ed25519_dalek::SigningKey),
+    MlDsa65(ml_dsa::KeyPair<MlDsa65>),
 }
 
 #[allow(unused)]
 enum VerifyingKeyEnum {
     Ed25519(ed25519_dalek::VerifyingKey),
+    MlDsa65(ml_dsa::VerifyingKey<MlDsa65>),
 }
 
 #[allow(unused)]
@@ -45,9 +48,18 @@ impl SigningCryptoKey {
         })
     }
 
+    fn generate_postquantum() -> Result<Self> {
+        Ok(SigningCryptoKey {
+            id: KeyId::generate(),
+            inner: SigningCryptoKeyEnum::MlDsa65(MlDsa65::key_gen(&mut OsRng)),
+        })
+    }
+
     fn cose_algorithm(&self) -> Algorithm {
         match &self.inner {
             SigningCryptoKeyEnum::Ed25519(_) => Algorithm::EdDSA,
+            // todo: WRONG. Update with new params
+            SigningCryptoKeyEnum::MlDsa65(_) => Algorithm::HSS_LMS,
         }
     }
 
@@ -81,7 +93,10 @@ impl SigningCryptoKey {
                     .build()
                     .to_vec()
                     .map_err(|_| CryptoError::InvalidKey)
-            }
+            },
+            SigningCryptoKeyEnum::MlDsa65(key) => {
+                todo!();
+            },
         }
     }
 
@@ -168,6 +183,10 @@ impl SigningCryptoKey {
     fn sign_raw(&self, data: &[u8]) -> Result<Vec<u8>> {
         match &self.inner {
             SigningCryptoKeyEnum::Ed25519(key) => Ok(key.sign(data).to_bytes().to_vec()),
+            SigningCryptoKeyEnum::MlDsa65(key) => {
+                let sig = key.sign(data);
+                Ok(sig.encode().to_vec())
+            }
         }
     }
 
@@ -176,6 +195,10 @@ impl SigningCryptoKey {
             SigningCryptoKeyEnum::Ed25519(key) => VerifyingKey {
                 id: self.id,
                 inner: VerifyingKeyEnum::Ed25519(key.verifying_key().clone()),
+            },
+            SigningCryptoKeyEnum::MlDsa65(key) => VerifyingKey {
+                id: self.id,
+                inner: VerifyingKeyEnum::MlDsa65(key.verifying_key().clone()),
             },
         }
     }
@@ -204,6 +227,9 @@ impl VerifyingKey {
                 .build()
                 .to_vec()
                 .map_err(|_| CryptoError::InvalidKey),
+            VerifyingKeyEnum::MlDsa65(key) => {
+                todo!();
+            },
         }
     }
 
@@ -297,6 +323,7 @@ impl VerifyingKey {
     /// This should never be used directly, but only through the `verify` method, to enforce
     /// strong domain separation of the signatures.
     fn verify_raw(&self, signature: &[u8], data: &[u8]) -> Result<()> {
+        use ml_dsa::signature::Verifier;
         match &self.inner {
             VerifyingKeyEnum::Ed25519(key) => {
                 let sig = Signature::from_bytes(
@@ -306,7 +333,12 @@ impl VerifyingKey {
                 );
                 key.verify_strict(data, &sig)
                     .map_err(|_| crate::error::CryptoError::InvalidSignature)
-            }
+            },
+            VerifyingKeyEnum::MlDsa65(key) => {
+                let sig = ml_dsa::Signature::decode(signature.try_into().unwrap()).unwrap();
+                key.verify(&data, &sig)
+                    .map_err(|_| crate::error::CryptoError::InvalidSignature)
+            },
         }
     }
 }
@@ -317,6 +349,17 @@ mod tests {
 
     #[test]
     fn test_sign_roundtrip() {
+        let signing_key = SigningCryptoKey::generate().unwrap();
+        let verifying_key = signing_key.to_verifying_key();
+        let data = b"Hello, world!";
+        let namespace = SigningNamespace::EncryptionMetadata;
+
+        let signature = signing_key.sign(&namespace, data).unwrap();
+        assert!(verifying_key.verify(&namespace, &signature, data));
+    }
+
+    #[test]
+    fn test_sign_roundtrip_postquantum() {
         let signing_key = SigningCryptoKey::generate().unwrap();
         let verifying_key = signing_key.to_verifying_key();
         let data = b"Hello, world!";
