@@ -196,7 +196,7 @@ impl VerifyingKey {
                     Value::Bytes(key.to_bytes().to_vec()),
                 )
 
-                .add_key_op(KeyOpereyOperation::Verify)
+                .add_key_op(KeyOperation::Verify)
                 
                 .build()
                 .to_vec()
