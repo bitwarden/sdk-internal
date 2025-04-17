@@ -1,6 +1,8 @@
 use bitwarden_crypto::CryptoError;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use super::crypto::{
     derive_key_connector, make_key_pair, verify_asymmetric_keys, DeriveKeyConnectorError,
@@ -16,10 +18,12 @@ use crate::mobile::crypto::{
 use crate::{client::encryption_settings::EncryptionSettingsError, Client};
 
 /// A client for the crypto operations.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CryptoClient {
     pub(crate) client: crate::Client,
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CryptoClient {
     /// Initialization method for the user crypto. Needs to be called before any other crypto
     /// operations.
@@ -39,6 +43,24 @@ impl CryptoClient {
         initialize_org_crypto(&self.client, req).await
     }
 
+    /// Generates a new key pair and encrypts the private key with the provided user key.
+    /// Crypto initialization not required.
+    pub fn make_key_pair(&self, user_key: String) -> Result<MakeKeyPairResponse, CryptoError> {
+        make_key_pair(user_key)
+    }
+
+    /// Verifies a user's asymmetric keys by decrypting the private key with the provided user
+    /// key. Returns if the private key is decryptable and if it is a valid matching key.
+    /// Crypto initialization not required.
+    pub fn verify_asymmetric_keys(
+        &self,
+        request: VerifyAsymmetricKeysRequest,
+    ) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
+        verify_asymmetric_keys(request)
+    }
+}
+
+impl CryptoClient {
     /// Get the uses's decrypted encryption key. Note: It's very important
     /// to keep this key safe, as it can be used to decrypt all of the user's data
     pub async fn get_user_encryption_key(&self) -> Result<String, MobileCryptoError> {
@@ -85,21 +107,6 @@ impl CryptoClient {
         request: DeriveKeyConnectorRequest,
     ) -> Result<String, DeriveKeyConnectorError> {
         derive_key_connector(request)
-    }
-
-    /// Generates a new key pair and encrypts the private key with the provided user key.
-    pub fn make_key_pair(&self, user_key: String) -> Result<MakeKeyPairResponse, CryptoError> {
-        make_key_pair(user_key)
-    }
-
-    /// Verifies a user's asymmetric keys by decrypting the private key with the provided user
-    /// key. Returns if the private key is decryptable and if it is a valid matching key.
-    /// Crypto initialization not required.
-    pub fn verify_asymmetric_keys(
-        &self,
-        request: VerifyAsymmetricKeysRequest,
-    ) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
-        verify_asymmetric_keys(request)
     }
 }
 
