@@ -21,11 +21,15 @@ wasm = [
 bitwarden-error = { workspace = true }
 js-sys = { workspace = true, optional = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
-tokio = { features = ["sync"], workspace = true }
+tokio = { features = ["sync", "time"], workspace = true }
 tsify-next = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt"] }
 
 [lints]
 workspace = true

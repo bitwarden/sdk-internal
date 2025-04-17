@@ -29,11 +29,11 @@ use crate::{
     client::encryption_settings::EncryptionSettingsError,
 };
 
-pub struct AuthClient<'a> {
-    pub(crate) client: &'a crate::Client,
+pub struct AuthClient {
+    pub(crate) client: crate::Client,
 }
 
-impl AuthClient<'_> {
+impl AuthClient {
     pub async fn renew_token(&self) -> Result<(), LoginError> {
         renew_token(&self.client.internal).await
     }
@@ -43,12 +43,12 @@ impl AuthClient<'_> {
         &self,
         input: &AccessTokenLoginRequest,
     ) -> Result<AccessTokenLoginResponse, LoginError> {
-        login_access_token(self.client, input).await
+        login_access_token(&self.client, input).await
     }
 }
 
 #[cfg(feature = "internal")]
-impl AuthClient<'_> {
+impl AuthClient {
     pub fn password_strength(
         &self,
         password: String,
@@ -82,7 +82,7 @@ impl AuthClient<'_> {
         org_public_key: String,
         remember_device: bool,
     ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
-        make_register_tde_keys(self.client, email, org_public_key, remember_device)
+        make_register_tde_keys(&self.client, email, org_public_key, remember_device)
     }
 
     pub fn make_key_connector_keys(&self) -> Result<KeyConnectorResponse, CryptoError> {
@@ -91,34 +91,34 @@ impl AuthClient<'_> {
     }
 
     pub async fn register(&self, input: &RegisterRequest) -> Result<(), RegisterError> {
-        register(self.client, input).await
+        register(&self.client, input).await
     }
 
     pub async fn prelogin(&self, email: String) -> Result<Kdf, PreloginError> {
         use crate::auth::login::prelogin;
 
-        prelogin(self.client, email).await
+        prelogin(&self.client, email).await
     }
 
     pub async fn login_password(
         &self,
         input: &PasswordLoginRequest,
     ) -> Result<PasswordLoginResponse, LoginError> {
-        login_password(self.client, input).await
+        login_password(&self.client, input).await
     }
 
     pub async fn login_api_key(
         &self,
         input: &ApiKeyLoginRequest,
     ) -> Result<ApiKeyLoginResponse, LoginError> {
-        login_api_key(self.client, input).await
+        login_api_key(&self.client, input).await
     }
 
     pub async fn send_two_factor_email(
         &self,
         tf: &TwoFactorEmailRequest,
     ) -> Result<(), TwoFactorEmailError> {
-        send_two_factor_email(self.client, tf).await
+        send_two_factor_email(&self.client, tf).await
     }
 
     pub fn validate_password(
@@ -126,7 +126,7 @@ impl AuthClient<'_> {
         password: String,
         password_hash: String,
     ) -> Result<bool, AuthValidateError> {
-        validate_password(self.client, password, password_hash)
+        validate_password(&self.client, password, password_hash)
     }
 
     pub fn validate_password_user_key(
@@ -134,7 +134,7 @@ impl AuthClient<'_> {
         password: String,
         encrypted_user_key: String,
     ) -> Result<String, AuthValidateError> {
-        validate_password_user_key(self.client, password, encrypted_user_key)
+        validate_password_user_key(&self.client, password, encrypted_user_key)
     }
 
     pub fn validate_pin(
@@ -142,7 +142,7 @@ impl AuthClient<'_> {
         pin: String,
         pin_protected_user_key: EncString,
     ) -> Result<bool, AuthValidateError> {
-        validate_pin(self.client, pin, pin_protected_user_key)
+        validate_pin(&self.client, pin, pin_protected_user_key)
     }
 
     pub fn new_auth_request(&self, email: &str) -> Result<AuthRequestResponse, CryptoError> {
@@ -153,16 +153,16 @@ impl AuthClient<'_> {
         &self,
         public_key: String,
     ) -> Result<AsymmetricEncString, ApproveAuthRequestError> {
-        approve_auth_request(self.client, public_key)
+        approve_auth_request(&self.client, public_key)
     }
 
     pub fn trust_device(&self) -> Result<TrustDeviceResponse, TrustDeviceError> {
-        trust_device(self.client)
+        trust_device(&self.client)
     }
 }
 
 #[cfg(feature = "internal")]
-impl AuthClient<'_> {
+impl AuthClient {
     pub async fn login_device(
         &self,
         email: String,
@@ -170,7 +170,7 @@ impl AuthClient<'_> {
     ) -> Result<NewAuthRequestResponse, LoginError> {
         use crate::auth::login::send_new_auth_request;
 
-        send_new_auth_request(self.client, email, device_identifier).await
+        send_new_auth_request(&self.client, email, device_identifier).await
     }
 
     pub async fn login_device_complete(
@@ -179,7 +179,7 @@ impl AuthClient<'_> {
     ) -> Result<(), LoginError> {
         use crate::auth::login::complete_auth_request;
 
-        complete_auth_request(self.client, auth_req).await
+        complete_auth_request(&self.client, auth_req).await
     }
 }
 
@@ -205,9 +205,11 @@ fn trust_device(client: &Client) -> Result<TrustDeviceResponse, TrustDeviceError
     Ok(DeviceKey::trust_device(user_key)?)
 }
 
-impl<'a> Client {
-    pub fn auth(&'a self) -> AuthClient<'a> {
-        AuthClient { client: self }
+impl Client {
+    pub fn auth(&self) -> AuthClient {
+        AuthClient {
+            client: self.clone(),
+        }
     }
 }
 
