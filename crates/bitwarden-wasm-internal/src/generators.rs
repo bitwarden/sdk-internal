@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use bitwarden_core::Client;
 use bitwarden_generators::{
     GeneratorClientsExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
@@ -7,7 +5,7 @@ use bitwarden_generators::{
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub struct GeneratorClient(Rc<Client>);
+pub struct GeneratorClient(Client);
 
 impl GeneratorClient {
     /// Constructs a new SDK client for generating random passwords and passphrases
@@ -17,7 +15,7 @@ impl GeneratorClient {
     ///
     /// # Returns
     /// - `Self` - Returns newly constructed client
-    pub fn new(client: Rc<Client>) -> Self {
+    pub fn new(client: Client) -> Self {
         Self(client)
     }
 }
