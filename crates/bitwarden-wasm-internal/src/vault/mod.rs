@@ -1,6 +1,8 @@
+pub mod ciphers;
 pub mod folders;
 pub mod totp;
 
+use ciphers::ClientCiphers;
 use totp::ClientTotp;
 use wasm_bindgen::prelude::*;
 
@@ -17,6 +19,10 @@ impl VaultClient {
 
 #[wasm_bindgen]
 impl VaultClient {
+    pub fn ciphers(&self) -> ClientCiphers {
+        ClientCiphers::new(self.0.ciphers())
+    }
+
     pub fn folders(&self) -> ClientFolders {
         ClientFolders::new(self.0.folders())
     }
