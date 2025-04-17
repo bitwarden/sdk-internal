@@ -3,9 +3,8 @@ use crate::message::{IncomingMessage, OutgoingMessage};
 /// This trait defines the interface that will be used to send and receive messages over IPC.
 /// It is up to the platform to implement this trait and any necessary thread synchronization and
 /// broadcasting.
-pub trait CommunicationBackend {
+pub trait CommunicationBackend: CommunicationBackendReceiver {
     type SendError;
-    type ReceiveError;
 
     /// Send a message to the destination specified in the message. This function may be called
     /// from any thread at any time. The implementation will handle any necessary synchronization.
@@ -14,15 +13,15 @@ pub trait CommunicationBackend {
         message: OutgoingMessage,
     ) -> impl std::future::Future<Output = Result<(), Self::SendError>>;
 
-    /// Receive a message.
-    ///
-    /// The implementation of this trait needs to guarantee that:
-    ///     - This function will block asynchronously until a message is received.
-    ///     - Multiple concurrent calls to this function may be made from different threads.
-    ///     - All concurrent threads will receive the same message.
-    fn receive(
-        &self,
-    ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>>;
+    // /// Receive a message.
+    // ///
+    // /// The implementation of this trait needs to guarantee that:
+    // ///     - This function will block asynchronously until a message is received.
+    // ///     - Multiple concurrent calls to this function may be made from different threads.
+    // ///     - All concurrent threads will receive the same message.
+    // fn receive(
+    //     &self,
+    // ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>>;
 
     /// Subscribe to receive messages. This function will return a receiver that can be used to
     /// receive messages asynchronously.
@@ -92,14 +91,8 @@ pub mod tests {
         NoQueuedMessages,
     }
 
-    impl CommunicationBackend for TestCommunicationBackend {
-        type SendError = ();
+    impl CommunicationBackendReceiver for TestCommunicationBackend {
         type ReceiveError = TestCommunicationBackendReceiveError;
-
-        async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
-            self.outgoing.write().await.push(message);
-            Ok(())
-        }
 
         async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
             if let Some(message) = self.incoming.write().await.pop_front() {
@@ -107,6 +100,15 @@ pub mod tests {
             } else {
                 Err(TestCommunicationBackendReceiveError::NoQueuedMessages)
             }
+        }
+    }
+
+    impl CommunicationBackend for TestCommunicationBackend {
+        type SendError = ();
+
+        async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
+            self.outgoing.write().await.push(message);
+            Ok(())
         }
 
         fn subscribe(

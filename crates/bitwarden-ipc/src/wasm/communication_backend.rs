@@ -69,11 +69,18 @@ impl JsCommunicationBackend {
 
 impl CommunicationBackend for JsCommunicationBackend {
     type SendError = JsValue;
-    type ReceiveError = JsValue;
 
     async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
         self.sender.send(message).await
     }
+
+    fn subscribe(&self) -> impl CommunicationBackendReceiver<ReceiveError = Self::ReceiveError> {
+        self.receive_rx.resubscribe()
+    }
+}
+
+impl CommunicationBackendReceiver for JsCommunicationBackend {
+    type ReceiveError = JsValue;
 
     async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
         let mut receive_rx = self.receive_rx.resubscribe();
@@ -82,10 +89,6 @@ impl CommunicationBackend for JsCommunicationBackend {
             .await
             .map_err(|e| ChannelError(e.to_string()))?;
         Ok(message)
-    }
-
-    fn subscribe(&self) -> impl CommunicationBackendReceiver<ReceiveError = Self::ReceiveError> {
-        self.receive_rx.resubscribe()
     }
 }
 
