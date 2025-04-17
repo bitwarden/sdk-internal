@@ -12,7 +12,7 @@ use ed25519_dalek::{Signature, Signer, SigningKey};
 use rand::rngs::OsRng;
 
 use super::key_id::KeyId;
-use crate::{error::Result, CryptoError, SigningNamespace};
+use crate::{cose::SIGNING_NAMESPACE, error::Result, CryptoError, SigningNamespace};
 
 #[allow(unused)]
 enum SigningCryptoKeyEnum {
@@ -150,9 +150,9 @@ impl SigningCryptoKey {
                 coset::HeaderBuilder::new()
                     .algorithm(self.cose_algorithm())
                     .key_id(self.id.as_bytes().into())
-                    .text_value(
-                        "namespace".to_string(),
-                        ciborium::Value::Bytes(namespace.to_string().into()),
+                    .value(
+                        SIGNING_NAMESPACE,
+                        ciborium::Value::Integer(Integer::from(namespace.as_i64()))
                     )
                     .build(),
             )
@@ -274,8 +274,8 @@ impl VerifyingKey {
 
         let mut signature_namespace = None;
         for (key, value) in &sign1.protected.header.rest {
-            if let Label::Text(key) = key {
-                if key == "namespace" {
+            if let Label::Int(key) = key {
+                if *key == SIGNING_NAMESPACE {
                     signature_namespace.replace(value);
                 }
             }
@@ -283,10 +283,11 @@ impl VerifyingKey {
         let Some(signature_namespace) = signature_namespace else {
             return false;
         };
-        let Some(signature_namespace) = signature_namespace.as_bytes() else {
+        let Some(signature_namespace) = signature_namespace.as_integer() else {
             return false;
         };
-        if signature_namespace.to_vec() != namespace.to_string().as_bytes() {
+        let signature_namespace: i128 = signature_namespace.into();
+        if signature_namespace != namespace.as_i64() as i128 {
             return false;
         }
         

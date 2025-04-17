@@ -2,9 +2,16 @@
 ///
 /// A new signed entity or protocol shall use a new signing namespace. Further, signing
 /// namespaces cannot be renamed, since that would invalidate signatures.
-#[derive(strum_macros::Display, strum_macros::EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SigningNamespace {
-    EncryptionMetadata,
+    #[allow(dead_code)]
+    EncryptionMetadata = 1,
     #[cfg(test)]
-    Test,
+    Test = -1,
+}
+
+impl SigningNamespace {
+    pub fn as_i64(&self) -> i64 {
+        *self as i64
+    }
 }
