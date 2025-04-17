@@ -1,4 +1,5 @@
-///! This file implements creation and verification of detached signatures
+//! This file implements creation and verification of detached signatures
+
 use ciborium::value::Integer;
 use ciborium::Value;
 use coset::{
@@ -130,7 +131,7 @@ impl SigningCryptoKey {
                         .as_slice()
                         .try_into()
                         .map_err(|_| CryptoError::InvalidKey)?;
-                    let key = ed25519_dalek::SigningKey::from_bytes(&secret_key_bytes);
+                    let key = ed25519_dalek::SigningKey::from_bytes(secret_key_bytes);
                     Ok(SigningCryptoKey {
                         id: key_id,
                         inner: SigningCryptoKeyEnum::Ed25519(key),
@@ -155,7 +156,7 @@ impl SigningCryptoKey {
                     )
                     .build(),
             )
-            .create_detached_signature(data, &[], |pt| self.sign_raw(pt).unwrap())
+            .create_detached_signature(data, &[], |pt| self.sign_raw(pt))
             .build()
             .to_vec()
             .map_err(|_| crate::error::CryptoError::InvalidSignature)
@@ -164,9 +165,9 @@ impl SigningCryptoKey {
     /// Signs the given byte array with the signing key.
     /// This should never be used directly, but only through the `sign` method, to enforce
     /// strong domain separation of the signatures.
-    fn sign_raw(&self, data: &[u8]) -> Result<Vec<u8>> {
+    fn sign_raw(&self, data: &[u8]) -> Vec<u8> {
         match &self.inner {
-            SigningCryptoKeyEnum::Ed25519(key) => Ok(key.sign(data).to_bytes().to_vec()),
+            SigningCryptoKeyEnum::Ed25519(key) => key.sign(data).to_bytes().to_vec(),
         }
     }
 
@@ -174,7 +175,7 @@ impl SigningCryptoKey {
         match &self.inner {
             SigningCryptoKeyEnum::Ed25519(key) => VerifyingKey {
                 id: self.id,
-                inner: VerifyingKeyEnum::Ed25519(key.verifying_key().clone()),
+                inner: VerifyingKeyEnum::Ed25519(key.verifying_key()),
             },
         }
     }
@@ -203,7 +204,7 @@ impl VerifyingKey {
     }
 
     fn from_cose(bytes: &[u8]) -> Result<Self> {
-        let cose_key = coset::CoseKey::from_slice(&bytes).map_err(|_| CryptoError::InvalidKey)?;
+        let cose_key = coset::CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
 
         let (key_id, Some(algorithm), key_type) = (cose_key.key_id, cose_key.alg, cose_key.kty)
         else {
@@ -247,7 +248,7 @@ impl VerifyingKey {
                         .try_into()
                         .map_err(|_| CryptoError::InvalidKey)?;
                     let verifying_key =
-                        ed25519_dalek::VerifyingKey::from_bytes(&verifying_key_bytes)
+                        ed25519_dalek::VerifyingKey::from_bytes(verifying_key_bytes)
                             .map_err(|_| CryptoError::InvalidKey)?;
                     Ok(VerifyingKey {
                         id: key_id,
@@ -257,7 +258,7 @@ impl VerifyingKey {
                     Err(CryptoError::InvalidKey)
                 }
             }
-            _ => return Err(CryptoError::InvalidKey),
+            _ => Err(CryptoError::InvalidKey),
         }
     }
 
@@ -270,7 +271,7 @@ impl VerifyingKey {
         signature: &[u8],
         data: &[u8],
     ) -> bool {
-        let Ok(sign1) = coset::CoseSign1::from_slice(&signature) else {
+        let Ok(sign1) = coset::CoseSign1::from_slice(signature) else {
             return false;
         };
         let Some(_alg) = &sign1.protected.header.alg else {
