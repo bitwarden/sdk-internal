@@ -1,3 +1,8 @@
+//! Mobile specific functionality.
+//!
+//! This module consists of stop-gap functionality for the mobile clients until the SDK owns it's
+//! own state.
+
 pub mod crypto;
 mod kdf;
 

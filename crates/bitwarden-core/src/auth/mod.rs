@@ -1,3 +1,7 @@
+//! Authentication module
+//!
+//! Contains all the authentication related functionality for registering and logging in.
+
 use thiserror::Error;
 
 use crate::{NotAuthenticatedError, VaultLockedError, WrongPasswordError};

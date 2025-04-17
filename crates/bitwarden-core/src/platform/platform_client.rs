@@ -12,12 +12,13 @@ pub struct PlatformClient {
     pub(crate) client: Client,
 }
 
-#[allow(missing_docs)]
 impl PlatformClient {
+    /// Fingerprint (public key)
     pub fn fingerprint(&self, input: &FingerprintRequest) -> Result<String, FingerprintError> {
         generate_fingerprint(input)
     }
 
+    /// Fingerprint using logged in user's public key
     pub fn user_fingerprint(
         self,
         fingerprint_material: String,
@@ -25,6 +26,7 @@ impl PlatformClient {
         generate_user_fingerprint(&self.client, fingerprint_material)
     }
 
+    /// Test function for performing API requests to fetch a users api key.
     pub async fn get_user_api_key(
         &mut self,
         input: SecretVerificationRequest,
