@@ -11,7 +11,7 @@ use thiserror::Error;
 use crate::client::encryption_settings::EncryptionSettingsError;
 use crate::{key_management::SymmetricKeyId, Client, VaultLockedError};
 
-/// Response for [new_auth_request].
+/// Response for `new_auth_request`.
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AuthRequestResponse {
     /// Base64 encoded private key
