@@ -1,7 +1,6 @@
 //! This file implements creation and verification of detached signatures
 
-use ciborium::value::Integer;
-use ciborium::Value;
+use ciborium::{value::Integer, Value};
 use coset::{
     iana::{self, Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
     CborSerializable, CoseKey, Label, RegisteredLabel, RegisteredLabelWithPrivate,
