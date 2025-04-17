@@ -261,7 +261,7 @@ impl VerifyingKey {
     /// Verifies the signature of the given data, for the given namespace.
     /// This should never be used directly, but only through the `verify` method, to enforce
     /// strong domain separation of the signatures.
-    pub fn verify(&self, namespace: &SigningNamespace, signature: &[u8], data: &[u8]) -> bool {
+    pub(crate) fn verify(&self, namespace: &SigningNamespace, signature: &[u8], data: &[u8]) -> bool {
         let Ok(sign1) = coset::CoseSign1::from_slice(&signature) else {
             return false;
         };
