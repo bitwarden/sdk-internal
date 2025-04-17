@@ -122,9 +122,7 @@ impl SigningCryptoKey {
                     return Err(CryptoError::InvalidKey);
                 };
                 let crv: i128 = crv.as_integer().ok_or(CryptoError::InvalidKey)?.into();
-                let crv: i64 = crv as i64;
-
-                if crv == EllipticCurve::Ed25519.to_i64() {
+                if crv == EllipticCurve::Ed25519.to_i64().into() {
                     let secret_key_bytes: &[u8; 32] = d
                         .as_bytes()
                         .ok_or(CryptoError::InvalidKey)?
@@ -240,7 +238,7 @@ impl VerifyingKey {
                 };
 
                 let crv: i128 = crv.as_integer().ok_or(CryptoError::InvalidKey)?.into();
-                if crv as i64 == iana::EllipticCurve::Ed25519.to_i64() {
+                if crv == iana::EllipticCurve::Ed25519.to_i64().into() {
                     let verifying_key_bytes: &[u8; 32] = x
                         .as_bytes()
                         .ok_or(CryptoError::InvalidKey)?
