@@ -65,14 +65,14 @@ pub enum InitUserCryptoMethod {
     },
     /// Never lock and/or biometric unlock
     DecryptedKey {
-        /// The user's decrypted encryption key, obtained using `get_user_encryption_key`
+        /// The user's decrypted encryption key, obtained using [get_user_encryption_key]
         decrypted_user_key: String,
     },
     /// PIN
     Pin {
         /// The user's PIN
         pin: String,
-        /// The user's symmetric crypto key, encrypted with the PIN. Use `derive_pin_key` to obtain
+        /// The user's symmetric crypto key, encrypted with the PIN. Use [derive_pin_key] to obtain
         /// this.
         pin_protected_user_key: EncString,
     },
@@ -251,7 +251,7 @@ pub(super) async fn get_user_encryption_key(client: &Client) -> Result<String, M
     Ok(user_key.to_base64())
 }
 
-/// Response from the `update_password` function
+/// Response from the [update_password] function
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -438,7 +438,7 @@ pub(super) fn derive_key_connector(
     Ok(master_key.to_base64())
 }
 
-/// Response from the `make_key_pair` function
+/// Response from the [make_key_pair] function
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -461,7 +461,7 @@ pub(super) fn make_key_pair(user_key: String) -> Result<MakeKeyPairResponse, Cry
     })
 }
 
-/// Request for `verify_asymmetric_keys`.
+/// Request for [verify_asymmetric_keys].
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -475,7 +475,7 @@ pub struct VerifyAsymmetricKeysRequest {
     user_key_encrypted_private_key: EncString,
 }
 
-/// Response for `verify_asymmetric_keys`.
+/// Response for [verify_asymmetric_keys].
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]

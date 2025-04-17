@@ -40,7 +40,9 @@ mod key_connector;
 #[cfg(feature = "internal")]
 pub use key_connector::KeyConnectorResponse;
 
+/// Error for authentication related operations
 #[derive(Debug, Error)]
+#[allow(missing_docs)]
 pub enum AuthValidateError {
     #[error(transparent)]
     NotAuthenticated(#[from] NotAuthenticatedError),

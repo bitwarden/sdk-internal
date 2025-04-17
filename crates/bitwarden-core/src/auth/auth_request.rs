@@ -11,6 +11,7 @@ use thiserror::Error;
 use crate::client::encryption_settings::EncryptionSettingsError;
 use crate::{key_management::SymmetricKeyId, Client, VaultLockedError};
 
+/// Response for [new_auth_request].
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AuthRequestResponse {
     /// Base64 encoded private key
@@ -76,6 +77,7 @@ pub(crate) fn auth_request_decrypt_master_key(
 }
 
 #[derive(Debug, Error)]
+#[allow(missing_docs)]
 pub enum ApproveAuthRequestError {
     #[error(transparent)]
     Crypto(#[from] CryptoError),
