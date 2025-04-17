@@ -19,8 +19,6 @@ impl PinKey {
     }
 
     /// Encrypt the users user key
-    ///
-    /// @param user_key: The user key to encrypt
     pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
         encrypt_user_key(&self.0 .0, user_key)
     }

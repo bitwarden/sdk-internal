@@ -47,39 +47,38 @@ impl PureCrypto {
             .to_buffer()
     }
 
-    pub fn decrypt_userkey_with_masterpassword(
-        encrypted_userkey: String,
+    pub fn decrypt_user_key_with_master_password(
+        encrypted_user_key: String,
         master_password: String,
         email: String,
         kdf: Kdf,
     ) -> Result<Vec<u8>, CryptoError> {
-        let masterkey = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
-        let encrypted_userkey = EncString::from_str(&encrypted_userkey)?;
-        let result = masterkey
-            .decrypt_user_key(encrypted_userkey)
+        let master_key = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
+        let encrypted_user_key = EncString::from_str(&encrypted_user_key)?;
+        let result = master_key
+            .decrypt_user_key(encrypted_user_key)
             .map_err(|_| CryptoError::InvalidKey)?;
         Ok(result.to_encoded())
     }
 
-    pub fn encrypt_userkey_with_masterpassword(
-        userkey: Vec<u8>,
+    pub fn encrypt_user_key_with_master_password(
+        user_key: Vec<u8>,
         master_password: String,
         email: String,
         kdf: Kdf,
     ) -> Result<String, CryptoError> {
-        let masterkey = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
-        let userkey = SymmetricCryptoKey::try_from(userkey)?;
-        let result = masterkey.encrypt_user_key(&userkey)?;
+        let master_key = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
+        let user_key = SymmetricCryptoKey::try_from(user_key)?;
+        let result = master_key.encrypt_user_key(&user_key)?;
         Ok(result.to_string())
     }
 
-    pub fn generate_userkey(use_xchacha20: bool) -> Result<Vec<u8>, CryptoError> {
-        let key = if !use_xchacha20 {
-            SymmetricCryptoKey::generate()
-        } else {
-            SymmetricCryptoKey::generate_xchacha20()
-        };
-        Ok(key.to_encoded())
+    pub fn generate_user_key() -> Vec<u8> {
+        SymmetricCryptoKey::generate().to_encoded()
+    }
+
+    pub fn generate_user_key_xchacha20() -> Vec<u8> {
+        SymmetricCryptoKey::generate_xchacha20().to_encoded()
     }
 }
 

@@ -27,8 +27,6 @@ pub enum CryptoError {
     MissingField(&'static str),
     #[error("Missing Key for Id: {0}")]
     MissingKeyId(String),
-    #[error("The provided  Id is not valid: {0}")]
-    InvalidKeyId(String),
     #[error("Crypto store is read-only")]
     ReadOnlyKeyStore,
 
@@ -61,6 +59,9 @@ pub enum CryptoError {
 
     #[error("Invalid signature")]
     InvalidSignature,
+
+    #[error("Invalid nonce length")]
+    InvalidNonceLength,
 }
 
 #[derive(Debug, Error)]
@@ -81,8 +82,8 @@ pub enum EncStringParseError {
     InvalidBase64(#[from] base64::DecodeError),
     #[error("Invalid length: expected {expected}, got {got}")]
     InvalidLength { expected: usize, got: usize },
-    #[error("Invalid encoding")]
-    InvalidEncoding,
+    #[error("Invalid encoding {0}")]
+    InvalidCoseEncoding(coset::CoseError),
 }
 
 #[derive(Debug, Error)]

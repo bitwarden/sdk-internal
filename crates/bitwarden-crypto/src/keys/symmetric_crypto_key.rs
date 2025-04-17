@@ -127,11 +127,14 @@ impl SymmetricCryptoKey {
         }
     }
 
-    /**
-     * Encodes the key to a byte array representation. This can be used for storage and
-     * transmission in the old byte array format. When the wrapping key is a COSE key, then
-     * COSE MUST be used to encode the key.
-     */
+    /// Encodes the key to a byte array representation, that is separated by size.
+    /// `SymmetricCryptoKey::Aes256CbcHmacKey` and `SymmetricCryptoKey::Aes256CbcKey` are
+    /// encoded as 64 and 32 bytes respectively. `SymmetricCryptoKey::XChaCha20Poly1305Key`
+    /// is encoded as at least 65 bytes, by using padding defined in `pad_key`.
+    ///
+    /// This can be used for storage and transmission in the old byte array format.
+    /// When the wrapping key is a COSE key, and the wrapped key is a COSE key, then this should
+    /// not use the byte representation but instead use the COSE key representation.
     pub fn to_encoded(&self) -> Vec<u8> {
         let mut encoded_key = self.to_encoded_raw();
         match self {
@@ -181,14 +184,16 @@ impl SymmetricCryptoKey {
 
 impl ConstantTimeEq for SymmetricCryptoKey {
     fn ct_eq(&self, other: &SymmetricCryptoKey) -> Choice {
+        use SymmetricCryptoKey::*;
         match (self, other) {
-            (SymmetricCryptoKey::Aes256CbcKey(a), SymmetricCryptoKey::Aes256CbcKey(b)) => {
-                a.ct_eq(b)
-            }
-            (SymmetricCryptoKey::Aes256CbcHmacKey(a), SymmetricCryptoKey::Aes256CbcHmacKey(b)) => {
-                a.ct_eq(b)
-            }
-            _ => Choice::from(0),
+            (Aes256CbcKey(a), Aes256CbcKey(b)) => a.ct_eq(b),
+            (Aes256CbcKey(_), _) => Choice::from(0),
+
+            (Aes256CbcHmacKey(a), Aes256CbcHmacKey(b)) => a.ct_eq(b),
+            (Aes256CbcHmacKey(_), _) => Choice::from(0),
+
+            (XChaCha20Poly1305Key(a), XChaCha20Poly1305Key(b)) => a.ct_eq(b),
+            (XChaCha20Poly1305Key(_), _) => Choice::from(0),
         }
     }
 }
@@ -306,6 +311,13 @@ impl std::fmt::Debug for SymmetricCryptoKey {
 /// Pad a key to a minimum length using PKCS7-like padding.
 /// The last N bytes of the padded bytes all have the value N.
 /// For example, padded to size 4, the value 0,0 becomes 0,0,2,2.
+///
+/// Keys that have the type `SymmetricCryptoKey::XChaCha20Poly1305Key` must be distinguishable
+/// from `SymmetricCryptoKey::Aes256CbcHmacKey` keys, when both are encoded as byte arrays
+/// with no additional content format included in the encoding message. For this reason, the
+/// padding is used to make sure that the byte representation uniquely separates the keys by
+/// size of the byte array. The previous key types `SymmetricCryptoKey::Aes256CbcHmacKey` and
+/// `SymmetricCryptoKey::Aes256CbcKey` are 64 and 32 bytes long respectively.
 fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
     // at least 1 byte of padding is required
     let pad_bytes = min_length.saturating_sub(key_bytes.len()).max(1);
@@ -313,7 +325,16 @@ fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
     key_bytes.resize(padded_length, pad_bytes as u8);
 }
 
-// Unpad a key
+/// Unpad a key that is padded using the PKCS7-like padding defined by `pad_key`.
+/// The last N bytes of the padded bytes all have the value N.
+/// For example, padded to size 4, the value 0,0 becomes 0,0,2,2.
+///
+/// Keys that have the type `SymmetricCryptoKey::XChaCha20Poly1305Key` must be distinguishable
+/// from `SymmetricCryptoKey::Aes256CbcHmacKey` keys, when both are encoded as byte arrays
+/// with no additional content format included in the encoding message. For this reason, the
+/// padding is used to make sure that the byte representation uniquely separates the keys by
+/// size of the byte array the previous key types `SymmetricCryptoKey::Aes256CbcHmacKey` and
+/// `SymmetricCryptoKey::Aes256CbcKey` are 64 and 32 bytes long respectively.
 fn unpad_key(key_bytes: &[u8]) -> &[u8] {
     // this unwrap is safe, the input is always at least 1 byte long
     #[allow(clippy::unwrap_used)]

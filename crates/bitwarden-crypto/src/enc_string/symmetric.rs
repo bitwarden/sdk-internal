@@ -180,24 +180,29 @@ impl EncString {
 
 impl Display for EncString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn fmt_parts(
+            f: &mut std::fmt::Formatter<'_>,
+            enc_type: u8,
+            parts: &[&[u8]],
+        ) -> std::fmt::Result {
+            let encoded_parts: Vec<String> =
+                parts.iter().map(|part| STANDARD.encode(part)).collect();
+            write!(f, "{}.{}", enc_type, encoded_parts.join("|"))
+        }
+
+        let enc_type = self.enc_type();
+
         match self {
-            EncString::AesCbc256_B64 { .. } | EncString::AesCbc256_HmacSha256_B64 { .. } => {
-                let parts: Vec<&[u8]> = match self {
-                    EncString::AesCbc256_B64 { iv, data } => vec![iv, data],
-                    EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => vec![iv, data, mac],
-                    _ => unreachable!(),
-                };
-
-                let encoded_parts: Vec<String> =
-                    parts.iter().map(|part| STANDARD.encode(part)).collect();
-
-                write!(f, "{}.{}", self.enc_type(), encoded_parts.join("|"))?;
-
-                Ok(())
+            EncString::AesCbc256_B64 { iv, data } => fmt_parts(f, enc_type, &[iv, data]),
+            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
+                fmt_parts(f, enc_type, &[iv, data, mac])
             }
             EncString::XChaCha20_Poly1305_Cose_B64 { data } => {
-                write!(f, "{}.{}", self.enc_type(), STANDARD.encode(data))?;
-
+                if let Ok(msg) = coset::CoseEncrypt0::from_slice(data.as_slice()) {
+                    write!(f, "{}.{:?}", enc_type, msg)?;
+                } else {
+                    write!(f, "{}.INVALID_COSE", enc_type)?;
+                }
                 Ok(())
             }
         }
@@ -242,26 +247,19 @@ impl EncString {
         let mut nonce = [0u8; 24];
         let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
             .protected(protected_header)
-            .try_create_ciphertext(data_dec, &[], |data, aad| {
-                let ciphertext = crate::xchacha20::encrypt_xchacha20_poly1305(
-                    key.enc_key
-                        .as_slice()
-                        .try_into()
-                        .expect("XChaChaPoly1305 key is 32 bytes long"),
-                    data,
-                    aad,
-                );
+            .create_ciphertext(data_dec, &[], |data, aad| {
+                let ciphertext =
+                    crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
                 nonce.copy_from_slice(ciphertext.nonce.as_slice());
-                Ok(ciphertext.ciphertext)
+                ciphertext.ciphertext
             })
-            .map_err(|_a: CryptoError| CryptoError::EncodingError)?
             .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
             .build();
 
         Ok(EncString::XChaCha20_Poly1305_Cose_B64 {
-            data: cose_encrypt0
-                .to_vec()
-                .map_err(|_| CryptoError::EncodingError)?,
+            data: cose_encrypt0.to_vec().map_err(|err| {
+                CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err))
+            })?,
         })
     }
 
@@ -303,23 +301,20 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 EncString::XChaCha20_Poly1305_Cose_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let msg = coset::CoseEncrypt0::from_slice(data.as_slice())
-                    .map_err(|_| CryptoError::EncString(EncStringParseError::InvalidEncoding))?;
-                let decrypted_message = msg
-                    .decrypt(&[], |data, aad| {
-                        let nonce = msg.unprotected.iv.as_slice();
-                        crate::xchacha20::decrypt_xchacha20_poly1305(
-                            nonce.try_into().map_err(|_| CryptoError::EncodingError)?,
-                            key.enc_key
-                                .as_slice()
-                                .try_into()
-                                .expect("XChaChaPoly1305 key is 32 bytes long"),
-                            data,
-                            aad,
-                        )
-                        .map_err(|_| CryptoError::EncodingError)
-                    })
-                    .map_err(|_| CryptoError::EncodingError)?;
+                let msg = coset::CoseEncrypt0::from_slice(data.as_slice()).map_err(|err| {
+                    CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err))
+                })?;
+                let decrypted_message = msg.decrypt(&[], |data, aad| {
+                    let nonce = msg.unprotected.iv.as_slice();
+                    crate::xchacha20::decrypt_xchacha20_poly1305(
+                        nonce
+                            .try_into()
+                            .map_err(|_| CryptoError::InvalidNonceLength)?,
+                        &(*key.enc_key).into(),
+                        data,
+                        aad,
+                    )
+                })?;
                 Ok(decrypted_message)
             }
             _ => Err(CryptoError::WrongKeyType),
