@@ -23,7 +23,9 @@ mod error;
 pub use error::{DecryptError, EncryptError, VaultParseError};
 mod vault_client;
 pub use vault_client::{VaultClient, VaultClientExt};
+#[cfg(feature = "uniffi")]
 mod mobile;
+#[cfg(feature = "uniffi")]
 pub use mobile::attachment_client::{DecryptFileError, EncryptFileError};
 mod sync;
 mod totp_client;
