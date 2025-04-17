@@ -14,6 +14,10 @@ use crate::client::{
 /// The main struct to interact with the Bitwarden SDK.
 #[derive(Debug, Clone)]
 pub struct Client {
+    // Important: The [`Client`] struct requires its `Clone` implementation to return an owned
+    // reference to the same instance. This is required to properly use the FFI API, where we can't
+    // just use normal Rust references effectively. For this to happen, any mutable state needs
+    // to be behind an Arc, ideally as part of the existing [`InternalClient`] struct.
     #[doc(hidden)]
     pub internal: Arc<InternalClient>,
 }
