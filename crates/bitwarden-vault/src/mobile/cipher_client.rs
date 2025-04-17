@@ -61,6 +61,15 @@ impl ClientCiphers<'_> {
         cipher_view.move_to_organization(&mut key_store.context(), organization_id)?;
         Ok(cipher_view)
     }
+
+    pub fn decrypt_fido2_private_key(
+        &self,
+        cipher_view: CipherView,
+    ) -> Result<String, CipherError> {
+        let key_store = self.client.internal.get_key_store();
+        let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
+        Ok(decrypted_key)
+    }
 }
 
 impl<'a> VaultClient<'a> {
