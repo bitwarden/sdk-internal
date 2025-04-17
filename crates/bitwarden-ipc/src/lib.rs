@@ -4,6 +4,8 @@ mod constants;
 mod endpoint;
 mod ipc_client;
 mod message;
+mod ping;
+mod rpc;
 mod traits;
 
 /// Re-export types to make sure wasm_bindgen picks them up
