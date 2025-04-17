@@ -32,9 +32,9 @@ mod store;
 pub use store::{KeyStore, KeyStoreContext};
 mod cose;
 mod signing;
+pub(crate) use signing::SigningNamespace;
 mod traits;
 mod xchacha20;
-pub(crate) use signing::*;
 pub use traits::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
 
