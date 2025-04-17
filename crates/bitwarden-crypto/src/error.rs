@@ -54,6 +54,9 @@ pub enum CryptoError {
     #[error("Key algorithm does not match encrypted data type")]
     WrongKeyType,
 
+    #[error("Invalid signature")]
+    InvalidSignature,
+
     #[error("Invalid nonce length")]
     InvalidNonceLength,
 }

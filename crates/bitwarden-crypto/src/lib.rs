@@ -31,6 +31,8 @@ pub use wordlist::EFF_LONG_WORD_LIST;
 mod store;
 pub use store::{KeyStore, KeyStoreContext};
 mod cose;
+mod signing;
+pub(crate) use signing::SigningNamespace;
 mod traits;
 mod xchacha20;
 pub use traits::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
