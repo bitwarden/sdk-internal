@@ -19,6 +19,13 @@ where
     sessions: Ses,
 }
 
+pub struct IpcClientSubscription<Receiver>
+where
+    Receiver: CommunicationBackendReceiver,
+{
+    receiver: Receiver,
+}
+
 impl<Crypto, Com, Ses> IpcClient<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
@@ -43,11 +50,18 @@ where
             .await
     }
 
+    pub async fn subscribe(&self) -> IpcClientSubscription<Com::Receiver> {
+        IpcClientSubscription {
+            receiver: self.communication.subscribe(),
+        }
+    }
+
     /// Receive a message, optionally filtering by topic.
     /// Setting the topic to `None` will receive all messages.
     /// Setting the timeout to `None` will wait indefinitely.
     pub async fn receive(
         &self,
+        subscription: &IpcClientSubscription<Com::Receiver>,
         topic: Option<String>,
         timeout: Option<Duration>,
     ) -> Result<
@@ -61,11 +75,7 @@ where
             loop {
                 let received = self
                     .crypto
-                    .receive(
-                        &self.communication,
-                        &self.sessions,
-                        &self.communication.subscribe(),
-                    )
+                    .receive(&subscription.receiver, &self.communication, &self.sessions)
                     .await?;
                 if topic.is_none() || received.topic == topic {
                     return Ok(received);
@@ -86,6 +96,7 @@ where
     /// payload type.
     pub async fn receive_typed<Payload>(
         &self,
+        subscription: &IpcClientSubscription<Com::Receiver>,
         timeout: Option<Duration>,
     ) -> Result<
         TypedIncomingMessage<Payload>,
@@ -99,7 +110,7 @@ where
         Payload: TryFrom<Vec<u8>> + PayloadTypeName,
     {
         let topic = Some(Payload::name());
-        let received = self.receive(topic, timeout).await?;
+        let received = self.receive(&subscription, topic, timeout).await?;
         received.try_into().map_err(TypedReceiveError::Typing)
     }
 }
@@ -133,9 +144,9 @@ mod tests {
 
         async fn receive(
             &self,
+            _receiver: &<TestCommunicationBackend as CommunicationBackend>::Receiver,
             _communication: &TestCommunicationBackend,
             _sessions: &TestSessionRepository,
-            _receiver: &<TestCommunicationBackend as CommunicationBackend>::Receiver,
         ) -> Result<IncomingMessage, ReceiveError<String, TestCommunicationBackendReceiveError>>
         {
             self.receive_result.clone()
@@ -189,7 +200,8 @@ mod tests {
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider, session_map);
 
-        let error = client.receive(None, None).await.unwrap_err();
+        let subscription = client.subscribe().await;
+        let error = client.receive(&subscription, None, None).await.unwrap_err();
 
         assert_eq!(error, ReceiveError::Crypto("Crypto error".to_string()));
     }
@@ -225,8 +237,9 @@ mod tests {
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
 
+        let subscription = &client.subscribe().await;
         communication_provider.push_incoming(message.clone()).await;
-        let received_message = client.receive(None, None).await.unwrap();
+        let received_message = client.receive(&subscription, None, None).await.unwrap();
 
         assert_eq!(received_message, message);
     }
@@ -261,7 +274,11 @@ mod tests {
             .await;
 
         let received_message: IncomingMessage = client
-            .receive(Some("matching_topic".to_owned()), None)
+            .receive(
+                &client.subscribe().await,
+                Some("matching_topic".to_owned()),
+                None,
+            )
             .await
             .unwrap();
 
@@ -325,8 +342,10 @@ mod tests {
             .push_incoming(typed_message.clone().try_into().unwrap())
             .await;
 
-        let received_message: TypedIncomingMessage<TestPayload> =
-            client.receive_typed(None).await.unwrap();
+        let received_message: TypedIncomingMessage<TestPayload> = client
+            .receive_typed(&client.subscribe().await, None)
+            .await
+            .unwrap();
 
         assert_eq!(received_message, typed_message);
     }
@@ -375,7 +394,8 @@ mod tests {
             .push_incoming(non_deserializable_message.clone())
             .await;
 
-        let result: Result<TypedIncomingMessage<TestPayload>, _> = client.receive_typed(None).await;
+        let result: Result<TypedIncomingMessage<TestPayload>, _> =
+            client.receive_typed(&client.subscribe().await, None).await;
 
         assert!(matches!(
             result,

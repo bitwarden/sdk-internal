@@ -22,9 +22,9 @@ where
 
     fn receive(
         &self,
+        receiver: &Com::Receiver,
         communication: &Com,
         sessions: &Ses,
-        receiver: &Com::Receiver,
     ) -> impl std::future::Future<
         Output = Result<
             IncomingMessage,
@@ -61,9 +61,9 @@ where
 
     async fn receive(
         &self,
+        receiver: &Com::Receiver,
         _communication: &Com,
         _sessions: &Ses,
-        receiver: &Com::Receiver,
     ) -> Result<
         IncomingMessage,
         ReceiveError<

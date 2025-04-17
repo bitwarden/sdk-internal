@@ -7,8 +7,9 @@ use super::{
     error::{JsReceiveError, JsSendError},
 };
 use crate::{
+    ipc_client::IpcClientSubscription,
     message::{IncomingMessage, OutgoingMessage},
-    traits::{InMemorySessionRepository, NoEncryptionCryptoProvider},
+    traits::{CommunicationBackend, InMemorySessionRepository, NoEncryptionCryptoProvider},
     IpcClient,
 };
 
@@ -20,6 +21,11 @@ pub struct JsIpcClient {
         JsCommunicationBackend,
         InMemorySessionRepository<()>,
     >,
+}
+
+#[wasm_bindgen(js_name = IpcClientSubscription)]
+pub struct JsIpcClientSubscription {
+    subscription: IpcClientSubscription<<JsCommunicationBackend as CommunicationBackend>::Receiver>,
 }
 
 #[wasm_bindgen(js_class = IpcClient)]
@@ -39,7 +45,18 @@ impl JsIpcClient {
         self.client.send(message).await.map_err(|e| e.into())
     }
 
-    pub async fn receive(&self) -> Result<IncomingMessage, JsReceiveError> {
-        self.client.receive(None, None).await.map_err(|e| e.into())
+    pub async fn subscribe(&self) -> JsIpcClientSubscription {
+        let subscription = self.client.subscribe().await;
+        JsIpcClientSubscription { subscription }
+    }
+
+    pub async fn receive(
+        &self,
+        subscription: &JsIpcClientSubscription,
+    ) -> Result<IncomingMessage, JsReceiveError> {
+        self.client
+            .receive(&subscription.subscription, None, None)
+            .await
+            .map_err(|e| e.into())
     }
 }
