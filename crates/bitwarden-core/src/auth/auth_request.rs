@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    fingerprint, generate_random_alphanumeric, AsymmetricCryptoKey, AsymmetricEncString,
-    AsymmetricPublicCryptoKey, CryptoError,
+    fingerprint, generate_random_alphanumeric, AsymmetricCryptoKey, AsymmetricPublicCryptoKey,
+    CryptoError, UnauthenticatedSharedKey,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, SymmetricCryptoKey};
@@ -51,7 +51,7 @@ pub(crate) fn new_auth_request(email: &str) -> Result<AuthRequestResponse, Crypt
 #[cfg(feature = "internal")]
 pub(crate) fn auth_request_decrypt_user_key(
     private_key: String,
-    user_key: AsymmetricEncString,
+    user_key: UnauthenticatedSharedKey,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
     let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
     let key: SymmetricCryptoKey = user_key.decapsulate_key_unsigned(&key)?;
@@ -62,7 +62,7 @@ pub(crate) fn auth_request_decrypt_user_key(
 #[cfg(feature = "internal")]
 pub(crate) fn auth_request_decrypt_master_key(
     private_key: String,
-    master_key: AsymmetricEncString,
+    master_key: UnauthenticatedSharedKey,
     user_key: EncString,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
     use bitwarden_crypto::MasterKey;
@@ -90,7 +90,7 @@ pub enum ApproveAuthRequestError {
 pub(crate) fn approve_auth_request(
     client: &Client,
     public_key: String,
-) -> Result<AsymmetricEncString, ApproveAuthRequestError> {
+) -> Result<UnauthenticatedSharedKey, ApproveAuthRequestError> {
     let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(public_key)?)?;
 
     let key_store = client.internal.get_key_store();
@@ -100,7 +100,7 @@ pub(crate) fn approve_auth_request(
     #[allow(deprecated)]
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
-    Ok(AsymmetricEncString::encapsulate_key_unsigned(
+    Ok(UnauthenticatedSharedKey::encapsulate_key_unsigned(
         key,
         &public_key,
     )?)
@@ -120,7 +120,7 @@ fn test_auth_request() {
     let private_key =
         AsymmetricCryptoKey::from_der(&STANDARD.decode(&request.private_key).unwrap()).unwrap();
 
-    let encrypted = AsymmetricEncString::encapsulate_key_unsigned(
+    let encrypted = UnauthenticatedSharedKey::encapsulate_key_unsigned(
         &SymmetricCryptoKey::try_from(secret.clone()).unwrap(),
         &private_key,
     )

@@ -1,7 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-pub use internal::AsymmetricEncString;
+pub use internal::UnauthenticatedSharedKey;
 use rsa::Oaep;
 use serde::Deserialize;
 
@@ -18,16 +18,17 @@ mod internal {
     #[cfg(feature = "wasm")]
     #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
     const TS_CUSTOM_TYPES: &'static str = r#"
-    export type AsymmetricEncString = string;
+    export type UnauthenticatedSharedKey = string;
     "#;
 
     /// # Encrypted string primitive
     ///
-    /// [AsymmetricEncString] is a Bitwarden specific primitive that represents an asymmetrically
-    /// encrypted string. They are used together with the KeyDecryptable and KeyEncryptable
-    /// traits to encrypt and decrypt data using [crate::AsymmetricCryptoKey]s.
+    /// [UnauthenticatedSharedKey] is a Bitwarden specific primitive that represents an
+    /// asymmetrically encrypted symmetric key. Since the symmetric key is directly encrypted
+    /// with the public key, without any further signature, the receiver cannot guarantee the
+    /// senders identity.
     ///
-    /// The flexibility of the [AsymmetricEncString] type allows for different encryption algorithms
+    /// [UnauthenticatedSharedKey] type allows for different encryption algorithms
     /// to be used which is represented by the different variants of the enum.
     ///
     /// ## Note
@@ -36,13 +37,13 @@ mod internal {
     /// old variants, but we should be opinionated in which variants are used for encrypting.
     ///
     /// ## Variants
-    /// - [Rsa2048_OaepSha256_B64](AsymmetricEncString::Rsa2048_OaepSha256_B64)
-    /// - [Rsa2048_OaepSha1_B64](AsymmetricEncString::Rsa2048_OaepSha1_B64)
+    /// - [Rsa2048_OaepSha256_B64](UnauthenticatedSharedKey::Rsa2048_OaepSha256_B64)
+    /// - [Rsa2048_OaepSha1_B64](UnauthenticatedSharedKey::Rsa2048_OaepSha1_B64)
     ///
     /// ## Serialization
     ///
-    /// [AsymmetricEncString] implements [std::fmt::Display] and [std::str::FromStr] to allow for
-    /// easy serialization and uses a custom scheme to represent the different variants.
+    /// [UnauthenticatedSharedKey] implements [std::fmt::Display] and [std::str::FromStr] to allow
+    /// for easy serialization and uses a custom scheme to represent the different variants.
     ///
     /// The scheme is one of the following schemes:
     /// - `[type].[data]`
@@ -52,7 +53,7 @@ mod internal {
     /// - `[data]`: is the encrypted data.
     #[derive(Clone, zeroize::ZeroizeOnDrop)]
     #[allow(unused, non_camel_case_types)]
-    pub enum AsymmetricEncString {
+    pub enum UnauthenticatedSharedKey {
         /// 3
         Rsa2048_OaepSha256_B64 { data: Vec<u8> },
         /// 4
@@ -66,16 +67,16 @@ mod internal {
     }
 }
 
-/// To avoid printing sensitive information, [AsymmetricEncString] debug prints to
-/// `AsymmetricEncString`.
-impl std::fmt::Debug for AsymmetricEncString {
+/// To avoid printing sensitive information, [UnauthenticatedSharedKey] debug prints to
+/// `UnauthenticatedSharedKey`.
+impl std::fmt::Debug for UnauthenticatedSharedKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AsymmetricEncString").finish()
+        f.debug_struct("UnauthenticatedSharedKey").finish()
     }
 }
 
-/// Deserializes an [AsymmetricEncString] from a string.
-impl FromStr for AsymmetricEncString {
+/// Deserializes an [UnauthenticatedSharedKey] from a string.
+impl FromStr for UnauthenticatedSharedKey {
     type Err = CryptoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -83,23 +84,23 @@ impl FromStr for AsymmetricEncString {
         match (enc_type, parts.len()) {
             ("3", 1) => {
                 let data = from_b64_vec(parts[0])?;
-                Ok(AsymmetricEncString::Rsa2048_OaepSha256_B64 { data })
+                Ok(UnauthenticatedSharedKey::Rsa2048_OaepSha256_B64 { data })
             }
             ("4", 1) => {
                 let data = from_b64_vec(parts[0])?;
-                Ok(AsymmetricEncString::Rsa2048_OaepSha1_B64 { data })
+                Ok(UnauthenticatedSharedKey::Rsa2048_OaepSha1_B64 { data })
             }
             #[allow(deprecated)]
             ("5", 2) => {
                 let data = from_b64_vec(parts[0])?;
                 let mac: Vec<u8> = from_b64_vec(parts[1])?;
-                Ok(AsymmetricEncString::Rsa2048_OaepSha256_HmacSha256_B64 { data, mac })
+                Ok(UnauthenticatedSharedKey::Rsa2048_OaepSha256_HmacSha256_B64 { data, mac })
             }
             #[allow(deprecated)]
             ("6", 2) => {
                 let data = from_b64_vec(parts[0])?;
                 let mac: Vec<u8> = from_b64_vec(parts[1])?;
-                Ok(AsymmetricEncString::Rsa2048_OaepSha1_HmacSha256_B64 { data, mac })
+                Ok(UnauthenticatedSharedKey::Rsa2048_OaepSha1_HmacSha256_B64 { data, mac })
             }
 
             (enc_type, parts) => Err(EncStringParseError::InvalidTypeAsymm {
@@ -111,15 +112,19 @@ impl FromStr for AsymmetricEncString {
     }
 }
 
-impl Display for AsymmetricEncString {
+impl Display for UnauthenticatedSharedKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let parts: Vec<&[u8]> = match self {
-            AsymmetricEncString::Rsa2048_OaepSha256_B64 { data } => vec![data],
-            AsymmetricEncString::Rsa2048_OaepSha1_B64 { data } => vec![data],
+            UnauthenticatedSharedKey::Rsa2048_OaepSha256_B64 { data } => vec![data],
+            UnauthenticatedSharedKey::Rsa2048_OaepSha1_B64 { data } => vec![data],
             #[allow(deprecated)]
-            AsymmetricEncString::Rsa2048_OaepSha256_HmacSha256_B64 { data, mac } => vec![data, mac],
+            UnauthenticatedSharedKey::Rsa2048_OaepSha256_HmacSha256_B64 { data, mac } => {
+                vec![data, mac]
+            }
             #[allow(deprecated)]
-            AsymmetricEncString::Rsa2048_OaepSha1_HmacSha256_B64 { data, mac } => vec![data, mac],
+            UnauthenticatedSharedKey::Rsa2048_OaepSha1_HmacSha256_B64 { data, mac } => {
+                vec![data, mac]
+            }
         };
 
         let encoded_parts: Vec<String> = parts.iter().map(|part| STANDARD.encode(part)).collect();
@@ -130,7 +135,7 @@ impl Display for AsymmetricEncString {
     }
 }
 
-impl<'de> Deserialize<'de> for AsymmetricEncString {
+impl<'de> Deserialize<'de> for UnauthenticatedSharedKey {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -139,7 +144,7 @@ impl<'de> Deserialize<'de> for AsymmetricEncString {
     }
 }
 
-impl serde::Serialize for AsymmetricEncString {
+impl serde::Serialize for UnauthenticatedSharedKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -148,35 +153,35 @@ impl serde::Serialize for AsymmetricEncString {
     }
 }
 
-impl AsymmetricEncString {
+impl UnauthenticatedSharedKey {
     /// Encapsulate a symmetric key, to be shared asymmetrically. Produces a
-    /// [AsymmetricEncString::Rsa2048_OaepSha1_B64] variant. Note, this does not sign the data
+    /// [UnauthenticatedSharedKey::Rsa2048_OaepSha1_B64] variant. Note, this does not sign the data
     /// and thus does not guarantee sender authenticity.
     pub fn encapsulate_key_unsigned(
         encapsulated_key: &SymmetricCryptoKey,
         encapsulation_key: &dyn AsymmetricEncryptable,
-    ) -> Result<AsymmetricEncString> {
+    ) -> Result<UnauthenticatedSharedKey> {
         let enc = encrypt_rsa2048_oaep_sha1(
             encapsulation_key.to_public_key(),
             &encapsulated_key.to_vec(),
         )?;
-        Ok(AsymmetricEncString::Rsa2048_OaepSha1_B64 { data: enc })
+        Ok(UnauthenticatedSharedKey::Rsa2048_OaepSha1_B64 { data: enc })
     }
 
-    /// The numerical representation of the encryption type of the [AsymmetricEncString].
+    /// The numerical representation of the encryption type of the [UnauthenticatedSharedKey].
     const fn enc_type(&self) -> u8 {
         match self {
-            AsymmetricEncString::Rsa2048_OaepSha256_B64 { .. } => 3,
-            AsymmetricEncString::Rsa2048_OaepSha1_B64 { .. } => 4,
+            UnauthenticatedSharedKey::Rsa2048_OaepSha256_B64 { .. } => 3,
+            UnauthenticatedSharedKey::Rsa2048_OaepSha1_B64 { .. } => 4,
             #[allow(deprecated)]
-            AsymmetricEncString::Rsa2048_OaepSha256_HmacSha256_B64 { .. } => 5,
+            UnauthenticatedSharedKey::Rsa2048_OaepSha256_HmacSha256_B64 { .. } => 5,
             #[allow(deprecated)]
-            AsymmetricEncString::Rsa2048_OaepSha1_HmacSha256_B64 { .. } => 6,
+            UnauthenticatedSharedKey::Rsa2048_OaepSha1_HmacSha256_B64 { .. } => 6,
         }
     }
 }
 
-impl AsymmetricEncString {
+impl UnauthenticatedSharedKey {
     /// Decapsulate a symmetric key, shared asymmetrically.
     /// Note: The shared key does not have a sender signature and sender authenticity is not
     /// guaranteed.
@@ -184,7 +189,7 @@ impl AsymmetricEncString {
         &self,
         decapsulation_key: &AsymmetricCryptoKey,
     ) -> Result<SymmetricCryptoKey> {
-        use AsymmetricEncString::*;
+        use UnauthenticatedSharedKey::*;
         let mut key_data = match self {
             Rsa2048_OaepSha256_B64 { data } => decapsulation_key
                 .key
@@ -206,11 +211,12 @@ impl AsymmetricEncString {
     }
 }
 
-/// Usually we wouldn't want to expose AsymmetricEncStrings in the API or the schemas.
-/// But during the transition phase we will expose endpoints using the AsymmetricEncString type.
-impl schemars::JsonSchema for AsymmetricEncString {
+/// Usually we wouldn't want to expose UnauthenticatedSharedKeys in the API or the schemas.
+/// But during the transition phase we will expose endpoints using the UnauthenticatedSharedKey
+/// type.
+impl schemars::JsonSchema for UnauthenticatedSharedKey {
     fn schema_name() -> String {
-        "AsymmetricEncString".to_string()
+        "UnauthenticatedSharedKey".to_string()
     }
 
     fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
@@ -222,7 +228,7 @@ impl schemars::JsonSchema for AsymmetricEncString {
 mod tests {
     use schemars::schema_for;
 
-    use super::{AsymmetricCryptoKey, AsymmetricEncString};
+    use super::{AsymmetricCryptoKey, UnauthenticatedSharedKey};
     use crate::SymmetricCryptoKey;
 
     const RSA_PRIVATE_KEY: &str = "-----BEGIN PRIVATE KEY-----
@@ -258,7 +264,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
     fn test_enc_string_rsa2048_oaep_sha256_b64() {
         let key_pair = AsymmetricCryptoKey::from_pem(RSA_PRIVATE_KEY).unwrap();
         let enc_str: &str = "3.BfwZTwBYbU5WQ5X7Vm8yl0hYmHTRdkVACCRZYcqhcjicoaPVDEP03CIRmtnppu0aXOppoQzhw5S2OKTUaqoOGKZg7+PrmVEhjiUFfVAptInBD6XGHZ0Z3u3F+JY1E3xIFebOFiX7KLQ+7D0bJhBEnl8P7phmanKF3Cil5ayDGRpAjAsBHMwlNRKXy05YpYs3/x+V+zjlxVrBU9gYFCpacKUbxT51I8tf21ISqo6H9ZBwqDE2QUPhYJl5op7SJgySdd3YCKnsObXa8fFj2OwxGLAXJAyvF6qZyl08RO/ZYUOOOPlbC7ywXxAISw3qmrwxqpLSBqAm9BYPa/zxBnTHrA==";
-        let enc_string: AsymmetricEncString = enc_str.parse().unwrap();
+        let enc_string: UnauthenticatedSharedKey = enc_str.parse().unwrap();
 
         let test_bytes = vec![0u8; 64];
         let test_key = SymmetricCryptoKey::try_from(test_bytes).unwrap();
@@ -272,7 +278,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
     fn test_enc_string_rsa2048_oaep_sha1_b64() {
         let private_key = AsymmetricCryptoKey::from_pem(RSA_PRIVATE_KEY).unwrap();
         let enc_str: &str = "4.KhZmkc7f2WYuZGm/xlKZOK4c5JSwd9JtJvmyk0R+ZCqbRnZi5XNJaqnMiJjiqeLztE97bHRGWyDPvhyIisr7jLi35vL/Znpg3QzSMEDNI7aAM2FwJbCzdUrFDa/h08edv816AL1hAOqtGmjpfRL1j+47hlAiF3/srFCeePHkj0+CmHpHN13BN1XkLKk58mETKh8ky/ZUW2s4NjZaZ/Wxh6I9sv28L+u1hekKxDOdNKBnmqsh8WRBOtmZm1ZM9WI6aPA5tXgp30vxWrc1AsZ5Ts0aVkm8UzPTWuU9d/O9ICAQkr1hX58qO6M5geP+NvaG3UGymw0zp6Hdgz239XYpKg==";
-        let enc_string: AsymmetricEncString = enc_str.parse().unwrap();
+        let enc_string: UnauthenticatedSharedKey = enc_str.parse().unwrap();
 
         let test_bytes = vec![0u8; 64];
         let test_bytes = SymmetricCryptoKey::try_from(test_bytes).unwrap();
@@ -286,7 +292,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
     fn test_enc_string_rsa2048_oaep_sha1_hmac_sha256_b64() {
         let private_key = AsymmetricCryptoKey::from_pem(RSA_PRIVATE_KEY).unwrap();
         let enc_str: &str = "6.KhZmkc7f2WYuZGm/xlKZOK4c5JSwd9JtJvmyk0R+ZCqbRnZi5XNJaqnMiJjiqeLztE97bHRGWyDPvhyIisr7jLi35vL/Znpg3QzSMEDNI7aAM2FwJbCzdUrFDa/h08edv816AL1hAOqtGmjpfRL1j+47hlAiF3/srFCeePHkj0+CmHpHN13BN1XkLKk58mETKh8ky/ZUW2s4NjZaZ/Wxh6I9sv28L+u1hekKxDOdNKBnmqsh8WRBOtmZm1ZM9WI6aPA5tXgp30vxWrc1AsZ5Ts0aVkm8UzPTWuU9d/O9ICAQkr1hX58qO6M5geP+NvaG3UGymw0zp6Hdgz239XYpKg==|AA==";
-        let enc_string: AsymmetricEncString = enc_str.parse().unwrap();
+        let enc_string: UnauthenticatedSharedKey = enc_str.parse().unwrap();
 
         let test_bytes = vec![0u8; 64];
         let test_key = SymmetricCryptoKey::try_from(test_bytes).unwrap();
@@ -300,7 +306,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
     fn test_enc_string_serialization() {
         #[derive(serde::Serialize, serde::Deserialize)]
         struct Test {
-            key: AsymmetricEncString,
+            key: UnauthenticatedSharedKey,
         }
 
         let cipher = "6.ThnNc67nNr7GELyuhGGfsXNP2zJnNqhrIsjntEQ27r2qmn8vwdHbTbfO0cwt6YgSibDN0PjiCZ1O3Wb/IFq+vwvyRwFqF9145wBF8CQCbkhV+M0XvO99kh0daovtt120Nve/5ETI5PbPag9VdalKRQWZypJaqQHm5TAQVf4F5wtLlCLMBkzqTk+wkFe7BPMTGn07T+O3eJbTxXvyMZewQ7icJF0MZVA7VyWX9qElmZ89FCKowbf1BMr5pbcQ+0KdXcSVW3to43VkTp7k7COwsuH3M/i1AuVP5YN8ixjyRpvaeGqX/ap2nCHK2Wj5VxgCGT7XEls6ZknnAp9nB9qVjQ==|s3ntw5H/KKD/qsS0lUghTHl5Sm9j6m7YEdNHf0OeAFQ=";
@@ -315,7 +321,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
     #[test]
     fn test_from_str_invalid() {
         let enc_str = "7.ABC";
-        let enc_string: Result<AsymmetricEncString, _> = enc_str.parse();
+        let enc_string: Result<UnauthenticatedSharedKey, _> = enc_str.parse();
 
         let err = enc_string.unwrap_err();
         assert_eq!(
@@ -327,19 +333,19 @@ XKZBokBGnjFnTnKcs7nv/O8=
     #[test]
     fn test_debug_format() {
         let enc_str: &str = "4.ZheRb3PCfAunyFdQYPfyrFqpuvmln9H9w5nDjt88i5A7ug1XE0LJdQHCIYJl0YOZ1gCOGkhFu/CRY2StiLmT3iRKrrVBbC1+qRMjNNyDvRcFi91LWsmRXhONVSPjywzrJJXglsztDqGkLO93dKXNhuKpcmtBLsvgkphk/aFvxbaOvJ/FHdK/iV0dMGNhc/9tbys8laTdwBlI5xIChpRcrfH+XpSFM88+Bu03uK67N9G6eU1UmET+pISJwJvMuIDMqH+qkT7OOzgL3t6I0H2LDj+CnsumnQmDsvQzDiNfTR0IgjpoE9YH2LvPXVP2wVUkiTwXD9cG/E7XeoiduHyHjw==";
-        let enc_string: AsymmetricEncString = enc_str.parse().unwrap();
+        let enc_string: UnauthenticatedSharedKey = enc_str.parse().unwrap();
 
         let debug_string = format!("{:?}", enc_string);
-        assert_eq!(debug_string, "AsymmetricEncString");
+        assert_eq!(debug_string, "UnauthenticatedSharedKey");
     }
 
     #[test]
     fn test_json_schema() {
-        let schema = schema_for!(AsymmetricEncString);
+        let schema = schema_for!(UnauthenticatedSharedKey);
 
         assert_eq!(
             serde_json::to_string(&schema).unwrap(),
-            r#"{"$schema":"http://json-schema.org/draft-07/schema#","title":"AsymmetricEncString","type":"string"}"#
+            r#"{"$schema":"http://json-schema.org/draft-07/schema#","title":"UnauthenticatedSharedKey","type":"string"}"#
         );
     }
 }

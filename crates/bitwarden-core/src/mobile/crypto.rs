@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, SymmetricCryptoKey, UserKey,
+    AsymmetricCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
+    SymmetricCryptoKey, UnauthenticatedSharedKey, UserKey,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -76,7 +76,7 @@ pub enum InitUserCryptoMethod {
         /// The Device Private Key
         protected_device_private_key: EncString,
         /// The user's symmetric crypto key, encrypted with the Device Key.
-        device_protected_user_key: AsymmetricEncString,
+        device_protected_user_key: UnauthenticatedSharedKey,
     },
     KeyConnector {
         /// Base64 encoded master key, retrieved from the key connector.
@@ -93,11 +93,11 @@ pub enum InitUserCryptoMethod {
 pub enum AuthRequestMethod {
     UserKey {
         /// User Key protected by the private key provided in `AuthRequestResponse`.
-        protected_user_key: AsymmetricEncString,
+        protected_user_key: UnauthenticatedSharedKey,
     },
     MasterKey {
         /// Master Key protected by the private key provided in `AuthRequestResponse`.
-        protected_master_key: AsymmetricEncString,
+        protected_master_key: UnauthenticatedSharedKey,
         /// User Key protected by the MasterKey, provided by the auth response.
         auth_request_key: EncString,
     },
@@ -208,7 +208,7 @@ pub async fn initialize_user_crypto(
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct InitOrgCryptoRequest {
     /// The encryption keys for all the organizations the user is a part of
-    pub organization_keys: HashMap<uuid::Uuid, AsymmetricEncString>,
+    pub organization_keys: HashMap<uuid::Uuid, UnauthenticatedSharedKey>,
 }
 
 pub async fn initialize_org_crypto(
@@ -363,7 +363,7 @@ pub enum EnrollAdminPasswordResetError {
 pub(super) fn enroll_admin_password_reset(
     client: &Client,
     public_key: String,
-) -> Result<AsymmetricEncString, EnrollAdminPasswordResetError> {
+) -> Result<UnauthenticatedSharedKey, EnrollAdminPasswordResetError> {
     use base64::{engine::general_purpose::STANDARD, Engine};
     use bitwarden_crypto::AsymmetricPublicCryptoKey;
 
@@ -374,7 +374,7 @@ pub(super) fn enroll_admin_password_reset(
     #[allow(deprecated)]
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
-    Ok(AsymmetricEncString::encapsulate_key_unsigned(
+    Ok(UnauthenticatedSharedKey::encapsulate_key_unsigned(
         key,
         &public_key,
     )?)
