@@ -12,12 +12,12 @@ use crate::{
     },
 };
 
-pub struct ClientSecrets<'a> {
-    client: &'a Client,
+pub struct ClientSecrets {
+    client: Client,
 }
 
-impl<'a> ClientSecrets<'a> {
-    pub fn new(client: &'a Client) -> Self {
+impl ClientSecrets {
+    pub fn new(client: Client) -> Self {
         Self { client }
     }
 
@@ -25,65 +25,65 @@ impl<'a> ClientSecrets<'a> {
         &self,
         input: &SecretGetRequest,
     ) -> Result<SecretResponse, SecretsManagerError> {
-        get_secret(self.client, input).await
+        get_secret(&self.client, input).await
     }
 
     pub async fn get_by_ids(
         &self,
         input: SecretsGetRequest,
     ) -> Result<SecretsResponse, SecretsManagerError> {
-        get_secrets_by_ids(self.client, input).await
+        get_secrets_by_ids(&self.client, input).await
     }
 
     pub async fn create(
         &self,
         input: &SecretCreateRequest,
     ) -> Result<SecretResponse, SecretsManagerError> {
-        create_secret(self.client, input).await
+        create_secret(&self.client, input).await
     }
 
     pub async fn list(
         &self,
         input: &SecretIdentifiersRequest,
     ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
-        list_secrets(self.client, input).await
+        list_secrets(&self.client, input).await
     }
 
     pub async fn list_by_project(
         &self,
         input: &SecretIdentifiersByProjectRequest,
     ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
-        list_secrets_by_project(self.client, input).await
+        list_secrets_by_project(&self.client, input).await
     }
 
     pub async fn update(
         &self,
         input: &SecretPutRequest,
     ) -> Result<SecretResponse, SecretsManagerError> {
-        update_secret(self.client, input).await
+        update_secret(&self.client, input).await
     }
 
     pub async fn delete(
         &self,
         input: SecretsDeleteRequest,
     ) -> Result<SecretsDeleteResponse, SecretsManagerError> {
-        delete_secrets(self.client, input).await
+        delete_secrets(&self.client, input).await
     }
 
     pub async fn sync(
         &self,
         input: &SecretsSyncRequest,
     ) -> Result<SecretsSyncResponse, SecretsManagerError> {
-        sync_secrets(self.client, input).await
+        sync_secrets(&self.client, input).await
     }
 }
 
-pub trait ClientSecretsExt<'a> {
-    fn secrets(&'a self) -> ClientSecrets<'a>;
+pub trait ClientSecretsExt {
+    fn secrets(&self) -> ClientSecrets;
 }
 
-impl<'a> ClientSecretsExt<'a> for Client {
-    fn secrets(&'a self) -> ClientSecrets<'a> {
-        ClientSecrets::new(self)
+impl ClientSecretsExt for Client {
+    fn secrets(&self) -> ClientSecrets {
+        ClientSecrets::new(self.clone())
     }
 }
