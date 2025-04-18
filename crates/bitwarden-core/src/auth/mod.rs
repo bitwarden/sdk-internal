@@ -1,3 +1,7 @@
+//! Authentication module
+//!
+//! Contains all the authentication related functionality for registering and logging in.
+
 use thiserror::Error;
 
 use crate::{NotAuthenticatedError, VaultLockedError, WrongPasswordError};
@@ -36,6 +40,8 @@ mod key_connector;
 #[cfg(feature = "internal")]
 pub use key_connector::KeyConnectorResponse;
 
+/// Error for authentication related operations
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum AuthValidateError {
     #[error(transparent)]
