@@ -92,15 +92,15 @@ pub mod tests {
 
     impl TestTwoWayCommunicationBackend {
         pub fn new() -> (Self, Self) {
-            let (outgoing, incoming) = mpsc::channel(10);
+            let (outgoing0, incoming0) = mpsc::channel(10);
             let (outgoing1, incoming1) = mpsc::channel(10);
             let one = TestTwoWayCommunicationBackend {
-                outgoing: outgoing,
+                outgoing: outgoing0,
                 incoming: Arc::new(Mutex::new(incoming1)),
             };
             let two = TestTwoWayCommunicationBackend {
                 outgoing: outgoing1,
-                incoming: Arc::new(Mutex::new(incoming)),
+                incoming: Arc::new(Mutex::new(incoming0)),
             };
             (one, two)
         }

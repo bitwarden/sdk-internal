@@ -29,12 +29,13 @@ struct BitwardenIpcCryptoProtocolFrame {
 impl BitwardenIpcCryptoProtocolFrame {
     fn as_cbor(&self) -> Vec<u8> {
         let mut buffer = Vec::new();
+        #[allow(clippy::unwrap_used)]
         ciborium::into_writer(self, &mut buffer).unwrap();
         buffer
     }
 
-    fn from_cbor(buffer: &[u8]) -> Self {
-        ciborium::from_reader(buffer).unwrap()
+    fn from_cbor(buffer: &[u8]) -> Result<Self, ()> {
+        ciborium::from_reader(buffer).map_err(|_| ())
     }
 }
 
@@ -55,12 +56,13 @@ pub enum BitwardenNoiseFrame {
 impl BitwardenNoiseFrame {
     fn as_cbor(&self) -> Vec<u8> {
         let mut buffer = Vec::new();
+        #[allow(clippy::unwrap_used)]
         ciborium::into_writer(self, &mut buffer).unwrap();
         buffer
     }
 
-    fn from_cbor(buffer: &[u8]) -> Self {
-        ciborium::from_reader(buffer).unwrap()
+    fn from_cbor(buffer: &[u8]) -> Result<Self, ()> {
+        ciborium::from_reader(buffer).map_err(|_| ())
     }
 
     fn to_crypto_protocol_frame(&self) -> BitwardenIpcCryptoProtocolFrame {
@@ -92,7 +94,7 @@ where
         sessions: &Ses,
         message: OutgoingMessage,
     ) -> Result<(), SendError<Self::SendError, Com::SendError>> {
-        let Ok(crypto_state_opt) = sessions.get(message.destination.clone()).await else {
+        let Ok(crypto_state_opt) = sessions.get(message.destination).await else {
             panic!("Session not found");
         };
         let crypto_state = match crypto_state_opt {
@@ -101,19 +103,26 @@ where
                 let new_state = NoiseCryptoProviderState {
                     state: Arc::new(Mutex::new(None)),
                 };
+                // todo
                 sessions
-                    .save(message.destination.clone(), new_state.clone())
-                    .await;
+                    .save(message.destination, new_state.clone())
+                    .await
+                    .map_err(|_| SendError::HandshakeError)?;
                 new_state
             }
         };
 
         // Session is not established yet. Establish it.
+        #[allow(clippy::unwrap_used)]
         if crypto_state.state.lock().unwrap().is_none() {
             let cipher_suite = "Noise_NN_25519_ChaChaPoly_BLAKE2s";
-            let mut initiator = snow::Builder::new(cipher_suite.parse().unwrap())
-                .build_initiator()
-                .unwrap();
+            let mut initiator = snow::Builder::new(
+                cipher_suite
+                    .parse()
+                    .map_err(|_| SendError::HandshakeError)?,
+            )
+            .build_initiator()
+            .unwrap();
 
             // Send Handshake One
             let handshake_start_message = OutgoingMessage {
@@ -121,13 +130,15 @@ where
                     ciphersuite: cipher_suite.to_string(),
                     payload: {
                         let mut buffer = vec![0u8; 65536];
-                        let res = initiator.write_message(&[], &mut buffer).unwrap();
+                        let res = initiator
+                            .write_message(&[], &mut buffer)
+                            .map_err(|_| SendError::HandshakeError)?;
                         buffer[..res].to_vec()
                     },
                 }
                 .to_crypto_protocol_frame()
                 .as_cbor(),
-                destination: message.destination.clone(),
+                destination: message.destination,
                 topic: None,
             };
             communication
@@ -136,21 +147,29 @@ where
                 .map_err(SendError::Communication)?;
 
             // Receive Handshake Two
-            let handshake_finish_frame = communication
+            let message = communication
                 .receive()
                 .await
-                .map_err(|_| SendError::ReceiveError)
-                .map(|message| {
-                    BitwardenIpcCryptoProtocolFrame::from_cbor(message.payload.as_slice())
-                })
-                .map(|frame| BitwardenNoiseFrame::from_cbor(frame.protocol_frame.as_slice()))?;
+                .map_err(|_| SendError::HandshakeError)?;
+            let frame = BitwardenIpcCryptoProtocolFrame::from_cbor(&message.payload)
+                .map_err(|_| SendError::HandshakeError)?;
+            let handshake_finish_frame =
+                BitwardenNoiseFrame::from_cbor(frame.protocol_frame.as_slice())
+                    .map_err(|_| SendError::HandshakeError)?;
             let BitwardenNoiseFrame::HandshakeFinish { payload } = handshake_finish_frame else {
                 panic!("Expected Handshake Two");
             };
-            initiator.read_message(&payload, &mut Vec::new()).unwrap();
+            initiator
+                .read_message(&payload, &mut Vec::new())
+                .map_err(|_| SendError::HandshakeError)?;
 
-            let transport_state = initiator.into_transport_mode().unwrap();
-            let mut state = crypto_state.state.lock().unwrap();
+            let transport_state = initiator
+                .into_transport_mode()
+                .map_err(|_| SendError::HandshakeError)?;
+            let mut state = crypto_state
+                .state
+                .lock()
+                .map_err(|_| SendError::HandshakeError)?;
             *state = Some(transport_state);
         }
 
@@ -158,12 +177,15 @@ where
         let payload_message = OutgoingMessage {
             payload: BitwardenNoiseFrame::Payload {
                 payload: {
+                    #[allow(clippy::unwrap_used)]
                     let mut transport_state = crypto_state.state.lock().unwrap();
-                    let transport_state = transport_state.as_mut().unwrap();
+                    // todo error type
+                    let transport_state =
+                        transport_state.as_mut().ok_or(SendError::HandshakeError)?;
                     let mut buf = vec![0u8; 65536];
                     let len = transport_state
                         .write_message(message.payload.as_slice(), &mut buf)
-                        .unwrap();
+                        .map_err(|_| SendError::HandshakeError)?;
                     buf = buf[..len].to_vec();
                     println!("Send payload: {:?}", buf);
                     buf
@@ -171,7 +193,7 @@ where
             }
             .to_crypto_protocol_frame()
             .as_cbor(),
-            destination: message.destination.clone(),
+            destination: message.destination,
             topic: message.topic,
         };
         communication
@@ -179,7 +201,7 @@ where
             .await
             .map_err(SendError::Communication)?;
 
-        return Ok(());
+        Ok(())
     }
 
     async fn receive(
@@ -191,7 +213,7 @@ where
             .receive()
             .await
             .map_err(ReceiveError::Communication)?;
-        let Ok(crypto_state_opt) = sessions.get(message.destination.clone()).await else {
+        let Ok(crypto_state_opt) = sessions.get(message.destination).await else {
             panic!("Session not found");
         };
         let crypto_state = match crypto_state_opt {
@@ -201,21 +223,26 @@ where
                     state: Arc::new(Mutex::new(None)),
                 };
                 sessions
-                    .save(message.destination.clone(), new_state.clone())
-                    .await;
+                    .save(message.destination, new_state.clone())
+                    .await
+                    // todo
+                    .map_err(|_| ReceiveError::HandshakeError)?;
                 new_state
             }
         };
 
-        let crypto_protocol_frame = BitwardenIpcCryptoProtocolFrame::from_cbor(&message.payload);
+        let crypto_protocol_frame = BitwardenIpcCryptoProtocolFrame::from_cbor(&message.payload)
+            .map_err(|_| ReceiveError::DecodeError)?;
         if crypto_protocol_frame.protocol_identifier != BitwardenCryptoProtocolIdentifier::Noise {
             panic!("Invalid protocol identifier");
         }
 
         // Check if session is established
+        #[allow(clippy::unwrap_used)]
         if crypto_state.state.lock().unwrap().is_none() {
             let protocol_frame =
-                BitwardenNoiseFrame::from_cbor(crypto_protocol_frame.protocol_frame.as_slice());
+                BitwardenNoiseFrame::from_cbor(crypto_protocol_frame.protocol_frame.as_slice())
+                    .map_err(|_| ReceiveError::DecodeError)?;
             match protocol_frame {
                 BitwardenNoiseFrame::HandshakeStart {
                     ciphersuite,
@@ -223,9 +250,13 @@ where
                 } => {
                     let supported_ciphersuite = "Noise_NN_25519_ChaChaPoly_BLAKE2s";
                     let mut responder = if ciphersuite == supported_ciphersuite {
-                        snow::Builder::new(supported_ciphersuite.parse().unwrap())
-                            .build_responder()
-                            .unwrap()
+                        snow::Builder::new(
+                            supported_ciphersuite
+                                .parse()
+                                .map_err(|_| ReceiveError::HandshakeError)?,
+                        )
+                        .build_responder()
+                        .unwrap()
                     } else {
                         panic!("Invalid protocol params");
                     };
@@ -238,25 +269,34 @@ where
                         payload: BitwardenNoiseFrame::HandshakeFinish {
                             payload: {
                                 let mut buffer = vec![0u8; 65536];
-                                let res = responder.write_message(&[], &mut buffer).unwrap();
+                                let res = responder
+                                    .write_message(&[], &mut buffer)
+                                    .map_err(|_| ReceiveError::HandshakeError)?;
                                 buffer[..res].to_vec()
                             },
                         }
                         .to_crypto_protocol_frame()
                         .as_cbor(),
-                        destination: message.destination.clone(),
+                        destination: message.destination,
                         topic: None,
                     };
-                    let res = communication.send(handshake_finish_message).await;
+                    communication
+                        .send(handshake_finish_message)
+                        .await
+                        .map_err(|_| ReceiveError::HandshakeError)?;
                     {
                         let mut transport_state = crypto_state.state.lock().unwrap();
-                        *transport_state = Some(responder.into_transport_mode().unwrap());
+                        *transport_state = Some(
+                            responder
+                                .into_transport_mode()
+                                .map_err(|_| ReceiveError::HandshakeError)?,
+                        );
                     }
 
                     message = communication
                         .receive()
                         .await
-                        .map_err(|e| ReceiveError::Communication(e))?;
+                        .map_err(ReceiveError::Communication)?;
                 }
                 _ => {
                     panic!("Invalid protocol frame");
@@ -264,26 +304,30 @@ where
             }
         }
         // Session is established. Read the payload.
-        let crypto_protocol_frame = BitwardenIpcCryptoProtocolFrame::from_cbor(&message.payload);
+        let crypto_protocol_frame = BitwardenIpcCryptoProtocolFrame::from_cbor(&message.payload)
+            .map_err(|_| ReceiveError::DecodeError)?;
         let protocol_frame =
-            BitwardenNoiseFrame::from_cbor(crypto_protocol_frame.protocol_frame.as_slice());
+            BitwardenNoiseFrame::from_cbor(crypto_protocol_frame.protocol_frame.as_slice())
+                .map_err(|_| ReceiveError::DecodeError)?;
         let BitwardenNoiseFrame::Payload { payload } = protocol_frame else {
             panic!("Expected Payload");
         };
 
+        #[allow(clippy::unwrap_used)]
         let mut transport_state = crypto_state.state.lock().unwrap();
+        #[allow(clippy::unwrap_used)]
         let transport_state = transport_state.as_mut().unwrap();
-        return Ok(IncomingMessage {
+        Ok(IncomingMessage {
             payload: {
                 let mut buf = vec![0u8; 65536];
                 let len = transport_state
                     .read_message(payload.as_slice(), &mut buf)
-                    .unwrap();
+                    .map_err(|_| ReceiveError::DecodeError)?;
                 buf[..len].to_vec()
             },
-            destination: message.destination.clone(),
-            source: message.source.clone(),
+            destination: message.destination,
+            source: message.source,
             topic: message.topic,
-        });
+        })
     }
 }

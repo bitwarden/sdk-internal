@@ -8,8 +8,8 @@ pub enum SendError<Crypto, Com> {
     #[error("Communication error: {0}")]
     Communication(Com),
 
-    #[error("Receive Error")]
-    ReceiveError,
+    #[error("Handshake error")]
+    HandshakeError,
 }
 
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
@@ -22,6 +22,12 @@ pub enum ReceiveError<Crypto, Com> {
 
     #[error("Communication error: {0}")]
     Communication(Com),
+
+    #[error("Handshake error")]
+    HandshakeError,
+
+    #[error("Decode Error")]
+    DecodeError,
 }
 
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
@@ -47,6 +53,9 @@ impl<Typing, Crypto, Com> From<ReceiveError<Crypto, Com>>
             ReceiveError::Timeout => TypedReceiveError::Timeout,
             ReceiveError::Crypto(crypto) => TypedReceiveError::Crypto(crypto),
             ReceiveError::Communication(com) => TypedReceiveError::Communication(com),
+            // todo
+            ReceiveError::HandshakeError => TypedReceiveError::Timeout,
+            ReceiveError::DecodeError => TypedReceiveError::Timeout,
         }
     }
 }
