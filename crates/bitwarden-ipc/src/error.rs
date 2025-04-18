@@ -9,7 +9,7 @@ pub enum SendError<Crypto, Com> {
     Communication(Com),
 
     #[error("Receive Error")]
-    ReceiveError
+    ReceiveError,
 }
 
 #[derive(Clone, Debug, Error, PartialEq, Eq)]

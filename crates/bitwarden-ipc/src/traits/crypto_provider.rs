@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use super::{CommunicationBackend, SessionRepository};
 use crate::{
     error::{ReceiveError, SendError},

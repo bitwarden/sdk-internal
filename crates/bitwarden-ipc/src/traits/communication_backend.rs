@@ -26,7 +26,10 @@ pub mod tests {
     use std::{collections::VecDeque, rc::Rc, sync::Arc};
 
     use thiserror::Error;
-    use tokio::sync::{mpsc::{self, Receiver, Sender}, Mutex, RwLock};
+    use tokio::sync::{
+        mpsc::{self, Receiver, Sender},
+        Mutex, RwLock,
+    };
 
     use super::*;
 
@@ -115,9 +118,12 @@ pub mod tests {
         async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
             let mut receiver = self.incoming.lock().await;
             let message = receiver.recv().await.unwrap();
-            Ok(IncomingMessage { payload:message.payload, destination: message.destination, source: crate::endpoint::Endpoint::DesktopRenderer, topic: None })
+            Ok(IncomingMessage {
+                payload: message.payload,
+                destination: message.destination,
+                source: crate::endpoint::Endpoint::DesktopRenderer,
+                topic: None,
+            })
         }
     }
-
-
 }

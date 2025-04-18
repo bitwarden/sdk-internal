@@ -102,7 +102,11 @@ mod tests {
     use crate::{
         endpoint::Endpoint,
         traits::{
-            tests::{TestCommunicationBackend, TestCommunicationBackendReceiveError, TestTwoWayCommunicationBackend}, BitwardenCryptoProvider, InMemorySessionRepository, NoEncryptionCryptoProvider
+            tests::{
+                TestCommunicationBackend, TestCommunicationBackendReceiveError,
+                TestTwoWayCommunicationBackend,
+            },
+            InMemorySessionRepository, NoEncryptionCryptoProvider, NoiseCryptoProvider,
         },
     };
 
@@ -187,7 +191,7 @@ mod tests {
             destination: Endpoint::BrowserBackground,
             topic: None,
         };
-        let crypto_provider = BitwardenCryptoProvider;
+        let crypto_provider = NoiseCryptoProvider;
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
@@ -374,31 +378,58 @@ mod tests {
         let (sender_communication_provider, receiver_communication_provider) =
             TestTwoWayCommunicationBackend::new();
 
-        // start thread
         let a = tokio::spawn(async move {
-            let receiver_crypto_provider = BitwardenCryptoProvider;
+            let receiver_crypto_provider = NoiseCryptoProvider;
             let receiver_session_map = InMemorySessionRepository::new(HashMap::new());
-            let receiver_client = IpcClient::new(receiver_crypto_provider, receiver_communication_provider.clone(), receiver_session_map);
-            let received_message = receiver_client.receive(None, None).await.unwrap();
-            println!("Received message: {:?}", String::from_utf8(received_message.payload));
+            let receiver_client = IpcClient::new(
+                receiver_crypto_provider,
+                receiver_communication_provider.clone(),
+                receiver_session_map,
+            );
+
+            for i in 0..10 { 
+                let recv_message = receiver_client.receive(None, None).await.unwrap();
+                println!(
+                    "A: Received Message {:?}",
+                    String::from_utf8(recv_message.payload.clone())
+                );
+                let message = OutgoingMessage {
+                    payload: format!("Hello, world! {}", i).as_bytes().to_vec(),
+                    destination: Endpoint::BrowserBackground,
+                    topic: None,
+                };
+                println!("A: Sending Message {:?}", message);
+                receiver_client.send(message.clone()).await.unwrap();
+            }
         });
 
         let b = tokio::spawn(async move {
-            let message = OutgoingMessage {
-                payload: "Hello, world!".as_bytes().to_vec(),
-                destination: Endpoint::BrowserBackground,
-                topic: None,
-            };
-            let sender_crypto_provider = BitwardenCryptoProvider;
+            let sender_crypto_provider = NoiseCryptoProvider;
             let sender_session_map = InMemorySessionRepository::new(HashMap::new());
-            let sender_client = IpcClient::new(sender_crypto_provider, sender_communication_provider.clone(), sender_session_map);
-            sender_client.send(message.clone()).await.unwrap();
-            //sender_client.send(message.clone()).await.unwrap();
+            let sender_client = IpcClient::new(
+                sender_crypto_provider,
+                sender_communication_provider.clone(),
+                sender_session_map,
+            );
+
+            for i in 0..10 {
+                let message = OutgoingMessage {
+                    payload: format!("Hello, world! {}", i).as_bytes().to_vec(),
+                    destination: Endpoint::BrowserBackground,
+                    topic: None,
+                };
+                println!("B: Sending Message {:?}", message);
+                sender_client.send(message.clone()).await.unwrap();
+                
+                let recv_message = sender_client.receive(None, None).await.unwrap();
+                println!(
+                    "B: Received Message {:?}",
+                    String::from_utf8(recv_message.payload.clone())
+                );
+                assert_eq!(recv_message.payload, message.payload);
+            }
         });
 
-        // sleep
-        tokio::time::sleep(Duration::from_secs(3)).await;
-        println!("Waiting for tasks to finish...");
-        let _ = tokio::try_join!(a, b);
+        let _ = tokio::join!(a, b);
     }
 }
