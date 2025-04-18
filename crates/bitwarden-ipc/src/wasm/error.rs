@@ -33,6 +33,10 @@ impl From<SendError<JsValue, JsValue>> for JsSendError {
                 crypto: JsValue::UNDEFINED,
                 communication: e,
             },
+            SendError::HandshakeError => JsSendError {
+                crypto: JsValue::UNDEFINED,
+                communication: JsValue::UNDEFINED,
+            },
         }
     }
 }
@@ -54,6 +58,16 @@ impl From<ReceiveError<JsValue, JsValue>> for JsReceiveError {
                 timeout: false,
                 crypto: JsValue::UNDEFINED,
                 communication: e,
+            },
+            ReceiveError::HandshakeError => JsReceiveError {
+                timeout: false,
+                crypto: JsValue::UNDEFINED,
+                communication: JsValue::UNDEFINED,
+            },
+            ReceiveError::DecodeError => JsReceiveError {
+                timeout: false,
+                crypto: JsValue::UNDEFINED,
+                communication: JsValue::UNDEFINED,
             },
         }
     }
