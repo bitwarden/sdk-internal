@@ -191,7 +191,7 @@ mod tests {
             destination: Endpoint::BrowserBackground,
             topic: None,
         };
-        let crypto_provider = NoiseCryptoProvider;
+        let crypto_provider = NoEncryptionCryptoProvider;
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
