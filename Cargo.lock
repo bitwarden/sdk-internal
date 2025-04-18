@@ -1074,7 +1074,8 @@ dependencies = [
 [[package]]
 name = "credential-exchange-format"
 version = "0.1.0"
-source = "git+https://github.com/bitwarden/credential-exchange.git?rev=f5b2fe3c5799f0976fa20f0b8d4d55f7987952c1#f5b2fe3c5799f0976fa20f0b8d4d55f7987952c1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5209d9b20c3eb8d2b96f3b06133b27d79168f312c09a8035f46c0fb18053aefc"
 dependencies = [
  "chrono",
  "data-encoding",
