@@ -1,4 +1,4 @@
-use bitwarden_crypto::CryptoError;
+use bitwarden_crypto::{opaque_ke::opaque::OpaqueImpl, CryptoError, SymmetricCryptoKey};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{AsymmetricEncString, EncString};
 
@@ -100,6 +100,72 @@ impl CryptoClient {
         request: VerifyAsymmetricKeysRequest,
     ) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
         verify_asymmetric_keys(request)
+    }
+
+    pub fn opaque_register_start(
+        &self,
+        password: &str,
+        config: &bitwarden_crypto::opaque_ke::types::CipherConfiguration,
+    ) -> Result<
+        bitwarden_crypto::opaque_ke::types::ClientRegistrationStartResult,
+        bitwarden_crypto::OpaqueError,
+    > {
+        config.start_client_registration(password)
+    }
+
+    pub fn opaque_register_finish(
+        &self,
+        password: &str,
+        config: &bitwarden_crypto::opaque_ke::types::CipherConfiguration,
+        registration_response: &[u8],
+        state: &[u8],
+    ) -> Result<
+        bitwarden_crypto::opaque_ke::types::ClientRegistrationFinishResult,
+        bitwarden_crypto::OpaqueError,
+    > {
+        config.finish_client_registration(state, registration_response, password)
+    }
+
+    pub fn opaque_login_start(
+        &self,
+        password: &str,
+        config: &bitwarden_crypto::opaque_ke::types::CipherConfiguration,
+    ) -> Result<
+        bitwarden_crypto::opaque_ke::types::ClientLoginStartResult,
+        bitwarden_crypto::OpaqueError,
+    > {
+        config.start_client_login(password)
+    }
+
+    pub fn opaque_login_finish(
+        &self,
+        password: &str,
+        config: &bitwarden_crypto::opaque_ke::types::CipherConfiguration,
+        login_response: &[u8],
+        state: &[u8],
+    ) -> Result<
+        bitwarden_crypto::opaque_ke::types::ClientLoginFinishResult,
+        bitwarden_crypto::OpaqueError,
+    > {
+        config.finish_client_login(state, login_response, password)
+    }
+
+    /// Create a new rotateable keyset from an export key and an encapsulated key
+    /// Note: The export key must be 32 bytes
+    pub fn create_rotateablekeyset_from_exportkey(
+        &self,
+        export_key: &mut [u8],
+        encapsulated_key: &SymmetricCryptoKey,
+    ) -> Result<bitwarden_crypto::rotateable_keyset::RotateableKeyset, CryptoError> {
+        bitwarden_crypto::rotateable_keyset::RotateableKeyset::new(export_key, encapsulated_key)
+    }
+
+    pub fn decapsulate_key_from_rotateablekeyset(
+        &self,
+        rotateable_keyset: bitwarden_crypto::rotateable_keyset::RotateableKeyset,
+        encapsulating_key: &[u8],
+    ) -> Result<SymmetricCryptoKey, CryptoError> {
+        rotateable_keyset.decapsulate_key(encapsulating_key)
     }
 }
 
