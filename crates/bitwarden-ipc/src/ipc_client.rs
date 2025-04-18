@@ -102,8 +102,7 @@ mod tests {
     use crate::{
         endpoint::Endpoint,
         traits::{
-            tests::{TestCommunicationBackend, TestCommunicationBackendReceiveError},
-            InMemorySessionRepository, NoEncryptionCryptoProvider,
+            tests::{TestCommunicationBackend, TestCommunicationBackendReceiveError, TestTwoWayCommunicationBackend}, BitwardenCryptoProvider, InMemorySessionRepository, NoEncryptionCryptoProvider
         },
     };
 
@@ -188,7 +187,7 @@ mod tests {
             destination: Endpoint::BrowserBackground,
             topic: None,
         };
-        let crypto_provider = NoEncryptionCryptoProvider;
+        let crypto_provider = BitwardenCryptoProvider;
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
@@ -368,5 +367,38 @@ mod tests {
             result,
             Err(TypedReceiveError::Typing(serde_json::Error { .. }))
         ));
+    }
+
+    #[tokio::test]
+    async fn communication_provider_ping_pong() {
+        let (sender_communication_provider, receiver_communication_provider) =
+            TestTwoWayCommunicationBackend::new();
+
+        // start thread
+        let a = tokio::spawn(async move {
+            let receiver_crypto_provider = BitwardenCryptoProvider;
+            let receiver_session_map = InMemorySessionRepository::new(HashMap::new());
+            let receiver_client = IpcClient::new(receiver_crypto_provider, receiver_communication_provider.clone(), receiver_session_map);
+            let received_message = receiver_client.receive(None, None).await.unwrap();
+            println!("Received message: {:?}", String::from_utf8(received_message.payload));
+        });
+
+        let b = tokio::spawn(async move {
+            let message = OutgoingMessage {
+                payload: "Hello, world!".as_bytes().to_vec(),
+                destination: Endpoint::BrowserBackground,
+                topic: None,
+            };
+            let sender_crypto_provider = BitwardenCryptoProvider;
+            let sender_session_map = InMemorySessionRepository::new(HashMap::new());
+            let sender_client = IpcClient::new(sender_crypto_provider, sender_communication_provider.clone(), sender_session_map);
+            sender_client.send(message.clone()).await.unwrap();
+            //sender_client.send(message.clone()).await.unwrap();
+        });
+
+        // sleep
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        println!("Waiting for tasks to finish...");
+        let _ = tokio::try_join!(a, b);
     }
 }

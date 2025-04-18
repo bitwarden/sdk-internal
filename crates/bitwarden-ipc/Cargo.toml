@@ -19,9 +19,11 @@ wasm = [
 
 [dependencies]
 bitwarden-error = { workspace = true }
+ciborium = "0.2.2"
 js-sys = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+snow = "0.9.6"
 thiserror = { workspace = true }
 tokio = { features = ["sync", "time"], workspace = true }
 tsify-next = { workspace = true, optional = true }

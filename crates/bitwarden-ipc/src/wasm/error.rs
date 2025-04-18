@@ -33,6 +33,10 @@ impl From<SendError<JsValue, JsValue>> for JsSendError {
                 crypto: JsValue::UNDEFINED,
                 communication: e,
             },
+            SendError::ReceiveError => JsSendError {
+                crypto: JsValue::UNDEFINED,
+                communication: JsValue::UNDEFINED,
+            },
         }
     }
 }

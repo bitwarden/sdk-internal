@@ -23,10 +23,10 @@ pub trait CommunicationBackend {
 }
 #[cfg(test)]
 pub mod tests {
-    use std::{collections::VecDeque, rc::Rc};
+    use std::{collections::VecDeque, rc::Rc, sync::Arc};
 
     use thiserror::Error;
-    use tokio::sync::RwLock;
+    use tokio::sync::{mpsc::{self, Receiver, Sender}, Mutex, RwLock};
 
     use super::*;
 
@@ -80,4 +80,44 @@ pub mod tests {
             }
         }
     }
+
+    #[derive(Debug, Clone)]
+    pub struct TestTwoWayCommunicationBackend {
+        outgoing: Sender<OutgoingMessage>,
+        incoming: Arc<Mutex<Receiver<OutgoingMessage>>>,
+    }
+
+    impl TestTwoWayCommunicationBackend {
+        pub fn new() -> (Self, Self) {
+            let (outgoing, incoming) = mpsc::channel(10);
+            let (outgoing1, incoming1) = mpsc::channel(10);
+            let one = TestTwoWayCommunicationBackend {
+                outgoing: outgoing,
+                incoming: Arc::new(Mutex::new(incoming1)),
+            };
+            let two = TestTwoWayCommunicationBackend {
+                outgoing: outgoing1,
+                incoming: Arc::new(Mutex::new(incoming)),
+            };
+            (one, two)
+        }
+    }
+
+    impl CommunicationBackend for TestTwoWayCommunicationBackend {
+        type SendError = ();
+        type ReceiveError = TestCommunicationBackendReceiveError;
+
+        async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
+            self.outgoing.send(message).await.unwrap();
+            Ok(())
+        }
+
+        async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
+            let mut receiver = self.incoming.lock().await;
+            let message = receiver.recv().await.unwrap();
+            Ok(IncomingMessage { payload:message.payload, destination: message.destination, source: crate::endpoint::Endpoint::DesktopRenderer, topic: None })
+        }
+    }
+
+
 }
