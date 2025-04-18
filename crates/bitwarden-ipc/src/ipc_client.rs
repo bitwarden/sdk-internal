@@ -387,7 +387,7 @@ mod tests {
                 receiver_session_map,
             );
 
-            for i in 0..10 { 
+            for i in 0..10 {
                 let recv_message = receiver_client.receive(None, None).await.unwrap();
                 println!(
                     "A: Received Message {:?}",
@@ -420,7 +420,7 @@ mod tests {
                 };
                 println!("B: Sending Message {:?}", message);
                 sender_client.send(message.clone()).await.unwrap();
-                
+
                 let recv_message = sender_client.receive(None, None).await.unwrap();
                 println!(
                     "B: Received Message {:?}",

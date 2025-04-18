@@ -143,9 +143,7 @@ where
                 .map(|message| {
                     BitwardenIpcCryptoProtocolFrame::from_cbor(message.payload.as_slice())
                 })
-                .map(|frame| {
-                    BitwardenNoiseFrame::from_cbor(frame.protocol_frame.as_slice())
-                })?;
+                .map(|frame| BitwardenNoiseFrame::from_cbor(frame.protocol_frame.as_slice()))?;
             let BitwardenNoiseFrame::HandshakeFinish { payload } = handshake_finish_frame else {
                 panic!("Expected Handshake Two");
             };
@@ -169,10 +167,10 @@ where
                     buf = buf[..len].to_vec();
                     println!("Send payload: {:?}", buf);
                     buf
-                }
+                },
             }
-                .to_crypto_protocol_frame()
-                .as_cbor(),
+            .to_crypto_protocol_frame()
+            .as_cbor(),
             destination: message.destination.clone(),
             topic: message.topic,
         };
@@ -210,18 +208,19 @@ where
         };
 
         let crypto_protocol_frame = BitwardenIpcCryptoProtocolFrame::from_cbor(&message.payload);
-        if crypto_protocol_frame.protocol_identifier
-            != BitwardenCryptoProtocolIdentifier::Noise
-        {
+        if crypto_protocol_frame.protocol_identifier != BitwardenCryptoProtocolIdentifier::Noise {
             panic!("Invalid protocol identifier");
         }
 
         // Check if session is established
-       if crypto_state.state.lock().unwrap().is_none() {
+        if crypto_state.state.lock().unwrap().is_none() {
             let protocol_frame =
                 BitwardenNoiseFrame::from_cbor(crypto_protocol_frame.protocol_frame.as_slice());
             match protocol_frame {
-                BitwardenNoiseFrame::HandshakeStart { ciphersuite, payload } => {
+                BitwardenNoiseFrame::HandshakeStart {
+                    ciphersuite,
+                    payload,
+                } => {
                     let supported_ciphersuite = "Noise_NN_25519_ChaChaPoly_BLAKE2s";
                     let mut responder = if ciphersuite == supported_ciphersuite {
                         snow::Builder::new(supported_ciphersuite.parse().unwrap())
@@ -241,8 +240,10 @@ where
                                 let mut buffer = vec![0u8; 65536];
                                 let res = responder.write_message(&[], &mut buffer).unwrap();
                                 buffer[..res].to_vec()
-                            }
-                        }.to_crypto_protocol_frame().as_cbor(),
+                            },
+                        }
+                        .to_crypto_protocol_frame()
+                        .as_cbor(),
                         destination: message.destination.clone(),
                         topic: None,
                     };
@@ -252,9 +253,10 @@ where
                         *transport_state = Some(responder.into_transport_mode().unwrap());
                     }
 
-                    message = communication.receive().await.map_err(|e| {
-                        ReceiveError::Communication(e)
-                    })?;
+                    message = communication
+                        .receive()
+                        .await
+                        .map_err(|e| ReceiveError::Communication(e))?;
                 }
                 _ => {
                     panic!("Invalid protocol frame");
@@ -263,9 +265,8 @@ where
         }
         // Session is established. Read the payload.
         let crypto_protocol_frame = BitwardenIpcCryptoProtocolFrame::from_cbor(&message.payload);
-        let protocol_frame = BitwardenNoiseFrame::from_cbor(
-            crypto_protocol_frame.protocol_frame.as_slice(),
-        );
+        let protocol_frame =
+            BitwardenNoiseFrame::from_cbor(crypto_protocol_frame.protocol_frame.as_slice());
         let BitwardenNoiseFrame::Payload { payload } = protocol_frame else {
             panic!("Expected Payload");
         };
@@ -275,7 +276,9 @@ where
         return Ok(IncomingMessage {
             payload: {
                 let mut buf = vec![0u8; 65536];
-                let len = transport_state.read_message(payload.as_slice(), &mut buf).unwrap();
+                let len = transport_state
+                    .read_message(payload.as_slice(), &mut buf)
+                    .unwrap();
                 buf[..len].to_vec()
             },
             destination: message.destination.clone(),
