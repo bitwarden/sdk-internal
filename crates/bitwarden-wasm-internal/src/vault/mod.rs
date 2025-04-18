@@ -1,7 +1,9 @@
+pub mod attachments;
 pub mod ciphers;
 pub mod folders;
 pub mod totp;
 
+use attachments::ClientAttachments;
 use ciphers::ClientCiphers;
 use totp::ClientTotp;
 use wasm_bindgen::prelude::*;
@@ -19,6 +21,10 @@ impl VaultClient {
 
 #[wasm_bindgen]
 impl VaultClient {
+    pub fn attachments(&self) -> ClientAttachments {
+        ClientAttachments::new(self.0.attachments())
+    }
+
     pub fn ciphers(&self) -> ClientCiphers {
         ClientCiphers::new(self.0.ciphers())
     }
