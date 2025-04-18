@@ -1,7 +1,6 @@
+use bitwarden_crypto::WrappedSymmetricKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{
-    AsymmetricEncString, CryptoError, DeviceKey, EncString, Kdf, TrustDeviceResponse,
-};
+use bitwarden_crypto::{AsymmetricEncString, CryptoError, DeviceKey, Kdf, TrustDeviceResponse};
 
 #[cfg(feature = "secrets")]
 use crate::auth::login::{login_access_token, AccessTokenLoginRequest, AccessTokenLoginResponse};
@@ -132,7 +131,7 @@ impl AuthClient {
     pub fn validate_password_user_key(
         &self,
         password: String,
-        encrypted_user_key: String,
+        encrypted_user_key: WrappedSymmetricKey,
     ) -> Result<String, AuthValidateError> {
         validate_password_user_key(&self.client, password, encrypted_user_key)
     }
@@ -140,7 +139,7 @@ impl AuthClient {
     pub fn validate_pin(
         &self,
         pin: String,
-        pin_protected_user_key: EncString,
+        pin_protected_user_key: WrappedSymmetricKey,
     ) -> Result<bool, AuthValidateError> {
         validate_pin(&self.client, pin, pin_protected_user_key)
     }

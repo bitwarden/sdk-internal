@@ -1,4 +1,4 @@
-use bitwarden_crypto::{CryptoError, MasterKey, RsaKeyPair};
+use bitwarden_crypto::{CryptoError, EncString, MasterKey, RsaKeyPair};
 
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct KeyConnectorResponse {
@@ -16,7 +16,7 @@ pub(super) fn make_key_connector_keys(
 
     Ok(KeyConnectorResponse {
         master_key: master_key.to_base64(),
-        encrypted_user_key: encrypted_user_key.to_string(),
+        encrypted_user_key: EncString::from(encrypted_user_key).to_string(),
         keys,
     })
 }

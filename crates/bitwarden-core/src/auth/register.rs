@@ -3,7 +3,7 @@ use bitwarden_api_identity::{
     models::{KeysRequestModel, RegisterRequestModel},
 };
 use bitwarden_crypto::{
-    default_pbkdf2_iterations, CryptoError, HashPurpose, Kdf, MasterKey, RsaKeyPair,
+    default_pbkdf2_iterations, CryptoError, EncString, HashPurpose, Kdf, MasterKey, RsaKeyPair,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -77,7 +77,7 @@ pub(super) fn make_register_keys(
 
     Ok(RegisterKeyResponse {
         master_password_hash,
-        encrypted_user_key: encrypted_user_key.to_string(),
+        encrypted_user_key: EncString::from(encrypted_user_key).to_string(),
         keys,
     })
 }

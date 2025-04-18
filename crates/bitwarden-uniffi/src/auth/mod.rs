@@ -110,10 +110,13 @@ impl AuthClient {
         password: String,
         encrypted_user_key: String,
     ) -> Result<String> {
+        let encrypted_user_key = encrypted_user_key
+            .parse::<EncString>()
+            .map_err(Error::Crypto)?;
         Ok(self
             .0
             .auth()
-            .validate_password_user_key(password, encrypted_user_key)
+            .validate_password_user_key(password, encrypted_user_key.into())
             .map_err(Error::AuthValidate)?)
     }
 
@@ -128,7 +131,7 @@ impl AuthClient {
         Ok(self
             .0
             .auth()
-            .validate_pin(pin, pin_protected_user_key)
+            .validate_pin(pin, pin_protected_user_key.into())
             .map_err(Error::AuthValidate)?)
     }
 

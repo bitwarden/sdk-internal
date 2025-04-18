@@ -53,9 +53,11 @@ pub(crate) async fn login_password(
         let user_key: EncString = require!(r.key.as_deref()).parse()?;
         let private_key: EncString = require!(r.private_key.as_deref()).parse()?;
 
-        client
-            .internal
-            .initialize_user_crypto_master_key(master_key, user_key, private_key)?;
+        client.internal.initialize_user_crypto_master_key(
+            master_key,
+            user_key.into(),
+            private_key,
+        )?;
     }
 
     Ok(PasswordLoginResponse::process_response(response))
