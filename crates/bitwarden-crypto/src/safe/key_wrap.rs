@@ -53,8 +53,8 @@ impl WrappedSymmetricKey {
         &self,
         wrapping_key: &SymmetricCryptoKey,
     ) -> Result<SymmetricCryptoKey, CryptoError> {
-        let decrypted_bytes: Vec<u8> = (&self.0).decrypt_with_key(wrapping_key)?;
-        Ok(SymmetricCryptoKey::try_from(decrypted_bytes)?)
+        let decrypted_bytes: Vec<u8> = self.0.decrypt_with_key(wrapping_key)?;
+        SymmetricCryptoKey::try_from(decrypted_bytes)
     }
 }
 

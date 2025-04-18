@@ -243,7 +243,7 @@ mod tests {
         );
 
         // Ensure we can decrypt the key and get back the same key
-        let decrypted = master_key.decrypt_user_key(protected.into()).unwrap();
+        let decrypted = master_key.decrypt_user_key(protected).unwrap();
 
         assert_eq!(
             decrypted, user_key.0,
@@ -259,7 +259,7 @@ mod tests {
         let user_key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test2"));
 
         let encrypted = master_key.encrypt_user_key(&user_key).unwrap();
-        let decrypted = master_key.decrypt_user_key(encrypted.into()).unwrap();
+        let decrypted = master_key.decrypt_user_key(encrypted).unwrap();
 
         assert_eq!(decrypted, user_key, "Decrypted key doesn't match user key");
     }
