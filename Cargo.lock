@@ -489,7 +489,7 @@ dependencies = [
  "bitwarden-fido",
  "bitwarden-vault",
  "chrono",
- "credential-exchange-types",
+ "credential-exchange-format",
  "csv",
  "num-traits",
  "rand",
@@ -1072,13 +1072,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "credential-exchange-types"
+name = "credential-exchange-format"
 version = "0.1.0"
-source = "git+https://github.com/bitwarden/credential-exchange.git?rev=03f29bc63cea5bc8c9c8bfe27f002b3e90f9e051#03f29bc63cea5bc8c9c8bfe27f002b3e90f9e051"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5209d9b20c3eb8d2b96f3b06133b27d79168f312c09a8035f46c0fb18053aefc"
 dependencies = [
  "chrono",
  "data-encoding",
- "jose-jwk",
  "serde",
  "serde_json",
 ]
@@ -2292,39 +2292,6 @@ name = "jni-sys"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8eaf4bc02d17cbdd7ff4c7438cafcdf7fb9a4613313ad11b4f8fefe7d3fa0130"
-
-[[package]]
-name = "jose-b64"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bec69375368709666b21c76965ce67549f2d2db7605f1f8707d17c9656801b56"
-dependencies = [
- "base64ct",
- "serde",
- "subtle",
- "zeroize",
-]
-
-[[package]]
-name = "jose-jwa"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ab78e053fe886a351d67cf0d194c000f9d0dcb92906eb34d853d7e758a4b3a7"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "jose-jwk"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "280fa263807fe0782ecb6f2baadc28dffc04e00558a58e33bfdb801d11fd58e7"
-dependencies = [
- "jose-b64",
- "jose-jwa",
- "serde",
- "zeroize",
-]
 
 [[package]]
 name = "js-sys"
