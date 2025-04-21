@@ -160,8 +160,11 @@ pub(super) fn decrypt_user_key(
 }
 
 /// Generate a new random user key and encrypt it with the master key.
-fn make_user_key(rng: impl rand::RngCore, master_key: &MasterKey) -> Result<(UserKey, EncString)> {
-    let user_key = SymmetricCryptoKey::generate_internal(rng, false);
+/// 
+/// WARNING: This function should only be used with a proper cryptographic random number generator.
+/// If you do not have a good reason for using this, use [MasterKey::make_user_key] instead.
+fn make_user_key(mut rng: impl rand::RngCore, master_key: &MasterKey) -> Result<(UserKey, EncString)> {
+    let user_key = SymmetricCryptoKey::generate_aes256_cbc_hmac_internal(&mut rng);
     let protected = master_key.encrypt_user_key(&user_key)?;
     Ok((UserKey::new(user_key), protected))
 }

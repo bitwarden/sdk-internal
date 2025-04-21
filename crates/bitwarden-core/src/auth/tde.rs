@@ -17,7 +17,7 @@ pub(super) fn make_register_tde_keys(
 ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
     let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(org_public_key)?)?;
 
-    let user_key = UserKey::new(SymmetricCryptoKey::generate());
+    let user_key = UserKey::new(SymmetricCryptoKey::generate_aes256_cbc_hmac());
     let key_pair = user_key.make_key_pair()?;
 
     let admin_reset = UnauthenticatedSharedKey::encapsulate_key_unsigned(&user_key.0, &public_key)?;
