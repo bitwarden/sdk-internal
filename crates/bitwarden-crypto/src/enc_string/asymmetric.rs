@@ -266,7 +266,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
         let enc_str: &str = "3.SUx5gWrgmAKs/S1BoQrqOmx2Hl5fPVBVHokW17Flvm4TpBnJJRkfoitp7Jc4dfazPYjWGlckJz6X+qe+/AWilS1mxtzS0PmDy7tS5xP0GRlB39dstCd5jDw1wPmTbXiLcQ5VTvzpRAfRMEYVveTsEvVTByvEYAGSn4TnCsUDykyhRbD0YcJ4r1KHLs1b3BCBy2M1Gl5nmwckH08CAXaf8VfuBFStAGRKueovqp4euneQla+4G4fXdVvb8qKPnu0iVuALIE6nUNmeOiA3xN3d+akMxbbGxrQ1Ca4TYWjHVdj9C6abngQHkjKNYQwGUXrYo160hP4LIHn/huK6bZe5dQ==";
         let enc_string: UnauthenticatedSharedKey = enc_str.parse().unwrap();
 
-        let test_key = SymmetricCryptoKey::generate_seeded_for_unit_tests("test").into();
+        let test_key = SymmetricCryptoKey::generate_seeded_for_unit_tests("test");
         assert_eq!(enc_string.enc_type(), 3);
 
         let res = enc_string.decapsulate_key_unsigned(&key_pair).unwrap();
@@ -279,7 +279,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
         let enc_str: &str = "4.DMD1D5r6BsDDd7C/FE1eZbMCKrmryvAsCKj6+bO54gJNUxisOI7SDcpPLRXf+JdhqY15pT+wimQ5cD9C+6OQ6s71LFQHewXPU29l9Pa1JxGeiKqp37KLYf+1IS6UB2K3ANN35C52ZUHh2TlzIS5RuntxnpCw7APbcfpcnmIdLPJBtuj/xbFd6eBwnI3GSe5qdS6/Ixdd0dgsZcpz3gHJBKmIlSo0YN60SweDq3kTJwox9xSqdCueIDg5U4khc7RhjYx8b33HXaNJj3DwgIH8iLj+lqpDekogr630OhHG3XRpvl4QzYO45bmHb8wAh67Dj70nsZcVg6bAEFHdSFohww==";
         let enc_string: UnauthenticatedSharedKey = enc_str.parse().unwrap();
 
-        let test_key = SymmetricCryptoKey::generate_seeded_for_unit_tests("test").into();
+        let test_key = SymmetricCryptoKey::generate_seeded_for_unit_tests("test");
         assert_eq!(enc_string.enc_type(), 4);
 
         let res = enc_string.decapsulate_key_unsigned(&private_key).unwrap();
