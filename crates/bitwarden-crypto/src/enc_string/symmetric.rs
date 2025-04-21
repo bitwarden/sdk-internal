@@ -91,7 +91,7 @@ impl FromStr for EncString {
                 let iv = from_b64(parts[0])?;
                 let data = from_b64_vec(parts[1])?;
 
-                Ok(EncString::Aes256Cbc_B64 { iv, data })
+                Ok(EncString::AesCbc256_B64 { iv, data })
             }
             ("2", 3) => {
                 let iv = from_b64(parts[0])?;
@@ -132,7 +132,7 @@ impl EncString {
                 let iv = buf[1..17].try_into().expect("Valid length");
                 let data = buf[17..].to_vec();
 
-                Ok(EncString::Aes256Cbc_B64 { iv, data })
+                Ok(EncString::AesCbc256_B64 { iv, data })
             }
             2 => {
                 check_length(buf, 50)?;
@@ -157,7 +157,7 @@ impl EncString {
         let mut buf;
 
         match self {
-            EncString::Aes256Cbc_B64 { iv, data } => {
+            EncString::AesCbc256_B64 { iv, data } => {
                 buf = Vec::with_capacity(1 + 16 + data.len());
                 buf.push(self.enc_type());
                 buf.extend_from_slice(iv);
@@ -197,7 +197,7 @@ impl Display for EncString {
 
         match self {
             EncString::AesCbc256_B64 { iv, data } => fmt_parts(f, enc_type, &[iv, data]),
-            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
+            EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data } => {
                 fmt_parts(f, enc_type, &[iv, data, mac])
             }
             EncString::Cose_Encrypt0_B64 { data } => {
@@ -269,7 +269,7 @@ impl EncString {
     /// The numerical representation of the encryption type of the [EncString].
     const fn enc_type(&self) -> u8 {
         match self {
-            EncString::Aes256Cbc_B64 { .. } => 0,
+            EncString::AesCbc256_B64 { .. } => 0,
             EncString::Aes256Cbc_HmacSha256_B64 { .. } => 2,
             EncString::Cose_Encrypt0_B64 { .. } => 7,
         }
@@ -293,7 +293,7 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
 impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
         match (self, key) {
-            (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
+            (EncString::AesCbc256_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
                 crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
             }
             (
