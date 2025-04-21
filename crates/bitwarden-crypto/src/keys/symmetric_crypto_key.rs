@@ -3,7 +3,9 @@ use std::pin::Pin;
 use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::GenericArray;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaChaRng;
+use sha2::Digest;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use super::key_encryptable::CryptoKey;
@@ -51,6 +53,13 @@ impl SymmetricCryptoKey {
         rng.fill(mac_key.as_mut_slice());
 
         SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
+    }
+
+    /// Generate a new random [SymmetricCryptoKey] for unit tests. Note: DO NOT USE THIS
+    /// IN PRODUCTION CODE.
+    pub fn generate_seeded_for_unit_tests(seed: &str) -> Self {
+        let seeded_rng = ChaChaRng::from_seed(sha2::Sha256::digest(seed.as_bytes()).into());
+        Self::generate(seeded_rng)
     }
 
     fn total_len(&self) -> usize {
@@ -129,6 +138,12 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
 
         value.zeroize();
         result
+    }
+}
+
+impl From<Aes256CbcHmacKey> for SymmetricCryptoKey {
+    fn from(key: Aes256CbcHmacKey) -> Self {
+        SymmetricCryptoKey::Aes256CbcHmacKey(key)
     }
 }
 
