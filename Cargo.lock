@@ -657,6 +657,7 @@ dependencies = [
  "oslog",
  "rustls-platform-verifier",
  "schemars",
+ "serde_json",
  "thiserror 2.0.12",
  "uniffi",
  "uuid",
