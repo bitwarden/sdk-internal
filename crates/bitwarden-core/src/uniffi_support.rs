@@ -1,3 +1,5 @@
+//! This module contains custom type converters for Uniffi.
+
 use std::num::NonZeroU32;
 
 use bitwarden_crypto::{EncString, UnauthenticatedSharedKey};

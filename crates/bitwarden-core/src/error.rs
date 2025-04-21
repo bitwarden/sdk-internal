@@ -25,6 +25,8 @@ macro_rules! impl_bitwarden_error {
     };
 }
 
+/// Errors from performing network requests.
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum ApiError {
     #[error(transparent)]
@@ -41,22 +43,27 @@ pub enum ApiError {
 impl_bitwarden_error!(ApiApisError, ApiError);
 impl_bitwarden_error!(IdentityError, ApiError);
 
+/// Client is not authenticated or the session has expired.
 #[derive(Debug, Error)]
 #[error("The client is not authenticated or the session has expired")]
 pub struct NotAuthenticatedError;
 
+/// Missing required field.
 #[derive(Debug, Error)]
 #[error("The response received was missing a required field: {0}")]
 pub struct MissingFieldError(pub &'static str);
 
+/// Client vault is locked.
 #[derive(Debug, Error)]
 #[error("The client vault is locked and needs to be unlocked before use")]
 pub struct VaultLockedError;
 
+/// Wrong password.
 #[derive(Debug, thiserror::Error)]
 #[error("Wrong password")]
 pub struct WrongPasswordError;
 
+/// Missing private key.
 #[derive(Debug, thiserror::Error)]
 #[error("Missing private key")]
 pub struct MissingPrivateKeyError;

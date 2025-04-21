@@ -6,7 +6,7 @@ use bitwarden_error::bitwarden_error;
 use bitwarden_vault::VaultClientExt;
 use wasm_bindgen::prelude::*;
 
-use crate::{CryptoClient, VaultClient};
+use crate::{CryptoClient, GeneratorClient, VaultClient};
 
 #[wasm_bindgen]
 pub struct BitwardenClient(pub(crate) Client);
@@ -45,6 +45,11 @@ impl BitwardenClient {
 
     pub fn vault(&self) -> VaultClient {
         VaultClient::new(self.0.vault())
+    }
+
+    /// Constructs a specific client for generating passwords and passphrases
+    pub fn generator(&self) -> GeneratorClient {
+        GeneratorClient::new(self.0.clone())
     }
 }
 

@@ -7,7 +7,7 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::MissingFieldError;
 use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
 use chrono::{DateTime, Utc};
-use credential_exchange_types::format::{BasicAuthCredential, CredentialScope, PasskeyCredential};
+use credential_exchange_format::{BasicAuthCredential, CredentialScope, PasskeyCredential};
 use thiserror::Error;
 
 use crate::{Fido2Credential, Login, LoginUri};

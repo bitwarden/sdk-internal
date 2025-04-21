@@ -8,6 +8,7 @@ use zeroize::Zeroizing;
 
 use crate::util::STANDARD_INDIFFERENT;
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum AccessTokenInvalidError {
     #[error("Doesn't contain a decryption key")]
@@ -26,9 +27,13 @@ pub enum AccessTokenInvalidError {
     InvalidBase64Length { expected: usize, got: usize },
 }
 
+/// Access Token
 pub struct AccessToken {
+    /// The ID of the access token
     pub access_token_id: Uuid,
+    /// The client secret
     pub client_secret: String,
+    /// The encryption key used to decrypt a payload to retrieve the organization key.
     pub encryption_key: SymmetricCryptoKey,
 }
 

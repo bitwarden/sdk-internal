@@ -1,3 +1,5 @@
+//! Integration tests for the registration process
+
 /// Integration test for registering a new user and unlocking the vault
 #[cfg(feature = "internal")]
 #[tokio::test]
