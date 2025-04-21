@@ -139,15 +139,6 @@ impl SymmetricCryptoKey {
     /// not use the byte representation but instead use the COSE key representation.
     pub fn to_encoded(&self) -> Vec<u8> {
         let mut encoded_key = self.to_encoded_raw();
-    }
-    /// Generate a new random [SymmetricCryptoKey] for unit tests. Note: DO NOT USE THIS
-    /// IN PRODUCTION CODE.
-    pub fn generate_seeded_for_unit_tests(seed: &str) -> Self {
-        let seeded_rng = ChaChaRng::from_seed(sha2::Sha256::digest(seed.as_bytes()).into());
-        Self::generate_internal(seeded_rng, false)
-    }
-
-    fn total_len(&self) -> usize {
         match self {
             SymmetricCryptoKey::Aes256CbcKey(_) | SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
                 encoded_key
@@ -157,6 +148,13 @@ impl SymmetricCryptoKey {
                 encoded_key
             }
         }
+    }
+
+    /// Generate a new random [SymmetricCryptoKey] for unit tests. Note: DO NOT USE THIS
+    /// IN PRODUCTION CODE.
+    pub fn generate_seeded_for_unit_tests(seed: &str) -> Self {
+        let seeded_rng = ChaChaRng::from_seed(sha2::Sha256::digest(seed.as_bytes()).into());
+        Self::generate_internal(seeded_rng, false)
     }
 
     pub(crate) fn to_encoded_raw(&self) -> Vec<u8> {
