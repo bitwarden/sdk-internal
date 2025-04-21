@@ -1340,8 +1340,7 @@ mod tests {
 
     #[test]
     fn test_decrypt_fido2_private_key() {
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::generate());
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::generate());
         let mut ctx = key_store.context();
 
         let mut cipher_view = generate_cipher();
