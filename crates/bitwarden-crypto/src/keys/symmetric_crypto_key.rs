@@ -129,7 +129,7 @@ impl SymmetricCryptoKey {
     /// Encodes the key to a byte array representation, that is separated by size.
     /// [SymmetricCryptoKey::Aes256CbcHmacKey] and [SymmetricCryptoKey::Aes256CbcKey] are
     /// encoded as 64 and 32 bytes respectively. [SymmetricCryptoKey::XChaCha20Poly1305Key]
-    /// is encoded as at least 65 bytes, by using padding defined in [`pad_key`].
+    /// is encoded as at least 65 bytes, using padding.
     ///
     /// This can be used for storage and transmission in the old byte array format.
     /// When the wrapping key is a COSE key, and the wrapped key is a COSE key, then this should
