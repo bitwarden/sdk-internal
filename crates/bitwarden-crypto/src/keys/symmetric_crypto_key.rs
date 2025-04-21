@@ -13,8 +13,8 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use super::{key_encryptable::CryptoKey, key_id::KeyId};
 use crate::{cose, CryptoError};
 
-/// Aes256CbcKey is a symmetric encryption key, consisting of one 256-bit key,
-/// used to decrypt legacy type 0 encstrings. The data is not autenticated
+/// [Aes256CbcKey] is a symmetric encryption key, consisting of one 256-bit key,
+/// used to decrypt legacy type 0 enc strings. The data is not authenticated
 /// so this should be used with caution, and removed where possible.
 #[derive(ZeroizeOnDrop, Clone)]
 pub struct Aes256CbcKey {
@@ -34,7 +34,7 @@ impl PartialEq for Aes256CbcKey {
     }
 }
 
-/// Aes256CbcHmacKey is a symmetric encryption key consisting
+/// [Aes256CbcHmacKey] is a symmetric encryption key consisting
 /// of two 256-bit keys, one for encryption and one for MAC
 #[derive(ZeroizeOnDrop, Clone)]
 pub struct Aes256CbcHmacKey {
@@ -95,23 +95,6 @@ impl SymmetricCryptoKey {
      */
     pub fn generate() -> Self {
         let mut rng = rand::thread_rng();
-        Self::generate_internal(&mut rng, false)
-    }
-
-    /**
-     * Generate a new random XChaCha20Poly1305 [SymmetricCryptoKey]
-     */
-    pub fn generate_xchacha20() -> Self {
-        let mut rng = rand::thread_rng();
-        Self::generate_internal(&mut rng, true)
-    }
-
-    /// Generate a new random [SymmetricCryptoKey]
-    /// @param rng: A random number generator
-    /// @param xchacha20: If true, generate an XChaCha20Poly1305 key, otherwise generate an
-    /// AES256_CBC_HMAC key
-    pub(crate) fn generate_internal(mut rng: impl rand::RngCore, xchacha20: bool) -> Self {
-        if !xchacha20 {
             let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
             let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
 
@@ -119,20 +102,25 @@ impl SymmetricCryptoKey {
             rng.fill(mac_key.as_mut_slice());
 
             SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
-        } else {
-            let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
-            rng.fill(enc_key.as_mut_slice());
-            SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
-                enc_key,
-                key_id: *KeyId::generate().as_bytes(),
-            })
-        }
+    }
+
+    /**
+     * Generate a new random XChaCha20Poly1305 [SymmetricCryptoKey]
+     */
+    pub fn generate_xchacha20() -> Self {
+        let mut rng = rand::thread_rng();
+        let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+        rng.fill(enc_key.as_mut_slice());
+        SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
+            enc_key,
+            key_id: *KeyId::generate().as_bytes(),
+        })
     }
 
     /// Encodes the key to a byte array representation, that is separated by size.
-    /// `SymmetricCryptoKey::Aes256CbcHmacKey` and `SymmetricCryptoKey::Aes256CbcKey` are
-    /// encoded as 64 and 32 bytes respectively. `SymmetricCryptoKey::XChaCha20Poly1305Key`
-    /// is encoded as at least 65 bytes, by using padding defined in `pad_key`.
+    /// [SymmetricCryptoKey::Aes256CbcHmacKey] and [SymmetricCryptoKey::Aes256CbcKey] are
+    /// encoded as 64 and 32 bytes respectively. [SymmetricCryptoKey::XChaCha20Poly1305Key]
+    /// is encoded as at least 65 bytes, by using padding defined in [`pad_key`].
     ///
     /// This can be used for storage and transmission in the old byte array format.
     /// When the wrapping key is a COSE key, and the wrapped key is a COSE key, then this should
@@ -327,12 +315,12 @@ impl std::fmt::Debug for SymmetricCryptoKey {
 /// The last N bytes of the padded bytes all have the value N.
 /// For example, padded to size 4, the value 0,0 becomes 0,0,2,2.
 ///
-/// Keys that have the type `SymmetricCryptoKey::XChaCha20Poly1305Key` must be distinguishable
-/// from `SymmetricCryptoKey::Aes256CbcHmacKey` keys, when both are encoded as byte arrays
+/// Keys that have the type [SymmetricCryptoKey::XChaCha20Poly1305Key] must be distinguishable
+/// from [SymmetricCryptoKey::Aes256CbcHmacKey] keys, when both are encoded as byte arrays
 /// with no additional content format included in the encoding message. For this reason, the
 /// padding is used to make sure that the byte representation uniquely separates the keys by
-/// size of the byte array. The previous key types `SymmetricCryptoKey::Aes256CbcHmacKey` and
-/// `SymmetricCryptoKey::Aes256CbcKey` are 64 and 32 bytes long respectively.
+/// size of the byte array. The previous key types [SymmetricCryptoKey::Aes256CbcHmacKey] and
+/// [SymmetricCryptoKey::Aes256CbcKey] are 64 and 32 bytes long respectively.
 fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
     // at least 1 byte of padding is required
     let pad_bytes = min_length.saturating_sub(key_bytes.len()).max(1);
@@ -340,16 +328,16 @@ fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
     key_bytes.resize(padded_length, pad_bytes as u8);
 }
 
-/// Unpad a key that is padded using the PKCS7-like padding defined by `pad_key`.
+/// Unpad a key that is padded using the PKCS7-like padding defined by [pad_key].
 /// The last N bytes of the padded bytes all have the value N.
 /// For example, padded to size 4, the value 0,0 becomes 0,0,2,2.
 ///
-/// Keys that have the type `SymmetricCryptoKey::XChaCha20Poly1305Key` must be distinguishable
-/// from `SymmetricCryptoKey::Aes256CbcHmacKey` keys, when both are encoded as byte arrays
+/// Keys that have the type [SymmetricCryptoKey::XChaCha20Poly1305Key] must be distinguishable
+/// from [SymmetricCryptoKey::Aes256CbcHmacKey] keys, when both are encoded as byte arrays
 /// with no additional content format included in the encoding message. For this reason, the
 /// padding is used to make sure that the byte representation uniquely separates the keys by
-/// size of the byte array the previous key types `SymmetricCryptoKey::Aes256CbcHmacKey` and
-/// `SymmetricCryptoKey::Aes256CbcKey` are 64 and 32 bytes long respectively.
+/// size of the byte array the previous key types [SymmetricCryptoKey::Aes256CbcHmacKey] and
+/// [SymmetricCryptoKey::Aes256CbcKey] are 64 and 32 bytes long respectively.
 fn unpad_key(key_bytes: &[u8]) -> &[u8] {
     // this unwrap is safe, the input is always at least 1 byte long
     #[allow(clippy::unwrap_used)]
@@ -388,7 +376,7 @@ mod tests {
 
     #[test]
     fn test_encode_decode_old_symmetric_crypto_key() {
-        let key = SymmetricCryptoKey::generate_internal(rand::thread_rng(), false);
+        let key = SymmetricCryptoKey::generate();
         let encoded = key.to_encoded();
         let decoded = SymmetricCryptoKey::try_from(encoded).unwrap();
         assert_eq!(key, decoded);
@@ -406,10 +394,10 @@ mod tests {
 
     #[test]
     fn test_encode_xchacha20_poly1305_key() {
-        let key = SymmetricCryptoKey::generate_internal(rand::thread_rng(), true);
-        let key_vec = key.to_encoded();
-        let key_vec_utf8_lossy = String::from_utf8_lossy(&key_vec);
-        println!("key_vec: {:?}", key_vec_utf8_lossy);
+        let key = SymmetricCryptoKey::generate_xchacha20();
+        let encoded = key.to_encoded();
+        let decoded = SymmetricCryptoKey::try_from(encoded).unwrap();
+        assert_eq!(key, decoded);
     }
 
     #[test]
