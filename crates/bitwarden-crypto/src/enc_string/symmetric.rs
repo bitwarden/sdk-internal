@@ -32,7 +32,7 @@ export type EncString = string;
 /// variants, but we should be opinionated in which variants are used for encrypting.
 ///
 /// ## Variants
-/// - [Aes256Cbc_B64](EncString::AesCbc256_B64) - Deprecated and MUST NOT be used for encrypting as
+/// - [Aes256Cbc_B64](EncString::Aes256Cbc_B64) - Deprecated and MUST NOT be used for encrypting as
 ///   it is not authenticated
 /// - [Aes256Cbc_HmacSha256_B64](EncString::Aes256Cbc_HmacSha256_B64)
 /// - [Cose_Encrypt0_B64](EncString::Cose_Encrypt0_B64) - The preferred variant for encrypting data.
