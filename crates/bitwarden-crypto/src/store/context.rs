@@ -169,22 +169,34 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key_to_wrap: Ids::Symmetric,
     ) -> Result<EncString> {
         let wrapping_key_instance = self.get_symmetric_key(wrapping_key)?;
-        let key_to_wrap_instance  = self.get_symmetric_key(key_to_wrap)?;
+        let key_to_wrap_instance = self.get_symmetric_key(key_to_wrap)?;
         match (wrapping_key_instance, key_to_wrap_instance) {
             // These keys wrap directly by encrypting the key bytes of the inner key, with padding
             // applied in case it is needed
-            (SymmetricCryptoKey::Aes256CbcHmacKey(_), SymmetricCryptoKey::Aes256CbcHmacKey(_) | SymmetricCryptoKey::Aes256CbcKey(_)) => {
-                self.encrypt_data_with_symmetric_key(wrapping_key, key_to_wrap_instance.to_encoded().as_slice())
-            },
-            (SymmetricCryptoKey::XChaCha20Poly1305Key(_), SymmetricCryptoKey::Aes256CbcHmacKey(_) | SymmetricCryptoKey::Aes256CbcKey(_)) => {
+            (
+                SymmetricCryptoKey::Aes256CbcHmacKey(_),
+                SymmetricCryptoKey::Aes256CbcHmacKey(_) | SymmetricCryptoKey::Aes256CbcKey(_),
+            ) => self.encrypt_data_with_symmetric_key(
+                wrapping_key,
+                key_to_wrap_instance.to_encoded().as_slice(),
+            ),
+            (
+                SymmetricCryptoKey::XChaCha20Poly1305Key(_),
+                SymmetricCryptoKey::Aes256CbcHmacKey(_) | SymmetricCryptoKey::Aes256CbcKey(_),
+            ) => {
                 // These keys should be represented as octet stream payloads in cose
                 todo!()
-            },
-            (SymmetricCryptoKey::XChaCha20Poly1305Key(_), SymmetricCryptoKey::XChaCha20Poly1305Key(_)) => {
+            }
+            (
+                SymmetricCryptoKey::XChaCha20Poly1305Key(_),
+                SymmetricCryptoKey::XChaCha20Poly1305Key(_),
+            ) => {
                 // These keys should be represented as CoseKey payloads in cose
                 todo!()
-            },
-            _ => Err(CryptoError::OperationNotSupported(UnsupportedOperation::EncryptionNotImplementedForKey)),
+            }
+            _ => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperation::EncryptionNotImplementedForKey,
+            )),
         }
     }
 
