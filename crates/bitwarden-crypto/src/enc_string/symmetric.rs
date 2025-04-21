@@ -369,7 +369,7 @@ mod tests {
         let enc_key = [0u8; 32];
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id,
-            enc_key: Box::pin(*GenericArray::from_slice(enc_key.as_slice())),
+            enc_key: Box::pin(enc_key.into()),
         });
 
         let test_string = "encrypted_test_string";
