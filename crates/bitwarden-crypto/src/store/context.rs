@@ -189,10 +189,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                         encrypted
                     }
                     SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
-                        let cose_encoded_key = key_to_encrypt.to_encoded_raw();
-                        let encrypted =
-                            EncString::encrypt_xchacha20_poly1305(cose_encoded_key.as_slice(), k);
-                        encrypted
+                        todo!();
                     }
                 }
             }
