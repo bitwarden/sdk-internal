@@ -149,7 +149,7 @@ pub(super) fn decrypt_user_key(
             let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key)?);
             user_key.decrypt_with_key(&stretched_key)?
         }
-        EncString::XChaCha20_Poly1305_Cose_B64 { .. } => {
+        EncString::Cose_Encrypt0_B64 { .. } => {
             return Err(CryptoError::OperationNotSupported(
                 crate::error::UnsupportedOperation::EncryptionNotImplementedForKey,
             ));
