@@ -292,7 +292,8 @@ XKZBokBGnjFnTnKcs7nv/O8=
         let enc_str: &str = "6.DMD1D5r6BsDDd7C/FE1eZbMCKrmryvAsCKj6+bO54gJNUxisOI7SDcpPLRXf+JdhqY15pT+wimQ5cD9C+6OQ6s71LFQHewXPU29l9Pa1JxGeiKqp37KLYf+1IS6UB2K3ANN35C52ZUHh2TlzIS5RuntxnpCw7APbcfpcnmIdLPJBtuj/xbFd6eBwnI3GSe5qdS6/Ixdd0dgsZcpz3gHJBKmIlSo0YN60SweDq3kTJwox9xSqdCueIDg5U4khc7RhjYx8b33HXaNJj3DwgIH8iLj+lqpDekogr630OhHG3XRpvl4QzYO45bmHb8wAh67Dj70nsZcVg6bAEFHdSFohww==|AA==";
         let enc_string: UnauthenticatedSharedKey = enc_str.parse().unwrap();
 
-        let test_key: SymmetricCryptoKey = SymmetricCryptoKey::generate_seeded_for_unit_tests("test");
+        let test_key: SymmetricCryptoKey =
+            SymmetricCryptoKey::generate_seeded_for_unit_tests("test");
         assert_eq!(enc_string.enc_type(), 6);
 
         let res = enc_string.decapsulate_key_unsigned(&private_key).unwrap();
