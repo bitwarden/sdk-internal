@@ -6,12 +6,17 @@ use bitwarden_core::{
 use bitwarden_crypto::{
     CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
+use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use tsify_next::Tsify;
 use uuid::Uuid;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     attachment, card,
@@ -26,6 +31,7 @@ use crate::{
     VaultParseError,
 };
 
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CipherError {
     #[error(transparent)]
@@ -41,6 +47,7 @@ pub enum CipherError {
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, JsonSchema, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum CipherType {
     Login = 1,
     SecureNote = 2,
@@ -52,6 +59,7 @@ pub enum CipherType {
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, JsonSchema, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum CipherRepromptType {
     None = 0,
     Password = 1,
@@ -60,6 +68,7 @@ pub enum CipherRepromptType {
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Cipher {
     pub id: Option<Uuid>,
     pub organization_id: Option<Uuid>,
@@ -100,6 +109,7 @@ pub struct Cipher {
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherView {
     pub id: Option<Uuid>,
     pub organization_id: Option<Uuid>,
@@ -139,6 +149,7 @@ pub struct CipherView {
 #[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum CipherListViewType {
     Login(LoginListView),
     SecureNote,
@@ -150,6 +161,7 @@ pub enum CipherListViewType {
 #[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherListView {
     pub id: Option<Uuid>,
     pub organization_id: Option<Uuid>,
@@ -573,6 +585,15 @@ impl CipherView {
         let creds = require!(login.fido2_credentials.as_ref());
         let res = creds.decrypt(ctx, ciphers_key)?;
         Ok(res)
+    }
+
+    pub fn decrypt_fido2_private_key(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+    ) -> Result<String, CipherError> {
+        let fido2_credential = self.get_fido2_credentials(ctx)?;
+
+        Ok(fido2_credential[0].key_value.clone())
     }
 }
 
@@ -1315,5 +1336,27 @@ mod tests {
             .get_decrypted_subtitle(&mut ctx, key)
             .unwrap();
         assert_eq!(subtitle, original_subtitle);
+    }
+
+    #[test]
+    fn test_decrypt_fido2_private_key() {
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::generate());
+        let mut ctx = key_store.context();
+
+        let mut cipher_view = generate_cipher();
+        cipher_view
+            .generate_cipher_key(&mut ctx, cipher_view.key_identifier())
+            .unwrap();
+
+        let key_id = cipher_view.key_identifier();
+        let ciphers_key = Cipher::decrypt_cipher_key(&mut ctx, key_id, &cipher_view.key).unwrap();
+
+        let fido2_credential = generate_fido2(&mut ctx, ciphers_key);
+
+        cipher_view.login.as_mut().unwrap().fido2_credentials =
+            Some(vec![fido2_credential.clone()]);
+
+        let decrypted_key_value = cipher_view.decrypt_fido2_private_key(&mut ctx).unwrap();
+        assert_eq!(decrypted_key_value, "123");
     }
 }

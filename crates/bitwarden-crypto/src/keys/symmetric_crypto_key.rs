@@ -106,7 +106,7 @@ impl SymmetricCryptoKey {
 
     /// Generate a new random [SymmetricCryptoKey]
     /// @param rng: A random number generator
-    /// @param xchacha: If true, generate an XChaCha20Poly1305 key, otherwise generate an
+    /// @param xchacha20: If true, generate an XChaCha20Poly1305 key, otherwise generate an
     /// AES256_CBC_HMAC key
     pub(crate) fn generate_internal(mut rng: impl rand::RngCore, xchacha20: bool) -> Self {
         if !xchacha20 {

@@ -6,12 +6,12 @@ use crate::{
     Account, ExportError, ExportFormat,
 };
 
-pub struct ExporterClient<'a> {
-    client: &'a Client,
+pub struct ExporterClient {
+    client: Client,
 }
 
-impl<'a> ExporterClient<'a> {
-    fn new(client: &'a Client) -> Self {
+impl ExporterClient {
+    fn new(client: Client) -> Self {
         Self { client }
     }
 
@@ -21,7 +21,7 @@ impl<'a> ExporterClient<'a> {
         ciphers: Vec<Cipher>,
         format: ExportFormat,
     ) -> Result<String, ExportError> {
-        export_vault(self.client, folders, ciphers, format)
+        export_vault(&self.client, folders, ciphers, format)
     }
 
     pub fn export_organization_vault(
@@ -44,7 +44,7 @@ impl<'a> ExporterClient<'a> {
         account: Account,
         ciphers: Vec<Cipher>,
     ) -> Result<String, ExportError> {
-        export_cxf(self.client, account, ciphers)
+        export_cxf(&self.client, account, ciphers)
     }
 
     /// Credential Exchange Format (CXF)
@@ -54,16 +54,16 @@ impl<'a> ExporterClient<'a> {
     /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
     /// Ideally the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
     pub fn import_cxf(&self, payload: String) -> Result<Vec<Cipher>, ExportError> {
-        import_cxf(self.client, payload)
+        import_cxf(&self.client, payload)
     }
 }
 
-pub trait ExporterClientExt<'a> {
-    fn exporters(&'a self) -> ExporterClient<'a>;
+pub trait ExporterClientExt {
+    fn exporters(&self) -> ExporterClient;
 }
 
-impl<'a> ExporterClientExt<'a> for Client {
-    fn exporters(&'a self) -> ExporterClient<'a> {
-        ExporterClient::new(self)
+impl ExporterClientExt for Client {
+    fn exporters(&self) -> ExporterClient {
+        ExporterClient::new(self.clone())
     }
 }

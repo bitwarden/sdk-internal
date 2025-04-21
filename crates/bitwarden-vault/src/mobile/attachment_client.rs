@@ -10,8 +10,8 @@ use crate::{
     Cipher, DecryptError, EncryptError, VaultClient,
 };
 
-pub struct ClientAttachments<'a> {
-    pub(crate) client: &'a Client,
+pub struct ClientAttachments {
+    pub(crate) client: Client,
 }
 
 /// Generic error type for vault encryption errors.
@@ -34,7 +34,7 @@ pub enum DecryptFileError {
     Io(#[from] std::io::Error),
 }
 
-impl ClientAttachments<'_> {
+impl ClientAttachments {
     pub fn encrypt_buffer(
         &self,
         cipher: Cipher,
@@ -93,10 +93,10 @@ impl ClientAttachments<'_> {
     }
 }
 
-impl<'a> VaultClient<'a> {
-    pub fn attachments(&'a self) -> ClientAttachments<'a> {
+impl VaultClient {
+    pub fn attachments(&self) -> ClientAttachments {
         ClientAttachments {
-            client: self.client,
+            client: self.client.clone(),
         }
     }
 }

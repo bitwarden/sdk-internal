@@ -1,5 +1,5 @@
 pub(crate) mod attachment_client;
-mod cipher_client;
-mod collection_client;
-mod folder_client;
-mod password_history_client;
+pub(crate) mod cipher_client;
+pub(crate) mod collection_client;
+pub(crate) mod folder_client;
+pub(crate) mod password_history_client;
