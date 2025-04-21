@@ -9,6 +9,7 @@ use crate::client::flags::Flags;
 use crate::client::{
     client_settings::ClientSettings,
     internal::{ApiConfigurations, Tokens},
+    repository::RepositoryMap,
 };
 
 /// The main struct to interact with the Bitwarden SDK.
@@ -86,6 +87,8 @@ impl Client {
                 })),
                 external_client,
                 key_store: KeyStore::default(),
+                #[cfg(feature = "internal")]
+                repository_map: RwLock::new(RepositoryMap::default()),
             }),
         }
     }

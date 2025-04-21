@@ -18,3 +18,6 @@ pub use client_settings::{ClientSettings, DeviceType};
 
 #[cfg(feature = "internal")]
 pub mod test_accounts;
+
+#[cfg(feature = "internal")]
+pub mod repository;
