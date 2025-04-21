@@ -18,6 +18,7 @@ use crate::{
 };
 #[cfg(feature = "internal")]
 use crate::{
+    client::data_store::{DataStore, DataStoreMap},
     client::encryption_settings::EncryptionSettingsError,
     client::{flags::Flags, login_method::UserLoginMethod},
     error::NotAuthenticatedError,
@@ -60,6 +61,9 @@ pub struct InternalClient {
     pub(crate) external_client: reqwest::Client,
 
     pub(super) key_store: KeyStore<KeyIds>,
+
+    #[cfg(feature = "internal")]
+    pub(super) data_store_map: RwLock<DataStoreMap>,
 }
 
 impl InternalClient {
@@ -218,5 +222,21 @@ impl InternalClient {
         org_keys: Vec<(Uuid, AsymmetricEncString)>,
     ) -> Result<(), EncryptionSettingsError> {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
+    }
+
+    #[cfg(feature = "internal")]
+    pub fn register_data_store<T: 'static + DataStore<V>, V: 'static>(&self, store: Arc<T>) {
+        self.data_store_map
+            .write()
+            .expect("RwLock is not poisoned")
+            .insert(store);
+    }
+
+    #[cfg(feature = "internal")]
+    pub fn get_data_store<T: 'static>(&self) -> Option<Arc<dyn DataStore<T>>> {
+        self.data_store_map
+            .read()
+            .expect("RwLock is not poisoned")
+            .get()
     }
 }
