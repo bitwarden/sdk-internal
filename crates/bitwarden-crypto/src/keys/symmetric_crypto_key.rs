@@ -92,8 +92,9 @@ impl SymmetricCryptoKey {
 
     /// Generate a new random AES256_CBC [SymmetricCryptoKey]
     ///
-    /// WARNING: This function should only be used with a proper cryptographic RNG. If you do not have
-    /// a good reason for using this function, use [SymmetricCryptoKey::generate_aes256_cbc_hmac] instead.
+    /// WARNING: This function should only be used with a proper cryptographic RNG. If you do not
+    /// have a good reason for using this function, use
+    /// [SymmetricCryptoKey::generate_aes256_cbc_hmac] instead.
     pub(crate) fn generate_aes256_cbc_hmac_internal(rng: &mut impl Rng) -> Self {
         let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
         let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());

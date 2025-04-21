@@ -353,7 +353,10 @@ pub(crate) mod tests {
             #[allow(deprecated)]
             store
                 .context_mut()
-                .set_symmetric_key(TestSymmKey::A(n), SymmetricCryptoKey::generate_aes256_cbc_hmac())
+                .set_symmetric_key(
+                    TestSymmKey::A(n),
+                    SymmetricCryptoKey::generate_aes256_cbc_hmac(),
+                )
                 .unwrap();
         }
 
