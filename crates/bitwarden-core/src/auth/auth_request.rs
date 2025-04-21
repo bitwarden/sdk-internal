@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    fingerprint, generate_random_alphanumeric, AsymmetricCryptoKey, AsymmetricEncString,
-    AsymmetricPublicCryptoKey, CryptoError,
+    fingerprint, generate_random_alphanumeric, AsymmetricCryptoKey, AsymmetricPublicCryptoKey,
+    CryptoError, UnauthenticatedSharedKey,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, SymmetricCryptoKey};
@@ -11,6 +11,7 @@ use thiserror::Error;
 use crate::client::encryption_settings::EncryptionSettingsError;
 use crate::{key_management::SymmetricKeyId, Client, VaultLockedError};
 
+/// Response for `new_auth_request`.
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AuthRequestResponse {
     /// Base64 encoded private key
@@ -51,7 +52,7 @@ pub(crate) fn new_auth_request(email: &str) -> Result<AuthRequestResponse, Crypt
 #[cfg(feature = "internal")]
 pub(crate) fn auth_request_decrypt_user_key(
     private_key: String,
-    user_key: AsymmetricEncString,
+    user_key: UnauthenticatedSharedKey,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
     let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
     let key: SymmetricCryptoKey = user_key.decapsulate_key_unsigned(&key)?;
@@ -62,7 +63,7 @@ pub(crate) fn auth_request_decrypt_user_key(
 #[cfg(feature = "internal")]
 pub(crate) fn auth_request_decrypt_master_key(
     private_key: String,
-    master_key: AsymmetricEncString,
+    master_key: UnauthenticatedSharedKey,
     user_key: EncString,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
     use bitwarden_crypto::MasterKey;
@@ -74,6 +75,7 @@ pub(crate) fn auth_request_decrypt_master_key(
     Ok(master_key.decrypt_user_key(user_key)?)
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum ApproveAuthRequestError {
     #[error(transparent)]
@@ -90,7 +92,7 @@ pub enum ApproveAuthRequestError {
 pub(crate) fn approve_auth_request(
     client: &Client,
     public_key: String,
-) -> Result<AsymmetricEncString, ApproveAuthRequestError> {
+) -> Result<UnauthenticatedSharedKey, ApproveAuthRequestError> {
     let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(public_key)?)?;
 
     let key_store = client.internal.get_key_store();
@@ -100,7 +102,7 @@ pub(crate) fn approve_auth_request(
     #[allow(deprecated)]
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
-    Ok(AsymmetricEncString::encapsulate_key_unsigned(
+    Ok(UnauthenticatedSharedKey::encapsulate_key_unsigned(
         key,
         &public_key,
     )?)
@@ -110,18 +112,17 @@ pub(crate) fn approve_auth_request(
 fn test_auth_request() {
     let request = new_auth_request("test@bitwarden.com").unwrap();
 
-    let secret: &[u8] = &[
+    let secret = vec![
         111, 32, 97, 169, 4, 241, 174, 74, 239, 206, 113, 86, 174, 68, 216, 238, 52, 85, 156, 27,
         134, 149, 54, 55, 91, 147, 45, 130, 131, 237, 51, 31, 191, 106, 155, 14, 160, 82, 47, 40,
         96, 31, 114, 127, 212, 187, 167, 110, 205, 116, 198, 243, 218, 72, 137, 53, 248, 43, 255,
         67, 35, 61, 245, 93,
     ];
-    let secret = secret.to_vec();
 
     let private_key =
         AsymmetricCryptoKey::from_der(&STANDARD.decode(&request.private_key).unwrap()).unwrap();
 
-    let encrypted = AsymmetricEncString::encapsulate_key_unsigned(
+    let encrypted = UnauthenticatedSharedKey::encapsulate_key_unsigned(
         &SymmetricCryptoKey::try_from(secret.clone()).unwrap(),
         &private_key,
     )

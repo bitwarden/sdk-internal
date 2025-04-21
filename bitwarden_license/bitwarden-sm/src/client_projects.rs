@@ -9,12 +9,12 @@ use crate::{
     },
 };
 
-pub struct ClientProjects<'a> {
-    pub client: &'a Client,
+pub struct ClientProjects {
+    pub client: Client,
 }
 
-impl<'a> ClientProjects<'a> {
-    pub fn new(client: &'a Client) -> Self {
+impl ClientProjects {
+    pub fn new(client: Client) -> Self {
         Self { client }
     }
 
@@ -22,44 +22,44 @@ impl<'a> ClientProjects<'a> {
         &self,
         input: &ProjectGetRequest,
     ) -> Result<ProjectResponse, SecretsManagerError> {
-        get_project(self.client, input).await
+        get_project(&self.client, input).await
     }
 
     pub async fn create(
         &self,
         input: &ProjectCreateRequest,
     ) -> Result<ProjectResponse, SecretsManagerError> {
-        create_project(self.client, input).await
+        create_project(&self.client, input).await
     }
 
     pub async fn list(
         &self,
         input: &ProjectsListRequest,
     ) -> Result<ProjectsResponse, SecretsManagerError> {
-        list_projects(self.client, input).await
+        list_projects(&self.client, input).await
     }
 
     pub async fn update(
         &self,
         input: &ProjectPutRequest,
     ) -> Result<ProjectResponse, SecretsManagerError> {
-        update_project(self.client, input).await
+        update_project(&self.client, input).await
     }
 
     pub async fn delete(
         &self,
         input: ProjectsDeleteRequest,
     ) -> Result<ProjectsDeleteResponse, SecretsManagerError> {
-        delete_projects(self.client, input).await
+        delete_projects(&self.client, input).await
     }
 }
 
-pub trait ClientProjectsExt<'a> {
-    fn projects(&'a self) -> ClientProjects<'a>;
+pub trait ClientProjectsExt {
+    fn projects(&self) -> ClientProjects;
 }
 
-impl<'a> ClientProjectsExt<'a> for Client {
-    fn projects(&'a self) -> ClientProjects<'a> {
-        ClientProjects::new(self)
+impl ClientProjectsExt for Client {
+    fn projects(&self) -> ClientProjects {
+        ClientProjects::new(self.clone())
     }
 }

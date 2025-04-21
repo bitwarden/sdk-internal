@@ -2,8 +2,6 @@
 
 uniffi::setup_scaffolding!();
 
-use std::sync::Arc;
-
 use auth::AuthClient;
 use bitwarden_core::ClientSettings;
 
@@ -18,6 +16,10 @@ pub mod vault;
 #[cfg(target_os = "android")]
 mod android_support;
 
+use bitwarden_exporters::ExporterClientExt;
+use bitwarden_generators::GeneratorClientsExt;
+use bitwarden_send::SendClientExt;
+use bitwarden_vault::VaultClientExt;
 use crypto::CryptoClient;
 use error::{Error, Result};
 use platform::PlatformClient;
@@ -25,58 +27,58 @@ use tool::{ExporterClient, GeneratorClients, SendClient, SshClient};
 use vault::VaultClient;
 
 #[derive(uniffi::Object)]
-pub struct Client(bitwarden_core::Client);
+pub struct Client(pub(crate) bitwarden_core::Client);
 
 #[uniffi::export(async_runtime = "tokio")]
 impl Client {
     /// Initialize a new instance of the SDK client
     #[uniffi::constructor]
-    pub fn new(settings: Option<ClientSettings>) -> Arc<Self> {
+    pub fn new(settings: Option<ClientSettings>) -> Self {
         init_logger();
 
         #[cfg(target_os = "android")]
         android_support::init();
 
-        Arc::new(Self(bitwarden_core::Client::new(settings)))
+        Self(bitwarden_core::Client::new(settings))
     }
 
     /// Crypto operations
-    pub fn crypto(self: Arc<Self>) -> Arc<CryptoClient> {
-        Arc::new(CryptoClient(self))
+    pub fn crypto(&self) -> CryptoClient {
+        CryptoClient(self.0.crypto())
     }
 
     /// Vault item operations
-    pub fn vault(self: Arc<Self>) -> Arc<VaultClient> {
-        Arc::new(VaultClient(self))
+    pub fn vault(&self) -> VaultClient {
+        VaultClient(self.0.vault())
     }
 
-    pub fn platform(self: Arc<Self>) -> Arc<PlatformClient> {
-        Arc::new(PlatformClient(self))
+    pub fn platform(&self) -> PlatformClient {
+        PlatformClient(self.0.clone())
     }
 
     /// Generator operations
-    pub fn generators(self: Arc<Self>) -> Arc<GeneratorClients> {
-        Arc::new(GeneratorClients(self))
+    pub fn generators(&self) -> GeneratorClients {
+        GeneratorClients(self.0.generator())
     }
 
     /// Exporters
-    pub fn exporters(self: Arc<Self>) -> Arc<ExporterClient> {
-        Arc::new(ExporterClient(self))
+    pub fn exporters(&self) -> ExporterClient {
+        ExporterClient(self.0.exporters())
     }
 
     /// Sends operations
-    pub fn sends(self: Arc<Self>) -> Arc<SendClient> {
-        Arc::new(SendClient(self))
+    pub fn sends(&self) -> SendClient {
+        SendClient(self.0.sends())
     }
 
     /// SSH operations
-    pub fn ssh(self: Arc<Self>) -> Arc<SshClient> {
-        Arc::new(SshClient(self))
+    pub fn ssh(&self) -> SshClient {
+        SshClient()
     }
 
     /// Auth operations
-    pub fn auth(self: Arc<Self>) -> Arc<AuthClient> {
-        Arc::new(AuthClient(self))
+    pub fn auth(&self) -> AuthClient {
+        AuthClient(self.0.clone())
     }
 
     /// Test method, echoes back the input

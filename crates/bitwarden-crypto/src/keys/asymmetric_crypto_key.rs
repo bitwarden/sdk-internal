@@ -6,13 +6,13 @@ use super::key_encryptable::CryptoKey;
 use crate::error::{CryptoError, Result};
 
 /// Trait to allow both [`AsymmetricCryptoKey`] and [`AsymmetricPublicCryptoKey`] to be used to
-/// encrypt [AsymmetricEncString](crate::AsymmetricEncString).
+/// encrypt [UnauthenticatedSharedKey](crate::UnauthenticatedSharedKey).
 pub trait AsymmetricEncryptable {
     fn to_public_key(&self) -> &RsaPublicKey;
 }
 
 /// An asymmetric public encryption key. Can only encrypt
-/// [AsymmetricEncString](crate::AsymmetricEncString), usually accompanied by a
+/// [UnauthenticatedSharedKey](crate::UnauthenticatedSharedKey), usually accompanied by a
 /// [AsymmetricCryptoKey]
 pub struct AsymmetricPublicCryptoKey {
     key: RsaPublicKey,
@@ -35,7 +35,7 @@ impl AsymmetricEncryptable for AsymmetricPublicCryptoKey {
 }
 
 /// An asymmetric encryption key. Contains both the public and private key. Can be used to both
-/// encrypt and decrypt [`AsymmetricEncString`](crate::AsymmetricEncString).
+/// encrypt and decrypt [`UnauthenticatedSharedKey`](crate::UnauthenticatedSharedKey).
 #[derive(Clone)]
 pub struct AsymmetricCryptoKey {
     // RsaPrivateKey is not a Copy type so this isn't completely necessary, but
@@ -121,7 +121,8 @@ mod tests {
     use base64::{engine::general_purpose::STANDARD, Engine};
 
     use crate::{
-        AsymmetricCryptoKey, AsymmetricEncString, AsymmetricPublicCryptoKey, SymmetricCryptoKey,
+        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, SymmetricCryptoKey,
+        UnauthenticatedSharedKey,
     };
 
     #[test]
@@ -217,7 +218,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
         let raw_key = SymmetricCryptoKey::generate();
         let encrypted =
-            AsymmetricEncString::encapsulate_key_unsigned(&raw_key, &public_key).unwrap();
+            UnauthenticatedSharedKey::encapsulate_key_unsigned(&raw_key, &public_key).unwrap();
         let decrypted = encrypted.decapsulate_key_unsigned(&private_key).unwrap();
 
         assert_eq!(raw_key, decrypted);
