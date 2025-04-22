@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, WrappedSymmetricKey,
 };
 use wasm_bindgen::prelude::*;
 
@@ -30,6 +30,20 @@ impl PureCrypto {
         key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         EncString::from_buffer(&enc_bytes)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
+    }
+
+    pub fn wrap_symmetric_key(key_to_be_wrapped: Vec<u8>, wrapping_key: Vec<u8>) -> Result<String, CryptoError> {
+        let key_to_be_wrapped: SymmetricCryptoKey = key_to_be_wrapped.try_into()?;
+        let wrapping_key: SymmetricCryptoKey = wrapping_key.try_into()?;
+        let wrapped_key: EncString = key_to_be_wrapped.wrap(&wrapping_key)?.into();
+        Ok(wrapped_key.to_string())
+    }
+
+    pub fn unwrap_symmetric_key(wrapped_key: String, wrapping_key: Vec<u8>) -> Result<Vec<u8>, CryptoError> {
+        let wrapped_key: WrappedSymmetricKey = EncString::from_str(&wrapped_key)?.into();
+        let wrapping_key: SymmetricCryptoKey = wrapping_key.try_into()?;
+        let unwrapped_key: SymmetricCryptoKey = wrapped_key.unwrap(&wrapping_key)?;
+        Ok(unwrapped_key.to_vec())
     }
 
     pub fn symmetric_encrypt(plain: String, key: Vec<u8>) -> Result<String, CryptoError> {

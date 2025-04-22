@@ -465,7 +465,7 @@ impl CipherView {
         self.reencrypt_attachment_keys(ctx, old_ciphers_key, new_key)?;
         self.reencrypt_fido2_credentials(ctx, old_ciphers_key, new_key)?;
 
-        self.key = Some(ctx.encrypt_symmetric_key_with_symmetric_key(key, new_key)?);
+        self.key = Some(ctx.encrypt_symmetric_key_with_symmetric_key(key, new_key)?.into());
         Ok(())
     }
 
@@ -938,7 +938,7 @@ mod tests {
 
             original_cipher.key = Some(
                 ctx.encrypt_symmetric_key_with_symmetric_key(SymmetricKeyId::User, cipher_key)
-                    .unwrap(),
+                    .unwrap().into(),
             );
         }
 
@@ -1078,7 +1078,7 @@ mod tests {
             size: None,
             size_name: None,
             file_name: Some("Attachment test name".into()),
-            key: Some(attachment_key_enc),
+            key: Some(attachment_key_enc.into()),
         };
         cipher.attachments = Some(vec![attachment]);
         let cred = generate_fido2(&mut key_store.context(), SymmetricKeyId::User);
@@ -1128,15 +1128,17 @@ mod tests {
             .unwrap();
         let cipher_key_enc = ctx
             .encrypt_symmetric_key_with_symmetric_key(SymmetricKeyId::User, cipher_key)
-            .unwrap();
+            .unwrap()
+            .into();
 
         // Attachment has a key that is encrypted with the cipher key
         let attachment_key = ctx
             .generate_symmetric_key(SymmetricKeyId::Local("test_attachment_key"))
             .unwrap();
-        let attachment_key_enc = ctx
+        let attachment_key_enc: EncString = ctx
             .encrypt_symmetric_key_with_symmetric_key(cipher_key, attachment_key)
-            .unwrap();
+            .unwrap()
+            .into();
 
         let mut cipher = generate_cipher();
         cipher.key = Some(cipher_key_enc);
@@ -1147,7 +1149,7 @@ mod tests {
             size: None,
             size_name: None,
             file_name: Some("Attachment test name".into()),
-            key: Some(attachment_key_enc.clone()),
+            key: Some(attachment_key_enc.clone())
         };
         cipher.attachments = Some(vec![attachment]);
 
