@@ -385,6 +385,7 @@ dependencies = [
 name = "bitwarden-core"
 version = "1.0.0"
 dependencies = [
+ "async-trait",
  "base64",
  "bitwarden-api-api",
  "bitwarden-api-identity",
@@ -499,6 +500,21 @@ dependencies = [
  "thiserror 2.0.12",
  "uniffi",
  "uuid",
+]
+
+[[package]]
+name = "bitwarden-ffi-macros"
+version = "1.0.0"
+dependencies = [
+ "darling",
+ "js-sys",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn",
+ "thiserror 1.0.69",
+ "tsify-next",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -641,6 +657,7 @@ dependencies = [
  "oslog",
  "rustls-platform-verifier",
  "schemars",
+ "serde_json",
  "thiserror 2.0.12",
  "uniffi",
  "uuid",
@@ -679,9 +696,11 @@ dependencies = [
 name = "bitwarden-wasm-internal"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-ffi-macros",
  "bitwarden-generators",
  "bitwarden-ipc",
  "bitwarden-ssh",
@@ -692,6 +711,8 @@ dependencies = [
  "js-sys",
  "log",
  "serde_json",
+ "tokio",
+ "tsify-next",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
