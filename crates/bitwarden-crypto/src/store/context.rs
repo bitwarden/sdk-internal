@@ -43,7 +43,7 @@ use crate::{
 /// #     pub Ids => SymmKeyId, AsymmKeyId;
 /// # }
 /// struct Data {
-///     key: EncString,
+///     key: WrappedSymmetricKey,
 ///     name: String,
 /// }
 /// # impl IdentifyKey<SymmKeyId> for Data {
