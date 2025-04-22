@@ -1,6 +1,6 @@
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext
+    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -80,7 +80,8 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<AttachmentEncryptResult, CryptoError> {
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key.clone().map(|k| k.into()))?;
+        let ciphers_key =
+            Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key.clone().map(|k| k.into()))?;
 
         let mut attachment = self.attachment.clone();
 
@@ -88,8 +89,10 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         // with it, and then encrypt the key with the cipher key
         let attachment_key = ctx.generate_symmetric_key(ATTACHMENT_KEY)?;
         let encrypted_contents = self.contents.encrypt(ctx, attachment_key)?;
-        attachment.key =
-            Some(ctx.encrypt_symmetric_key_with_symmetric_key(ciphers_key, attachment_key)?.into());
+        attachment.key = Some(
+            ctx.encrypt_symmetric_key_with_symmetric_key(ciphers_key, attachment_key)?
+                .into(),
+        );
 
         let contents = encrypted_contents.to_buffer()?;
 
@@ -120,7 +123,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, Vec<u8>> for AttachmentFile {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<Vec<u8>, CryptoError> {
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key.clone().map(|k| k.into()))?;
+        let ciphers_key =
+            Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key.clone().map(|k| k.into()))?;
 
         // Version 2 or 3, `AttachmentKey` or `CipherKey(AttachmentKey)`
         if let Some(attachment_key) = &self.attachment.key {

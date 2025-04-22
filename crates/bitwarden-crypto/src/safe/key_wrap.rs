@@ -50,7 +50,8 @@ impl From<WrappedSymmetricKey> for EncString {
 }
 
 impl WrappedSymmetricKey {
-    /// Unwraps a the wrapped symmetric key using the provided wrapping key, returning the contained wrapped key.
+    /// Unwraps a the wrapped symmetric key using the provided wrapping key, returning the contained
+    /// wrapped key.
     pub fn unwrap(
         &self,
         wrapping_key: &SymmetricCryptoKey,
@@ -62,8 +63,9 @@ impl WrappedSymmetricKey {
 
 impl SymmetricCryptoKey {
     /// Wraps (encrypts) the key using the provided wrapping key.
-    /// 
-    /// Use this if you have a symmetric crypto key that should protect another symmetric crypto key.
+    ///
+    /// Use this if you have a symmetric crypto key that should protect another symmetric crypto
+    /// key.
     pub fn wrap(
         &self,
         wrapping_key: &SymmetricCryptoKey,

@@ -147,10 +147,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let unwrapped_key = encrypted_key.unwrap(encryption_key)?;
 
         #[allow(deprecated)]
-        self.set_symmetric_key(
-            new_key_id,
-            unwrapped_key,
-        )?;
+        self.set_symmetric_key(new_key_id, unwrapped_key)?;
 
         // Returning the new key identifier for convenience
         Ok(new_key_id)
