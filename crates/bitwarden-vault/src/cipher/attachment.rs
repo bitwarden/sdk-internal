@@ -1,6 +1,6 @@
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
+    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -80,7 +80,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<AttachmentEncryptResult, CryptoError> {
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key)?;
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key.clone().map(|k| k.into()))?;
 
         let mut attachment = self.attachment.clone();
 
@@ -120,14 +120,14 @@ impl Decryptable<KeyIds, SymmetricKeyId, Vec<u8>> for AttachmentFile {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<Vec<u8>, CryptoError> {
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key)?;
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key.clone().map(|k| k.into()))?;
 
         // Version 2 or 3, `AttachmentKey` or `CipherKey(AttachmentKey)`
         if let Some(attachment_key) = &self.attachment.key {
             let content_key = ctx.decrypt_symmetric_key_with_symmetric_key(
                 ciphers_key,
                 ATTACHMENT_KEY,
-                attachment_key,
+                &attachment_key.clone().into(),
             )?;
             self.contents.decrypt(ctx, content_key)
         } else {

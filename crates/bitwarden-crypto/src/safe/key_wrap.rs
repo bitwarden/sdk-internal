@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey};
 
+#[derive(Clone, PartialEq)]
 pub struct WrappedSymmetricKey(EncString);
 
 impl Debug for WrappedSymmetricKey {
@@ -49,6 +50,7 @@ impl From<WrappedSymmetricKey> for EncString {
 }
 
 impl WrappedSymmetricKey {
+    /// Unwraps a the wrapped symmetric key using the provided wrapping key, returning the contained wrapped key.
     pub fn unwrap(
         &self,
         wrapping_key: &SymmetricCryptoKey,
@@ -59,6 +61,9 @@ impl WrappedSymmetricKey {
 }
 
 impl SymmetricCryptoKey {
+    /// Wraps (encrypts) the key using the provided wrapping key.
+    /// 
+    /// Use this if you have a symmetric crypto key that should protect another symmetric crypto key.
     pub fn wrap(
         &self,
         wrapping_key: &SymmetricCryptoKey,
@@ -66,5 +71,22 @@ impl SymmetricCryptoKey {
         let encoded = self.to_vec();
         let enc_string = encoded.encrypt_with_key(wrapping_key)?;
         Ok(enc_string.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_wrap_unwrap() {
+        let mut rng = rand::thread_rng();
+        let wrapping_key = SymmetricCryptoKey::generate(&mut rng);
+        let key = SymmetricCryptoKey::generate(&mut rng);
+
+        let wrapped_key = key.wrap(&wrapping_key).unwrap();
+        let unwrapped_key = wrapped_key.unwrap(&wrapping_key).unwrap();
+
+        assert_eq!(key, unwrapped_key);
     }
 }

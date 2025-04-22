@@ -10,7 +10,7 @@ use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
     AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, KeyId, KeyIds, Result,
-    SymmetricCryptoKey,
+    SymmetricCryptoKey, WrappedSymmetricKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -141,15 +141,15 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         &mut self,
         encryption_key: Ids::Symmetric,
         new_key_id: Ids::Symmetric,
-        encrypted_key: &EncString,
+        encrypted_key: &WrappedSymmetricKey,
     ) -> Result<Ids::Symmetric> {
-        let mut new_key_material =
-            self.decrypt_data_with_symmetric_key(encryption_key, encrypted_key)?;
+        let encryption_key = self.get_symmetric_key(encryption_key)?;
+        let unwrapped_key = encrypted_key.unwrap(encryption_key)?;
 
         #[allow(deprecated)]
         self.set_symmetric_key(
             new_key_id,
-            SymmetricCryptoKey::try_from(new_key_material.as_mut_slice())?,
+            unwrapped_key,
         )?;
 
         // Returning the new key identifier for convenience
@@ -168,9 +168,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         &self,
         encryption_key: Ids::Symmetric,
         key_to_encrypt: Ids::Symmetric,
-    ) -> Result<EncString> {
-        let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
-        self.encrypt_data_with_symmetric_key(encryption_key, &key_to_encrypt.to_vec())
+    ) -> Result<WrappedSymmetricKey> {
+        let key_to_wrap = self.get_symmetric_key(key_to_encrypt)?;
+        let wrapping_key = self.get_symmetric_key(encryption_key)?;
+        key_to_wrap.wrap(wrapping_key)
     }
 
     /// Decrypt a symmetric key into the context by using an already existing asymmetric key
@@ -450,7 +451,7 @@ mod tests {
         // Decrypt the new key with the old key in a different identifier
         let new_key_id = TestSymmKey::C(3);
 
-        ctx.decrypt_symmetric_key_with_symmetric_key(key_1_id, new_key_id, &key_2_enc)
+        ctx.decrypt_symmetric_key_with_symmetric_key(key_1_id, new_key_id, &key_2_enc.into())
             .unwrap();
 
         // Now `key_2_id` and `new_key_id` contain the same key, so we should be able to encrypt

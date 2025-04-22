@@ -4,7 +4,7 @@ use bitwarden_core::{
     require, MissingFieldError, VaultLockedError,
 };
 use bitwarden_crypto::{
-    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
+    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext, WrappedSymmetricKey,
 };
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
@@ -198,7 +198,7 @@ impl CipherListView {
         ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<Option<String>, CryptoError> {
         let key = self.key_identifier();
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key.clone().map(|k| k.into()))?;
 
         let totp = match self.r#type {
             CipherListViewType::Login(LoginListView { totp, .. }) => {
@@ -217,7 +217,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<Cipher, CryptoError> {
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key.clone().map(|k| k.into()))?;
 
         let mut cipher_view = self.clone();
 
@@ -263,7 +263,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<CipherView, CryptoError> {
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key.clone().map(|k| k.into()))?;
 
         let mut cipher = CipherView {
             id: self.id,
@@ -321,12 +321,12 @@ impl Cipher {
     pub(super) fn decrypt_cipher_key(
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
-        ciphers_key: &Option<EncString>,
+        ciphers_key: &Option<WrappedSymmetricKey>,
     ) -> Result<SymmetricKeyId, CryptoError> {
         const CIPHER_KEY: SymmetricKeyId = SymmetricKeyId::Local("cipher_key");
         match ciphers_key {
             Some(ciphers_key) => {
-                ctx.decrypt_symmetric_key_with_symmetric_key(key, CIPHER_KEY, ciphers_key)
+                ctx.decrypt_symmetric_key_with_symmetric_key(key, CIPHER_KEY, &ciphers_key.clone().into())
             }
             None => Ok(key),
         }
@@ -456,7 +456,7 @@ impl CipherView {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
-        let old_ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let old_ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key.clone().map(|k| k.into()))?;
 
         const NEW_KEY: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
 
@@ -505,7 +505,7 @@ impl CipherView {
         ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<Vec<Fido2CredentialView>, CryptoError> {
         let key = self.key_identifier();
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key.clone().map(|k| k.into()))?;
 
         Ok(self
             .login
@@ -566,7 +566,7 @@ impl CipherView {
     ) -> Result<(), CipherError> {
         let key = self.key_identifier();
 
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key.clone().map(|k| k.into()))?;
 
         require!(self.login.as_mut()).fido2_credentials = Some(creds.encrypt(ctx, ciphers_key)?);
 
@@ -579,7 +579,7 @@ impl CipherView {
     ) -> Result<Vec<Fido2CredentialFullView>, CipherError> {
         let key = self.key_identifier();
 
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key.clone().map(|k| k.into()))?;
 
         let login = require!(self.login.as_ref());
         let creds = require!(login.fido2_credentials.as_ref());
@@ -603,7 +603,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<CipherListView, CryptoError> {
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key.clone().map(|k| k.into()))?;
 
         Ok(CipherListView {
             id: self.id,
@@ -1350,7 +1350,8 @@ mod tests {
             .unwrap();
 
         let key_id = cipher_view.key_identifier();
-        let ciphers_key = Cipher::decrypt_cipher_key(&mut ctx, key_id, &cipher_view.key).unwrap();
+        let ciphers_key = Cipher::decrypt_cipher_key(&mut ctx, key_id, &cipher_view.key.clone().map(|k| k.into()))
+            .unwrap();
 
         let fido2_credential = generate_fido2(&mut ctx, ciphers_key);
 
