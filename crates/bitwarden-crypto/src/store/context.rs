@@ -160,39 +160,43 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// # Arguments
     ///
-    /// * `encryption_key` - The key id used to encrypt the `key_to_encrypt`. It must already exist
+    /// * `wrapping_key` - The key id used to wrap(encrypt) the `key_to_wrap`. It must already exist
     ///   in the context
-    /// * `key_to_encrypt` - The key id to encrypt. It must already exist in the context
+    /// * `key_to_wrap` - The key id to wrap. It must already exist in the context
     pub fn encrypt_symmetric_key_with_symmetric_key(
         &self,
-        encryption_key: Ids::Symmetric,
-        key_to_encrypt: Ids::Symmetric,
+        wrapping_key: Ids::Symmetric,
+        key_to_wrap: Ids::Symmetric,
     ) -> Result<EncString> {
-        let wrapping_key = self.get_symmetric_key(encryption_key)?;
-        match wrapping_key {
+        let wrapping_key_instance = self.get_symmetric_key(wrapping_key)?;
+        let key_to_wrap_instance = self.get_symmetric_key(key_to_wrap)?;
+        match (wrapping_key_instance, key_to_wrap_instance) {
             // These keys wrap directly by encrypting the key bytes of the inner key, with padding
             // applied in case it is needed
-            SymmetricCryptoKey::Aes256CbcKey(_) | SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
-                let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
-                self.encrypt_data_with_symmetric_key(encryption_key, &key_to_encrypt.to_encoded())
+            (
+                SymmetricCryptoKey::Aes256CbcHmacKey(_),
+                SymmetricCryptoKey::Aes256CbcHmacKey(_) | SymmetricCryptoKey::Aes256CbcKey(_),
+            ) => self.encrypt_data_with_symmetric_key(
+                wrapping_key,
+                key_to_wrap_instance.to_encoded().as_slice(),
+            ),
+            (
+                SymmetricCryptoKey::XChaCha20Poly1305Key(_),
+                SymmetricCryptoKey::Aes256CbcHmacKey(_) | SymmetricCryptoKey::Aes256CbcKey(_),
+            ) => {
+                // These keys should be represented as octet stream payloads in cose
+                todo!()
             }
-            // These keys wrap using CBOR. The content type needs to indicate what the format of the
-            // inner key is
-            SymmetricCryptoKey::XChaCha20Poly1305Key(k) => {
-                let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
-                match key_to_encrypt {
-                    SymmetricCryptoKey::Aes256CbcKey(_)
-                    | SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
-                        let encoded_key = key_to_encrypt.to_encoded_raw();
-                        let encrypted =
-                            EncString::encrypt_xchacha20_poly1305(encoded_key.as_slice(), k);
-                        encrypted
-                    }
-                    SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
-                        todo!();
-                    }
-                }
+            (
+                SymmetricCryptoKey::XChaCha20Poly1305Key(_),
+                SymmetricCryptoKey::XChaCha20Poly1305Key(_),
+            ) => {
+                // These keys should be represented as CoseKey payloads in cose
+                todo!()
             }
+            _ => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperation::EncryptionNotImplementedForKey,
+            )),
         }
     }
 
@@ -253,7 +257,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
     /// Generate a new random symmetric key and store it in the context
     pub fn generate_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<Ids::Symmetric> {
-        let key = SymmetricCryptoKey::generate();
+        let key = SymmetricCryptoKey::generate_aes256_cbc_hmac();
         #[allow(deprecated)]
         self.set_symmetric_key(key_id, key)?;
         Ok(key_id)
@@ -398,7 +402,7 @@ mod tests {
 
         // Generate and insert a key
         let key_a0_id = TestSymmKey::A(0);
-        let key_a0 = SymmetricCryptoKey::generate();
+        let key_a0 = SymmetricCryptoKey::generate_aes256_cbc_hmac();
 
         store
             .context_mut()
@@ -420,7 +424,7 @@ mod tests {
 
         // Generate and insert a key
         let key_1_id = TestSymmKey::C(1);
-        let key_1 = SymmetricCryptoKey::generate();
+        let key_1 = SymmetricCryptoKey::generate_aes256_cbc_hmac();
 
         ctx.set_symmetric_key(key_1_id, key_1.clone()).unwrap();
 
@@ -428,7 +432,7 @@ mod tests {
 
         // Generate and insert a new key
         let key_2_id = TestSymmKey::C(2);
-        let key_2 = SymmetricCryptoKey::generate();
+        let key_2 = SymmetricCryptoKey::generate_aes256_cbc_hmac();
 
         ctx.set_symmetric_key(key_2_id, key_2.clone()).unwrap();
 
