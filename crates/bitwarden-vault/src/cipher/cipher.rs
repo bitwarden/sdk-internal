@@ -326,7 +326,7 @@ impl Cipher {
         const CIPHER_KEY: SymmetricKeyId = SymmetricKeyId::Local("cipher_key");
         match ciphers_key {
             Some(ciphers_key) => {
-                ctx.decrypt_symmetric_key_with_symmetric_key(key, CIPHER_KEY, &ciphers_key.clone().into())
+                ctx.decrypt_symmetric_key_with_symmetric_key(key, CIPHER_KEY, &ciphers_key.clone())
             }
             None => Ok(key),
         }
