@@ -448,7 +448,7 @@ mod tests {
         // Decrypt the new key with the old key in a different identifier
         let new_key_id = TestSymmKey::C(3);
 
-        ctx.decrypt_symmetric_key_with_symmetric_key(key_1_id, new_key_id, &key_2_enc.into())
+        ctx.decrypt_symmetric_key_with_symmetric_key(key_1_id, new_key_id, &key_2_enc)
             .unwrap();
 
         // Now `key_2_id` and `new_key_id` contain the same key, so we should be able to encrypt
