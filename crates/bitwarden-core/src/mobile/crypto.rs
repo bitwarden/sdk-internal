@@ -184,9 +184,11 @@ pub async fn initialize_user_crypto(
             let master_key = MasterKey::try_from(master_key_bytes.as_mut_slice())?;
             let user_key: EncString = user_key.parse()?;
 
-            client
-                .internal
-                .initialize_user_crypto_master_key(master_key, user_key.into(), private_key)?;
+            client.internal.initialize_user_crypto_master_key(
+                master_key,
+                user_key.into(),
+                private_key,
+            )?;
         }
     }
 
@@ -269,7 +271,7 @@ pub fn update_password(
     let new_key = new_master_key.encrypt_user_key(user_key)?;
 
     let password_hash = new_master_key.derive_master_key_hash(
-         new_password.as_bytes(),
+        new_password.as_bytes(),
         bitwarden_crypto::HashPurpose::ServerAuthorization,
     )?;
 
