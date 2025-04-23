@@ -2,15 +2,19 @@ use bitwarden_vault::{Totp, TotpAlgorithm};
 use credential_exchange_format::{
     Account as CxfAccount, Credential, Item, NoteCredential, OTPHashAlgorithm, TotpCredential,
 };
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+#[cfg(feature = "wasm")]
+use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{cxf::CxfError, Cipher, CipherType, Login};
 
 /// Temporary struct to hold metadata related to current account
 ///
 /// Eventually the SDK itself should have this state and we get rid of this struct.
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Account {
     id: Uuid,
     email: String,

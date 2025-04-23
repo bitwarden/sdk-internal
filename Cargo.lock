@@ -486,6 +486,7 @@ dependencies = [
  "base64",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-error",
  "bitwarden-fido",
  "bitwarden-vault",
  "chrono",
@@ -497,8 +498,10 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.12",
+ "tsify-next",
  "uniffi",
  "uuid",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -682,6 +685,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-exporters",
  "bitwarden-generators",
  "bitwarden-ipc",
  "bitwarden-ssh",

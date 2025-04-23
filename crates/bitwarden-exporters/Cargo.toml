@@ -17,11 +17,13 @@ keywords.workspace = true
 
 [features]
 uniffi = ["dep:uniffi", "bitwarden-core/uniffi"] # Uniffi bindings
+wasm = ["dep:tsify-next", "dep:wasm-bindgen"]    # WebAssembly bindings
 
 [dependencies]
 base64 = ">=0.22.1, <0.23"
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
+bitwarden-error = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
@@ -32,8 +34,10 @@ schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+tsify-next = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 rand = ">=0.8.5, <0.9"
