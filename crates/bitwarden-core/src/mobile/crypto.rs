@@ -173,7 +173,7 @@ pub async fn initialize_user_crypto(
                 } => auth_request_decrypt_master_key(
                     request_private_key,
                     protected_master_key,
-                    auth_request_key.into(),
+                    auth_request_key,
                 )?,
             };
             client

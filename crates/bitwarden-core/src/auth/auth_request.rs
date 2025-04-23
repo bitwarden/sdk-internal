@@ -200,7 +200,7 @@ mod tests {
         let dec = auth_request_decrypt_master_key(
             private_key.to_owned(),
             enc_master_key,
-            enc_user_key.into(),
+            enc_user_key,
         )
         .unwrap();
 
