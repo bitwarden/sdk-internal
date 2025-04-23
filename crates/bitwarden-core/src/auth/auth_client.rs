@@ -1,6 +1,8 @@
 use bitwarden_crypto::WrappedSymmetricKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{AsymmetricEncString, CryptoError, DeviceKey, Kdf, TrustDeviceResponse};
+use bitwarden_crypto::{
+    CryptoError, DeviceKey, Kdf, TrustDeviceResponse, UnsignedSharedKey,
+};
 
 #[cfg(feature = "secrets")]
 use crate::auth::login::{login_access_token, AccessTokenLoginRequest, AccessTokenLoginResponse};
@@ -151,7 +153,7 @@ impl AuthClient {
     pub fn approve_auth_request(
         &self,
         public_key: String,
-    ) -> Result<AsymmetricEncString, ApproveAuthRequestError> {
+    ) -> Result<UnsignedSharedKey, ApproveAuthRequestError> {
         approve_auth_request(&self.client, public_key)
     }
 

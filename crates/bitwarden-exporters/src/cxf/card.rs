@@ -4,7 +4,7 @@
 
 use bitwarden_vault::CardBrand;
 use chrono::Month;
-use credential_exchange_types::format::{Credential, CreditCardCredential, EditableFieldYearMonth};
+use credential_exchange_format::{Credential, CreditCardCredential, EditableFieldYearMonth};
 use num_traits::FromPrimitive;
 
 use crate::Card;
@@ -84,7 +84,7 @@ fn sanitize_brand(value: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use chrono::Month;
-    use credential_exchange_types::format::EditableFieldYearMonth;
+    use credential_exchange_format::EditableFieldYearMonth;
 
     use super::*;
 

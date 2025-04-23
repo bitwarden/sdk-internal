@@ -62,6 +62,7 @@ impl ClientCiphers {
         Ok(cipher_view)
     }
 
+    #[cfg(feature = "wasm")]
     pub fn decrypt_fido2_private_key(
         &self,
         cipher_view: CipherView,

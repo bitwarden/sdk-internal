@@ -4,9 +4,7 @@ use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{
-    AsymmetricEncString, EncString, Kdf, MasterKey, PinKey, WrappedSymmetricKey,
-};
+use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey, WrappedSymmetricKey};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -181,6 +179,7 @@ impl InternalClient {
         user_key: WrappedSymmetricKey,
         private_key: EncString,
     ) -> Result<(), EncryptionSettingsError> {
+
         let user_key = master_key.decrypt_user_key(user_key)?;
         EncryptionSettings::new_decrypted_key(user_key, private_key, &self.key_store)?;
 
@@ -217,7 +216,7 @@ impl InternalClient {
     #[cfg(feature = "internal")]
     pub fn initialize_org_crypto(
         &self,
-        org_keys: Vec<(Uuid, AsymmetricEncString)>,
+        org_keys: Vec<(Uuid, UnsignedSharedKey)>,
     ) -> Result<(), EncryptionSettingsError> {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
     }
