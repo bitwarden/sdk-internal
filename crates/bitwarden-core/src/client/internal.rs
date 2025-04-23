@@ -179,7 +179,6 @@ impl InternalClient {
         user_key: WrappedSymmetricKey,
         private_key: EncString,
     ) -> Result<(), EncryptionSettingsError> {
-
         let user_key = master_key.decrypt_user_key(user_key)?;
         EncryptionSettings::new_decrypted_key(user_key, private_key, &self.key_store)?;
 

@@ -1,8 +1,6 @@
 use bitwarden_crypto::WrappedSymmetricKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{
-    CryptoError, DeviceKey, Kdf, TrustDeviceResponse, UnsignedSharedKey,
-};
+use bitwarden_crypto::{CryptoError, DeviceKey, Kdf, TrustDeviceResponse, UnsignedSharedKey};
 
 #[cfg(feature = "secrets")]
 use crate::auth::login::{login_access_token, AccessTokenLoginRequest, AccessTokenLoginResponse};
