@@ -1,21 +1,20 @@
-use bitwarden_core::Client;
 use bitwarden_generators::{
-    GeneratorClientsExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
+    PassphraseGeneratorRequest, PasswordGeneratorRequest, GeneratorClient as InternalGeneratorClient
 };
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub struct GeneratorClient(Client);
+pub struct GeneratorClient(InternalGeneratorClient);
 
 impl GeneratorClient {
     /// Constructs a new SDK client for generating random passwords and passphrases
     ///
     /// # Arguments
-    /// - `client` - The client used to access the SDK
+    /// - `client` - The internal generator client used to access the SDK
     ///
     /// # Returns
     /// - `Self` - Returns newly constructed client
-    pub fn new(client: Client) -> Self {
+    pub fn new(client: InternalGeneratorClient) -> Self {
         Self(client)
     }
 }
@@ -34,7 +33,7 @@ impl GeneratorClient {
         &self,
         request: PasswordGeneratorRequest,
     ) -> Result<String, bitwarden_generators::PasswordError> {
-        self.0.generator().password(request)
+        self.0.password(request)
     }
 
     /// Generates a passphrase from a provided request
@@ -49,6 +48,6 @@ impl GeneratorClient {
         &self,
         request: PassphraseGeneratorRequest,
     ) -> Result<String, bitwarden_generators::PassphraseError> {
-        self.0.generator().passphrase(request)
+        self.0.passphrase(request)
     }
 }
