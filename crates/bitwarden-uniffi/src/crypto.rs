@@ -2,7 +2,7 @@ use bitwarden_core::mobile::crypto::{
     DeriveKeyConnectorRequest, DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest,
     UpdatePasswordResponse,
 };
-use bitwarden_crypto::{EncString, UnauthenticatedSharedKey};
+use bitwarden_crypto::{EncString, UnsignedSharedKey};
 
 use crate::error::{Error, Result};
 
@@ -66,10 +66,7 @@ impl CryptoClient {
             .map_err(Error::MobileCrypto)?)
     }
 
-    pub fn enroll_admin_password_reset(
-        &self,
-        public_key: String,
-    ) -> Result<UnauthenticatedSharedKey> {
+    pub fn enroll_admin_password_reset(&self, public_key: String) -> Result<UnsignedSharedKey> {
         Ok(self
             .0
             .enroll_admin_password_reset(public_key)

@@ -9,10 +9,16 @@ mod cipher;
 pub use cipher::*;
 mod collection;
 pub use collection::{Collection, CollectionView};
+mod collection_client;
+pub use collection_client::ClientCollections;
 mod folder;
 pub use folder::{Folder, FolderView};
+mod folder_client;
+pub use folder_client::ClientFolders;
 mod password_history;
 pub use password_history::{PasswordHistory, PasswordHistoryView};
+mod password_history_client;
+pub use password_history_client::ClientPasswordHistory;
 mod domain;
 pub use domain::GlobalDomains;
 mod totp;
@@ -23,14 +29,6 @@ mod error;
 pub use error::{DecryptError, EncryptError, VaultParseError};
 mod vault_client;
 pub use vault_client::{VaultClient, VaultClientExt};
-mod mobile;
-pub use mobile::{
-    attachment_client::{ClientAttachments, DecryptFileError, EncryptFileError},
-    cipher_client::ClientCiphers,
-    collection_client::ClientCollections,
-    folder_client::ClientFolders,
-    password_history_client::ClientPasswordHistory,
-};
 
 mod sync;
 mod totp_client;

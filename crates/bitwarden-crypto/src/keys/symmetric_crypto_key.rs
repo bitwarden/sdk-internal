@@ -4,8 +4,12 @@ use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use coset::{iana, CborSerializable, Label, RegisteredLabelWithPrivate};
 use generic_array::GenericArray;
-use rand::{Rng, SeedableRng};
+use rand::Rng;
+#[cfg(test)]
+use rand::SeedableRng;
+#[cfg(test)]
 use rand_chacha::ChaChaRng;
+#[cfg(test)]
 use sha2::Digest;
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -149,6 +153,7 @@ impl SymmetricCryptoKey {
 
     /// Generate a new random [SymmetricCryptoKey] for unit tests. Note: DO NOT USE THIS
     /// IN PRODUCTION CODE.
+    #[cfg(test)]
     pub fn generate_seeded_for_unit_tests(seed: &str) -> Self {
         // Keep this separate from the other generate function to not break test vectors.
         let mut seeded_rng = ChaChaRng::from_seed(sha2::Sha256::digest(seed.as_bytes()).into());

@@ -2,9 +2,7 @@ use bitwarden_core::auth::{
     password::MasterPasswordPolicyOptions, AuthRequestResponse, KeyConnectorResponse,
     RegisterKeyResponse, RegisterTdeKeyResponse,
 };
-use bitwarden_crypto::{
-    EncString, HashPurpose, Kdf, TrustDeviceResponse, UnauthenticatedSharedKey,
-};
+use bitwarden_crypto::{EncString, HashPurpose, Kdf, TrustDeviceResponse, UnsignedSharedKey};
 
 use crate::error::{Error, Result};
 
@@ -144,7 +142,7 @@ impl AuthClient {
     }
 
     /// Approve an auth request
-    pub fn approve_auth_request(&self, public_key: String) -> Result<UnauthenticatedSharedKey> {
+    pub fn approve_auth_request(&self, public_key: String) -> Result<UnsignedSharedKey> {
         Ok(self
             .0
             .auth()
