@@ -1,5 +1,10 @@
 use crate::{CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey};
 
+/// A wrapped symmetric key is an an [EncString], created where a wrapping key is used to encrypt a
+/// key_to_wrap.
+///
+/// Wrapped keys such as cipher keys, or attachment keys, are used to create a layer of indirection,
+/// so that keys can be shared mor granularly, and so that data can be rotated more easily.
 #[derive(Clone, PartialEq)]
 pub struct WrappedSymmetricKey(EncString);
 
