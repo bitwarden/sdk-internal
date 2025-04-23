@@ -1,5 +1,5 @@
 use bitwarden_vault::{Totp, TotpAlgorithm};
-use credential_exchange_types::format::{
+use credential_exchange_format::{
     Account as CxfAccount, Credential, Item, NoteCredential, OTPHashAlgorithm, TotpCredential,
 };
 use uuid::Uuid;
