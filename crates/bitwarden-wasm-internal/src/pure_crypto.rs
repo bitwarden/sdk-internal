@@ -12,6 +12,7 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub struct PureCrypto {}
 
+// Encryption
 #[wasm_bindgen]
 impl PureCrypto {
     pub fn symmetric_decrypt(enc_string: String, key: Vec<u8>) -> Result<String, CryptoError> {
@@ -47,6 +48,13 @@ impl PureCrypto {
             .to_buffer()
     }
 
+
+
+}
+
+// Userkey encryption with password
+#[wasm_bindgen]
+impl PureCrypto {
     pub fn decrypt_user_key_with_master_password(
         encrypted_user_key: String,
         master_password: String,
@@ -72,12 +80,16 @@ impl PureCrypto {
         let result = master_key.encrypt_user_key(&user_key)?;
         Ok(result.to_string())
     }
+}
 
-    pub fn generate_user_key() -> Vec<u8> {
+// Generate userkey
+#[wasm_bindgen]
+impl PureCrypto {
+    pub fn generate_user_key_aes256_cbc_hmac() -> Vec<u8> {
         SymmetricCryptoKey::generate_aes256_cbc_hmac().to_encoded()
     }
 
-    pub fn generate_user_key_xchacha20() -> Vec<u8> {
+    pub fn generate_user_key_xchacha20_poly1305() -> Vec<u8> {
         SymmetricCryptoKey::generate_xchacha20().to_encoded()
     }
 }
