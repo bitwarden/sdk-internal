@@ -1,13 +1,12 @@
 use bitwarden_core::Client;
 use bitwarden_vault::{Cipher, Collection, Folder};
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::{
     export::{export_cxf, export_organization_vault, export_vault, import_cxf},
     Account, ExportError, ExportFormat,
 };
-
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct ExporterClient {
