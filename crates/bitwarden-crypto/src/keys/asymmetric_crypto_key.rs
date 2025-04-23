@@ -121,8 +121,7 @@ mod tests {
     use base64::{engine::general_purpose::STANDARD, Engine};
 
     use crate::{
-        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, SymmetricCryptoKey,
-        UnsignedSharedKey,
+        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, SymmetricCryptoKey, UnsignedSharedKey,
     };
 
     #[test]
@@ -217,8 +216,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let public_key = AsymmetricPublicCryptoKey::from_der(&public_key).unwrap();
 
         let raw_key = SymmetricCryptoKey::generate(&mut rand::thread_rng());
-        let encrypted =
-            UnsignedSharedKey::encapsulate_key_unsigned(&raw_key, &public_key).unwrap();
+        let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(&raw_key, &public_key).unwrap();
         let decrypted = encrypted.decapsulate_key_unsigned(&private_key).unwrap();
 
         assert_eq!(raw_key, decrypted);

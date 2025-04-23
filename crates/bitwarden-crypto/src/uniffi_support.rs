@@ -1,6 +1,6 @@
 use std::{num::NonZeroU32, str::FromStr};
 
-use crate::{CryptoError, EncString, UnsignedSharedKey, UniffiCustomTypeConverter};
+use crate::{CryptoError, EncString, UniffiCustomTypeConverter, UnsignedSharedKey};
 
 uniffi::custom_type!(NonZeroU32, u32);
 

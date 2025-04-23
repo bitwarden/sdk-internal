@@ -2,9 +2,7 @@ use bitwarden_core::auth::{
     password::MasterPasswordPolicyOptions, AuthRequestResponse, KeyConnectorResponse,
     RegisterKeyResponse, RegisterTdeKeyResponse,
 };
-use bitwarden_crypto::{
-    EncString, HashPurpose, Kdf, TrustDeviceResponse, UnsignedSharedKey,
-};
+use bitwarden_crypto::{EncString, HashPurpose, Kdf, TrustDeviceResponse, UnsignedSharedKey};
 
 use crate::error::{Error, Result};
 
