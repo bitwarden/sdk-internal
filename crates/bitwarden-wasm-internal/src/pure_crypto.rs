@@ -47,9 +47,6 @@ impl PureCrypto {
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)?
             .to_buffer()
     }
-
-
-
 }
 
 // Userkey encryption with password
