@@ -1,5 +1,6 @@
 use bitwarden_generators::{
-    PassphraseGeneratorRequest, PasswordGeneratorRequest, GeneratorClient as InternalGeneratorClient
+    GeneratorClient as InternalGeneratorClient, PassphraseGeneratorRequest,
+    PasswordGeneratorRequest,
 };
 use wasm_bindgen::prelude::*;
 
