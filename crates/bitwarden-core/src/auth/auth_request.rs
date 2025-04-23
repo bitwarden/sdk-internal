@@ -197,12 +197,9 @@ mod tests {
 
         let enc_master_key = "4.dxbd5OMwi/Avy7DQxvLV+Z7kDJgHBtg/jAbgYNO7QU0Zii4rLFNco2lS5aS9z42LTZHc2p5HYwn2ZwkZNfHsQ6//d5q40MDgGYJMKBXOZP62ZHhct1XsvYBmtcUtIOm5j2HSjt2pjEuGAc1LbyGIWRJJQ3Lp1ULbL2m71I+P23GF36JyOM8SUWvpvxE/3+qqVhRFPG2VqMCYa2kLLxwVfUmpV+KKjX1TXsrq6pfJIwHNwHw4h7MSfD8xTy2bx4MiBt638Z9Vt1pGsSQkh9RgPvCbnhuCpZQloUgJ8ByLVEcrlKx3yaaxiQXvte+ZhuOI7rGdjmoVoOzisooje4JgYw==".parse().unwrap();
         let enc_user_key: EncString = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=".parse().unwrap();
-        let dec = auth_request_decrypt_master_key(
-            private_key.to_owned(),
-            enc_master_key,
-            enc_user_key,
-        )
-        .unwrap();
+        let dec =
+            auth_request_decrypt_master_key(private_key.to_owned(), enc_master_key, enc_user_key)
+                .unwrap();
 
         assert_eq!(
             &dec.to_vec(),
