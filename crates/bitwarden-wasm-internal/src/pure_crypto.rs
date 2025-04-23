@@ -38,7 +38,7 @@ impl PureCrypto {
     ) -> Result<String, CryptoError> {
         let key_to_be_wrapped: SymmetricCryptoKey = key_to_be_wrapped.try_into()?;
         let wrapping_key: SymmetricCryptoKey = wrapping_key.try_into()?;
-        let wrapped_key: EncString = key_to_be_wrapped.wrap(&wrapping_key)?.into();
+        let wrapped_key: EncString = key_to_be_wrapped.wrap_with(&wrapping_key)?.into();
         Ok(wrapped_key.to_string())
     }
 
@@ -48,7 +48,7 @@ impl PureCrypto {
     ) -> Result<Vec<u8>, CryptoError> {
         let wrapped_key: WrappedSymmetricKey = EncString::from_str(&wrapped_key)?.into();
         let wrapping_key: SymmetricCryptoKey = wrapping_key.try_into()?;
-        let unwrapped_key: SymmetricCryptoKey = wrapped_key.unwrap(&wrapping_key)?;
+        let unwrapped_key: SymmetricCryptoKey = wrapped_key.unwrap_with(&wrapping_key)?;
         Ok(unwrapped_key.to_vec())
     }
 

@@ -112,9 +112,8 @@ pub(super) fn encrypt_user_key(
     master_key: &Pin<Box<GenericArray<u8, U32>>>,
     user_key: &SymmetricCryptoKey,
 ) -> Result<WrappedSymmetricKey> {
-    let stretched_master_key = stretch_key(master_key)?;
-    let user_key_bytes = Zeroizing::new(user_key.to_vec());
-    EncString::encrypt_aes256_hmac(&user_key_bytes, &stretched_master_key).map(Into::into)
+    let stretched_master_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(master_key)?);
+    user_key.wrap_with(&stretched_master_key)
 }
 
 /// Helper function to decrypt a user key with a master or pin key or key-connector-key.
@@ -130,11 +129,11 @@ pub(super) fn decrypt_user_key(
             let legacy_key = SymmetricCryptoKey::Aes256CbcKey(super::Aes256CbcKey {
                 enc_key: Box::pin(GenericArray::clone_from_slice(key)),
             });
-            user_key.unwrap(&legacy_key)
+            user_key.unwrap_with(&legacy_key)
         }
         _ => {
             let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key)?);
-            user_key.unwrap(&stretched_key)
+            user_key.unwrap_with(&stretched_key)
         }
     }
 }

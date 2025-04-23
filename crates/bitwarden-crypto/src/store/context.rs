@@ -144,7 +144,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         encrypted_key: &WrappedSymmetricKey,
     ) -> Result<Ids::Symmetric> {
         let encryption_key = self.get_symmetric_key(encryption_key)?;
-        let unwrapped_key = encrypted_key.unwrap(encryption_key)?;
+        let unwrapped_key = encrypted_key.unwrap_with(encryption_key)?;
 
         #[allow(deprecated)]
         self.set_symmetric_key(new_key_id, unwrapped_key)?;
@@ -168,7 +168,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ) -> Result<WrappedSymmetricKey> {
         let key_to_wrap = self.get_symmetric_key(key_to_encrypt)?;
         let wrapping_key = self.get_symmetric_key(encryption_key)?;
-        key_to_wrap.wrap(wrapping_key)
+        key_to_wrap.wrap_with(wrapping_key)
     }
 
     /// Decrypt a symmetric key into the context by using an already existing asymmetric key

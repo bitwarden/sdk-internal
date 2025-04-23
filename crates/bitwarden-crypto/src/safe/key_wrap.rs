@@ -1,35 +1,7 @@
-use std::fmt::{Debug, Formatter};
-
-use serde::{Deserialize, Serialize};
-
 use crate::{CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey};
 
 #[derive(Clone, PartialEq)]
 pub struct WrappedSymmetricKey(EncString);
-
-impl Debug for WrappedSymmetricKey {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl Serialize for WrappedSymmetricKey {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for WrappedSymmetricKey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        EncString::deserialize(deserializer).map(WrappedSymmetricKey)
-    }
-}
 
 impl From<EncString> for WrappedSymmetricKey {
     fn from(enc_string: EncString) -> Self {
@@ -52,7 +24,7 @@ impl From<WrappedSymmetricKey> for EncString {
 impl WrappedSymmetricKey {
     /// Unwraps a the wrapped symmetric key using the provided wrapping key, returning the contained
     /// wrapped key.
-    pub fn unwrap(
+    pub fn unwrap_with(
         &self,
         wrapping_key: &SymmetricCryptoKey,
     ) -> Result<SymmetricCryptoKey, CryptoError> {
@@ -66,7 +38,7 @@ impl SymmetricCryptoKey {
     ///
     /// Use this if you have a symmetric crypto key that should protect another symmetric crypto
     /// key.
-    pub fn wrap(
+    pub fn wrap_with(
         &self,
         wrapping_key: &SymmetricCryptoKey,
     ) -> Result<WrappedSymmetricKey, CryptoError> {
@@ -86,8 +58,8 @@ mod tests {
         let wrapping_key = SymmetricCryptoKey::generate(&mut rng);
         let key = SymmetricCryptoKey::generate(&mut rng);
 
-        let wrapped_key = key.wrap(&wrapping_key).unwrap();
-        let unwrapped_key = wrapped_key.unwrap(&wrapping_key).unwrap();
+        let wrapped_key = key.wrap_with(&wrapping_key).unwrap();
+        let unwrapped_key = wrapped_key.unwrap_with(&wrapping_key).unwrap();
 
         assert_eq!(key, unwrapped_key);
     }
