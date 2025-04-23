@@ -57,6 +57,7 @@ impl SymmetricCryptoKey {
 
     /// Generate a new random [SymmetricCryptoKey] for unit tests. Note: DO NOT USE THIS
     /// IN PRODUCTION CODE.
+    #[cfg(test)]
     pub fn generate_seeded_for_unit_tests(seed: &str) -> Self {
         let seeded_rng = ChaChaRng::from_seed(sha2::Sha256::digest(seed.as_bytes()).into());
         Self::generate(seeded_rng)
