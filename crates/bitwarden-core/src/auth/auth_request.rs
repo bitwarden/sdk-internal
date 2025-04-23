@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     fingerprint, generate_random_alphanumeric, AsymmetricCryptoKey, AsymmetricPublicCryptoKey,
-    CryptoError, UnauthenticatedSharedKey,
+    CryptoError, UnsignedSharedKey,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, SymmetricCryptoKey};
@@ -52,7 +52,7 @@ pub(crate) fn new_auth_request(email: &str) -> Result<AuthRequestResponse, Crypt
 #[cfg(feature = "internal")]
 pub(crate) fn auth_request_decrypt_user_key(
     private_key: String,
-    user_key: UnauthenticatedSharedKey,
+    user_key: UnsignedSharedKey,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
     let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
     let key: SymmetricCryptoKey = user_key.decapsulate_key_unsigned(&key)?;
@@ -63,7 +63,7 @@ pub(crate) fn auth_request_decrypt_user_key(
 #[cfg(feature = "internal")]
 pub(crate) fn auth_request_decrypt_master_key(
     private_key: String,
-    master_key: UnauthenticatedSharedKey,
+    master_key: UnsignedSharedKey,
     user_key: EncString,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
     use bitwarden_crypto::MasterKey;
@@ -92,7 +92,7 @@ pub enum ApproveAuthRequestError {
 pub(crate) fn approve_auth_request(
     client: &Client,
     public_key: String,
-) -> Result<UnauthenticatedSharedKey, ApproveAuthRequestError> {
+) -> Result<UnsignedSharedKey, ApproveAuthRequestError> {
     let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(public_key)?)?;
 
     let key_store = client.internal.get_key_store();
@@ -102,7 +102,7 @@ pub(crate) fn approve_auth_request(
     #[allow(deprecated)]
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
-    Ok(UnauthenticatedSharedKey::encapsulate_key_unsigned(
+    Ok(UnsignedSharedKey::encapsulate_key_unsigned(
         key,
         &public_key,
     )?)
@@ -122,7 +122,7 @@ fn test_auth_request() {
     let private_key =
         AsymmetricCryptoKey::from_der(&STANDARD.decode(&request.private_key).unwrap()).unwrap();
 
-    let encrypted = UnauthenticatedSharedKey::encapsulate_key_unsigned(
+    let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(
         &SymmetricCryptoKey::try_from(secret.clone()).unwrap(),
         &private_key,
     )

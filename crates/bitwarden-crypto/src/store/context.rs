@@ -9,7 +9,7 @@ use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
     AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, SymmetricCryptoKey,
-    UnauthenticatedSharedKey,
+    UnsignedSharedKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -185,7 +185,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         &mut self,
         decapsulation_key: Ids::Asymmetric,
         new_key_id: Ids::Symmetric,
-        encapsulated_shared_key: &UnauthenticatedSharedKey,
+        encapsulated_shared_key: &UnsignedSharedKey,
     ) -> Result<Ids::Symmetric> {
         let decapsulation_key = self.get_asymmetric_key(decapsulation_key)?;
         let decapsulated_key =
@@ -210,8 +210,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         &self,
         encapsulation_key: Ids::Asymmetric,
         shared_key: Ids::Symmetric,
-    ) -> Result<UnauthenticatedSharedKey> {
-        UnauthenticatedSharedKey::encapsulate_key_unsigned(
+    ) -> Result<UnsignedSharedKey> {
+        UnsignedSharedKey::encapsulate_key_unsigned(
             self.get_symmetric_key(shared_key)?,
             self.get_asymmetric_key(encapsulation_key)?,
         )

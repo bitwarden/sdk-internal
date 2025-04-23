@@ -1,6 +1,6 @@
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{
-    CryptoError, DeviceKey, EncString, Kdf, TrustDeviceResponse, UnauthenticatedSharedKey,
+    CryptoError, DeviceKey, EncString, Kdf, TrustDeviceResponse, UnsignedSharedKey,
 };
 
 #[cfg(feature = "secrets")]
@@ -152,7 +152,7 @@ impl AuthClient {
     pub fn approve_auth_request(
         &self,
         public_key: String,
-    ) -> Result<UnauthenticatedSharedKey, ApproveAuthRequestError> {
+    ) -> Result<UnsignedSharedKey, ApproveAuthRequestError> {
         approve_auth_request(&self.client, public_key)
     }
 
