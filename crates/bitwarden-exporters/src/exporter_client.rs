@@ -6,10 +6,15 @@ use crate::{
     Account, ExportError, ExportFormat,
 };
 
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct ExporterClient {
     client: Client,
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl ExporterClient {
     fn new(client: Client) -> Self {
         Self { client }
