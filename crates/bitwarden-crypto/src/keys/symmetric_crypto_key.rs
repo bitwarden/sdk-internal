@@ -3,8 +3,12 @@ use std::pin::Pin;
 use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::GenericArray;
-use rand::{Rng, SeedableRng};
+use rand::Rng;
+#[cfg(test)]
+use rand::SeedableRng;
+#[cfg(test)]
 use rand_chacha::ChaChaRng;
+#[cfg(test)]
 use sha2::Digest;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
