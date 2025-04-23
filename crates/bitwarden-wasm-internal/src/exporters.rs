@@ -19,8 +19,7 @@ impl ExporterClient {
     ///
     /// *Warning:* Expect this API to be unstable, and it will change in the future.
     ///
-    /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
-    /// Ideally the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
+    /// It returns an [Account Entity](https://fidoalliance.org/specs/cx/cxf-v1.0-rd-20250313.html#entity-account)
     pub fn export_cxf(
         &self,
         account: Account,
@@ -33,8 +32,7 @@ impl ExporterClient {
     ///
     /// *Warning:* Expect this API to be unstable, and it will change in the future.
     ///
-    /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
-    /// Ideally the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
+    /// It expects an [Account Entity](https://fidoalliance.org/specs/cx/cxf-v1.0-rd-20250313.html#entity-account) serialized as a JSON string.
     pub fn import_cxf(&self, payload: String) -> Result<Vec<Cipher>, ExportError> {
         self.0.exporters().import_cxf(payload)
     }
