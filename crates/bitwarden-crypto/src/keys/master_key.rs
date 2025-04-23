@@ -4,7 +4,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::{typenum::U32, GenericArray};
 use rand::Rng;
 use schemars::JsonSchema;
-use zeroize::{Zeroize, Zeroizing};
+use zeroize::Zeroize;
 
 use super::{
     kdf::{Kdf, KdfDerivedKeyMaterial},
