@@ -38,7 +38,7 @@ impl PureCrypto {
     ) -> Result<String, CryptoError> {
         let key_to_be_wrapped: SymmetricCryptoKey = key_to_be_wrapped.try_into()?;
         let wrapping_key: SymmetricCryptoKey = wrapping_key.try_into()?;
-        let wrapped_key: EncString = key_to_be_wrapped.wrap_with(&wrapping_key)?.into();
+        let wrapped_key: EncString = key_to_be_wrapped.wrap_with(&wrapping_key)?.into_inner();
         Ok(wrapped_key.to_string())
     }
 

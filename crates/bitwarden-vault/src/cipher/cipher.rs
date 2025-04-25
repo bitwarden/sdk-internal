@@ -472,7 +472,7 @@ impl CipherView {
 
         self.key = Some(
             ctx.wrap_symmetric_key(key, new_key)?
-                .into(),
+                .into_inner(),
         );
         Ok(())
     }
@@ -951,7 +951,7 @@ mod tests {
             original_cipher.key = Some(
                 ctx.wrap_symmetric_key(SymmetricKeyId::User, cipher_key)
                     .unwrap()
-                    .into(),
+                    .into_inner(),
             );
         }
 
@@ -1091,7 +1091,7 @@ mod tests {
             size: None,
             size_name: None,
             file_name: Some("Attachment test name".into()),
-            key: Some(attachment_key_enc.into()),
+            key: Some(attachment_key_enc.into_inner()),
         };
         cipher.attachments = Some(vec![attachment]);
         let cred = generate_fido2(&mut key_store.context(), SymmetricKeyId::User);
@@ -1142,7 +1142,7 @@ mod tests {
         let cipher_key_enc = ctx
             .wrap_symmetric_key(SymmetricKeyId::User, cipher_key)
             .unwrap()
-            .into();
+            .into_inner();
 
         // Attachment has a key that is encrypted with the cipher key
         let attachment_key = ctx
@@ -1151,7 +1151,7 @@ mod tests {
         let attachment_key_enc: EncString = ctx
             .wrap_symmetric_key(cipher_key, attachment_key)
             .unwrap()
-            .into();
+            .into_inner();
 
         let mut cipher = generate_cipher();
         cipher.key = Some(cipher_key_enc);

@@ -134,7 +134,7 @@ pub(super) fn decrypt_user_key(
     key: &Pin<Box<GenericArray<u8, U32>>>,
     user_key: WrappedSymmetricKey,
 ) -> Result<SymmetricCryptoKey> {
-    match user_key.as_ref() {
+    match user_key.as_inner() {
         // Legacy. user_keys were encrypted using `Aes256Cbc_B64` a long time ago. We've since
         // moved to using `Aes256Cbc_HmacSha256_B64`. However, we still need to support
         // decrypting these old keys.

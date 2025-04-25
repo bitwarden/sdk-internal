@@ -14,15 +14,13 @@ impl From<EncString> for WrappedSymmetricKey {
     }
 }
 
-impl AsRef<EncString> for WrappedSymmetricKey {
-    fn as_ref(&self) -> &EncString {
-        &self.0
+impl WrappedSymmetricKey {
+    pub fn into_inner(self) -> EncString {
+        self.0
     }
-}
 
-impl From<WrappedSymmetricKey> for EncString {
-    fn from(wrapped: WrappedSymmetricKey) -> Self {
-        wrapped.0
+    pub fn as_inner(&self) -> &EncString {
+        &self.0
     }
 }
 

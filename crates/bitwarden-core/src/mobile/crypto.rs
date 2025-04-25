@@ -299,7 +299,7 @@ pub(super) fn update_password(
 
     Ok(UpdatePasswordResponse {
         password_hash,
-        new_key: new_key.into(),
+        new_key: new_key.into_inner(),
     })
 }
 
@@ -372,7 +372,7 @@ fn derive_pin_protected_user_key(
         LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
     };
 
-    Ok(derived_key.encrypt_user_key(user_key)?.into())
+    Ok(derived_key.encrypt_user_key(user_key)?.into_inner())
 }
 
 #[allow(missing_docs)]

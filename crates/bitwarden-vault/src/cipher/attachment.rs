@@ -91,7 +91,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         let encrypted_contents = self.contents.encrypt(ctx, attachment_key)?;
         attachment.key = Some(
             ctx.wrap_symmetric_key(ciphers_key, attachment_key)?
-                .into(),
+                .into_inner(),
         );
 
         let contents = encrypted_contents.to_buffer()?;
