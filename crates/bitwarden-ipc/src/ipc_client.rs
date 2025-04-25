@@ -165,7 +165,6 @@ where
     Ses: SessionRepository<Session = Crypto::Session>,
 {
     /// Receive a message, optionally filtering by topic.
-    /// Setting the topic to `None` will receive all messages.
     /// Setting the timeout to `None` will wait indefinitely.
     pub async fn receive(
         &self,
