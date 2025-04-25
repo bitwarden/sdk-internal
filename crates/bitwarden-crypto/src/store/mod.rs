@@ -152,7 +152,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     ///   lead to key material being leaked, but we need to support it for backwards compatibility.
     ///   If you want to access the key material to encrypt it or derive a new key from it, we
     ///   provide functions for that:
-    ///     - [KeyStoreContext::encrypt_symmetric_key_with_symmetric_key]
+    ///     - [KeyStoreContext::wrap_symmetric_key]
     ///     - [KeyStoreContext::encapsulate_key_unsigned]
     ///     - [KeyStoreContext::derive_shareable_key]
     pub fn context(&'_ self) -> KeyStoreContext<'_, Ids> {
