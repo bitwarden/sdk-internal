@@ -4,7 +4,8 @@ use bitwarden_core::{
     require, MissingFieldError, VaultLockedError,
 };
 use bitwarden_crypto::{
-    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext, WrappedSymmetricKey
+    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
+    WrappedSymmetricKey,
 };
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
@@ -328,9 +329,7 @@ impl Cipher {
     ) -> Result<SymmetricKeyId, CryptoError> {
         const CIPHER_KEY: SymmetricKeyId = SymmetricKeyId::Local("cipher_key");
         match ciphers_key {
-            Some(ciphers_key) => {
-                ctx.unwrap_symmetric_key(key, CIPHER_KEY, &ciphers_key.clone())
-            }
+            Some(ciphers_key) => ctx.unwrap_symmetric_key(key, CIPHER_KEY, &ciphers_key.clone()),
             None => Ok(key),
         }
     }
@@ -459,8 +458,11 @@ impl CipherView {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
-        let old_ciphers_key =
-            Cipher::decrypt_cipher_key(ctx, key, &self.key.take().map(Into::<WrappedSymmetricKey>::into))?;
+        let old_ciphers_key = Cipher::decrypt_cipher_key(
+            ctx,
+            key,
+            &self.key.take().map(Into::<WrappedSymmetricKey>::into),
+        )?;
 
         const NEW_KEY: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
 
@@ -469,10 +471,7 @@ impl CipherView {
         self.reencrypt_attachment_keys(ctx, old_ciphers_key, new_key)?;
         self.reencrypt_fido2_credentials(ctx, old_ciphers_key, new_key)?;
 
-        self.key = Some(
-            ctx.wrap_symmetric_key(key, new_key)?
-                .into_inner(),
-        );
+        self.key = Some(ctx.wrap_symmetric_key(key, new_key)?.into_inner());
         Ok(())
     }
 
