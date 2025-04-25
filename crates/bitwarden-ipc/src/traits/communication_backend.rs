@@ -26,7 +26,8 @@ pub trait CommunicationBackend {
 /// This trait defines the interface for receiving messages from the communication backend.
 ///
 /// The implementation of this trait needs to guarantee that:
-///     - The receiver buffers messages from the creation of the receiver until the first call to receive().
+///     - The receiver buffers messages from the creation of the receiver until the first call to
+///       receive().
 ///     - The receiver buffers messages between calls to receive().
 pub trait CommunicationBackendReceiver {
     type ReceiveError;
@@ -90,7 +91,7 @@ pub mod tests {
             }
         }
 
-        pub async fn push_incoming(&self, message: IncomingMessage) {
+        pub fn push_incoming(&self, message: IncomingMessage) {
             self.incoming_tx
                 .send(message)
                 .expect("Failed to send incoming message");
