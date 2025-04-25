@@ -90,7 +90,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         let attachment_key = ctx.generate_symmetric_key(ATTACHMENT_KEY)?;
         let encrypted_contents = self.contents.encrypt(ctx, attachment_key)?;
         attachment.key = Some(
-            ctx.encrypt_symmetric_key_with_symmetric_key(ciphers_key, attachment_key)?
+            ctx.wrap_symmetric_key(ciphers_key, attachment_key)?
                 .into(),
         );
 
@@ -128,7 +128,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, Vec<u8>> for AttachmentFile {
 
         // Version 2 or 3, `AttachmentKey` or `CipherKey(AttachmentKey)`
         if let Some(attachment_key) = &self.attachment.key {
-            let content_key = ctx.decrypt_symmetric_key_with_symmetric_key(
+            let content_key = ctx.unwrap_symmetric_key(
                 ciphers_key,
                 ATTACHMENT_KEY,
                 &attachment_key.clone().into(),
