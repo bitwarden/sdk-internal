@@ -153,7 +153,8 @@ mod tests {
     #[test]
     fn test_symmetric_bytes_round_trip() {
         let encrypted =
-            PureCrypto::symmetric_encrypt_bytes(DECRYPTED.as_bytes().to_vec(), KEY.to_vec()).unwrap();
+            PureCrypto::symmetric_encrypt_bytes(DECRYPTED.as_bytes().to_vec(), KEY.to_vec())
+                .unwrap();
         let decrypted =
             PureCrypto::symmetric_decrypt_bytes(encrypted.clone(), KEY.to_vec()).unwrap();
         assert_eq!(decrypted, DECRYPTED.as_bytes().to_vec());
@@ -198,7 +199,9 @@ mod tests {
     fn roundtrip_encrypt_user_key_with_master_password() {
         let master_password = "test";
         let email = "test@example.com";
-        let kdf = Kdf::PBKDF2 { iterations: NonZero::try_from(600000).unwrap() };
+        let kdf = Kdf::PBKDF2 {
+            iterations: NonZero::try_from(600000).unwrap(),
+        };
         let user_key = PureCrypto::generate_user_key_aes256_cbc_hmac();
         let encrypted_user_key = PureCrypto::encrypt_user_key_with_master_password(
             user_key.clone(),
