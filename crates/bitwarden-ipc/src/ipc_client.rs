@@ -75,14 +75,12 @@ where
             <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
         >,
     > {
-        println!("Receiving message");
         let receive_loop = async {
             loop {
                 let received = self
                     .crypto
                     .receive(receiver, &self.communication, &self.sessions)
                     .await?;
-                println!("Received message {:#?}", received);
                 if topic.is_none() || received.topic == topic {
                     return Ok(received);
                 }
