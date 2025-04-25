@@ -1,4 +1,4 @@
-use bitwarden_vault::{Cipher, CipherListView, CipherView, Fido2CredentialView};
+use bitwarden_vault::{Cipher, CipherListView, CipherView, Fido2CredentialView, OrganizationId};
 use uuid::Uuid;
 
 use crate::{error::Error, Result};
@@ -41,7 +41,7 @@ impl CiphersClient {
     ) -> Result<CipherView> {
         Ok(self
             .0
-            .move_to_organization(cipher, organization_id)
+            .move_to_organization(cipher, OrganizationId(organization_id))
             .map_err(Error::Cipher)?)
     }
 }

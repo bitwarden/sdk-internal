@@ -1,15 +1,27 @@
 use bitwarden_core::Client;
 use bitwarden_crypto::IdentifyKey;
-use uuid::Uuid;
 
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError, VaultClient,
 };
 
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
+
+#[cfg_attr(
+    feature = "wasm",
+    derive(serde::Serialize, serde::Deserialize, tsify_next::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[repr(transparent)]
+pub struct OrganizationId(pub uuid::Uuid);
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CiphersClient {
     pub(crate) client: Client,
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     pub fn encrypt(&self, mut cipher_view: CipherView) -> Result<Cipher, EncryptError> {
         let key_store = self.client.internal.get_key_store();
@@ -55,10 +67,10 @@ impl CiphersClient {
     pub fn move_to_organization(
         &self,
         mut cipher_view: CipherView,
-        organization_id: Uuid,
+        organization_id: OrganizationId,
     ) -> Result<CipherView, CipherError> {
         let key_store = self.client.internal.get_key_store();
-        cipher_view.move_to_organization(&mut key_store.context(), organization_id)?;
+        cipher_view.move_to_organization(&mut key_store.context(), organization_id.0)?;
         Ok(cipher_view)
     }
 
@@ -206,7 +218,7 @@ mod tests {
         //  Move cipher to organization
         let res = client.vault().ciphers().move_to_organization(
             view,
-            "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap(),
+            OrganizationId("1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap()),
         );
 
         assert!(res.is_err());
@@ -301,7 +313,7 @@ mod tests {
             .ciphers()
             .move_to_organization(
                 view,
-                "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap(),
+                OrganizationId("1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap()),
             )
             .unwrap();
         let new_cipher = client.vault().ciphers().encrypt(new_view).unwrap();

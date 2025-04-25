@@ -5,10 +5,15 @@ use crate::{
     Folder, FolderView, VaultClient,
 };
 
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct FoldersClient {
     pub(crate) client: Client,
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl FoldersClient {
     pub fn encrypt(&self, folder_view: FolderView) -> Result<Folder, EncryptError> {
         let key_store = self.client.internal.get_key_store();
