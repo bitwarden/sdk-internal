@@ -25,3 +25,14 @@ mod util;
 
 pub use bitwarden_crypto::ZeroizingAllocator;
 pub use client::{Client, ClientSettings, DeviceType};
+
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
+
+#[cfg_attr(
+    feature = "wasm",
+    derive(serde::Serialize, serde::Deserialize, tsify_next::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[repr(transparent)]
+pub struct BwUuid(pub uuid::Uuid);
