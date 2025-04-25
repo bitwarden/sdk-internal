@@ -33,6 +33,21 @@ where
     topic: Option<String>,
 }
 
+/// A subscription to receive messages over IPC.
+/// The subcription will start buffering messages after its creation and return them
+/// when receive() is called. Messages received before the subscription was created will not be returned.
+pub struct IpcClientTypedSubscription<Crypto, Com, Ses, Payload>
+where
+    Crypto: CryptoProvider<Com, Ses>,
+    Com: CommunicationBackend,
+    Ses: SessionRepository<Session = Crypto::Session>,
+    Payload: TryFrom<Vec<u8>> + PayloadTypeName,
+{
+    receiver: Com::Receiver,
+    client: Arc<IpcClient<Crypto, Com, Ses>>,
+    _payload: std::marker::PhantomData<Payload>,
+}
+
 impl<Crypto, Com, Ses> IpcClient<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
@@ -67,6 +82,20 @@ where
             receiver: self.communication.subscribe().await,
             client: self.clone(),
             topic,
+        }
+    }
+
+    /// Create a subscription to receive messages that can be deserialized into the provided payload type.
+    pub async fn subscribe_typed<Payload>(
+        self: &Arc<Self>,
+    ) -> IpcClientTypedSubscription<Crypto, Com, Ses, Payload>
+    where
+        Payload: TryFrom<Vec<u8>> + PayloadTypeName,
+    {
+        IpcClientTypedSubscription {
+            receiver: self.communication.subscribe().await,
+            client: self.clone(),
+            _payload: std::marker::PhantomData,
         }
     }
 
@@ -152,10 +181,18 @@ where
             .receive(&self.receiver, &self.topic, timeout)
             .await
     }
+}
 
-    /// Receive a message, skipping any messages that cannot be deserialized into the expected
-    /// payload type.
-    pub async fn receive_typed<Payload>(
+impl<Crypto, Com, Ses, Payload> IpcClientTypedSubscription<Crypto, Com, Ses, Payload>
+where
+    Crypto: CryptoProvider<Com, Ses>,
+    Com: CommunicationBackend,
+    Ses: SessionRepository<Session = Crypto::Session>,
+    Payload: TryFrom<Vec<u8>> + PayloadTypeName,
+{
+    /// Receive a message.
+    /// Setting the timeout to `None` will wait indefinitely.
+    pub async fn receive(
         &self,
         timeout: Option<Duration>,
     ) -> Result<
@@ -165,10 +202,7 @@ where
             Crypto::ReceiveError,
             <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
         >,
-    >
-    where
-        Payload: TryFrom<Vec<u8>> + PayloadTypeName,
-    {
+    > {
         self.client.receive_typed(&self.receiver, timeout).await
     }
 }
@@ -384,7 +418,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        let subscription = client.subscribe(None).await;
+        let subscription = client.subscribe_typed::<TestPayload>().await;
         communication_provider
             .push_incoming(unrelated.clone())
             .await;
@@ -395,8 +429,7 @@ mod tests {
             .push_incoming(typed_message.clone().try_into().unwrap())
             .await;
 
-        let received_message: TypedIncomingMessage<TestPayload> =
-            subscription.receive_typed(None).await.unwrap();
+        let received_message = subscription.receive(None).await.unwrap();
 
         assert_eq!(received_message, typed_message);
     }
@@ -441,13 +474,12 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        let subscription = client.subscribe(None).await;
+        let subscription = client.subscribe_typed::<TestPayload>().await;
         communication_provider
             .push_incoming(non_deserializable_message.clone())
             .await;
 
-        let result: Result<TypedIncomingMessage<TestPayload>, _> =
-            subscription.receive_typed(None).await;
+        let result = subscription.receive(None).await;
 
         assert!(matches!(
             result,
