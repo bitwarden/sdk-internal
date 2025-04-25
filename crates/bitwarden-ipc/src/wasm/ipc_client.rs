@@ -36,10 +36,7 @@ pub struct JsIpcClientSubscription {
 
 impl JsIpcClientSubscription {
     pub async fn receive(&self) -> Result<IncomingMessage, JsReceiveError> {
-        self.subscription
-            .receive(None, None)
-            .await
-            .map_err(|e| e.into())
+        self.subscription.receive(None).await.map_err(|e| e.into())
     }
 }
 
@@ -61,7 +58,7 @@ impl JsIpcClient {
     }
 
     pub async fn subscribe(&self) -> JsIpcClientSubscription {
-        let subscription = self.client.subscribe().await;
+        let subscription = self.client.subscribe(None).await;
         JsIpcClientSubscription { subscription }
     }
 }

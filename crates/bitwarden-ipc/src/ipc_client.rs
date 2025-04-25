@@ -19,6 +19,9 @@ where
     sessions: Ses,
 }
 
+/// A subscription to receive messages over IPC.
+/// The subcription will start buffering messages after its creation and return them
+/// when receive() is called. Messages received before the subscription was created will not be returned.
 pub struct IpcClientSubscription<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
@@ -27,6 +30,7 @@ where
 {
     receiver: Com::Receiver,
     client: Arc<IpcClient<Crypto, Com, Ses>>,
+    topic: Option<String>,
 }
 
 impl<Crypto, Com, Ses> IpcClient<Crypto, Com, Ses>
@@ -53,10 +57,16 @@ where
             .await
     }
 
-    pub async fn subscribe(self: &Arc<Self>) -> IpcClientSubscription<Crypto, Com, Ses> {
+    /// Create a subscription to receive messages, optionally filtered by topic.
+    /// Setting the topic to `None` will receive all messages.
+    pub async fn subscribe(
+        self: &Arc<Self>,
+        topic: Option<String>,
+    ) -> IpcClientSubscription<Crypto, Com, Ses> {
         IpcClientSubscription {
             receiver: self.communication.subscribe().await,
             client: self.clone(),
+            topic,
         }
     }
 
@@ -66,7 +76,7 @@ where
     async fn receive(
         &self,
         receiver: &Com::Receiver,
-        topic: Option<String>,
+        topic: &Option<String>,
         timeout: Option<Duration>,
     ) -> Result<
         IncomingMessage,
@@ -81,7 +91,7 @@ where
                     .crypto
                     .receive(receiver, &self.communication, &self.sessions)
                     .await?;
-                if topic.is_none() || received.topic == topic {
+                if topic.is_none() || &received.topic == topic {
                     return Ok(received);
                 }
             }
@@ -114,7 +124,7 @@ where
         Payload: TryFrom<Vec<u8>> + PayloadTypeName,
     {
         let topic = Some(Payload::name());
-        let received = self.receive(receiver, topic, timeout).await?;
+        let received = self.receive(receiver, &topic, timeout).await?;
         received.try_into().map_err(TypedReceiveError::Typing)
     }
 }
@@ -125,9 +135,11 @@ where
     Com: CommunicationBackend,
     Ses: SessionRepository<Session = Crypto::Session>,
 {
+    /// Receive a message, optionally filtering by topic.
+    /// Setting the topic to `None` will receive all messages.
+    /// Setting the timeout to `None` will wait indefinitely.
     pub async fn receive(
         &self,
-        topic: Option<String>,
         timeout: Option<Duration>,
     ) -> Result<
         IncomingMessage,
@@ -136,9 +148,13 @@ where
             <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
         >,
     > {
-        self.client.receive(&self.receiver, topic, timeout).await
+        self.client
+            .receive(&self.receiver, &self.topic, timeout)
+            .await
     }
 
+    /// Receive a message, skipping any messages that cannot be deserialized into the expected
+    /// payload type.
     pub async fn receive_typed<Payload>(
         &self,
         timeout: Option<Duration>,
@@ -242,8 +258,8 @@ mod tests {
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider, session_map);
 
-        let subscription = client.subscribe().await;
-        let error = subscription.receive(None, None).await.unwrap_err();
+        let subscription = client.subscribe(None).await;
+        let error = subscription.receive(None).await.unwrap_err();
 
         assert_eq!(error, ReceiveError::Crypto("Crypto error".to_string()));
     }
@@ -279,9 +295,9 @@ mod tests {
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
 
-        let subscription = &client.subscribe().await;
+        let subscription = &client.subscribe(None).await;
         communication_provider.push_incoming(message.clone()).await;
-        let received_message = subscription.receive(None, None).await.unwrap();
+        let received_message = subscription.receive(None).await.unwrap();
 
         assert_eq!(received_message, message);
     }
@@ -305,7 +321,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        let subscription = client.subscribe().await;
+        let subscription = client.subscribe(Some("matching_topic".to_owned())).await;
         communication_provider
             .push_incoming(non_matching_message.clone())
             .await;
@@ -316,10 +332,7 @@ mod tests {
             .push_incoming(matching_message.clone())
             .await;
 
-        let received_message: IncomingMessage = subscription
-            .receive(Some("matching_topic".to_owned()), None)
-            .await
-            .unwrap();
+        let received_message: IncomingMessage = subscription.receive(None).await.unwrap();
 
         assert_eq!(received_message, matching_message);
     }
@@ -371,7 +384,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        let subscription = client.subscribe().await;
+        let subscription = client.subscribe(None).await;
         communication_provider
             .push_incoming(unrelated.clone())
             .await;
@@ -428,7 +441,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        let subscription = client.subscribe().await;
+        let subscription = client.subscribe(None).await;
         communication_provider
             .push_incoming(non_deserializable_message.clone())
             .await;

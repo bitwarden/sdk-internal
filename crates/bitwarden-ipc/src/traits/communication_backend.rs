@@ -17,7 +17,7 @@ pub trait CommunicationBackend {
     /// Subscribe to receive messages. This function will return a receiver that can be used to
     /// receive messages asynchronously.
     ///
-    /// The implemenation of this trait needs to guarantee that:
+    /// The implementation of this trait needs to guarantee that:
     ///     - Multiple concurrent receivers may be created.
     ///     - All concurrent receivers will receive the same messages.
     fn subscribe(&self) -> impl std::future::Future<Output = Self::Receiver>;
@@ -25,7 +25,7 @@ pub trait CommunicationBackend {
 
 /// This trait defines the interface for receiving messages from the communication backend.
 ///
-/// The implemenation of this trait needs to guarantee that:
+/// The implementation of this trait needs to guarantee that:
 ///     - The receiver buffers messages from the creation of the receiver until the first call to receive().
 ///     - The receiver buffers messages between calls to receive().
 pub trait CommunicationBackendReceiver {
@@ -90,15 +90,13 @@ pub mod tests {
             }
         }
 
-        /// Add an incoming message to the queue. This message will be returned by the receive
-        /// function in the order it was added.
         pub async fn push_incoming(&self, message: IncomingMessage) {
             self.incoming_tx
                 .send(message)
                 .expect("Failed to send incoming message");
         }
 
-        /// Get a copy of the outgoing messages that have been sent.
+        /// Get a copy of all the outgoing messages that have been sent.
         pub async fn outgoing(&self) -> Vec<OutgoingMessage> {
             self.outgoing.read().await.clone()
         }
