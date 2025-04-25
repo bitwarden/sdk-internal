@@ -4,8 +4,7 @@ use bitwarden_core::{
     require, MissingFieldError, VaultLockedError,
 };
 use bitwarden_crypto::{
-    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
-    WrappedSymmetricKey,
+    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext, WrappedSymmetricKey
 };
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
@@ -461,7 +460,7 @@ impl CipherView {
         key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
         let old_ciphers_key =
-            Cipher::decrypt_cipher_key(ctx, key, &self.key.clone().map(|k| k.into()))?;
+            Cipher::decrypt_cipher_key(ctx, key, &self.key.take().map(Into::<WrappedSymmetricKey>::into))?;
 
         const NEW_KEY: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
 
