@@ -15,7 +15,7 @@ pub struct PureCrypto {}
 // Encryption
 #[wasm_bindgen]
 impl PureCrypto {
-    pub fn symmetric_decrypt(enc_string: String, key: Vec<u8>) -> Result<String, CryptoError> {
+    pub fn symmetric_decrypt_string(enc_string: String, key: Vec<u8>) -> Result<String, CryptoError> {
         EncString::from_str(&enc_string)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
     }
 
@@ -26,20 +26,29 @@ impl PureCrypto {
         EncString::from_str(&enc_string)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
     }
 
-    pub fn symmetric_decrypt_array_buffer(
+    pub fn symmetric_decrypt_filedata(
         enc_bytes: Vec<u8>,
         key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         EncString::from_buffer(&enc_bytes)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
     }
 
-    pub fn symmetric_encrypt(plain: String, key: Vec<u8>) -> Result<String, CryptoError> {
+    pub fn symmetric_encrypt_string(plain: String, key: Vec<u8>) -> Result<String, CryptoError> {
         plain
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
-            .map(|enc| enc.to_string())
+            .map(|enc| enc.to_serialized_string())
     }
 
-    pub fn symmetric_encrypt_to_array_buffer(
+    pub fn symmetric_encrypt_bytes(
+        plain: Vec<u8>,
+        key: Vec<u8>,
+    ) -> Result<String, CryptoError> {
+        plain
+            .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
+            .map(|enc| enc.to_serialized_string())
+    }
+
+    pub fn symmetric_encrypt_filedata(
         plain: Vec<u8>,
         key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
@@ -75,7 +84,7 @@ impl PureCrypto {
         let master_key = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
         let user_key = SymmetricCryptoKey::try_from(user_key)?;
         let result = master_key.encrypt_user_key(&user_key)?;
-        Ok(result.to_string())
+        Ok(result.to_serialized_string())
     }
 }
 
@@ -120,29 +129,29 @@ mod tests {
     fn test_symmetric_decrypt() {
         let enc_string = EncString::from_str(ENCRYPTED).unwrap();
 
-        let result = PureCrypto::symmetric_decrypt(enc_string.to_string(), KEY.to_vec());
+        let result = PureCrypto::symmetric_decrypt_string(enc_string.to_string(), KEY.to_vec());
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), DECRYPTED);
     }
 
     #[test]
     fn test_symmetric_encrypt() {
-        let result = PureCrypto::symmetric_encrypt(DECRYPTED.to_string(), KEY.to_vec());
+        let result = PureCrypto::symmetric_encrypt_string(DECRYPTED.to_string(), KEY.to_vec());
         assert!(result.is_ok());
         // Cannot test encrypted string content because IV is unique per encryption
     }
 
     #[test]
     fn test_symmetric_round_trip() {
-        let encrypted = PureCrypto::symmetric_encrypt(DECRYPTED.to_string(), KEY.to_vec()).unwrap();
-        let decrypted = PureCrypto::symmetric_decrypt(encrypted.clone(), KEY.to_vec()).unwrap();
+        let encrypted = PureCrypto::symmetric_encrypt_string(DECRYPTED.to_string(), KEY.to_vec()).unwrap();
+        let decrypted = PureCrypto::symmetric_decrypt_string(encrypted.clone(), KEY.to_vec()).unwrap();
         assert_eq!(decrypted, DECRYPTED);
     }
 
     #[test]
     fn test_symmetric_decrypt_array_buffer() {
         let result =
-            PureCrypto::symmetric_decrypt_array_buffer(ENCRYPTED_BYTES.to_vec(), KEY.to_vec());
+            PureCrypto::symmetric_encrypt_filedata(ENCRYPTED_BYTES.to_vec(), KEY.to_vec());
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), DECRYPTED_BYTES);
     }
@@ -150,7 +159,7 @@ mod tests {
     #[test]
     fn test_symmetric_encrypt_to_array_buffer() {
         let result =
-            PureCrypto::symmetric_encrypt_to_array_buffer(DECRYPTED_BYTES.to_vec(), KEY.to_vec());
+            PureCrypto::symmetric_encrypt_filedata(DECRYPTED_BYTES.to_vec(), KEY.to_vec());
         assert!(result.is_ok());
         // Cannot test encrypted string content because IV is unique per encryption
     }
@@ -158,10 +167,10 @@ mod tests {
     #[test]
     fn test_symmetric_buffer_round_trip() {
         let encrypted =
-            PureCrypto::symmetric_encrypt_to_array_buffer(DECRYPTED_BYTES.to_vec(), KEY.to_vec())
+            PureCrypto::symmetric_encrypt_filedata(DECRYPTED_BYTES.to_vec(), KEY.to_vec())
                 .unwrap();
         let decrypted =
-            PureCrypto::symmetric_decrypt_array_buffer(encrypted.clone(), KEY.to_vec()).unwrap();
+            PureCrypto::symmetric_encrypt_filedata(encrypted.clone(), KEY.to_vec()).unwrap();
         assert_eq!(decrypted, DECRYPTED_BYTES);
     }
 }
