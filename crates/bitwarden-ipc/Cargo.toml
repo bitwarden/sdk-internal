@@ -14,7 +14,9 @@ wasm = [
     "dep:tsify-next",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
-    "dep:js-sys"
+    "dep:js-sys",
+    # Fixes testing this crate in isoliaton using `cargo test --package bitwarden-ipc --all-features`
+    "bitwarden-error/wasm",
 ] # WASM support
 
 [dependencies]

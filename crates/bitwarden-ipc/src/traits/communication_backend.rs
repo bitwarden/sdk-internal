@@ -20,7 +20,7 @@ pub trait CommunicationBackend {
     /// The implemenation of this trait needs to guarantee that:
     ///     - Multiple concurrent receivers may be created.
     ///     - All concurrent receivers will receive the same messages.
-    fn subscribe(&self) -> Self::Receiver;
+    fn subscribe(&self) -> impl std::future::Future<Output = Self::Receiver>;
 }
 
 /// This trait defines the interface for receiving messages from the communication backend.
@@ -42,32 +42,60 @@ pub trait CommunicationBackendReceiver {
 
 #[cfg(test)]
 pub mod tests {
-    use std::{collections::VecDeque, rc::Rc};
+    use std::sync::Arc;
 
     use thiserror::Error;
-    use tokio::sync::RwLock;
+    use tokio::sync::{
+        broadcast::{self, Receiver, Sender},
+        RwLock,
+    };
 
     use super::*;
 
     /// A mock implementation of the CommunicationBackend trait that can be used for testing.
-    #[derive(Debug, Clone)]
+    #[derive(Debug)]
     pub struct TestCommunicationBackend {
-        outgoing: Rc<RwLock<Vec<OutgoingMessage>>>,
-        incoming: Rc<RwLock<VecDeque<IncomingMessage>>>,
+        outgoing_tx: Sender<OutgoingMessage>,
+        outgoing_rx: Receiver<OutgoingMessage>,
+        outgoing: Arc<RwLock<Vec<OutgoingMessage>>>,
+        incoming_tx: Sender<IncomingMessage>,
+        incoming_rx: Receiver<IncomingMessage>,
     }
+
+    impl Clone for TestCommunicationBackend {
+        fn clone(&self) -> Self {
+            TestCommunicationBackend {
+                outgoing_tx: self.outgoing_tx.clone(),
+                outgoing_rx: self.outgoing_rx.resubscribe(),
+                outgoing: self.outgoing.clone(),
+                incoming_tx: self.incoming_tx.clone(),
+                incoming_rx: self.incoming_rx.resubscribe(),
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct TestCommunicationBackendReceiver(RwLock<Receiver<IncomingMessage>>);
 
     impl TestCommunicationBackend {
         pub fn new() -> Self {
+            let (outgoing_tx, outgoing_rx) = broadcast::channel(10);
+            let (incoming_tx, incoming_rx) = broadcast::channel(10);
             TestCommunicationBackend {
-                outgoing: Rc::new(RwLock::new(Vec::new())),
-                incoming: Rc::new(RwLock::new(VecDeque::new())),
+                outgoing_tx,
+                outgoing_rx,
+                outgoing: Arc::new(RwLock::new(Vec::new())),
+                incoming_tx,
+                incoming_rx,
             }
         }
 
         /// Add an incoming message to the queue. This message will be returned by the receive
         /// function in the order it was added.
         pub async fn push_incoming(&self, message: IncomingMessage) {
-            self.incoming.write().await.push_back(message);
+            self.incoming_tx
+                .send(message)
+                .expect("Failed to send incoming message");
         }
 
         /// Get a copy of the outgoing messages that have been sent.
@@ -82,41 +110,39 @@ pub mod tests {
         NoQueuedMessages,
     }
 
-    impl CommunicationBackendReceiver for TestCommunicationBackend {
-        type ReceiveError = TestCommunicationBackendReceiveError;
-
-        async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
-            if let Some(message) = self.incoming.write().await.pop_front() {
-                Ok(message)
-            } else {
-                Err(TestCommunicationBackendReceiveError::NoQueuedMessages)
-            }
-        }
-    }
-
     impl CommunicationBackend for TestCommunicationBackend {
         type SendError = ();
-        type Receiver = Rc<RwLock<VecDeque<IncomingMessage>>>;
+        type Receiver = TestCommunicationBackendReceiver;
 
         async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
+            // self.outgoing_tx
+            //     .send(message)
+            //     .map_err(|_| ())
+            //     .expect("Failed to send outgoing message");
             self.outgoing.write().await.push(message);
             Ok(())
         }
 
-        fn subscribe(&self) -> Self::Receiver {
-            Rc::new(RwLock::new(self.incoming.blocking_read().clone()))
+        async fn subscribe(&self) -> Self::Receiver {
+            TestCommunicationBackendReceiver(RwLock::new(self.incoming_rx.resubscribe()))
         }
     }
 
-    impl CommunicationBackendReceiver for Rc<RwLock<VecDeque<IncomingMessage>>> {
+    impl CommunicationBackendReceiver for TestCommunicationBackendReceiver {
         type ReceiveError = TestCommunicationBackendReceiveError;
 
         async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
-            if let Some(message) = self.write().await.pop_front() {
-                Ok(message)
-            } else {
-                Err(TestCommunicationBackendReceiveError::NoQueuedMessages)
+            if self.0.read().await.len() == 0 {
+                return Err(TestCommunicationBackendReceiveError::NoQueuedMessages);
             }
+
+            Ok(self
+                .0
+                .write()
+                .await
+                .recv()
+                .await
+                .expect("Failed to receive incoming message"))
         }
     }
 }

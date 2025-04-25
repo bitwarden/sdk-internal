@@ -75,7 +75,7 @@ impl CommunicationBackend for JsCommunicationBackend {
         self.sender.send(message).await
     }
 
-    fn subscribe(&self) -> Self::Receiver {
+    async fn subscribe(&self) -> Self::Receiver {
         self.receive_rx.resubscribe()
     }
 }
