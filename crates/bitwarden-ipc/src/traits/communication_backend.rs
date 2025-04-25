@@ -115,10 +115,6 @@ pub mod tests {
         type Receiver = TestCommunicationBackendReceiver;
 
         async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
-            // self.outgoing_tx
-            //     .send(message)
-            //     .map_err(|_| ())
-            //     .expect("Failed to send outgoing message");
             self.outgoing.write().await.push(message);
             Ok(())
         }
