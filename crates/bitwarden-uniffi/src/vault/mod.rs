@@ -15,28 +15,28 @@ pub struct VaultClient(pub(crate) bitwarden_vault::VaultClient);
 #[uniffi::export]
 impl VaultClient {
     /// Folder operations
-    pub fn folders(&self) -> folders::ClientFolders {
-        folders::ClientFolders(self.0.folders())
+    pub fn folders(&self) -> folders::FoldersClient {
+        folders::FoldersClient(self.0.folders())
     }
 
     /// Collections operations
-    pub fn collections(&self) -> collections::ClientCollections {
-        collections::ClientCollections(self.0.collections())
+    pub fn collections(&self) -> collections::CollectionsClient {
+        collections::CollectionsClient(self.0.collections())
     }
 
     /// Ciphers operations
-    pub fn ciphers(&self) -> ciphers::ClientCiphers {
-        ciphers::ClientCiphers(self.0.ciphers())
+    pub fn ciphers(&self) -> ciphers::CiphersClient {
+        ciphers::CiphersClient(self.0.ciphers())
     }
 
     /// Password history operations
-    pub fn password_history(&self) -> password_history::ClientPasswordHistory {
-        password_history::ClientPasswordHistory(self.0.password_history())
+    pub fn password_history(&self) -> password_history::PasswordHistoryClient {
+        password_history::PasswordHistoryClient(self.0.password_history())
     }
 
     /// Attachment file operations
-    pub fn attachments(&self) -> attachments::ClientAttachments {
-        attachments::ClientAttachments(self.0.attachments())
+    pub fn attachments(&self) -> attachments::AttachmentsClient {
+        attachments::AttachmentsClient(self.0.attachments())
     }
 
     /// Generate a TOTP code from a provided key.

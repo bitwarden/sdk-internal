@@ -10,7 +10,7 @@ use crate::{
     Cipher, DecryptError, EncryptError, VaultClient,
 };
 
-pub struct ClientAttachments {
+pub struct AttachmentsClient {
     pub(crate) client: Client,
 }
 
@@ -34,7 +34,7 @@ pub enum DecryptFileError {
     Io(#[from] std::io::Error),
 }
 
-impl ClientAttachments {
+impl AttachmentsClient {
     pub fn encrypt_buffer(
         &self,
         cipher: Cipher,
@@ -94,8 +94,8 @@ impl ClientAttachments {
 }
 
 impl VaultClient {
-    pub fn attachments(&self) -> ClientAttachments {
-        ClientAttachments {
+    pub fn attachments(&self) -> AttachmentsClient {
+        AttachmentsClient {
             client: self.client.clone(),
         }
     }

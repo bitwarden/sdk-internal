@@ -14,4 +14,4 @@ pub use client::BitwardenClient;
 pub use crypto::CryptoClient;
 pub use generators::GeneratorClient;
 pub use init::init_sdk;
-pub use vault::{folders::ClientFolders, VaultClient};
+pub use vault::{folders::FoldersClient, VaultClient};

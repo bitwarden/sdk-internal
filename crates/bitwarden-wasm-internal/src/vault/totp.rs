@@ -2,16 +2,16 @@ use chrono::{DateTime, Utc};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub struct ClientTotp(bitwarden_vault::VaultClient);
+pub struct TotpClient(bitwarden_vault::VaultClient);
 
-impl ClientTotp {
+impl TotpClient {
     pub fn new(client: bitwarden_vault::VaultClient) -> Self {
         Self(client)
     }
 }
 
 #[wasm_bindgen]
-impl ClientTotp {
+impl TotpClient {
     /// Generates a TOTP code from a provided key
     ///
     /// # Arguments

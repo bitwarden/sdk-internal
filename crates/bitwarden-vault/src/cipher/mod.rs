@@ -16,13 +16,13 @@ pub(crate) mod ssh_key;
 pub use attachment::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
 };
-pub use attachment_client::{ClientAttachments, DecryptFileError, EncryptFileError};
+pub use attachment_client::{AttachmentsClient, DecryptFileError, EncryptFileError};
 pub use card::{CardBrand, CardView};
 pub use cipher::{
     Cipher, CipherError, CipherListView, CipherListViewType, CipherRepromptType, CipherType,
     CipherView,
 };
-pub use cipher_client::ClientCiphers;
+pub use cipher_client::CiphersClient;
 pub use field::FieldView;
 pub use identity::IdentityView;
 pub use login::{
