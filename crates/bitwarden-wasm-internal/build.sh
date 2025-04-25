@@ -39,3 +39,6 @@ wasm-opt -Os ./crates/bitwarden-wasm-internal/npm/node/bitwarden_wasm_internal_b
 # Transpile to JS
 wasm2js -Os ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.js
 npx terser ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.js -o ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.js
+
+# Rewrite the generated types to use async for the client functions and generate the subclient map
+node ./crates/bitwarden-wasm-internal/rewrite_wasm_types.js
