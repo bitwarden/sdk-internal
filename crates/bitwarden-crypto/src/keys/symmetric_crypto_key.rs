@@ -297,21 +297,19 @@ fn parse_cose_key(cose_key: &coset::CoseKey) -> Result<SymmetricCryptoKey, Crypt
         .ok_or(CryptoError::InvalidKey)?;
 
     match cose_key.alg.clone().ok_or(CryptoError::InvalidKey)? {
-        coset::RegisteredLabelWithPrivate::PrivateUse(cose::XCHACHA20_POLY1305) => {
-            if key_bytes.len() == 32 {
-                let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
-                enc_key.copy_from_slice(key_bytes);
-                let key_id = cose_key
-                    .key_id
-                    .clone()
-                    .try_into()
-                    .map_err(|_| CryptoError::InvalidKey)?;
-                Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(
-                    XChaCha20Poly1305Key { enc_key, key_id },
-                ))
-            } else {
-                Err(CryptoError::InvalidKey)
-            }
+        coset::RegisteredLabelWithPrivate::PrivateUse(cose::XCHACHA20_POLY1305)
+            if key_bytes.len() == 32 =>
+        {
+            let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+            enc_key.copy_from_slice(key_bytes);
+            let key_id = cose_key
+                .key_id
+                .as_slice()
+                .try_into()
+                .map_err(|_| CryptoError::InvalidKey)?;
+            Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(
+                XChaCha20Poly1305Key { enc_key, key_id },
+            ))
         }
         _ => Err(CryptoError::InvalidKey),
     }
