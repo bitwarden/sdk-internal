@@ -65,7 +65,6 @@ impl AttachmentsClient {
         Ok(attachment)
     }
 
-    #[deprecated(note = "Prefer decrypt_buffer_view, which accepts AttachmentView directly.")]
     pub fn decrypt_buffer(
         &self,
         cipher: Cipher,
