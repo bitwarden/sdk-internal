@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::FromStr};
+use std::str::FromStr;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use coset::CborSerializable;
@@ -71,13 +71,6 @@ pub enum EncString {
     Cose_Encrypt0_B64 {
         data: Vec<u8>,
     },
-}
-
-/// To avoid printing sensitive information, [EncString] debug prints to `EncString`.
-impl std::fmt::Debug for EncString {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EncString").finish()
-    }
 }
 
 /// Deserializes an [EncString] from a string.
@@ -181,7 +174,27 @@ impl EncString {
     }
 }
 
-impl Display for EncString {
+impl ToString for EncString {
+    fn to_string(&self) -> String {
+        fn fmt_parts(enc_type: u8, parts: &[&[u8]]) -> String {
+            let encoded_parts: Vec<String> =
+                parts.iter().map(|part| STANDARD.encode(part)).collect();
+            format!("{}.{}", enc_type, encoded_parts.join("|"))
+        }
+
+        let enc_type = self.enc_type();
+        match &self {
+            EncString::Aes256Cbc_B64 { iv, data } => fmt_parts(enc_type, &[iv, data]),
+            EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data } => {
+                fmt_parts(enc_type, &[iv, data, mac])
+            }
+            EncString::Cose_Encrypt0_B64 { data } => fmt_parts(enc_type, &[data]),
+        }
+    }
+}
+
+/// To avoid printing sensitive information, [EncString] debug prints to `EncString`.
+impl std::fmt::Debug for EncString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         fn fmt_parts(
             f: &mut std::fmt::Formatter<'_>,
@@ -212,25 +225,6 @@ impl Display for EncString {
     }
 }
 
-impl EncString {
-    pub fn to_serialized_string(&self) -> String {
-        fn fmt_parts(enc_type: u8, parts: &[&[u8]]) -> String {
-            let encoded_parts: Vec<String> =
-                parts.iter().map(|part| STANDARD.encode(part)).collect();
-            format!("{}.{}", enc_type, encoded_parts.join("|"))
-        }
-
-        let enc_type = self.enc_type();
-        match &self {
-            EncString::Aes256Cbc_B64 { iv, data } => fmt_parts(enc_type, &[iv, data]),
-            EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data } => {
-                fmt_parts(enc_type, &[iv, data, mac])
-            }
-            EncString::Cose_Encrypt0_B64 { data } => fmt_parts(enc_type, &[data]),
-        }
-    }
-}
-
 impl<'de> Deserialize<'de> for EncString {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -245,7 +239,7 @@ impl serde::Serialize for EncString {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&self.to_serialized_string())
+        serializer.serialize_str(&self.to_string())
     }
 }
 

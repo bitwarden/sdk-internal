@@ -39,13 +39,13 @@ impl PureCrypto {
     pub fn symmetric_encrypt_string(plain: String, key: Vec<u8>) -> Result<String, CryptoError> {
         plain
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
-            .map(|enc| enc.to_serialized_string())
+            .map(|enc| enc.to_string())
     }
 
     pub fn symmetric_encrypt_bytes(plain: Vec<u8>, key: Vec<u8>) -> Result<String, CryptoError> {
         plain
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
-            .map(|enc| enc.to_serialized_string())
+            .map(|enc| enc.to_string())
     }
 
     pub fn symmetric_encrypt_filedata(
@@ -84,7 +84,7 @@ impl PureCrypto {
         let master_key = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
         let user_key = SymmetricCryptoKey::try_from(user_key)?;
         let result = master_key.encrypt_user_key(&user_key)?;
-        Ok(result.to_serialized_string())
+        Ok(result.to_string())
     }
 }
 
