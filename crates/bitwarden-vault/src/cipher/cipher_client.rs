@@ -1,12 +1,11 @@
 use bitwarden_core::Client;
 use bitwarden_crypto::IdentifyKey;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError, VaultClient,
 };
-
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 /// NewType representing an Organization ID. This ensures type safety.
 #[cfg_attr(

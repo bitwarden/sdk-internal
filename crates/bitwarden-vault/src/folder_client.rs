@@ -1,12 +1,11 @@
 use bitwarden_core::Client;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::{
     error::{DecryptError, EncryptError},
     Folder, FolderView, VaultClient,
 };
-
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct FoldersClient {

@@ -3,7 +3,6 @@ pub mod totp;
 
 use attachments::AttachmentsClient;
 use bitwarden_vault::{CiphersClient, FoldersClient};
-
 use totp::TotpClient;
 use wasm_bindgen::prelude::*;
 
