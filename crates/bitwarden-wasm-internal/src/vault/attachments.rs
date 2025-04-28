@@ -1,4 +1,4 @@
-use bitwarden_vault::{Attachment, Cipher, DecryptError};
+use bitwarden_vault::{Attachment, AttachmentView, Cipher, DecryptError};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
@@ -20,5 +20,16 @@ impl AttachmentsClient {
         encrypted_buffer: &[u8],
     ) -> Result<Vec<u8>, DecryptError> {
         self.0.decrypt_buffer(cipher, attachment, encrypted_buffer)
+    }
+
+    /// Decrypts an attachment's encrypted content
+    pub fn decrypt_buffer_view(
+        &self,
+        cipher: Cipher,
+        attachment: AttachmentView,
+        encrypted_buffer: &[u8],
+    ) -> Result<Vec<u8>, DecryptError> {
+        self.0
+            .decrypt_buffer_view(cipher, attachment, encrypted_buffer)
     }
 }
