@@ -6,11 +6,9 @@ use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
 use crate::{
-    Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
-    Cipher, DecryptError, EncryptError, VaultClient,
+    Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileData, AttachmentFileView,
+    AttachmentView, Cipher, DecryptError, EncryptError, VaultClient,
 };
-
-use super::AttachmentFileData;
 
 pub struct AttachmentsClient {
     pub(crate) client: Client,
