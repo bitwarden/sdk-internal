@@ -87,7 +87,7 @@ impl PartialEq for XChaCha20Poly1305Key {
 pub enum SymmetricCryptoKey {
     Aes256CbcKey(Aes256CbcKey),
     Aes256CbcHmacKey(Aes256CbcHmacKey),
-    // always encode with cose
+    /// Data encrypted by XChaCha20Poly1305Key keys has type [`Cose_Encrypt0_B64`](crate::EncString::Cose_Encrypt0_B64)
     XChaCha20Poly1305Key(XChaCha20Poly1305Key),
 }
 
