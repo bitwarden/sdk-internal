@@ -174,6 +174,7 @@ impl EncString {
     }
 }
 
+#[allow(clippy::to_string_trait_impl)]
 impl ToString for EncString {
     fn to_string(&self) -> String {
         fn fmt_parts(enc_type: u8, parts: &[&[u8]]) -> String {
