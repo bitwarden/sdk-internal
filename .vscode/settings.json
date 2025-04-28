@@ -5,6 +5,7 @@
     "Cdecl",
     "chrono",
     "cloc",
+    "COSE",
     "dealloc",
     "decryptable",
     "dylib",
