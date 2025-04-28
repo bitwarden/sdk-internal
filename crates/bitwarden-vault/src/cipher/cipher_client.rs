@@ -8,6 +8,7 @@ use crate::{
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
+/// NewType representing an Organization ID. This ensures type safety.
 #[cfg_attr(
     feature = "wasm",
     derive(serde::Serialize, serde::Deserialize, tsify_next::Tsify),
