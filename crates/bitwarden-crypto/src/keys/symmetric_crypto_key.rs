@@ -2,7 +2,10 @@ use std::{cmp::max, pin::Pin};
 
 use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
-use coset::{iana, CborSerializable, Label, RegisteredLabelWithPrivate};
+use coset::{
+    iana::{self, KeyOperation},
+    CborSerializable, Label, RegisteredLabelWithPrivate,
+};
 use generic_array::GenericArray;
 use rand::Rng;
 #[cfg(test)]
@@ -106,7 +109,7 @@ impl SymmetricCryptoKey {
         rng.fill(enc_key.as_mut_slice());
         rng.fill(mac_key.as_mut_slice());
 
-        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
+        Self::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
     }
 
     /**
@@ -124,7 +127,7 @@ impl SymmetricCryptoKey {
         let mut rng = rand::thread_rng();
         let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
         rng.fill(enc_key.as_mut_slice());
-        SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
+        Self::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
             enc_key,
             key_id: *KeyId::generate().as_bytes(),
         })
@@ -141,10 +144,8 @@ impl SymmetricCryptoKey {
     pub fn to_encoded(&self) -> Vec<u8> {
         let mut encoded_key = self.to_encoded_raw();
         match self {
-            SymmetricCryptoKey::Aes256CbcKey(_) | SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
-                encoded_key
-            }
-            SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
+            Self::Aes256CbcKey(_) | Self::Aes256CbcHmacKey(_) => encoded_key,
+            Self::XChaCha20Poly1305Key(_) => {
                 pad_key(&mut encoded_key, Self::AES256_CBC_HMAC_KEY_LEN + 1);
                 encoded_key
             }
@@ -168,21 +169,21 @@ impl SymmetricCryptoKey {
 
     pub(crate) fn to_encoded_raw(&self) -> Vec<u8> {
         match self {
-            SymmetricCryptoKey::Aes256CbcKey(key) => key.enc_key.to_vec(),
-            SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
+            Self::Aes256CbcKey(key) => key.enc_key.to_vec(),
+            Self::Aes256CbcHmacKey(key) => {
                 let mut buf = Vec::with_capacity(64);
                 buf.extend_from_slice(&key.enc_key);
                 buf.extend_from_slice(&key.mac_key);
                 buf
             }
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
+            Self::XChaCha20Poly1305Key(key) => {
                 let builder = coset::CoseKeyBuilder::new_symmetric_key(key.enc_key.to_vec());
                 let mut cose_key = builder
                     .key_id(key.key_id.to_vec())
-                    .add_key_op(iana::KeyOperation::Decrypt)
-                    .add_key_op(iana::KeyOperation::Encrypt)
-                    .add_key_op(iana::KeyOperation::WrapKey)
-                    .add_key_op(iana::KeyOperation::UnwrapKey)
+                    .add_key_op(KeyOperation::Decrypt)
+                    .add_key_op(KeyOperation::Encrypt)
+                    .add_key_op(KeyOperation::WrapKey)
+                    .add_key_op(KeyOperation::UnwrapKey)
                     .build();
                 cose_key.alg = Some(RegisteredLabelWithPrivate::PrivateUse(
                     cose::XCHACHA20_POLY1305,
@@ -229,7 +230,7 @@ impl TryFrom<String> for SymmetricCryptoKey {
         let b = STANDARD
             .decode(value)
             .map_err(|_| CryptoError::InvalidKey)?;
-        SymmetricCryptoKey::try_from(b)
+        Self::try_from(b)
     }
 }
 
@@ -237,7 +238,7 @@ impl TryFrom<Vec<u8>> for SymmetricCryptoKey {
     type Error = CryptoError;
 
     fn try_from(mut value: Vec<u8>) -> Result<Self, Self::Error> {
-        SymmetricCryptoKey::try_from(value.as_mut_slice())
+        Self::try_from(value.as_mut_slice())
     }
 }
 
@@ -258,7 +259,7 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
             enc_key.copy_from_slice(&value[..32]);
             mac_key.copy_from_slice(&value[32..]);
 
-            Ok(SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
+            Ok(Self::Aes256CbcHmacKey(Aes256CbcHmacKey {
                 enc_key,
                 mac_key,
             }))
@@ -267,7 +268,7 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
 
             enc_key.copy_from_slice(&value[..Self::AES256_CBC_KEY_LEN]);
 
-            Ok(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey { enc_key }))
+            Ok(Self::Aes256CbcKey(Aes256CbcKey { enc_key }))
         } else if value.len() > Self::AES256_CBC_HMAC_KEY_LEN {
             let unpadded_value = unpad_key(value);
             let cose_key =
@@ -319,7 +320,7 @@ fn parse_cose_key(cose_key: &coset::CoseKey) -> Result<SymmetricCryptoKey, Crypt
 
 impl From<Aes256CbcHmacKey> for SymmetricCryptoKey {
     fn from(key: Aes256CbcHmacKey) -> Self {
-        SymmetricCryptoKey::Aes256CbcHmacKey(key)
+        Self::Aes256CbcHmacKey(key)
     }
 }
 
