@@ -6,7 +6,6 @@ use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    cose,
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
     Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key,
 };
@@ -258,26 +257,8 @@ impl EncString {
         data_dec: &[u8],
         key: &XChaCha20Poly1305Key,
     ) -> Result<EncString> {
-        let mut protected_header = coset::HeaderBuilder::new().build();
-        protected_header.alg = Some(coset::Algorithm::PrivateUse(cose::XCHACHA20_POLY1305));
-
-        let mut nonce = [0u8; 24];
-        let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
-            .protected(protected_header)
-            .create_ciphertext(data_dec, &[], |data, aad| {
-                let ciphertext =
-                    crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
-                nonce = ciphertext.nonce();
-                ciphertext.encrypted_bytes()
-            })
-            .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
-            .build();
-
-        Ok(EncString::Cose_Encrypt0_B64 {
-            data: cose_encrypt0.to_vec().map_err(|err| {
-                CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err))
-            })?,
-        })
+        let data = crate::cose::encrypt_xchacha20_poly1305(data_dec, &key)?;
+        Ok(EncString::Cose_Encrypt0_B64 { data })
     }
 
     /// The numerical representation of the encryption type of the [EncString].
