@@ -172,9 +172,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
         let wrapping_key_instance = self.get_symmetric_key(wrapping_key)?;
         let key_to_wrap_instance = self.get_symmetric_key(key_to_wrap)?;
-        // Aes256CbcHmacKey can wrap keys by encrypting their byte serialization obtained using SymmetricCryptoKey::to_encoded().
-        // XChaCha20Poly1305Key need to specify the content format to be either octet stream, in case the wrapped key is a Aes256CbcHmacKey or Aes256CbcKey, or by specifying
-        // the content format to be CoseKey, in case the wrapped key is a XChaCha20Poly1305Key.
+        // Aes256CbcHmacKey can wrap keys by encrypting their byte serialization obtained using
+        // SymmetricCryptoKey::to_encoded(). XChaCha20Poly1305Key need to specify the
+        // content format to be either octet stream, in case the wrapped key is a Aes256CbcHmacKey
+        // or Aes256CbcKey, or by specifying the content format to be CoseKey, in case the
+        // wrapped key is a XChaCha20Poly1305Key.
         match (wrapping_key_instance, key_to_wrap_instance) {
             (Aes256CbcHmacKey(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => self
                 .encrypt_data_with_symmetric_key(
