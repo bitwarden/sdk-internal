@@ -272,7 +272,7 @@ impl EncString {
             .create_ciphertext(data_dec, &[], |data, aad| {
                 let ciphertext =
                     crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
-                nonce = *ciphertext.nonce();
+                nonce = ciphertext.nonce();
                 ciphertext.encrypted_bytes()
             })
             .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
