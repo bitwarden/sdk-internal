@@ -12,6 +12,7 @@ use crate::{error::EncStringParseError, CryptoError, SymmetricCryptoKey, XChaCha
 // the draft was never published as an RFC, we use a private-use value for the algorithm.
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
 
+/// Encrypts a plaintext message using XChaCha20Poly1305 and returns a COSE Encrypt0 message
 pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext: &[u8],
     key: &crate::XChaCha20Poly1305Key,
@@ -36,6 +37,7 @@ pub(crate) fn encrypt_xchacha20_poly1305(
         .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))
 }
 
+/// Decrypts a COSE Encrypt0 message, using a XChaCha20Poly1305 key
 pub(crate) fn decrypt_xchacha20_poly1305(
     cose_encrypt0_message: &[u8],
     key: &crate::XChaCha20Poly1305Key,
