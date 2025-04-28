@@ -2,7 +2,6 @@ use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
     CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
@@ -10,7 +9,7 @@ use tsify_next::Tsify;
 use super::Cipher;
 use crate::VaultParseError;
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -24,7 +23,7 @@ pub struct Attachment {
     pub key: Option<EncString>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -37,7 +36,7 @@ pub struct AttachmentView {
     pub key: Option<EncString>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AttachmentEncryptResult {
