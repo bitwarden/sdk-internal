@@ -38,7 +38,7 @@ export type EncString = string;
 ///
 /// ## Serialization
 ///
-/// [EncString] implements [Display] and [FromStr] to allow for easy serialization and uses a
+/// [EncString] implements [ToString] and [FromStr] to allow for easy serialization and uses a
 /// custom scheme to represent the different variants.
 ///
 /// The scheme is one of the following schemes:
