@@ -318,12 +318,6 @@ fn parse_cose_key(cose_key: &coset::CoseKey) -> Result<SymmetricCryptoKey, Crypt
     }
 }
 
-impl From<Aes256CbcHmacKey> for SymmetricCryptoKey {
-    fn from(key: Aes256CbcHmacKey) -> Self {
-        Self::Aes256CbcHmacKey(key)
-    }
-}
-
 impl CryptoKey for SymmetricCryptoKey {}
 
 // We manually implement these to make sure we don't print any sensitive data
