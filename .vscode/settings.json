@@ -23,6 +23,7 @@
     "totp",
     "uniffi",
     "wordlist",
+    "XCHACHA",
     "Zeroize",
     "Zeroizing",
     "zxcvbn"
