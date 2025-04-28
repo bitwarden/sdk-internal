@@ -102,8 +102,11 @@ mod tests {
     use crate::{
         endpoint::Endpoint,
         traits::{
-            tests::{TestCommunicationBackend, TestCommunicationBackendReceiveError},
-            InMemorySessionRepository, NoEncryptionCryptoProvider,
+            tests::{
+                TestCommunicationBackend, TestCommunicationBackendReceiveError,
+                TestTwoWayCommunicationBackend,
+            },
+            InMemorySessionRepository, NoEncryptionCryptoProvider, NoiseCryptoProvider,
         },
     };
 
@@ -368,5 +371,65 @@ mod tests {
             result,
             Err(TypedReceiveError::Typing(serde_json::Error { .. }))
         ));
+    }
+
+    #[tokio::test]
+    async fn communication_provider_ping_pong() {
+        let (sender_communication_provider, receiver_communication_provider) =
+            TestTwoWayCommunicationBackend::new();
+
+        let a = tokio::spawn(async move {
+            let receiver_crypto_provider = NoiseCryptoProvider;
+            let receiver_session_map = InMemorySessionRepository::new(HashMap::new());
+            let receiver_client = IpcClient::new(
+                receiver_crypto_provider,
+                receiver_communication_provider.clone(),
+                receiver_session_map,
+            );
+
+            for i in 0..10 {
+                let recv_message = receiver_client.receive(None, None).await.unwrap();
+                println!(
+                    "A: Received Message {:?}",
+                    String::from_utf8(recv_message.payload.clone())
+                );
+                let message = OutgoingMessage {
+                    payload: format!("Hello, world! {}", i).as_bytes().to_vec(),
+                    destination: Endpoint::BrowserBackground,
+                    topic: None,
+                };
+                println!("A: Sending Message {:?}", message);
+                receiver_client.send(message.clone()).await.unwrap();
+            }
+        });
+
+        let b = tokio::spawn(async move {
+            let sender_crypto_provider = NoiseCryptoProvider;
+            let sender_session_map = InMemorySessionRepository::new(HashMap::new());
+            let sender_client = IpcClient::new(
+                sender_crypto_provider,
+                sender_communication_provider.clone(),
+                sender_session_map,
+            );
+
+            for i in 0..10 {
+                let message = OutgoingMessage {
+                    payload: format!("Hello, world! {}", i).as_bytes().to_vec(),
+                    destination: Endpoint::BrowserBackground,
+                    topic: None,
+                };
+                println!("B: Sending Message {:?}", message);
+                sender_client.send(message.clone()).await.unwrap();
+
+                let recv_message = sender_client.receive(None, None).await.unwrap();
+                println!(
+                    "B: Received Message {:?}",
+                    String::from_utf8(recv_message.payload.clone())
+                );
+                assert_eq!(recv_message.payload, message.payload);
+            }
+        });
+
+        let _ = tokio::join!(a, b);
     }
 }
