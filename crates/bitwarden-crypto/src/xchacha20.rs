@@ -27,8 +27,7 @@ pub(crate) struct XChaCha20Poly1305Ciphertext {
 
 impl XChaCha20Poly1305Ciphertext {
     pub(crate) fn nonce(&self) -> [u8; 24] {
-        self.nonce
-            .into()
+        self.nonce.into()
     }
 
     pub(crate) fn encrypted_bytes(&self) -> Vec<u8> {
