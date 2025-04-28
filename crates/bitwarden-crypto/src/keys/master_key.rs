@@ -167,7 +167,7 @@ fn make_user_key(
     mut rng: impl rand::RngCore + rand::CryptoRng,
     master_key: &MasterKey,
 ) -> Result<(UserKey, EncString)> {
-    let user_key = SymmetricCryptoKey::generate_aes256_cbc_hmac_internal(&mut rng);
+    let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key_internal(&mut rng);
     let protected = master_key.encrypt_user_key(&user_key)?;
     Ok((UserKey::new(user_key), protected))
 }

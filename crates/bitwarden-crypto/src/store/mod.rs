@@ -65,7 +65,7 @@ pub use context::KeyStoreContext;
 /// let store: KeyStore<Ids> = KeyStore::default();
 ///
 /// #[allow(deprecated)]
-/// store.context_mut().set_symmetric_key(SymmKeyId::User, SymmetricCryptoKey::generate_aes256_cbc_hmac());
+/// store.context_mut().set_symmetric_key(SymmKeyId::User, SymmetricCryptoKey::make_aes256_cbc_hmac_key());
 ///
 /// // Define some data that needs to be encrypted
 /// struct Data(String);
@@ -355,7 +355,7 @@ pub(crate) mod tests {
                 .context_mut()
                 .set_symmetric_key(
                     TestSymmKey::A(n),
-                    SymmetricCryptoKey::generate_aes256_cbc_hmac(),
+                    SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
                 )
                 .unwrap();
         }

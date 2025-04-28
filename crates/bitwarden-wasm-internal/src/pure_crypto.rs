@@ -92,11 +92,11 @@ impl PureCrypto {
 #[wasm_bindgen]
 impl PureCrypto {
     pub fn generate_user_key_aes256_cbc_hmac() -> Vec<u8> {
-        SymmetricCryptoKey::generate_aes256_cbc_hmac().to_encoded()
+        SymmetricCryptoKey::make_aes256_cbc_hmac_key().to_encoded()
     }
 
     pub fn generate_user_key_xchacha20_poly1305() -> Vec<u8> {
-        SymmetricCryptoKey::generate_xchacha20().to_encoded()
+        SymmetricCryptoKey::make_xchacha20_poly1305_key().to_encoded()
     }
 }
 
@@ -184,13 +184,13 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_aes256_cbc_hmac() {
+    fn test_make_aes256_cbc_hmac_key() {
         let key = PureCrypto::generate_user_key_aes256_cbc_hmac();
         assert_eq!(key.len(), 64);
     }
 
     #[test]
-    fn test_generate_xchacha20_poly1305() {
+    fn test_make_xchacha20_poly1305_key() {
         let key = PureCrypto::generate_user_key_xchacha20_poly1305();
         assert!(key.len() > 64);
     }

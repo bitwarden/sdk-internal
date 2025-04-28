@@ -254,7 +254,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
     /// Generate a new random symmetric key and store it in the context
     pub fn generate_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<Ids::Symmetric> {
-        let key = SymmetricCryptoKey::generate_aes256_cbc_hmac();
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         #[allow(deprecated)]
         self.set_symmetric_key(key_id, key)?;
         Ok(key_id)
@@ -399,7 +399,7 @@ mod tests {
 
         // Generate and insert a key
         let key_a0_id = TestSymmKey::A(0);
-        let key_a0 = SymmetricCryptoKey::generate_aes256_cbc_hmac();
+        let key_a0 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
         store
             .context_mut()
@@ -421,7 +421,7 @@ mod tests {
 
         // Generate and insert a key
         let key_1_id = TestSymmKey::C(1);
-        let key_1 = SymmetricCryptoKey::generate_aes256_cbc_hmac();
+        let key_1 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
         ctx.set_symmetric_key(key_1_id, key_1.clone()).unwrap();
 
@@ -429,7 +429,7 @@ mod tests {
 
         // Generate and insert a new key
         let key_2_id = TestSymmKey::C(2);
-        let key_2 = SymmetricCryptoKey::generate_aes256_cbc_hmac();
+        let key_2 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
         ctx.set_symmetric_key(key_2_id, key_2.clone()).unwrap();
 

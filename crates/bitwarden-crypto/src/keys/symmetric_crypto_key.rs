@@ -99,8 +99,8 @@ impl SymmetricCryptoKey {
     ///
     /// WARNING: This function should only be used with a proper cryptographic RNG. If you do not
     /// have a good reason for using this function, use
-    /// [SymmetricCryptoKey::generate_aes256_cbc_hmac] instead.
-    pub(crate) fn generate_aes256_cbc_hmac_internal(
+    /// [SymmetricCryptoKey::make_aes256_cbc_hmac_key] instead.
+    pub(crate) fn make_aes256_cbc_hmac_key_internal(
         mut rng: impl rand::RngCore + rand::CryptoRng,
     ) -> Self {
         let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
@@ -113,13 +113,13 @@ impl SymmetricCryptoKey {
     }
 
     /// Generate a new random AES256_CBC_HMAC [SymmetricCryptoKey]
-    pub fn generate_aes256_cbc_hmac() -> Self {
+    pub fn make_aes256_cbc_hmac_key() -> Self {
         let mut rng = rand::thread_rng();
-        Self::generate_aes256_cbc_hmac_internal(&mut rng)
+        Self::make_aes256_cbc_hmac_key_internal(&mut rng)
     }
 
     /// Generate a new random XChaCha20Poly1305 [SymmetricCryptoKey]
-    pub fn generate_xchacha20() -> Self {
+    pub fn make_xchacha20_poly1305_key() -> Self {
         let mut rng = rand::thread_rng();
         let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
         rng.fill(enc_key.as_mut_slice());
@@ -354,7 +354,7 @@ mod tests {
 
     #[test]
     fn test_encode_decode_old_symmetric_crypto_key() {
-        let key = SymmetricCryptoKey::generate_aes256_cbc_hmac();
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let encoded = key.to_encoded();
         let decoded = SymmetricCryptoKey::try_from(encoded).unwrap();
         assert_eq!(key, decoded);
@@ -372,7 +372,7 @@ mod tests {
 
     #[test]
     fn test_encode_xchacha20_poly1305_key() {
-        let key = SymmetricCryptoKey::generate_xchacha20();
+        let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
         let encoded = key.to_encoded();
         let decoded = SymmetricCryptoKey::try_from(encoded).unwrap();
         assert_eq!(key, decoded);
