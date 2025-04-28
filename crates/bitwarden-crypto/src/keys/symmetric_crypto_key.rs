@@ -269,7 +269,7 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
 
             Ok(Self::Aes256CbcKey(Aes256CbcKey { enc_key }))
         } else if value.len() > Self::AES256_CBC_HMAC_KEY_LEN {
-            let unpadded_value = unpad_key(value);
+            let unpadded_value = unpad_key(value)?;
             let cose_key =
                 coset::CoseKey::from_slice(unpadded_value).map_err(|_| CryptoError::InvalidKey)?;
             parse_cose_key(&cose_key)
@@ -351,11 +351,12 @@ fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
 /// padding is used to make sure that the byte representation uniquely separates the keys by
 /// size of the byte array the previous key types [SymmetricCryptoKey::Aes256CbcHmacKey] and
 /// [SymmetricCryptoKey::Aes256CbcKey] are 64 and 32 bytes long respectively.
-fn unpad_key(key_bytes: &[u8]) -> &[u8] {
-    // this unwrap is safe, the input is always at least 1 byte long
-    #[allow(clippy::unwrap_used)]
-    let pad_len = *key_bytes.last().unwrap() as usize;
-    key_bytes[..key_bytes.len() - pad_len].as_ref()
+fn unpad_key(key_bytes: &[u8]) -> Result<&[u8], CryptoError> {
+    let pad_len = *key_bytes.last().ok_or(CryptoError::InvalidKey)? as usize;
+    if pad_len >= key_bytes.len() {
+        return Err(CryptoError::InvalidKey);
+    }
+    Ok(key_bytes[..key_bytes.len() - pad_len].as_ref())
 }
 
 #[cfg(test)]
@@ -422,7 +423,7 @@ mod tests {
         encoded_bytes[64] = 2;
         pad_key(&mut key_bytes, 65);
         assert_eq!(encoded_bytes, key_bytes);
-        let unpadded_key = unpad_key(&key_bytes);
+        let unpadded_key = unpad_key(&key_bytes).unwrap();
         assert_eq!(original_key, unpadded_key);
     }
 
@@ -434,7 +435,7 @@ mod tests {
         encoded_bytes[64] = 1;
         pad_key(&mut key_bytes, 65);
         assert_eq!(encoded_bytes, key_bytes);
-        let unpadded_key = unpad_key(&key_bytes);
+        let unpadded_key = unpad_key(&key_bytes).unwrap();
         assert_eq!(original_key, unpadded_key);
     }
 
@@ -446,7 +447,7 @@ mod tests {
         encoded_bytes[65] = 1;
         pad_key(&mut key_bytes, 65);
         assert_eq!(encoded_bytes, key_bytes);
-        let unpadded_key = unpad_key(&key_bytes);
+        let unpadded_key = unpad_key(&key_bytes).unwrap();
         assert_eq!(original_key, unpadded_key);
     }
 }
