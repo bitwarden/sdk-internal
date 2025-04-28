@@ -2,9 +2,10 @@
 //! Standardized values from <https://www.iana.org/assignments/cose/cose.xhtml> should always be preferred
 //! unless there is a specific reason to use a private-use value.
 
-use coset::CborSerializable;
+use coset::{iana, CborSerializable, Label};
+use generic_array::{typenum::U32, GenericArray};
 
-use crate::{error::EncStringParseError, CryptoError};
+use crate::{error::EncStringParseError, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key};
 
 // XChaCha20 <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03> is used over ChaCha20
 // to be able to randomly generate nonces, and to not have to worry about key wearout. Since
@@ -33,4 +34,41 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     cose_encrypt0
         .to_vec()
         .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))
+}
+
+impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
+    type Error = CryptoError;
+
+    fn try_from(cose_key: &coset::CoseKey) -> Result<Self, Self::Error> {     
+        let key_bytes = cose_key
+            .params
+            .iter()
+            .find_map(|(label, value)| {
+                const SYMMETRIC_KEY: i64 = iana::SymmetricKeyParameter::K as i64;
+                if let (Label::Int(SYMMETRIC_KEY), ciborium::Value::Bytes(bytes)) = (label, value) {
+                    Some(bytes)
+                } else {
+                    None
+                }
+            })
+            .ok_or(CryptoError::InvalidKey)?;
+
+        match cose_key.alg.clone().ok_or(CryptoError::InvalidKey)? {
+            coset::RegisteredLabelWithPrivate::PrivateUse(XCHACHA20_POLY1305)
+                if key_bytes.len() == 32 =>
+            {
+                let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+                enc_key.copy_from_slice(key_bytes);
+                let key_id = cose_key
+                    .key_id
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| CryptoError::InvalidKey)?;
+                Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(
+                    XChaCha20Poly1305Key { enc_key, key_id },
+                ))
+            }
+            _ => Err(CryptoError::InvalidKey),
+        }
+    }
 }
