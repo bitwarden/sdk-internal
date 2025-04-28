@@ -257,7 +257,7 @@ impl EncString {
         data_dec: &[u8],
         key: &XChaCha20Poly1305Key,
     ) -> Result<EncString> {
-        let data = crate::cose::encrypt_xchacha20_poly1305(data_dec, &key)?;
+        let data = crate::cose::encrypt_xchacha20_poly1305(data_dec, key)?;
         Ok(EncString::Cose_Encrypt0_B64 { data })
     }
 
