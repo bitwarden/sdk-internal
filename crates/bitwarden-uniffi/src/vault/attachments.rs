@@ -1,16 +1,14 @@
-use std::{path::Path, sync::Arc};
+use std::path::Path;
 
-use bitwarden_vault::{
-    Attachment, AttachmentEncryptResult, AttachmentView, Cipher, VaultClientExt,
-};
+use bitwarden_vault::{Attachment, AttachmentEncryptResult, AttachmentView, Cipher};
 
-use crate::{error::Error, Client, Result};
+use crate::{error::Error, Result};
 
 #[derive(uniffi::Object)]
-pub struct ClientAttachments(pub Arc<Client>);
+pub struct AttachmentsClient(pub(crate) bitwarden_vault::AttachmentsClient);
 
 #[uniffi::export]
-impl ClientAttachments {
+impl AttachmentsClient {
     /// Encrypt an attachment file in memory
     pub fn encrypt_buffer(
         &self,
@@ -20,9 +18,6 @@ impl ClientAttachments {
     ) -> Result<AttachmentEncryptResult> {
         Ok(self
             .0
-             .0
-            .vault()
-            .attachments()
             .encrypt_buffer(cipher, attachment, &buffer)
             .map_err(Error::Encrypt)?)
     }
@@ -37,9 +32,6 @@ impl ClientAttachments {
     ) -> Result<Attachment> {
         Ok(self
             .0
-             .0
-            .vault()
-            .attachments()
             .encrypt_file(
                 cipher,
                 attachment,
@@ -57,9 +49,6 @@ impl ClientAttachments {
     ) -> Result<Vec<u8>> {
         Ok(self
             .0
-             .0
-            .vault()
-            .attachments()
             .decrypt_buffer(cipher, attachment, &buffer)
             .map_err(Error::Decrypt)?)
     }
@@ -74,9 +63,6 @@ impl ClientAttachments {
     ) -> Result<()> {
         Ok(self
             .0
-             .0
-            .vault()
-            .attachments()
             .decrypt_file(
                 cipher,
                 attachment,

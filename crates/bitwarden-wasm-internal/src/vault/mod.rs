@@ -1,36 +1,39 @@
+pub mod attachments;
 pub mod ciphers;
 pub mod folders;
 pub mod totp;
 
-use std::rc::Rc;
-
-use bitwarden_core::Client;
-use ciphers::ClientCiphers;
-use totp::ClientTotp;
+use attachments::AttachmentsClient;
+use ciphers::CiphersClient;
+use totp::TotpClient;
 use wasm_bindgen::prelude::*;
 
-use crate::ClientFolders;
+use crate::FoldersClient;
 
 #[wasm_bindgen]
-pub struct VaultClient(Rc<Client>);
+pub struct VaultClient(bitwarden_vault::VaultClient);
 
 impl VaultClient {
-    pub fn new(client: Rc<Client>) -> Self {
+    pub fn new(client: bitwarden_vault::VaultClient) -> Self {
         Self(client)
     }
 }
 
 #[wasm_bindgen]
 impl VaultClient {
-    pub fn ciphers(&self) -> ClientCiphers {
-        ClientCiphers::new(self.0.clone())
+    pub fn attachments(&self) -> AttachmentsClient {
+        AttachmentsClient::new(self.0.attachments())
     }
 
-    pub fn folders(&self) -> ClientFolders {
-        ClientFolders::new(self.0.clone())
+    pub fn ciphers(&self) -> CiphersClient {
+        CiphersClient::new(self.0.ciphers())
     }
 
-    pub fn totp(&self) -> ClientTotp {
-        ClientTotp::new(self.0.clone())
+    pub fn folders(&self) -> FoldersClient {
+        FoldersClient::new(self.0.folders())
+    }
+
+    pub fn totp(&self) -> TotpClient {
+        TotpClient::new(self.0.clone())
     }
 }

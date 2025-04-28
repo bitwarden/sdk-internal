@@ -1,23 +1,20 @@
-use std::rc::Rc;
-
-use bitwarden_core::Client;
 use bitwarden_vault::{
-    Cipher, CipherListView, CipherView, DecryptError, EncryptError, Fido2CredentialView,
-    VaultClientExt,
+    Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
+    Fido2CredentialView,
 };
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
-pub struct ClientCiphers(Rc<Client>);
+pub struct CiphersClient(bitwarden_vault::CiphersClient);
 
-impl ClientCiphers {
-    pub fn new(client: Rc<Client>) -> Self {
+impl CiphersClient {
+    pub fn new(client: bitwarden_vault::CiphersClient) -> Self {
         Self(client)
     }
 }
 
 #[wasm_bindgen]
-impl ClientCiphers {
+impl CiphersClient {
     /// Encrypt cipher
     ///
     /// # Arguments
@@ -27,7 +24,7 @@ impl ClientCiphers {
     /// - `Ok(Cipher)` containing the encrypted cipher
     /// - `Err(EncryptError)` if encryption fails
     pub fn encrypt(&self, cipher_view: CipherView) -> Result<Cipher, EncryptError> {
-        self.0.vault().ciphers().encrypt(cipher_view)
+        self.0.encrypt(cipher_view)
     }
 
     /// Decrypt cipher
@@ -39,7 +36,7 @@ impl ClientCiphers {
     /// - `Ok(CipherView)` containing the decrypted cipher
     /// - `Err(DecryptError)` if decryption fails
     pub fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
-        self.0.vault().ciphers().decrypt(cipher)
+        self.0.decrypt(cipher)
     }
 
     /// Decrypt list of ciphers
@@ -51,7 +48,7 @@ impl ClientCiphers {
     /// - `Ok(Vec<CipherListView>)` containing the decrypted ciphers
     /// - `Err(DecryptError)` if decryption fails
     pub fn decrypt_list(&self, ciphers: Vec<Cipher>) -> Result<Vec<CipherListView>, DecryptError> {
-        self.0.vault().ciphers().decrypt_list(ciphers)
+        self.0.decrypt_list(ciphers)
     }
 
     /// Decrypt FIDO2 credentials
@@ -66,9 +63,24 @@ impl ClientCiphers {
         &self,
         cipher_view: CipherView,
     ) -> Result<Vec<Fido2CredentialView>, DecryptError> {
-        self.0
-            .vault()
-            .ciphers()
-            .decrypt_fido2_credentials(cipher_view)
+        self.0.decrypt_fido2_credentials(cipher_view)
+    }
+
+    /// Decrypt key
+    ///
+    /// This method is a temporary solution to allow typescript client access to decrypted key
+    /// values, particularly for FIDO2 credentials.
+    ///
+    /// # Arguments
+    /// - `cipher_view` - Decrypted cipher containing the key
+    ///
+    /// # Returns
+    /// - `Ok(String)` containing the decrypted key
+    /// - `Err(CipherError)`
+    pub fn decrypt_fido2_private_key(
+        &self,
+        cipher_view: CipherView,
+    ) -> Result<String, CipherError> {
+        self.0.decrypt_fido2_private_key(cipher_view)
     }
 }

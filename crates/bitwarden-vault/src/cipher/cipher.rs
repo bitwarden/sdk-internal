@@ -6,6 +6,7 @@ use bitwarden_core::{
 use bitwarden_crypto::{
     CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
+use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -30,6 +31,7 @@ use crate::{
     VaultParseError,
 };
 
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CipherError {
     #[error(transparent)]
@@ -583,6 +585,15 @@ impl CipherView {
         let creds = require!(login.fido2_credentials.as_ref());
         let res = creds.decrypt(ctx, ciphers_key)?;
         Ok(res)
+    }
+
+    pub fn decrypt_fido2_private_key(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+    ) -> Result<String, CipherError> {
+        let fido2_credential = self.get_fido2_credentials(ctx)?;
+
+        Ok(fido2_credential[0].key_value.clone())
     }
 }
 
@@ -1325,5 +1336,28 @@ mod tests {
             .get_decrypted_subtitle(&mut ctx, key)
             .unwrap();
         assert_eq!(subtitle, original_subtitle);
+    }
+
+    #[test]
+    fn test_decrypt_fido2_private_key() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::generate(rand::thread_rng()));
+        let mut ctx = key_store.context();
+
+        let mut cipher_view = generate_cipher();
+        cipher_view
+            .generate_cipher_key(&mut ctx, cipher_view.key_identifier())
+            .unwrap();
+
+        let key_id = cipher_view.key_identifier();
+        let ciphers_key = Cipher::decrypt_cipher_key(&mut ctx, key_id, &cipher_view.key).unwrap();
+
+        let fido2_credential = generate_fido2(&mut ctx, ciphers_key);
+
+        cipher_view.login.as_mut().unwrap().fido2_credentials =
+            Some(vec![fido2_credential.clone()]);
+
+        let decrypted_key_value = cipher_view.decrypt_fido2_private_key(&mut ctx).unwrap();
+        assert_eq!(decrypted_key_value, "123");
     }
 }

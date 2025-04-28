@@ -1,3 +1,8 @@
+//! Secrets Manager state management.
+//!
+//! Secrets Manager supports persisting state to an encrypted file. This state file primarily
+//! contains the auth token which circumvents rate limiting on frequent logins.
+
 use std::{fmt::Debug, path::Path};
 
 use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable};
@@ -5,16 +10,20 @@ use serde::{Deserialize, Serialize};
 
 use crate::auth::AccessToken;
 
+/// Current version of the state file. This should be incremented whenever backwards incompatible
+/// changes are done.
 const STATE_VERSION: u32 = 1;
 
+/// The content of the state file.
 #[cfg(feature = "secrets")]
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ClientState {
+pub(crate) struct ClientState {
     pub(crate) version: u32,
     pub(crate) token: String,
     pub(crate) encryption_key: String,
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, thiserror::Error)]
 pub enum StateFileError {
     #[error(transparent)]
@@ -38,7 +47,11 @@ impl ClientState {
     }
 }
 
-pub fn get(state_file: &Path, access_token: &AccessToken) -> Result<ClientState, StateFileError> {
+/// Reads, parses and decrypts a state file using the provided access token.
+pub(crate) fn get(
+    state_file: &Path,
+    access_token: &AccessToken,
+) -> Result<ClientState, StateFileError> {
     let file_content = std::fs::read_to_string(state_file)?;
 
     let encrypted_state: EncString = file_content.parse()?;
@@ -52,7 +65,8 @@ pub fn get(state_file: &Path, access_token: &AccessToken) -> Result<ClientState,
     Ok(client_state)
 }
 
-pub fn set(
+/// Serializes and encrypts the state using the provided access token.
+pub(crate) fn set(
     state_file: &Path,
     access_token: &AccessToken,
     state: ClientState,

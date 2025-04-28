@@ -6,13 +6,13 @@ use super::key_encryptable::CryptoKey;
 use crate::error::{CryptoError, Result};
 
 /// Trait to allow both [`AsymmetricCryptoKey`] and [`AsymmetricPublicCryptoKey`] to be used to
-/// encrypt [AsymmetricEncString](crate::AsymmetricEncString).
+/// encrypt [UnsignedSharedKey](crate::UnsignedSharedKey).
 pub trait AsymmetricEncryptable {
     fn to_public_key(&self) -> &RsaPublicKey;
 }
 
 /// An asymmetric public encryption key. Can only encrypt
-/// [AsymmetricEncString](crate::AsymmetricEncString), usually accompanied by a
+/// [UnsignedSharedKey](crate::UnsignedSharedKey), usually accompanied by a
 /// [AsymmetricCryptoKey]
 pub struct AsymmetricPublicCryptoKey {
     key: RsaPublicKey,
@@ -35,7 +35,7 @@ impl AsymmetricEncryptable for AsymmetricPublicCryptoKey {
 }
 
 /// An asymmetric encryption key. Contains both the public and private key. Can be used to both
-/// encrypt and decrypt [`AsymmetricEncString`](crate::AsymmetricEncString).
+/// encrypt and decrypt [`UnsignedSharedKey`](crate::UnsignedSharedKey).
 #[derive(Clone)]
 pub struct AsymmetricCryptoKey {
     // RsaPrivateKey is not a Copy type so this isn't completely necessary, but
@@ -121,7 +121,7 @@ mod tests {
     use base64::{engine::general_purpose::STANDARD, Engine};
 
     use crate::{
-        AsymmetricCryptoKey, AsymmetricEncString, AsymmetricPublicCryptoKey, KeyDecryptable,
+        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, SymmetricCryptoKey, UnsignedSharedKey,
     };
 
     #[test]
@@ -215,12 +215,10 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
         let public_key = AsymmetricPublicCryptoKey::from_der(&public_key).unwrap();
 
-        let plaintext = "Hello, world!";
-        let encrypted =
-            AsymmetricEncString::encrypt_rsa2048_oaep_sha1(plaintext.as_bytes(), &public_key)
-                .unwrap();
-        let decrypted: String = encrypted.decrypt_with_key(&private_key).unwrap();
+        let raw_key = SymmetricCryptoKey::generate(&mut rand::thread_rng());
+        let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(&raw_key, &public_key).unwrap();
+        let decrypted = encrypted.decapsulate_key_unsigned(&private_key).unwrap();
 
-        assert_eq!(plaintext, decrypted);
+        assert_eq!(raw_key, decrypted);
     }
 }
