@@ -36,6 +36,27 @@ pub(crate) fn encrypt_xchacha20_poly1305(
         .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))
 }
 
+pub(crate) fn decrypt_xchacha20_poly1305(
+    cose_encrypt0_message: &[u8],
+    key: &crate::XChaCha20Poly1305Key,
+) -> Result<Vec<u8>, CryptoError> {
+    let msg = coset::CoseEncrypt0::from_slice(cose_encrypt0_message).map_err(|err| {
+        CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err))
+    })?;
+    let decrypted_message = msg.decrypt(&[], |data, aad| {
+        let nonce = msg.unprotected.iv.as_slice();
+        crate::xchacha20::decrypt_xchacha20_poly1305(
+            nonce
+                .try_into()
+                .map_err(|_| CryptoError::InvalidNonceLength)?,
+            &(*key.enc_key).into(),
+            data,
+            aad,
+        )
+    })?;
+    Ok(decrypted_message)
+}
+
 impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
     type Error = CryptoError;
 

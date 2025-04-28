@@ -299,20 +299,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let msg = coset::CoseEncrypt0::from_slice(data.as_slice()).map_err(|err| {
-                    CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err))
-                })?;
-                let decrypted_message = msg.decrypt(&[], |data, aad| {
-                    let nonce = msg.unprotected.iv.as_slice();
-                    crate::xchacha20::decrypt_xchacha20_poly1305(
-                        nonce
-                            .try_into()
-                            .map_err(|_| CryptoError::InvalidNonceLength)?,
-                        &(*key.enc_key).into(),
-                        data,
-                        aad,
-                    )
-                })?;
+                let decrypted_message = crate::cose::decrypt_xchacha20_poly1305(data.as_slice(), key)?;
                 Ok(decrypted_message)
             }
             _ => Err(CryptoError::WrongKeyType),
