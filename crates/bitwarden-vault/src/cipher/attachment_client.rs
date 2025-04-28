@@ -10,6 +10,8 @@ use crate::{
     Cipher, DecryptError, EncryptError, VaultClient,
 };
 
+use super::AttachmentFileData;
+
 pub struct AttachmentsClient {
     pub(crate) client: Client,
 }
@@ -74,6 +76,20 @@ impl AttachmentsClient {
         let key_store = self.client.internal.get_key_store();
 
         Ok(key_store.decrypt(&AttachmentFile {
+            cipher,
+            attachment,
+            contents: EncString::from_buffer(encrypted_buffer)?,
+        })?)
+    }
+    pub fn decrypt_buffer_view(
+        &self,
+        cipher: Cipher,
+        attachment: AttachmentView,
+        encrypted_buffer: &[u8],
+    ) -> Result<Vec<u8>, DecryptError> {
+        let key_store = self.client.internal.get_key_store();
+
+        Ok(key_store.decrypt(&AttachmentFileData {
             cipher,
             attachment,
             contents: EncString::from_buffer(encrypted_buffer)?,
