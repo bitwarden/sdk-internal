@@ -3,12 +3,15 @@ use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
+use tsify_next::Tsify;
 
 use crate::VaultParseError;
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Identity {
     pub title: Option<EncString>,
     pub first_name: Option<EncString>,
@@ -33,6 +36,7 @@ pub struct Identity {
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct IdentityView {
     pub title: Option<String>,
     pub first_name: Option<String>,

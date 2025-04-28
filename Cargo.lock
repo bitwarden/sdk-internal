@@ -423,6 +423,7 @@ dependencies = [
  "base64",
  "bitwarden-error",
  "cbc",
+ "chacha20poly1305",
  "criterion",
  "generic-array",
  "hkdf",
@@ -485,10 +486,11 @@ dependencies = [
  "base64",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-error",
  "bitwarden-fido",
  "bitwarden-vault",
  "chrono",
- "credential-exchange-types",
+ "credential-exchange-format",
  "csv",
  "num-traits",
  "rand",
@@ -496,8 +498,10 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.12",
+ "tsify-next",
  "uniffi",
  "uuid",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -531,6 +535,7 @@ version = "1.0.0"
 dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-error",
  "rand",
  "rand_chacha",
  "reqwest",
@@ -539,8 +544,25 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.12",
  "tokio",
+ "tsify-next",
  "uniffi",
+ "wasm-bindgen",
  "wiremock",
+]
+
+[[package]]
+name = "bitwarden-ipc"
+version = "1.0.0"
+dependencies = [
+ "bitwarden-error",
+ "js-sys",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tsify-next",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -663,6 +685,9 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-exporters",
+ "bitwarden-generators",
+ "bitwarden-ipc",
  "bitwarden-ssh",
  "bitwarden-vault",
  "chrono",
@@ -830,6 +855,19 @@ dependencies = [
  "cfg-if",
  "cipher",
  "cpufeatures",
+]
+
+[[package]]
+name = "chacha20poly1305"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10cd79432192d1c0f4e1a0fef9527696cc039165d729fb41b3f4f4f354c2dc35"
+dependencies = [
+ "aead",
+ "chacha20",
+ "cipher",
+ "poly1305",
+ "zeroize",
 ]
 
 [[package]]
@@ -1042,13 +1080,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "credential-exchange-types"
+name = "credential-exchange-format"
 version = "0.1.0"
-source = "git+https://github.com/bitwarden/credential-exchange.git?rev=03f29bc63cea5bc8c9c8bfe27f002b3e90f9e051#03f29bc63cea5bc8c9c8bfe27f002b3e90f9e051"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5209d9b20c3eb8d2b96f3b06133b27d79168f312c09a8035f46c0fb18053aefc"
 dependencies = [
  "chrono",
  "data-encoding",
- "jose-jwk",
  "serde",
  "serde_json",
 ]
@@ -1177,6 +1215,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1bfb12502f3fc46cca1bb51ac28df9d618d813cdc3d2f25b9fe775a34af26bb3"
 dependencies = [
  "generic-array",
+ "rand_core",
  "typenum",
 ]
 
@@ -2263,39 +2302,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8eaf4bc02d17cbdd7ff4c7438cafcdf7fb9a4613313ad11b4f8fefe7d3fa0130"
 
 [[package]]
-name = "jose-b64"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bec69375368709666b21c76965ce67549f2d2db7605f1f8707d17c9656801b56"
-dependencies = [
- "base64ct",
- "serde",
- "subtle",
- "zeroize",
-]
-
-[[package]]
-name = "jose-jwa"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ab78e053fe886a351d67cf0d194c000f9d0dcb92906eb34d853d7e758a4b3a7"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "jose-jwk"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "280fa263807fe0782ecb6f2baadc28dffc04e00558a58e33bfdb801d11fd58e7"
-dependencies = [
- "jose-b64",
- "jose-jwa",
- "serde",
- "zeroize",
-]
-
-[[package]]
 name = "js-sys"
 version = "0.3.77"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2327,7 +2333,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -2755,8 +2761,7 @@ dependencies = [
 [[package]]
 name = "pkcs5"
 version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e847e2c91a18bfa887dd028ec33f2fe6f25db77db3619024764914affe8b69a6"
+source = "git+https://github.com/bitwarden/rustcrypto-formats.git?rev=2b27c63034217dd126bbf5ed874da51b84f8c705#2b27c63034217dd126bbf5ed874da51b84f8c705"
 dependencies = [
  "aes",
  "cbc",
@@ -3942,9 +3947,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.43.0"
+version = "1.43.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d61fa4ffa3de412bfea335c6ecff681de2b609ba3c77ef3e00e521813a9ed9e"
+checksum = "492a604e2fd7f814268a378409e6c92b5525d747d10db9a229723f55a417958c"
 dependencies = [
  "backtrace",
  "bytes",

@@ -107,6 +107,19 @@ impl From<KdfDerivedKeyMaterial> for MasterKey {
     }
 }
 
+impl TryFrom<&SymmetricCryptoKey> for MasterKey {
+    type Error = CryptoError;
+
+    fn try_from(value: &SymmetricCryptoKey) -> Result<Self> {
+        match value {
+            SymmetricCryptoKey::Aes256CbcKey(key) => {
+                Ok(Self::KdfKey(KdfDerivedKeyMaterial(key.enc_key.clone())))
+            }
+            _ => Err(CryptoError::InvalidKey),
+        }
+    }
+}
+
 /// Helper function to encrypt a user key with a master or pin key.
 pub(super) fn encrypt_user_key(
     master_key: &Pin<Box<GenericArray<u8, U32>>>,
@@ -123,10 +136,10 @@ pub(super) fn decrypt_user_key(
     user_key: EncString,
 ) -> Result<SymmetricCryptoKey> {
     let mut dec: Vec<u8> = match user_key {
-        // Legacy. user_keys were encrypted using `AesCbc256_B64` a long time ago. We've since
-        // moved to using `AesCbc256_HmacSha256_B64`. However, we still need to support
+        // Legacy. user_keys were encrypted using `Aes256Cbc_B64` a long time ago. We've since
+        // moved to using `Aes256Cbc_HmacSha256_B64`. However, we still need to support
         // decrypting these old keys.
-        EncString::AesCbc256_B64 { .. } => {
+        EncString::Aes256Cbc_B64 { .. } => {
             let legacy_key = SymmetricCryptoKey::Aes256CbcKey(super::Aes256CbcKey {
                 enc_key: Box::pin(GenericArray::clone_from_slice(key)),
             });

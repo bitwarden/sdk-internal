@@ -1,22 +1,19 @@
-use std::rc::Rc;
-
-use bitwarden_core::Client;
-use bitwarden_vault::{DecryptError, Folder, FolderView, VaultClientExt};
+use bitwarden_vault::{DecryptError, Folder, FolderView};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub struct ClientFolders(Rc<Client>);
+pub struct FoldersClient(bitwarden_vault::FoldersClient);
 
-impl ClientFolders {
-    pub fn new(client: Rc<Client>) -> Self {
+impl FoldersClient {
+    pub fn new(client: bitwarden_vault::FoldersClient) -> Self {
         Self(client)
     }
 }
 
 #[wasm_bindgen]
-impl ClientFolders {
+impl FoldersClient {
     /// Decrypt folder
     pub fn decrypt(&self, folder: Folder) -> Result<FolderView, DecryptError> {
-        self.0.vault().folders().decrypt(folder)
+        self.0.decrypt(folder)
     }
 }

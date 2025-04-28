@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricEncString, AsymmetricPublicCryptoKey, DeviceKey, EncString, Kdf, SymmetricCryptoKey,
-    TrustDeviceResponse, UserKey,
+    AsymmetricPublicCryptoKey, DeviceKey, EncString, Kdf, SymmetricCryptoKey, TrustDeviceResponse,
+    UnsignedSharedKey, UserKey,
 };
 
 use crate::{client::encryption_settings::EncryptionSettingsError, Client};
@@ -22,8 +22,7 @@ pub(super) fn make_register_tde_keys(
     let user_key = UserKey::new(SymmetricCryptoKey::generate(&mut rng));
     let key_pair = user_key.make_key_pair()?;
 
-    let admin_reset =
-        AsymmetricEncString::encrypt_rsa2048_oaep_sha1(&user_key.0.to_vec(), &public_key)?;
+    let admin_reset = UnsignedSharedKey::encapsulate_key_unsigned(&user_key.0, &public_key)?;
 
     let device_key = if remember_device {
         Some(DeviceKey::trust_device(&user_key.0)?)
@@ -58,6 +57,6 @@ pub struct RegisterTdeKeyResponse {
     pub private_key: EncString,
     pub public_key: String,
 
-    pub admin_reset: AsymmetricEncString,
+    pub admin_reset: UnsignedSharedKey,
     pub device_key: Option<TrustDeviceResponse>,
 }

@@ -1,6 +1,17 @@
 # Bitwarden Core
 
-This is an internal crate for the Bitwarden SDK do not depend on this directly and use the
-[`bitwarden`](https://crates.io/crates/bitwarden) crate instead.
+Contains core functionality used by the feature crates. For an introduction to the Bitwarden SDK and
+the `bitwarden-core` create please refer to the
+[SDK Architecture](https://contributing.bitwarden.com/architecture/sdk/) documentation.
 
-This crate does not follow semantic versioning and the public interface may change at any time.
+<div class="warning">
+Generally you should <b>not</b> find yourself needing to edit this crate! When possible, please use the feature crates instead.
+</div>
+
+## Features
+
+- `internal` - Internal unstable APIs that should only be consumed by internal Bitwarden clients.
+- `no-memory-hardening` - Disables `bitwarden-crypto` memory hardening.
+- `secrets` - Secrets Manager specific functionality.
+- `uniffi` - Mobile bindings.
+- `wasm` - WebAssembly bindings.

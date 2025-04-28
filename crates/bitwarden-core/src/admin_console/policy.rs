@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use crate::{require, MissingFieldError};
 
+/// Represents a policy that can be applied to an organization.
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct Policy {
     id: Uuid,
@@ -20,20 +21,30 @@ pub struct Policy {
 #[derive(Serialize_repr, Deserialize_repr, Debug, JsonSchema)]
 #[repr(u8)]
 pub enum PolicyType {
-    TwoFactorAuthentication = 0, // Requires users to have 2fa enabled
-    MasterPassword = 1,          // Sets minimum requirements for master password complexity
-    PasswordGenerator = 2,       /* Sets minimum requirements/default type for generated
-                                  * passwords/passphrases */
-    SingleOrg = 3,         // Allows users to only be apart of one organization
-    RequireSso = 4,        // Requires users to authenticate with SSO
-    PersonalOwnership = 5, // Disables personal vault ownership for adding/cloning items
-    DisableSend = 6,       // Disables the ability to create and edit Bitwarden Sends
-    SendOptions = 7,       // Sets restrictions or defaults for Bitwarden Sends
-    ResetPassword = 8,     /* Allows orgs to use reset password : also can enable
-                            * auto-enrollment during invite flow */
-    MaximumVaultTimeout = 9,         // Sets the maximum allowed vault timeout
-    DisablePersonalVaultExport = 10, // Disable personal vault export
-    ActivateAutofill = 11,           // Activates autofill with page load on the browser extension
+    /// Requires users to have 2fa enabled
+    TwoFactorAuthentication = 0,
+    /// Sets minimum requirements for master password complexity
+    MasterPassword = 1,
+    /// Sets minimum requirements/default type for generated passwords/passphrases
+    PasswordGenerator = 2,
+    /// Allows users to only be apart of one organization
+    SingleOrg = 3,
+    /// Requires users to authenticate with SSO
+    RequireSso = 4,
+    /// Disables personal vault ownership for adding/cloning items
+    PersonalOwnership = 5,
+    /// Disables the ability to create and edit Bitwarden Sends
+    DisableSend = 6,
+    /// Sets restrictions or defaults for Bitwarden Sends
+    SendOptions = 7,
+    /// Allows orgs to use reset password : also can enable auto-enrollment during invite flow
+    ResetPassword = 8,
+    /// Sets the maximum allowed vault timeout
+    MaximumVaultTimeout = 9,
+    /// Disable personal vault export
+    DisablePersonalVaultExport = 10,
+    /// Activates autofill with page load on the browser extension
+    ActivateAutofill = 11,
     AutomaticAppLogIn = 12,
     FreeFamiliesSponsorshipPolicy = 13,
     RemoveUnlockWithPin = 14,

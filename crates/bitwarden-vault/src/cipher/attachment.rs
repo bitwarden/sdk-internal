@@ -4,6 +4,8 @@ use bitwarden_crypto::{
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
+use tsify_next::Tsify;
 
 use super::Cipher;
 use crate::VaultParseError;
@@ -11,6 +13,7 @@ use crate::VaultParseError;
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Attachment {
     pub id: Option<String>,
     pub url: Option<String>,
@@ -24,6 +27,7 @@ pub struct Attachment {
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct AttachmentView {
     pub id: Option<String>,
     pub url: Option<String>,
