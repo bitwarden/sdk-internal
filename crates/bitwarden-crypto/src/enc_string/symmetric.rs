@@ -523,7 +523,7 @@ mod tests {
         let enc_string: EncString = enc_str.parse().unwrap();
 
         let debug_string = format!("{:?}", enc_string);
-        assert_eq!(debug_string, "EncString");
+        assert_eq!(debug_string, enc_str);
     }
 
     #[test]
