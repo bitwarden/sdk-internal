@@ -45,7 +45,7 @@ impl SymmetricCryptoKey {
         &self,
         wrapping_key: &SymmetricCryptoKey,
     ) -> Result<WrappedSymmetricKey, CryptoError> {
-        let encoded = self.to_vec();
+        let encoded = self.to_encoded();
         let enc_string = encoded.encrypt_with_key(wrapping_key)?;
         Ok(enc_string.into())
     }
@@ -57,9 +57,8 @@ mod tests {
 
     #[test]
     fn test_wrap_unwrap() {
-        let mut rng = rand::thread_rng();
-        let wrapping_key = SymmetricCryptoKey::generate(&mut rng);
-        let key = SymmetricCryptoKey::generate(&mut rng);
+        let wrapping_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
         let wrapped_key = key.wrap_with(&wrapping_key).unwrap();
         let unwrapped_key = wrapped_key.unwrap_with(&wrapping_key).unwrap();

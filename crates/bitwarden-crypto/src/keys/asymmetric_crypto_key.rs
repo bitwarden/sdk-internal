@@ -215,7 +215,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
         let public_key = AsymmetricPublicCryptoKey::from_der(&public_key).unwrap();
 
-        let raw_key = SymmetricCryptoKey::generate(&mut rand::thread_rng());
+        let raw_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(&raw_key, &public_key).unwrap();
         let decrypted = encrypted.decapsulate_key_unsigned(&private_key).unwrap();
 

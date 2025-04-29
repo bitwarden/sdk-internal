@@ -60,7 +60,7 @@ impl MasterKey {
 
     /// Derive the master key hash, used for local and remote password validation.
     pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> Result<String> {
-        let hash = util::pbkdf2(self.inner_bytes(), password, purpose as u32);
+        let hash = util::pbkdf2(self.inner_bytes().as_slice(), password, purpose as u32);
 
         Ok(STANDARD.encode(hash))
     }
@@ -144,19 +144,27 @@ pub(super) fn decrypt_user_key(
             });
             user_key.unwrap_with(&legacy_key)
         }
-        _ => {
+        EncString::Aes256Cbc_HmacSha256_B64 { .. } => {
             let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key)?);
             user_key.unwrap_with(&stretched_key)
+        }
+        EncString::Cose_Encrypt0_B64 { .. } => {
+            return Err(CryptoError::OperationNotSupported(
+                crate::error::UnsupportedOperation::EncryptionNotImplementedForKey,
+            ));
         }
     }
 }
 
 /// Generate a new random user key and encrypt it with the master key.
+///
+/// WARNING: This function should only be used with a proper cryptographic random number generator.
+/// If you do not have a good reason for using this, use [MasterKey::make_user_key] instead.
 fn make_user_key(
-    mut rng: impl rand::RngCore,
+    mut rng: impl rand::RngCore + rand::CryptoRng,
     master_key: &MasterKey,
 ) -> Result<(UserKey, WrappedSymmetricKey)> {
-    let user_key = SymmetricCryptoKey::generate(&mut rng);
+    let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key_internal(&mut rng);
     let protected = master_key.encrypt_user_key(&user_key)?;
     Ok((UserKey::new(user_key), protected))
 }
@@ -265,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_make_user_key2() {
-        let kdf_material = KdfDerivedKeyMaterial((derive_symmetric_key("test1")).enc_key.clone());
+        let kdf_material = KdfDerivedKeyMaterial(derive_symmetric_key("test1").enc_key.clone());
         let master_key = MasterKey::KdfKey(kdf_material);
 
         let user_key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test2"));

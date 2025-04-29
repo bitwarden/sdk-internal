@@ -1,0 +1,96 @@
+//! This file contains private-use constants for COSE encoded key types and algorithms.
+//! Standardized values from <https://www.iana.org/assignments/cose/cose.xhtml> should always be preferred
+//! unless there is a specific reason to use a private-use value.
+
+use coset::{iana, CborSerializable, Label};
+use generic_array::{typenum::U32, GenericArray};
+
+use crate::{error::EncStringParseError, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key};
+
+// XChaCha20 <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03> is used over ChaCha20
+// to be able to randomly generate nonces, and to not have to worry about key wearout. Since
+// the draft was never published as an RFC, we use a private-use value for the algorithm.
+pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
+
+/// Encrypts a plaintext message using XChaCha20Poly1305 and returns a COSE Encrypt0 message
+pub(crate) fn encrypt_xchacha20_poly1305(
+    plaintext: &[u8],
+    key: &crate::XChaCha20Poly1305Key,
+) -> Result<Vec<u8>, CryptoError> {
+    let mut protected_header = coset::HeaderBuilder::new().build();
+    protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
+
+    let mut nonce = [0u8; 24];
+    let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
+        .protected(protected_header)
+        .create_ciphertext(plaintext, &[], |data, aad| {
+            let ciphertext =
+                crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
+            nonce = ciphertext.nonce();
+            ciphertext.encrypted_bytes()
+        })
+        .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
+        .build();
+
+    cose_encrypt0
+        .to_vec()
+        .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))
+}
+
+/// Decrypts a COSE Encrypt0 message, using a XChaCha20Poly1305 key
+pub(crate) fn decrypt_xchacha20_poly1305(
+    cose_encrypt0_message: &[u8],
+    key: &crate::XChaCha20Poly1305Key,
+) -> Result<Vec<u8>, CryptoError> {
+    let msg = coset::CoseEncrypt0::from_slice(cose_encrypt0_message)
+        .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))?;
+    let decrypted_message = msg.decrypt(&[], |data, aad| {
+        let nonce = msg.unprotected.iv.as_slice();
+        crate::xchacha20::decrypt_xchacha20_poly1305(
+            nonce
+                .try_into()
+                .map_err(|_| CryptoError::InvalidNonceLength)?,
+            &(*key.enc_key).into(),
+            data,
+            aad,
+        )
+    })?;
+    Ok(decrypted_message)
+}
+
+impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
+    type Error = CryptoError;
+
+    fn try_from(cose_key: &coset::CoseKey) -> Result<Self, Self::Error> {
+        let key_bytes = cose_key
+            .params
+            .iter()
+            .find_map(|(label, value)| {
+                const SYMMETRIC_KEY: i64 = iana::SymmetricKeyParameter::K as i64;
+                if let (Label::Int(SYMMETRIC_KEY), ciborium::Value::Bytes(bytes)) = (label, value) {
+                    Some(bytes)
+                } else {
+                    None
+                }
+            })
+            .ok_or(CryptoError::InvalidKey)?;
+
+        match cose_key.alg.clone().ok_or(CryptoError::InvalidKey)? {
+            coset::RegisteredLabelWithPrivate::PrivateUse(XCHACHA20_POLY1305)
+                if key_bytes.len() == 32 =>
+            {
+                let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+                enc_key.copy_from_slice(key_bytes);
+                let key_id = cose_key
+                    .key_id
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| CryptoError::InvalidKey)?;
+                Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(
+                    XChaCha20Poly1305Key { enc_key, key_id },
+                ))
+            }
+            _ => Err(CryptoError::InvalidKey),
+        }
+    }
+}
