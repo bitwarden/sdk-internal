@@ -7,7 +7,7 @@ use crate::{
 pub trait CryptoProvider<Com, Ses>
 where
     Com: CommunicationBackend,
-    Ses: SessionRepository<Session = Self::Session>,
+    Ses: SessionRepository<Self::Session>,
 {
     type Session;
     type SendError;
@@ -41,7 +41,7 @@ pub struct NoEncryptionCryptoProvider;
 impl<Com, Ses> CryptoProvider<Com, Ses> for NoEncryptionCryptoProvider
 where
     Com: CommunicationBackend,
-    Ses: SessionRepository<Session = ()>,
+    Ses: SessionRepository<()>,
 {
     type Session = ();
     type SendError = Com::SendError;

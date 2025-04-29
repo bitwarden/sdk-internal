@@ -12,7 +12,7 @@ pub struct IpcClient<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationBackend,
-    Ses: SessionRepository<Session = Crypto::Session>,
+    Ses: SessionRepository<Crypto::Session>,
 {
     crypto: Crypto,
     communication: Com,
@@ -27,7 +27,7 @@ pub struct IpcClientSubscription<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationBackend,
-    Ses: SessionRepository<Session = Crypto::Session>,
+    Ses: SessionRepository<Crypto::Session>,
 {
     receiver: Com::Receiver,
     client: Arc<IpcClient<Crypto, Com, Ses>>,
@@ -42,7 +42,7 @@ pub struct IpcClientTypedSubscription<Crypto, Com, Ses, Payload>
 where
     Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationBackend,
-    Ses: SessionRepository<Session = Crypto::Session>,
+    Ses: SessionRepository<Crypto::Session>,
     Payload: TryFrom<Vec<u8>> + PayloadTypeName,
 {
     receiver: Com::Receiver,
@@ -54,7 +54,7 @@ impl<Crypto, Com, Ses> IpcClient<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationBackend,
-    Ses: SessionRepository<Session = Crypto::Session>,
+    Ses: SessionRepository<Crypto::Session>,
 {
     pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Arc<Self> {
         Arc::new(Self {
@@ -165,7 +165,7 @@ impl<Crypto, Com, Ses> IpcClientSubscription<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationBackend,
-    Ses: SessionRepository<Session = Crypto::Session>,
+    Ses: SessionRepository<Crypto::Session>,
 {
     /// Receive a message, optionally filtering by topic.
     /// Setting the timeout to `None` will wait indefinitely.
@@ -189,7 +189,7 @@ impl<Crypto, Com, Ses, Payload> IpcClientTypedSubscription<Crypto, Com, Ses, Pay
 where
     Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationBackend,
-    Ses: SessionRepository<Session = Crypto::Session>,
+    Ses: SessionRepository<Crypto::Session>,
     Payload: TryFrom<Vec<u8>> + PayloadTypeName,
 {
     /// Receive a message.

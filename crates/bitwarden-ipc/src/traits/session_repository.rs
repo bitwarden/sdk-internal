@@ -4,8 +4,7 @@ use tokio::sync::RwLock;
 
 use crate::endpoint::Endpoint;
 
-pub trait SessionRepository {
-    type Session;
+pub trait SessionRepository<Session> {
     type GetError;
     type SaveError;
     type RemoveError;
@@ -13,11 +12,11 @@ pub trait SessionRepository {
     fn get(
         &self,
         destination: Endpoint,
-    ) -> impl std::future::Future<Output = Result<Option<Self::Session>, Self::GetError>>;
+    ) -> impl std::future::Future<Output = Result<Option<Session>, Self::GetError>>;
     fn save(
         &self,
         destination: Endpoint,
-        session: Self::Session,
+        session: Session,
     ) -> impl std::future::Future<Output = Result<(), Self::SaveError>>;
     fn remove(
         &self,
@@ -26,20 +25,19 @@ pub trait SessionRepository {
 }
 
 pub type InMemorySessionRepository<Session> = RwLock<HashMap<Endpoint, Session>>;
-impl<Session> SessionRepository for InMemorySessionRepository<Session>
+impl<Session> SessionRepository<Session> for InMemorySessionRepository<Session>
 where
     Session: Clone,
 {
-    type Session = Session;
     type GetError = ();
     type SaveError = ();
     type RemoveError = ();
 
-    async fn get(&self, destination: Endpoint) -> Result<Option<Self::Session>, ()> {
+    async fn get(&self, destination: Endpoint) -> Result<Option<Session>, ()> {
         Ok(self.read().await.get(&destination).cloned())
     }
 
-    async fn save(&self, destination: Endpoint, session: Self::Session) -> Result<(), ()> {
+    async fn save(&self, destination: Endpoint, session: Session) -> Result<(), ()> {
         self.write().await.insert(destination, session);
         Ok(())
     }
