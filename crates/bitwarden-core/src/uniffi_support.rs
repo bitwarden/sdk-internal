@@ -1,6 +1,10 @@
 //! This module contains custom type converters for Uniffi.
 
+use std::num::NonZeroU32;
+
 use uuid::Uuid;
+
+uniffi::use_remote_type!(bitwarden_crypto::NonZeroU32);
 
 type DateTime = chrono::DateTime<chrono::Utc>;
 uniffi::custom_type!(DateTime, std::time::SystemTime, {
