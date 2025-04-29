@@ -4,14 +4,14 @@ use crate::{
     message::{IncomingMessage, OutgoingMessage},
 };
 
-pub trait CryptoProvider<Com, Ses>
+pub trait CryptoProvider<Com, Ses>: Send + Sync + 'static
 where
     Com: CommunicationBackend,
     Ses: SessionRepository<Self::Session>,
 {
-    type Session;
-    type SendError;
-    type ReceiveError;
+    type Session: Send + Sync + 'static;
+    type SendError: Send + Sync + 'static;
+    type ReceiveError: Send + Sync + 'static;
 
     fn send(
         &self,
