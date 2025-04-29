@@ -3,6 +3,7 @@ use std::fmt::Display;
 
 use bitwarden_core::{Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
+use bitwarden_exporters::ExporterClientExt;
 use bitwarden_generators::GeneratorClientsExt;
 use bitwarden_vault::VaultClientExt;
 use wasm_bindgen::prelude::*;
@@ -51,6 +52,10 @@ impl BitwardenClient {
     /// Constructs a specific client for generating passwords and passphrases
     pub fn generator(&self) -> GeneratorClient {
         GeneratorClient::new(self.0.generator())
+    }
+
+    pub fn exporters(&self) -> bitwarden_exporters::ExporterClient {
+        self.0.exporters()
     }
 }
 

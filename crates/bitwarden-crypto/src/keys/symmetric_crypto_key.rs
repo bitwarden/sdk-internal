@@ -4,6 +4,12 @@ use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::GenericArray;
 use rand::Rng;
+#[cfg(test)]
+use rand::SeedableRng;
+#[cfg(test)]
+use rand_chacha::ChaChaRng;
+#[cfg(test)]
+use sha2::Digest;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use super::key_encryptable::CryptoKey;
@@ -51,6 +57,14 @@ impl SymmetricCryptoKey {
         rng.fill(mac_key.as_mut_slice());
 
         SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
+    }
+
+    /// Generate a new random [SymmetricCryptoKey] for unit tests. Note: DO NOT USE THIS
+    /// IN PRODUCTION CODE.
+    #[cfg(test)]
+    pub fn generate_seeded_for_unit_tests(seed: &str) -> Self {
+        let seeded_rng = ChaChaRng::from_seed(sha2::Sha256::digest(seed.as_bytes()).into());
+        Self::generate(seeded_rng)
     }
 
     fn total_len(&self) -> usize {

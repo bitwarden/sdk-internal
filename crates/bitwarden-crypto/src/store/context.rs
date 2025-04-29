@@ -3,14 +3,13 @@ use std::{
     sync::{RwLockReadGuard, RwLockWriteGuard},
 };
 
-use rsa::Oaep;
 use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
-    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, KeyId, KeyIds, Result,
-    SymmetricCryptoKey,
+    AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, SymmetricCryptoKey,
+    UnsignedSharedKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -173,49 +172,49 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         self.encrypt_data_with_symmetric_key(encryption_key, &key_to_encrypt.to_vec())
     }
 
-    /// Decrypt a symmetric key into the context by using an already existing asymmetric key
+    /// Decapsulate a symmetric key into the context by using an already existing asymmetric key
     ///
     /// # Arguments
     ///
-    /// * `encryption_key` - The key id used to decrypt the `encrypted_key`. It must already exist
-    ///   in the context
+    /// * `decapsulation_key` - The key id used to decrypt the `encrypted_key`. It must already
+    ///   exist in the context
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
-    /// * `encrypted_key` - The key to decrypt
-    pub fn decrypt_symmetric_key_with_asymmetric_key(
+    /// * `encapsulated_shared_key` - The symmetric key to decrypt
+    pub fn decapsulate_key_unsigned(
         &mut self,
-        encryption_key: Ids::Asymmetric,
+        decapsulation_key: Ids::Asymmetric,
         new_key_id: Ids::Symmetric,
-        encrypted_key: &AsymmetricEncString,
+        encapsulated_shared_key: &UnsignedSharedKey,
     ) -> Result<Ids::Symmetric> {
-        let mut new_key_material =
-            self.decrypt_data_with_asymmetric_key(encryption_key, encrypted_key)?;
+        let decapsulation_key = self.get_asymmetric_key(decapsulation_key)?;
+        let decapsulated_key =
+            encapsulated_shared_key.decapsulate_key_unsigned(decapsulation_key)?;
 
         #[allow(deprecated)]
-        self.set_symmetric_key(
-            new_key_id,
-            SymmetricCryptoKey::try_from(new_key_material.as_mut_slice())?,
-        )?;
+        self.set_symmetric_key(new_key_id, decapsulated_key)?;
 
         // Returning the new key identifier for convenience
         Ok(new_key_id)
     }
 
-    /// Encrypt and return a symmetric key from the context by using an already existing asymmetric
-    /// key
+    /// Encapsulate and return a symmetric key from the context by using an already existing
+    /// asymmetric key
     ///
     /// # Arguments
     ///
-    /// * `encryption_key` - The key id used to encrypt the `key_to_encrypt`. It must already exist
-    ///   in the context
-    /// * `key_to_encrypt` - The key id to encrypt. It must already exist in the context
-    pub fn encrypt_symmetric_key_with_asymmetric_key(
+    /// * `encapsulation_key` - The key id used to encrypt the `encapsulated_key`. It must already
+    ///   exist in the context
+    /// * `shared_key` - The key id to encrypt. It must already exist in the context
+    pub fn encapsulate_key_unsigned(
         &self,
-        encryption_key: Ids::Asymmetric,
-        key_to_encrypt: Ids::Symmetric,
-    ) -> Result<AsymmetricEncString> {
-        let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
-        self.encrypt_data_with_asymmetric_key(encryption_key, &key_to_encrypt.to_vec())
+        encapsulation_key: Ids::Asymmetric,
+        shared_key: Ids::Symmetric,
+    ) -> Result<UnsignedSharedKey> {
+        UnsignedSharedKey::encapsulate_key_unsigned(
+            self.get_symmetric_key(shared_key)?,
+            self.get_asymmetric_key(encapsulation_key)?,
+        )
     }
 
     /// Returns `true` if the context has a symmetric key with the given identifier
@@ -354,38 +353,6 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
         }
-    }
-
-    pub(crate) fn decrypt_data_with_asymmetric_key(
-        &self,
-        key: Ids::Asymmetric,
-        data: &AsymmetricEncString,
-    ) -> Result<Vec<u8>> {
-        let key = self.get_asymmetric_key(key)?;
-
-        use AsymmetricEncString::*;
-        match data {
-            Rsa2048_OaepSha256_B64 { data } => key.key.decrypt(Oaep::new::<sha2::Sha256>(), data),
-            Rsa2048_OaepSha1_B64 { data } => key.key.decrypt(Oaep::new::<sha1::Sha1>(), data),
-            #[allow(deprecated)]
-            Rsa2048_OaepSha256_HmacSha256_B64 { data, .. } => {
-                key.key.decrypt(Oaep::new::<sha2::Sha256>(), data)
-            }
-            #[allow(deprecated)]
-            Rsa2048_OaepSha1_HmacSha256_B64 { data, .. } => {
-                key.key.decrypt(Oaep::new::<sha1::Sha1>(), data)
-            }
-        }
-        .map_err(|_| CryptoError::KeyDecrypt)
-    }
-
-    pub(crate) fn encrypt_data_with_asymmetric_key(
-        &self,
-        key: Ids::Asymmetric,
-        data: &[u8],
-    ) -> Result<AsymmetricEncString> {
-        let key = self.get_asymmetric_key(key)?;
-        AsymmetricEncString::encrypt_rsa2048_oaep_sha1(data, key)
     }
 }
 

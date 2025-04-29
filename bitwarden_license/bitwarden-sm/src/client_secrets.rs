@@ -12,11 +12,14 @@ use crate::{
     },
 };
 
-pub struct ClientSecrets {
+/// Aliases to maintain backward compatibility
+pub type ClientSecrets = SecretsClient;
+
+pub struct SecretsClient {
     client: Client,
 }
 
-impl ClientSecrets {
+impl SecretsClient {
     pub fn new(client: Client) -> Self {
         Self { client }
     }
@@ -78,12 +81,23 @@ impl ClientSecrets {
     }
 }
 
+/// This trait is for backward compatibility
 pub trait ClientSecretsExt {
     fn secrets(&self) -> ClientSecrets;
 }
 
 impl ClientSecretsExt for Client {
     fn secrets(&self) -> ClientSecrets {
-        ClientSecrets::new(self.clone())
+        SecretsClient::new(self.clone())
+    }
+}
+
+pub trait SecretsClientExt {
+    fn secrets(&self) -> SecretsClient;
+}
+
+impl SecretsClientExt for Client {
+    fn secrets(&self) -> SecretsClient {
+        SecretsClient::new(self.clone())
     }
 }

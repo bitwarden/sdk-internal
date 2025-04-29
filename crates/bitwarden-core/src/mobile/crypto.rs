@@ -8,8 +8,8 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, SymmetricCryptoKey, UserKey,
+    AsymmetricCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
+    SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -90,7 +90,7 @@ pub enum InitUserCryptoMethod {
         /// The Device Private Key
         protected_device_private_key: EncString,
         /// The user's symmetric crypto key, encrypted with the Device Key.
-        device_protected_user_key: AsymmetricEncString,
+        device_protected_user_key: UnsignedSharedKey,
     },
     /// Key connector
     KeyConnector {
@@ -110,12 +110,12 @@ pub enum AuthRequestMethod {
     /// User Key
     UserKey {
         /// User Key protected by the private key provided in `AuthRequestResponse`.
-        protected_user_key: AsymmetricEncString,
+        protected_user_key: UnsignedSharedKey,
     },
     /// Master Key
     MasterKey {
         /// Master Key protected by the private key provided in `AuthRequestResponse`.
-        protected_master_key: AsymmetricEncString,
+        protected_master_key: UnsignedSharedKey,
         /// User Key protected by the MasterKey, provided by the auth response.
         auth_request_key: EncString,
     },
@@ -228,7 +228,7 @@ pub async fn initialize_user_crypto(
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct InitOrgCryptoRequest {
     /// The encryption keys for all the organizations the user is a part of
-    pub organization_keys: HashMap<uuid::Uuid, AsymmetricEncString>,
+    pub organization_keys: HashMap<uuid::Uuid, UnsignedSharedKey>,
 }
 
 /// Initialize the user's organizational cryptographic state.
@@ -386,7 +386,7 @@ pub enum EnrollAdminPasswordResetError {
 pub(super) fn enroll_admin_password_reset(
     client: &Client,
     public_key: String,
-) -> Result<AsymmetricEncString, EnrollAdminPasswordResetError> {
+) -> Result<UnsignedSharedKey, EnrollAdminPasswordResetError> {
     use base64::{engine::general_purpose::STANDARD, Engine};
     use bitwarden_crypto::AsymmetricPublicCryptoKey;
 
@@ -397,8 +397,8 @@ pub(super) fn enroll_admin_password_reset(
     #[allow(deprecated)]
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
-    Ok(AsymmetricEncString::encrypt_rsa2048_oaep_sha1(
-        &key.to_vec(),
+    Ok(UnsignedSharedKey::encapsulate_key_unsigned(
+        key,
         &public_key,
     )?)
 }
@@ -767,7 +767,8 @@ mod tests {
         let private_key = "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCzLtEUdxfcLxDj84yaGFsVF5hZ8Hjlb08NMQDy1RnBma06I3ZESshLYzVz4r/gegMn9OOltfV/Yxlyvida8oW6qdlfJ7AVz6Oa8pV7BiL40C7b76+oqraQpyYw2HChANB1AhXL9SqWngKmLZwjA7qiCrmcc0kZHeOb4KnKtp9iVvPVs+8veFvKgYO4ba2AAOHKFdR0W55/agXfAy+fWUAkC8mc9ikyJdQWaPV6OZvC2XFkOseBQm9Rynudh3BQpoWiL6w620efe7t5k+02/EyOFJL9f/XEEjM/+Yo0t3LAfkuhHGeKiRST59Xc9hTEmyJTeVXROtz+0fjqOp3xkaObAgMBAAECggEACs4xhnO0HaZhh1/iH7zORMIRXKeyxP2LQiTR8xwN5JJ9wRWmGAR9VasS7EZFTDidIGVME2u/h4s5EqXnhxfO+0gGksVvgNXJ/qw87E8K2216g6ZNo6vSGA7H1GH2voWwejJ4/k/cJug6dz2S402rRAKh2Wong1arYHSkVlQp3diiMa5FHAOSE+Cy09O2ZsaF9IXQYUtlW6AVXFrBEPYH2kvkaPXchh8VETMijo6tbvoKLnUHe+wTaDMls7hy8exjtVyI59r3DNzjy1lNGaGb5QSnFMXR+eHhPZc844Wv02MxC15zKABADrl58gpJyjTl6XpDdHCYGsmGpVGH3X9TQQKBgQDz/9beFjzq59ve6rGwn+EtnQfSsyYT+jr7GN8lNEXb3YOFXBgPhfFIcHRh2R00Vm9w2ApfAx2cd8xm2I6HuvQ1Os7g26LWazvuWY0Qzb+KaCLQTEGH1RnTq6CCG+BTRq/a3J8M4t38GV5TWlzv8wr9U4dl6FR4efjb65HXs1GQ4QKBgQC7/uHfrOTEHrLeIeqEuSl0vWNqEotFKdKLV6xpOvNuxDGbgW4/r/zaxDqt0YBOXmRbQYSEhmO3oy9J6XfE1SUln0gbavZeW0HESCAmUIC88bDnspUwS9RxauqT5aF8ODKN/bNCWCnBM1xyonPOs1oT1nyparJVdQoG//Y7vkB3+wKBgBqLqPq8fKAp3XfhHLfUjREDVoiLyQa/YI9U42IOz9LdxKNLo6p8rgVthpvmnRDGnpUuS+KOWjhdqDVANjF6G3t3DG7WNl8Rh5Gk2H4NhFswfSkgQrjebFLlBy9gjQVCWXt8KSmjvPbiY6q52Aaa8IUjA0YJAregvXxfopxO+/7BAoGARicvEtDp7WWnSc1OPoj6N14VIxgYcI7SyrzE0d/1x3ffKzB5e7qomNpxKzvqrVP8DzG7ydh8jaKPmv1MfF8tpYRy3AhmN3/GYwCnPqT75YYrhcrWcVdax5gmQVqHkFtIQkRSCIftzPLlpMGKha/YBV8c1fvC4LD0NPh/Ynv0gtECgYEAyOZg95/kte0jpgUEgwuMrzkhY/AaUJULFuR5MkyvReEbtSBQwV5tx60+T95PHNiFooWWVXiLMsAgyI2IbkxVR1Pzdri3gWK5CTfqb7kLuaj/B7SGvBa2Sxo478KS5K8tBBBWkITqo+wLC0mn3uZi1dyMWO1zopTA+KtEGF2dtGQ=";
         let private_key =
             AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key).unwrap()).unwrap();
-        let decrypted: Vec<u8> = encrypted.decrypt_with_key(&private_key).unwrap();
+        let decrypted: SymmetricCryptoKey =
+            encrypted.decapsulate_key_unsigned(&private_key).unwrap();
 
         let key_store = client.internal.get_key_store();
         let ctx = key_store.context();
@@ -776,7 +777,7 @@ mod tests {
             .dangerous_get_symmetric_key(SymmetricKeyId::User)
             .unwrap();
 
-        assert_eq!(&decrypted, &expected.to_vec());
+        assert_eq!(&decrypted.to_vec(), &expected.to_vec());
     }
 
     #[test]

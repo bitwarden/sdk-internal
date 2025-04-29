@@ -1,6 +1,6 @@
 //! Encrypted string types
 //!
-//! [EncString] and [AsymmetricEncString] are Bitwarden specific primitive that represents a
+//! [EncString] and [UnsignedSharedKey] are Bitwarden specific primitive that represents a
 //! encrypted string. They are are used together with the [KeyDecryptable][crate::KeyDecryptable]
 //! and [KeyEncryptable][crate::KeyEncryptable] traits to encrypt and decrypt data using
 //! [SymmetricCryptoKey][crate::SymmetricCryptoKey] and
@@ -11,7 +11,7 @@ mod symmetric;
 
 use std::str::FromStr;
 
-pub use asymmetric::AsymmetricEncString;
+pub use asymmetric::UnsignedSharedKey;
 use base64::{engine::general_purpose::STANDARD, Engine};
 pub use symmetric::EncString;
 
