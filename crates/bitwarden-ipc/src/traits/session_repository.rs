@@ -4,10 +4,10 @@ use tokio::sync::RwLock;
 
 use crate::endpoint::Endpoint;
 
-pub trait SessionRepository<Session> {
-    type GetError;
-    type SaveError;
-    type RemoveError;
+pub trait SessionRepository<Session>: Send + Sync + 'static {
+    type GetError: Send + Sync + 'static;
+    type SaveError: Send + Sync + 'static;
+    type RemoveError: Send + Sync + 'static;
 
     fn get(
         &self,
@@ -27,7 +27,7 @@ pub trait SessionRepository<Session> {
 pub type InMemorySessionRepository<Session> = RwLock<HashMap<Endpoint, Session>>;
 impl<Session> SessionRepository<Session> for InMemorySessionRepository<Session>
 where
-    Session: Clone,
+    Session: Clone + Send + Sync + 'static,
 {
     type GetError = ();
     type SaveError = ();
