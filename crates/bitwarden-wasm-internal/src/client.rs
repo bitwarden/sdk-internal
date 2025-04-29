@@ -8,7 +8,7 @@ use bitwarden_generators::GeneratorClientsExt;
 use bitwarden_vault::VaultClientExt;
 use wasm_bindgen::prelude::*;
 
-use crate::{CryptoClient, GeneratorClient, VaultClient};
+use crate::{CryptoClient, VaultClient};
 
 #[wasm_bindgen]
 pub struct BitwardenClient(pub(crate) Client);
@@ -50,8 +50,8 @@ impl BitwardenClient {
     }
 
     /// Constructs a specific client for generating passwords and passphrases
-    pub fn generator(&self) -> GeneratorClient {
-        GeneratorClient::new(self.0.generator())
+    pub fn generator(&self) -> bitwarden_generators::GeneratorClient {
+        self.0.generator()
     }
 
     pub fn exporters(&self) -> bitwarden_exporters::ExporterClient {

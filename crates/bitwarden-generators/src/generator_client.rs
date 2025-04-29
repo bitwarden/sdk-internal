@@ -1,4 +1,6 @@
 use bitwarden_core::Client;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::{
     passphrase::passphrase, password::password, username::username, PassphraseError,
@@ -6,6 +8,7 @@ use crate::{
     UsernameGeneratorRequest,
 };
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct GeneratorClient {
     client: Client,
 }
