@@ -274,8 +274,8 @@ mod tests {
 
         // Ensure attachment key is updated since it's now protected by the cipher key
         assert_ne!(
-            attachment.clone().key.unwrap().to_string(),
-            attachment_view.clone().key.unwrap().to_string()
+            attachment.clone().key.unwrap().as_inner().to_string(),
+            attachment_view.clone().key.unwrap().as_inner().to_string()
         );
 
         assert_eq!(attachment_view.file_name.unwrap(), "h.txt");
@@ -316,8 +316,8 @@ mod tests {
 
         // Ensure attachment key is still the same since it's protected by the cipher key
         assert_eq!(
-            attachment.clone().key.unwrap().to_string(),
-            attachment_view.key.unwrap().to_string()
+            attachment.clone().key.unwrap().as_inner().to_string(),
+            attachment_view.key.unwrap().as_inner().to_string()
         );
 
         let content = client

@@ -2,13 +2,18 @@
 
 use std::num::NonZeroU32;
 
-use bitwarden_crypto::{EncString, UnsignedSharedKey};
+use bitwarden_crypto::{EncString, UnsignedSharedKey, WrappedSymmetricKey};
 use uuid::Uuid;
 
 use crate::UniffiCustomTypeConverter;
 
 uniffi::ffi_converter_forward!(NonZeroU32, bitwarden_crypto::UniFfiTag, crate::UniFfiTag);
 uniffi::ffi_converter_forward!(EncString, bitwarden_crypto::UniFfiTag, crate::UniFfiTag);
+uniffi::ffi_converter_forward!(
+    WrappedSymmetricKey,
+    bitwarden_crypto::UniFfiTag,
+    crate::UniFfiTag
+);
 uniffi::ffi_converter_forward!(
     UnsignedSharedKey,
     bitwarden_crypto::UniFfiTag,
