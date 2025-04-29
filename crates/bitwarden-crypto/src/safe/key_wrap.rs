@@ -4,6 +4,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey};
 
+#[cfg(feature = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_CUSTOM_TYPES: &'static str = r#"
+export type WrappedSymmetricKey = string;
+"#;
+
 /// A wrapped symmetric key is an an [EncString], created where a wrapping key is used to encrypt a
 /// key_to_wrap.
 ///
