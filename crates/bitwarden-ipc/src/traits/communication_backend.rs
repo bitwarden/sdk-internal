@@ -20,7 +20,7 @@ pub trait CommunicationBackend: Send + Sync + 'static {
     /// The implementation of this trait needs to guarantee that:
     ///     - Multiple concurrent receivers may be created.
     ///     - All concurrent receivers will receive the same messages.
-    fn subscribe(&self) -> impl std::future::Future<Output = Self::Receiver>;
+    fn subscribe(&self) -> impl std::future::Future<Output = Self::Receiver> + Send + Sync;
 }
 
 /// This trait defines the interface for receiving messages from the communication backend.
