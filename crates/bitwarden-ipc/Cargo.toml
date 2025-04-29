@@ -15,12 +15,13 @@ wasm = [
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
     "dep:js-sys",
-    "bitwarden-error/wasm"
+    "bitwarden-error/wasm",
 ] # WASM support
 
 [dependencies]
 bitwarden-error = { workspace = true }
 js-sys = { workspace = true, optional = true }
+log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

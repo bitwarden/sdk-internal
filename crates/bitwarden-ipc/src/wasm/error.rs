@@ -1,60 +1,47 @@
+use bitwarden_error::bitwarden_error;
+use thiserror::Error;
 use wasm_bindgen::prelude::*;
 
 use crate::error::{ReceiveError, SendError};
 
-// We're not using bitwarden_error here because we want to return the raw JsValue error
-// (bitwarden_error would try to serialize it with tsify and serde)
+#[derive(Debug, Error)]
+#[bitwarden_error(flat, export_as = "SendError")]
+pub enum JsSendError {
+    #[error("Failed to process message: {0}")]
+    Crypto(String),
 
-#[wasm_bindgen(js_name = SendError)]
-pub struct JsSendError {
-    #[wasm_bindgen(getter_with_clone)]
-    pub crypto: JsValue,
-    #[wasm_bindgen(getter_with_clone)]
-    pub communication: JsValue,
+    #[error("Failed to send message: {0}")]
+    Communication(String),
 }
 
-#[wasm_bindgen(js_name = ReceiveError)]
-pub struct JsReceiveError {
-    pub timeout: bool,
-    #[wasm_bindgen(getter_with_clone)]
-    pub crypto: JsValue,
-    #[wasm_bindgen(getter_with_clone)]
-    pub communication: JsValue,
+#[derive(Debug, Error)]
+#[bitwarden_error(flat, export_as = "ReceiveError")]
+pub enum JsReceiveError {
+    #[error("The receive operation timed out")]
+    Timeout,
+
+    #[error("Failed to process message: {0}")]
+    Crypto(String),
+
+    #[error("Failed to send message: {0}")]
+    Communication(String),
 }
 
-impl From<SendError<JsValue, JsValue>> for JsSendError {
-    fn from(error: SendError<JsValue, JsValue>) -> Self {
+impl From<SendError<String, String>> for JsSendError {
+    fn from(error: SendError<String, String>) -> Self {
         match error {
-            SendError::Crypto(e) => JsSendError {
-                crypto: e,
-                communication: JsValue::UNDEFINED,
-            },
-            SendError::Communication(e) => JsSendError {
-                crypto: JsValue::UNDEFINED,
-                communication: e,
-            },
+            SendError::Crypto(e) => JsSendError::Crypto(e),
+            SendError::Communication(e) => JsSendError::Communication(e),
         }
     }
 }
 
-impl From<ReceiveError<JsValue, JsValue>> for JsReceiveError {
-    fn from(error: ReceiveError<JsValue, JsValue>) -> Self {
+impl From<ReceiveError<String, String>> for JsReceiveError {
+    fn from(error: ReceiveError<String, String>) -> Self {
         match error {
-            ReceiveError::Timeout => JsReceiveError {
-                timeout: true,
-                crypto: JsValue::UNDEFINED,
-                communication: JsValue::UNDEFINED,
-            },
-            ReceiveError::Crypto(e) => JsReceiveError {
-                timeout: false,
-                crypto: e,
-                communication: JsValue::UNDEFINED,
-            },
-            ReceiveError::Communication(e) => JsReceiveError {
-                timeout: false,
-                crypto: JsValue::UNDEFINED,
-                communication: e,
-            },
+            ReceiveError::Timeout => JsReceiveError::Timeout,
+            ReceiveError::Crypto(e) => JsReceiveError::Crypto(e),
+            ReceiveError::Communication(e) => JsReceiveError::Communication(e),
         }
     }
 }

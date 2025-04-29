@@ -3,8 +3,8 @@ use crate::message::{IncomingMessage, OutgoingMessage};
 /// This trait defines the interface that will be used to send and receive messages over IPC.
 /// It is up to the platform to implement this trait and any necessary thread synchronization and
 /// broadcasting.
-pub trait CommunicationBackend {
-    type SendError;
+pub trait CommunicationBackend: Send + Sync + 'static {
+    type SendError: Send + Sync + 'static;
     type Receiver: CommunicationBackendReceiver;
 
     /// Send a message to the destination specified in the message. This function may be called
@@ -29,8 +29,8 @@ pub trait CommunicationBackend {
 ///     - The receiver buffers messages from the creation of the receiver until the first call to
 ///       receive().
 ///     - The receiver buffers messages between calls to receive().
-pub trait CommunicationBackendReceiver {
-    type ReceiveError;
+pub trait CommunicationBackendReceiver: Send + Sync + 'static {
+    type ReceiveError: Send + Sync + 'static;
 
     /// Receive a message. This function will block asynchronously until a message is received.
     ///

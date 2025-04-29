@@ -10,11 +10,6 @@ use crate::{
 
 #[derive(Debug, Error)]
 #[bitwarden_error(basic)]
-#[error("Failed to deserialize incoming message: {0}")]
-pub struct DeserializeError(String);
-
-#[derive(Debug, Error)]
-#[bitwarden_error(basic)]
 #[error("Incoming message channel failed: {0}")]
 pub struct ChannelError(String);
 
@@ -68,12 +63,58 @@ impl JsCommunicationBackend {
     }
 }
 
-impl CommunicationBackend for JsCommunicationBackend {
-    type SendError = JsValue;
+impl From<JsCommunicationBackend> for ThreadSafeJsCommunicationBackend {
+    fn from(backend: JsCommunicationBackend) -> Self {
+        let (cancel_tx, mut cancel_rx) = tokio::sync::watch::channel(false);
+        let (send_tx, mut send_rx) = tokio::sync::mpsc::channel(20);
+
+        wasm_bindgen_futures::spawn_local(async move {
+            loop {
+                tokio::select! {
+                    _ = cancel_rx.changed() => {
+                        break;
+                    }
+                    message = send_rx.recv() => {
+                        match message {
+                            Some(message) => {
+                                let result = backend.sender.send(message).await;
+                                if let Err(e) = result {
+                                    log::error!("Failed to send IPC message: {:?}", e);
+                                }
+                            }
+                            None => {
+                                break
+                            },
+                        }
+                    }
+                }
+
+                log::debug!("ThreadSafeJsCommunicationBackend thread shutting down");
+            }
+        });
+
+        ThreadSafeJsCommunicationBackend {
+            send_tx,
+            receive_rx: backend.receive_rx.resubscribe(),
+            cancel_tx,
+        }
+    }
+}
+
+/// A thread-safe version of the `JsCommunicationBackend` that can be used in a multi-threaded
+/// environment, i.e. it implements `Send + Sync`.
+pub struct ThreadSafeJsCommunicationBackend {
+    send_tx: tokio::sync::mpsc::Sender<OutgoingMessage>,
+    receive_rx: tokio::sync::broadcast::Receiver<IncomingMessage>,
+    cancel_tx: tokio::sync::watch::Sender<bool>,
+}
+
+impl CommunicationBackend for ThreadSafeJsCommunicationBackend {
+    type SendError = String;
     type Receiver = RwLock<tokio::sync::broadcast::Receiver<IncomingMessage>>;
 
     async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
-        self.sender.send(message).await
+        self.send_tx.send(message).await.map_err(|e| e.to_string())
     }
 
     async fn subscribe(&self) -> Self::Receiver {
@@ -82,14 +123,16 @@ impl CommunicationBackend for JsCommunicationBackend {
 }
 
 impl CommunicationBackendReceiver for RwLock<tokio::sync::broadcast::Receiver<IncomingMessage>> {
-    type ReceiveError = JsValue;
+    type ReceiveError = String;
 
     async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
-        Ok(self
-            .write()
-            .await
-            .recv()
-            .await
-            .map_err(|e| ChannelError(e.to_string()))?)
+        self.write().await.recv().await.map_err(|e| e.to_string())
+    }
+}
+
+impl Drop for ThreadSafeJsCommunicationBackend {
+    fn drop(&mut self) {
+        // Cancel the thread
+        let _ = self.cancel_tx.send(true);
     }
 }
