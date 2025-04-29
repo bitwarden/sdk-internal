@@ -547,6 +547,7 @@ dependencies = [
  "tsify-next",
  "uniffi",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wiremock",
 ]
 
