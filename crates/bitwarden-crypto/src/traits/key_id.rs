@@ -50,7 +50,13 @@ pub trait KeyIds {
 ///     pub enum AsymmKeyId {
 ///         PrivateKey,
 ///     }
-///     pub Ids => SymmKeyId, AsymmKeyId;
+/// 
+///     #[signing]
+///     pub enum SigningKeyId {
+///        SigningKey,
+///     }
+/// 
+///     pub Ids => SymmKeyId, AsymmKeyId, SigningKeyId;
 /// }
 #[macro_export]
 macro_rules! key_ids {

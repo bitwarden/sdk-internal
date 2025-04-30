@@ -39,7 +39,7 @@ use crate::{
 /// #     pub enum AsymmKeyId {
 /// #         UserPrivate,
 /// #     }
-/// # .   #[signing]
+/// #     #[signing]
 /// #     pub enum SigningKeyId {
 /// #         UserSigning,
 /// #     }

@@ -58,7 +58,11 @@ pub use context::KeyStoreContext;
 ///     pub enum AsymmKeyId {
 ///         UserPrivate,
 ///     }
-///     pub Ids => SymmKeyId, AsymmKeyId;
+///     #[signing]
+///     pub enum SigningKeyId {
+///        UserSigning,
+///     }
+///     pub Ids => SymmKeyId, AsymmKeyId, SigningKeyId;
 /// }
 ///
 /// // Initialize the store and insert a test key
