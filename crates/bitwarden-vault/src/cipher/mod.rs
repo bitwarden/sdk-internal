@@ -14,8 +14,7 @@ pub(crate) mod secure_note;
 pub(crate) mod ssh_key;
 
 pub use attachment::{
-    Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileData, AttachmentFileView,
-    AttachmentView,
+    Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
 };
 pub use attachment_client::{AttachmentsClient, DecryptFileError, EncryptFileError};
 pub use card::{CardBrand, CardView};

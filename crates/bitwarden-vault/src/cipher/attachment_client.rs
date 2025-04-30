@@ -6,8 +6,8 @@ use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
 use crate::{
-    Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileData, AttachmentFileView,
-    AttachmentView, Cipher, DecryptError, EncryptError, VaultClient,
+    Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
+    Cipher, DecryptError, EncryptError, VaultClient,
 };
 
 pub struct AttachmentsClient {
@@ -68,7 +68,7 @@ impl AttachmentsClient {
     pub fn decrypt_buffer(
         &self,
         cipher: Cipher,
-        attachment: Attachment,
+        attachment: AttachmentView,
         encrypted_buffer: &[u8],
     ) -> Result<Vec<u8>, DecryptError> {
         let key_store = self.client.internal.get_key_store();
@@ -79,24 +79,10 @@ impl AttachmentsClient {
             contents: EncString::from_buffer(encrypted_buffer)?,
         })?)
     }
-    pub fn decrypt_buffer_view(
-        &self,
-        cipher: Cipher,
-        attachment: AttachmentView,
-        encrypted_buffer: &[u8],
-    ) -> Result<Vec<u8>, DecryptError> {
-        let key_store = self.client.internal.get_key_store();
-
-        Ok(key_store.decrypt(&AttachmentFileData {
-            cipher,
-            attachment,
-            contents: EncString::from_buffer(encrypted_buffer)?,
-        })?)
-    }
     pub fn decrypt_file(
         &self,
         cipher: Cipher,
-        attachment: Attachment,
+        attachment: AttachmentView,
         encrypted_file_path: &Path,
         decrypted_file_path: &Path,
     ) -> Result<(), DecryptFileError> {
