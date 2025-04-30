@@ -53,7 +53,7 @@ pub(crate) async fn login_api_key(
 
         client
             .internal
-            .initialize_user_crypto_master_key(master_key, user_key, private_key)?;
+            .initialize_user_crypto_master_key(master_key, user_key, private_key, None)?;
     }
 
     Ok(ApiKeyLoginResponse::process_response(response))

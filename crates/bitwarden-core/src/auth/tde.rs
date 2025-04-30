@@ -39,7 +39,7 @@ pub(super) fn make_register_tde_keys(
         ));
     client
         .internal
-        .initialize_user_crypto_decrypted_key(user_key.0, key_pair.private.clone())?;
+        .initialize_user_crypto_decrypted_key(user_key.0, key_pair.private.clone(), None)?;
 
     Ok(RegisterTdeKeyResponse {
         private_key: key_pair.private,
