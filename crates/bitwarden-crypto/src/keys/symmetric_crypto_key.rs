@@ -114,8 +114,8 @@ impl SymmetricCryptoKey {
 
     /// Generate a new random AES256_CBC_HMAC [SymmetricCryptoKey]
     pub fn make_aes256_cbc_hmac_key() -> Self {
-        let mut rng = rand::thread_rng();
-        Self::make_aes256_cbc_hmac_key_internal(&mut rng)
+        let rng = rand::thread_rng();
+        Self::make_aes256_cbc_hmac_key_internal(rng)
     }
 
     /// Generate a new random XChaCha20Poly1305 [SymmetricCryptoKey]
