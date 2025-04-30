@@ -229,7 +229,12 @@ mod tests {
 
         existing_device
             .internal
-            .initialize_user_crypto_master_key(master_key, user_key, private_key.parse().unwrap(), None)
+            .initialize_user_crypto_master_key(
+                master_key,
+                user_key,
+                private_key.parse().unwrap(),
+                None,
+            )
             .unwrap();
 
         // Initialize a new device which will request to be logged in

@@ -141,9 +141,12 @@ pub async fn initialize_user_crypto(
             let user_key: EncString = user_key.parse()?;
 
             let master_key = MasterKey::derive(&password, &req.email, &req.kdf_params)?;
-            client
-                .internal
-                .initialize_user_crypto_master_key(master_key, user_key, private_key, None)?;
+            client.internal.initialize_user_crypto_master_key(
+                master_key,
+                user_key,
+                private_key,
+                None,
+            )?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
@@ -160,7 +163,7 @@ pub async fn initialize_user_crypto(
                 pin_key,
                 pin_protected_user_key,
                 private_key,
-                None
+                None,
             )?;
         }
         InitUserCryptoMethod::AuthRequest {
@@ -207,9 +210,12 @@ pub async fn initialize_user_crypto(
             let master_key = MasterKey::try_from(master_key_bytes.as_mut_slice())?;
             let user_key: EncString = user_key.parse()?;
 
-            client
-                .internal
-                .initialize_user_crypto_master_key(master_key, user_key, private_key, None)?;
+            client.internal.initialize_user_crypto_master_key(
+                master_key,
+                user_key,
+                private_key,
+                None,
+            )?;
         }
     }
 
