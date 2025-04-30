@@ -253,64 +253,6 @@ where
             receive_loop.await?
         })
     }
-
-    // /// Receive a message, optionally filtering by topic.
-    // /// Setting the topic to `None` will receive all messages.
-    // /// Setting the timeout to `None` will wait indefinitely.
-    // async fn receive(
-    //     &self,
-    //     receiver: &Com::Receiver,
-    //     topic: &Option<String>,
-    //     timeout: Option<Duration>,
-    // ) -> Result<
-    //     IncomingMessage,
-    //     ReceiveError<
-    //         Crypto::ReceiveError,
-    //         <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
-    //     >,
-    // > {
-    //     let receive_loop = async {
-    //         loop {
-    //             let received = self
-    //                 .crypto
-    //                 .receive(receiver, &self.communication, &self.sessions)
-    //                 .await?;
-    //             if topic.is_none() || &received.topic == topic {
-    //                 return Ok(received);
-    //             }
-    //         }
-    //     };
-
-    //     if let Some(timeout) = timeout {
-    //         tokio::time::timeout(timeout, receive_loop)
-    //             .await
-    //             .map_err(|_| ReceiveError::Timeout)?
-    //     } else {
-    //         receive_loop.await
-    //     }
-    // }
-
-    // /// Receive a message, skipping any messages that cannot be deserialized into the expected
-    // /// payload type.
-    // async fn receive_typed<Payload>(
-    //     &self,
-    //     receiver: &Com::Receiver,
-    //     timeout: Option<Duration>,
-    // ) -> Result<
-    //     TypedIncomingMessage<Payload>,
-    //     TypedReceiveError<
-    //         <Payload as TryFrom<Vec<u8>>>::Error,
-    //         Crypto::ReceiveError,
-    //         <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
-    //     >,
-    // >
-    // where
-    //     Payload: TryFrom<Vec<u8>> + PayloadTypeName,
-    // {
-    //     let topic = Some(Payload::name());
-    //     let received = self.receive(receiver, &topic, timeout).await?;
-    //     received.try_into().map_err(TypedReceiveError::Typing)
-    // }
 }
 
 impl<Crypto, Com, Ses> IpcClientSubscription<Crypto, Com, Ses>
