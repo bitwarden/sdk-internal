@@ -1,15 +1,12 @@
-use std::{process::Output, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use tokio::{sync::RwLock, task::JoinHandle};
 
 use crate::{
-    error::SendError,
     message::{IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage},
-    traits::{
-        CommunicationBackend, CommunicationBackendReceiver, CryptoProvider, SessionRepository,
-    },
+    traits::{CommunicationBackend, CryptoProvider, SessionRepository},
 };
 
 pub struct IpcClient<Crypto, Com, Ses>
@@ -104,8 +101,8 @@ impl From<ReceiveError> for TypedReceiveError {
 // #[derive(Debug, Error, Clone, PartialEq, Eq)]
 // #[bitwarden_error(flat)]
 // pub enum SendError {
-//     #[error("Failed to send message: {0}")]
-//     Channel(#[from] tokio::sync::broadcast::error::SendError),
+//     #[error("Crypto error: {0}")]
+//     Crypto(String),
 // }
 
 impl<Crypto, Com, Ses> IpcClient<Crypto, Com, Ses>
@@ -186,10 +183,7 @@ where
     }
 
     /// Send a message
-    pub async fn send(
-        self: &Arc<Self>,
-        message: OutgoingMessage,
-    ) -> Result<(), SendError<Crypto::SendError, Com::SendError>> {
+    pub async fn send(self: &Arc<Self>, message: OutgoingMessage) -> Result<(), Crypto::SendError> {
         let result = self
             .crypto
             .send(&self.communication, &self.sessions, message)
@@ -384,9 +378,9 @@ mod tests {
 
     struct TestCryptoProvider {
         /// Simulate a send result. Set to `None` wait indefinitely
-        send_result: Option<Result<(), SendError<String, ()>>>,
+        send_result: Option<Result<(), String>>,
         /// Simulate a receive result. Set to `None` wait indefinitely
-        receive_result: Option<Result<IncomingMessage, crate::error::ReceiveError<String, ()>>>,
+        receive_result: Option<Result<IncomingMessage, String>>,
     }
 
     type TestSessionRepository = InMemorySessionRepository<String>;
@@ -400,15 +394,13 @@ mod tests {
             _receiver: &<TestCommunicationBackend as CommunicationBackend>::Receiver,
             _communication: &TestCommunicationBackend,
             _sessions: &TestSessionRepository,
-        ) -> Result<IncomingMessage, crate::error::ReceiveError<String, ()>> {
+        ) -> Result<IncomingMessage, Self::ReceiveError> {
             match &self.receive_result {
                 Some(result) => result.clone(),
                 None => {
                     // Simulate waiting for a message but never returning
                     tokio::time::sleep(Duration::from_secs(600)).await;
-                    Err(crate::error::ReceiveError::Crypto(
-                        "Simulated timeout".to_string(),
-                    ))
+                    Err("Simulated timeout".to_string())
                 }
             }
         }
@@ -418,21 +410,13 @@ mod tests {
             _communication: &TestCommunicationBackend,
             _sessions: &TestSessionRepository,
             _message: OutgoingMessage,
-        ) -> Result<
-            (),
-            SendError<
-                Self::SendError,
-                <TestCommunicationBackend as CommunicationBackend>::SendError,
-            >,
-        > {
+        ) -> Result<(), Self::SendError> {
             match &self.send_result {
                 Some(result) => result.clone(),
                 None => {
                     // Simulate waiting for a message to be send but never returning
                     tokio::time::sleep(Duration::from_secs(600)).await;
-                    Err(crate::error::SendError::Crypto(
-                        "Simulated timeout".to_string(),
-                    ))
+                    Err("Simulated timeout".to_string())
                 }
             }
         }
@@ -447,10 +431,8 @@ mod tests {
             topic: None,
         };
         let crypto_provider = TestCryptoProvider {
-            send_result: Some(Err(SendError::Crypto("Crypto error".to_string()))),
-            receive_result: Some(Err(crate::error::ReceiveError::Crypto(
-                "Should not have be called".to_string(),
-            ))),
+            send_result: Some(Err("Crypto error".to_string())),
+            receive_result: Some(Err("Should not have be called".to_string())),
         };
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
@@ -462,7 +444,7 @@ mod tests {
 
         let error = client.send(message).await.unwrap_err();
 
-        assert_eq!(error, SendError::Crypto("Crypto error".to_string()));
+        assert_eq!(error, "Crypto error".to_string());
     }
 
     #[tokio::test]
@@ -682,7 +664,7 @@ mod tests {
             topic: None,
         };
         let crypto_provider = TestCryptoProvider {
-            send_result: Some(Err(SendError::Crypto("Crypto error".to_string()))),
+            send_result: Some(Err("Crypto error".to_string())),
             receive_result: None,
         };
         let communication_provider = TestCommunicationBackend::new();
@@ -696,7 +678,7 @@ mod tests {
         let error = client.send(message).await.unwrap_err();
         let is_running = client.is_running().await;
 
-        assert_eq!(error, SendError::Crypto("Crypto error".to_string()));
+        assert_eq!(error, "Crypto error".to_string());
         assert_eq!(is_running, false);
     }
 
@@ -704,9 +686,7 @@ mod tests {
     async fn ipc_client_stops_if_crypto_returns_receive_error() {
         let crypto_provider = TestCryptoProvider {
             send_result: None,
-            receive_result: Some(Err(crate::error::ReceiveError::Crypto(
-                "Crypto error".to_string(),
-            ))),
+            receive_result: Some(Err("Crypto error".to_string())),
         };
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());

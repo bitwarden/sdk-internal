@@ -1,8 +1,5 @@
 use super::{CommunicationBackend, CommunicationBackendReceiver, SessionRepository};
-use crate::{
-    error::{ReceiveError, SendError},
-    message::{IncomingMessage, OutgoingMessage},
-};
+use crate::message::{IncomingMessage, OutgoingMessage};
 use std::fmt::Debug;
 
 pub trait CryptoProvider<Com, Ses>: Send + Sync + 'static
@@ -29,7 +26,7 @@ where
         communication: &Com,
         sessions: &Ses,
         message: OutgoingMessage,
-    ) -> impl std::future::Future<Output = Result<(), SendError<Self::SendError, Com::SendError>>>;
+    ) -> impl std::future::Future<Output = Result<(), Self::SendError>>;
 
     /// Receive a message.
     ///
@@ -46,16 +43,7 @@ where
         receiver: &Com::Receiver,
         communication: &Com,
         sessions: &Ses,
-    ) -> impl std::future::Future<
-        Output = Result<
-            IncomingMessage,
-            ReceiveError<
-                Self::ReceiveError,
-                <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
-            >,
-        >,
-    > + Send
-           + Sync;
+    ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>> + Send + Sync;
 }
 
 pub struct NoEncryptionCryptoProvider;
@@ -74,11 +62,8 @@ where
         communication: &Com,
         _sessions: &Ses,
         message: OutgoingMessage,
-    ) -> Result<(), SendError<Self::SendError, Com::SendError>> {
-        communication
-            .send(message)
-            .await
-            .map_err(SendError::Communication)
+    ) -> Result<(), Self::SendError> {
+        communication.send(message).await
     }
 
     async fn receive(
@@ -86,16 +71,7 @@ where
         receiver: &Com::Receiver,
         _communication: &Com,
         _sessions: &Ses,
-    ) -> Result<
-        IncomingMessage,
-        ReceiveError<
-            Self::ReceiveError,
-            <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
-        >,
-    > {
-        receiver
-            .receive()
-            .await
-            .map_err(ReceiveError::Communication)
+    ) -> Result<IncomingMessage, Self::ReceiveError> {
+        receiver.receive().await
     }
 }

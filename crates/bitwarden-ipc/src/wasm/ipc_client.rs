@@ -2,10 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use wasm_bindgen::prelude::*;
 
-use super::{
-    communication_backend::JsCommunicationBackend, error::JsSendError,
-    ThreadSafeJsCommunicationBackend,
-};
+use super::{communication_backend::JsCommunicationBackend, ThreadSafeJsCommunicationBackend};
 use crate::{
     ipc_client::{IpcClientSubscription, ReceiveError, SubscribeError},
     message::{IncomingMessage, OutgoingMessage},
@@ -56,8 +53,11 @@ impl JsIpcClient {
         }
     }
 
-    pub async fn send(&self, message: OutgoingMessage) -> Result<(), JsSendError> {
-        self.client.send(message).await.map_err(|e| e.into())
+    pub async fn send(&self, message: OutgoingMessage) -> Result<(), JsError> {
+        self.client
+            .send(message)
+            .await
+            .map_err(|e| JsError::new(&e))
     }
 
     pub async fn subscribe(&self) -> Result<JsIpcClientSubscription, SubscribeError> {
