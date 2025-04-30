@@ -8,10 +8,11 @@ use coset::{
 use ed25519_dalek::Signer;
 use rand::rngs::OsRng;
 
-use super::key_id::KeyId;
+use super::{key_id::KeyId, CryptoKey};
 use crate::{cose::SIGNING_NAMESPACE, error::Result, CryptoError, SigningNamespace};
 
 #[allow(unused)]
+#[derive(zeroize::ZeroizeOnDrop, Clone)]
 enum SigningCryptoKeyEnum {
     Ed25519(ed25519_dalek::SigningKey),
 }
@@ -22,24 +23,27 @@ enum VerifyingKeyEnum {
 }
 
 #[allow(unused)]
-struct SigningKey {
+#[derive(zeroize::ZeroizeOnDrop, Clone)]
+pub struct SigningKey {
     id: KeyId,
     inner: SigningCryptoKeyEnum,
 }
 
+impl CryptoKey for SigningKey {}
+
 #[allow(unused)]
-struct VerifyingKey {
+pub struct VerifyingKey {
     id: KeyId,
     inner: VerifyingKeyEnum,
 }
 
 #[allow(unused)]
 impl SigningKey {
-    fn generate() -> Result<Self> {
-        Ok(SigningKey {
+    pub fn make_ed25519_key() -> Self {
+        SigningKey {
             id: KeyId::generate(),
             inner: SigningCryptoKeyEnum::Ed25519(ed25519_dalek::SigningKey::generate(&mut OsRng)),
-        })
+        }
     }
 
     fn cose_algorithm(&self) -> Algorithm {
@@ -48,7 +52,7 @@ impl SigningKey {
         }
     }
 
-    fn to_cose(&self) -> Result<Vec<u8>> {
+    pub fn to_cose(&self) -> Result<Vec<u8>> {
         match &self.inner {
             SigningCryptoKeyEnum::Ed25519(key) => {
                 coset::CoseKeyBuilder::new_okp_key()
@@ -82,7 +86,7 @@ impl SigningKey {
         }
     }
 
-    fn from_cose(bytes: &[u8]) -> Result<Self> {
+    pub fn from_cose(bytes: &[u8]) -> Result<Self> {
         let cose_key = CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
         let (key_id, Some(algorithm), key_type) = (cose_key.key_id, cose_key.alg, cose_key.kty)
         else {
@@ -143,7 +147,7 @@ impl SigningKey {
         }
     }
 
-    pub(crate) fn sign(&self, namespace: &SigningNamespace, data: &[u8]) -> Signature {
+    pub fn sign(&self, namespace: &SigningNamespace, data: &[u8]) -> Signature {
         Signature::from(
             coset::CoseSign1Builder::new()
                 .protected(
@@ -170,10 +174,10 @@ impl SigningKey {
         }
     }
 
-    fn to_verifying_key(&self) -> VerifyingKey {
+    pub fn to_verifying_key(&self) -> VerifyingKey {
         match &self.inner {
             SigningCryptoKeyEnum::Ed25519(key) => VerifyingKey {
-                id: self.id,
+                id: self.id.clone(),
                 inner: VerifyingKeyEnum::Ed25519(key.verifying_key()),
             },
         }
@@ -182,7 +186,7 @@ impl SigningKey {
 
 #[allow(unused)]
 impl VerifyingKey {
-    fn to_cose(&self) -> Result<Vec<u8>> {
+    pub fn to_cose(&self) -> Result<Vec<u8>> {
         match &self.inner {
             VerifyingKeyEnum::Ed25519(key) => coset::CoseKeyBuilder::new_okp_key()
                 .key_id(self.id.as_bytes().into())
@@ -202,7 +206,7 @@ impl VerifyingKey {
         }
     }
 
-    fn from_cose(bytes: &[u8]) -> Result<Self> {
+    pub fn from_cose(bytes: &[u8]) -> Result<Self> {
         let cose_key = coset::CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
 
         let (key_id, Some(algorithm), key_type) = (cose_key.key_id, cose_key.alg, cose_key.kty)
@@ -264,12 +268,7 @@ impl VerifyingKey {
     /// Verifies the signature of the given data, for the given namespace.
     /// This should never be used directly, but only through the `verify` method, to enforce
     /// strong domain separation of the signatures.
-    pub(crate) fn verify(
-        &self,
-        namespace: &SigningNamespace,
-        signature: &Signature,
-        data: &[u8],
-    ) -> bool {
+    pub fn verify(&self, namespace: &SigningNamespace, signature: &Signature, data: &[u8]) -> bool {
         let Some(_alg) = &signature.inner().protected.header.alg else {
             return false;
         };
@@ -310,7 +309,7 @@ impl VerifyingKey {
 /// the signature object, the data is not. One data object can be signed multiple times, with
 /// different namespaces / by different signers, depending on the application needs.
 #[allow(unused)]
-struct Signature(CoseSign1);
+pub struct Signature(CoseSign1);
 
 impl From<CoseSign1> for Signature {
     fn from(cose_sign1: CoseSign1) -> Self {
@@ -362,7 +361,7 @@ mod tests {
 
     #[test]
     fn test_sign_roundtrip() {
-        let signing_key = SigningKey::generate().unwrap();
+        let signing_key = SigningKey::make_ed25519_key();
         let verifying_key = signing_key.to_verifying_key();
         let data = b"Hello, world!";
         let namespace = SigningNamespace::EncryptionMetadata;
@@ -373,7 +372,7 @@ mod tests {
 
     #[test]
     fn test_changed_signature_fails() {
-        let signing_key = SigningKey::generate().unwrap();
+        let signing_key = SigningKey::make_ed25519_key();
         let verifying_key = signing_key.to_verifying_key();
         let data = b"Hello, world!";
         let namespace = SigningNamespace::EncryptionMetadata;
@@ -384,7 +383,7 @@ mod tests {
 
     #[test]
     fn test_changed_namespace_fails() {
-        let signing_key = SigningKey::generate().unwrap();
+        let signing_key = SigningKey::make_ed25519_key();
         let verifying_key = signing_key.to_verifying_key();
         let data = b"Hello, world!";
         let namespace = SigningNamespace::EncryptionMetadata;
@@ -396,7 +395,7 @@ mod tests {
 
     #[test]
     fn test_cose_roundtrip_encode_signing() {
-        let signing_key = SigningKey::generate().unwrap();
+        let signing_key = SigningKey::make_ed25519_key();
         let cose = signing_key.to_cose().unwrap();
         let parsed_key = SigningKey::from_cose(&cose).unwrap();
 
@@ -408,7 +407,7 @@ mod tests {
 
     #[test]
     fn test_cose_roundtrip_encode_verifying() {
-        let signing_key = SigningKey::generate().unwrap();
+        let signing_key = SigningKey::make_ed25519_key();
         let cose = signing_key.to_verifying_key().to_cose().unwrap();
         let parsed_key = VerifyingKey::from_cose(&cose).unwrap();
 

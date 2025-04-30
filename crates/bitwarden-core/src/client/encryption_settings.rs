@@ -1,12 +1,12 @@
-use bitwarden_crypto::{AsymmetricCryptoKey, KeyStore, SymmetricCryptoKey};
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{EncString, UnauthenticatedSharedKey};
+use bitwarden_crypto::EncString;
+use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, UnauthenticatedSharedKey};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
-    key_management::{AsymmetricKeyId, KeyIds, SymmetricKeyId},
+    key_management::{KeyIds, SymmetricKeyId},
     MissingPrivateKeyError, VaultLockedError,
 };
 
@@ -40,12 +40,13 @@ impl EncryptionSettings {
     pub(crate) fn new_decrypted_key(
         user_key: SymmetricCryptoKey,
         private_key: EncString,
+        signing_key: Option<EncString>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
-        use bitwarden_crypto::KeyDecryptable;
+        use bitwarden_crypto::{AsymmetricCryptoKey, KeyDecryptable, SigningKey};
         use log::warn;
 
-        use crate::key_management::{AsymmetricKeyId, SymmetricKeyId};
+        use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
 
         let private_key = {
             let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
@@ -63,6 +64,12 @@ impl EncryptionSettings {
             //         .map_err(|_| EncryptionSettingsError::InvalidPrivateKey)?,
             // )
         };
+        let signing_key = signing_key
+            .map(|key| {
+                let dec: Vec<u8> = key.decrypt_with_key(&user_key)?;
+                SigningKey::from_cose(dec.as_slice())
+            })
+            .transpose()?;
 
         // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
         #[allow(deprecated)]
@@ -71,6 +78,10 @@ impl EncryptionSettings {
             ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
             if let Some(private_key) = private_key {
                 ctx.set_asymmetric_key(AsymmetricKeyId::UserPrivateKey, private_key)?;
+            }
+
+            if let Some(signing_key) = signing_key {
+                ctx.set_signing_key(SigningKeyId::UserSigningKey, signing_key)?;
             }
         }
 
@@ -94,6 +105,8 @@ impl EncryptionSettings {
         org_enc_keys: Vec<(Uuid, UnauthenticatedSharedKey)>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
+        use crate::key_management::AsymmetricKeyId;
+
         let mut ctx = store.context_mut();
 
         // FIXME: [PM-11690] - Early abort to handle private key being corrupt
