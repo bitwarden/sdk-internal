@@ -3,12 +3,11 @@ use std::{collections::HashMap, sync::Arc};
 use wasm_bindgen::prelude::*;
 
 use super::{
-    communication_backend::JsCommunicationBackend,
-    error::{JsReceiveError, JsSendError},
+    communication_backend::JsCommunicationBackend, error::JsSendError,
     ThreadSafeJsCommunicationBackend,
 };
 use crate::{
-    ipc_client::IpcClientSubscription,
+    ipc_client::{IpcClientSubscription, ReceiveError, SubscribeError},
     message::{IncomingMessage, OutgoingMessage},
     traits::{InMemorySessionRepository, NoEncryptionCryptoProvider},
     IpcClient,
@@ -37,7 +36,7 @@ pub struct JsIpcClientSubscription {
 
 #[wasm_bindgen(js_class = IpcClientSubscription)]
 impl JsIpcClientSubscription {
-    pub async fn receive(&self) -> Result<IncomingMessage, JsReceiveError> {
+    pub async fn receive(&mut self) -> Result<IncomingMessage, ReceiveError> {
         self.subscription.receive(None).await.map_err(|e| e.into())
     }
 }
@@ -61,8 +60,8 @@ impl JsIpcClient {
         self.client.send(message).await.map_err(|e| e.into())
     }
 
-    pub async fn subscribe(&self) -> JsIpcClientSubscription {
-        let subscription = self.client.subscribe(None).await;
-        JsIpcClientSubscription { subscription }
+    pub async fn subscribe(&self) -> Result<JsIpcClientSubscription, SubscribeError> {
+        let subscription = self.client.subscribe(None).await?;
+        Ok(JsIpcClientSubscription { subscription })
     }
 }

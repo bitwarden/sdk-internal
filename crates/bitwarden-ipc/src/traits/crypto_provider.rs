@@ -3,6 +3,7 @@ use crate::{
     error::{ReceiveError, SendError},
     message::{IncomingMessage, OutgoingMessage},
 };
+use std::fmt::Debug;
 
 pub trait CryptoProvider<Com, Ses>: Send + Sync + 'static
 where
@@ -10,8 +11,8 @@ where
     Ses: SessionRepository<Self::Session>,
 {
     type Session: Send + Sync + 'static;
-    type SendError: Send + Sync + 'static;
-    type ReceiveError: Send + Sync + 'static;
+    type SendError: Debug + Send + Sync + 'static;
+    type ReceiveError: Debug + Send + Sync + 'static;
 
     fn send(
         &self,
@@ -33,7 +34,8 @@ where
                 <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
             >,
         >,
-    >;
+    > + Send
+           + Sync;
 }
 
 pub struct NoEncryptionCryptoProvider;

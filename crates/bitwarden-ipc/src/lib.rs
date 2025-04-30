@@ -1,3 +1,4 @@
+mod constants;
 mod endpoint;
 mod error;
 mod ipc_client;
