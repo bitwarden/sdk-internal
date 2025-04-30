@@ -39,7 +39,11 @@ use crate::{
 /// #     pub enum AsymmKeyId {
 /// #         UserPrivate,
 /// #     }
-/// #     pub Ids => SymmKeyId, AsymmKeyId;
+/// # .   #[signing]
+/// #     pub enum SigningKeyId {
+/// #         UserSigning,
+/// #     }
+/// #     pub Ids => SymmKeyId, AsymmKeyId, SigningKeyId;
 /// # }
 /// struct Data {
 ///     key: EncString,
