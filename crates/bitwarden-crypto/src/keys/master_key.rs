@@ -164,7 +164,7 @@ pub(super) fn decrypt_user_key(
 /// WARNING: This function should only be used with a proper cryptographic random number generator.
 /// If you do not have a good reason for using this, use [MasterKey::make_user_key] instead.
 fn make_user_key(
-    mut rng: impl rand::RngCore + rand::CryptoRng,
+    rng: impl rand::RngCore + rand::CryptoRng,
     master_key: &MasterKey,
 ) -> Result<(UserKey, EncString)> {
     let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key_internal(rng);

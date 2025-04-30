@@ -193,7 +193,6 @@ impl ToString for EncString {
     }
 }
 
-/// To avoid printing sensitive information, [EncString] debug prints to `EncString`.
 impl std::fmt::Debug for EncString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         fn fmt_parts(
