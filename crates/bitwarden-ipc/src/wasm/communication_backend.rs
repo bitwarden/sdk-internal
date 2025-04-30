@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -38,7 +40,7 @@ extern "C" {
 
 #[wasm_bindgen(js_name = IpcCommunicationBackend)]
 pub struct JsCommunicationBackend {
-    sender: JsCommunicationBackendSender,
+    sender: Arc<Mutex<JsCommunicationBackendSender>>,
     receive_rx: tokio::sync::broadcast::Receiver<IncomingMessage>,
     receive_tx: tokio::sync::broadcast::Sender<IncomingMessage>,
 }
@@ -49,7 +51,7 @@ impl JsCommunicationBackend {
     pub fn new(sender: JsCommunicationBackendSender) -> Self {
         let (receive_tx, receive_rx) = tokio::sync::broadcast::channel(20);
         Self {
-            sender,
+            sender: Arc::new(Mutex::new(sender)),
             receive_rx,
             receive_tx,
         }
@@ -64,26 +66,29 @@ impl JsCommunicationBackend {
     }
 }
 
-impl From<JsCommunicationBackend> for ThreadSafeJsCommunicationBackend {
-    fn from(backend: JsCommunicationBackend) -> Self {
+impl From<&JsCommunicationBackend> for ThreadSafeJsCommunicationBackend {
+    fn from(backend: &JsCommunicationBackend) -> Self {
         let (cancel_tx, mut cancel_rx) = tokio::sync::watch::channel(false);
         let (send_tx, mut send_rx) = tokio::sync::mpsc::channel(CHANNEL_BUFFER_CAPACITY);
+        let sender = backend.sender.clone();
 
         wasm_bindgen_futures::spawn_local(async move {
             loop {
                 tokio::select! {
                     _ = cancel_rx.changed() => {
+                        log::debug!("ThreadSafeJsCommunicationBackend cancelled");
                         break;
                     }
                     message = send_rx.recv() => {
                         match message {
                             Some(message) => {
-                                let result = backend.sender.send(message).await;
+                                let result = sender.lock().await.send(message).await;
                                 if let Err(e) = result {
                                     log::error!("Failed to send IPC message: {:?}", e);
                                 }
                             }
                             None => {
+                                log::debug!("ThreadSafeJsCommunicationBackend send_rx channel closed");
                                 break
                             },
                         }

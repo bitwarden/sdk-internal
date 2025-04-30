@@ -41,7 +41,7 @@ impl JsIpcClientSubscription {
 #[wasm_bindgen(js_class = IpcClient)]
 impl JsIpcClient {
     #[wasm_bindgen(constructor)]
-    pub fn new(communication_provider: JsCommunicationBackend) -> JsIpcClient {
+    pub fn new(communication_provider: &JsCommunicationBackend) -> JsIpcClient {
         let communication_provider: ThreadSafeJsCommunicationBackend =
             communication_provider.into();
         JsIpcClient {

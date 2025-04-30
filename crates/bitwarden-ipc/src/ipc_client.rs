@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-use tokio::{sync::RwLock, task::JoinHandle};
+use tokio::{select, sync::RwLock};
 
 use crate::{
     constants::CHANNEL_BUFFER_CAPACITY,
@@ -21,7 +21,7 @@ where
     sessions: Ses,
 
     incoming: RwLock<Option<tokio::sync::broadcast::Receiver<IncomingMessage>>>,
-    processing_thread_handle: RwLock<Option<JoinHandle<()>>>,
+    cancellation_handle: RwLock<Option<tokio::sync::watch::Sender<bool>>>,
 }
 
 /// A subscription to receive messages over IPC.
@@ -112,16 +112,20 @@ where
             sessions,
 
             incoming: RwLock::new(None),
-            processing_thread_handle: RwLock::new(None),
+            cancellation_handle: RwLock::new(None),
         })
     }
 
     pub async fn start(self: &Arc<Self>) -> Result<(), StartError> {
         let client = self.clone();
+        let (cancellation_handle_tx, mut cancellation_handle_rx) =
+            tokio::sync::watch::channel(false);
         let (await_init_tx, await_init_rx) = tokio::sync::oneshot::channel();
-        let mut processing_thread_handle = self.processing_thread_handle.write().await;
+        let mut cancellation_handle = self.cancellation_handle.write().await;
 
-        *processing_thread_handle = Some(tokio::spawn(async move {
+        *cancellation_handle = Some(cancellation_handle_tx);
+
+        let future = async move {
             let com_receiver = client.communication.subscribe().await;
             let (client_tx, client_rx) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);
 
@@ -134,26 +138,38 @@ where
                 .expect("Sending init signal should not fail");
 
             loop {
-                let received = client
-                    .crypto
-                    .receive(&com_receiver, &client.communication, &client.sessions)
-                    .await;
-
-                match received {
-                    Ok(message) => {
-                        if let Err(_) = client_tx.send(message) {
-                            log::error!("Failed to save incoming message");
+                select! {
+                    _ = cancellation_handle_rx.changed() => {
+                        if *cancellation_handle_rx.borrow() {
+                            log::debug!("Cancellation signal received, stopping IPC client");
                             break;
-                        };
+                        }
                     }
-                    Err(e) => {
-                        log::error!("Error receiving message: {:?}", e);
-                        break;
+                    received = client.crypto.receive(&com_receiver, &client.communication, &client.sessions) => {
+                        match received {
+                            Ok(message) => {
+                                if let Err(_) = client_tx.send(message) {
+                                    log::error!("Failed to save incoming message");
+                                    break;
+                                };
+                            }
+                            Err(e) => {
+                                log::error!("Error receiving message: {:?}", e);
+                                break;
+                            }
+                        }
                     }
                 }
             }
+            log::debug!("IPC client shutting down");
             client.stop().await;
-        }));
+        };
+
+        #[cfg(not(feature = "wasm"))]
+        tokio::spawn(future);
+
+        #[cfg(feature = "wasm")]
+        wasm_bindgen_futures::spawn_local(future);
 
         await_init_rx.await.map_err(|e| StartError(e.to_string()))?;
         Ok(())
@@ -161,8 +177,8 @@ where
 
     pub async fn is_running(self: &Arc<Self>) -> bool {
         let incoming = self.incoming.read().await;
-        let processing_thread_handle = self.processing_thread_handle.read().await;
-        incoming.is_some() && processing_thread_handle.is_some()
+        let cancellation_handle = self.cancellation_handle.read().await;
+        incoming.is_some() && cancellation_handle.is_some()
     }
 
     pub async fn stop(self: &Arc<Self>) {
@@ -170,9 +186,10 @@ where
         if let Some(receiver) = incoming.take() {
             drop(receiver);
         }
-        let mut processing_thread_handle = self.processing_thread_handle.write().await;
-        if let Some(handle) = processing_thread_handle.take() {
-            handle.abort();
+
+        let mut cancellation_handle = self.cancellation_handle.write().await;
+        if let Some(cancellation_rx) = cancellation_handle.take() {
+            let _ = cancellation_rx.send(true);
         }
     }
 
@@ -197,7 +214,6 @@ where
         self: &Arc<Self>,
         topic: Option<String>,
     ) -> Result<IpcClientSubscription<Crypto, Com, Ses>, SubscribeError> {
-        println!("Incoming {:?}", self.incoming.read().await);
         Ok(IpcClientSubscription {
             receiver: self
                 .incoming
