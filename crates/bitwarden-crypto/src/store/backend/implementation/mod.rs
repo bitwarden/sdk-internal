@@ -17,7 +17,7 @@ mod tests {
     fn test_creates_a_valid_store() {
         let mut store = create_store::<TestSymmKey>();
 
-        let key = SymmetricCryptoKey::generate();
+        let key = SymmetricCryptoKey::generate_aes256_cbc_hmac();
         store.upsert(TestSymmKey::A(0), key.clone());
 
         assert_eq!(

@@ -42,12 +42,12 @@ pub enum SendDecryptFileError {
     Io(#[from] std::io::Error),
 }
 
-pub struct SendClient<'a> {
-    client: &'a Client,
+pub struct SendClient {
+    client: Client,
 }
 
-impl<'a> SendClient<'a> {
-    fn new(client: &'a Client) -> Self {
+impl SendClient {
+    fn new(client: Client) -> Self {
         Self { client }
     }
 
@@ -120,12 +120,12 @@ impl<'a> SendClient<'a> {
     }
 }
 
-pub trait SendClientExt<'a> {
-    fn sends(&'a self) -> SendClient<'a>;
+pub trait SendClientExt {
+    fn sends(&self) -> SendClient;
 }
 
-impl<'a> SendClientExt<'a> for Client {
-    fn sends(&'a self) -> SendClient<'a> {
-        SendClient::new(self)
+impl SendClientExt for Client {
+    fn sends(&self) -> SendClient {
+        SendClient::new(self.clone())
     }
 }
