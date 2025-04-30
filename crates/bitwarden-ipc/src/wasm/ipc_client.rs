@@ -57,6 +57,11 @@ impl JsIpcClient {
         self.client.start().await
     }
 
+    #[wasm_bindgen(js_name = isRunning)]
+    pub async fn is_running(&self) -> bool {
+        self.client.is_running().await
+    }
+
     pub async fn send(&self, message: OutgoingMessage) -> Result<(), JsError> {
         self.client
             .send(message)
