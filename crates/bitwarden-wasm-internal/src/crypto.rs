@@ -3,7 +3,7 @@ use std::rc::Rc;
 use bitwarden_core::{
     client::encryption_settings::EncryptionSettingsError,
     mobile::crypto::{
-        InitOrgCryptoRequest, InitUserCryptoRequest, MakeKeyPairResponse,
+        InitOrgCryptoRequest, InitUserCryptoRequest, MakeKeyPairResponse, MakeSigningKeysResponse,
         VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
     },
     Client,
@@ -54,5 +54,14 @@ impl CryptoClient {
         request: VerifyAsymmetricKeysRequest,
     ) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
         self.0.crypto().verify_asymmetric_keys(request)
+    }
+
+    /// Generates a new signing key pair and encrypts the signing key with the provided symmetric
+    /// key. Crypto initialization not required.
+    pub fn make_signing_keys(
+        &self,
+        wrapping_key: String,
+    ) -> Result<MakeSigningKeysResponse, CryptoError> {
+        self.0.crypto().make_signing_keys(wrapping_key)
     }
 }

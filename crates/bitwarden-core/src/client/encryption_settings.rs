@@ -1,12 +1,12 @@
-use bitwarden_crypto::{AsymmetricCryptoKey, KeyStore, SymmetricCryptoKey};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{AsymmetricEncString, EncString};
+use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
-    key_management::{AsymmetricKeyId, KeyIds, SymmetricKeyId},
+    key_management::{KeyIds, SymmetricKeyId},
     MissingPrivateKeyError, VaultLockedError,
 };
 
@@ -42,7 +42,7 @@ impl EncryptionSettings {
         private_key: EncString,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
-        use bitwarden_crypto::KeyDecryptable;
+        use bitwarden_crypto::{AsymmetricCryptoKey, KeyDecryptable};
         use log::warn;
 
         use crate::key_management::{AsymmetricKeyId, SymmetricKeyId};
@@ -94,6 +94,8 @@ impl EncryptionSettings {
         org_enc_keys: Vec<(Uuid, AsymmetricEncString)>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
+        use crate::key_management::AsymmetricKeyId;
+
         let mut ctx = store.context_mut();
 
         // FIXME: [PM-11690] - Early abort to handle private key being corrupt

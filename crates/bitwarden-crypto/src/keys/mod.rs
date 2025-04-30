@@ -27,4 +27,5 @@ pub use kdf::{
     default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
     default_pbkdf2_iterations, Kdf,
 };
+pub use signing_crypto_key::{SigningCryptoKey, VerifyingKey};
 mod utils;

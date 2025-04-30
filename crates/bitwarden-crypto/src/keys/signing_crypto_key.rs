@@ -22,20 +22,20 @@ enum VerifyingKeyEnum {
 }
 
 #[allow(unused)]
-struct SigningCryptoKey {
+pub struct SigningCryptoKey {
     id: KeyId,
     inner: SigningCryptoKeyEnum,
 }
 
 #[allow(unused)]
-struct VerifyingKey {
+pub struct VerifyingKey {
     id: KeyId,
     inner: VerifyingKeyEnum,
 }
 
 #[allow(unused)]
 impl SigningCryptoKey {
-    fn generate() -> Result<Self> {
+    pub fn generate() -> Result<Self> {
         Ok(SigningCryptoKey {
             id: KeyId::generate(),
             inner: SigningCryptoKeyEnum::Ed25519(SigningKey::generate(&mut OsRng)),
@@ -48,7 +48,7 @@ impl SigningCryptoKey {
         }
     }
 
-    fn to_cose(&self) -> Result<Vec<u8>> {
+    pub fn to_cose(&self) -> Result<Vec<u8>> {
         match &self.inner {
             SigningCryptoKeyEnum::Ed25519(key) => {
                 coset::CoseKeyBuilder::new_okp_key()
@@ -82,7 +82,7 @@ impl SigningCryptoKey {
         }
     }
 
-    fn from_cose(bytes: &[u8]) -> Result<Self> {
+    pub fn from_cose(bytes: &[u8]) -> Result<Self> {
         let cose_key = CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
         let (key_id, Some(algorithm), key_type) = (cose_key.key_id, cose_key.alg, cose_key.kty)
         else {
@@ -143,7 +143,7 @@ impl SigningCryptoKey {
         }
     }
 
-    pub(crate) fn sign(&self, namespace: &SigningNamespace, data: &[u8]) -> Result<Vec<u8>> {
+    pub fn sign(&self, namespace: &SigningNamespace, data: &[u8]) -> Result<Vec<u8>> {
         coset::CoseSign1Builder::new()
             .protected(
                 coset::HeaderBuilder::new()
@@ -170,7 +170,7 @@ impl SigningCryptoKey {
         }
     }
 
-    fn to_verifying_key(&self) -> VerifyingKey {
+    pub fn to_verifying_key(&self) -> VerifyingKey {
         match &self.inner {
             SigningCryptoKeyEnum::Ed25519(key) => VerifyingKey {
                 id: self.id,
@@ -182,7 +182,7 @@ impl SigningCryptoKey {
 
 #[allow(unused)]
 impl VerifyingKey {
-    fn to_cose(&self) -> Result<Vec<u8>> {
+    pub fn to_cose(&self) -> Result<Vec<u8>> {
         match &self.inner {
             VerifyingKeyEnum::Ed25519(key) => coset::CoseKeyBuilder::new_okp_key()
                 .key_id(self.id.as_bytes().into())
@@ -202,7 +202,7 @@ impl VerifyingKey {
         }
     }
 
-    fn from_cose(bytes: &[u8]) -> Result<Self> {
+    pub fn from_cose(bytes: &[u8]) -> Result<Self> {
         let cose_key = coset::CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
 
         let (key_id, Some(algorithm), key_type) = (cose_key.key_id, cose_key.alg, cose_key.kty)
@@ -264,12 +264,7 @@ impl VerifyingKey {
     /// Verifies the signature of the given data, for the given namespace.
     /// This should never be used directly, but only through the `verify` method, to enforce
     /// strong domain separation of the signatures.
-    pub(crate) fn verify(
-        &self,
-        namespace: &SigningNamespace,
-        signature: &[u8],
-        data: &[u8],
-    ) -> bool {
+    pub fn verify(&self, namespace: &SigningNamespace, signature: &[u8], data: &[u8]) -> bool {
         let Ok(sign1) = coset::CoseSign1::from_slice(signature) else {
             return false;
         };

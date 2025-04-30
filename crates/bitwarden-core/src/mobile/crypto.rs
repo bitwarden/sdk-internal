@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     AsymmetricCryptoKey, AsymmetricEncString, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, SymmetricCryptoKey, UserKey,
+    KeyEncryptable, MasterKey, SigningCryptoKey, SymmetricCryptoKey, UserKey,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -513,6 +513,34 @@ pub fn verify_asymmetric_keys(
     })
 }
 
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct MakeSigningKeysResponse {
+    /// The verifying key
+    verifying_key: String,
+    /// Signing key, encrypted with a symmetric key (user key, org key)
+    signing_key: EncString,
+}
+
+pub fn make_signing_keys(wrapping_key: String) -> Result<MakeSigningKeysResponse, CryptoError> {
+    let wrapping_key = SymmetricCryptoKey::try_from(wrapping_key)?;
+    let signature_keypair = SigningCryptoKey::generate()?;
+    // This needs to be changed to use the correct cose content format before rolling out to real
+    // accounts
+    let encrypted_signing_key = signature_keypair
+        .to_cose()?
+        .encrypt_with_key(&wrapping_key)?;
+    let serialized_verifying_key = signature_keypair.to_verifying_key().to_cose()?;
+    let serialized_verifying_key_b64 = STANDARD.encode(serialized_verifying_key);
+
+    Ok(MakeSigningKeysResponse {
+        verifying_key: serialized_verifying_key_b64,
+        signing_key: encrypted_signing_key,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroU32;
@@ -791,6 +819,14 @@ mod tests {
         let encrypted_private_key = response.user_key_encrypted_private_key;
         let private_key: Vec<u8> = encrypted_private_key.decrypt_with_key(&user_key.0).unwrap();
         assert!(!private_key.is_empty());
+    }
+
+    #[test]
+    fn test_make_signing_keys() {
+        let user_key = SymmetricCryptoKey::generate();
+        let response = make_signing_keys(user_key.to_base64()).unwrap();
+        assert!(!response.verifying_key.is_empty());
+        let _: Vec<u8> = response.signing_key.decrypt_with_key(&user_key).unwrap();
     }
 
     #[test]

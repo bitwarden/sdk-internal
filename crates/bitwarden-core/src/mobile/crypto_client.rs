@@ -3,9 +3,10 @@ use bitwarden_crypto::CryptoError;
 use bitwarden_crypto::{AsymmetricEncString, EncString};
 
 use super::crypto::{
-    derive_key_connector, make_key_pair, verify_asymmetric_keys, DeriveKeyConnectorError,
-    DeriveKeyConnectorRequest, EnrollAdminPasswordResetError, MakeKeyPairResponse,
-    MobileCryptoError, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
+    derive_key_connector, make_key_pair, make_signing_keys, verify_asymmetric_keys,
+    DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
+    MakeKeyPairResponse, MakeSigningKeysResponse, MobileCryptoError, VerifyAsymmetricKeysRequest,
+    VerifyAsymmetricKeysResponse,
 };
 #[cfg(feature = "internal")]
 use crate::mobile::crypto::{
@@ -80,6 +81,13 @@ impl CryptoClient<'_> {
         request: VerifyAsymmetricKeysRequest,
     ) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
         verify_asymmetric_keys(request)
+    }
+
+    pub fn make_signing_keys(
+        &self,
+        wrapping_key: String,
+    ) -> Result<MakeSigningKeysResponse, CryptoError> {
+        make_signing_keys(wrapping_key)
     }
 }
 
