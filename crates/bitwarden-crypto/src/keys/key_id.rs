@@ -1,6 +1,6 @@
 use rand::RngCore;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, zeroize::ZeroizeOnDrop)]
 pub(crate) struct KeyId([u8; 24]);
 
 /// Fixed length identifiers for keys.

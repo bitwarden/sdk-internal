@@ -8,10 +8,11 @@ use coset::{
 use ed25519_dalek::Signer;
 use rand::rngs::OsRng;
 
-use super::key_id::KeyId;
+use super::{key_id::KeyId, CryptoKey};
 use crate::{cose::SIGNING_NAMESPACE, error::Result, CryptoError, SigningNamespace};
 
 #[allow(unused)]
+#[derive(zeroize::ZeroizeOnDrop)]
 enum SigningCryptoKeyEnum {
     Ed25519(ed25519_dalek::SigningKey),
 }
@@ -22,10 +23,13 @@ enum VerifyingKeyEnum {
 }
 
 #[allow(unused)]
+#[derive(zeroize::ZeroizeOnDrop)]
 pub struct SigningKey {
     id: KeyId,
     inner: SigningCryptoKeyEnum,
 }
+
+impl CryptoKey for SigningKey {}
 
 #[allow(unused)]
 pub struct VerifyingKey {
@@ -173,7 +177,7 @@ impl SigningKey {
     pub fn to_verifying_key(&self) -> VerifyingKey {
         match &self.inner {
             SigningCryptoKeyEnum::Ed25519(key) => VerifyingKey {
-                id: self.id,
+                id: self.id.clone(),
                 inner: VerifyingKeyEnum::Ed25519(key.verifying_key()),
             },
         }

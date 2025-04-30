@@ -46,6 +46,10 @@ pub struct InitUserCryptoRequest {
     pub email: String,
     /// The user's encrypted private key
     pub private_key: String,
+
+    /// The user's signing key
+    pub signing_key: Option<String>,
+
     /// The initialization method to use
     pub method: InitUserCryptoMethod,
 }
@@ -596,6 +600,7 @@ mod tests {
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
+                signing_key: None,
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
                     user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".into(),
@@ -615,6 +620,7 @@ mod tests {
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
+                signing_key: None,
                 method: InitUserCryptoMethod::Password {
                     password: "123412341234".into(),
                     user_key: new_password_response.new_key.to_string(),
@@ -672,6 +678,7 @@ mod tests {
                 },
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
+                signing_key: None,
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
                     user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".into(),
@@ -693,6 +700,7 @@ mod tests {
                 },
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
+                signing_key: None,
                 method: InitUserCryptoMethod::Pin {
                     pin: "1234".into(),
                     pin_protected_user_key: pin_key.pin_protected_user_key,
@@ -735,6 +743,7 @@ mod tests {
                 },
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
+                signing_key: None,
                 method: InitUserCryptoMethod::Pin {
                     pin: "1234".into(),
                     pin_protected_user_key,
