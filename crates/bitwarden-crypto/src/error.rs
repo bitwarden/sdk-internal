@@ -57,6 +57,9 @@ pub enum CryptoError {
     #[error("Invalid signature")]
     InvalidSignature,
 
+    #[error("Invalid namespace")]
+    InvalidNamespace,
+
     #[error("Invalid nonce length")]
     InvalidNonceLength,
 }

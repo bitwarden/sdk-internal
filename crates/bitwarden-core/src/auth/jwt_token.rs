@@ -12,13 +12,20 @@ use thiserror::Error;
 /// TODO: We need to expand this to support user based JWT tokens.
 #[derive(serde::Deserialize)]
 pub struct JwtToken {
+    /// Expiration Time.
     pub exp: u64,
+    /// Subject.
     pub sub: String,
+    /// User's email.
     pub email: Option<String>,
+    /// Used by Service Accounts to denote the organization.
     pub organization: Option<String>,
+    /// The scopes the token has access to.
     pub scope: Vec<String>,
 }
 
+/// Error when parsing JWT tokens.
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum JwtTokenParseError {
     #[error("JWT token parse error: {0}")]

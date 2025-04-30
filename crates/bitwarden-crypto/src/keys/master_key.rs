@@ -136,20 +136,20 @@ pub(super) fn decrypt_user_key(
     user_key: EncString,
 ) -> Result<SymmetricCryptoKey> {
     let mut dec: Vec<u8> = match user_key {
-        // Legacy. user_keys were encrypted using `AesCbc256_B64` a long time ago. We've since
-        // moved to using `AesCbc256_HmacSha256_B64`. However, we still need to support
+        // Legacy. user_keys were encrypted using `Aes256Cbc_B64` a long time ago. We've since
+        // moved to using `Aes256Cbc_HmacSha256_B64`. However, we still need to support
         // decrypting these old keys.
-        EncString::AesCbc256_B64 { .. } => {
+        EncString::Aes256Cbc_B64 { .. } => {
             let legacy_key = SymmetricCryptoKey::Aes256CbcKey(super::Aes256CbcKey {
                 enc_key: Box::pin(GenericArray::clone_from_slice(key)),
             });
             user_key.decrypt_with_key(&legacy_key)?
         }
-        EncString::AesCbc256_HmacSha256_B64 { .. } => {
+        EncString::Aes256Cbc_HmacSha256_B64 { .. } => {
             let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key)?);
             user_key.decrypt_with_key(&stretched_key)?
         }
-        EncString::XChaCha20_Poly1305_Cose_B64 { .. } => {
+        EncString::Cose_Encrypt0_B64 { .. } => {
             return Err(CryptoError::OperationNotSupported(
                 crate::error::UnsupportedOperation::EncryptionNotImplementedForKey,
             ));
@@ -160,8 +160,14 @@ pub(super) fn decrypt_user_key(
 }
 
 /// Generate a new random user key and encrypt it with the master key.
-fn make_user_key(rng: impl rand::RngCore, master_key: &MasterKey) -> Result<(UserKey, EncString)> {
-    let user_key = SymmetricCryptoKey::generate_internal(rng, false);
+///
+/// WARNING: This function should only be used with a proper cryptographic random number generator.
+/// If you do not have a good reason for using this, use [MasterKey::make_user_key] instead.
+fn make_user_key(
+    mut rng: impl rand::RngCore,
+    master_key: &MasterKey,
+) -> Result<(UserKey, EncString)> {
+    let user_key = SymmetricCryptoKey::generate_aes256_cbc_hmac_internal(&mut rng);
     let protected = master_key.encrypt_user_key(&user_key)?;
     Ok((UserKey::new(user_key), protected))
 }

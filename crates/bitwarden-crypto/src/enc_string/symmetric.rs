@@ -19,9 +19,9 @@ export type EncString = string;
 
 /// # Encrypted string primitive
 ///
-/// [EncString] is a Bitwarden specific primitive that represents a symmetrically encrypted string.
-/// They are are used together with the [KeyDecryptable] and [KeyEncryptable] traits to encrypt and
-/// decrypt data using [SymmetricCryptoKey]s.
+/// [EncString] is a Bitwarden specific primitive that represents a symmetrically encrypted piece of
+/// data, encoded as a string. They are are used together with the [KeyDecryptable] and
+/// [KeyEncryptable] traits to encrypt and decrypt data using [SymmetricCryptoKey]s.
 ///
 /// The flexibility of the [EncString] type allows for different encryption algorithms to be used
 /// which is represented by the different variants of the enum.
@@ -32,8 +32,10 @@ export type EncString = string;
 /// variants, but we should be opinionated in which variants are used for encrypting.
 ///
 /// ## Variants
-/// - [AesCbc256_B64](EncString::AesCbc256_B64)
-/// - [AesCbc256_HmacSha256_B64](EncString::AesCbc256_HmacSha256_B64)
+/// - [Aes256Cbc_B64](EncString::Aes256Cbc_B64) - Deprecated and MUST NOT be used for encrypting as
+///   it is not authenticated
+/// - [Aes256Cbc_HmacSha256_B64](EncString::Aes256Cbc_HmacSha256_B64)
+/// - [Cose_Encrypt0_B64](EncString::Cose_Encrypt0_B64) - The preferred variant for encrypting data.
 ///
 /// ## Serialization
 ///
@@ -43,6 +45,7 @@ export type EncString = string;
 /// The scheme is one of the following schemes:
 /// - `[type].[iv]|[data]`
 /// - `[type].[iv]|[data]|[mac]`
+/// - `[type].[data]`
 ///
 /// Where:
 /// - `[type]`: is a digit number representing the variant.
@@ -53,19 +56,19 @@ export type EncString = string;
 #[allow(unused, non_camel_case_types)]
 pub enum EncString {
     /// 0
-    AesCbc256_B64 {
+    Aes256Cbc_B64 {
         iv: [u8; 16],
         data: Vec<u8>,
     },
     /// 1 was the now removed `AesCbc128_HmacSha256_B64`.
     /// 2
-    AesCbc256_HmacSha256_B64 {
+    Aes256Cbc_HmacSha256_B64 {
         iv: [u8; 16],
         mac: [u8; 32],
         data: Vec<u8>,
     },
     // 7 The actual enc type is contained in the cose struct
-    XChaCha20_Poly1305_Cose_B64 {
+    Cose_Encrypt0_B64 {
         data: Vec<u8>,
     },
 }
@@ -88,19 +91,19 @@ impl FromStr for EncString {
                 let iv = from_b64(parts[0])?;
                 let data = from_b64_vec(parts[1])?;
 
-                Ok(EncString::AesCbc256_B64 { iv, data })
+                Ok(EncString::Aes256Cbc_B64 { iv, data })
             }
             ("2", 3) => {
                 let iv = from_b64(parts[0])?;
                 let data = from_b64_vec(parts[1])?;
                 let mac = from_b64(parts[2])?;
 
-                Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
+                Ok(EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data })
             }
             ("7", 1) => {
                 let buffer = from_b64_vec(parts[0])?;
 
-                Ok(EncString::XChaCha20_Poly1305_Cose_B64 { data: buffer })
+                Ok(EncString::Cose_Encrypt0_B64 { data: buffer })
             }
             (enc_type, parts) => Err(EncStringParseError::InvalidTypeSymm {
                 enc_type: enc_type.to_string(),
@@ -129,7 +132,7 @@ impl EncString {
                 let iv = buf[1..17].try_into().expect("Valid length");
                 let data = buf[17..].to_vec();
 
-                Ok(EncString::AesCbc256_B64 { iv, data })
+                Ok(EncString::Aes256Cbc_B64 { iv, data })
             }
             2 => {
                 check_length(buf, 50)?;
@@ -137,9 +140,9 @@ impl EncString {
                 let mac = buf[17..49].try_into().expect("Valid length");
                 let data = buf[49..].to_vec();
 
-                Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
+                Ok(EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data })
             }
-            7 => Ok(EncString::XChaCha20_Poly1305_Cose_B64 {
+            7 => Ok(EncString::Cose_Encrypt0_B64 {
                 data: buf[1..].to_vec(),
             }),
             _ => Err(EncStringParseError::InvalidTypeSymm {
@@ -154,20 +157,20 @@ impl EncString {
         let mut buf;
 
         match self {
-            EncString::AesCbc256_B64 { iv, data } => {
+            EncString::Aes256Cbc_B64 { iv, data } => {
                 buf = Vec::with_capacity(1 + 16 + data.len());
                 buf.push(self.enc_type());
                 buf.extend_from_slice(iv);
                 buf.extend_from_slice(data);
             }
-            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
+            EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data } => {
                 buf = Vec::with_capacity(1 + 16 + 32 + data.len());
                 buf.push(self.enc_type());
                 buf.extend_from_slice(iv);
                 buf.extend_from_slice(mac);
                 buf.extend_from_slice(data);
             }
-            EncString::XChaCha20_Poly1305_Cose_B64 { data } => {
+            EncString::Cose_Encrypt0_B64 { data } => {
                 buf = Vec::with_capacity(1 + data.len());
                 buf.push(self.enc_type());
                 buf.extend_from_slice(data);
@@ -193,11 +196,11 @@ impl Display for EncString {
         let enc_type = self.enc_type();
 
         match self {
-            EncString::AesCbc256_B64 { iv, data } => fmt_parts(f, enc_type, &[iv, data]),
-            EncString::AesCbc256_HmacSha256_B64 { iv, mac, data } => {
+            EncString::Aes256Cbc_B64 { iv, data } => fmt_parts(f, enc_type, &[iv, data]),
+            EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data } => {
                 fmt_parts(f, enc_type, &[iv, data, mac])
             }
-            EncString::XChaCha20_Poly1305_Cose_B64 { data } => {
+            EncString::Cose_Encrypt0_B64 { data } => {
                 if let Ok(msg) = coset::CoseEncrypt0::from_slice(data.as_slice()) {
                     write!(f, "{}.{:?}", enc_type, msg)?;
                 } else {
@@ -234,7 +237,7 @@ impl EncString {
     ) -> Result<EncString> {
         let (iv, mac, data) =
             crate::aes::encrypt_aes256_hmac(data_dec, &key.mac_key, &key.enc_key)?;
-        Ok(EncString::AesCbc256_HmacSha256_B64 { iv, mac, data })
+        Ok(EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data })
     }
 
     pub(crate) fn encrypt_xchacha20_poly1305(
@@ -250,13 +253,13 @@ impl EncString {
             .create_ciphertext(data_dec, &[], |data, aad| {
                 let ciphertext =
                     crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
-                nonce.copy_from_slice(ciphertext.nonce.as_slice());
-                ciphertext.ciphertext
+                nonce = *ciphertext.nonce();
+                ciphertext.encrypted_bytes()
             })
             .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
             .build();
 
-        Ok(EncString::XChaCha20_Poly1305_Cose_B64 {
+        Ok(EncString::Cose_Encrypt0_B64 {
             data: cose_encrypt0.to_vec().map_err(|err| {
                 CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err))
             })?,
@@ -266,9 +269,9 @@ impl EncString {
     /// The numerical representation of the encryption type of the [EncString].
     const fn enc_type(&self) -> u8 {
         match self {
-            EncString::AesCbc256_B64 { .. } => 0,
-            EncString::AesCbc256_HmacSha256_B64 { .. } => 2,
-            EncString::XChaCha20_Poly1305_Cose_B64 { .. } => 7,
+            EncString::Aes256Cbc_B64 { .. } => 0,
+            EncString::Aes256Cbc_HmacSha256_B64 { .. } => 2,
+            EncString::Cose_Encrypt0_B64 { .. } => 7,
         }
     }
 }
@@ -290,15 +293,15 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
 impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
         match (self, key) {
-            (EncString::AesCbc256_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
+            (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
                 crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
             }
             (
-                EncString::AesCbc256_HmacSha256_B64 { iv, mac, data },
+                EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
             (
-                EncString::XChaCha20_Poly1305_Cose_B64 { data },
+                EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
                 let msg = coset::CoseEncrypt0::from_slice(data.as_slice()).map_err(|err| {
@@ -355,7 +358,6 @@ impl schemars::JsonSchema for EncString {
 
 #[cfg(test)]
 mod tests {
-    use generic_array::GenericArray;
     use schemars::schema_for;
 
     use super::EncString;
@@ -369,7 +371,7 @@ mod tests {
         let enc_key = [0u8; 32];
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id,
-            enc_key: Box::pin(*GenericArray::from_slice(enc_key.as_slice())),
+            enc_key: Box::pin(enc_key.into()),
         });
 
         let test_string = "encrypted_test_string";
@@ -444,7 +446,7 @@ mod tests {
         let enc_string: EncString = enc_str.parse().unwrap();
 
         assert_eq!(enc_string.enc_type(), 0);
-        if let EncString::AesCbc256_B64 { iv, data } = &enc_string {
+        if let EncString::Aes256Cbc_B64 { iv, data } = &enc_string {
             assert_eq!(
                 iv,
                 &[164, 196, 186, 254, 39, 19, 64, 0, 109, 186, 92, 57, 218, 154, 182, 150]
@@ -478,8 +480,8 @@ mod tests {
         let key = "hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string();
         let key = SymmetricCryptoKey::try_from(key).unwrap();
 
-        // A "downgraded" `EncString` from `EncString::AesCbc256_HmacSha256_B64` (2) to
-        // `EncString::AesCbc256_B64` (0), with the mac portion removed.
+        // A "downgraded" `EncString` from `EncString::Aes256Cbc_HmacSha256_B64` (2) to
+        // `EncString::Aes256Cbc_B64` (0), with the mac portion removed.
         // <enc_string>
         let enc_str = "0.NQfjHLr6za7VQVAbrpL81w==|wfrjmyJ0bfwkQlySrhw8dA==";
         let enc_string: EncString = enc_str.parse().unwrap();

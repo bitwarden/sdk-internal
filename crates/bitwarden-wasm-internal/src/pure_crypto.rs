@@ -74,7 +74,7 @@ impl PureCrypto {
     }
 
     pub fn generate_user_key() -> Vec<u8> {
-        SymmetricCryptoKey::generate().to_encoded()
+        SymmetricCryptoKey::generate_aes256_cbc_hmac().to_encoded()
     }
 
     pub fn generate_user_key_xchacha20() -> Vec<u8> {
