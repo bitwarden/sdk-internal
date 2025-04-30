@@ -8,8 +8,8 @@ use zeroize::Zeroizing;
 use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
-    AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, SymmetricCryptoKey,
-    UnauthenticatedSharedKey,
+    AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, Signature, SigningKey,
+    SigningNamespace, SymmetricCryptoKey, UnauthenticatedSharedKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -66,6 +66,7 @@ pub struct KeyStoreContext<'a, Ids: KeyIds> {
 
     pub(super) local_symmetric_keys: Box<dyn StoreBackend<Ids::Symmetric>>,
     pub(super) local_asymmetric_keys: Box<dyn StoreBackend<Ids::Asymmetric>>,
+    pub(super) local_signing_keys: Box<dyn StoreBackend<Ids::Signing>>,
 
     // Make sure the context is !Send & !Sync
     pub(super) _phantom: std::marker::PhantomData<(Cell<()>, RwLockReadGuard<'static, ()>)>,
@@ -104,6 +105,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     pub fn clear_local(&mut self) {
         self.local_symmetric_keys.clear();
         self.local_asymmetric_keys.clear();
+        self.local_signing_keys.clear();
     }
 
     /// Remove all symmetric keys from the context for which the predicate returns false
@@ -316,6 +318,15 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{key_id:?}")))
     }
 
+    fn get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
+        if key_id.is_local() {
+            self.local_signing_keys.get(key_id)
+        } else {
+            self.global_keys.get().signing_keys.get(key_id)
+        }
+        .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{key_id:?}")))
+    }
+
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn set_symmetric_key(
         &mut self,
@@ -346,6 +357,16 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 .get_mut()?
                 .asymmetric_keys
                 .upsert(key_id, key);
+        }
+        Ok(())
+    }
+
+    #[deprecated(note = "This function should ideally never be used outside this crate")]
+    pub fn set_signing_key(&mut self, key_id: Ids::Signing, key: SigningKey) -> Result<()> {
+        if key_id.is_local() {
+            self.local_signing_keys.upsert(key_id, key);
+        } else {
+            self.global_keys.get_mut()?.signing_keys.upsert(key_id, key);
         }
         Ok(())
     }
@@ -385,6 +406,17 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             }
         }
     }
+
+    #[allow(dead_code)]
+    pub(crate) fn sign_data(
+        &self,
+        key: Ids::Signing,
+        namespace: SigningNamespace,
+        data: &[u8],
+    ) -> Result<Signature> {
+        let key = self.get_signing_key(key)?;
+        Ok(key.sign(&namespace, data))
+    }
 }
 
 #[cfg(test)]
@@ -392,9 +424,22 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 mod tests {
     use crate::{
         store::{tests::DataView, KeyStore},
-        traits::tests::{TestIds, TestSymmKey},
-        Decryptable, Encryptable, SymmetricCryptoKey,
+        traits::tests::{TestIds, TestSigningKey, TestSymmKey},
+        Decryptable, Encryptable, SigningKey, SymmetricCryptoKey,
     };
+
+    #[test]
+    fn test_set_signing_key() {
+        let store: KeyStore<TestIds> = KeyStore::default();
+
+        // Generate and insert a key
+        let key_a0_id = TestSigningKey::A(0);
+        let key_a0 = SigningKey::make_ed25519_key();
+        store
+            .context_mut()
+            .set_signing_key(key_a0_id, key_a0.clone())
+            .unwrap();
+    }
 
     #[test]
     fn test_set_keys_for_encryption() {

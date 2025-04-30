@@ -560,7 +560,7 @@ pub struct MakeSigningKeysResponse {
 
 pub fn make_signing_keys(wrapping_key: String) -> Result<MakeSigningKeysResponse, CryptoError> {
     let wrapping_key = SymmetricCryptoKey::try_from(wrapping_key)?;
-    let signature_keypair = SigningKey::make_ed25519_key()?;
+    let signature_keypair = SigningKey::make_ed25519_key();
     // This needs to be changed to use the correct cose content format before rolling out to real
     // accounts
     let encrypted_signing_key = signature_keypair

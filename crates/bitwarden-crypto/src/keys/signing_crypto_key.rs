@@ -12,7 +12,7 @@ use super::{key_id::KeyId, CryptoKey};
 use crate::{cose::SIGNING_NAMESPACE, error::Result, CryptoError, SigningNamespace};
 
 #[allow(unused)]
-#[derive(zeroize::ZeroizeOnDrop)]
+#[derive(zeroize::ZeroizeOnDrop, Clone)]
 enum SigningCryptoKeyEnum {
     Ed25519(ed25519_dalek::SigningKey),
 }
@@ -23,7 +23,7 @@ enum VerifyingKeyEnum {
 }
 
 #[allow(unused)]
-#[derive(zeroize::ZeroizeOnDrop)]
+#[derive(zeroize::ZeroizeOnDrop, Clone)]
 pub struct SigningKey {
     id: KeyId,
     inner: SigningCryptoKeyEnum,
@@ -39,11 +39,11 @@ pub struct VerifyingKey {
 
 #[allow(unused)]
 impl SigningKey {
-    pub fn make_ed25519_key() -> Result<Self> {
-        Ok(SigningKey {
+    pub fn make_ed25519_key() -> Self {
+        SigningKey {
             id: KeyId::generate(),
             inner: SigningCryptoKeyEnum::Ed25519(ed25519_dalek::SigningKey::generate(&mut OsRng)),
-        })
+        }
     }
 
     fn cose_algorithm(&self) -> Algorithm {
@@ -361,7 +361,7 @@ mod tests {
 
     #[test]
     fn test_sign_roundtrip() {
-        let signing_key = SigningKey::make_ed25519_key().unwrap();
+        let signing_key = SigningKey::make_ed25519_key();
         let verifying_key = signing_key.to_verifying_key();
         let data = b"Hello, world!";
         let namespace = SigningNamespace::EncryptionMetadata;
@@ -372,7 +372,7 @@ mod tests {
 
     #[test]
     fn test_changed_signature_fails() {
-        let signing_key = SigningKey::make_ed25519_key().unwrap();
+        let signing_key = SigningKey::make_ed25519_key();
         let verifying_key = signing_key.to_verifying_key();
         let data = b"Hello, world!";
         let namespace = SigningNamespace::EncryptionMetadata;
@@ -383,7 +383,7 @@ mod tests {
 
     #[test]
     fn test_changed_namespace_fails() {
-        let signing_key = SigningKey::make_ed25519_key().unwrap();
+        let signing_key = SigningKey::make_ed25519_key();
         let verifying_key = signing_key.to_verifying_key();
         let data = b"Hello, world!";
         let namespace = SigningNamespace::EncryptionMetadata;
@@ -395,7 +395,7 @@ mod tests {
 
     #[test]
     fn test_cose_roundtrip_encode_signing() {
-        let signing_key = SigningKey::make_ed25519_key().unwrap();
+        let signing_key = SigningKey::make_ed25519_key();
         let cose = signing_key.to_cose().unwrap();
         let parsed_key = SigningKey::from_cose(&cose).unwrap();
 
@@ -407,7 +407,7 @@ mod tests {
 
     #[test]
     fn test_cose_roundtrip_encode_verifying() {
-        let signing_key = SigningKey::make_ed25519_key().unwrap();
+        let signing_key = SigningKey::make_ed25519_key();
         let cose = signing_key.to_verifying_key().to_cose().unwrap();
         let parsed_key = VerifyingKey::from_cose(&cose).unwrap();
 
