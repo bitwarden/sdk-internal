@@ -149,9 +149,9 @@ pub(super) fn decrypt_user_key(
             user_key.unwrap_with(&stretched_key)
         }
         EncString::Cose_Encrypt0_B64 { .. } => {
-            return Err(CryptoError::OperationNotSupported(
+            Err(CryptoError::OperationNotSupported(
                 crate::error::UnsupportedOperation::EncryptionNotImplementedForKey,
-            ));
+            ))
         }
     }
 }
