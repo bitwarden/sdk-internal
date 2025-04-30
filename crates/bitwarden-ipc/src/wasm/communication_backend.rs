@@ -4,6 +4,7 @@ use tokio::sync::RwLock;
 use wasm_bindgen::prelude::*;
 
 use crate::{
+    constants::CHANNEL_BUFFER_CAPACITY,
     message::{IncomingMessage, OutgoingMessage},
     traits::{CommunicationBackend, CommunicationBackendReceiver},
 };
@@ -66,7 +67,7 @@ impl JsCommunicationBackend {
 impl From<JsCommunicationBackend> for ThreadSafeJsCommunicationBackend {
     fn from(backend: JsCommunicationBackend) -> Self {
         let (cancel_tx, mut cancel_rx) = tokio::sync::watch::channel(false);
-        let (send_tx, mut send_rx) = tokio::sync::mpsc::channel(20);
+        let (send_tx, mut send_rx) = tokio::sync::mpsc::channel(CHANNEL_BUFFER_CAPACITY);
 
         wasm_bindgen_futures::spawn_local(async move {
             loop {

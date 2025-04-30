@@ -5,6 +5,7 @@ use thiserror::Error;
 use tokio::{sync::RwLock, task::JoinHandle};
 
 use crate::{
+    constants::CHANNEL_BUFFER_CAPACITY,
     message::{IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage},
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
 };
@@ -98,13 +99,6 @@ impl From<ReceiveError> for TypedReceiveError {
     }
 }
 
-// #[derive(Debug, Error, Clone, PartialEq, Eq)]
-// #[bitwarden_error(flat)]
-// pub enum SendError {
-//     #[error("Crypto error: {0}")]
-//     Crypto(String),
-// }
-
 impl<Crypto, Com, Ses> IpcClient<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
@@ -129,7 +123,7 @@ where
 
         *processing_thread_handle = Some(tokio::spawn(async move {
             let com_receiver = client.communication.subscribe().await;
-            let (client_tx, client_rx) = tokio::sync::broadcast::channel(20);
+            let (client_tx, client_rx) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);
 
             let mut client_incoming = client.incoming.write().await;
             *client_incoming = Some(client_rx);
