@@ -141,6 +141,7 @@ where
             await_init_tx
                 .send(())
                 .expect("Sending init signal should not fail");
+
             loop {
                 let received = client
                     .crypto
@@ -151,17 +152,37 @@ where
                     Ok(message) => {
                         if let Err(_) = client_tx.send(message) {
                             log::error!("Failed to save incoming message");
+                            break;
                         };
                     }
                     Err(e) => {
                         log::error!("Error receiving message: {:?}", e);
+                        break;
                     }
                 }
             }
+            client.stop().await;
         }));
 
         await_init_rx.await.map_err(|e| StartError(e.to_string()))?;
         Ok(())
+    }
+
+    pub async fn is_running(self: &Arc<Self>) -> bool {
+        let incoming = self.incoming.read().await;
+        let processing_thread_handle = self.processing_thread_handle.read().await;
+        incoming.is_some() && processing_thread_handle.is_some()
+    }
+
+    pub async fn stop(self: &Arc<Self>) {
+        let mut incoming = self.incoming.write().await;
+        if let Some(receiver) = incoming.take() {
+            drop(receiver);
+        }
+        let mut processing_thread_handle = self.processing_thread_handle.write().await;
+        if let Some(handle) = processing_thread_handle.take() {
+            handle.abort();
+        }
     }
 
     /// Send a message
@@ -169,9 +190,17 @@ where
         self: &Arc<Self>,
         message: OutgoingMessage,
     ) -> Result<(), SendError<Crypto::SendError, Com::SendError>> {
-        self.crypto
+        let result = self
+            .crypto
             .send(&self.communication, &self.sessions, message)
-            .await
+            .await;
+
+        if result.is_err() {
+            log::error!("Error sending message: {:?}", result);
+            self.stop().await;
+        }
+
+        result
     }
 
     /// Create a subscription to receive messages, optionally filtered by topic.
@@ -349,17 +378,15 @@ mod tests {
     use crate::{
         endpoint::Endpoint,
         traits::{
-            tests::{TestCommunicationBackend, TestCommunicationBackendReceiveError},
-            InMemorySessionRepository, NoEncryptionCryptoProvider,
+            tests::TestCommunicationBackend, InMemorySessionRepository, NoEncryptionCryptoProvider,
         },
     };
 
     struct TestCryptoProvider {
-        send_result: Result<(), SendError<String, ()>>,
-        receive_result: Result<
-            IncomingMessage,
-            crate::error::ReceiveError<String, TestCommunicationBackendReceiveError>,
-        >,
+        /// Simulate a send result. Set to `None` wait indefinitely
+        send_result: Option<Result<(), SendError<String, ()>>>,
+        /// Simulate a receive result. Set to `None` wait indefinitely
+        receive_result: Option<Result<IncomingMessage, crate::error::ReceiveError<String, ()>>>,
     }
 
     type TestSessionRepository = InMemorySessionRepository<String>;
@@ -373,11 +400,17 @@ mod tests {
             _receiver: &<TestCommunicationBackend as CommunicationBackend>::Receiver,
             _communication: &TestCommunicationBackend,
             _sessions: &TestSessionRepository,
-        ) -> Result<
-            IncomingMessage,
-            crate::error::ReceiveError<String, TestCommunicationBackendReceiveError>,
-        > {
-            self.receive_result.clone()
+        ) -> Result<IncomingMessage, crate::error::ReceiveError<String, ()>> {
+            match &self.receive_result {
+                Some(result) => result.clone(),
+                None => {
+                    // Simulate waiting for a message but never returning
+                    tokio::time::sleep(Duration::from_secs(600)).await;
+                    Err(crate::error::ReceiveError::Crypto(
+                        "Simulated timeout".to_string(),
+                    ))
+                }
+            }
         }
 
         async fn send(
@@ -392,7 +425,16 @@ mod tests {
                 <TestCommunicationBackend as CommunicationBackend>::SendError,
             >,
         > {
-            self.send_result.clone()
+            match &self.send_result {
+                Some(result) => result.clone(),
+                None => {
+                    // Simulate waiting for a message to be send but never returning
+                    tokio::time::sleep(Duration::from_secs(600)).await;
+                    Err(crate::error::SendError::Crypto(
+                        "Simulated timeout".to_string(),
+                    ))
+                }
+            }
         }
     }
 
@@ -405,10 +447,10 @@ mod tests {
             topic: None,
         };
         let crypto_provider = TestCryptoProvider {
-            send_result: Err(SendError::Crypto("Crypto error".to_string())),
-            receive_result: Err(crate::error::ReceiveError::Crypto(
+            send_result: Some(Err(SendError::Crypto("Crypto error".to_string()))),
+            receive_result: Some(Err(crate::error::ReceiveError::Crypto(
                 "Should not have be called".to_string(),
-            )),
+            ))),
         };
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
@@ -421,31 +463,6 @@ mod tests {
         let error = client.send(message).await.unwrap_err();
 
         assert_eq!(error, SendError::Crypto("Crypto error".to_string()));
-    }
-
-    #[tokio::test]
-    async fn returns_receive_error_when_crypto_provider_returns_error() {
-        let crypto_provider = TestCryptoProvider {
-            send_result: Ok(()),
-            receive_result: Err(crate::error::ReceiveError::Crypto(
-                "Crypto error".to_string(),
-            )),
-        };
-        let communication_provider = TestCommunicationBackend::new();
-        let session_map = TestSessionRepository::new(HashMap::new());
-        let client = IpcClient::new(crypto_provider, communication_provider, session_map);
-        client
-            .start()
-            .await
-            .expect("Starting client should not fail");
-
-        let mut subscription = client
-            .subscribe(None)
-            .await
-            .expect("Subscribing should not fail");
-        let error = subscription.receive(None).await.unwrap_err();
-
-        assert!(matches!(error, ReceiveError::Channel(_)));
     }
 
     #[tokio::test]
@@ -590,7 +607,12 @@ mod tests {
             .expect("Subscribing should not fail");
         communication_provider.push_incoming(unrelated.clone());
         communication_provider.push_incoming(unrelated.clone());
-        communication_provider.push_incoming(typed_message.clone().try_into().unwrap());
+        communication_provider.push_incoming(
+            typed_message
+                .clone()
+                .try_into()
+                .expect("Serialization should not fail"),
+        );
 
         let received_message = subscription.receive(None).await.unwrap();
 
@@ -598,6 +620,7 @@ mod tests {
     }
 
     #[tokio::test]
+    // async fn skips_message_if_it_was_not_deserializable() {
     async fn returns_error_if_related_message_was_not_deserializable() {
         #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
         struct TestPayload {
@@ -648,7 +671,76 @@ mod tests {
         communication_provider.push_incoming(non_deserializable_message.clone());
 
         let result = subscription.receive(None).await;
-
         assert!(matches!(result, Err(TypedReceiveError::Typing(_))));
+    }
+
+    #[tokio::test]
+    async fn ipc_client_stops_if_crypto_returns_send_error() {
+        let message = OutgoingMessage {
+            payload: vec![],
+            destination: Endpoint::BrowserBackground,
+            topic: None,
+        };
+        let crypto_provider = TestCryptoProvider {
+            send_result: Some(Err(SendError::Crypto("Crypto error".to_string()))),
+            receive_result: None,
+        };
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = TestSessionRepository::new(HashMap::new());
+        let client = IpcClient::new(crypto_provider, communication_provider, session_map);
+        client
+            .start()
+            .await
+            .expect("Starting client should not fail");
+
+        let error = client.send(message).await.unwrap_err();
+        let is_running = client.is_running().await;
+
+        assert_eq!(error, SendError::Crypto("Crypto error".to_string()));
+        assert_eq!(is_running, false);
+    }
+
+    #[tokio::test]
+    async fn ipc_client_stops_if_crypto_returns_receive_error() {
+        let crypto_provider = TestCryptoProvider {
+            send_result: None,
+            receive_result: Some(Err(crate::error::ReceiveError::Crypto(
+                "Crypto error".to_string(),
+            ))),
+        };
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = TestSessionRepository::new(HashMap::new());
+        let client = IpcClient::new(crypto_provider, communication_provider, session_map);
+        client
+            .start()
+            .await
+            .expect("Starting client should not fail");
+
+        // Give the client some time to process the error
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let is_running = client.is_running().await;
+
+        assert_eq!(is_running, false);
+    }
+
+    #[tokio::test]
+    async fn ipc_client_is_running_if_no_errors_are_encountered() {
+        let crypto_provider = TestCryptoProvider {
+            send_result: None,
+            receive_result: None,
+        };
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = TestSessionRepository::new(HashMap::new());
+        let client = IpcClient::new(crypto_provider, communication_provider, session_map);
+        client
+            .start()
+            .await
+            .expect("Starting client should not fail");
+
+        // Give the client some time to process
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let is_running = client.is_running().await;
+
+        assert_eq!(is_running, true);
     }
 }

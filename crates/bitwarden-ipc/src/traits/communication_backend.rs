@@ -9,7 +9,13 @@ pub trait CommunicationBackend: Send + Sync + 'static {
     type Receiver: CommunicationBackendReceiver;
 
     /// Send a message to the destination specified in the message. This function may be called
-    /// from any thread at any time. The implementation will handle any necessary synchronization.
+    /// from any thread at any time.
+    ///
+    /// An error should only be returned for fatal and unrecoverable errors.
+    /// Returning an error will cause the IPC client to stop processing messages.
+    ///
+    /// The implementation of this trait needs to guarantee that:
+    ///     - Multiple concurrent receivers and senders can coexist.
     fn send(
         &self,
         message: OutgoingMessage,
@@ -21,6 +27,7 @@ pub trait CommunicationBackend: Send + Sync + 'static {
     /// The implementation of this trait needs to guarantee that:
     ///     - Multiple concurrent receivers may be created.
     ///     - All concurrent receivers will receive the same messages.
+    ///      - Multiple concurrent receivers and senders can coexist.
     fn subscribe(&self) -> impl std::future::Future<Output = Self::Receiver> + Send + Sync;
 }
 
@@ -35,6 +42,9 @@ pub trait CommunicationBackendReceiver: Send + Sync + 'static {
 
     /// Receive a message. This function will block asynchronously until a message is received.
     ///
+    /// An error should only be returned for fatal and unrecoverable errors.
+    /// Returning an error will cause the IPC client to stop processing messages.
+    ///
     /// Do not call this function from multiple threads at the same time. Use the subscribe function
     /// to create one receiver per thread.
     fn receive(
@@ -46,7 +56,6 @@ pub trait CommunicationBackendReceiver: Send + Sync + 'static {
 pub mod tests {
     use std::sync::Arc;
 
-    use thiserror::Error;
     use tokio::sync::{
         broadcast::{self, Receiver, Sender},
         RwLock,
@@ -104,12 +113,6 @@ pub mod tests {
         }
     }
 
-    #[derive(Debug, Clone, Error, PartialEq)]
-    pub enum TestCommunicationBackendReceiveError {
-        #[error("Could not receive mock message since no messages were queued")]
-        NoQueuedMessages,
-    }
-
     impl CommunicationBackend for TestCommunicationBackend {
         type SendError = ();
         type Receiver = TestCommunicationBackendReceiver;
@@ -125,16 +128,13 @@ pub mod tests {
     }
 
     impl CommunicationBackendReceiver for TestCommunicationBackendReceiver {
-        type ReceiveError = TestCommunicationBackendReceiveError;
+        type ReceiveError = ();
 
         async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
-            let mut receiver = self.0.write().await;
-
-            if receiver.is_empty() {
-                return Err(TestCommunicationBackendReceiveError::NoQueuedMessages);
-            }
-
-            Ok(receiver
+            Ok(self
+                .0
+                .write()
+                .await
                 .recv()
                 .await
                 .expect("Failed to receive incoming message"))

@@ -14,6 +14,16 @@ where
     type SendError: Debug + Send + Sync + 'static;
     type ReceiveError: Debug + Send + Sync + 'static;
 
+    /// Send a message.
+    ///
+    /// Calling this function may result in multiple messages being sent, depending on the
+    /// implementation of the trait. For example, if the destination does not have a
+    /// session, the function may first send a message to establish a session and then send the
+    /// original message. The implementation of this function should handle this logic.
+    ///
+    /// An error should only be returned for fatal and unrecoverable errors e.g. if the session
+    /// storage is full or cannot be accessed. Returning an error will cause the IPC client to
+    /// stop processing messages.
     fn send(
         &self,
         communication: &Com,
@@ -21,6 +31,16 @@ where
         message: OutgoingMessage,
     ) -> impl std::future::Future<Output = Result<(), SendError<Self::SendError, Com::SendError>>>;
 
+    /// Receive a message.
+    ///
+    /// Calling this function may also result in messages being sent, depending on the trait implementation.
+    /// For example, if an encrypted message is received from a destination that does not have a session.
+    /// The function may then try to establish a session and then re-request the original message.
+    /// The implementation of this function should handle this logic.
+    ///
+    /// An error should only be returned for fatal and unrecoverable errors e.g. if the session
+    /// storage is full or cannot be accessed. Returning an error will cause the IPC client to
+    /// stop processing messages.
     fn receive(
         &self,
         receiver: &Com::Receiver,
