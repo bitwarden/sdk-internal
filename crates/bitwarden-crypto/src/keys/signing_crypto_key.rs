@@ -3,9 +3,9 @@
 use ciborium::{value::Integer, Value};
 use coset::{
     iana::{self, Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
-    CborSerializable, CoseKey, Label, RegisteredLabel, RegisteredLabelWithPrivate,
+    CborSerializable, CoseKey, CoseSign1, Label, RegisteredLabel, RegisteredLabelWithPrivate,
 };
-use ed25519_dalek::{Signature, Signer, SigningKey};
+use ed25519_dalek::Signer;
 use rand::rngs::OsRng;
 
 use super::key_id::KeyId;
@@ -22,7 +22,7 @@ enum VerifyingKeyEnum {
 }
 
 #[allow(unused)]
-struct SigningCryptoKey {
+struct SigningKey {
     id: KeyId,
     inner: SigningCryptoKeyEnum,
 }
@@ -34,11 +34,11 @@ struct VerifyingKey {
 }
 
 #[allow(unused)]
-impl SigningCryptoKey {
+impl SigningKey {
     fn generate() -> Result<Self> {
-        Ok(SigningCryptoKey {
+        Ok(SigningKey {
             id: KeyId::generate(),
-            inner: SigningCryptoKeyEnum::Ed25519(SigningKey::generate(&mut OsRng)),
+            inner: SigningCryptoKeyEnum::Ed25519(ed25519_dalek::SigningKey::generate(&mut OsRng)),
         })
     }
 
@@ -131,7 +131,7 @@ impl SigningCryptoKey {
                         .try_into()
                         .map_err(|_| CryptoError::InvalidKey)?;
                     let key = ed25519_dalek::SigningKey::from_bytes(secret_key_bytes);
-                    Ok(SigningCryptoKey {
+                    Ok(SigningKey {
                         id: key_id,
                         inner: SigningCryptoKeyEnum::Ed25519(key),
                     })
@@ -143,22 +143,22 @@ impl SigningCryptoKey {
         }
     }
 
-    pub(crate) fn sign(&self, namespace: &SigningNamespace, data: &[u8]) -> Result<Vec<u8>> {
-        coset::CoseSign1Builder::new()
-            .protected(
-                coset::HeaderBuilder::new()
-                    .algorithm(self.cose_algorithm())
-                    .key_id(self.id.as_bytes().into())
-                    .value(
-                        SIGNING_NAMESPACE,
-                        ciborium::Value::Integer(Integer::from(namespace.as_i64())),
-                    )
-                    .build(),
-            )
-            .create_detached_signature(data, &[], |pt| self.sign_raw(pt))
-            .build()
-            .to_vec()
-            .map_err(|_| crate::error::CryptoError::InvalidSignature)
+    pub(crate) fn sign(&self, namespace: &SigningNamespace, data: &[u8]) -> Signature {
+        Signature::from(
+            coset::CoseSign1Builder::new()
+                .protected(
+                    coset::HeaderBuilder::new()
+                        .algorithm(self.cose_algorithm())
+                        .key_id(self.id.as_bytes().into())
+                        .value(
+                            SIGNING_NAMESPACE,
+                            ciborium::Value::Integer(Integer::from(namespace.as_i64())),
+                        )
+                        .build(),
+                )
+                .create_detached_signature(data, &[], |pt| self.sign_raw(pt))
+                .build(),
+        )
     }
 
     /// Signs the given byte array with the signing key.
@@ -267,36 +267,23 @@ impl VerifyingKey {
     pub(crate) fn verify(
         &self,
         namespace: &SigningNamespace,
-        signature: &[u8],
+        signature: &Signature,
         data: &[u8],
     ) -> bool {
-        let Ok(sign1) = coset::CoseSign1::from_slice(signature) else {
-            return false;
-        };
-        let Some(_alg) = &sign1.protected.header.alg else {
+        let Some(_alg) = &signature.inner().protected.header.alg else {
             return false;
         };
 
-        let mut signature_namespace = None;
-        for (key, value) in &sign1.protected.header.rest {
-            if let Label::Int(key) = key {
-                if *key == SIGNING_NAMESPACE {
-                    signature_namespace.replace(value);
-                }
-            }
-        }
-        let Some(signature_namespace) = signature_namespace else {
+        let mut signature_namespace = signature.namespace();
+        let Ok(signature_namespace) = signature.namespace() else {
             return false;
         };
-        let Some(signature_namespace) = signature_namespace.as_integer() else {
-            return false;
-        };
-        let signature_namespace: i128 = signature_namespace.into();
-        if signature_namespace != namespace.as_i64() as i128 {
+        if signature_namespace != *namespace {
             return false;
         }
 
-        sign1
+        signature
+            .inner()
             .verify_detached_signature(data, &[], |sig, data| self.verify_raw(sig, data))
             .is_ok()
     }
@@ -307,7 +294,7 @@ impl VerifyingKey {
     fn verify_raw(&self, signature: &[u8], data: &[u8]) -> Result<()> {
         match &self.inner {
             VerifyingKeyEnum::Ed25519(key) => {
-                let sig = Signature::from_bytes(
+                let sig = ed25519_dalek::Signature::from_bytes(
                     signature
                         .try_into()
                         .map_err(|_| crate::error::CryptoError::InvalidSignature)?,
@@ -319,49 +306,99 @@ impl VerifyingKey {
     }
 }
 
+/// A signature cryptographically attests to a (namespace, data) pair. The namespace is included in
+/// the signature object, the data is not. One data object can be signed multiple times, with
+/// different namespaces / by different signers, depending on the application needs.
+#[allow(unused)]
+struct Signature(CoseSign1);
+
+impl From<CoseSign1> for Signature {
+    fn from(cose_sign1: CoseSign1) -> Self {
+        Signature(cose_sign1)
+    }
+}
+
+#[allow(unused)]
+impl Signature {
+    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let cose_sign1 = CoseSign1::from_slice(bytes).map_err(|_| CryptoError::InvalidSignature)?;
+        Ok(Signature(cose_sign1))
+    }
+
+    fn to_bytes(&self) -> Result<Vec<u8>> {
+        self.0
+            .clone()
+            .to_vec()
+            .map_err(|_| CryptoError::InvalidSignature)
+    }
+
+    fn inner(&self) -> &CoseSign1 {
+        &self.0
+    }
+
+    fn namespace(&self) -> Result<SigningNamespace> {
+        let mut namespace = None;
+        for (key, value) in &self.0.protected.header.rest {
+            if let Label::Int(key) = key {
+                if *key == SIGNING_NAMESPACE {
+                    namespace.replace(value);
+                }
+            }
+        }
+        let Some(namespace) = namespace else {
+            return Err(CryptoError::InvalidNamespace);
+        };
+        let Some(namespace) = namespace.as_integer() else {
+            return Err(CryptoError::InvalidNamespace);
+        };
+        let namespace: i128 = namespace.into();
+        SigningNamespace::try_from_i64(namespace as i64)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_sign_roundtrip() {
-        let signing_key = SigningCryptoKey::generate().unwrap();
+        let signing_key = SigningKey::generate().unwrap();
         let verifying_key = signing_key.to_verifying_key();
         let data = b"Hello, world!";
         let namespace = SigningNamespace::EncryptionMetadata;
 
-        let signature = signing_key.sign(&namespace, data).unwrap();
+        let signature = signing_key.sign(&namespace, data);
         assert!(verifying_key.verify(&namespace, &signature, data));
     }
 
     #[test]
     fn test_changed_signature_fails() {
-        let signing_key = SigningCryptoKey::generate().unwrap();
+        let signing_key = SigningKey::generate().unwrap();
         let verifying_key = signing_key.to_verifying_key();
         let data = b"Hello, world!";
         let namespace = SigningNamespace::EncryptionMetadata;
 
-        let signature = signing_key.sign(&namespace, data).unwrap();
+        let signature = signing_key.sign(&namespace, data);
         assert!(!verifying_key.verify(&namespace, &signature, b"Goodbye, world!"));
     }
 
     #[test]
     fn test_changed_namespace_fails() {
-        let signing_key = SigningCryptoKey::generate().unwrap();
+        let signing_key = SigningKey::generate().unwrap();
         let verifying_key = signing_key.to_verifying_key();
         let data = b"Hello, world!";
         let namespace = SigningNamespace::EncryptionMetadata;
         let other_namespace = SigningNamespace::Test;
 
-        let signature = signing_key.sign(&namespace, data).unwrap();
+        let signature = signing_key.sign(&namespace, data);
         assert!(!verifying_key.verify(&other_namespace, &signature, data));
     }
 
     #[test]
     fn test_cose_roundtrip_encode_signing() {
-        let signing_key = SigningCryptoKey::generate().unwrap();
+        let signing_key = SigningKey::generate().unwrap();
         let cose = signing_key.to_cose().unwrap();
-        let parsed_key = SigningCryptoKey::from_cose(&cose).unwrap();
+        let parsed_key = SigningKey::from_cose(&cose).unwrap();
 
         assert_eq!(
             signing_key.to_cose().unwrap(),
@@ -371,7 +408,7 @@ mod tests {
 
     #[test]
     fn test_cose_roundtrip_encode_verifying() {
-        let signing_key = SigningCryptoKey::generate().unwrap();
+        let signing_key = SigningKey::generate().unwrap();
         let cose = signing_key.to_verifying_key().to_cose().unwrap();
         let parsed_key = VerifyingKey::from_cose(&cose).unwrap();
 
