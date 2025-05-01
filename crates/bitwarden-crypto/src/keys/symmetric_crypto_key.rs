@@ -200,7 +200,7 @@ impl SymmetricCryptoKey {
                 cose_key.alg = Some(RegisteredLabelWithPrivate::PrivateUse(
                     cose::XCHACHA20_POLY1305,
                 ));
-                cose_key.to_vec().expect("Failed to encode key")
+                cose_key.to_vec().expect("cose key serialization should not fail")
             }
         }
     }
