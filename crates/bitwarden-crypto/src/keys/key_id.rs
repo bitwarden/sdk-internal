@@ -1,6 +1,8 @@
 use rand::RngCore;
 use uuid::Uuid;
 
+const UUID_SEED_SIZE: usize = 16;
+
 /// Since `KeyId` is a wrapper around UUIDs, this is statically 16 bytes.
 pub(crate) const KEY_ID_SIZE: usize = 16;
 
@@ -20,7 +22,7 @@ impl KeyId {
     pub fn make() -> Self {
         // We do not use the uuid crate's random generation functionality here to make sure the
         // entropy sampling aligns with the rest of this crates usage of CSPRNGs.
-        let mut random_seed = [0u8; 16];
+        let mut random_seed = [0u8; UUID_SEED_SIZE];
         rand::thread_rng().fill_bytes(&mut random_seed);
 
         let uuid = uuid::Builder::from_random_bytes(random_seed)
@@ -30,9 +32,9 @@ impl KeyId {
     }
 }
 
-impl Into<[u8; KEY_ID_SIZE]> for KeyId {
-    fn into(self) -> [u8; KEY_ID_SIZE] {
-        self.0.as_bytes().clone()
+impl From<KeyId> for [u8; KEY_ID_SIZE] {
+    fn from(key_id: KeyId) -> Self {
+        key_id.0.into_bytes()
     }
 }
 
