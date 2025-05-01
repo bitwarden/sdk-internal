@@ -44,13 +44,14 @@ export type EncString = string;
 /// The scheme is one of the following schemes:
 /// - `[type].[iv]|[data]`
 /// - `[type].[iv]|[data]|[mac]`
-/// - `[type].[data]`
+/// - `[type].[cose_encrypt0_bytes]`
 ///
 /// Where:
 /// - `[type]`: is a digit number representing the variant.
 /// - `[iv]`: (optional) is the initialization vector used for encryption.
 /// - `[data]`: is the encrypted data.
 /// - `[mac]`: (optional) is the MAC used to validate the integrity of the data.
+/// - `[cose_encrypt0_bytes]`: is the COSE Encrypt0 message, serialized to bytes
 #[derive(Clone, zeroize::ZeroizeOnDrop, PartialEq)]
 #[allow(unused, non_camel_case_types)]
 pub enum EncString {
