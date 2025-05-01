@@ -91,7 +91,7 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
         match alg {
             coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) => {
                 if key_bytes.len() != xchacha20::KEY_SIZE {
-                    return Err(CryptoError::InvalidKey)
+                    return Err(CryptoError::InvalidKey);
                 }
                 let enc_key = Box::pin(GenericArray::<u8, U32>::clone_from_slice(key_bytes));
                 let key_id = cose_key
