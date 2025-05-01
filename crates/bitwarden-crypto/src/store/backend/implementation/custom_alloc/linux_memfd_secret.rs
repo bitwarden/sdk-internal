@@ -1,4 +1,4 @@
-use std::{alloc::Layout, ptr::NonNull, sync::OnceLock};
+use std::{alloc::Layout, ptr::NonNull, sync::LazyLock};
 
 use allocator_api2::alloc::{AllocError, Allocator};
 
@@ -6,23 +6,16 @@ pub(crate) struct LinuxMemfdSecretAlloc;
 
 impl LinuxMemfdSecretAlloc {
     pub fn new() -> Option<Self> {
-        fn is_available() -> bool {
-            static IS_SUPPORTED: OnceLock<bool> = OnceLock::new();
+        // To test if memfd_secret is supported, we try to allocate a 1 byte and see if that succeeds.
+        static IS_SUPPORTED: LazyLock<bool> = LazyLock::new(|| {
+            let Some(ptr) = (unsafe { memsec::memfd_secret_sized(1) }) else {
+                return false;
+            };
+            memsec::free_memfd_secret(ptr);
+            true
+        });
 
-            *IS_SUPPORTED.get_or_init(|| unsafe {
-                let Some(ptr) = (unsafe { memsec::memfd_secret_sized(1) }) else {
-                    return false;
-                };
-                memsec::free_memfd_secret(ptr);
-                true
-            })
-        }
-
-        if !is_available() {
-            return None;
-        }
-
-        Some(Self)
+        (*IS_SUPPORTED).then_some(Self)
     }
 }
 
