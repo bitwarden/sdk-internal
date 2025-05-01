@@ -84,11 +84,15 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
                 _ => None,
             })
             .ok_or(CryptoError::InvalidKey)?;
+        let Some(ref alg) = cose_key.alg else {
+            return Err(CryptoError::InvalidKey);
+        };
 
-        match cose_key.alg.clone().ok_or(CryptoError::InvalidKey)? {
-            coset::RegisteredLabelWithPrivate::PrivateUse(XCHACHA20_POLY1305)
-                if key_bytes.len() == xchacha20::KEY_SIZE =>
-            {
+        match alg {
+            coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) => {
+                if key_bytes.len() != xchacha20::KEY_SIZE {
+                    return Err(CryptoError::InvalidKey)
+                }
                 let enc_key = Box::pin(GenericArray::<u8, U32>::clone_from_slice(key_bytes));
                 let key_id = cose_key
                     .key_id
