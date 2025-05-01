@@ -185,11 +185,15 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 ),
             (XChaCha20Poly1305Key(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => {
                 // These keys should be represented as octet stream payloads in COSE
-                todo!()
+                Err(CryptoError::OperationNotSupported(
+                    UnsupportedOperation::EncryptionNotImplementedForKey,
+                ))
             }
             (XChaCha20Poly1305Key(_), XChaCha20Poly1305Key(_)) => {
                 // These keys should be represented as CoseKey payloads in COSE
-                todo!()
+                Err(CryptoError::OperationNotSupported(
+                    UnsupportedOperation::EncryptionNotImplementedForKey,
+                ))
             }
             _ => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperation::EncryptionNotImplementedForKey,
