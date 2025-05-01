@@ -6,7 +6,9 @@
 use coset::{iana, CborSerializable, Label};
 use generic_array::{typenum::U32, GenericArray};
 
-use crate::{error::EncStringParseError, xchacha20, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key};
+use crate::{
+    error::EncStringParseError, xchacha20, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
+};
 
 /// XChaCha20 <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03> is used over ChaCha20
 /// to be able to randomly generate nonces, and to not have to worry about key wearout. Since
@@ -102,7 +104,9 @@ mod test {
 
     #[test]
     fn test_encrypt_decrypt_roundtrip() {
-        let SymmetricCryptoKey::XChaCha20Poly1305Key(ref key) = SymmetricCryptoKey::make_xchacha20_poly1305_key() else {
+        let SymmetricCryptoKey::XChaCha20Poly1305Key(ref key) =
+            SymmetricCryptoKey::make_xchacha20_poly1305_key()
+        else {
             panic!("Failed to create XChaCha20Poly1305Key");
         };
 

@@ -174,6 +174,10 @@ impl EncString {
     }
 }
 
+// `Display` is not implemented here because printing for debug purposes should be different
+// from serializing to a string. For Aes256_Cbc, or Aes256_Cbc_Hmac, `ToString` and `Debug`
+// are the same. For `Cose_Encrypt0`, `Debug` will print the decoded COSE message, while
+// `ToString` will print the Cose_Encrypt0 bytes, encoded in base64.
 #[allow(clippy::to_string_trait_impl)]
 impl ToString for EncString {
     fn to_string(&self) -> String {

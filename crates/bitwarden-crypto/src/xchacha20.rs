@@ -15,9 +15,9 @@
 //! `https://soatok.blog/2024/09/10/invisible-salamanders-are-not-what-you-think/`
 
 use chacha20poly1305::{AeadCore, AeadInPlace, KeyInit, XChaCha20Poly1305};
-use typenum::Unsigned;
 use generic_array::GenericArray;
 use rand::{CryptoRng, RngCore};
+use typenum::Unsigned;
 
 use crate::CryptoError;
 
