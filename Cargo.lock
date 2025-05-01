@@ -445,6 +445,7 @@ dependencies = [
  "subtle",
  "thiserror 2.0.12",
  "tsify-next",
+ "typenum",
  "uniffi",
  "uuid",
  "wasm-bindgen",

@@ -15,12 +15,13 @@
 //! `https://soatok.blog/2024/09/10/invisible-salamanders-are-not-what-you-think/`
 
 use chacha20poly1305::{AeadCore, AeadInPlace, KeyInit, XChaCha20Poly1305};
+use typenum::Unsigned;
 use generic_array::GenericArray;
 use rand::{CryptoRng, RngCore};
 
 use crate::CryptoError;
 
-pub(crate) const NONCE_SIZE: usize = 24;
+pub(crate) const NONCE_SIZE: usize = <XChaCha20Poly1305 as AeadCore>::NonceSize::USIZE;
 pub(crate) const KEY_SIZE: usize = 32;
 
 pub(crate) struct XChaCha20Poly1305Ciphertext {
