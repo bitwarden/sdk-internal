@@ -8,6 +8,7 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license-file.workspace = true
@@ -26,7 +27,6 @@ bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
 chrono = { workspace = true }
-schemars = { workspace = true }
 serde = { workspace = true }
 serde_repr = { workspace = true }
 thiserror = { workspace = true }

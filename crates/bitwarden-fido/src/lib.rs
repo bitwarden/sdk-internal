@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::key_management::KeyIds;
 use bitwarden_crypto::KeyStoreContext;

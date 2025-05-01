@@ -36,7 +36,7 @@ where
     Standard: Distribution<T>,
     T: Zeroize,
 {
-    Zeroizing::new(rand::thread_rng().gen::<T>())
+    Zeroizing::new(rand::thread_rng().r#gen::<T>())
 }
 
 /// Generate a random alphanumeric string of a given length

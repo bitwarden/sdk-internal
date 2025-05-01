@@ -6,15 +6,21 @@ use bitwarden_core::{
 use bitwarden_crypto::{
     CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
+use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use tsify_next::Tsify;
 use uuid::Uuid;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
-    attachment, card, field, identity,
+    attachment, card,
+    cipher_permissions::CipherPermissions,
+    field, identity,
     local_data::{LocalData, LocalDataView},
     login::LoginListView,
     secure_note, ssh_key,
@@ -24,6 +30,7 @@ use crate::{
     VaultParseError,
 };
 
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CipherError {
     #[error(transparent)]
@@ -36,9 +43,10 @@ pub enum CipherError {
     AttachmentsWithoutKeys,
 }
 
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, JsonSchema, PartialEq)]
+#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum CipherType {
     Login = 1,
     SecureNote = 2,
@@ -47,17 +55,19 @@ pub enum CipherType {
     SshKey = 5,
 }
 
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, JsonSchema, PartialEq)]
+#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum CipherRepromptType {
     None = 0,
     Password = 1,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Cipher {
     pub id: Option<Uuid>,
     pub organization_id: Option<Uuid>,
@@ -82,6 +92,7 @@ pub struct Cipher {
     pub reprompt: CipherRepromptType,
     pub organization_use_totp: bool,
     pub edit: bool,
+    pub permissions: Option<CipherPermissions>,
     pub view_password: bool,
     pub local_data: Option<LocalData>,
 
@@ -94,9 +105,10 @@ pub struct Cipher {
     pub revision_date: DateTime<Utc>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherView {
     pub id: Option<Uuid>,
     pub organization_id: Option<Uuid>,
@@ -120,6 +132,7 @@ pub struct CipherView {
     pub reprompt: CipherRepromptType,
     pub organization_use_totp: bool,
     pub edit: bool,
+    pub permissions: Option<CipherPermissions>,
     pub view_password: bool,
     pub local_data: Option<LocalDataView>,
 
@@ -132,9 +145,10 @@ pub struct CipherView {
     pub revision_date: DateTime<Utc>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum CipherListViewType {
     Login(LoginListView),
     SecureNote,
@@ -143,9 +157,10 @@ pub enum CipherListViewType {
     SshKey,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherListView {
     pub id: Option<Uuid>,
     pub organization_id: Option<Uuid>,
@@ -164,6 +179,8 @@ pub struct CipherListView {
     pub reprompt: CipherRepromptType,
     pub organization_use_totp: bool,
     pub edit: bool,
+    pub permissions: Option<CipherPermissions>,
+
     pub view_password: bool,
 
     /// The number of attachments
@@ -234,6 +251,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             creation_date: cipher_view.creation_date,
             deleted_date: cipher_view.deleted_date,
             revision_date: cipher_view.revision_date,
+            permissions: cipher_view.permissions,
         })
     }
 }
@@ -264,6 +282,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             reprompt: self.reprompt,
             organization_use_totp: self.organization_use_totp,
             edit: self.edit,
+            permissions: self.permissions,
             view_password: self.view_password,
             local_data: self.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
             attachments: self.attachments.decrypt(ctx, ciphers_key).ok().flatten(),
@@ -566,6 +585,15 @@ impl CipherView {
         let res = creds.decrypt(ctx, ciphers_key)?;
         Ok(res)
     }
+
+    pub fn decrypt_fido2_private_key(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+    ) -> Result<String, CipherError> {
+        let fido2_credential = self.get_fido2_credentials(ctx)?;
+
+        Ok(fido2_credential[0].key_value.clone())
+    }
 }
 
 impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
@@ -604,6 +632,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             reprompt: self.reprompt,
             organization_use_totp: self.organization_use_totp,
             edit: self.edit,
+            permissions: self.permissions,
             view_password: self.view_password,
             attachments: self
                 .attachments
@@ -669,6 +698,8 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
                 .unwrap_or(CipherRepromptType::None),
             organization_use_totp: cipher.organization_use_totp.unwrap_or(true),
             edit: cipher.edit.unwrap_or(true),
+            // TODO: add permissions when api bindings have been updated
+            permissions: None,
             view_password: cipher.view_password.unwrap_or(true),
             local_data: None, // Not sent from server
             attachments: cipher
@@ -723,7 +754,7 @@ mod tests {
     use ssh_key::SshKey;
 
     use super::*;
-    use crate::Fido2Credential;
+    use crate::{login::Fido2CredentialListView, Fido2Credential};
 
     fn generate_cipher() -> CipherView {
         let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
@@ -753,6 +784,7 @@ mod tests {
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
             edit: true,
+            permissions: None,
             view_password: true,
             local_data: None,
             attachments: None,
@@ -813,6 +845,10 @@ mod tests {
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
             edit: true,
+            permissions: Some(CipherPermissions {
+                delete: false,
+                restore: false
+            }),
             view_password: true,
             local_data: None,
             attachments: None,
@@ -836,7 +872,15 @@ mod tests {
                 name: "My test login".to_string(),
                 subtitle: "test_username".to_string(),
                 r#type: CipherListViewType::Login(LoginListView {
+                    fido2_credentials: Some(vec![Fido2CredentialListView {
+                        credential_id: "123".to_string(),
+                        rp_id: "123".to_string(),
+                        user_handle: None,
+                        user_name: None,
+                        user_display_name: None,
+                    }]),
                     has_fido2: true,
+                    username: Some("test_username".to_string()),
                     totp: cipher.login.as_ref().unwrap().totp.clone(),
                     uris: None,
                 }),
@@ -844,6 +888,7 @@ mod tests {
                 reprompt: cipher.reprompt,
                 organization_use_totp: cipher.organization_use_totp,
                 edit: cipher.edit,
+                permissions: cipher.permissions,
                 view_password: cipher.view_password,
                 attachments: 0,
                 creation_date: cipher.creation_date,
@@ -1276,6 +1321,7 @@ mod tests {
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
             edit: true,
+            permissions: None,
             view_password: true,
             local_data: None,
             attachments: None,
@@ -1289,5 +1335,28 @@ mod tests {
             .get_decrypted_subtitle(&mut ctx, key)
             .unwrap();
         assert_eq!(subtitle, original_subtitle);
+    }
+
+    #[test]
+    fn test_decrypt_fido2_private_key() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::generate(rand::thread_rng()));
+        let mut ctx = key_store.context();
+
+        let mut cipher_view = generate_cipher();
+        cipher_view
+            .generate_cipher_key(&mut ctx, cipher_view.key_identifier())
+            .unwrap();
+
+        let key_id = cipher_view.key_identifier();
+        let ciphers_key = Cipher::decrypt_cipher_key(&mut ctx, key_id, &cipher_view.key).unwrap();
+
+        let fido2_credential = generate_fido2(&mut ctx, ciphers_key);
+
+        cipher_view.login.as_mut().unwrap().fido2_credentials =
+            Some(vec![fido2_credential.clone()]);
+
+        let decrypted_key_value = cipher_view.decrypt_fido2_private_key(&mut ctx).unwrap();
+        assert_eq!(decrypted_key_value, "123");
     }
 }

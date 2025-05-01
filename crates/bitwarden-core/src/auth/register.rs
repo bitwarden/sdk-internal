@@ -5,13 +5,12 @@ use bitwarden_api_identity::{
 use bitwarden_crypto::{
     default_pbkdf2_iterations, CryptoError, HashPurpose, Kdf, MasterKey, RsaKeyPair,
 };
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{ApiError, Client};
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RegisterRequest {
     pub email: String,
@@ -46,7 +45,7 @@ pub(super) async fn register(client: &Client, req: &RegisterRequest) -> Result<(
             captcha_response: None, // TODO: Add
             key: Some(keys.encrypted_user_key.to_string()),
             keys: Some(Box::new(KeysRequestModel {
-                public_key: Some(keys.keys.public),
+                public_key: keys.keys.public,
                 encrypted_private_key: keys.keys.private.to_string(),
             })),
             token: None,

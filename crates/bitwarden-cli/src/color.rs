@@ -1,9 +1,13 @@
 use clap::ValueEnum;
 
+/// Color configuration for the CLI
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
 pub enum Color {
+    /// Force colors off
     No,
+    /// Force colors on
     Yes,
+    /// Automatically detect if colors are supported in the terminal.
     Auto,
 }
 

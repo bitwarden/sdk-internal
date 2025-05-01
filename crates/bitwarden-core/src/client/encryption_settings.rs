@@ -1,6 +1,6 @@
 use bitwarden_crypto::{AsymmetricCryptoKey, KeyStore, SymmetricCryptoKey};
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{AsymmetricEncString, EncString};
+use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use uuid::Uuid;
@@ -91,7 +91,7 @@ impl EncryptionSettings {
 
     #[cfg(feature = "internal")]
     pub(crate) fn set_org_keys(
-        org_enc_keys: Vec<(Uuid, AsymmetricEncString)>,
+        org_enc_keys: Vec<(Uuid, UnsignedSharedKey)>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
         let mut ctx = store.context_mut();
@@ -111,7 +111,7 @@ impl EncryptionSettings {
 
         // Decrypt the org keys with the private key
         for (org_id, org_enc_key) in org_enc_keys {
-            ctx.decrypt_symmetric_key_with_asymmetric_key(
+            ctx.decapsulate_key_unsigned(
                 AsymmetricKeyId::UserPrivateKey,
                 SymmetricKeyId::Organization(org_id),
                 &org_enc_key,

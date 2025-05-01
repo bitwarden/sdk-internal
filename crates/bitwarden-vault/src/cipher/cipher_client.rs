@@ -6,11 +6,11 @@ use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError, VaultClient,
 };
 
-pub struct ClientCiphers<'a> {
-    pub(crate) client: &'a Client,
+pub struct CiphersClient {
+    pub(crate) client: Client,
 }
 
-impl ClientCiphers<'_> {
+impl CiphersClient {
     pub fn encrypt(&self, mut cipher_view: CipherView) -> Result<Cipher, EncryptError> {
         let key_store = self.client.internal.get_key_store();
 
@@ -61,12 +61,22 @@ impl ClientCiphers<'_> {
         cipher_view.move_to_organization(&mut key_store.context(), organization_id)?;
         Ok(cipher_view)
     }
+
+    #[cfg(feature = "wasm")]
+    pub fn decrypt_fido2_private_key(
+        &self,
+        cipher_view: CipherView,
+    ) -> Result<String, CipherError> {
+        let key_store = self.client.internal.get_key_store();
+        let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
+        Ok(decrypted_key)
+    }
 }
 
-impl<'a> VaultClient<'a> {
-    pub fn ciphers(&'a self) -> ClientCiphers<'a> {
-        ClientCiphers {
-            client: self.client,
+impl VaultClient {
+    pub fn ciphers(&self) -> CiphersClient {
+        CiphersClient {
+            client: self.client.clone(),
         }
     }
 }
@@ -107,6 +117,7 @@ mod tests {
                 reprompt: CipherRepromptType::None,
                 organization_use_totp: true,
                 edit: true,
+                permissions: None,
                 view_password: true,
                 local_data: None,
                 attachments: None,
@@ -124,7 +135,7 @@ mod tests {
 
     fn test_cipher() -> Cipher {
         Cipher {
-    id: Some("358f2b2b-9326-4e5e-94a8-b18100bb0908".parse().unwrap()),
+            id: Some("358f2b2b-9326-4e5e-94a8-b18100bb0908".parse().unwrap()),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
@@ -149,6 +160,7 @@ mod tests {
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
             edit: true,
+            permissions: None,
             view_password: true,
             local_data: None,
             attachments: None,
@@ -221,7 +233,7 @@ mod tests {
         let attachment_view = attachments.first().unwrap().clone();
         assert!(attachment_view.key.is_none());
 
-        assert_eq!(attachment_view.file_name.unwrap(), "h.txt");
+        assert_eq!(attachment_view.file_name.as_deref(), Some("h.txt"));
 
         let buf = vec![
             2, 100, 205, 148, 152, 77, 184, 77, 53, 80, 38, 240, 83, 217, 251, 118, 254, 27, 117,
@@ -233,7 +245,7 @@ mod tests {
         let content = client
             .vault()
             .attachments()
-            .decrypt_buffer(cipher, attachment, buf.as_slice())
+            .decrypt_buffer(cipher, attachment_view.clone(), buf.as_slice())
             .unwrap();
 
         assert_eq!(content, b"Hello");
@@ -255,7 +267,11 @@ mod tests {
         let new_cipher = client.vault().ciphers().encrypt(view).unwrap();
         assert!(new_cipher.key.is_some());
 
-        let view = client.vault().ciphers().decrypt(new_cipher).unwrap();
+        let view = client
+            .vault()
+            .ciphers()
+            .decrypt(new_cipher.clone())
+            .unwrap();
         let attachments = view.clone().attachments.unwrap();
         let attachment_view = attachments.first().unwrap().clone();
         assert!(attachment_view.key.is_some());
@@ -266,7 +282,7 @@ mod tests {
             attachment_view.clone().key.unwrap().to_string()
         );
 
-        assert_eq!(attachment_view.file_name.unwrap(), "h.txt");
+        assert_eq!(attachment_view.file_name.as_deref(), Some("h.txt"));
 
         let buf = vec![
             2, 114, 53, 72, 20, 82, 18, 46, 48, 137, 97, 1, 100, 142, 120, 187, 28, 36, 180, 46,
@@ -278,7 +294,7 @@ mod tests {
         let content = client
             .vault()
             .attachments()
-            .decrypt_buffer(cipher, attachment, buf.as_slice())
+            .decrypt_buffer(new_cipher.clone(), attachment_view.clone(), buf.as_slice())
             .unwrap();
 
         assert_eq!(content, b"Hello");
@@ -304,14 +320,14 @@ mod tests {
 
         // Ensure attachment key is still the same since it's protected by the cipher key
         assert_eq!(
-            attachment.clone().key.unwrap().to_string(),
-            attachment_view.key.unwrap().to_string()
+            attachment.clone().key.as_ref().unwrap().to_string(),
+            attachment_view.key.as_ref().unwrap().to_string()
         );
 
         let content = client
             .vault()
             .attachments()
-            .decrypt_buffer(new_cipher, attachment, buf.as_slice())
+            .decrypt_buffer(new_cipher, attachment_view, buf.as_slice())
             .unwrap();
 
         assert_eq!(content, b"Hello");

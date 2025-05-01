@@ -20,7 +20,6 @@ use bitwarden_api_api::{
 };
 use bitwarden_crypto::{HashPurpose, MasterKey};
 use log::{debug, info};
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -30,6 +29,7 @@ use crate::{
     require, ApiError, Client, MissingFieldError, NotAuthenticatedError,
 };
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum UserApiKeyError {
     #[error(transparent)]
@@ -99,7 +99,8 @@ fn build_secret_verification_request(
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+/// The response from the server when requesting the user's API key.
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct UserApiKeyResponse {
     /// The user's API key, which represents the client_secret portion of an oauth request.

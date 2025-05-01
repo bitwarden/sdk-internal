@@ -35,15 +35,8 @@ jobs:
           RUST_TOOLCHAIN="$(grep -oP '^rust-version.*"(\K.*?)(?=")' Cargo.toml)"
           echo "RUST_TOOLCHAIN=${RUST_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
 
-      - name: Set Rust Nightly Toolchain
-        id: nightly-toolchain
-        shell: bash
-        run: |
-          RUST_NIGHTLY_TOOLCHAIN="$(grep -oP '^nightly-channel.*"(\K.*?)(?=")' rust-toolchain.toml)"
-          echo "RUST_NIGHTLY_TOOLCHAIN=${RUST_NIGHTLY_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
-
       - name: Install rust
-        uses: dtolnay/rust-toolchain@a54c7afa936fefeb4456b2dd8068152669aa8203 # stable
+        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0 # stable
         with:
           toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
           targets: ${{ matrix.settings.target }}
@@ -54,4 +47,4 @@ jobs:
           key: msrv-${{ matrix.settings.target }}-cargo-${{ matrix.settings.os }}
 
       - name: Cargo check MSRV
-        run: cargo check --all-features
+        run: cargo +"${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}" check --all-features

@@ -24,6 +24,8 @@ pub struct OrganizationCollectionManagementUpdateRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub limit_collection_deletion: Option<bool>,
+    #[serde(rename = "limitItemDeletion", skip_serializing_if = "Option::is_none")]
+    pub limit_item_deletion: Option<bool>,
     #[serde(
         rename = "allowAdminAccessToAllCollectionItems",
         skip_serializing_if = "Option::is_none"
@@ -36,6 +38,7 @@ impl OrganizationCollectionManagementUpdateRequestModel {
         OrganizationCollectionManagementUpdateRequestModel {
             limit_collection_creation: None,
             limit_collection_deletion: None,
+            limit_item_deletion: None,
             allow_admin_access_to_all_collection_items: None,
         }
     }

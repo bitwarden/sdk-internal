@@ -12,7 +12,6 @@ use data_encoding::BASE32_NOPAD;
 use hmac::{Hmac, Mac};
 use percent_encoding::{percent_decode_str, percent_encode, NON_ALPHANUMERIC};
 use reqwest::Url;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -45,7 +44,7 @@ pub enum TotpError {
     VaultLocked(#[from] VaultLockedError),
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -339,10 +338,10 @@ fn derive_steam_otp(binary: u32, digits: u32) -> String {
 fn derive_binary(hash: Vec<u8>) -> u32 {
     let offset = (hash.last().unwrap_or(&0) & 15) as usize;
 
-    ((hash[offset] & 127) as u32) << 24
-        | (hash[offset + 1] as u32) << 16
-        | (hash[offset + 2] as u32) << 8
-        | hash[offset + 3] as u32
+    (((hash[offset] & 127) as u32) << 24)
+        | ((hash[offset + 1] as u32) << 16)
+        | ((hash[offset + 2] as u32) << 8)
+        | (hash[offset + 3] as u32)
 }
 
 /// This code is migrated from our javascript implementation and is not technically a correct base32
@@ -727,7 +726,9 @@ mod tests {
             name: "My test login".to_string(),
             subtitle: "test_username".to_string(),
             r#type: CipherListViewType::Login(LoginListView{
+                fido2_credentials: None,
                 has_fido2: true,
+                username: None,
                 totp: Some("2.hqdioUAc81FsKQmO1XuLQg==|oDRdsJrQjoFu9NrFVy8tcJBAFKBx95gHaXZnWdXbKpsxWnOr2sKipIG43pKKUFuq|3gKZMiboceIB5SLVOULKg2iuyu6xzos22dfJbvx0EHk=".parse().unwrap()),
                 uris: None,
             }),
@@ -735,6 +736,7 @@ mod tests {
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
             edit: true,
+            permissions: None,
             view_password: true,
             attachments: 0,
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),

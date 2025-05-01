@@ -1,21 +1,17 @@
-use std::rc::Rc;
-
-use bitwarden_core::Client;
-use bitwarden_vault::VaultClientExt;
 use chrono::{DateTime, Utc};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub struct ClientTotp(Rc<Client>);
+pub struct TotpClient(bitwarden_vault::VaultClient);
 
-impl ClientTotp {
-    pub fn new(client: Rc<Client>) -> Self {
+impl TotpClient {
+    pub fn new(client: bitwarden_vault::VaultClient) -> Self {
         Self(client)
     }
 }
 
 #[wasm_bindgen]
-impl ClientTotp {
+impl TotpClient {
     /// Generates a TOTP code from a provided key
     ///
     /// # Arguments
@@ -35,6 +31,6 @@ impl ClientTotp {
     ) -> Result<bitwarden_vault::TotpResponse, bitwarden_vault::TotpError> {
         let datetime = time_ms.and_then(|time| DateTime::<Utc>::from_timestamp_millis(time as i64));
 
-        self.0.vault().generate_totp(key, datetime)
+        self.0.generate_totp(key, datetime)
     }
 }
