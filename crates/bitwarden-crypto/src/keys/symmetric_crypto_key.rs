@@ -64,7 +64,9 @@ impl PartialEq for Aes256CbcHmacKey {
 }
 
 /// [XChaCha20Poly1305Key] is a symmetric encryption key consisting
-/// of one 256-bit key, and contains a key id.
+/// of one 256-bit key, and contains a key id. In contrast to the
+/// [Aes256CbcKey] and [Aes256CbcHmacKey], this key type is used to create
+/// CoseEncrypt0 messages.
 #[derive(Zeroize, Clone)]
 #[cfg_attr(test, derive(Debug))]
 pub struct XChaCha20Poly1305Key {
@@ -200,7 +202,9 @@ impl SymmetricCryptoKey {
                 cose_key.alg = Some(RegisteredLabelWithPrivate::PrivateUse(
                     cose::XCHACHA20_POLY1305,
                 ));
-                cose_key.to_vec().expect("cose key serialization should not fail")
+                cose_key
+                    .to_vec()
+                    .expect("cose key serialization should not fail")
             }
         }
     }
