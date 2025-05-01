@@ -163,6 +163,8 @@ pub(super) fn decrypt_user_key(
 ///
 /// WARNING: This function should only be used with a proper cryptographic random number generator.
 /// If you do not have a good reason for using this, use [MasterKey::make_user_key] instead.
+///
+/// This function is only split out from [MasterKey::make_user_key], to make it unit testable.
 fn make_user_key(
     rng: impl rand::RngCore + rand::CryptoRng,
     master_key: &MasterKey,
