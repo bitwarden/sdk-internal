@@ -3,17 +3,14 @@ use zeroize::ZeroizeOnDrop;
 
 use crate::{store::backend::StoreBackend, KeyId};
 
+#[cfg(all(not(target_arch = "wasm32"), not(windows)))]
 mod malloc;
-
-pub(super) type MlockBackend<Key> = CustomAllocBackend<Key, malloc::MlockAlloc>;
+#[cfg(all(not(target_arch = "wasm32"), not(windows)))]
 pub(super) use malloc::MlockAlloc;
 
-#[cfg(all(target_os = "linux", not(feature = "no-memory-hardening")))]
+#[cfg(target_os = "linux")]
 mod linux_memfd_secret;
-#[cfg(all(target_os = "linux", not(feature = "no-memory-hardening")))]
-pub(super) type LinuxMemfdSecretBackend<Key> =
-    CustomAllocBackend<Key, linux_memfd_secret::LinuxMemfdSecretAlloc>;
-#[cfg(all(target_os = "linux", not(feature = "no-memory-hardening")))]
+#[cfg(target_os = "linux")]
 pub(super) use linux_memfd_secret::LinuxMemfdSecretAlloc;
 
 pub(super) struct CustomAllocBackend<Key: KeyId, Alloc: Allocator + Send + Sync> {

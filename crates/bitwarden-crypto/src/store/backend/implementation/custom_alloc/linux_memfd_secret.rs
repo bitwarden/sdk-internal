@@ -11,7 +11,7 @@ impl LinuxMemfdSecretAlloc {
             let Some(ptr) = (unsafe { memsec::memfd_secret_sized(1) }) else {
                 return false;
             };
-            memsec::free_memfd_secret(ptr);
+            unsafe { memsec::free_memfd_secret(ptr) };
             true
         });
 

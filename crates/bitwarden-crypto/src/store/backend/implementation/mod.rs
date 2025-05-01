@@ -6,14 +6,19 @@ mod custom_alloc;
 
 /// Initializes a key store backend with the best available implementation for the current platform
 pub fn create_store<Key: KeyId>() -> Box<dyn StoreBackend<Key>> {
-    #[cfg(all(target_os = "linux", not(feature = "no-memory-hardening")))]
-    if let Some(key_store) = custom_alloc::LinuxMemfdSecretAlloc::new() {
-        return Box::new(custom_alloc::LinuxMemfdSecretBackend::<Key>::new(key_store));
+    if !cfg!(feature = "no-memory-hardening") {
+        #[cfg(target_os = "linux")]
+        if let Some(alloc) = custom_alloc::LinuxMemfdSecretAlloc::new() {
+            return Box::new(custom_alloc::CustomAllocBackend::new(alloc));
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), not(windows)))]
+        return Box::new(custom_alloc::CustomAllocBackend::new(
+            custom_alloc::MlockAlloc::new(),
+        ));
     }
 
-    Box::new(custom_alloc::MlockBackend::<Key>::new(
-        custom_alloc::MlockAlloc::new(),
-    ))
+    Box::new(basic::BasicBackend::new())
 }
 
 #[cfg(test)]
@@ -36,25 +41,26 @@ mod tests {
         );
     }
 
+    #[cfg(all(not(target_arch = "wasm32"), not(windows)))]
     #[test]
     fn validate_mlock_store() {
         let basic_store: Box<dyn StoreBackendDebug<TestSymmKey>> =
             Box::new(basic::BasicBackend::new());
 
         let mlock_store: Box<dyn StoreBackendDebug<TestSymmKey>> = Box::new(
-            custom_alloc::MlockBackend::<TestSymmKey>::new(custom_alloc::MlockAlloc::new()),
+            custom_alloc::CustomAllocBackend::new(custom_alloc::MlockAlloc::new()),
         );
         compare_stores(100_000, basic_store, mlock_store);
     }
 
-    #[cfg(all(target_os = "linux", not(feature = "no-memory-hardening")))]
+    #[cfg(target_os = "linux")]
     #[test]
     fn validate_memfd_store() {
         let basic_store: Box<dyn StoreBackendDebug<TestSymmKey>> =
             Box::new(basic::BasicBackend::new());
 
         let mlock_store: Box<dyn StoreBackendDebug<TestSymmKey>> =
-            Box::new(custom_alloc::LinuxMemfdSecretBackend::<TestSymmKey>::new(
+            Box::new(custom_alloc::CustomAllocBackend::new(
                 custom_alloc::LinuxMemfdSecretAlloc::new().unwrap(),
             ));
         compare_stores(100_000, basic_store, mlock_store);
