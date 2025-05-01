@@ -72,7 +72,9 @@ impl GeneratorClient {
     pub fn passphrase(&self, input: PassphraseGeneratorRequest) -> Result<String, PassphraseError> {
         passphrase(input)
     }
+}
 
+impl GeneratorClient {
     /// Generates a random username.
     /// There are different username generation strategies, which can be customized using the
     /// `input` parameter.
