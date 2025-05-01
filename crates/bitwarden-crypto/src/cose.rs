@@ -95,3 +95,20 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_encrypt_decrypt_roundtrip() {
+        let SymmetricCryptoKey::XChaCha20Poly1305Key(ref key) = SymmetricCryptoKey::make_xchacha20_poly1305_key() else {
+            panic!("Failed to create XChaCha20Poly1305Key");
+        };
+
+        let plaintext = b"Hello, world!";
+        let encrypted = encrypt_xchacha20_poly1305(plaintext, key).unwrap();
+        let decrypted = decrypt_xchacha20_poly1305(&encrypted, key).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+}
