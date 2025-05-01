@@ -1,5 +1,4 @@
 use thiserror::Error;
-use tokio::select;
 #[cfg(not(feature = "wasm"))]
 use tokio::task::spawn_local;
 
@@ -21,7 +20,6 @@ pub enum CallError {
 }
 
 pub struct FunctionBridge<Input, Output> {
-    cancellation_token_tx: tokio::sync::watch::Sender<bool>,
     call_channel_tx: tokio::sync::mpsc::Sender<CallRequest<Input, Output>>,
 }
 
@@ -43,13 +41,6 @@ impl<Input, OutputValue> FunctionBridge<Input, OutputValue> {
     }
 }
 
-impl<Input, OutputValue> Drop for FunctionBridge<Input, OutputValue> {
-    fn drop(&mut self) {
-        // Notify the target function to stop processing
-        let _ = self.cancellation_token_tx.send(true);
-    }
-}
-
 pub fn function_bridge<TargetFunction, Input, Output, OutputValue>(
     target_function: TargetFunction,
 ) -> FunctionBridge<Input, OutputValue>
@@ -61,35 +52,15 @@ where
 {
     let (call_channel_tx, mut call_channel_rx) =
         tokio::sync::mpsc::channel::<CallRequest<Input, OutputValue>>(1);
-    let (cancellation_token_tx, mut cancellation_token_rx) = tokio::sync::watch::channel(false);
 
     spawn_local(async move {
-        loop {
-            select! {
-                _ = cancellation_token_rx.changed() => {
-                    // Handle cancellation
-                    break;
-                }
-                received = call_channel_rx.recv() =>{
-                    match received {
-                        Some(request) => {
-                            let output = target_function(request.input).await;
-                            let _ = request.return_channel.send(output); // Ignore any potential errors
-                        }
-                        None => {
-                            // The channel was closed, exit the loop
-                            break;
-                        }
-                    }
-                }
-            }
+        while let Some(request) = call_channel_rx.recv().await {
+            let output = target_function(request.input).await;
+            let _ = request.return_channel.send(output); // Ignore any potential errors
         }
     });
 
-    FunctionBridge {
-        cancellation_token_tx,
-        call_channel_tx,
-    }
+    FunctionBridge { call_channel_tx }
 }
 
 #[cfg(test)]
