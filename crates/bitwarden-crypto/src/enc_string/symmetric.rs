@@ -218,12 +218,10 @@ impl std::fmt::Debug for EncString {
                 fmt_parts(f, enc_type, &[iv, data, mac])
             }
             EncString::Cose_Encrypt0_B64 { data } => {
-                if let Ok(msg) = coset::CoseEncrypt0::from_slice(data.as_slice()) {
-                    write!(f, "{}.{:?}", enc_type, msg)?;
-                } else {
-                    write!(f, "{}.INVALID_COSE", enc_type)?;
-                }
-                Ok(())
+                let msg = coset::CoseEncrypt0::from_slice(data.as_slice())
+                    .map(|msg| format!("{:?}", msg))
+                    .unwrap_or_else(|_| "INVALID_COSE".to_string());
+                write!(f, "{}.{}", enc_type, msg)
             }
         }
     }
