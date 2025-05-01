@@ -132,7 +132,7 @@ impl SymmetricCryptoKey {
         rng.fill(enc_key.as_mut_slice());
         Self::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
             enc_key,
-            key_id: KeyId::make().into()
+            key_id: KeyId::make().into(),
         })
     }
 
