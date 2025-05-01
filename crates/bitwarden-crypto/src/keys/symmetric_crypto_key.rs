@@ -14,7 +14,7 @@ use sha2::Digest;
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::{key_encryptable::CryptoKey, key_id::KeyId};
+use super::{key_encryptable::CryptoKey, key_id::{KeyId, KEY_ID_SIZE}};
 use crate::{cose, CryptoError};
 
 /// [Aes256CbcKey] is a symmetric encryption key, consisting of one 256-bit key,
@@ -65,7 +65,7 @@ impl PartialEq for Aes256CbcHmacKey {
 #[derive(Zeroize, Clone)]
 #[cfg_attr(test, derive(Debug))]
 pub struct XChaCha20Poly1305Key {
-    pub(crate) key_id: [u8; 24],
+    pub(crate) key_id: [u8; KEY_ID_SIZE],
     pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
