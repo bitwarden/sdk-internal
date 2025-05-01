@@ -47,3 +47,10 @@ impl<Key: KeyId> Drop for BasicBackend<Key> {
         self.clear();
     }
 }
+
+#[cfg(test)]
+impl<Key: KeyId> super::super::StoreBackendDebug<Key> for BasicBackend<Key> {
+    fn elements(&self) -> Vec<(Key, &Key::KeyValue)> {
+        self.keys.iter().map(|(k, v)| (*k, v)).collect()
+    }
+}
