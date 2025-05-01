@@ -27,7 +27,7 @@ pub(crate) fn encrypt_xchacha20_poly1305(
             let ciphertext =
                 crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
             nonce = ciphertext.nonce();
-            ciphertext.encrypted_bytes()
+            ciphertext.encrypted_bytes().to_vec()
         })
         .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
         .build();
