@@ -1,15 +1,16 @@
 //! This file contains private-use constants for COSE encoded key types and algorithms.
 //! Standardized values from <https://www.iana.org/assignments/cose/cose.xhtml> should always be preferred
-//! unless there is a specific reason to use a private-use value.
+//! unless there is a a clear benefit, such as a clear cryptographic benefit, which MUST
+//! be documented publicly.
 
 use coset::{iana, CborSerializable, Label};
 use generic_array::{typenum::U32, GenericArray};
 
 use crate::{error::EncStringParseError, xchacha20, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key};
 
-// XChaCha20 <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03> is used over ChaCha20
-// to be able to randomly generate nonces, and to not have to worry about key wearout. Since
-// the draft was never published as an RFC, we use a private-use value for the algorithm.
+/// XChaCha20 <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03> is used over ChaCha20
+/// to be able to randomly generate nonces, and to not have to worry about key wearout. Since
+/// the draft was never published as an RFC, we use a private-use value for the algorithm.
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
 
 /// Encrypts a plaintext message using XChaCha20Poly1305 and returns a COSE Encrypt0 message
