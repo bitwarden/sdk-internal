@@ -19,11 +19,11 @@ pub enum CallError {
     ChannelReceive(String),
 }
 
-pub struct FunctionBridge<Input, Output> {
+pub struct CallBridge<Input, Output> {
     call_channel_tx: tokio::sync::mpsc::Sender<CallRequest<Input, Output>>,
 }
 
-impl<Input, OutputValue> FunctionBridge<Input, OutputValue> {
+impl<Input, OutputValue> CallBridge<Input, OutputValue> {
     pub async fn call(&self, input: Input) -> Result<OutputValue, CallError> {
         let (return_channel_tx, return_channel_rx) = tokio::sync::oneshot::channel();
 
@@ -41,11 +41,11 @@ impl<Input, OutputValue> FunctionBridge<Input, OutputValue> {
     }
 }
 
-pub fn function_bridge<TargetFunction, Input, Output, OutputValue>(
-    target_function: TargetFunction,
-) -> FunctionBridge<Input, OutputValue>
+pub fn call_bridge<CallTarget, Input, Output, OutputValue>(
+    call_target: CallTarget,
+) -> CallBridge<Input, OutputValue>
 where
-    TargetFunction: Fn(Input) -> Output + 'static,
+    CallTarget: Fn(Input) -> Output + 'static,
     Input: Send + 'static,
     Output: std::future::Future<Output = OutputValue>,
     OutputValue: Send + 'static,
@@ -55,12 +55,12 @@ where
 
     spawn_local(async move {
         while let Some(request) = call_channel_rx.recv().await {
-            let output = target_function(request.input).await;
+            let output = call_target(request.input).await;
             let _ = request.return_channel.send(output); // Ignore any potential errors
         }
     });
 
-    FunctionBridge { call_channel_tx }
+    CallBridge { call_channel_tx }
 }
 
 #[cfg(test)]
@@ -130,7 +130,7 @@ mod test {
     async fn calls_targeted_function_and_returns_value() {
         run_test(async {
             let target = Arc::new(RwLock::new(Target::default()));
-            let add_bridge = function_bridge(move |input| {
+            let add_bridge = call_bridge(move |input| {
                 let target = target.clone();
                 async move { target.read().await.add(input) }
             });
@@ -151,13 +151,13 @@ mod test {
             let parent_target = Arc::new(RwLock::new(Target::default()));
 
             let target = parent_target.clone();
-            let set_value_bridge = function_bridge(move |input| {
+            let set_value_bridge = call_bridge(move |input| {
                 let target = target.clone();
                 async move { target.write().await.set_value(input) }
             });
 
             let target = parent_target.clone();
-            let get_value_bridge = function_bridge(move |_: ()| {
+            let get_value_bridge = call_bridge(move |_: ()| {
                 let target = target.clone();
                 async move { target.read().await.get_value() }
             });
@@ -182,7 +182,7 @@ mod test {
     async fn calling_works_across_threads() {
         run_test(async {
             let target = Arc::new(RwLock::new(Target::default()));
-            let add_bridge = function_bridge(move |input| {
+            let add_bridge = call_bridge(move |input| {
                 let target = target.clone();
                 async move { target.read().await.add(input) }
             });
