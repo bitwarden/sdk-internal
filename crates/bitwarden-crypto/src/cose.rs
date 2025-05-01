@@ -70,6 +70,8 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     Ok(decrypted_message)
 }
 
+const SYMMETRIC_KEY: Label = Label::Int(iana::SymmetricKeyParameter::K as i64);
+
 impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
     type Error = CryptoError;
 
@@ -77,13 +79,9 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
         let key_bytes = cose_key
             .params
             .iter()
-            .find_map(|(label, value)| {
-                const SYMMETRIC_KEY: i64 = iana::SymmetricKeyParameter::K as i64;
-                if let (Label::Int(SYMMETRIC_KEY), ciborium::Value::Bytes(bytes)) = (label, value) {
-                    Some(bytes)
-                } else {
-                    None
-                }
+            .find_map(|(label, value)| match (label, value) {
+                (&SYMMETRIC_KEY, ciborium::Value::Bytes(bytes)) => Some(bytes),
+                _ => None,
             })
             .ok_or(CryptoError::InvalidKey)?;
 
@@ -91,8 +89,7 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
             coset::RegisteredLabelWithPrivate::PrivateUse(XCHACHA20_POLY1305)
                 if key_bytes.len() == xchacha20::KEY_SIZE =>
             {
-                let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
-                enc_key.copy_from_slice(key_bytes);
+                let enc_key = Box::pin(GenericArray::<u8, U32>::clone_from_slice(key_bytes));
                 let key_id = cose_key
                     .key_id
                     .as_slice()
