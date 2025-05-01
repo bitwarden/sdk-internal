@@ -1,8 +1,6 @@
-use crate::utils::UnSend;
-
 #[derive(Default)]
 struct Target {
-    _marker: std::marker::PhantomData<UnSend>,
+    _marker: std::marker::PhantomData<*const ()>,
 }
 
 impl Target {
