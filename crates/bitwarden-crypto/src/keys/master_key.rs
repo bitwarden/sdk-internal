@@ -60,7 +60,7 @@ impl MasterKey {
 
     /// Derive the master key hash, used for local and remote password validation.
     pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> Result<String> {
-        let hash = util::pbkdf2(self.inner_bytes().as_slice(), password, purpose as u32);
+        let hash = util::pbkdf2(self.inner_bytes(), password, purpose as u32);
 
         Ok(STANDARD.encode(hash))
     }
