@@ -14,7 +14,10 @@ use sha2::Digest;
 use subtle::{Choice, ConstantTimeEq};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::{key_encryptable::CryptoKey, key_id::{KeyId, KEY_ID_SIZE}};
+use super::{
+    key_encryptable::CryptoKey,
+    key_id::{KeyId, KEY_ID_SIZE},
+};
 use crate::{cose, CryptoError};
 
 /// [Aes256CbcKey] is a symmetric encryption key, consisting of one 256-bit key,
@@ -372,7 +375,7 @@ mod tests {
 
     #[test]
     fn test_decode_new_symmetric_crypto_key() {
-        let key_b64 = STANDARD.decode("pQEEAlgYsfduEfedSKOr789AUhNKgVKXMAS2xUHlAzoAARFvBIQDBAUGIFggewlpLfp0GhDar/kSozu3KLaWShfwuiMAPrO+vrIG2m4B").unwrap();
+        let key_b64 = STANDARD.decode("pQEEAlDib+JxbqMBlcd3KTUesbufAzoAARFvBIQDBAUGIFggt79surJXmqhPhYuuqi9ZyPfieebmtw2OsmN5SDrb4yUB").unwrap();
         let key = SymmetricCryptoKey::try_from(key_b64).unwrap();
         match key {
             SymmetricCryptoKey::XChaCha20Poly1305Key(_) => (),

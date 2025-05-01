@@ -350,11 +350,12 @@ mod tests {
     use super::EncString;
     use crate::{
         derive_symmetric_key, CryptoError, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+        KEY_ID_SIZE,
     };
 
     #[test]
     fn test_enc_roundtrip_xchacha20() {
-        let key_id = [0u8; 24];
+        let key_id = [0u8; KEY_ID_SIZE];
         let enc_key = [0u8; 32];
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id,
