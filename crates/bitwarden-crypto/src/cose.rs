@@ -47,6 +47,13 @@ pub(crate) fn decrypt_xchacha20_poly1305(
 ) -> Result<Vec<u8>, CryptoError> {
     let msg = coset::CoseEncrypt0::from_slice(cose_encrypt0_message)
         .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))?;
+    let Some(ref alg) = msg.protected.header.alg else {
+        return Err(CryptoError::EncString(EncStringParseError::CoseMissingAlgorithm));
+    };
+    if *alg != coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) {
+        return Err(CryptoError::WrongKeyType);
+    }
+
     let decrypted_message = msg.decrypt(&[], |data, aad| {
         let nonce = msg.unprotected.iv.as_slice();
         crate::xchacha20::decrypt_xchacha20_poly1305(
