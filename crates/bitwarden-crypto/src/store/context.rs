@@ -160,8 +160,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// # Arguments
     ///
-    /// * `wrapping_key` - The key id used to wrap (encrypt) the `key_to_wrap`. It must already exist
-    ///   in the context
+    /// * `wrapping_key` - The key id used to wrap (encrypt) the `key_to_wrap`. It must already
+    ///   exist in the context
     /// * `key_to_wrap` - The key id to wrap. It must already exist in the context
     pub fn encrypt_symmetric_key_with_symmetric_key(
         &self,
