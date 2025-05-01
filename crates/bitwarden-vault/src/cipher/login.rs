@@ -6,7 +6,6 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
 use chrono::{DateTime, Utc};
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
@@ -16,7 +15,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::VaultParseError;
 
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, JsonSchema, PartialEq)]
+#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
@@ -30,7 +29,7 @@ pub enum UriMatchType {
     Never = 5,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -40,7 +39,7 @@ pub struct LoginUri {
     pub uri_checksum: Option<EncString>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -78,7 +77,7 @@ impl LoginUriView {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -98,7 +97,7 @@ pub struct Fido2Credential {
     pub creation_date: DateTime<Utc>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -110,7 +109,7 @@ pub struct Fido2CredentialListView {
     pub user_display_name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -267,7 +266,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialFullView> for Fido2Crede
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -283,7 +282,7 @@ pub struct Login {
     pub fido2_credentials: Option<Vec<Fido2Credential>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -300,7 +299,7 @@ pub struct LoginView {
     pub fido2_credentials: Option<Vec<Fido2Credential>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]

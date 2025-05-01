@@ -68,7 +68,7 @@ impl AttachmentsClient {
     pub fn decrypt_buffer(
         &self,
         cipher: Cipher,
-        attachment: Attachment,
+        attachment: AttachmentView,
         encrypted_buffer: &[u8],
     ) -> Result<Vec<u8>, DecryptError> {
         let key_store = self.client.internal.get_key_store();
@@ -82,7 +82,7 @@ impl AttachmentsClient {
     pub fn decrypt_file(
         &self,
         cipher: Cipher,
-        attachment: Attachment,
+        attachment: AttachmentView,
         encrypted_file_path: &Path,
         decrypted_file_path: &Path,
     ) -> Result<(), DecryptFileError> {
