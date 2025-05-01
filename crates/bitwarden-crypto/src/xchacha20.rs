@@ -20,8 +20,8 @@ use rand::{CryptoRng, RngCore};
 
 use crate::CryptoError;
 
-const NONCE_SIZE: usize = 24;
-const KEY_SIZE: usize = 32;
+pub(crate) const NONCE_SIZE: usize = 24;
+pub(crate) const KEY_SIZE: usize = 32;
 
 pub(crate) struct XChaCha20Poly1305Ciphertext {
     nonce: GenericArray<u8, <XChaCha20Poly1305 as AeadCore>::NonceSize>,

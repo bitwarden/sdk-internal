@@ -5,7 +5,7 @@
 use coset::{iana, CborSerializable, Label};
 use generic_array::{typenum::U32, GenericArray};
 
-use crate::{error::EncStringParseError, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key};
+use crate::{error::EncStringParseError, xchacha20, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key};
 
 // XChaCha20 <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03> is used over ChaCha20
 // to be able to randomly generate nonces, and to not have to worry about key wearout. Since
@@ -20,7 +20,7 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     let mut protected_header = coset::HeaderBuilder::new().build();
     protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
 
-    let mut nonce = [0u8; 24];
+    let mut nonce = [0u8; xchacha20::NONCE_SIZE];
     let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
         .protected(protected_header)
         .create_ciphertext(plaintext, &[], |data, aad| {
@@ -77,7 +77,7 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
 
         match cose_key.alg.clone().ok_or(CryptoError::InvalidKey)? {
             coset::RegisteredLabelWithPrivate::PrivateUse(XCHACHA20_POLY1305)
-                if key_bytes.len() == 32 =>
+                if key_bytes.len() == xchacha20::KEY_SIZE =>
             {
                 let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
                 enc_key.copy_from_slice(key_bytes);
