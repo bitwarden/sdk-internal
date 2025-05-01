@@ -61,7 +61,7 @@ impl PartialEq for Aes256CbcHmacKey {
 }
 
 /// [XChaCha20Poly1305Key] is a symmetric encryption key consisting
-/// of one 256-bit key, and contains a key id. 
+/// of one 256-bit key, and contains a key id.
 #[derive(Zeroize, Clone)]
 #[cfg_attr(test, derive(Debug))]
 pub struct XChaCha20Poly1305Key {
@@ -165,6 +165,17 @@ impl SymmetricCryptoKey {
         SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
     }
 
+    /// Creates the byte representation of the key, without any padding. This should not
+    /// be used directly for creating serialized key representations, instead,
+    /// [SymmetricCryptoKey::to_encoded] should be used.
+    ///
+    /// [SymmetricCryptoKey::Aes256CbcHmacKey] and [SymmetricCryptoKey::Aes256CbcKey] are
+    /// encoded as 64 and 32 byte arrays respectively, representing the key bytes directly.
+    /// [SymmetricCryptoKey::XChaCha20Poly1305Key] is encoded as a COSE key, serialized to a byte
+    /// array. The COSE key can be either directly encrypted using COSE, where the content
+    /// format hints an the key type, or can be represented as a byte array, if padded to be
+    /// larger than the byte array representation of the other key types using the
+    /// aforementioned [SymmetricCryptoKey::to_encoded] function.
     pub(crate) fn to_encoded_raw(&self) -> Vec<u8> {
         match self {
             Self::Aes256CbcKey(key) => key.enc_key.to_vec(),
@@ -186,9 +197,7 @@ impl SymmetricCryptoKey {
                 cose_key.alg = Some(RegisteredLabelWithPrivate::PrivateUse(
                     cose::XCHACHA20_POLY1305,
                 ));
-                cose_key
-                    .to_vec()
-                    .expect("Failed to encode key")
+                cose_key.to_vec().expect("Failed to encode key")
             }
         }
     }
