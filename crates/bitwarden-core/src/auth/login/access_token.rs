@@ -135,7 +135,9 @@ fn load_tokens_from_state(
             client
                 .internal
                 .set_tokens(client_state.token, None, time_till_expiration as u64);
-            client.internal.initialize_crypto_single_key(encryption_key);
+            client
+                .internal
+                .initialize_crypto_single_org_key(organization_id, encryption_key);
 
             return Ok(organization_id);
         }
