@@ -59,7 +59,7 @@ unsafe impl Allocator for LinuxMemfdSecretAlloc {
         // This should never happen, but just in case, we free the memory and return an allocation
         // error.
         if (ptr.as_ptr() as *mut u8).align_offset(layout.align()) != 0 {
-            unsafe { memsec::free_memfd_secret(ptr.as_ptr() as *mut u8) };
+            unsafe { memsec::free_memfd_secret(ptr) };
             return Err(AllocError);
         }
 
