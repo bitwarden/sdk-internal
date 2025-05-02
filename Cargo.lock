@@ -409,7 +409,6 @@ dependencies = [
  "uniffi",
  "uuid",
  "wasm-bindgen",
- "wiremock",
  "zeroize",
  "zxcvbn",
 ]
@@ -597,6 +596,7 @@ dependencies = [
  "tokio",
  "uuid",
  "validator",
+ "wiremock",
 ]
 
 [[package]]

@@ -7,7 +7,7 @@ pub use prelogin::*;
 
 #[cfg(any(feature = "internal", feature = "secrets"))]
 mod password;
-#[cfg(feature = "internal")]
+#[cfg(any(feature = "internal", feature = "secrets"))]
 pub use password::*;
 
 #[cfg(feature = "internal")]
@@ -49,6 +49,7 @@ pub enum LoginError {
     #[error("JWT token is missing email")]
     JwtTokenMissingEmail,
 
+    #[cfg(feature = "internal")]
     #[error(transparent)]
     Prelogin(#[from] PreloginError),
     #[error(transparent)]
