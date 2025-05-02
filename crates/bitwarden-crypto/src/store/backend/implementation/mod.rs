@@ -2,6 +2,8 @@ use super::StoreBackend;
 use crate::store::KeyId;
 
 mod basic;
+
+#[cfg(any(target_os = "linux", all(not(target_arch = "wasm32"), not(windows))))]
 mod custom_alloc;
 
 /// Initializes a key store backend with the best available implementation for the current platform
