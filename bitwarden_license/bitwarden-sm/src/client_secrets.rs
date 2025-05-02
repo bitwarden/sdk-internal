@@ -104,7 +104,9 @@ impl SecretsClientExt for Client {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::{auth::login::AccessTokenLoginRequest, Client, ClientSettings, DeviceType};
+    use bitwarden_core::{
+        auth::login::AccessTokenLoginRequest, Client, ClientSettings, DeviceType,
+    };
 
     use crate::{
         secrets::{SecretGetRequest, SecretIdentifiersRequest},

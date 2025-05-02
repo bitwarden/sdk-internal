@@ -5,7 +5,6 @@ use bitwarden_crypto::{
 
 #[cfg(feature = "secrets")]
 use crate::auth::login::{login_access_token, AccessTokenLoginRequest, AccessTokenLoginResponse};
-use crate::{auth::renew::renew_token, Client};
 #[cfg(feature = "internal")]
 use crate::{
     auth::{
@@ -28,8 +27,10 @@ use crate::{
     },
     client::encryption_settings::EncryptionSettingsError,
 };
-
-use crate::auth::login::LoginError;
+use crate::{
+    auth::{login::LoginError, renew::renew_token},
+    Client,
+};
 
 pub struct AuthClient {
     pub(crate) client: crate::Client,
