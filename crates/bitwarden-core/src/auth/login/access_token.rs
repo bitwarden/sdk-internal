@@ -96,7 +96,9 @@ pub(crate) async fn login_access_token(
                 },
             ));
 
-        client.internal.initialize_crypto_single_key(encryption_key);
+        client
+            .internal
+            .initialize_crypto_single_org_key(organization_id, encryption_key);
     }
 
     AccessTokenLoginResponse::process_response(response)
