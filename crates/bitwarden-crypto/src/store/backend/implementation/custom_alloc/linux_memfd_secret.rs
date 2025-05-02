@@ -6,13 +6,24 @@ pub(crate) struct LinuxMemfdSecretAlloc;
 
 impl LinuxMemfdSecretAlloc {
     pub fn new() -> Option<Self> {
-        // To test if memfd_secret is supported, we try to allocate a 1 byte and see if that succeeds.
+        // To test if memfd_secret is supported, we try to allocate a 1 byte and see if that
+        // succeeds.
         static IS_SUPPORTED: LazyLock<bool> = LazyLock::new(|| {
-            let Some(ptr) = (unsafe { memsec::memfd_secret_sized(1) }) else {
+            let Some(ptr): Option<NonNull<[u8]>> = (unsafe { memsec::memfd_secret_sized(1) })
+            else {
                 return false;
             };
+
+            // Check that the pointer is readable and writable
+            let result = unsafe {
+                let ptr = ptr.as_ptr() as *mut u8;
+                *ptr = 30;
+                *ptr += 107;
+                *ptr == 137
+            };
+
             unsafe { memsec::free_memfd_secret(ptr) };
-            true
+            result
         });
 
         (*IS_SUPPORTED).then_some(Self)
@@ -34,8 +45,23 @@ unsafe impl Allocator for LinuxMemfdSecretAlloc {
             });
         }
 
-        let ptr: NonNull<[u8]> = unsafe { memsec::memfd_secret_sized(layout.size()) }
-            .expect("memfd_secret_sized failed");
+        // Ensure the size we want to allocate is a multiple of the alignment,
+        // so that both the start and end of the allocation are aligned.
+        let layout = layout.pad_to_align();
+
+        let Some(ptr): Option<NonNull<[u8]>> =
+            (unsafe { memsec::memfd_secret_sized(layout.size()) })
+        else {
+            return Err(AllocError);
+        };
+
+        // Check that the pointer is aligned to the requested alignment.
+        // This should never happen, but just in case, we free the memory and return an allocation
+        // error.
+        if (ptr.as_ptr() as *mut u8).align_offset(layout.align()) != 0 {
+            unsafe { memsec::free_memfd_secret(ptr.as_ptr() as *mut u8) };
+            return Err(AllocError);
+        }
 
         Ok(ptr)
     }

@@ -360,7 +360,7 @@ pub(crate) mod tests {
 
         // Create some test data
         let data: Vec<_> = (0..300usize)
-            .map(|n| DataView(format!("Test {}", n), TestSymmKey::A((n % 15) as u8)))
+            .map(|n| DataView(format!("Test {}", n), TestSymmKey::A((n % 15) as u32)))
             .collect();
 
         // Encrypt the data

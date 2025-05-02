@@ -59,11 +59,11 @@ mod tests {
         let basic_store: Box<dyn StoreBackendDebug<TestSymmKey>> =
             Box::new(basic::BasicBackend::new());
 
-        let mlock_store: Box<dyn StoreBackendDebug<TestSymmKey>> =
+        let memfd_store: Box<dyn StoreBackendDebug<TestSymmKey>> =
             Box::new(custom_alloc::CustomAllocBackend::new(
                 custom_alloc::LinuxMemfdSecretAlloc::new().unwrap(),
             ));
-        compare_stores(100_000, basic_store, mlock_store);
+        compare_stores(100_000, basic_store, memfd_store);
     }
 
     /// This function will perform a number of random operations on two stores,
@@ -88,11 +88,11 @@ mod tests {
             fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Operation {
                 match rng.gen_range(0..=4) {
                     0 => Operation::Upsert(
-                        TestSymmKey::A(rng.gen_range(0..=10)),
+                        TestSymmKey::A(rng.gen_range(0..=1000)),
                         SymmetricCryptoKey::generate(rng),
                     ),
-                    1 => Operation::Get(TestSymmKey::A(rng.gen_range(0..=10))),
-                    2 => Operation::Remove(TestSymmKey::A(rng.gen_range(0..=10))),
+                    1 => Operation::Get(TestSymmKey::A(rng.gen_range(0..=1000))),
+                    2 => Operation::Remove(TestSymmKey::A(rng.gen_range(0..=1000))),
                     3 => Operation::Clear,
                     // This one has to be constant as we can't capture variables
                     4 => Operation::Retain(|key| match key {
