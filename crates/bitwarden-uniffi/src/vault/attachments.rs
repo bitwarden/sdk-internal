@@ -44,7 +44,7 @@ impl AttachmentsClient {
     pub fn decrypt_buffer(
         &self,
         cipher: Cipher,
-        attachment: Attachment,
+        attachment: AttachmentView,
         buffer: Vec<u8>,
     ) -> Result<Vec<u8>> {
         Ok(self
@@ -57,7 +57,7 @@ impl AttachmentsClient {
     pub fn decrypt_file(
         &self,
         cipher: Cipher,
-        attachment: Attachment,
+        attachment: AttachmentView,
         encrypted_file_path: String,
         decrypted_file_path: String,
     ) -> Result<()> {

@@ -33,7 +33,6 @@ passkey-client = { git = "https://github.com/bitwarden/passkey-rs", rev = "3b764
     "android-asset-validation",
 ] }
 reqwest = { workspace = true }
-schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
