@@ -50,7 +50,7 @@ mod tests {
             Box::new(basic::BasicBackend::new());
 
         let mlock_store: Box<dyn StoreBackendDebug<TestSymmKey>> = Box::new(
-            custom_alloc::CustomAllocBackend::new(custom_alloc::MlockAlloc::new()),
+            custom_alloc::CustomAllocBackend::new(custom_alloc::malloc::MlockAlloc::new()),
         );
         compare_stores(100_000, basic_store, mlock_store);
     }
@@ -63,7 +63,7 @@ mod tests {
 
         let memfd_store: Box<dyn StoreBackendDebug<TestSymmKey>> =
             Box::new(custom_alloc::CustomAllocBackend::new(
-                custom_alloc::LinuxMemfdSecretAlloc::new().unwrap(),
+                custom_alloc::linux_memfd_secret::LinuxMemfdSecretAlloc::new().unwrap(),
             ));
         compare_stores(100_000, basic_store, memfd_store);
     }
