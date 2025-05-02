@@ -10,13 +10,13 @@ mod custom_alloc;
 pub fn create_store<Key: KeyId>() -> Box<dyn StoreBackend<Key>> {
     if !cfg!(feature = "no-memory-hardening") {
         #[cfg(target_os = "linux")]
-        if let Some(alloc) = custom_alloc::LinuxMemfdSecretAlloc::new() {
+        if let Some(alloc) = custom_alloc::linux_memfd_secret::LinuxMemfdSecretAlloc::new() {
             return Box::new(custom_alloc::CustomAllocBackend::new(alloc));
         }
 
         #[cfg(all(not(target_arch = "wasm32"), not(windows)))]
         return Box::new(custom_alloc::CustomAllocBackend::new(
-            custom_alloc::MlockAlloc::new(),
+            custom_alloc::malloc::MlockAlloc::new(),
         ));
     }
 

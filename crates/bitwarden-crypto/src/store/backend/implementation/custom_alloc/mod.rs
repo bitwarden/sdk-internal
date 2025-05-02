@@ -4,14 +4,10 @@ use zeroize::ZeroizeOnDrop;
 use crate::{store::backend::StoreBackend, KeyId};
 
 #[cfg(all(not(target_arch = "wasm32"), not(windows)))]
-mod malloc;
-#[cfg(all(not(target_arch = "wasm32"), not(windows)))]
-pub(super) use malloc::MlockAlloc;
+pub(super) mod malloc;
 
 #[cfg(target_os = "linux")]
-mod linux_memfd_secret;
-#[cfg(target_os = "linux")]
-pub(super) use linux_memfd_secret::LinuxMemfdSecretAlloc;
+pub(super) mod linux_memfd_secret;
 
 pub(super) struct CustomAllocBackend<Key: KeyId, Alloc: Allocator + Send + Sync> {
     map: hashbrown::HashMap<Key, Key::KeyValue, hashbrown::DefaultHashBuilder, Alloc>,
