@@ -19,6 +19,7 @@ crate-type = ["cdylib"]
 bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
 bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }
+bitwarden-exporters = { workspace = true, features = ["wasm"] }
 bitwarden-generators = { workspace = true, features = ["wasm"] }
 bitwarden-ipc = { workspace = true, features = ["wasm"] }
 bitwarden-ssh = { workspace = true, features = ["wasm"] }

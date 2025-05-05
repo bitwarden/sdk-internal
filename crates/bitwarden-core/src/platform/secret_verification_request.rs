@@ -1,8 +1,7 @@
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Request to verify a user's secret.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SecretVerificationRequest {
     /// The user's master password to use for user verification. If supplied, this will be used for

@@ -11,7 +11,6 @@ use bitwarden_crypto::{
     AsymmetricCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
     SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
@@ -35,7 +34,7 @@ pub enum MobileCryptoError {
 }
 
 /// State used for initializing the user cryptographic state.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -51,7 +50,7 @@ pub struct InitUserCryptoRequest {
 }
 
 /// The crypto method used to initialize the user cryptographic state.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -102,7 +101,7 @@ pub enum InitUserCryptoMethod {
 }
 
 /// Auth requests supports multiple initialization methods.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -222,7 +221,7 @@ pub async fn initialize_user_crypto(
 }
 
 /// Represents the request to initialize the user's organizational cryptographic state.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -252,7 +251,7 @@ pub(super) async fn get_user_encryption_key(client: &Client) -> Result<String, M
 }
 
 /// Response from the `update_password` function
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct UpdatePasswordResponse {
@@ -301,7 +300,7 @@ pub(super) fn update_password(
 }
 
 /// Request for deriving a pin protected user key
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct DerivePinKeyResponse {
@@ -438,7 +437,7 @@ pub(super) fn derive_key_connector(
 }
 
 /// Response from the `make_key_pair` function
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -461,7 +460,7 @@ pub(super) fn make_key_pair(user_key: String) -> Result<MakeKeyPairResponse, Cry
 }
 
 /// Request for `verify_asymmetric_keys`.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -475,7 +474,7 @@ pub struct VerifyAsymmetricKeysRequest {
 }
 
 /// Response for `verify_asymmetric_keys`.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]

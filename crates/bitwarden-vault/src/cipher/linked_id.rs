@@ -1,5 +1,4 @@
 use bitwarden_core::MissingFieldError;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
@@ -7,7 +6,7 @@ use tsify_next::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum LinkedIdType {
@@ -43,7 +42,7 @@ impl From<LinkedIdType> for u32 {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Debug, JsonSchema)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Debug)]
 #[repr(u16)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum LoginLinkedIdType {
@@ -51,7 +50,7 @@ pub enum LoginLinkedIdType {
     Password = 101,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Debug, JsonSchema)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Debug)]
 #[repr(u16)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum CardLinkedIdType {
@@ -63,7 +62,7 @@ pub enum CardLinkedIdType {
     Number = 305,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Debug, JsonSchema)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Debug)]
 #[repr(u16)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum IdentityLinkedIdType {

@@ -3,10 +3,10 @@ use bitwarden_vault::{Folder, FolderView};
 use crate::{error::Error, Result};
 
 #[derive(uniffi::Object)]
-pub struct ClientFolders(pub(crate) bitwarden_vault::ClientFolders);
+pub struct FoldersClient(pub(crate) bitwarden_vault::FoldersClient);
 
 #[uniffi::export]
-impl ClientFolders {
+impl FoldersClient {
     /// Encrypt folder
     pub fn encrypt(&self, folder: FolderView) -> Result<Folder> {
         Ok(self.0.encrypt(folder).map_err(Error::Encrypt)?)
