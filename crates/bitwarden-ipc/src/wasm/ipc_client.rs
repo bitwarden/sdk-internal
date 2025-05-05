@@ -34,6 +34,7 @@ pub struct JsIpcClientSubscription {
     >,
 }
 
+#[wasm_bindgen(js_class = IpcClientSubscription)]
 impl JsIpcClientSubscription {
     pub async fn receive(&self) -> Result<IncomingMessage, JsReceiveError> {
         self.subscription.receive(None).await.map_err(|e| e.into())
