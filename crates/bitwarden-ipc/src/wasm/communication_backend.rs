@@ -1,5 +1,6 @@
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
+use tokio::sync::RwLock;
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -69,23 +70,24 @@ impl JsCommunicationBackend {
 
 impl CommunicationBackend for JsCommunicationBackend {
     type SendError = JsValue;
-    type Receiver = tokio::sync::broadcast::Receiver<IncomingMessage>;
+    type Receiver = RwLock<tokio::sync::broadcast::Receiver<IncomingMessage>>;
 
     async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
         self.sender.send(message).await
     }
 
     async fn subscribe(&self) -> Self::Receiver {
-        self.receive_rx.resubscribe()
+        RwLock::new(self.receive_rx.resubscribe())
     }
 }
 
-impl CommunicationBackendReceiver for tokio::sync::broadcast::Receiver<IncomingMessage> {
+impl CommunicationBackendReceiver for RwLock<tokio::sync::broadcast::Receiver<IncomingMessage>> {
     type ReceiveError = JsValue;
 
     async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
         Ok(self
-            .resubscribe()
+            .write()
+            .await
             .recv()
             .await
             .map_err(|e| ChannelError(e.to_string()))?)
