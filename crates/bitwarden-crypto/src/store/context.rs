@@ -55,7 +55,7 @@ use crate::{
 ///
 /// impl Encryptable<Ids, SymmKeyId, EncString> for Data {
 ///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
-///         let local_key_id = ctx.decrypt_symmetric_key_with_symmetric_key(key, LOCAL_KEY, &self.key)?;
+///         let local_key_id = ctx.unwrap_symmetric_key(key, LOCAL_KEY, &self.key)?;
 ///         self.name.encrypt(ctx, local_key_id)
 ///     }
 /// }
