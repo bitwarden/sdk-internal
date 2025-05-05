@@ -325,7 +325,7 @@ impl Cipher {
         const CIPHER_KEY: SymmetricKeyId = SymmetricKeyId::Local("cipher_key");
         match ciphers_key {
             Some(ciphers_key) => {
-                ctx.decrypt_symmetric_key_with_symmetric_key(key, CIPHER_KEY, ciphers_key)
+                ctx.unwrap_symmetric_key_with_symmetric_key(key, CIPHER_KEY, ciphers_key)
             }
             None => Ok(key),
         }
@@ -464,7 +464,7 @@ impl CipherView {
         self.reencrypt_attachment_keys(ctx, old_ciphers_key, new_key)?;
         self.reencrypt_fido2_credentials(ctx, old_ciphers_key, new_key)?;
 
-        self.key = Some(ctx.encrypt_symmetric_key_with_symmetric_key(key, new_key)?);
+        self.key = Some(ctx.wrap_symmetric_key_with_symmetric_key(key, new_key)?);
         Ok(())
     }
 
@@ -936,7 +936,7 @@ mod tests {
             let cipher_key = ctx.generate_symmetric_key(CIPHER_KEY).unwrap();
 
             original_cipher.key = Some(
-                ctx.encrypt_symmetric_key_with_symmetric_key(SymmetricKeyId::User, cipher_key)
+                ctx.wrap_symmetric_key_with_symmetric_key(SymmetricKeyId::User, cipher_key)
                     .unwrap(),
             );
         }
@@ -1059,7 +1059,7 @@ mod tests {
                 .generate_symmetric_key(SymmetricKeyId::Local("test_attachment_key"))
                 .unwrap();
             let attachment_key_enc = ctx
-                .encrypt_symmetric_key_with_symmetric_key(SymmetricKeyId::User, attachment_key)
+                .wrap_symmetric_key_with_symmetric_key(SymmetricKeyId::User, attachment_key)
                 .unwrap();
             #[allow(deprecated)]
             let attachment_key_val = ctx
@@ -1126,7 +1126,7 @@ mod tests {
             .generate_symmetric_key(SymmetricKeyId::Local("test_cipher_key"))
             .unwrap();
         let cipher_key_enc = ctx
-            .encrypt_symmetric_key_with_symmetric_key(SymmetricKeyId::User, cipher_key)
+            .wrap_symmetric_key_with_symmetric_key(SymmetricKeyId::User, cipher_key)
             .unwrap();
 
         // Attachment has a key that is encrypted with the cipher key
@@ -1134,7 +1134,7 @@ mod tests {
             .generate_symmetric_key(SymmetricKeyId::Local("test_attachment_key"))
             .unwrap();
         let attachment_key_enc = ctx
-            .encrypt_symmetric_key_with_symmetric_key(cipher_key, attachment_key)
+            .wrap_symmetric_key_with_symmetric_key(cipher_key, attachment_key)
             .unwrap();
 
         let mut cipher = generate_cipher();

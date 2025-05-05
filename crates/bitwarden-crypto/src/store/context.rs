@@ -136,7 +136,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
     /// * `encrypted_key` - The key to decrypt
-    pub fn decrypt_symmetric_key_with_symmetric_key(
+    pub fn unwrap_symmetric_key_with_symmetric_key(
         &mut self,
         encryption_key: Ids::Symmetric,
         new_key_id: Ids::Symmetric,
@@ -163,7 +163,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// * `wrapping_key` - The key id used to wrap (encrypt) the `key_to_wrap`. It must already
     ///   exist in the context
     /// * `key_to_wrap` - The key id to wrap. It must already exist in the context
-    pub fn encrypt_symmetric_key_with_symmetric_key(
+    pub fn wrap_symmetric_key_with_symmetric_key(
         &self,
         wrapping_key: Ids::Symmetric,
         key_to_wrap: Ids::Symmetric,
@@ -429,13 +429,13 @@ mod tests {
 
         // Encrypt the new key with the old key
         let key_2_enc = ctx
-            .encrypt_symmetric_key_with_symmetric_key(key_1_id, key_2_id)
+            .wrap_symmetric_key_with_symmetric_key(key_1_id, key_2_id)
             .unwrap();
 
         // Decrypt the new key with the old key in a different identifier
         let new_key_id = TestSymmKey::C(3);
 
-        ctx.decrypt_symmetric_key_with_symmetric_key(key_1_id, new_key_id, &key_2_enc)
+        ctx.unwrap_symmetric_key_with_symmetric_key(key_1_id, new_key_id, &key_2_enc)
             .unwrap();
 
         // Now `key_2_id` and `new_key_id` contain the same key, so we should be able to encrypt
