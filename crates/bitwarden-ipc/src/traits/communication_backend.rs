@@ -127,14 +127,13 @@ pub mod tests {
         type ReceiveError = TestCommunicationBackendReceiveError;
 
         async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
-            if self.0.read().await.len() == 0 {
+            let mut receiver = self.0.write().await;
+
+            if receiver.is_empty() {
                 return Err(TestCommunicationBackendReceiveError::NoQueuedMessages);
             }
 
-            Ok(self
-                .0
-                .write()
-                .await
+            Ok(receiver
                 .recv()
                 .await
                 .expect("Failed to receive incoming message"))
