@@ -183,18 +183,6 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                     wrapping_key,
                     key_to_wrap_instance.to_encoded().as_slice(),
                 ),
-            (XChaCha20Poly1305Key(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => {
-                // These keys should be represented as octet stream payloads in COSE
-                Err(CryptoError::OperationNotSupported(
-                    UnsupportedOperation::EncryptionNotImplementedForKey,
-                ))
-            }
-            (XChaCha20Poly1305Key(_), XChaCha20Poly1305Key(_)) => {
-                // These keys should be represented as CoseKey payloads in COSE
-                Err(CryptoError::OperationNotSupported(
-                    UnsupportedOperation::EncryptionNotImplementedForKey,
-                ))
-            }
             _ => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperation::EncryptionNotImplementedForKey,
             )),
