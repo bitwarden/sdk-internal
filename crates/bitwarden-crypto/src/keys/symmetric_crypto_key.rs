@@ -68,7 +68,6 @@ impl PartialEq for Aes256CbcHmacKey {
 /// [Aes256CbcKey] and [Aes256CbcHmacKey], this key type is used to create
 /// CoseEncrypt0 messages.
 #[derive(Zeroize, Clone)]
-#[cfg_attr(test, derive(Debug))]
 pub struct XChaCha20Poly1305Key {
     pub(crate) key_id: [u8; KEY_ID_SIZE],
     pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
@@ -304,7 +303,36 @@ impl CryptoKey for SymmetricCryptoKey {}
 // We manually implement these to make sure we don't print any sensitive data
 impl std::fmt::Debug for SymmetricCryptoKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SymmetricCryptoKey").finish()
+        f.debug_struct("SymmetricCryptoKey")
+            .field(
+                "inner_type",
+                match self {
+                    SymmetricCryptoKey::Aes256CbcKey(key) => key,
+                    SymmetricCryptoKey::Aes256CbcHmacKey(key) => key,
+                    SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key,
+                },
+            )
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for Aes256CbcKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Aes256CbcKey").finish()
+    }
+}
+
+impl std::fmt::Debug for Aes256CbcHmacKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Aes256CbcHmacKey").finish()
+    }
+}
+
+impl std::fmt::Debug for XChaCha20Poly1305Key {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("XChaCha20Poly1305Key")
+            .field("key_id", &self.key_id)
+            .finish()
     }
 }
 
@@ -362,7 +390,7 @@ mod tests {
     use super::{derive_symmetric_key, SymmetricCryptoKey};
     use crate::{
         keys::symmetric_crypto_key::{pad_key, unpad_key},
-        Aes256CbcKey, XChaCha20Poly1305Key,
+        Aes256CbcHmacKey, Aes256CbcKey, XChaCha20Poly1305Key,
     };
 
     #[test]
@@ -480,15 +508,94 @@ mod tests {
     }
 
     #[test]
+    fn test_eq_variant_aes256_cbc() {
+        let key1 = Aes256CbcKey {
+            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
+                vec![1u8; 32].as_slice(),
+            )),
+        };
+        let key2 = Aes256CbcKey {
+            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
+                vec![1u8; 32].as_slice(),
+            )),
+        };
+        let key3 = Aes256CbcKey {
+            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
+                vec![2u8; 32].as_slice(),
+            )),
+        };
+        assert_eq!(key1, key2);
+        assert_ne!(key1, key3);
+    }
+
+    #[test]
+    fn test_eq_variant_aes256_cbc_hmac() {
+        let key1 = Aes256CbcHmacKey {
+            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
+                vec![1u8; 32].as_slice(),
+            )),
+            mac_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
+                vec![2u8; 32].as_slice(),
+            )),
+        };
+        let key2 = Aes256CbcHmacKey {
+            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
+                vec![1u8; 32].as_slice(),
+            )),
+            mac_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
+                vec![2u8; 32].as_slice(),
+            )),
+        };
+        let key3 = Aes256CbcHmacKey {
+            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
+                vec![3u8; 32].as_slice(),
+            )),
+            mac_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
+                vec![4u8; 32].as_slice(),
+            )),
+        };
+        assert_eq!(key1, key2);
+        assert_ne!(key1, key3);
+    }
+
+    #[test]
+    fn test_eq_variant_xchacha20_poly1305() {
+        let key1 = XChaCha20Poly1305Key {
+            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
+                vec![1u8; 32].as_slice(),
+            )),
+            key_id: [0; 16],
+        };
+        let key2 = XChaCha20Poly1305Key {
+            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
+                vec![1u8; 32].as_slice(),
+            )),
+            key_id: [0; 16],
+        };
+        let key3 = XChaCha20Poly1305Key {
+            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
+                vec![2u8; 32].as_slice(),
+            )),
+            key_id: [1; 16],
+        };
+        assert_eq!(key1, key2);
+        assert_ne!(key1, key3);
+    }
+
+    #[test]
     fn test_neq_different_key_id() {
-        let key1 = SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
+        let key1 = XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, U32>::default()),
             key_id: [0; 16],
-        });
-        let key2 = SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
+        };
+        let key2 = XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, U32>::default()),
             key_id: [1; 16],
-        });
+        };
+        assert_ne!(key1, key2);
+
+        let key1 = SymmetricCryptoKey::XChaCha20Poly1305Key(key1);
+        let key2 = SymmetricCryptoKey::XChaCha20Poly1305Key(key2);
         assert_ne!(key1, key2);
     }
 }
