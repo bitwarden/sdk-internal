@@ -90,6 +90,7 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
 
         match alg {
             coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) => {
+                // Ensure the length is correct since `GenericArray::clone_from_slice` panics if it receives the wrong length.
                 if key_bytes.len() != xchacha20::KEY_SIZE {
                     return Err(CryptoError::InvalidKey);
                 }
