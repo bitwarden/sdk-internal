@@ -1,6 +1,7 @@
 use std::pin::Pin;
 
-use generic_array::{typenum::U32, GenericArray};
+use generic_array::GenericArray;
+use typenum::U32;
 
 use super::Aes256CbcHmacKey;
 use crate::{util::hkdf_expand, Result};

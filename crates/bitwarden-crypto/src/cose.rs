@@ -4,7 +4,8 @@
 //! be documented publicly.
 
 use coset::{iana, CborSerializable, Label};
-use generic_array::{typenum::U32, GenericArray};
+use generic_array::GenericArray;
+use typenum::U32;
 
 use crate::{
     error::EncStringParseError, xchacha20, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,

@@ -1,6 +1,5 @@
 use std::{cmp::max, pin::Pin};
 
-use aes::cipher::typenum::U32;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use coset::{iana::KeyOperation, CborSerializable, RegisteredLabelWithPrivate};
 use generic_array::GenericArray;
@@ -12,6 +11,7 @@ use rand_chacha::ChaChaRng;
 #[cfg(test)]
 use sha2::Digest;
 use subtle::{Choice, ConstantTimeEq};
+use typenum::U32;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use super::{

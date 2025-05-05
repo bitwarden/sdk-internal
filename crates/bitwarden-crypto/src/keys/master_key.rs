@@ -1,9 +1,10 @@
 use std::pin::Pin;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use generic_array::{typenum::U32, GenericArray};
+use generic_array::GenericArray;
 use rand::Rng;
 use schemars::JsonSchema;
+use typenum::U32;
 use zeroize::{Zeroize, Zeroizing};
 
 use super::{
