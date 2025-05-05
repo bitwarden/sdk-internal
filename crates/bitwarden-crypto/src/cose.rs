@@ -84,9 +84,7 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
                 _ => None,
             })
             .ok_or(CryptoError::InvalidKey)?;
-        let Some(ref alg) = cose_key.alg else {
-            return Err(CryptoError::InvalidKey);
-        };
+        let alg = cose_key.alg.as_ref().ok_or(CryptoError::InvalidKey)?;
 
         match alg {
             coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) => {
