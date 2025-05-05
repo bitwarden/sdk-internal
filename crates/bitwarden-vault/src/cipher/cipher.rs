@@ -324,9 +324,7 @@ impl Cipher {
     ) -> Result<SymmetricKeyId, CryptoError> {
         const CIPHER_KEY: SymmetricKeyId = SymmetricKeyId::Local("cipher_key");
         match ciphers_key {
-            Some(ciphers_key) => {
-                ctx.unwrap_symmetric_key(key, CIPHER_KEY, ciphers_key)
-            }
+            Some(ciphers_key) => ctx.unwrap_symmetric_key(key, CIPHER_KEY, ciphers_key),
             None => Ok(key),
         }
     }
@@ -1133,9 +1131,7 @@ mod tests {
         let attachment_key = ctx
             .generate_symmetric_key(SymmetricKeyId::Local("test_attachment_key"))
             .unwrap();
-        let attachment_key_enc = ctx
-            .wrap_symmetric_key(cipher_key, attachment_key)
-            .unwrap();
+        let attachment_key_enc = ctx.wrap_symmetric_key(cipher_key, attachment_key).unwrap();
 
         let mut cipher = generate_cipher();
         cipher.key = Some(cipher_key_enc);

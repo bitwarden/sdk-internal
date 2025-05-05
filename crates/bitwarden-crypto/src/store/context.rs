@@ -428,9 +428,7 @@ mod tests {
         assert!(ctx.has_symmetric_key(key_2_id));
 
         // Encrypt the new key with the old key
-        let key_2_enc = ctx
-            .wrap_symmetric_key(key_1_id, key_2_id)
-            .unwrap();
+        let key_2_enc = ctx.wrap_symmetric_key(key_1_id, key_2_id).unwrap();
 
         // Decrypt the new key with the old key in a different identifier
         let new_key_id = TestSymmKey::C(3);
