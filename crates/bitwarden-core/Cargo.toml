@@ -62,7 +62,6 @@ rustls-platform-verifier = "0.5.0"
 [dev-dependencies]
 rand_chacha = "0.3.1"
 tokio = { workspace = true, features = ["rt"] }
-wiremock = "0.6.0"
 zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
 
 [lints]
