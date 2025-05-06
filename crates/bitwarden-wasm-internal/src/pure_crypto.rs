@@ -15,7 +15,6 @@ pub struct PureCrypto {}
 // Encryption
 #[wasm_bindgen]
 impl PureCrypto {
-
     #[warn(deprecated)]
     pub fn symmetric_decrypt(enc_string: String, key: Vec<u8>) -> Result<String, CryptoError> {
         Self::symmetric_decrypt_string(enc_string, key)
