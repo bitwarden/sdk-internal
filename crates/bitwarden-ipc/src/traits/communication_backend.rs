@@ -1,5 +1,6 @@
-use crate::message::{IncomingMessage, OutgoingMessage};
 use std::fmt::Debug;
+
+use crate::message::{IncomingMessage, OutgoingMessage};
 
 /// This trait defines the interface that will be used to send and receive messages over IPC.
 /// It is up to the platform to implement this trait and any necessary thread synchronization and

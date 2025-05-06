@@ -1,6 +1,7 @@
+use std::fmt::Debug;
+
 use super::{CommunicationBackend, CommunicationBackendReceiver, SessionRepository};
 use crate::message::{IncomingMessage, OutgoingMessage};
-use std::fmt::Debug;
 
 pub trait CryptoProvider<Com, Ses>: Send + Sync + 'static
 where
@@ -30,10 +31,11 @@ where
 
     /// Receive a message.
     ///
-    /// Calling this function may also result in messages being sent, depending on the trait implementation.
-    /// For example, if an encrypted message is received from a destination that does not have a session.
-    /// The function may then try to establish a session and then re-request the original message.
-    /// The implementation of this function should handle this logic.
+    /// Calling this function may also result in messages being sent, depending on the trait
+    /// implementation. For example, if an encrypted message is received from a destination that
+    /// does not have a session. The function may then try to establish a session and then
+    /// re-request the original message. The implementation of this function should handle this
+    /// logic.
     ///
     /// An error should only be returned for fatal and unrecoverable errors e.g. if the session
     /// storage is full or cannot be accessed. Returning an error will cause the IPC client to

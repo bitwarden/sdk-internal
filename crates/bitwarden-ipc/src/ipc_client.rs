@@ -148,7 +148,7 @@ where
                     received = client.crypto.receive(&com_receiver, &client.communication, &client.sessions) => {
                         match received {
                             Ok(message) => {
-                                if let Err(_) = client_tx.send(message) {
+                                if client_tx.send(message).is_err() {
                                     log::error!("Failed to save incoming message");
                                     break;
                                 };
@@ -220,7 +220,7 @@ where
                 .read()
                 .await
                 .as_ref()
-                .ok_or_else(|| SubscribeError::NotStarted)?
+                .ok_or(SubscribeError::NotStarted)?
                 .resubscribe(),
             client: self.clone(),
             topic,
@@ -241,7 +241,7 @@ where
                 .read()
                 .await
                 .as_ref()
-                .ok_or_else(|| SubscribeError::NotStarted)?
+                .ok_or(SubscribeError::NotStarted)?
                 .resubscribe(),
             client: self.clone(),
             _payload: std::marker::PhantomData,
@@ -631,7 +631,7 @@ mod tests {
         let is_running = client.is_running().await;
 
         assert_eq!(error, "Crypto error".to_string());
-        assert_eq!(is_running, false);
+        assert!(is_running);
     }
 
     #[tokio::test]
@@ -652,7 +652,7 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(100)).await;
         let is_running = client.is_running().await;
 
-        assert_eq!(is_running, false);
+        assert!(is_running);
     }
 
     #[tokio::test]
@@ -673,6 +673,6 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(100)).await;
         let is_running = client.is_running().await;
 
-        assert_eq!(is_running, true);
+        assert!(is_running);
     }
 }
