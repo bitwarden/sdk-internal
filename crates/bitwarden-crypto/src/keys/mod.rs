@@ -14,6 +14,7 @@ mod asymmetric_crypto_key;
 pub use asymmetric_crypto_key::{
     AsymmetricCryptoKey, AsymmetricEncryptable, AsymmetricPublicCryptoKey,
 };
+mod signing_crypto_key;
 mod user_key;
 pub use user_key::UserKey;
 mod device_key;

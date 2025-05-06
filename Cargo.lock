@@ -426,6 +426,7 @@ dependencies = [
  "ciborium",
  "coset",
  "criterion",
+ "ed25519-dalek",
  "generic-array",
  "hkdf",
  "hmac",
@@ -1261,6 +1262,7 @@ dependencies = [
  "fiat-crypto",
  "rustc_version",
  "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -1459,8 +1461,11 @@ checksum = "4a3daa8e81a3963a60642bcc1f90a670680bd4a77535faa384e9d1c79d620871"
 dependencies = [
  "curve25519-dalek",
  "ed25519",
+ "rand_core 0.6.4",
+ "serde",
  "sha2",
  "subtle",
+ "zeroize",
 ]
 
 [[package]]
