@@ -320,12 +320,12 @@ impl From<CoseSign1> for Signature {
 
 #[allow(unused)]
 impl Signature {
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    fn from_cose(bytes: &[u8]) -> Result<Self> {
         let cose_sign1 = CoseSign1::from_slice(bytes).map_err(|_| CryptoError::InvalidSignature)?;
         Ok(Signature(cose_sign1))
     }
 
-    fn to_bytes(&self) -> Result<Vec<u8>> {
+    fn to_cose(&self) -> Result<Vec<u8>> {
         self.0
             .clone()
             .to_vec()
@@ -360,11 +360,32 @@ impl Signature {
 mod tests {
     use super::*;
 
+    const SIGNING_KEY: &[u8] = &[167, 1, 1, 2, 80, 222, 105, 244, 28, 22, 106, 70, 109, 171, 83, 154, 97, 23, 20, 115, 137, 3, 39, 4, 130, 1, 2, 33, 88, 32, 92, 186, 140, 91, 228, 10, 169, 163, 132, 55, 210, 79, 96, 186, 198, 251, 255, 79, 157, 58, 28, 182, 213, 118, 51, 15, 60, 110, 161, 114, 222, 168, 35, 88, 32, 59, 136, 203, 0, 108, 23, 82, 84, 206, 163, 86, 62, 187, 196, 156, 156, 150, 80, 101, 129, 247, 112, 117, 10, 34, 54, 254, 181, 239, 214, 195, 78, 32, 6];
+    const VERIFYING_KEY: &[u8] = &[166, 1, 1, 2, 80, 222, 105, 244, 28, 22, 106, 70, 109, 171, 83, 154, 97, 23, 20, 115, 137, 3, 39, 4, 129, 2, 32, 6, 33, 88, 32, 92, 186, 140, 91, 228, 10, 169, 163, 132, 55, 210, 79, 96, 186, 198, 251, 255, 79, 157, 58, 28, 182, 213, 118, 51, 15, 60, 110, 161, 114, 222, 168];
+    /// Uses the ´SigningNamespace::EncryptionMetadata´ namespace, "Test message" as data
+    const SIGNATURE: &[u8] = &[132, 88, 27, 163, 1, 39, 4, 80, 222, 105, 244, 28, 22, 106, 70, 109, 171, 83, 154, 97, 23, 20, 115, 137, 58, 0, 1, 56, 127, 1, 160, 246, 88, 64, 143, 218, 162, 76, 208, 117, 94, 215, 224, 98, 89, 193, 194, 226, 144, 214, 91, 130, 129, 130, 77, 36, 79, 196, 45, 105, 120, 151, 136, 57, 230, 27, 37, 142, 55, 191, 23, 200, 237, 215, 252, 42, 182, 140, 201, 173, 199, 214, 97, 105, 107, 101, 140, 182, 105, 9, 206, 106, 210, 29, 203, 174, 178, 12];
+
+    #[test]
+    fn test_using_test_vectors() {
+        let signing_key = SigningKey::from_cose(SIGNING_KEY).unwrap();
+        let verifying_key = VerifyingKey::from_cose(VERIFYING_KEY).unwrap();
+        let signature = Signature::from_cose(SIGNATURE).unwrap();
+
+        let data = b"Test message";
+        let namespace = SigningNamespace::EncryptionMetadata;
+
+        assert_eq!(signing_key.to_cose().unwrap(), SIGNING_KEY);
+        assert_eq!(verifying_key.to_cose().unwrap(), VERIFYING_KEY);
+        assert_eq!(signature.to_cose().unwrap(), SIGNATURE);
+
+        assert!(verifying_key.verify(&namespace, &signature, data));
+    }
+
     #[test]
     fn test_sign_roundtrip() {
         let signing_key = SigningKey::make_ed25519().unwrap();
         let verifying_key = signing_key.to_verifying_key();
-        let data = b"Hello, world!";
+        let data = b"Test message";
         let namespace = SigningNamespace::EncryptionMetadata;
 
         let signature = signing_key.sign(&namespace, data);
@@ -375,7 +396,7 @@ mod tests {
     fn test_changed_signature_fails() {
         let signing_key = SigningKey::make_ed25519().unwrap();
         let verifying_key = signing_key.to_verifying_key();
-        let data = b"Hello, world!";
+        let data = b"Test message";
         let namespace = SigningNamespace::EncryptionMetadata;
 
         let signature = signing_key.sign(&namespace, data);
@@ -386,7 +407,7 @@ mod tests {
     fn test_changed_namespace_fails() {
         let signing_key = SigningKey::make_ed25519().unwrap();
         let verifying_key = signing_key.to_verifying_key();
-        let data = b"Hello, world!";
+        let data = b"Test message";
         let namespace = SigningNamespace::EncryptionMetadata;
         let other_namespace = SigningNamespace::Test;
 
