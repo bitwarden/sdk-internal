@@ -4,14 +4,13 @@
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::fingerprint;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{key_management::AsymmetricKeyId, MissingPrivateKeyError, VaultLockedError};
 
 /// Request to generate a fingerprint.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct FingerprintRequest {
@@ -24,7 +23,7 @@ pub struct FingerprintRequest {
 /// Response containing a generated fingerprint.
 ///
 /// TODO: We should attempt to remove this and just return a string.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FingerprintResponse {
     /// The generated fingerprint.

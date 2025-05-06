@@ -15,7 +15,7 @@ keywords.workspace = true
 
 [dependencies]
 bitwarden-api-api = { workspace = true }
-bitwarden-core = { workspace = true }
+bitwarden-core = { workspace = true, features = ["secrets"] }
 bitwarden-crypto = { workspace = true }
 chrono = { workspace = true }
 log = { workspace = true }
@@ -28,6 +28,7 @@ validator = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt"] }
+wiremock = "0.6.0"
 
 [lints]
 workspace = true

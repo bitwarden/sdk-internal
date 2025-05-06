@@ -9,11 +9,14 @@ use crate::{
     },
 };
 
-pub struct ClientProjects {
+/// Aliases to maintain backward compatibility
+pub type ClientProjects = ProjectsClient;
+
+pub struct ProjectsClient {
     pub client: Client,
 }
 
-impl ClientProjects {
+impl ProjectsClient {
     pub fn new(client: Client) -> Self {
         Self { client }
     }
@@ -54,12 +57,23 @@ impl ClientProjects {
     }
 }
 
+/// This trait is for backward compatibility
 pub trait ClientProjectsExt {
     fn projects(&self) -> ClientProjects;
 }
 
 impl ClientProjectsExt for Client {
     fn projects(&self) -> ClientProjects {
-        ClientProjects::new(self.clone())
+        ProjectsClient::new(self.clone())
+    }
+}
+
+pub trait ProjectsClientExt {
+    fn projects(&self) -> ProjectsClient;
+}
+
+impl ProjectsClientExt for Client {
+    fn projects(&self) -> ProjectsClient {
+        ProjectsClient::new(self.clone())
     }
 }

@@ -5,11 +5,11 @@ use crate::{
     Folder, FolderView, VaultClient,
 };
 
-pub struct ClientFolders {
+pub struct FoldersClient {
     pub(crate) client: Client,
 }
 
-impl ClientFolders {
+impl FoldersClient {
     pub fn encrypt(&self, folder_view: FolderView) -> Result<Folder, EncryptError> {
         let key_store = self.client.internal.get_key_store();
         let folder = key_store.encrypt(folder_view)?;
@@ -30,8 +30,8 @@ impl ClientFolders {
 }
 
 impl VaultClient {
-    pub fn folders(&self) -> ClientFolders {
-        ClientFolders {
+    pub fn folders(&self) -> FoldersClient {
+        FoldersClient {
             client: self.client.clone(),
         }
     }

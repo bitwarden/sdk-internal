@@ -20,7 +20,6 @@ use bitwarden_api_api::{
 };
 use bitwarden_crypto::{HashPurpose, MasterKey};
 use log::{debug, info};
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -101,7 +100,7 @@ fn build_secret_verification_request(
 }
 
 /// The response from the server when requesting the user's API key.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct UserApiKeyResponse {
     /// The user's API key, which represents the client_secret portion of an oauth request.

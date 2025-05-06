@@ -5,13 +5,12 @@ use bitwarden_api_identity::{
 use bitwarden_crypto::{
     default_pbkdf2_iterations, CryptoError, HashPurpose, Kdf, MasterKey, RsaKeyPair,
 };
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{ApiError, Client};
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RegisterRequest {
     pub email: String,

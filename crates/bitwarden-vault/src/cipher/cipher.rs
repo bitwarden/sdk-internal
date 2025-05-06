@@ -9,7 +9,6 @@ use bitwarden_crypto::{
 };
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
@@ -45,7 +44,7 @@ pub enum CipherError {
     AttachmentsWithoutKeys,
 }
 
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, JsonSchema, PartialEq)]
+#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -57,7 +56,7 @@ pub enum CipherType {
     SshKey = 5,
 }
 
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, JsonSchema, PartialEq)]
+#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -66,7 +65,7 @@ pub enum CipherRepromptType {
     Password = 1,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -107,7 +106,7 @@ pub struct Cipher {
     pub revision_date: DateTime<Utc>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -147,7 +146,7 @@ pub struct CipherView {
     pub revision_date: DateTime<Utc>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -159,7 +158,7 @@ pub enum CipherListViewType {
     SshKey,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -326,7 +325,7 @@ impl Cipher {
     ) -> Result<SymmetricKeyId, CryptoError> {
         const CIPHER_KEY: SymmetricKeyId = SymmetricKeyId::Local("cipher_key");
         match ciphers_key {
-            Some(ciphers_key) => ctx.unwrap_symmetric_key(key, CIPHER_KEY, &ciphers_key.clone()),
+            Some(ciphers_key) => ctx.unwrap_symmetric_key(key, CIPHER_KEY, ciphers_key),
             None => Ok(key),
         }
     }
@@ -1180,7 +1179,7 @@ mod tests {
         #[allow(deprecated)]
         let cipher_key_val = ctx.dangerous_get_symmetric_key(cipher_key).unwrap();
 
-        assert_eq!(*new_cipher_key_dec, *cipher_key_val);
+        assert_eq!(new_cipher_key_dec, cipher_key_val);
 
         // Check that the attachment key hasn't changed
         assert_eq!(

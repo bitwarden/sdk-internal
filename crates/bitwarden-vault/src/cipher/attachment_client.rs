@@ -10,7 +10,7 @@ use crate::{
     Cipher, DecryptError, EncryptError, VaultClient,
 };
 
-pub struct ClientAttachments {
+pub struct AttachmentsClient {
     pub(crate) client: Client,
 }
 
@@ -34,7 +34,7 @@ pub enum DecryptFileError {
     Io(#[from] std::io::Error),
 }
 
-impl ClientAttachments {
+impl AttachmentsClient {
     pub fn encrypt_buffer(
         &self,
         cipher: Cipher,
@@ -68,7 +68,7 @@ impl ClientAttachments {
     pub fn decrypt_buffer(
         &self,
         cipher: Cipher,
-        attachment: Attachment,
+        attachment: AttachmentView,
         encrypted_buffer: &[u8],
     ) -> Result<Vec<u8>, DecryptError> {
         let key_store = self.client.internal.get_key_store();
@@ -82,7 +82,7 @@ impl ClientAttachments {
     pub fn decrypt_file(
         &self,
         cipher: Cipher,
-        attachment: Attachment,
+        attachment: AttachmentView,
         encrypted_file_path: &Path,
         decrypted_file_path: &Path,
     ) -> Result<(), DecryptFileError> {
@@ -94,8 +94,8 @@ impl ClientAttachments {
 }
 
 impl VaultClient {
-    pub fn attachments(&self) -> ClientAttachments {
-        ClientAttachments {
+    pub fn attachments(&self) -> AttachmentsClient {
+        AttachmentsClient {
             client: self.client.clone(),
         }
     }

@@ -5,10 +5,10 @@ use bitwarden_vault::{Attachment, AttachmentEncryptResult, AttachmentView, Ciphe
 use crate::{error::Error, Result};
 
 #[derive(uniffi::Object)]
-pub struct ClientAttachments(pub(crate) bitwarden_vault::ClientAttachments);
+pub struct AttachmentsClient(pub(crate) bitwarden_vault::AttachmentsClient);
 
 #[uniffi::export]
-impl ClientAttachments {
+impl AttachmentsClient {
     /// Encrypt an attachment file in memory
     pub fn encrypt_buffer(
         &self,
@@ -44,7 +44,7 @@ impl ClientAttachments {
     pub fn decrypt_buffer(
         &self,
         cipher: Cipher,
-        attachment: Attachment,
+        attachment: AttachmentView,
         buffer: Vec<u8>,
     ) -> Result<Vec<u8>> {
         Ok(self
@@ -57,7 +57,7 @@ impl ClientAttachments {
     pub fn decrypt_file(
         &self,
         cipher: Cipher,
-        attachment: Attachment,
+        attachment: AttachmentView,
         encrypted_file_path: String,
         decrypted_file_path: String,
     ) -> Result<()> {

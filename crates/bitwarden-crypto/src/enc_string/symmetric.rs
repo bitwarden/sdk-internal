@@ -44,13 +44,14 @@ export type EncString = string;
 /// The scheme is one of the following schemes:
 /// - `[type].[iv]|[data]`
 /// - `[type].[iv]|[data]|[mac]`
-/// - `[type].[data]`
+/// - `[type].[cose_encrypt0_bytes]`
 ///
 /// Where:
 /// - `[type]`: is a digit number representing the variant.
 /// - `[iv]`: (optional) is the initialization vector used for encryption.
 /// - `[data]`: is the encrypted data.
 /// - `[mac]`: (optional) is the MAC used to validate the integrity of the data.
+/// - `[cose_encrypt0_bytes]`: is the COSE Encrypt0 message, serialized to bytes
 #[derive(Clone, zeroize::ZeroizeOnDrop, PartialEq)]
 #[allow(unused, non_camel_case_types)]
 pub enum EncString {
@@ -173,6 +174,10 @@ impl EncString {
     }
 }
 
+// `Display` is not implemented here because printing for debug purposes should be different
+// from serializing to a string. For Aes256_Cbc, or Aes256_Cbc_Hmac, `ToString` and `Debug`
+// are the same. For `Cose_Encrypt0`, `Debug` will print the decoded COSE message, while
+// `ToString` will print the Cose_Encrypt0 bytes, encoded in base64.
 #[allow(clippy::to_string_trait_impl)]
 impl ToString for EncString {
     fn to_string(&self) -> String {
@@ -193,7 +198,6 @@ impl ToString for EncString {
     }
 }
 
-/// To avoid printing sensitive information, [EncString] debug prints to `EncString`.
 impl std::fmt::Debug for EncString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         fn fmt_parts(
@@ -214,12 +218,10 @@ impl std::fmt::Debug for EncString {
                 fmt_parts(f, enc_type, &[iv, data, mac])
             }
             EncString::Cose_Encrypt0_B64 { data } => {
-                if let Ok(msg) = coset::CoseEncrypt0::from_slice(data.as_slice()) {
-                    write!(f, "{}.{:?}", enc_type, msg)?;
-                } else {
-                    write!(f, "{}.INVALID_COSE", enc_type)?;
-                }
-                Ok(())
+                let msg = coset::CoseEncrypt0::from_slice(data.as_slice())
+                    .map(|msg| format!("{:?}", msg))
+                    .unwrap_or_else(|_| "INVALID_COSE".to_string());
+                write!(f, "{}.{}", enc_type, msg)
             }
         }
     }
@@ -346,11 +348,12 @@ mod tests {
     use super::EncString;
     use crate::{
         derive_symmetric_key, CryptoError, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+        KEY_ID_SIZE,
     };
 
     #[test]
     fn test_enc_roundtrip_xchacha20() {
-        let key_id = [0u8; 24];
+        let key_id = [0u8; KEY_ID_SIZE];
         let enc_key = [0u8; 32];
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id,

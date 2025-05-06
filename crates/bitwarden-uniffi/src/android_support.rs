@@ -92,7 +92,7 @@ fn init_verifier(env: &mut jni::JNIEnv<'_>) -> jni::errors::Result<()> {
         )?
         .l()?;
 
-    Ok(rustls_platform_verifier::android::init_hosted(
+    Ok(rustls_platform_verifier::android::init_with_env(
         env, context,
     )?)
 }

@@ -135,7 +135,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///   the context
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
-    /// * `key_to_unwrap` - The key to unwrap
+    /// * `key_to_unwrap` - The key to decrypt
     pub fn unwrap_symmetric_key(
         &mut self,
         wrapping_key: Ids::Symmetric,
@@ -157,8 +157,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// # Arguments
     ///
-    /// * `wrapping_key` - The key id used to wrap(encrypt) the `key_to_wrap`. It must already exist
-    ///   in the context
+    /// * `wrapping_key` - The key id used to wrap (encrypt) the `key_to_wrap`. It must already
+    ///   exist in the context
     /// * `key_to_wrap` - The key id to wrap. It must already exist in the context
     pub fn wrap_symmetric_key(
         &self,
@@ -169,31 +169,23 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
         let wrapping_key_instance = self.get_symmetric_key(wrapping_key)?;
         let key_to_wrap_instance = self.get_symmetric_key(key_to_wrap)?;
-        // Aes256CbcHmacKey can wrap keys by encrypting their byte serialization obtained using
-        // SymmetricCryptoKey::to_encoded(). XChaCha20Poly1305Key need to specify the
+        // `Aes256CbcHmacKey` can wrap keys by encrypting their byte serialization obtained using
+        // `SymmetricCryptoKey::to_encoded()`. `XChaCha20Poly1305Key` need to specify the
         // content format to be either octet stream, in case the wrapped key is a Aes256CbcHmacKey
-        // or Aes256CbcKey, or by specifying the content format to be CoseKey, in case the
-        // wrapped key is a XChaCha20Poly1305Key.
-        Ok(WrappedSymmetricKey::from(
-            match (wrapping_key_instance, key_to_wrap_instance) {
-                (Aes256CbcHmacKey(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => self
-                    .encrypt_data_with_symmetric_key(
-                        wrapping_key,
-                        key_to_wrap_instance.to_encoded().as_slice(),
-                    ),
-                (XChaCha20Poly1305Key(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => {
-                    // These keys should be represented as octet stream payloads in COSE
-                    todo!()
-                }
-                (XChaCha20Poly1305Key(_), XChaCha20Poly1305Key(_)) => {
-                    // These keys should be represented as CoseKey payloads in COSE
-                    todo!()
-                }
-                _ => Err(CryptoError::OperationNotSupported(
-                    UnsupportedOperation::EncryptionNotImplementedForKey,
-                )),
-            }?,
-        ))
+        // or `Aes256CbcKey`, or by specifying the content format to be CoseKey, in case the
+        // wrapped key is a `XChaCha20Poly1305Key`.
+        match (wrapping_key_instance, key_to_wrap_instance) {
+            (Aes256CbcHmacKey(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => self
+                .encrypt_data_with_symmetric_key(
+                    wrapping_key,
+                    key_to_wrap_instance.to_encoded().as_slice(),
+                )
+                .map_err(|_| CryptoError::InvalidKey)
+                .map(WrappedSymmetricKey::from),
+            _ => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperation::EncryptionNotImplementedForKey,
+            )),
+        }
     }
 
     /// Decapsulate a symmetric key into the context by using an already existing asymmetric key

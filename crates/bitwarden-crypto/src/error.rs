@@ -78,6 +78,8 @@ pub enum EncStringParseError {
     InvalidLength { expected: usize, got: usize },
     #[error("Invalid encoding {0}")]
     InvalidCoseEncoding(coset::CoseError),
+    #[error("Algorithm missing in COSE header")]
+    CoseMissingAlgorithm,
 }
 
 #[derive(Debug, Error)]

@@ -17,8 +17,12 @@
 use chacha20poly1305::{AeadCore, AeadInPlace, KeyInit, XChaCha20Poly1305};
 use generic_array::GenericArray;
 use rand::{CryptoRng, RngCore};
+use typenum::Unsigned;
 
 use crate::CryptoError;
+
+pub(crate) const NONCE_SIZE: usize = <XChaCha20Poly1305 as AeadCore>::NonceSize::USIZE;
+pub(crate) const KEY_SIZE: usize = 32;
 
 pub(crate) struct XChaCha20Poly1305Ciphertext {
     nonce: GenericArray<u8, <XChaCha20Poly1305 as AeadCore>::NonceSize>,
@@ -26,17 +30,17 @@ pub(crate) struct XChaCha20Poly1305Ciphertext {
 }
 
 impl XChaCha20Poly1305Ciphertext {
-    pub(crate) fn nonce(&self) -> [u8; 24] {
+    pub(crate) fn nonce(&self) -> [u8; NONCE_SIZE] {
         self.nonce.into()
     }
 
-    pub(crate) fn encrypted_bytes(&self) -> Vec<u8> {
-        self.encrypted_bytes.clone()
+    pub(crate) fn encrypted_bytes(&self) -> &[u8] {
+        &self.encrypted_bytes
     }
 }
 
 pub(crate) fn encrypt_xchacha20_poly1305(
-    key: &[u8; 32],
+    key: &[u8; KEY_SIZE],
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
 ) -> XChaCha20Poly1305Ciphertext {
@@ -46,7 +50,7 @@ pub(crate) fn encrypt_xchacha20_poly1305(
 
 fn encrypt_xchacha20_poly1305_internal(
     rng: impl RngCore + CryptoRng,
-    key: &[u8; 32],
+    key: &[u8; KEY_SIZE],
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
 ) -> XChaCha20Poly1305Ciphertext {
@@ -64,8 +68,8 @@ fn encrypt_xchacha20_poly1305_internal(
 }
 
 pub(crate) fn decrypt_xchacha20_poly1305(
-    nonce: &[u8; 24],
-    key: &[u8; 32],
+    nonce: &[u8; NONCE_SIZE],
+    key: &[u8; KEY_SIZE],
     ciphertext: &[u8],
     associated_data: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
@@ -86,7 +90,7 @@ mod tests {
 
     #[test]
     fn test_encrypt_decrypt_xchacha20() {
-        let key = [0u8; 32];
+        let key = [0u8; KEY_SIZE];
         let plaintext_secret_data = b"My secret data";
         let authenticated_data = b"My authenticated data";
         let encrypted = encrypt_xchacha20_poly1305(&key, plaintext_secret_data, authenticated_data);
@@ -102,7 +106,7 @@ mod tests {
 
     #[test]
     fn test_fails_when_ciphertext_changed() {
-        let key = [0u8; 32];
+        let key = [0u8; KEY_SIZE];
         let plaintext_secret_data = b"My secret data";
         let authenticated_data = b"My authenticated data";
 
@@ -120,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_fails_when_associated_data_changed() {
-        let key = [0u8; 32];
+        let key = [0u8; KEY_SIZE];
         let plaintext_secret_data = b"My secret data";
         let mut authenticated_data = b"My authenticated data".to_vec();
 
@@ -138,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_fails_when_nonce_changed() {
-        let key = [0u8; 32];
+        let key = [0u8; KEY_SIZE];
         let plaintext_secret_data = b"My secret data";
         let authenticated_data = b"My authenticated data";
 

@@ -1,10 +1,10 @@
 use std::pin::Pin;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use generic_array::{typenum::U32, GenericArray};
+use generic_array::GenericArray;
 use rand::Rng;
-use schemars::JsonSchema;
-use zeroize::Zeroize;
+use typenum::U32;
+use zeroize::{Zeroize, Zeroizing};
 
 use super::{
     kdf::{Kdf, KdfDerivedKeyMaterial},
@@ -15,7 +15,7 @@ use crate::{
     CryptoError, EncString, Result, SymmetricCryptoKey, UserKey, WrappedSymmetricKey,
 };
 
-#[derive(Copy, Clone, JsonSchema)]
+#[derive(Copy, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum HashPurpose {
     ServerAuthorization = 1,
@@ -125,8 +125,10 @@ pub(super) fn encrypt_user_key(
     master_key: &Pin<Box<GenericArray<u8, U32>>>,
     user_key: &SymmetricCryptoKey,
 ) -> Result<WrappedSymmetricKey> {
-    let stretched_master_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(master_key)?);
-    user_key.wrap_with(&stretched_master_key)
+    let stretched_master_key = stretch_key(master_key)?;
+    let user_key_bytes = Zeroizing::new(user_key.to_encoded());
+    EncString::encrypt_aes256_hmac(&user_key_bytes, &stretched_master_key)
+        .map(WrappedSymmetricKey::from)
 }
 
 /// Helper function to decrypt a user key with a master or pin key or key-connector-key.
@@ -148,9 +150,11 @@ pub(super) fn decrypt_user_key(
             let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key)?);
             user_key.unwrap_with(&stretched_key)
         }
-        EncString::Cose_Encrypt0_B64 { .. } => Err(CryptoError::OperationNotSupported(
-            crate::error::UnsupportedOperation::EncryptionNotImplementedForKey,
-        )),
+        EncString::Cose_Encrypt0_B64 { .. } => {
+            return Err(CryptoError::OperationNotSupported(
+                crate::error::UnsupportedOperation::EncryptionNotImplementedForKey,
+            ));
+        }
     }
 }
 
@@ -158,11 +162,13 @@ pub(super) fn decrypt_user_key(
 ///
 /// WARNING: This function should only be used with a proper cryptographic random number generator.
 /// If you do not have a good reason for using this, use [MasterKey::make_user_key] instead.
+///
+/// This function is only split out from [MasterKey::make_user_key], to make it unit testable.
 fn make_user_key(
-    mut rng: impl rand::RngCore + rand::CryptoRng,
+    rng: impl rand::RngCore + rand::CryptoRng,
     master_key: &MasterKey,
 ) -> Result<(UserKey, WrappedSymmetricKey)> {
-    let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key_internal(&mut rng);
+    let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key_internal(rng);
     let protected = master_key.encrypt_user_key(&user_key)?;
     Ok((UserKey::new(user_key), protected))
 }

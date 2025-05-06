@@ -4,7 +4,6 @@ use bitwarden_vault::{
     CipherRepromptType, CipherView, Fido2CredentialFullView, LoginUriView, UriMatchType,
 };
 use chrono::{DateTime, Utc};
-use schemars::JsonSchema;
 use uuid::Uuid;
 
 #[cfg(feature = "uniffi")]
@@ -24,8 +23,12 @@ mod error;
 mod export;
 pub use error::ExportError;
 
-#[derive(JsonSchema)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(serde::Serialize, serde::Deserialize, tsify_next::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 pub enum ExportFormat {
     Csv,
     Json,

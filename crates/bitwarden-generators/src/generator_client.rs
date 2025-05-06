@@ -1,4 +1,6 @@
 use bitwarden_core::Client;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::{
     passphrase::passphrase, password::password, username::username, PassphraseError,
@@ -6,10 +8,12 @@ use crate::{
     UsernameGeneratorRequest,
 };
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct GeneratorClient {
     client: Client,
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl GeneratorClient {
     fn new(client: Client) -> Self {
         Self { client }
@@ -68,7 +72,9 @@ impl GeneratorClient {
     pub fn passphrase(&self, input: PassphraseGeneratorRequest) -> Result<String, PassphraseError> {
         passphrase(input)
     }
+}
 
+impl GeneratorClient {
     /// Generates a random username.
     /// There are different username generation strategies, which can be customized using the
     /// `input` parameter.

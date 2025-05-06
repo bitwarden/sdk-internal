@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use bitwarden_api_api::models::PolicyResponseModel;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
@@ -9,7 +8,7 @@ use uuid::Uuid;
 use crate::{require, MissingFieldError};
 
 /// Represents a policy that can be applied to an organization.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Policy {
     id: Uuid,
     organization_id: Uuid,
@@ -18,7 +17,7 @@ pub struct Policy {
     enabled: bool,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, JsonSchema)]
+#[derive(Serialize_repr, Deserialize_repr, Debug)]
 #[repr(u8)]
 pub enum PolicyType {
     /// Requires users to have 2fa enabled
