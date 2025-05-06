@@ -108,11 +108,8 @@ impl PureCrypto {
     pub fn generate_user_key_xchacha20_poly1305() -> Vec<u8> {
         SymmetricCryptoKey::make_xchacha20_poly1305_key().to_encoded()
     }
-}
 
-// Key Wrap
-#[wasm_bindgen]
-impl PureCrypto {
+    // Key Wrap
     pub fn wrap_symmetric_key(
         key_to_be_wrapped: Vec<u8>,
         wrapping_key: Vec<u8>,
