@@ -15,6 +15,7 @@ pub struct PureCrypto {}
 // Encryption
 #[wasm_bindgen]
 impl PureCrypto {
+    #[allow(deprecated)]
     #[deprecated]
     pub fn symmetric_decrypt(enc_string: String, key: Vec<u8>) -> Result<String, CryptoError> {
         Self::symmetric_decrypt_string(enc_string, key)
@@ -34,6 +35,7 @@ impl PureCrypto {
         EncString::from_str(&enc_string)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
     }
 
+    #[allow(deprecated)]
     #[deprecated]
     pub fn symmetric_decrypt_array_buffer(
         enc_bytes: Vec<u8>,
