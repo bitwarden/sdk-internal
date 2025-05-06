@@ -275,7 +275,6 @@ impl VerifyingKey {
             return false;
         };
 
-        let mut signature_namespace = signature.namespace();
         let Ok(signature_namespace) = signature.namespace() else {
             return false;
         };
