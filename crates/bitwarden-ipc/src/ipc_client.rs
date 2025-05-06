@@ -165,10 +165,10 @@ where
             client.stop().await;
         };
 
-        #[cfg(not(feature = "wasm"))]
+        #[cfg(not(target_arch = "wasm32"))]
         tokio::spawn(future);
 
-        #[cfg(feature = "wasm")]
+        #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(future);
 
         await_init_rx.await.map_err(|e| StartError(e.to_string()))?;
