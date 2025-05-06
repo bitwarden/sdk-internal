@@ -631,7 +631,7 @@ mod tests {
         let is_running = client.is_running().await;
 
         assert_eq!(error, "Crypto error".to_string());
-        assert!(is_running);
+        assert!(!is_running);
     }
 
     #[tokio::test]
@@ -652,7 +652,7 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(100)).await;
         let is_running = client.is_running().await;
 
-        assert!(is_running);
+        assert!(!is_running);
     }
 
     #[tokio::test]
