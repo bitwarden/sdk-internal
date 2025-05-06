@@ -1,9 +1,11 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use crate::{
     error::{ReceiveError, SendError, TypedReceiveError},
     message::{IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage},
-    traits::{CommunicationBackend, CryptoProvider, SessionRepository},
+    traits::{
+        CommunicationBackend, CommunicationBackendReceiver, CryptoProvider, SessionRepository,
+    },
 };
 
 pub struct IpcClient<Crypto, Com, Ses>
@@ -17,23 +19,54 @@ where
     sessions: Ses,
 }
 
+/// A subscription to receive messages over IPC.
+/// The subcription will start buffering messages after its creation and return them
+/// when receive() is called. Messages received before the subscription was created will not be
+/// returned.
+pub struct IpcClientSubscription<Crypto, Com, Ses>
+where
+    Crypto: CryptoProvider<Com, Ses>,
+    Com: CommunicationBackend,
+    Ses: SessionRepository<Session = Crypto::Session>,
+{
+    receiver: Com::Receiver,
+    client: Arc<IpcClient<Crypto, Com, Ses>>,
+    topic: Option<String>,
+}
+
+/// A subscription to receive messages over IPC.
+/// The subcription will start buffering messages after its creation and return them
+/// when receive() is called. Messages received before the subscription was created will not be
+/// returned.
+pub struct IpcClientTypedSubscription<Crypto, Com, Ses, Payload>
+where
+    Crypto: CryptoProvider<Com, Ses>,
+    Com: CommunicationBackend,
+    Ses: SessionRepository<Session = Crypto::Session>,
+    Payload: TryFrom<Vec<u8>> + PayloadTypeName,
+{
+    receiver: Com::Receiver,
+    client: Arc<IpcClient<Crypto, Com, Ses>>,
+    _payload: std::marker::PhantomData<Payload>,
+}
+
 impl<Crypto, Com, Ses> IpcClient<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationBackend,
     Ses: SessionRepository<Session = Crypto::Session>,
 {
-    pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Self {
-        Self {
+    pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Arc<Self> {
+        Arc::new(Self {
             crypto,
             communication,
             sessions,
-        }
+        })
     }
 
     /// Send a message
     pub async fn send(
-        &self,
+        self: &Arc<Self>,
         message: OutgoingMessage,
     ) -> Result<(), SendError<Crypto::SendError, Com::SendError>> {
         self.crypto
@@ -41,21 +74,56 @@ where
             .await
     }
 
+    /// Create a subscription to receive messages, optionally filtered by topic.
+    /// Setting the topic to `None` will receive all messages.
+    pub async fn subscribe(
+        self: &Arc<Self>,
+        topic: Option<String>,
+    ) -> IpcClientSubscription<Crypto, Com, Ses> {
+        IpcClientSubscription {
+            receiver: self.communication.subscribe().await,
+            client: self.clone(),
+            topic,
+        }
+    }
+
+    /// Create a subscription to receive messages that can be deserialized into the provided payload
+    /// type.
+    pub async fn subscribe_typed<Payload>(
+        self: &Arc<Self>,
+    ) -> IpcClientTypedSubscription<Crypto, Com, Ses, Payload>
+    where
+        Payload: TryFrom<Vec<u8>> + PayloadTypeName,
+    {
+        IpcClientTypedSubscription {
+            receiver: self.communication.subscribe().await,
+            client: self.clone(),
+            _payload: std::marker::PhantomData,
+        }
+    }
+
     /// Receive a message, optionally filtering by topic.
     /// Setting the topic to `None` will receive all messages.
     /// Setting the timeout to `None` will wait indefinitely.
-    pub async fn receive(
+    async fn receive(
         &self,
-        topic: Option<String>,
+        receiver: &Com::Receiver,
+        topic: &Option<String>,
         timeout: Option<Duration>,
-    ) -> Result<IncomingMessage, ReceiveError<Crypto::ReceiveError, Com::ReceiveError>> {
+    ) -> Result<
+        IncomingMessage,
+        ReceiveError<
+            Crypto::ReceiveError,
+            <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
+        >,
+    > {
         let receive_loop = async {
             loop {
                 let received = self
                     .crypto
-                    .receive(&self.communication, &self.sessions)
+                    .receive(receiver, &self.communication, &self.sessions)
                     .await?;
-                if topic.is_none() || received.topic == topic {
+                if topic.is_none() || &received.topic == topic {
                     return Ok(received);
                 }
             }
@@ -72,7 +140,61 @@ where
 
     /// Receive a message, skipping any messages that cannot be deserialized into the expected
     /// payload type.
-    pub async fn receive_typed<Payload>(
+    async fn receive_typed<Payload>(
+        &self,
+        receiver: &Com::Receiver,
+        timeout: Option<Duration>,
+    ) -> Result<
+        TypedIncomingMessage<Payload>,
+        TypedReceiveError<
+            <Payload as TryFrom<Vec<u8>>>::Error,
+            Crypto::ReceiveError,
+            <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
+        >,
+    >
+    where
+        Payload: TryFrom<Vec<u8>> + PayloadTypeName,
+    {
+        let topic = Some(Payload::name());
+        let received = self.receive(receiver, &topic, timeout).await?;
+        received.try_into().map_err(TypedReceiveError::Typing)
+    }
+}
+
+impl<Crypto, Com, Ses> IpcClientSubscription<Crypto, Com, Ses>
+where
+    Crypto: CryptoProvider<Com, Ses>,
+    Com: CommunicationBackend,
+    Ses: SessionRepository<Session = Crypto::Session>,
+{
+    /// Receive a message, optionally filtering by topic.
+    /// Setting the timeout to `None` will wait indefinitely.
+    pub async fn receive(
+        &self,
+        timeout: Option<Duration>,
+    ) -> Result<
+        IncomingMessage,
+        ReceiveError<
+            Crypto::ReceiveError,
+            <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
+        >,
+    > {
+        self.client
+            .receive(&self.receiver, &self.topic, timeout)
+            .await
+    }
+}
+
+impl<Crypto, Com, Ses, Payload> IpcClientTypedSubscription<Crypto, Com, Ses, Payload>
+where
+    Crypto: CryptoProvider<Com, Ses>,
+    Com: CommunicationBackend,
+    Ses: SessionRepository<Session = Crypto::Session>,
+    Payload: TryFrom<Vec<u8>> + PayloadTypeName,
+{
+    /// Receive a message.
+    /// Setting the timeout to `None` will wait indefinitely.
+    pub async fn receive(
         &self,
         timeout: Option<Duration>,
     ) -> Result<
@@ -80,15 +202,10 @@ where
         TypedReceiveError<
             <Payload as TryFrom<Vec<u8>>>::Error,
             Crypto::ReceiveError,
-            Com::ReceiveError,
+            <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
         >,
-    >
-    where
-        Payload: TryFrom<Vec<u8>> + PayloadTypeName,
-    {
-        let topic = Some(Payload::name());
-        let received = self.receive(topic, timeout).await?;
-        received.try_into().map_err(TypedReceiveError::Typing)
+    > {
+        self.client.receive_typed(&self.receiver, timeout).await
     }
 }
 
@@ -121,6 +238,7 @@ mod tests {
 
         async fn receive(
             &self,
+            _receiver: &<TestCommunicationBackend as CommunicationBackend>::Receiver,
             _communication: &TestCommunicationBackend,
             _sessions: &TestSessionRepository,
         ) -> Result<IncomingMessage, ReceiveError<String, TestCommunicationBackendReceiveError>>
@@ -176,7 +294,8 @@ mod tests {
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider, session_map);
 
-        let error = client.receive(None, None).await.unwrap_err();
+        let subscription = client.subscribe(None).await;
+        let error = subscription.receive(None).await.unwrap_err();
 
         assert_eq!(error, ReceiveError::Crypto("Crypto error".to_string()));
     }
@@ -212,8 +331,9 @@ mod tests {
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
 
-        communication_provider.push_incoming(message.clone()).await;
-        let received_message = client.receive(None, None).await.unwrap();
+        let subscription = &client.subscribe(None).await;
+        communication_provider.push_incoming(message.clone());
+        let received_message = subscription.receive(None).await.unwrap();
 
         assert_eq!(received_message, message);
     }
@@ -237,20 +357,12 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        communication_provider
-            .push_incoming(non_matching_message.clone())
-            .await;
-        communication_provider
-            .push_incoming(non_matching_message.clone())
-            .await;
-        communication_provider
-            .push_incoming(matching_message.clone())
-            .await;
+        let subscription = client.subscribe(Some("matching_topic".to_owned())).await;
+        communication_provider.push_incoming(non_matching_message.clone());
+        communication_provider.push_incoming(non_matching_message.clone());
+        communication_provider.push_incoming(matching_message.clone());
 
-        let received_message: IncomingMessage = client
-            .receive(Some("matching_topic".to_owned()), None)
-            .await
-            .unwrap();
+        let received_message: IncomingMessage = subscription.receive(None).await.unwrap();
 
         assert_eq!(received_message, matching_message);
     }
@@ -302,18 +414,12 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        communication_provider
-            .push_incoming(unrelated.clone())
-            .await;
-        communication_provider
-            .push_incoming(unrelated.clone())
-            .await;
-        communication_provider
-            .push_incoming(typed_message.clone().try_into().unwrap())
-            .await;
+        let subscription = client.subscribe_typed::<TestPayload>().await;
+        communication_provider.push_incoming(unrelated.clone());
+        communication_provider.push_incoming(unrelated.clone());
+        communication_provider.push_incoming(typed_message.clone().try_into().unwrap());
 
-        let received_message: TypedIncomingMessage<TestPayload> =
-            client.receive_typed(None).await.unwrap();
+        let received_message = subscription.receive(None).await.unwrap();
 
         assert_eq!(received_message, typed_message);
     }
@@ -358,11 +464,10 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        communication_provider
-            .push_incoming(non_deserializable_message.clone())
-            .await;
+        let subscription = client.subscribe_typed::<TestPayload>().await;
+        communication_provider.push_incoming(non_deserializable_message.clone());
 
-        let result: Result<TypedIncomingMessage<TestPayload>, _> = client.receive_typed(None).await;
+        let result = subscription.receive(None).await;
 
         assert!(matches!(
             result,

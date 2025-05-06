@@ -208,8 +208,12 @@ impl InternalClient {
     }
 
     #[cfg(feature = "secrets")]
-    pub(crate) fn initialize_crypto_single_key(&self, key: SymmetricCryptoKey) {
-        EncryptionSettings::new_single_key(key, &self.key_store);
+    pub(crate) fn initialize_crypto_single_org_key(
+        &self,
+        organization_id: Uuid,
+        key: SymmetricCryptoKey,
+    ) {
+        EncryptionSettings::new_single_org_key(organization_id, key, &self.key_store);
     }
 
     #[cfg(feature = "internal")]
