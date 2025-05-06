@@ -4,7 +4,8 @@ use super::{
     utils::stretch_key,
 };
 use crate::{
-    keys::key_encryptable::CryptoKey, EncString, KeyEncryptable, Result, SymmetricCryptoKey, WrappedSymmetricKey,
+    keys::key_encryptable::CryptoKey, EncString, KeyEncryptable, Result, SymmetricCryptoKey,
+    WrappedSymmetricKey,
 };
 
 /// Pin Key.
