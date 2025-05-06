@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::rc::Rc;
 
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
@@ -40,7 +40,7 @@ extern "C" {
 
 #[wasm_bindgen(js_name = IpcCommunicationBackend)]
 pub struct JsCommunicationBackend {
-    sender: Arc<Mutex<JsCommunicationBackendSender>>,
+    sender: Rc<Mutex<JsCommunicationBackendSender>>,
     receive_rx: tokio::sync::broadcast::Receiver<IncomingMessage>,
     receive_tx: tokio::sync::broadcast::Sender<IncomingMessage>,
 }
@@ -51,7 +51,7 @@ impl JsCommunicationBackend {
     pub fn new(sender: JsCommunicationBackendSender) -> Self {
         let (receive_tx, receive_rx) = tokio::sync::broadcast::channel(20);
         Self {
-            sender: Arc::new(Mutex::new(sender)),
+            sender: Rc::new(Mutex::new(sender)),
             receive_rx,
             receive_tx,
         }
