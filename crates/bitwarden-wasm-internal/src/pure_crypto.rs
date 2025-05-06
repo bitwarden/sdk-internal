@@ -15,6 +15,12 @@ pub struct PureCrypto {}
 // Encryption
 #[wasm_bindgen]
 impl PureCrypto {
+
+    #[warn(deprecated)]
+    pub fn symmetric_decrypt(enc_string: String, key: Vec<u8>) -> Result<String, CryptoError> {
+        Self::symmetric_decrypt_string(enc_string, key)
+    }
+
     pub fn symmetric_decrypt_string(
         enc_string: String,
         key: Vec<u8>,
@@ -27,6 +33,14 @@ impl PureCrypto {
         key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         EncString::from_str(&enc_string)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
+    }
+
+    #[warn(deprecated)]
+    pub fn symmetric_decrypt_array_buffer(
+        enc_bytes: Vec<u8>,
+        key: Vec<u8>,
+    ) -> Result<Vec<u8>, CryptoError> {
+        Self::symmetric_decrypt_filedata(enc_bytes, key)
     }
 
     pub fn symmetric_decrypt_filedata(
@@ -56,11 +70,8 @@ impl PureCrypto {
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)?
             .to_buffer()
     }
-}
 
-// Userkey encryption with password
-#[wasm_bindgen]
-impl PureCrypto {
+    // Userkey encryption with password
     pub fn decrypt_user_key_with_master_password(
         encrypted_user_key: String,
         master_password: String,
@@ -86,11 +97,8 @@ impl PureCrypto {
         let result = master_key.encrypt_user_key(&user_key)?;
         Ok(result.to_string())
     }
-}
 
-// Generate userkey
-#[wasm_bindgen]
-impl PureCrypto {
+    // Generate userkey
     pub fn generate_user_key_aes256_cbc_hmac() -> Vec<u8> {
         SymmetricCryptoKey::make_aes256_cbc_hmac_key().to_encoded()
     }
