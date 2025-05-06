@@ -1,4 +1,5 @@
 use bitwarden_crypto::EFF_LONG_WORD_LIST;
+use bitwarden_error::bitwarden_error;
 use rand::{distributions::Distribution, seq::SliceRandom, Rng, RngCore};
 use reqwest::StatusCode;
 use schemars::JsonSchema;
@@ -7,6 +8,7 @@ use thiserror::Error;
 
 use crate::util::capitalize_first_letter;
 
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum UsernameError {
     #[error("Invalid API Key")]
@@ -66,6 +68,11 @@ pub enum ForwarderServiceType {
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify_next::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 pub enum UsernameGeneratorRequest {
     /// Generates a single word username
     Word {
