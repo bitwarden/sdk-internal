@@ -16,7 +16,7 @@ pub struct PureCrypto {}
 #[wasm_bindgen]
 impl PureCrypto {
     /// DEPRECATED: Use `symmetric_decrypt_string` instead.
-    /// Cleanup ticket: https://bitwarden.atlassian.net/browse/PM-21247
+    /// Cleanup ticket: <https://bitwarden.atlassian.net/browse/PM-21247>
     pub fn symmetric_decrypt(enc_string: String, key: Vec<u8>) -> Result<String, CryptoError> {
         Self::symmetric_decrypt_string(enc_string, key)
     }
@@ -36,7 +36,7 @@ impl PureCrypto {
     }
 
     /// DEPRECATED: Use `symmetric_decrypt_filedata` instead.
-    /// Cleanup ticket: https://bitwarden.atlassian.net/browse/PM-21247
+    /// Cleanup ticket: <https://bitwarden.atlassian.net/browse/PM-21247>
     pub fn symmetric_decrypt_array_buffer(
         enc_bytes: Vec<u8>,
         key: Vec<u8>,
