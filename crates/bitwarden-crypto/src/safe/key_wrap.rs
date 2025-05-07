@@ -2,7 +2,10 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey};
+use crate::{
+    error::UnsupportedOperation, CryptoError, EncString, KeyDecryptable, KeyEncryptable,
+    SymmetricCryptoKey,
+};
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
@@ -103,9 +106,23 @@ impl SymmetricCryptoKey {
         &self,
         wrapping_key: &SymmetricCryptoKey,
     ) -> Result<WrappedSymmetricKey, CryptoError> {
-        let encoded = self.to_encoded();
-        let enc_string = encoded.encrypt_with_key(wrapping_key)?;
-        Ok(enc_string.into())
+        use crate::SymmetricCryptoKey::*;
+
+        // `Aes256CbcHmacKey` can wrap keys by encrypting their byte serialization obtained using
+        // `SymmetricCryptoKey::to_encoded()`. `XChaCha20Poly1305Key` need to specify the
+        // content format to be either octet stream, in case the wrapped key is a Aes256CbcHmacKey
+        // or `Aes256CbcKey`, or by specifying the content format to be CoseKey, in case the
+        // wrapped key is a `XChaCha20Poly1305Key`.
+        match (&wrapping_key, self) {
+            (Aes256CbcHmacKey(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => {
+                let encoded = self.to_encoded();
+                let enc_string = encoded.encrypt_with_key(wrapping_key)?;
+                return Ok(WrappedSymmetricKey(enc_string));
+            }
+            _ => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperation::EncryptionNotImplementedForKey,
+            )),
+        }
     }
 }
 
