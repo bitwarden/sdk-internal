@@ -113,7 +113,7 @@ impl SymmetricCryptoKey {
         // content format to be either octet stream, in case the wrapped key is a Aes256CbcHmacKey
         // or `Aes256CbcKey`, or by specifying the content format to be CoseKey, in case the
         // wrapped key is a `XChaCha20Poly1305Key`.
-        match (&wrapping_key, self) {
+        match (wrapping_key, self) {
             (Aes256CbcHmacKey(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => {
                 let encoded = self.to_encoded();
                 let enc_string = encoded.encrypt_with_key(wrapping_key)?;
