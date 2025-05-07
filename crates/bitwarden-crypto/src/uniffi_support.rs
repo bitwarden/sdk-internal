@@ -64,6 +64,6 @@ impl UniffiCustomTypeConverter for UnsignedSharedKey {
 // converters are emitted
 #[allow(dead_code)]
 #[derive(uniffi::Record)]
-struct UniffiConverterDummyRecord {
+struct CryptoUniffiConverterDummyRecord {
     wrapped_symmetric_key: WrappedSymmetricKey,
 }
