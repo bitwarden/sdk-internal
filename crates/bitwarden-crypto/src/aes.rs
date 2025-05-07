@@ -5,12 +5,11 @@
 //! In most cases you should use the [EncString][crate::EncString] with
 //! [KeyEncryptable][crate::KeyEncryptable] & [KeyDecryptable][crate::KeyDecryptable] instead.
 
-use aes::cipher::{
-    block_padding::Pkcs7, typenum::U32, BlockDecryptMut, BlockEncryptMut, KeyIvInit,
-};
+use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 use generic_array::GenericArray;
 use hmac::Mac;
 use subtle::ConstantTimeEq;
+use typenum::U32;
 
 use crate::{
     error::{CryptoError, Result},

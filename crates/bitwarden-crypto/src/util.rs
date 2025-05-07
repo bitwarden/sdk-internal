@@ -55,7 +55,7 @@ pub fn pbkdf2(password: &[u8], salt: &[u8], rounds: u32) -> [u8; PBKDF_SHA256_HM
 
 #[cfg(test)]
 mod tests {
-    use aes::cipher::typenum::U64;
+    use typenum::U64;
 
     use super::*;
 

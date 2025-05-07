@@ -776,7 +776,7 @@ mod tests {
             .dangerous_get_symmetric_key(SymmetricKeyId::User)
             .unwrap();
 
-        assert_eq!(&decrypted.to_vec(), &expected.to_vec());
+        assert_eq!(decrypted, *expected);
     }
 
     #[test]
