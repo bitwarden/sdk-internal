@@ -1,15 +1,13 @@
-use crate::message::PayloadTypeName;
+use serde::Serialize;
 
-pub trait RpcPayload: PayloadTypeName {
-    // /// The type of the request.
-    // type RequestType;
-
+pub trait RpcPayload {
     /// The type of the response.
-    type ResponseType;
+    type Response: Serialize + for<'de> serde::Deserialize<'de>;
 
     /// The type of the error.
-    type ErrorType;
+    type Error: Serialize + for<'de> serde::Deserialize<'de>;
 
     // /// Sends a request and returns a response.
     // fn send_request(&self, request: Self::RequestType) -> Result<Self::ResponseType, Self::ErrorType>;
+    fn name() -> String;
 }

@@ -1,17 +1,18 @@
-use crate::{message::PayloadTypeName, rpc::RpcPayload};
+use serde::{Deserialize, Serialize};
 
+use crate::rpc::payload::RpcPayload;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PingRequest;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PingResponse;
 
-impl PayloadTypeName for PingRequest {
+impl RpcPayload for PingRequest {
+    type Response = PingResponse;
+    type Error = ();
+
     fn name() -> String {
         "PingRequest".to_string()
     }
-}
-
-impl RpcPayload for PingRequest {
-    // type RequestType = PingRequest;
-    type ResponseType = PingResponse;
-    type ErrorType = ();
 }
