@@ -60,7 +60,6 @@ impl UniffiCustomTypeConverter for UnsignedSharedKey {
     }
 }
 
-
 // Uniffi doesn't emit unused types, this is a dummy record to ensure that the custom type
 // converters are emitted
 #[allow(dead_code)]
