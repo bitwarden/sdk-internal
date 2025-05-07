@@ -117,7 +117,7 @@ impl SymmetricCryptoKey {
             (Aes256CbcHmacKey(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => {
                 let encoded = self.to_encoded();
                 let enc_string = encoded.encrypt_with_key(wrapping_key)?;
-                return Ok(WrappedSymmetricKey(enc_string));
+                Ok(WrappedSymmetricKey(enc_string))
             }
             _ => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperation::EncryptionNotImplementedForKey,
