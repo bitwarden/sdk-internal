@@ -4,7 +4,9 @@
     "Bitwarden",
     "Cdecl",
     "chrono",
+    "ciphertext",
     "cloc",
+    "COSE",
     "dealloc",
     "decryptable",
     "dylib",
@@ -22,6 +24,7 @@
     "totp",
     "uniffi",
     "wordlist",
+    "XCHACHA",
     "Zeroize",
     "Zeroizing",
     "zxcvbn"
