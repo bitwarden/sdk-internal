@@ -1,6 +1,8 @@
 use std::{num::NonZeroU32, str::FromStr};
 
-use crate::{CryptoError, EncString, UniffiCustomTypeConverter, UnsignedSharedKey};
+use crate::{
+    CryptoError, EncString, UniffiCustomTypeConverter, UnsignedSharedKey, WrappedSymmetricKey,
+};
 
 uniffi::custom_type!(NonZeroU32, u32);
 
@@ -30,6 +32,20 @@ impl UniffiCustomTypeConverter for EncString {
     }
 }
 
+uniffi::custom_type!(WrappedSymmetricKey, String);
+impl UniffiCustomTypeConverter for WrappedSymmetricKey {
+    type Builtin = String;
+
+    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
+        let enc_string: EncString = val.parse()?;
+        Ok(WrappedSymmetricKey::from(enc_string))
+    }
+
+    fn from_custom(obj: Self) -> Self::Builtin {
+        obj.as_inner().to_string()
+    }
+}
+
 uniffi::custom_type!(UnsignedSharedKey, String);
 
 impl UniffiCustomTypeConverter for UnsignedSharedKey {
@@ -42,4 +58,12 @@ impl UniffiCustomTypeConverter for UnsignedSharedKey {
     fn from_custom(obj: Self) -> Self::Builtin {
         obj.to_string()
     }
+}
+
+// Uniffi doesn't emit unused types, this is a dummy record to ensure that the custom type
+// converters are emitted
+#[allow(dead_code)]
+#[derive(uniffi::Record)]
+struct CryptoUniffiConverterDummyRecord {
+    wrapped_symmetric_key: WrappedSymmetricKey,
 }

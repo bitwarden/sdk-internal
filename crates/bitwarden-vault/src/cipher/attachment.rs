@@ -1,6 +1,7 @@
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
     CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
+    WrappedSymmetricKey,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -20,7 +21,7 @@ pub struct Attachment {
     /// Readable size, ex: "4.2 KB" or "1.43 GB"
     pub size_name: Option<String>,
     pub file_name: Option<EncString>,
-    pub key: Option<EncString>,
+    pub key: Option<WrappedSymmetricKey>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -33,7 +34,7 @@ pub struct AttachmentView {
     pub size: Option<String>,
     pub size_name: Option<String>,
     pub file_name: Option<String>,
-    pub key: Option<EncString>,
+    pub key: Option<WrappedSymmetricKey>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -178,7 +179,7 @@ impl TryFrom<bitwarden_api_api::models::AttachmentResponseModel> for Attachment 
             size: attachment.size,
             size_name: attachment.size_name,
             file_name: EncString::try_from_optional(attachment.file_name)?,
-            key: EncString::try_from_optional(attachment.key)?,
+            key: WrappedSymmetricKey::try_from_optional(attachment.key)?,
         })
     }
 }

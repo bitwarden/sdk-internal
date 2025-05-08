@@ -76,7 +76,7 @@ pub(super) fn make_register_keys(
 
     Ok(RegisterKeyResponse {
         master_password_hash,
-        encrypted_user_key: encrypted_user_key.to_string(),
+        encrypted_user_key: encrypted_user_key.into_inner().to_string(),
         keys,
     })
 }

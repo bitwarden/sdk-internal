@@ -16,7 +16,7 @@ pub(super) fn make_key_connector_keys(
 
     Ok(KeyConnectorResponse {
         master_key: master_key.to_base64(),
-        encrypted_user_key: encrypted_user_key.to_string(),
+        encrypted_user_key: encrypted_user_key.into_inner().to_string(),
         keys,
     })
 }

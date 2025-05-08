@@ -5,6 +5,7 @@ use super::{
 };
 use crate::{
     keys::key_encryptable::CryptoKey, EncString, KeyEncryptable, Result, SymmetricCryptoKey,
+    WrappedSymmetricKey,
 };
 
 /// Pin Key.
@@ -19,12 +20,12 @@ impl PinKey {
     }
 
     /// Encrypt the users user key
-    pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
+    pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<WrappedSymmetricKey> {
         encrypt_user_key(&self.0 .0, user_key)
     }
 
     /// Decrypt the users user key
-    pub fn decrypt_user_key(&self, user_key: EncString) -> Result<SymmetricCryptoKey> {
+    pub fn decrypt_user_key(&self, user_key: WrappedSymmetricKey) -> Result<SymmetricCryptoKey> {
         decrypt_user_key(&self.0 .0, user_key)
     }
 }

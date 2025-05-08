@@ -9,7 +9,7 @@ use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
     AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, SymmetricCryptoKey,
-    UnsignedSharedKey,
+    UnsignedSharedKey, WrappedSymmetricKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -42,7 +42,7 @@ use crate::{
 /// #     pub Ids => SymmKeyId, AsymmKeyId;
 /// # }
 /// struct Data {
-///     key: EncString,
+///     key: WrappedSymmetricKey,
 ///     name: String,
 /// }
 /// # impl IdentifyKey<SymmKeyId> for Data {
@@ -127,29 +127,26 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     // TODO: All these encrypt x key with x key look like they need to be made generic,
     // but I haven't found the best way to do that yet.
 
-    /// Decrypt a symmetric key into the context by using an already existing symmetric key
+    /// Unwrap a symmetric key into the context by using an already existing symmetric key
     ///
     /// # Arguments
     ///
-    /// * `encryption_key` - The key id used to decrypt the `encrypted_key`. It must already exist
-    ///   in the context
+    /// * `wrapping_key` - The key id used to unwrap the `key_to_unwrap`. It must already exist in
+    ///   the context
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
-    /// * `encrypted_key` - The key to decrypt
+    /// * `key_to_unwrap` - The key to decrypt
     pub fn unwrap_symmetric_key(
         &mut self,
-        encryption_key: Ids::Symmetric,
+        wrapping_key: Ids::Symmetric,
         new_key_id: Ids::Symmetric,
-        encrypted_key: &EncString,
+        key_to_unwrap: &WrappedSymmetricKey,
     ) -> Result<Ids::Symmetric> {
-        let mut new_key_material =
-            self.decrypt_data_with_symmetric_key(encryption_key, encrypted_key)?;
+        let wrapping_key = self.get_symmetric_key(wrapping_key)?;
+        let unwrapped_key = key_to_unwrap.unwrap_with(wrapping_key)?;
 
         #[allow(deprecated)]
-        self.set_symmetric_key(
-            new_key_id,
-            SymmetricCryptoKey::try_from(new_key_material.as_mut_slice())?,
-        )?;
+        self.set_symmetric_key(new_key_id, unwrapped_key)?;
 
         // Returning the new key identifier for convenience
         Ok(new_key_id)
@@ -167,26 +164,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         &self,
         wrapping_key: Ids::Symmetric,
         key_to_wrap: Ids::Symmetric,
-    ) -> Result<EncString> {
-        use SymmetricCryptoKey::*;
-
+    ) -> Result<WrappedSymmetricKey> {
         let wrapping_key_instance = self.get_symmetric_key(wrapping_key)?;
         let key_to_wrap_instance = self.get_symmetric_key(key_to_wrap)?;
-        // `Aes256CbcHmacKey` can wrap keys by encrypting their byte serialization obtained using
-        // `SymmetricCryptoKey::to_encoded()`. `XChaCha20Poly1305Key` need to specify the
-        // content format to be either octet stream, in case the wrapped key is a Aes256CbcHmacKey
-        // or `Aes256CbcKey`, or by specifying the content format to be CoseKey, in case the
-        // wrapped key is a `XChaCha20Poly1305Key`.
-        match (wrapping_key_instance, key_to_wrap_instance) {
-            (Aes256CbcHmacKey(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => self
-                .encrypt_data_with_symmetric_key(
-                    wrapping_key,
-                    key_to_wrap_instance.to_encoded().as_slice(),
-                ),
-            _ => Err(CryptoError::OperationNotSupported(
-                UnsupportedOperation::EncryptionNotImplementedForKey,
-            )),
-        }
+        key_to_wrap_instance.wrap_with(wrapping_key_instance)
     }
 
     /// Decapsulate a symmetric key into the context by using an already existing asymmetric key

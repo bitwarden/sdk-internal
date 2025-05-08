@@ -5,6 +5,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{
     CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
+    WrappedSymmetricKey,
 };
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
@@ -76,7 +77,7 @@ pub struct Cipher {
 
     /// More recent ciphers uses individual encryption keys to encrypt the other fields of the
     /// Cipher.
-    pub key: Option<EncString>,
+    pub key: Option<WrappedSymmetricKey>,
 
     pub name: EncString,
     pub notes: Option<EncString>,
@@ -116,7 +117,7 @@ pub struct CipherView {
     pub collection_ids: Vec<Uuid>,
 
     /// Temporary, required to support re-encrypting existing items.
-    pub key: Option<EncString>,
+    pub key: Option<WrappedSymmetricKey>,
 
     pub name: String,
     pub notes: Option<String>,
@@ -168,7 +169,7 @@ pub struct CipherListView {
     pub collection_ids: Vec<Uuid>,
 
     /// Temporary, required to support calculating TOTP from CipherListView.
-    pub key: Option<EncString>,
+    pub key: Option<WrappedSymmetricKey>,
 
     pub name: String,
     pub subtitle: String,
@@ -320,7 +321,7 @@ impl Cipher {
     pub(super) fn decrypt_cipher_key(
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
-        ciphers_key: &Option<EncString>,
+        ciphers_key: &Option<WrappedSymmetricKey>,
     ) -> Result<SymmetricKeyId, CryptoError> {
         const CIPHER_KEY: SymmetricKeyId = SymmetricKeyId::Local("cipher_key");
         match ciphers_key {
@@ -453,7 +454,7 @@ impl CipherView {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
-        let old_ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let old_ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key.take())?;
 
         const NEW_KEY: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
 
@@ -489,8 +490,9 @@ impl CipherView {
         if let Some(attachments) = &mut self.attachments {
             for attachment in attachments {
                 if let Some(attachment_key) = &mut attachment.key {
-                    let dec_attachment_key: Vec<u8> = attachment_key.decrypt(ctx, old_key)?;
-                    *attachment_key = dec_attachment_key.encrypt(ctx, new_key)?;
+                    let tmp_attachment_key_id = SymmetricKeyId::Local("attachment_key");
+                    ctx.unwrap_symmetric_key(old_key, tmp_attachment_key_id, attachment_key)?;
+                    *attachment_key = ctx.wrap_symmetric_key(new_key, tmp_attachment_key_id)?;
                 }
             }
         }
@@ -544,8 +546,9 @@ impl CipherView {
 
         // If the cipher has a key, we need to re-encrypt it with the new organization key
         if let Some(cipher_key) = &mut self.key {
-            let dec_cipher_key: Vec<u8> = cipher_key.decrypt(ctx, old_key)?;
-            *cipher_key = dec_cipher_key.encrypt(ctx, new_key)?;
+            let tmp_cipher_key_id = SymmetricKeyId::Local("cipher_key");
+            ctx.unwrap_symmetric_key(old_key, tmp_cipher_key_id, cipher_key)?;
+            *cipher_key = ctx.wrap_symmetric_key(new_key, tmp_cipher_key_id)?;
         } else {
             // If the cipher does not have a key, we need to reencrypt all attachment keys
             self.reencrypt_attachment_keys(ctx, old_key, new_key)?;
@@ -715,7 +718,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             creation_date: require!(cipher.creation_date).parse()?,
             deleted_date: cipher.deleted_date.map(|d| d.parse()).transpose()?,
             revision_date: require!(cipher.revision_date).parse()?,
-            key: EncString::try_from_optional(cipher.key)?,
+            key: WrappedSymmetricKey::try_from_optional(cipher.key)?,
         })
     }
 }
@@ -944,11 +947,14 @@ mod tests {
             .unwrap();
 
         // Make sure that the cipher key is decryptable
-        let _: Vec<u8> = original_cipher
-            .key
-            .unwrap()
-            .decrypt(&mut key_store.context(), SymmetricKeyId::User)
-            .unwrap();
+        let wrapped_key = original_cipher.key.unwrap();
+        let mut ctx = key_store.context();
+        ctx.unwrap_symmetric_key(
+            SymmetricKeyId::User,
+            SymmetricKeyId::Local("test_cipher_key"),
+            &wrapped_key,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -1090,12 +1096,20 @@ mod tests {
         // Check that the attachment key has been re-encrypted with the org key,
         // and the value matches with the original attachment key
         let new_attachment_key = cipher.attachments.unwrap()[0].key.clone().unwrap();
-        let new_attachment_key_dec: Vec<_> = new_attachment_key
-            .decrypt(&mut key_store.context(), org_key)
+        let mut ctx = key_store.context();
+        let new_attachment_key_id = ctx
+            .unwrap_symmetric_key(
+                org_key,
+                SymmetricKeyId::Local("test_attachment_key"),
+                &new_attachment_key,
+            )
             .unwrap();
-        let new_attachment_key_dec: SymmetricCryptoKey = new_attachment_key_dec.try_into().unwrap();
+        #[allow(deprecated)]
+        let new_attachment_key_dec = ctx
+            .dangerous_get_symmetric_key(new_attachment_key_id)
+            .unwrap();
 
-        assert_eq!(new_attachment_key_dec, attachment_key_val);
+        assert_eq!(*new_attachment_key_dec, attachment_key_val);
 
         let cred2: Fido2CredentialFullView = cipher
             .login
@@ -1152,19 +1166,20 @@ mod tests {
         cipher.move_to_organization(&mut ctx, org).unwrap();
 
         // Check that the cipher key has been re-encrypted with the org key,
-        let new_cipher_key_dec: Vec<_> = cipher
-            .key
-            .clone()
-            .unwrap()
-            .decrypt(&mut ctx, org_key)
+        let wrapped_new_cipher_key = cipher.key.clone().unwrap();
+        let new_cipher_key_dec = ctx
+            .unwrap_symmetric_key(
+                org_key,
+                SymmetricKeyId::Local("test_cipher_key"),
+                &wrapped_new_cipher_key,
+            )
             .unwrap();
-
-        let new_cipher_key_dec: SymmetricCryptoKey = new_cipher_key_dec.try_into().unwrap();
-
+        #[allow(deprecated)]
+        let new_cipher_key_dec = ctx.dangerous_get_symmetric_key(new_cipher_key_dec).unwrap();
         #[allow(deprecated)]
         let cipher_key_val = ctx.dangerous_get_symmetric_key(cipher_key).unwrap();
 
-        assert_eq!(new_cipher_key_dec, *cipher_key_val);
+        assert_eq!(new_cipher_key_dec, cipher_key_val);
 
         // Check that the attachment key hasn't changed
         assert_eq!(
@@ -1172,8 +1187,9 @@ mod tests {
                 .key
                 .as_ref()
                 .unwrap()
+                .as_inner()
                 .to_string(),
-            attachment_key_enc.to_string()
+            attachment_key_enc.as_inner().to_string()
         );
 
         let cred2: Fido2Credential = cipher

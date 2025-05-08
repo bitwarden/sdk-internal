@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use bitwarden_crypto::{
     CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, SymmetricCryptoKey,
+    WrappedSymmetricKey,
 };
 use wasm_bindgen::prelude::*;
 
@@ -82,7 +83,7 @@ impl PureCrypto {
         let master_key = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
         let encrypted_user_key = EncString::from_str(&encrypted_user_key)?;
         let result = master_key
-            .decrypt_user_key(encrypted_user_key)
+            .decrypt_user_key(encrypted_user_key.into())
             .map_err(|_| CryptoError::InvalidKey)?;
         Ok(result.to_encoded())
     }
@@ -96,7 +97,7 @@ impl PureCrypto {
         let master_key = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
         let user_key = SymmetricCryptoKey::try_from(user_key)?;
         let result = master_key.encrypt_user_key(&user_key)?;
-        Ok(result.to_string())
+        Ok(result.as_inner().to_string())
     }
 
     // Generate userkey
@@ -106,6 +107,27 @@ impl PureCrypto {
 
     pub fn generate_user_key_xchacha20_poly1305() -> Vec<u8> {
         SymmetricCryptoKey::make_xchacha20_poly1305_key().to_encoded()
+    }
+
+    // Key Wrap
+    pub fn wrap_symmetric_key(
+        key_to_be_wrapped: Vec<u8>,
+        wrapping_key: Vec<u8>,
+    ) -> Result<String, CryptoError> {
+        let key_to_be_wrapped: SymmetricCryptoKey = key_to_be_wrapped.try_into()?;
+        let wrapping_key: SymmetricCryptoKey = wrapping_key.try_into()?;
+        let wrapped_key: EncString = key_to_be_wrapped.wrap_with(&wrapping_key)?.into_inner();
+        Ok(wrapped_key.to_string())
+    }
+
+    pub fn unwrap_symmetric_key(
+        wrapped_key: String,
+        wrapping_key: Vec<u8>,
+    ) -> Result<Vec<u8>, CryptoError> {
+        let wrapped_key: WrappedSymmetricKey = EncString::from_str(&wrapped_key)?.into();
+        let wrapping_key: SymmetricCryptoKey = wrapping_key.try_into()?;
+        let unwrapped_key: SymmetricCryptoKey = wrapped_key.unwrap_with(&wrapping_key)?;
+        Ok(unwrapped_key.to_encoded())
     }
 }
 
