@@ -188,8 +188,8 @@ impl PureCrypto {
             SymmetricCryptoKey::try_from(wrapping_key)?,
         )?;
         // Note: The order of arguments is different here, and should probably be refactored
-        Ok(EncString::from_str(wrapped_key.as_str())?
-            .decrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))?)
+        EncString::from_str(wrapped_key.as_str())?
+            .decrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))
     }
 
     pub fn wrap_decapsulation_key(
@@ -221,8 +221,8 @@ impl PureCrypto {
             SymmetricCryptoKey::try_from(wrapping_key)?,
         )?;
         // Note: The order of arguments is different here, and should probably be refactored
-        Ok(EncString::from_str(wrapped_key.as_str())?
-            .decrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))?)
+        EncString::from_str(wrapped_key.as_str())?
+            .decrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))
     }
 
     // Key encapsulation
