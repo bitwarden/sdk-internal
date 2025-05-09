@@ -253,7 +253,7 @@ impl PureCrypto {
     }
 
     /// Decapsulates (decrypts) a symmetric key using an decapsulation key (private key) in pkcs8
-    /// der format. Note: This is unsigned, so the sender authenticity cannot be verified by the
+    /// der format. Note: This is unsigned, so the sender's authenticity cannot be verified by the
     /// recipient.
     pub fn decapsulate_key_unsigned(
         encapsulated_key: String,
