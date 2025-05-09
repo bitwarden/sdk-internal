@@ -10,7 +10,10 @@ use crate::{
     constants::CHANNEL_BUFFER_CAPACITY,
     endpoint::Endpoint,
     message::{IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage},
-    rpc::{payload::RpcRequest, request::RpcRequestMessage, response::RpcResponseMessage},
+    rpc::{
+        request::RpcRequest, request_message::RpcRequestMessage,
+        response_message::RpcResponseMessage,
+    },
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
 };
 
@@ -681,7 +684,9 @@ mod tests {
 
     mod request {
         use super::*;
-        use crate::rpc::{request::RpcRequestMessage, response::RpcResponseMessage};
+        use crate::rpc::{
+            request_message::RpcRequestMessage, response_message::RpcResponseMessage,
+        };
 
         #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
         struct TestRequest {
@@ -709,10 +714,7 @@ mod tests {
             let session_map = InMemorySessionRepository::new(HashMap::new());
             let client =
                 IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-            client
-                .start()
-                .await
-                .expect("Starting client should not fail");
+            client.start().await;
             let request = TestRequest { a: 1, b: 2 };
             let response = TestResponse { result: 3 };
 
@@ -721,11 +723,7 @@ mod tests {
             let result_handle = tokio::spawn(async move {
                 let client = client.clone();
                 client
-                    .request::<TestRequest>(
-                        request_clone,
-                        Endpoint::BrowserBackground,
-                        Some(Duration::from_secs(1)),
-                    )
+                    .request::<TestRequest>(request_clone, Endpoint::BrowserBackground, None)
                     .await
             });
             tokio::time::sleep(Duration::from_millis(100)).await;

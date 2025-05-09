@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::rpc::payload::RpcRequest;
+use crate::rpc::request::RpcRequest;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PingRequest;

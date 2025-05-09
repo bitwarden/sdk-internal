@@ -4,6 +4,6 @@
 pub mod error;
 pub mod handler;
 pub mod handler_registry;
-pub mod payload;
 pub mod request;
-pub mod response;
+pub mod request_message;
+pub mod response_message;

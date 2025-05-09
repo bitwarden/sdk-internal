@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::payload::RpcRequest;
+use super::request::RpcRequest;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RpcResponseMessage<Request: RpcRequest> {
