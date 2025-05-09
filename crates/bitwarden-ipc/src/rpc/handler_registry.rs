@@ -25,7 +25,7 @@ impl RpcHandlerRegistry {
         match self.handlers.get(name) {
             Some(handler) => {}
             None => {
-                let error: RpcError<()> = RpcError::NoHandlerFound;
+                let error: RpcError = RpcError::NoHandlerFound;
                 return Err(error.serialize());
             }
         }
@@ -78,8 +78,8 @@ mod test {
     impl RpcHandler for TestHandler {
         type Payload = TestPayload;
 
-        async fn handle(&self, payload: Self::Payload) -> Result<i32, String> {
-            Ok(payload.a + payload.b)
+        async fn handle(&self, payload: Self::Payload) -> i32 {
+            payload.a + payload.b
         }
     }
 
@@ -94,8 +94,7 @@ mod test {
             .handle("TestPayload", payload_bytes)
             .await
             .expect_err("Expected error when no handler is found");
-        let error: RpcError<<TestPayload as RpcPayload>::Error> =
-            serde_json::from_slice(&result).expect("Failed to deserialize error");
+        let error: RpcError = serde_json::from_slice(&result).expect("Failed to deserialize error");
 
         assert!(matches!(error, RpcError::NoHandlerFound));
     }

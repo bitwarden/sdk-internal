@@ -99,7 +99,7 @@ impl From<ReceiveError> for TypedReceiveError {
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
-pub enum RequestError<RpcError, SendError> {
+pub enum RequestError<SendError> {
     #[error(transparent)]
     Subscribe(#[from] SubscribeError),
 
@@ -111,9 +111,6 @@ pub enum RequestError<RpcError, SendError> {
 
     #[error("Typing error: {0}")]
     Typing(String),
-
-    #[error("Request returned error: {0}")]
-    Rpc(RpcError),
 }
 
 impl<Crypto, Com, Ses> IpcClient<Crypto, Com, Ses>
@@ -259,23 +256,22 @@ where
         request: Payload,
         destination: Endpoint,
         cancellation_token: Option<CancellationToken>,
-    ) -> Result<Payload::Response, RequestError<Payload::Error, Crypto::SendError>>
+    ) -> Result<Payload::Response, RequestError<Crypto::SendError>>
     where
         Payload: RpcPayload + Serialize + serde::de::DeserializeOwned,
     {
         let request_id = uuid::Uuid::new_v4().to_string();
         let mut response_subscription = self.subscribe(Some(request_id.clone())).await?;
 
-        let payload: Result<Vec<u8>, RequestError<Payload::Error, Crypto::SendError>> =
-            RpcRequest {
-                payload: request,
-                request_id: request_id.clone(),
-                request_type: Payload::name(),
-            }
-            .try_into()
-            .map_err(|e: <RpcRequest<Payload> as TryFrom<Vec<u8>>>::Error| {
-                RequestError::<Payload::Error, Crypto::SendError>::Typing(e.to_string())
-            });
+        let payload: Result<Vec<u8>, RequestError<Crypto::SendError>> = RpcRequest {
+            payload: request,
+            request_id: request_id.clone(),
+            request_type: Payload::name(),
+        }
+        .try_into()
+        .map_err(|e: <RpcRequest<Payload> as TryFrom<Vec<u8>>>::Error| {
+            RequestError::<Crypto::SendError>::Typing(e.to_string())
+        });
 
         let message: OutgoingMessage = OutgoingMessage {
             payload: payload?,
@@ -285,18 +281,18 @@ where
 
         self.send(message)
             .await
-            .map_err(|e| RequestError::<Payload::Error, Crypto::SendError>::Send(e))?;
+            .map_err(|e| RequestError::<Crypto::SendError>::Send(e))?;
 
         let incoming_message = response_subscription
             .receive(cancellation_token)
             .await
-            .map_err(|e| RequestError::<Payload::Error, Crypto::SendError>::Receive(e.into()))?;
+            .map_err(|e| RequestError::<Crypto::SendError>::Receive(e.into()))?;
 
         let response: Result<RpcResponse<Payload>, _> = incoming_message
             .payload
             .try_into()
             .map_err(|e: <RpcResponse<Payload> as TryInto<Vec<u8>>>::Error| {
-                RequestError::<Payload::Error, Crypto::SendError>::Typing(e.to_string())
+                RequestError::<Crypto::SendError>::Typing(e.to_string())
             });
 
         Ok(response?.payload)
@@ -697,7 +693,6 @@ mod tests {
 
         impl RpcPayload for TestRequest {
             type Response = TestResponse;
-            type Error = String;
 
             fn name() -> String {
                 "TestRequest".to_string()

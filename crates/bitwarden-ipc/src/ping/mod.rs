@@ -10,7 +10,6 @@ pub struct PingResponse;
 
 impl RpcPayload for PingRequest {
     type Response = PingResponse;
-    type Error = ();
 
     fn name() -> String {
         "PingRequest".to_string()

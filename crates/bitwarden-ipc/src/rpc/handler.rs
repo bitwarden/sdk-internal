@@ -22,28 +22,17 @@ pub trait RpcHandler {
     fn handle(
         &self,
         payload: Self::Payload,
-    ) -> impl Future<
-        Output = Result<
-            <Self::Payload as RpcPayload>::Response,
-            <Self::Payload as RpcPayload>::Error,
-        >,
-    > + Send;
+    ) -> impl Future<Output = <Self::Payload as RpcPayload>::Response> + Send;
 }
 
 pub(crate) trait RpcHandlerExt {
     type Payload: RpcPayload;
 
-    fn serialize_request(
-        &self,
-        payload: Self::Payload,
-    ) -> Result<Vec<u8>, RpcError<<Self::Payload as RpcPayload>::Error>> {
+    fn serialize_request(&self, payload: Self::Payload) -> Result<Vec<u8>, RpcError> {
         serde_json::to_vec(&payload).map_err(|e| RpcError::RequestSerializationError(e.to_string()))
     }
 
-    fn deserialize_request(
-        &self,
-        payload: Vec<u8>,
-    ) -> Result<Self::Payload, RpcError<<Self::Payload as RpcPayload>::Error>> {
+    fn deserialize_request(&self, payload: Vec<u8>) -> Result<Self::Payload, RpcError> {
         serde_json::from_slice(&payload)
             .map_err(|e| RpcError::RequestDeserializationError(e.to_string()))
     }
@@ -51,7 +40,7 @@ pub(crate) trait RpcHandlerExt {
     fn serialize_response(
         &self,
         payload: <Self::Payload as RpcPayload>::Response,
-    ) -> Result<Vec<u8>, RpcError<<Self::Payload as RpcPayload>::Error>> {
+    ) -> Result<Vec<u8>, RpcError> {
         serde_json::to_vec(&payload)
             .map_err(|e| RpcError::ResponseSerializationError(e.to_string()))
     }
@@ -59,10 +48,7 @@ pub(crate) trait RpcHandlerExt {
     fn deserialize_response(
         &self,
         payload: Vec<u8>,
-    ) -> Result<
-        <Self::Payload as RpcPayload>::Response,
-        RpcError<<Self::Payload as RpcPayload>::Error>,
-    > {
+    ) -> Result<<Self::Payload as RpcPayload>::Response, RpcError> {
         serde_json::from_slice(&payload)
             .map_err(|e| RpcError::ResponseDeserializationError(e.to_string()))
     }
@@ -100,10 +86,7 @@ where
             .deserialize_request(serialized_payload)
             .map_err(|e| e.serialize())?;
 
-        let response = self
-            .handle(payload)
-            .await
-            .map_err(|e| RpcError::HandlerError(e).serialize())?;
+        let response = self.handle(payload).await;
 
         Ok(self
             .serialize_response(response)
