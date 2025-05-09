@@ -2,7 +2,9 @@ use std::str::FromStr;
 
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey, SymmetricCryptoKey, UnsignedSharedKey
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, ContentFormat, CryptoError, Decryptable,
+    EncString, Encryptable, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey,
+    SymmetricCryptoKey, UnsignedSharedKey,
 };
 use wasm_bindgen::prelude::*;
 
@@ -176,7 +178,11 @@ impl PureCrypto {
         )?;
         // Note: The order of arguments is different here, and should probably be refactored
         Ok(encapsulation_key
-            .encrypt(&mut context, SymmetricKeyId::Local("wrapping_key"), ContentFormat::OctetStream)?
+            .encrypt(
+                &mut context,
+                SymmetricKeyId::Local("wrapping_key"),
+                ContentFormat::OctetStream,
+            )?
             .to_string())
     }
 
@@ -209,7 +215,11 @@ impl PureCrypto {
         )?;
         // Note: The order of arguments is different here, and should probably be refactored
         Ok(decapsulation_key
-            .encrypt(&mut context, SymmetricKeyId::Local("wrapping_key"), ContentFormat::Pkcs8)?
+            .encrypt(
+                &mut context,
+                SymmetricKeyId::Local("wrapping_key"),
+                ContentFormat::Pkcs8,
+            )?
             .to_string())
     }
 
