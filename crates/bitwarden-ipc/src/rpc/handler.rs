@@ -5,16 +5,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use super::error::RpcError;
-
-pub trait RpcPayload: Serialize + for<'de> Deserialize<'de> {
-    /// The type of the response.
-    type Response: Serialize + for<'de> Deserialize<'de>;
-
-    /// The type of the error.
-    type Error: Serialize + for<'de> Deserialize<'de>;
-
-    fn name() -> String;
-}
+use super::payload::RpcPayload;
 
 pub trait RpcHandler {
     type Payload: RpcPayload;
@@ -27,6 +18,29 @@ pub trait RpcHandler {
 
 pub(crate) trait RpcHandlerExt {
     type Payload: RpcPayload;
+
+    fn serialize_request(&self, payload: Self::Payload) -> Result<Vec<u8>, RpcError>;
+
+    fn deserialize_request(&self, payload: Vec<u8>) -> Result<Self::Payload, RpcError>;
+
+    fn serialize_response(
+        &self,
+        payload: <Self::Payload as RpcPayload>::Response,
+    ) -> Result<Vec<u8>, RpcError>;
+
+    fn deserialize_response(
+        &self,
+        payload: Vec<u8>,
+    ) -> Result<<Self::Payload as RpcPayload>::Response, RpcError>;
+}
+
+impl<T> RpcHandlerExt for T
+where
+    T: RpcHandler,
+    T::Payload: RpcPayload + Serialize + for<'de> Deserialize<'de>,
+    <T::Payload as RpcPayload>::Response: Serialize + for<'de> Deserialize<'de>,
+{
+    type Payload = T::Payload;
 
     fn serialize_request(&self, payload: Self::Payload) -> Result<Vec<u8>, RpcError> {
         serde_json::to_vec(&payload).map_err(|e| RpcError::RequestSerializationError(e.to_string()))
@@ -52,20 +66,6 @@ pub(crate) trait RpcHandlerExt {
         serde_json::from_slice(&payload)
             .map_err(|e| RpcError::ResponseDeserializationError(e.to_string()))
     }
-
-    // fn erased_types(self) -> Box<dyn ErasedRpcHandler>
-    // where
-    //     Self: Sized + 'static,
-    // {
-    //     Box::new(self)
-    // }
-}
-
-impl<T> RpcHandlerExt for T
-where
-    T: RpcHandler,
-{
-    type Payload = T::Payload;
 }
 
 #[async_trait::async_trait]
@@ -77,9 +77,8 @@ pub(crate) trait ErasedRpcHandler {
 impl<T> ErasedRpcHandler for T
 where
     T: RpcHandler + Send + Sync,
-    T::Payload: 'static,
-    <T::Payload as RpcPayload>::Response: 'static,
-    <T::Payload as RpcPayload>::Error: 'static,
+    T::Payload: RpcPayload + Serialize + for<'de> Deserialize<'de>,
+    <T::Payload as RpcPayload>::Response: Serialize + for<'de> Deserialize<'de>,
 {
     async fn handle(&self, serialized_payload: Vec<u8>) -> Result<Vec<u8>, RpcError> {
         let payload: T::Payload = self.deserialize_request(serialized_payload)?;

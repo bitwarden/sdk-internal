@@ -258,7 +258,8 @@ where
         cancellation_token: Option<CancellationToken>,
     ) -> Result<Payload::Response, RequestError<Crypto::SendError>>
     where
-        Payload: RpcPayload + Serialize + serde::de::DeserializeOwned,
+        Payload: RpcPayload + Serialize + for<'de> serde::de::Deserialize<'de>,
+        Payload::Response: Serialize + for<'de> serde::de::Deserialize<'de>,
     {
         let request_id = uuid::Uuid::new_v4().to_string();
         let mut response_subscription = self.subscribe(Some(request_id.clone())).await?;

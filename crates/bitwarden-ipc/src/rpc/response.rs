@@ -12,6 +12,7 @@ pub struct RpcResponse<Payload: RpcPayload> {
 impl<Payload> TryFrom<Vec<u8>> for RpcResponse<Payload>
 where
     Payload: RpcPayload + for<'de> Deserialize<'de>,
+    <Payload as RpcPayload>::Response: for<'de> Deserialize<'de>,
 {
     type Error = serde_json::Error;
 
@@ -23,6 +24,7 @@ where
 impl<Payload> TryFrom<RpcResponse<Payload>> for Vec<u8>
 where
     Payload: RpcPayload + Serialize,
+    <Payload as RpcPayload>::Response: Serialize,
 {
     type Error = serde_json::Error;
 

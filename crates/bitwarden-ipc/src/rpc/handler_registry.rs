@@ -1,6 +1,7 @@
 use crate::rpc::error::RpcError;
 
-use super::handler::{ErasedRpcHandler, RpcHandler, RpcPayload};
+use super::handler::{ErasedRpcHandler, RpcHandler};
+use super::payload::RpcPayload;
 
 pub struct RpcHandlerRegistry {
     handlers: std::collections::HashMap<String, Box<dyn ErasedRpcHandler>>,
@@ -36,6 +37,8 @@ impl RpcHandlerRegistry {
 mod test {
     use serde::{Deserialize, Serialize};
 
+    use crate::rpc::payload::RpcPayload;
+
     use super::*;
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,7 +49,6 @@ mod test {
 
     impl RpcPayload for TestPayload {
         type Response = i32;
-        type Error = String;
 
         fn name() -> String {
             "TestPayload".to_string()
