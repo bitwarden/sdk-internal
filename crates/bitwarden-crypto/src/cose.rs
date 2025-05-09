@@ -121,7 +121,7 @@ pub(crate) fn decrypt_xchacha20_poly1305(
             return crate::keys::utils::unpad_bytes(&decrypted_message).map(|bytes| bytes.to_vec());
         }
     }
-    return Ok(decrypted_message);
+    Ok(decrypted_message)
 }
 
 const SYMMETRIC_KEY: Label = Label::Int(iana::SymmetricKeyParameter::K as i64);
