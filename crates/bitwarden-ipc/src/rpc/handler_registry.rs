@@ -21,40 +21,20 @@ impl RpcHandlerRegistry {
         self.handlers.insert(name, Box::new(handler));
     }
 
-    pub async fn handle(&self, name: &str, payload: Vec<u8>) -> Result<Vec<u8>, Vec<u8>> {
+    pub async fn handle(
+        &self,
+        name: &str,
+        serialized_payload: Vec<u8>,
+    ) -> Result<Vec<u8>, RpcError> {
         match self.handlers.get(name) {
-            Some(handler) => {}
-            None => {
-                let error: RpcError = RpcError::NoHandlerFound;
-                return Err(error.serialize());
-            }
+            Some(handler) => handler.handle(serialized_payload).await,
+            None => Err(RpcError::NoHandlerFound),
         }
-
-        todo!()
-        // if let Some(handler) = self.handlers.get(name) {
-        //     handler.handle(payload)
-        // } else {
-        //     Err(Box::new("Handler not found") as Box<dyn std::any::Any>)
-        // }
     }
-
-    // pub fn handle(
-    //     &self,
-    //     name: &str,
-    //     payload: Vec<u8>,
-    // ) -> Result<Box<dyn std::any::Any>, Box<dyn std::any::Any>> {
-    //     if let Some(handler) = self.handlers.get(name) {
-    //         handler.handle(payload)
-    //     } else {
-    //         Err(Box::new("Handler not found") as Box<dyn std::any::Any>)
-    //     }
-    // }
 }
 
 mod test {
     use serde::{Deserialize, Serialize};
-
-    // use crate::rpc::error::RpcError;
 
     use super::*;
 
@@ -90,13 +70,9 @@ mod test {
         let payload = TestPayload { a: 1, b: 2 };
         let payload_bytes = serde_json::to_vec(&payload).unwrap();
 
-        let result = registry
-            .handle("TestPayload", payload_bytes)
-            .await
-            .expect_err("Expected error when no handler is found");
-        let error: RpcError = serde_json::from_slice(&result).expect("Failed to deserialize error");
+        let result = registry.handle("TestPayload", payload_bytes).await;
 
-        assert!(matches!(error, RpcError::NoHandlerFound));
+        assert!(matches!(result, Err(RpcError::NoHandlerFound)));
     }
 
     #[tokio::test]

@@ -70,7 +70,7 @@ where
 
 #[async_trait::async_trait]
 pub(crate) trait ErasedRpcHandler {
-    async fn handle(&self, serialized_payload: Vec<u8>) -> Result<Vec<u8>, Vec<u8>>;
+    async fn handle(&self, serialized_payload: Vec<u8>) -> Result<Vec<u8>, RpcError>;
 }
 
 #[async_trait::async_trait]
@@ -81,15 +81,11 @@ where
     <T::Payload as RpcPayload>::Response: 'static,
     <T::Payload as RpcPayload>::Error: 'static,
 {
-    async fn handle(&self, serialized_payload: Vec<u8>) -> Result<Vec<u8>, Vec<u8>> {
-        let payload: T::Payload = self
-            .deserialize_request(serialized_payload)
-            .map_err(|e| e.serialize())?;
+    async fn handle(&self, serialized_payload: Vec<u8>) -> Result<Vec<u8>, RpcError> {
+        let payload: T::Payload = self.deserialize_request(serialized_payload)?;
 
         let response = self.handle(payload).await;
 
-        Ok(self
-            .serialize_response(response)
-            .map_err(|e| e.serialize())?)
+        self.serialize_response(response)
     }
 }
