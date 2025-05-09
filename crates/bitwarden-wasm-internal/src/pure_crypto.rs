@@ -239,7 +239,7 @@ impl PureCrypto {
 
     /// Encapsulates (encrypts) a symmetric key using an asymmetric encapsulation key (public key)
     /// in spki format, returning the encapsulated key as a string. Note: This is unsigned, so
-    /// the sender authenticity cannot be verified by the recipient.
+    /// the sender's authenticity cannot be verified by the recipient.
     pub fn encapsulate_key_unsigned(
         shared_key: Vec<u8>,
         encapsulation_key: Vec<u8>,
