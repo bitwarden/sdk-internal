@@ -182,7 +182,7 @@ impl PureCrypto {
             .to_string())
     }
 
-    /// Unwraps (decrypts) a wrapped SPKI der encoded encapsulation (public) key using a symmetric
+    /// Unwraps (decrypts) a wrapped SPKI DER encoded encapsulation (public) key using a symmetric
     /// wrapping key.
     pub fn unwrap_encapsulation_key(
         wrapped_key: String,
