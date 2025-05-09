@@ -182,7 +182,7 @@ impl PureCrypto {
             .to_string())
     }
 
-    /// Unwraps (decrypts) a wrapped spki der encoded encapsulation (public) key using a symmetric
+    /// Unwraps (decrypts) a wrapped SPKI der encoded encapsulation (public) key using a symmetric
     /// wrapping key.
     pub fn unwrap_encapsulation_key(
         wrapped_key: String,
@@ -200,7 +200,7 @@ impl PureCrypto {
             .decrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))
     }
 
-    /// Wraps (encrypts) a pkcs8 der encoded decapsulation (private) key using a symmetric wrapping
+    /// Wraps (encrypts) a PKCS8 DER encoded decapsulation (private) key using a symmetric wrapping
     /// key,
     pub fn wrap_decapsulation_key(
         decapsulation_key: Vec<u8>,
@@ -238,7 +238,7 @@ impl PureCrypto {
     }
 
     /// Encapsulates (encrypts) a symmetric key using an asymmetric encapsulation key (public key)
-    /// in spki format, returning the encapsulated key as a string. Note: This is unsigned, so
+    /// in SPKI format, returning the encapsulated key as a string. Note: This is unsigned, so
     /// the sender's authenticity cannot be verified by the recipient.
     pub fn encapsulate_key_unsigned(
         shared_key: Vec<u8>,
@@ -252,8 +252,8 @@ impl PureCrypto {
         .to_string())
     }
 
-    /// Decapsulates (decrypts) a symmetric key using an decapsulation key (private key) in pkcs8
-    /// der format. Note: This is unsigned, so the sender's authenticity cannot be verified by the
+    /// Decapsulates (decrypts) a symmetric key using an decapsulation key (private key) in PKCS8
+    /// DER format. Note: This is unsigned, so the sender's authenticity cannot be verified by the
     /// recipient.
     pub fn decapsulate_key_unsigned(
         encapsulated_key: String,
