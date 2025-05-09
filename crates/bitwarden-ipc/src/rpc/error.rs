@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Debug, Error, Clone, Serialize, Deserialize)]
+#[derive(Debug, Error, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RpcError {
     #[error("Failed to read request: {0}")]
     RequestDeserializationError(String),
