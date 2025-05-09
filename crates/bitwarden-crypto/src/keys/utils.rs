@@ -26,7 +26,7 @@ pub(crate) fn pad_bytes(bytes: &mut Vec<u8>, min_length: usize) {
     bytes.resize(padded_length, pad_bytes as u8);
 }
 
-/// Unpads bytes that is padded using the PKCS7-like padding defined by [pad_key].
+/// Unpads bytes that is padded using the PKCS7-like padding defined by [pad_bytes].
 /// The last N bytes of the padded bytes all have the value N.
 /// For example, padded to size 4, the value 0,0 becomes 0,0,2,2.
 pub(crate) fn unpad_bytes(padded_bytes: &[u8]) -> Result<&[u8], CryptoError> {
