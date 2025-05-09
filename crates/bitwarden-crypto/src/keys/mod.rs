@@ -28,4 +28,4 @@ pub use kdf::{
 };
 #[cfg(test)]
 pub(crate) use key_id::KEY_ID_SIZE;
-mod utils;
+pub(crate) mod utils;

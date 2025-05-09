@@ -13,13 +13,13 @@ secure.
 ## Example:
 
 ```rust
-use bitwarden_crypto::{SymmetricCryptoKey, TypedKeyEncryptable, KeyDecryptable, CryptoError};
+use bitwarden_crypto::{SymmetricCryptoKey, KeyEncryptable, KeyDecryptable, CryptoError, ContentFormat};
 
 async fn example() -> Result<(), CryptoError> {
   let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
   let data = "Hello, World!".to_owned();
-  let encrypted = data.clone().encrypt_with_key(&key)?;
+  let encrypted = data.clone().encrypt_with_key(&key, &ContentFormat::Utf8)?;
   let decrypted: String = encrypted.decrypt_with_key(&key)?;
 
   assert_eq!(data, decrypted);

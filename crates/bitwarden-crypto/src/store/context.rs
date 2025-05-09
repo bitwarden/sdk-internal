@@ -54,9 +54,9 @@ use crate::{
 /// const LOCAL_KEY: SymmKeyId = SymmKeyId::Local("local_key_id");
 ///
 /// impl Encryptable<Ids, SymmKeyId, EncString> for Data {
-///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
+///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId, content_format: ContentFormat) -> Result<EncString, CryptoError> {
 ///         let local_key_id = ctx.unwrap_symmetric_key(key, LOCAL_KEY, &self.key)?;
-///         self.name.encrypt(ctx, local_key_id)
+///         self.name.encrypt(ctx, local_key_id, content_format)
 ///     }
 /// }
 /// ```

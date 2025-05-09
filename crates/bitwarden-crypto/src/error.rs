@@ -56,6 +56,9 @@ pub enum CryptoError {
 
     #[error("Invalid nonce length")]
     InvalidNonceLength,
+
+    #[error("Invalid padding")]
+    InvalidPadding,
 }
 
 #[derive(Debug, Error)]
