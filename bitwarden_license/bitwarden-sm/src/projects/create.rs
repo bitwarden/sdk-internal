@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::ProjectCreateRequestModel;
 use bitwarden_core::{key_management::SymmetricKeyId, Client};
-use bitwarden_crypto::Encryptable;
+use bitwarden_crypto::{ContentFormat, Encryptable};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -34,7 +34,7 @@ pub(crate) async fn create_project(
             .name
             .clone()
             .trim()
-            .encrypt(&mut key_store.context(), key)?
+            .encrypt(&mut key_store.context(), key, ContentFormat::Utf8)?
             .to_string(),
     });
 

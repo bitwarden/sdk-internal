@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
 use bitwarden_crypto::{
-    CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, SymmetricCryptoKey,
+    ContentFormat, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
+    SymmetricCryptoKey,
 };
 use wasm_bindgen::prelude::*;
 
@@ -53,13 +54,16 @@ impl PureCrypto {
 
     pub fn symmetric_encrypt_string(plain: String, key: Vec<u8>) -> Result<String, CryptoError> {
         plain
-            .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
+            .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?, &ContentFormat::Utf8)
             .map(|enc| enc.to_string())
     }
 
     pub fn symmetric_encrypt_bytes(plain: Vec<u8>, key: Vec<u8>) -> Result<String, CryptoError> {
         plain
-            .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
+            .encrypt_with_key(
+                &SymmetricCryptoKey::try_from(key)?,
+                &ContentFormat::OctetStream,
+            )
             .map(|enc| enc.to_string())
     }
 
@@ -68,7 +72,10 @@ impl PureCrypto {
         key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         plain
-            .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)?
+            .encrypt_with_key(
+                &SymmetricCryptoKey::try_from(key)?,
+                &ContentFormat::OctetStream,
+            )?
             .to_buffer()
     }
 

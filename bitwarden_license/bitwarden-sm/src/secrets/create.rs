@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::SecretCreateRequestModel;
 use bitwarden_core::{key_management::SymmetricKeyId, Client};
-use bitwarden_crypto::Encryptable;
+use bitwarden_crypto::{ContentFormat, Encryptable};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -40,13 +40,22 @@ pub(crate) async fn create_secret(
     let secret = {
         let mut ctx = key_store.context();
         Some(SecretCreateRequestModel {
-            key: input.key.clone().trim().encrypt(&mut ctx, key)?.to_string(),
-            value: input.value.clone().encrypt(&mut ctx, key)?.to_string(),
+            key: input
+                .key
+                .clone()
+                .trim()
+                .encrypt(&mut ctx, key, ContentFormat::Utf8)?
+                .to_string(),
+            value: input
+                .value
+                .clone()
+                .encrypt(&mut ctx, key, ContentFormat::Utf8)?
+                .to_string(),
             note: input
                 .note
                 .clone()
                 .trim()
-                .encrypt(&mut ctx, key)?
+                .encrypt(&mut ctx, key, ContentFormat::Utf8)?
                 .to_string(),
             project_ids: input.project_ids.clone(),
             access_policies_requests: None,

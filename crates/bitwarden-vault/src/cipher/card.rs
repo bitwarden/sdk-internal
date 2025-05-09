@@ -1,6 +1,8 @@
 use bitwarden_api_api::models::CipherCardModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{
+    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext,
+};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
@@ -55,14 +57,17 @@ impl Encryptable<KeyIds, SymmetricKeyId, Card> for CardView {
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
+        _content_format: ContentFormat,
     ) -> Result<Card, CryptoError> {
         Ok(Card {
-            cardholder_name: self.cardholder_name.encrypt(ctx, key)?,
-            exp_month: self.exp_month.encrypt(ctx, key)?,
-            exp_year: self.exp_year.encrypt(ctx, key)?,
-            code: self.code.encrypt(ctx, key)?,
-            brand: self.brand.encrypt(ctx, key)?,
-            number: self.number.encrypt(ctx, key)?,
+            cardholder_name: self
+                .cardholder_name
+                .encrypt(ctx, key, ContentFormat::Utf8)?,
+            exp_month: self.exp_month.encrypt(ctx, key, ContentFormat::Utf8)?,
+            exp_year: self.exp_year.encrypt(ctx, key, ContentFormat::Utf8)?,
+            code: self.code.encrypt(ctx, key, ContentFormat::Utf8)?,
+            brand: self.brand.encrypt(ctx, key, ContentFormat::Utf8)?,
+            number: self.number.encrypt(ctx, key, ContentFormat::Utf8)?,
         })
     }
 }

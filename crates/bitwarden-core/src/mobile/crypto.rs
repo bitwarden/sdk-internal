@@ -33,7 +33,7 @@ pub enum MobileCryptoError {
     Crypto(#[from] bitwarden_crypto::CryptoError),
 }
 
-/// State used for initializing the user cryptographic state.
+/// thState used for initializing the user cryptographic state.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -329,7 +329,7 @@ pub(super) fn derive_pin_key(
 
     Ok(DerivePinKeyResponse {
         pin_protected_user_key,
-        encrypted_pin: pin.encrypt_with_key(user_key)?,
+        encrypted_pin: pin.encrypt_with_key(user_key, &bitwarden_crypto::ContentFormat::Utf8)?,
     })
 }
 
@@ -860,7 +860,7 @@ mod tests {
         let invalid_private_key = "bad_key"
             .to_string()
             .into_bytes()
-            .encrypt_with_key(&user_key.0)
+            .encrypt_with_key(&user_key.0, &bitwarden_crypto::ContentFormat::Utf8)
             .unwrap();
 
         let request = VerifyAsymmetricKeysRequest {

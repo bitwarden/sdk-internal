@@ -1,6 +1,8 @@
 use bitwarden_api_api::models::CipherIdentityModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{
+    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext,
+};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
@@ -62,26 +64,29 @@ impl Encryptable<KeyIds, SymmetricKeyId, Identity> for IdentityView {
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
+        _content_format: ContentFormat,
     ) -> Result<Identity, CryptoError> {
         Ok(Identity {
-            title: self.title.encrypt(ctx, key)?,
-            first_name: self.first_name.encrypt(ctx, key)?,
-            middle_name: self.middle_name.encrypt(ctx, key)?,
-            last_name: self.last_name.encrypt(ctx, key)?,
-            address1: self.address1.encrypt(ctx, key)?,
-            address2: self.address2.encrypt(ctx, key)?,
-            address3: self.address3.encrypt(ctx, key)?,
-            city: self.city.encrypt(ctx, key)?,
-            state: self.state.encrypt(ctx, key)?,
-            postal_code: self.postal_code.encrypt(ctx, key)?,
-            country: self.country.encrypt(ctx, key)?,
-            company: self.company.encrypt(ctx, key)?,
-            email: self.email.encrypt(ctx, key)?,
-            phone: self.phone.encrypt(ctx, key)?,
-            ssn: self.ssn.encrypt(ctx, key)?,
-            username: self.username.encrypt(ctx, key)?,
-            passport_number: self.passport_number.encrypt(ctx, key)?,
-            license_number: self.license_number.encrypt(ctx, key)?,
+            title: self.title.encrypt(ctx, key, ContentFormat::Utf8)?,
+            first_name: self.first_name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            middle_name: self.middle_name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            last_name: self.last_name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            address1: self.address1.encrypt(ctx, key, ContentFormat::Utf8)?,
+            address2: self.address2.encrypt(ctx, key, ContentFormat::Utf8)?,
+            address3: self.address3.encrypt(ctx, key, ContentFormat::Utf8)?,
+            city: self.city.encrypt(ctx, key, ContentFormat::Utf8)?,
+            state: self.state.encrypt(ctx, key, ContentFormat::Utf8)?,
+            postal_code: self.postal_code.encrypt(ctx, key, ContentFormat::Utf8)?,
+            country: self.country.encrypt(ctx, key, ContentFormat::Utf8)?,
+            company: self.company.encrypt(ctx, key, ContentFormat::Utf8)?,
+            email: self.email.encrypt(ctx, key, ContentFormat::Utf8)?,
+            phone: self.phone.encrypt(ctx, key, ContentFormat::Utf8)?,
+            ssn: self.ssn.encrypt(ctx, key, ContentFormat::Utf8)?,
+            username: self.username.encrypt(ctx, key, ContentFormat::Utf8)?,
+            passport_number: self
+                .passport_number
+                .encrypt(ctx, key, ContentFormat::Utf8)?,
+            license_number: self.license_number.encrypt(ctx, key, ContentFormat::Utf8)?,
         })
     }
 }

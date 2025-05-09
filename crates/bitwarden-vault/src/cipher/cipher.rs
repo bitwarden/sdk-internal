@@ -4,7 +4,7 @@ use bitwarden_core::{
     require, MissingFieldError, VaultLockedError,
 };
 use bitwarden_crypto::{
-    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
+    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
@@ -215,6 +215,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
+        _content_format: ContentFormat,
     ) -> Result<Cipher, CryptoError> {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
@@ -231,23 +232,47 @@ impl Encryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             folder_id: cipher_view.folder_id,
             collection_ids: cipher_view.collection_ids,
             key: cipher_view.key,
-            name: cipher_view.name.encrypt(ctx, ciphers_key)?,
-            notes: cipher_view.notes.encrypt(ctx, ciphers_key)?,
+            name: cipher_view
+                .name
+                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+            notes: cipher_view
+                .notes
+                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
             r#type: cipher_view.r#type,
-            login: cipher_view.login.encrypt(ctx, ciphers_key)?,
-            identity: cipher_view.identity.encrypt(ctx, ciphers_key)?,
-            card: cipher_view.card.encrypt(ctx, ciphers_key)?,
-            secure_note: cipher_view.secure_note.encrypt(ctx, ciphers_key)?,
-            ssh_key: cipher_view.ssh_key.encrypt(ctx, ciphers_key)?,
+            login: cipher_view
+                .login
+                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+            identity: cipher_view
+                .identity
+                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+            card: cipher_view
+                .card
+                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+            secure_note: cipher_view
+                .secure_note
+                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+            ssh_key: cipher_view
+                .ssh_key
+                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
             favorite: cipher_view.favorite,
             reprompt: cipher_view.reprompt,
             organization_use_totp: cipher_view.organization_use_totp,
             edit: cipher_view.edit,
             view_password: cipher_view.view_password,
-            local_data: cipher_view.local_data.encrypt(ctx, ciphers_key)?,
-            attachments: cipher_view.attachments.encrypt(ctx, ciphers_key)?,
-            fields: cipher_view.fields.encrypt(ctx, ciphers_key)?,
-            password_history: cipher_view.password_history.encrypt(ctx, ciphers_key)?,
+            local_data: cipher_view
+                .local_data
+                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+            attachments: cipher_view
+                .attachments
+                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+            fields: cipher_view
+                .fields
+                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+            password_history: cipher_view.password_history.encrypt(
+                ctx,
+                ciphers_key,
+                ContentFormat::Utf8,
+            )?,
             creation_date: cipher_view.creation_date,
             deleted_date: cipher_view.deleted_date,
             revision_date: cipher_view.revision_date,
@@ -453,7 +478,7 @@ impl CipherView {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
-        let old_ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let old_ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key.take())?;
 
         const NEW_KEY: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
 
@@ -489,8 +514,9 @@ impl CipherView {
         if let Some(attachments) = &mut self.attachments {
             for attachment in attachments {
                 if let Some(attachment_key) = &mut attachment.key {
-                    let dec_attachment_key: Vec<u8> = attachment_key.decrypt(ctx, old_key)?;
-                    *attachment_key = dec_attachment_key.encrypt(ctx, new_key)?;
+                    let tmp_attachment_key_id = SymmetricKeyId::Local("attachment_key");
+                    ctx.unwrap_symmetric_key(old_key, tmp_attachment_key_id, attachment_key)?;
+                    *attachment_key = ctx.wrap_symmetric_key(new_key, tmp_attachment_key_id)?;
                 }
             }
         }
@@ -523,7 +549,8 @@ impl CipherView {
             if let Some(fido2_credentials) = &mut login.fido2_credentials {
                 let dec_fido2_credentials: Vec<Fido2CredentialFullView> =
                     fido2_credentials.decrypt(ctx, old_key)?;
-                *fido2_credentials = dec_fido2_credentials.encrypt(ctx, new_key)?;
+                *fido2_credentials =
+                    dec_fido2_credentials.encrypt(ctx, new_key, ContentFormat::DomainObject)?;
             }
         }
         Ok(())
@@ -544,8 +571,9 @@ impl CipherView {
 
         // If the cipher has a key, we need to re-encrypt it with the new organization key
         if let Some(cipher_key) = &mut self.key {
-            let dec_cipher_key: Vec<u8> = cipher_key.decrypt(ctx, old_key)?;
-            *cipher_key = dec_cipher_key.encrypt(ctx, new_key)?;
+            let tmp_cipher_key_id = SymmetricKeyId::Local("cipher_key");
+            ctx.unwrap_symmetric_key(old_key, tmp_cipher_key_id, cipher_key)?;
+            *cipher_key = ctx.wrap_symmetric_key(new_key, tmp_cipher_key_id)?;
         } else {
             // If the cipher does not have a key, we need to reencrypt all attachment keys
             self.reencrypt_attachment_keys(ctx, old_key, new_key)?;
@@ -565,7 +593,8 @@ impl CipherView {
 
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
-        require!(self.login.as_mut()).fido2_credentials = Some(creds.encrypt(ctx, ciphers_key)?);
+        require!(self.login.as_mut()).fido2_credentials =
+            Some(creds.encrypt(ctx, ciphers_key, ContentFormat::DomainObject)?);
 
         Ok(())
     }
@@ -796,18 +825,42 @@ mod tests {
 
     fn generate_fido2(ctx: &mut KeyStoreContext<KeyIds>, key: SymmetricKeyId) -> Fido2Credential {
         Fido2Credential {
-            credential_id: "123".to_string().encrypt(ctx, key).unwrap(),
-            key_type: "public-key".to_string().encrypt(ctx, key).unwrap(),
-            key_algorithm: "ECDSA".to_string().encrypt(ctx, key).unwrap(),
-            key_curve: "P-256".to_string().encrypt(ctx, key).unwrap(),
-            key_value: "123".to_string().encrypt(ctx, key).unwrap(),
-            rp_id: "123".to_string().encrypt(ctx, key).unwrap(),
+            credential_id: "123"
+                .to_string()
+                .encrypt(ctx, key, ContentFormat::Utf8)
+                .unwrap(),
+            key_type: "public-key"
+                .to_string()
+                .encrypt(ctx, key, ContentFormat::Utf8)
+                .unwrap(),
+            key_algorithm: "ECDSA"
+                .to_string()
+                .encrypt(ctx, key, ContentFormat::Utf8)
+                .unwrap(),
+            key_curve: "P-256"
+                .to_string()
+                .encrypt(ctx, key, ContentFormat::Utf8)
+                .unwrap(),
+            key_value: "123"
+                .to_string()
+                .encrypt(ctx, key, ContentFormat::Utf8)
+                .unwrap(),
+            rp_id: "123"
+                .to_string()
+                .encrypt(ctx, key, ContentFormat::Utf8)
+                .unwrap(),
             user_handle: None,
             user_name: None,
-            counter: "123".to_string().encrypt(ctx, key).unwrap(),
+            counter: "123"
+                .to_string()
+                .encrypt(ctx, key, ContentFormat::Utf8)
+                .unwrap(),
             rp_name: None,
             user_display_name: None,
-            discoverable: "true".to_string().encrypt(ctx, key).unwrap(),
+            discoverable: "true"
+                .to_string()
+                .encrypt(ctx, key, ContentFormat::Utf8)
+                .unwrap(),
             creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
         }
     }
@@ -944,11 +997,14 @@ mod tests {
             .unwrap();
 
         // Make sure that the cipher key is decryptable
-        let _: Vec<u8> = original_cipher
-            .key
-            .unwrap()
-            .decrypt(&mut key_store.context(), SymmetricKeyId::User)
-            .unwrap();
+        let wrapped_key = original_cipher.key.unwrap();
+        let mut ctx = key_store.context();
+        ctx.unwrap_symmetric_key(
+            SymmetricKeyId::User,
+            SymmetricKeyId::Local("test_cipher_key"),
+            &wrapped_key,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -1090,12 +1146,20 @@ mod tests {
         // Check that the attachment key has been re-encrypted with the org key,
         // and the value matches with the original attachment key
         let new_attachment_key = cipher.attachments.unwrap()[0].key.clone().unwrap();
-        let new_attachment_key_dec: Vec<_> = new_attachment_key
-            .decrypt(&mut key_store.context(), org_key)
+        let mut ctx = key_store.context();
+        let new_attachment_key_id = ctx
+            .unwrap_symmetric_key(
+                org_key,
+                SymmetricKeyId::Local("test_attachment_key"),
+                &new_attachment_key,
+            )
             .unwrap();
-        let new_attachment_key_dec: SymmetricCryptoKey = new_attachment_key_dec.try_into().unwrap();
+        #[allow(deprecated)]
+        let new_attachment_key_dec = ctx
+            .dangerous_get_symmetric_key(new_attachment_key_id)
+            .unwrap();
 
-        assert_eq!(new_attachment_key_dec, attachment_key_val);
+        assert_eq!(*new_attachment_key_dec, attachment_key_val);
 
         let cred2: Fido2CredentialFullView = cipher
             .login
@@ -1152,19 +1216,20 @@ mod tests {
         cipher.move_to_organization(&mut ctx, org).unwrap();
 
         // Check that the cipher key has been re-encrypted with the org key,
-        let new_cipher_key_dec: Vec<_> = cipher
-            .key
-            .clone()
-            .unwrap()
-            .decrypt(&mut ctx, org_key)
+        let wrapped_new_cipher_key = cipher.key.clone().unwrap();
+        let new_cipher_key_dec = ctx
+            .unwrap_symmetric_key(
+                org_key,
+                SymmetricKeyId::Local("test_cipher_key"),
+                &wrapped_new_cipher_key,
+            )
             .unwrap();
-
-        let new_cipher_key_dec: SymmetricCryptoKey = new_cipher_key_dec.try_into().unwrap();
-
+        #[allow(deprecated)]
+        let new_cipher_key_dec = ctx.dangerous_get_symmetric_key(new_cipher_key_dec).unwrap();
         #[allow(deprecated)]
         let cipher_key_val = ctx.dangerous_get_symmetric_key(cipher_key).unwrap();
 
-        assert_eq!(new_cipher_key_dec, *cipher_key_val);
+        assert_eq!(new_cipher_key_dec, cipher_key_val);
 
         // Check that the attachment key hasn't changed
         assert_eq!(
@@ -1289,9 +1354,18 @@ mod tests {
         let mut ctx = key_store.context();
 
         let original_subtitle = "SHA256:1JjFjvPRkj1Gbf2qRP1dgHiIzEuNAEvp+92x99jw3K0".to_string();
-        let fingerprint_encrypted = original_subtitle.to_owned().encrypt(&mut ctx, key).unwrap();
-        let private_key_encrypted = "".to_string().encrypt(&mut ctx, key).unwrap();
-        let public_key_encrypted = "".to_string().encrypt(&mut ctx, key).unwrap();
+        let fingerprint_encrypted = original_subtitle
+            .to_owned()
+            .encrypt(&mut ctx, key, ContentFormat::Utf8)
+            .unwrap();
+        let private_key_encrypted = ""
+            .to_string()
+            .encrypt(&mut ctx, key, ContentFormat::Utf8)
+            .unwrap();
+        let public_key_encrypted = ""
+            .to_string()
+            .encrypt(&mut ctx, key, ContentFormat::Utf8)
+            .unwrap();
         let ssh_key_cipher = Cipher {
             id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
             organization_id: None,
@@ -1301,7 +1375,7 @@ mod tests {
             key: None,
             name: "My test ssh key"
                 .to_string()
-                .encrypt(&mut ctx, key)
+                .encrypt(&mut ctx, key, ContentFormat::Utf8)
                 .unwrap(),
             notes: None,
             login: None,

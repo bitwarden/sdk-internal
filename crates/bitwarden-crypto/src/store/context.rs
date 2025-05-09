@@ -8,8 +8,8 @@ use zeroize::Zeroizing;
 use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
-    AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, SymmetricCryptoKey,
-    UnsignedSharedKey,
+    AsymmetricCryptoKey, ContentFormat, CryptoError, EncString, KeyId, KeyIds, Result,
+    SymmetricCryptoKey, UnsignedSharedKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -182,6 +182,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 .encrypt_data_with_symmetric_key(
                     wrapping_key,
                     key_to_wrap_instance.to_encoded().as_slice(),
+                    ContentFormat::OctetStream,
                 ),
             _ => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperation::EncryptionNotImplementedForKey,
@@ -362,6 +363,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         &self,
         key: Ids::Symmetric,
         data: &[u8],
+        content_format: ContentFormat,
     ) -> Result<EncString> {
         let key = self.get_symmetric_key(key)?;
         match key {
@@ -370,7 +372,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
-                EncString::encrypt_xchacha20_poly1305(data, key)
+                EncString::encrypt_xchacha20_poly1305(data, key, &content_format)
             }
         }
     }
@@ -380,7 +382,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 #[allow(deprecated)]
 mod tests {
     use crate::{
-        store::{tests::DataView, KeyStore},
+        cose::ContentFormat,
+        store::{
+            tests::{Data, DataView},
+            KeyStore,
+        },
         traits::tests::{TestIds, TestSymmKey},
         Decryptable, Encryptable, SymmetricCryptoKey,
     };
@@ -402,7 +408,9 @@ mod tests {
 
         // Encrypt some data with the key
         let data = DataView("Hello, World!".to_string(), key_a0_id);
-        let _encrypted = data.encrypt(&mut store.context(), key_a0_id).unwrap();
+        let _encrypted: Data = data
+            .encrypt(&mut store.context(), key_a0_id, ContentFormat::DomainObject)
+            .unwrap();
     }
 
     #[test]
@@ -440,7 +448,9 @@ mod tests {
         // with one and decrypt with the other
 
         let data = DataView("Hello, World!".to_string(), key_2_id);
-        let encrypted = data.encrypt(&mut ctx, key_2_id).unwrap();
+        let encrypted = data
+            .encrypt(&mut ctx, key_2_id, ContentFormat::OctetStream)
+            .unwrap();
 
         let decrypted1 = encrypted.decrypt(&mut ctx, key_2_id).unwrap();
         let decrypted2 = encrypted.decrypt(&mut ctx, new_key_id).unwrap();

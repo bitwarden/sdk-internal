@@ -4,7 +4,12 @@ use crate::{store::KeyStoreContext, CryptoError, EncString, KeyId, KeyIds};
 /// Implementations should generally consist of calling [Encryptable::encrypt] for all the fields of
 /// the type.
 pub trait Encryptable<Ids: KeyIds, Key: KeyId, Output> {
-    fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: Key) -> Result<Output, CryptoError>;
+    fn encrypt(
+        &self,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Key,
+        content_format: crate::cose::ContentFormat,
+    ) -> Result<Output, CryptoError>;
 }
 
 impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for &[u8] {
@@ -12,8 +17,9 @@ impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for &[u8] {
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         key: Ids::Symmetric,
+        content_format: crate::cose::ContentFormat,
     ) -> Result<EncString, CryptoError> {
-        ctx.encrypt_data_with_symmetric_key(key, self)
+        ctx.encrypt_data_with_symmetric_key(key, self, content_format)
     }
 }
 
@@ -22,8 +28,9 @@ impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for Vec<u8> {
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         key: Ids::Symmetric,
+        content_format: crate::cose::ContentFormat,
     ) -> Result<EncString, CryptoError> {
-        ctx.encrypt_data_with_symmetric_key(key, self)
+        ctx.encrypt_data_with_symmetric_key(key, self, content_format)
     }
 }
 
@@ -32,8 +39,9 @@ impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for &str {
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         key: Ids::Symmetric,
+        content_format: crate::cose::ContentFormat,
     ) -> Result<EncString, CryptoError> {
-        self.as_bytes().encrypt(ctx, key)
+        self.as_bytes().encrypt(ctx, key, content_format)
     }
 }
 
@@ -42,8 +50,9 @@ impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for String {
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         key: Ids::Symmetric,
+        content_format: crate::cose::ContentFormat,
     ) -> Result<EncString, CryptoError> {
-        self.as_bytes().encrypt(ctx, key)
+        self.as_bytes().encrypt(ctx, key, content_format)
     }
 }
 
@@ -54,9 +63,10 @@ impl<Ids: KeyIds, Key: KeyId, T: Encryptable<Ids, Key, Output>, Output>
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         key: Key,
+        content_format: crate::cose::ContentFormat,
     ) -> Result<Option<Output>, CryptoError> {
         self.as_ref()
-            .map(|value| value.encrypt(ctx, key))
+            .map(|value| value.encrypt(ctx, key, content_format))
             .transpose()
     }
 }
@@ -68,16 +78,19 @@ impl<Ids: KeyIds, Key: KeyId, T: Encryptable<Ids, Key, Output>, Output>
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         key: Key,
+        content_format: crate::cose::ContentFormat,
     ) -> Result<Vec<Output>, CryptoError> {
-        self.iter().map(|value| value.encrypt(ctx, key)).collect()
+        self.iter()
+            .map(|value| value.encrypt(ctx, key, content_format))
+            .collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        traits::tests::*, AsymmetricCryptoKey, Decryptable, Encryptable, KeyStore,
-        SymmetricCryptoKey,
+        cose::ContentFormat, traits::tests::*, AsymmetricCryptoKey, Decryptable, Encryptable,
+        KeyStore, SymmetricCryptoKey,
     };
 
     fn test_store() -> KeyStore<TestIds> {
@@ -109,8 +122,12 @@ mod tests {
         let vec_data = vec![1, 2, 3, 4, 5];
         let slice_data: &[u8] = &vec_data;
 
-        let vec_encrypted = vec_data.encrypt(&mut ctx, key).unwrap();
-        let slice_encrypted = slice_data.encrypt(&mut ctx, key).unwrap();
+        let vec_encrypted = vec_data
+            .encrypt(&mut ctx, key, ContentFormat::OctetStream)
+            .unwrap();
+        let slice_encrypted = slice_data
+            .encrypt(&mut ctx, key, ContentFormat::OctetStream)
+            .unwrap();
 
         let vec_decrypted: Vec<u8> = vec_encrypted.decrypt(&mut ctx, key).unwrap();
         let slice_decrypted: Vec<u8> = slice_encrypted.decrypt(&mut ctx, key).unwrap();
@@ -128,8 +145,12 @@ mod tests {
         let string_data = "Hello, World!".to_string();
         let str_data: &str = string_data.as_str();
 
-        let string_encrypted = string_data.encrypt(&mut ctx, key).unwrap();
-        let str_encrypted = str_data.encrypt(&mut ctx, key).unwrap();
+        let string_encrypted = string_data
+            .encrypt(&mut ctx, key, ContentFormat::OctetStream)
+            .unwrap();
+        let str_encrypted = str_data
+            .encrypt(&mut ctx, key, ContentFormat::OctetStream)
+            .unwrap();
 
         let string_decrypted: String = string_encrypted.decrypt(&mut ctx, key).unwrap();
         let str_decrypted: String = str_encrypted.decrypt(&mut ctx, key).unwrap();
@@ -146,7 +167,9 @@ mod tests {
 
         let string_data = Some("Hello, World!".to_string());
 
-        let string_encrypted = string_data.encrypt(&mut ctx, key).unwrap();
+        let string_encrypted = string_data
+            .encrypt(&mut ctx, key, ContentFormat::OctetStream)
+            .unwrap();
 
         let string_decrypted: Option<String> = string_encrypted.decrypt(&mut ctx, key).unwrap();
 
@@ -160,13 +183,17 @@ mod tests {
 
         let key = TestSymmKey::A(0);
         let none_data: Option<String> = None;
-        let string_encrypted = none_data.encrypt(&mut ctx, key).unwrap();
+        let string_encrypted = none_data
+            .encrypt(&mut ctx, key, ContentFormat::OctetStream)
+            .unwrap();
         assert_eq!(string_encrypted, None);
 
         // The None implementation will not do any decrypt operations, so it won't fail even if the
         // key doesn't exist
         let bad_key = TestSymmKey::B((0, 1));
-        let string_encrypted_bad = none_data.encrypt(&mut ctx, bad_key).unwrap();
+        let string_encrypted_bad = none_data
+            .encrypt(&mut ctx, bad_key, ContentFormat::OctetStream)
+            .unwrap();
         assert_eq!(string_encrypted_bad, None);
     }
 }
