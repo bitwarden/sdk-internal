@@ -1,38 +1,28 @@
 ###############################################
 #                 Build stage                 #
 ###############################################
-FROM rust:1.85 AS build
-
+FROM rust:1.85 AS base
 WORKDIR /app
 
-# Copy dependency files and create dummy files to allow cargo to build the dependencies in a separate stage
-COPY Cargo.toml Cargo.lock /app/
-COPY crates/bitwarden-crypto/Cargo.toml /app/crates/bitwarden-crypto/
-COPY crates/memory-testing/Cargo.toml   /app/crates/memory-testing/
+# Make sure the correct rust toolchain is installed only once
+COPY rust-toolchain.toml /app/
+RUN rustup show
 
-# Patch Cargo.toml to remove `, "bitwarden_license/*"` from the members array
-RUN sed -i 's/\([" ]*\)"bitwarden_license\/\*"[ ,]*\([" ]*\)/\1\2/g' Cargo.toml
+# Install cargo-chef, to cache dependency builds
+RUN cargo install cargo-chef --version 0.1.71 --locked
 
-RUN mkdir -p /app/crates/bitwarden-crypto/src \
-    /app/crates/bitwarden-crypto/benches \
-    /app/crates/memory-testing/src \
-    && touch /app/crates/bitwarden-crypto/src/lib.rs \
-    /app/crates/bitwarden-crypto/benches/default_allocator.rs \
-    /app/crates/bitwarden-crypto/benches/zeroizing_allocator.rs \
-    && echo 'fn main(){}' > /app/crates/memory-testing/src/main.rs \
-    && cargo build -p memory-testing --release
+# Prepare the recipe for the dependencies, which will be built as the first part of the next stage
+FROM base AS planner
+COPY . /app/
+RUN cargo chef prepare --recipe-path recipe.json
 
-# Delete dummy files and copy the actual source code
-RUN rm /app/crates/bitwarden-crypto/src/lib.rs \
-    /app/crates/bitwarden-crypto/benches/default_allocator.rs \
-    /app/crates/bitwarden-crypto/benches/zeroizing_allocator.rs \
-    /app/crates/memory-testing/src/main.rs
+# Build dependencies based on the recipe of the previous stage, then copy the source and build the project
+FROM base AS build
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook -p memory-testing --release --recipe-path recipe.json
 
-COPY crates/bitwarden-crypto /app/crates/bitwarden-crypto
-COPY crates/memory-testing/src   /app/crates/memory-testing/src
-
-# Build the project. We use touch to force a rebuild of the now real files
-RUN touch /app/crates/bitwarden-crypto/src/lib.rs /app/crates/memory-testing/src/main.rs
+# Copy the source here to reuse the cached dependencies
+COPY . /app/
 RUN cargo build -p memory-testing --release
 
 ###############################################
