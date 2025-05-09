@@ -3,7 +3,9 @@ use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
-use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{
+    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext,
+};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
@@ -54,10 +56,11 @@ impl Encryptable<KeyIds, SymmetricKeyId, Field> for FieldView {
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
+        _content_format: ContentFormat,
     ) -> Result<Field, CryptoError> {
         Ok(Field {
-            name: self.name.encrypt(ctx, key)?,
-            value: self.value.encrypt(ctx, key)?,
+            name: self.name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            value: self.value.encrypt(ctx, key, ContentFormat::Utf8)?,
             r#type: self.r#type,
             linked_id: self.linked_id,
         })

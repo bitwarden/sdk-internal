@@ -26,7 +26,7 @@ use std::sync::{Arc, RwLock};
 
 use rayon::prelude::*;
 
-use crate::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
+use crate::{cose::ContentFormat, Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
 
 mod backend;
 mod context;
@@ -75,8 +75,8 @@ pub use context::KeyStoreContext;
 ///    }
 /// }
 /// impl Encryptable<Ids, SymmKeyId, EncString> for Data {
-///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
-///         self.0.encrypt(ctx, key)
+///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId, content_format: ContentFormat) -> Result<EncString, CryptoError> {
+///         self.0.encrypt(ctx, key, content_format)
 ///     }
 /// }
 ///
@@ -214,7 +214,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         data: Data,
     ) -> Result<Output, crate::CryptoError> {
         let key = data.key_identifier();
-        data.encrypt(&mut self.context(), key)
+        data.encrypt(&mut self.context(), key, ContentFormat::OctetStream)
     }
 
     /// Decrypt a list of items using this key store. The keys returned by
@@ -272,7 +272,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
 
                 for item in chunk {
                     let key = item.key_identifier();
-                    result.push(item.encrypt(&mut ctx, key));
+                    result.push(item.encrypt(&mut ctx, key, ContentFormat::DomainObject));
                     ctx.clear_local();
                 }
 
@@ -329,8 +329,9 @@ pub(crate) mod tests {
             &self,
             ctx: &mut KeyStoreContext<TestIds>,
             key: TestSymmKey,
+            _content_format: crate::cose::ContentFormat,
         ) -> Result<Data, crate::CryptoError> {
-            Ok(Data(self.0.encrypt(ctx, key)?, key))
+            Ok(Data(self.0.encrypt(ctx, key, _content_format)?, key))
         }
     }
 

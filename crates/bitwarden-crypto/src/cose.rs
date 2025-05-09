@@ -3,8 +3,14 @@
 //! unless there is a a clear benefit, such as a clear cryptographic benefit, which MUST
 //! be documented publicly.
 
-use coset::{iana, CborSerializable, Label};
+use coset::{
+    iana::{self, CoapContentFormat},
+    CborSerializable, ContentType, Label,
+};
 use generic_array::GenericArray;
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
+use tsify_next::Tsify;
 use typenum::U32;
 
 use crate::{
@@ -15,22 +21,59 @@ use crate::{
 /// to be able to randomly generate nonces, and to not have to worry about key wearout. Since
 /// the draft was never published as an RFC, we use a private-use value for the algorithm.
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
+const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
+const CONTENT_TYPE_PADDED_UTF8: &str = "application/utf8-padded";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub enum ContentFormat {
+    Utf8,
+    Pkcs8,
+    CoseKey,
+    OctetStream,
+    /// Domain object should never be serialized. It is used to indicate when we call an encrypt
+    /// operation on a complex object that consists of multiple, individually encrypted fields
+    DomainObject,
+}
 
 /// Encrypts a plaintext message using XChaCha20Poly1305 and returns a COSE Encrypt0 message
 pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext: &[u8],
     key: &crate::XChaCha20Poly1305Key,
+    content_format: &ContentFormat,
 ) -> Result<Vec<u8>, CryptoError> {
-    let mut protected_header = coset::HeaderBuilder::new().build();
+    let protected_header = coset::HeaderBuilder::new();
+    let protected_header = match content_format {
+        // UTF-8 directly would leak the plaintext size. This is not acceptable for certain data
+        // (passwords).
+        ContentFormat::Utf8 => protected_header.content_type(CONTENT_TYPE_PADDED_UTF8.to_string()),
+        ContentFormat::Pkcs8 => protected_header.content_format(CoapContentFormat::Pkcs8),
+        ContentFormat::CoseKey => protected_header.content_format(CoapContentFormat::CoseKey),
+        ContentFormat::OctetStream => {
+            protected_header.content_format(CoapContentFormat::OctetStream)
+        }
+        // This should panic, and should never be implemented to be reachable!
+        ContentFormat::DomainObject => unreachable!(),
+    };
+    let mut protected_header = protected_header.build();
     // This should be adjusted to use the builder pattern once implemented in coset.
     // The related coset upstream issue is:
     // https://github.com/google/coset/issues/105
     protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
 
+    let encoded_plaintext = if *content_format == ContentFormat::Utf8 {
+        // Pad the data to a block size in order to hide plaintext length
+        let mut plaintext = plaintext.to_vec();
+        crate::keys::utils::pad_bytes(&mut plaintext, XCHACHA20_TEXT_PAD_BLOCK_SIZE);
+        plaintext
+    } else {
+        plaintext.to_vec()
+    };
+
     let mut nonce = [0u8; xchacha20::NONCE_SIZE];
     let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
         .protected(protected_header)
-        .create_ciphertext(plaintext, &[], |data, aad| {
+        .create_ciphertext(&encoded_plaintext, &[], |data, aad| {
             let ciphertext =
                 crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
             nonce = ciphertext.nonce();
@@ -71,6 +114,13 @@ pub(crate) fn decrypt_xchacha20_poly1305(
             aad,
         )
     })?;
+
+    if let Some(ref content_type) = msg.protected.header.content_type {
+        if *content_type == ContentType::Text(CONTENT_TYPE_PADDED_UTF8.to_string()) {
+            // Unpad the data to get the original plaintext
+            return crate::keys::utils::unpad_bytes(&decrypted_message).map(|bytes| bytes.to_vec());
+        }
+    }
     Ok(decrypted_message)
 }
 
@@ -125,7 +175,8 @@ mod test {
         };
 
         let plaintext = b"Hello, world!";
-        let encrypted = encrypt_xchacha20_poly1305(plaintext, key).unwrap();
+        let encrypted =
+            encrypt_xchacha20_poly1305(plaintext, key, &ContentFormat::OctetStream).unwrap();
         let decrypted = decrypt_xchacha20_poly1305(&encrypted, key).unwrap();
         assert_eq!(decrypted, plaintext);
     }
