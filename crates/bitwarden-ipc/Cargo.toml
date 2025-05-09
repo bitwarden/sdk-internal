@@ -20,6 +20,7 @@ wasm = [
 ] # WASM support
 
 [dependencies]
+async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-threading = { workspace = true }
 js-sys = { workspace = true, optional = true }
