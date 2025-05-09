@@ -16,3 +16,4 @@ pub use ipc_client::{
     IpcClient, IpcClientSubscription, IpcClientTypedSubscription, ReceiveError, SubscribeError,
     TypedReceiveError,
 };
+pub use rpc::handler::RpcHandler;
