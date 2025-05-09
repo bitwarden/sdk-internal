@@ -219,7 +219,7 @@ impl PureCrypto {
             .to_string())
     }
 
-    /// Unwraps (decrypts) a wrapped pkcs8 der encoded decapsulation (private) key using a symmetric
+    /// Unwraps (decrypts) a wrapped PKCS8 DER encoded decapsulation (private) key using a symmetric
     /// wrapping key.
     pub fn unwrap_decapsulation_key(
         wrapped_key: String,
