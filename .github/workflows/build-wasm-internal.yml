@@ -42,7 +42,7 @@ jobs:
           echo "SDK_VERSION='${SDK_VERSION}'"
 
       - name: Setup Node
-        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
           registry-url: "https://npm.pkg.github.com"
@@ -66,7 +66,7 @@ jobs:
           components: rust-src
 
       - name: Cache cargo registry
-        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
         with:
           key: wasm-cargo-cache
 
@@ -77,7 +77,7 @@ jobs:
         run: ./build.sh -r
 
       - name: Upload artifact
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sdk-internal
           path: ${{ github.workspace }}/crates/bitwarden-wasm-internal/npm/*
