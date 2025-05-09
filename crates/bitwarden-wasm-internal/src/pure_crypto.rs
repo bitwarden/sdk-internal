@@ -75,7 +75,6 @@ impl PureCrypto {
             .to_buffer()
     }
 
-    // Userkey encryption with password
     pub fn decrypt_user_key_with_master_password(
         encrypted_user_key: String,
         master_password: String,
@@ -102,16 +101,16 @@ impl PureCrypto {
         Ok(result.to_string())
     }
 
-    // Generate userkey
-    pub fn generate_user_key_aes256_cbc_hmac() -> Vec<u8> {
+    pub fn make_user_key_aes256_cbc_hmac() -> Vec<u8> {
         SymmetricCryptoKey::make_aes256_cbc_hmac_key().to_encoded()
     }
 
-    pub fn generate_user_key_xchacha20_poly1305() -> Vec<u8> {
+    pub fn make_user_key_xchacha20_poly1305() -> Vec<u8> {
         SymmetricCryptoKey::make_xchacha20_poly1305_key().to_encoded()
     }
 
-    // Key wrap
+    /// Wraps (encrypts) a symmetric key using a symmetric wrapping key, returning the wrapped key
+    /// as an EncString.
     pub fn wrap_symmetric_key(
         key_to_be_wrapped: Vec<u8>,
         wrapping_key: Vec<u8>,
@@ -137,6 +136,8 @@ impl PureCrypto {
             .to_string())
     }
 
+    /// Unwraps (decrypts) a wrapped symmetric key using a symmetric wrapping key, returning the
+    /// unwrapped key as a serialized byte array.
     pub fn unwrap_symmetric_key(
         wrapped_key: String,
         wrapping_key: Vec<u8>,
@@ -159,6 +160,11 @@ impl PureCrypto {
         Ok(key.to_encoded())
     }
 
+    /// Wraps (encrypts) an SPKI DER encoded encapsulation (public) key using a symmetric wrapping
+    /// key. Note: Usually, a public key is - by definition - public, so this should not be
+    /// used. The specific use-case for this function is to enable rotateable key sets, where
+    /// the "public key" is not public, with the intent of preventing the server from being able
+    /// to overwrite the user key unlocked by the rotateable keyset.
     pub fn wrap_encapsulation_key(
         encapsulation_key: Vec<u8>,
         wrapping_key: Vec<u8>,
@@ -176,6 +182,8 @@ impl PureCrypto {
             .to_string())
     }
 
+    /// Unwraps (decrypts) a wrapped SPKI DER encoded encapsulation (public) key using a symmetric
+    /// wrapping key.
     pub fn unwrap_encapsulation_key(
         wrapped_key: String,
         wrapping_key: Vec<u8>,
@@ -192,6 +200,8 @@ impl PureCrypto {
             .decrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))
     }
 
+    /// Wraps (encrypts) a PKCS8 DER encoded decapsulation (private) key using a symmetric wrapping
+    /// key,
     pub fn wrap_decapsulation_key(
         decapsulation_key: Vec<u8>,
         wrapping_key: Vec<u8>,
@@ -209,6 +219,8 @@ impl PureCrypto {
             .to_string())
     }
 
+    /// Unwraps (decrypts) a wrapped PKCS8 DER encoded decapsulation (private) key using a symmetric
+    /// wrapping key.
     pub fn unwrap_decapsulation_key(
         wrapped_key: String,
         wrapping_key: Vec<u8>,
@@ -225,7 +237,9 @@ impl PureCrypto {
             .decrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))
     }
 
-    // Key encapsulation
+    /// Encapsulates (encrypts) a symmetric key using an asymmetric encapsulation key (public key)
+    /// in SPKI format, returning the encapsulated key as a string. Note: This is unsigned, so
+    /// the sender's authenticity cannot be verified by the recipient.
     pub fn encapsulate_key_unsigned(
         shared_key: Vec<u8>,
         encapsulation_key: Vec<u8>,
@@ -238,6 +252,9 @@ impl PureCrypto {
         .to_string())
     }
 
+    /// Decapsulates (decrypts) a symmetric key using an decapsulation key (private key) in PKCS8
+    /// DER format. Note: This is unsigned, so the sender's authenticity cannot be verified by the
+    /// recipient.
     pub fn decapsulate_key_unsigned(
         encapsulated_key: String,
         decapsulation_key: Vec<u8>,
@@ -364,13 +381,13 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
     #[test]
     fn test_make_aes256_cbc_hmac_key() {
-        let key = PureCrypto::generate_user_key_aes256_cbc_hmac();
+        let key = PureCrypto::make_user_key_aes256_cbc_hmac();
         assert_eq!(key.len(), 64);
     }
 
     #[test]
     fn test_make_xchacha20_poly1305_key() {
-        let key = PureCrypto::generate_user_key_xchacha20_poly1305();
+        let key = PureCrypto::make_user_key_xchacha20_poly1305();
         assert!(key.len() > 64);
     }
 
@@ -381,7 +398,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let kdf = Kdf::PBKDF2 {
             iterations: NonZero::try_from(600000).unwrap(),
         };
-        let user_key = PureCrypto::generate_user_key_aes256_cbc_hmac();
+        let user_key = PureCrypto::make_user_key_aes256_cbc_hmac();
         let encrypted_user_key = PureCrypto::encrypt_user_key_with_master_password(
             user_key.clone(),
             master_password.to_string(),
@@ -401,8 +418,8 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
     #[test]
     fn test_wrap_unwrap_symmetric_key() {
-        let key_to_be_wrapped = PureCrypto::generate_user_key_aes256_cbc_hmac();
-        let wrapping_key = PureCrypto::generate_user_key_aes256_cbc_hmac();
+        let key_to_be_wrapped = PureCrypto::make_user_key_aes256_cbc_hmac();
+        let wrapping_key = PureCrypto::make_user_key_aes256_cbc_hmac();
         let wrapped_key =
             PureCrypto::wrap_symmetric_key(key_to_be_wrapped.clone(), wrapping_key.clone())
                 .unwrap();
@@ -414,7 +431,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
     fn test_wrap_encapsulation_key() {
         let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
         let encapsulation_key = decapsulation_key.to_public_der().unwrap();
-        let wrapping_key = PureCrypto::generate_user_key_aes256_cbc_hmac();
+        let wrapping_key = PureCrypto::make_user_key_aes256_cbc_hmac();
         let wrapped_key =
             PureCrypto::wrap_encapsulation_key(encapsulation_key.clone(), wrapping_key.clone())
                 .unwrap();
@@ -426,7 +443,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
     #[test]
     fn test_wrap_decapsulation_key() {
         let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
-        let wrapping_key = PureCrypto::generate_user_key_aes256_cbc_hmac();
+        let wrapping_key = PureCrypto::make_user_key_aes256_cbc_hmac();
         let wrapped_key = PureCrypto::wrap_decapsulation_key(
             decapsulation_key.to_der().unwrap(),
             wrapping_key.clone(),
@@ -439,7 +456,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
     #[test]
     fn test_encapsulate_key_unsigned() {
-        let shared_key = PureCrypto::generate_user_key_aes256_cbc_hmac();
+        let shared_key = PureCrypto::make_user_key_aes256_cbc_hmac();
         let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
         let encapsulation_key = decapsulation_key.to_public_der().unwrap();
         let encapsulated_key =
