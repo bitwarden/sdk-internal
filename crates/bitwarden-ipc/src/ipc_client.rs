@@ -10,7 +10,7 @@ use crate::{
     constants::CHANNEL_BUFFER_CAPACITY,
     endpoint::Endpoint,
     message::{IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage},
-    rpc::{payload::RpcPayload, request::RpcRequest, response::RpcResponse},
+    rpc::{payload::RpcPayload, request::RpcRequestMessage, response::RpcResponse},
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
 };
 
@@ -264,15 +264,17 @@ where
         let request_id = uuid::Uuid::new_v4().to_string();
         let mut response_subscription = self.subscribe(Some(request_id.clone())).await?;
 
-        let payload: Result<Vec<u8>, RequestError<Crypto::SendError>> = RpcRequest {
-            payload: request,
+        let payload: Result<Vec<u8>, RequestError<Crypto::SendError>> = RpcRequestMessage {
+            request,
             request_id: request_id.clone(),
             request_type: Payload::name(),
         }
         .try_into()
-        .map_err(|e: <RpcRequest<Payload> as TryFrom<Vec<u8>>>::Error| {
-            RequestError::<Crypto::SendError>::Typing(e.to_string())
-        });
+        .map_err(
+            |e: <RpcRequestMessage<Payload> as TryFrom<Vec<u8>>>::Error| {
+                RequestError::<Crypto::SendError>::Typing(e.to_string())
+            },
+        );
 
         let message: OutgoingMessage = OutgoingMessage {
             payload: payload?,
@@ -679,7 +681,7 @@ mod tests {
 
     mod request {
         use super::*;
-        use crate::rpc::{request::RpcRequest, response::RpcResponse};
+        use crate::rpc::{request::RpcRequestMessage, response::RpcResponse};
 
         #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
         struct TestRequest {
@@ -730,13 +732,13 @@ mod tests {
 
             // Read and verify the outgoing message
             let outgoing_messages = communication_provider.outgoing().await;
-            let outgoing_request: RpcRequest<TestRequest> = outgoing_messages[0]
+            let outgoing_request: RpcRequestMessage<TestRequest> = outgoing_messages[0]
                 .clone()
                 .payload
                 .try_into()
                 .expect("Deserialization should not fail");
             assert_eq!(outgoing_request.request_type, "TestRequest");
-            assert_eq!(outgoing_request.payload, request);
+            assert_eq!(outgoing_request.request, request);
 
             // Simulate receiving a response
             let simulated_response = RpcResponse::<TestRequest> {
