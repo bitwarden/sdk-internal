@@ -160,7 +160,7 @@ impl PureCrypto {
         Ok(key.to_encoded())
     }
 
-    /// Wraps (encrypts) an spki der encoded encapsulation (public) key using a symmetric wrapping
+    /// Wraps (encrypts) an SPKI DER encoded encapsulation (public) key using a symmetric wrapping
     /// key. Note: Usually, a public key is - by definition - public, so this should not be
     /// used. The specific use-case for this function is to enable rotateable key sets, where
     /// the "public key" is not public, with the intent of preventing the server from being able
