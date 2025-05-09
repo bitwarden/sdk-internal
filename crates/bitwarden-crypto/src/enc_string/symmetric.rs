@@ -317,13 +317,21 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for String {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, content_format: &ContentFormat) -> Result<EncString> {
+    fn encrypt_with_key(
+        self,
+        key: &SymmetricCryptoKey,
+        content_format: &ContentFormat,
+    ) -> Result<EncString> {
         self.as_bytes().encrypt_with_key(key, content_format)
     }
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey, content_format: &ContentFormat) -> Result<EncString> {
+    fn encrypt_with_key(
+        self,
+        key: &SymmetricCryptoKey,
+        content_format: &ContentFormat,
+    ) -> Result<EncString> {
         self.as_bytes().encrypt_with_key(key, content_format)
     }
 }
