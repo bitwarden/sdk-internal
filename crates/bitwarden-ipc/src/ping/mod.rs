@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::rpc::payload::RpcPayload;
+use crate::rpc::payload::RpcRequest;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PingRequest;
@@ -8,7 +8,7 @@ pub struct PingRequest;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PingResponse;
 
-impl RpcPayload for PingRequest {
+impl RpcRequest for PingRequest {
     type Response = PingResponse;
 
     fn name() -> String {

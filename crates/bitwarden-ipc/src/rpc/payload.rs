@@ -1,4 +1,4 @@
-pub trait RpcPayload {
+pub trait RpcRequest {
     type Response;
 
     /// Used to identify handlers

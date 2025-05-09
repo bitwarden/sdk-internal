@@ -1,17 +1,17 @@
 use serde::{Deserialize, Serialize};
 
-use super::payload::RpcPayload;
+use super::payload::RpcRequest;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RpcRequestMessage<Payload: RpcPayload> {
-    pub request: Payload,
+pub struct RpcRequestMessage<Request: RpcRequest> {
+    pub request: Request,
     pub request_id: String,
     pub request_type: String,
 }
 
-impl<Payload> TryFrom<Vec<u8>> for RpcRequestMessage<Payload>
+impl<Request> TryFrom<Vec<u8>> for RpcRequestMessage<Request>
 where
-    Payload: RpcPayload + for<'de> Deserialize<'de>,
+    Request: RpcRequest + for<'de> Deserialize<'de>,
 {
     type Error = serde_json::Error;
 
@@ -20,13 +20,13 @@ where
     }
 }
 
-impl<Payload> TryFrom<RpcRequestMessage<Payload>> for Vec<u8>
+impl<Request> TryFrom<RpcRequestMessage<Request>> for Vec<u8>
 where
-    Payload: RpcPayload + Serialize,
+    Request: RpcRequest + Serialize,
 {
     type Error = serde_json::Error;
 
-    fn try_from(value: RpcRequestMessage<Payload>) -> Result<Self, Self::Error> {
+    fn try_from(value: RpcRequestMessage<Request>) -> Result<Self, Self::Error> {
         serde_json::to_vec(&value)
     }
 }

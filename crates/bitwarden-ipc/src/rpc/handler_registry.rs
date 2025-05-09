@@ -1,7 +1,7 @@
 use crate::rpc::error::RpcError;
 
 use super::handler::{ErasedRpcHandler, RpcHandler};
-use super::payload::RpcPayload;
+use super::payload::RpcRequest;
 
 pub struct RpcHandlerRegistry {
     handlers: std::collections::HashMap<String, Box<dyn ErasedRpcHandler>>,
@@ -18,7 +18,7 @@ impl RpcHandlerRegistry {
     where
         H: RpcHandler + ErasedRpcHandler + 'static,
     {
-        let name = H::Payload::name();
+        let name = H::Request::name();
         self.handlers.insert(name, Box::new(handler));
     }
 
@@ -37,30 +37,30 @@ impl RpcHandlerRegistry {
 mod test {
     use serde::{Deserialize, Serialize};
 
-    use crate::rpc::payload::RpcPayload;
+    use crate::rpc::payload::RpcRequest;
 
     use super::*;
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    struct TestPayload {
+    struct TestRequest {
         a: i32,
         b: i32,
     }
 
-    impl RpcPayload for TestPayload {
+    impl RpcRequest for TestRequest {
         type Response = i32;
 
         fn name() -> String {
-            "TestPayload".to_string()
+            "TestRequest".to_string()
         }
     }
 
     struct TestHandler;
 
     impl RpcHandler for TestHandler {
-        type Payload = TestPayload;
+        type Request = TestRequest;
 
-        async fn handle(&self, payload: Self::Payload) -> i32 {
+        async fn handle(&self, payload: Self::Request) -> i32 {
             payload.a + payload.b
         }
     }
@@ -69,10 +69,10 @@ mod test {
     async fn handle_returns_error_when_no_handler_can_be_found() {
         let registry = RpcHandlerRegistry::new();
 
-        let payload = TestPayload { a: 1, b: 2 };
+        let payload = TestRequest { a: 1, b: 2 };
         let payload_bytes = serde_json::to_vec(&payload).unwrap();
 
-        let result = registry.handle("TestPayload", payload_bytes).await;
+        let result = registry.handle("TestRequest", payload_bytes).await;
 
         assert!(matches!(result, Err(RpcError::NoHandlerFound)));
     }
@@ -83,11 +83,11 @@ mod test {
 
         registry.register(TestHandler);
 
-        let payload = TestPayload { a: 1, b: 2 };
+        let payload = TestRequest { a: 1, b: 2 };
         let payload_bytes = serde_json::to_vec(&payload).unwrap();
 
         let result = registry
-            .handle("TestPayload", payload_bytes)
+            .handle("TestRequest", payload_bytes)
             .await
             .expect("Failed to handle request");
         let result: i32 = serde_json::from_slice(&result).expect("Failed to deserialize response");
