@@ -22,7 +22,7 @@ pub use cipher::{
     Cipher, CipherError, CipherListView, CipherListViewType, CipherRepromptType, CipherType,
     CipherView,
 };
-pub use cipher_client::CiphersClient;
+pub use cipher_client::{CiphersClient, OrganizationId};
 pub use field::FieldView;
 pub use identity::IdentityView;
 pub use login::{
