@@ -1,10 +1,18 @@
 use serde::{Deserialize, Serialize};
 
+use crate::message::PayloadTypeName;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RpcRequestMessage {
     pub request: Vec<u8>,
     pub request_id: String,
     pub request_type: String,
+}
+
+impl PayloadTypeName for RpcRequestMessage {
+    fn name() -> String {
+        "RpcRequestMessage".to_string()
+    }
 }
 
 impl TryFrom<Vec<u8>> for RpcRequestMessage {

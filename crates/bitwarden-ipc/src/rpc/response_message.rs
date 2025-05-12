@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::message::PayloadTypeName;
+
 use super::error::RpcError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7,6 +9,12 @@ pub struct RpcResponseMessage {
     pub result: Result<Vec<u8>, RpcError>,
     pub request_id: String,
     pub request_type: String,
+}
+
+impl PayloadTypeName for RpcResponseMessage {
+    fn name() -> String {
+        "RpcResponseMessage".to_string()
+    }
 }
 
 impl TryFrom<Vec<u8>> for RpcResponseMessage {
