@@ -16,7 +16,7 @@ secure.
 use bitwarden_crypto::{SymmetricCryptoKey, KeyEncryptable, KeyDecryptable, CryptoError};
 
 async fn example() -> Result<(), CryptoError> {
-  let key = SymmetricCryptoKey::generate_aes256_cbc_hmac();
+  let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
   let data = "Hello, World!".to_owned();
   let encrypted = data.clone().encrypt_with_key(&key)?;

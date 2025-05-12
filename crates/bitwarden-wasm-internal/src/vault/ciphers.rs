@@ -5,16 +5,16 @@ use bitwarden_vault::{
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
-pub struct ClientCiphers(bitwarden_vault::ClientCiphers);
+pub struct CiphersClient(bitwarden_vault::CiphersClient);
 
-impl ClientCiphers {
-    pub fn new(client: bitwarden_vault::ClientCiphers) -> Self {
+impl CiphersClient {
+    pub fn new(client: bitwarden_vault::CiphersClient) -> Self {
         Self(client)
     }
 }
 
 #[wasm_bindgen]
-impl ClientCiphers {
+impl CiphersClient {
     /// Encrypt cipher
     ///
     /// # Arguments

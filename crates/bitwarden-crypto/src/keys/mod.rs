@@ -14,6 +14,7 @@ mod asymmetric_crypto_key;
 pub use asymmetric_crypto_key::{
     AsymmetricCryptoKey, AsymmetricEncryptable, AsymmetricPublicCryptoKey,
 };
+mod signing_crypto_key;
 mod user_key;
 pub use user_key::UserKey;
 mod device_key;
@@ -22,10 +23,10 @@ mod pin_key;
 pub use pin_key::PinKey;
 mod kdf;
 mod key_id;
-mod signing_crypto_key;
 pub use kdf::{
     default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
     default_pbkdf2_iterations, Kdf,
 };
-pub use signing_crypto_key::{Signature, SigningKey, VerifyingKey};
+#[cfg(test)]
+pub(crate) use key_id::KEY_ID_SIZE;
 mod utils;

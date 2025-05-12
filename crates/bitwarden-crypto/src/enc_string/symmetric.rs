@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::FromStr};
+use std::str::FromStr;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use coset::CborSerializable;
@@ -39,19 +39,20 @@ export type EncString = string;
 ///
 /// ## Serialization
 ///
-/// [EncString] implements [Display] and [FromStr] to allow for easy serialization and uses a
+/// [EncString] implements [ToString] and [FromStr] to allow for easy serialization and uses a
 /// custom scheme to represent the different variants.
 ///
 /// The scheme is one of the following schemes:
 /// - `[type].[iv]|[data]`
 /// - `[type].[iv]|[data]|[mac]`
-/// - `[type].[data]`
+/// - `[type].[cose_encrypt0_bytes]`
 ///
 /// Where:
 /// - `[type]`: is a digit number representing the variant.
 /// - `[iv]`: (optional) is the initialization vector used for encryption.
 /// - `[data]`: is the encrypted data.
 /// - `[mac]`: (optional) is the MAC used to validate the integrity of the data.
+/// - `[cose_encrypt0_bytes]`: is the COSE Encrypt0 message, serialized to bytes
 #[derive(Clone, zeroize::ZeroizeOnDrop, PartialEq)]
 #[allow(unused, non_camel_case_types)]
 pub enum EncString {
@@ -71,13 +72,6 @@ pub enum EncString {
     Cose_Encrypt0_B64 {
         data: Vec<u8>,
     },
-}
-
-/// To avoid printing sensitive information, [EncString] debug prints to `EncString`.
-impl std::fmt::Debug for EncString {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EncString").finish()
-    }
 }
 
 /// Deserializes an [EncString] from a string.
@@ -181,7 +175,31 @@ impl EncString {
     }
 }
 
-impl Display for EncString {
+// `Display` is not implemented here because printing for debug purposes should be different
+// from serializing to a string. For Aes256_Cbc, or Aes256_Cbc_Hmac, `ToString` and `Debug`
+// are the same. For `Cose_Encrypt0`, `Debug` will print the decoded COSE message, while
+// `ToString` will print the Cose_Encrypt0 bytes, encoded in base64.
+#[allow(clippy::to_string_trait_impl)]
+impl ToString for EncString {
+    fn to_string(&self) -> String {
+        fn fmt_parts(enc_type: u8, parts: &[&[u8]]) -> String {
+            let encoded_parts: Vec<String> =
+                parts.iter().map(|part| STANDARD.encode(part)).collect();
+            format!("{}.{}", enc_type, encoded_parts.join("|"))
+        }
+
+        let enc_type = self.enc_type();
+        match &self {
+            EncString::Aes256Cbc_B64 { iv, data } => fmt_parts(enc_type, &[iv, data]),
+            EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data } => {
+                fmt_parts(enc_type, &[iv, data, mac])
+            }
+            EncString::Cose_Encrypt0_B64 { data } => fmt_parts(enc_type, &[data]),
+        }
+    }
+}
+
+impl std::fmt::Debug for EncString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         fn fmt_parts(
             f: &mut std::fmt::Formatter<'_>,
@@ -201,12 +219,10 @@ impl Display for EncString {
                 fmt_parts(f, enc_type, &[iv, data, mac])
             }
             EncString::Cose_Encrypt0_B64 { data } => {
-                if let Ok(msg) = coset::CoseEncrypt0::from_slice(data.as_slice()) {
-                    write!(f, "{}.{:?}", enc_type, msg)?;
-                } else {
-                    write!(f, "{}.INVALID_COSE", enc_type)?;
-                }
-                Ok(())
+                let msg = coset::CoseEncrypt0::from_slice(data.as_slice())
+                    .map(|msg| format!("{:?}", msg))
+                    .unwrap_or_else(|_| "INVALID_COSE".to_string());
+                write!(f, "{}.{}", enc_type, msg)
             }
         }
     }
@@ -244,26 +260,8 @@ impl EncString {
         data_dec: &[u8],
         key: &XChaCha20Poly1305Key,
     ) -> Result<EncString> {
-        let mut protected_header = coset::HeaderBuilder::new().build();
-        protected_header.alg = Some(coset::Algorithm::PrivateUse(cose::XCHACHA20_POLY1305));
-
-        let mut nonce = [0u8; 24];
-        let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
-            .protected(protected_header)
-            .create_ciphertext(data_dec, &[], |data, aad| {
-                let ciphertext =
-                    crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
-                nonce = *ciphertext.nonce();
-                ciphertext.encrypted_bytes()
-            })
-            .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
-            .build();
-
-        Ok(EncString::Cose_Encrypt0_B64 {
-            data: cose_encrypt0.to_vec().map_err(|err| {
-                CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err))
-            })?,
-        })
+        let data = crate::cose::encrypt_xchacha20_poly1305(data_dec, key)?;
+        Ok(EncString::Cose_Encrypt0_B64 { data })
     }
 
     /// The numerical representation of the encryption type of the [EncString].
@@ -304,20 +302,8 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let msg = coset::CoseEncrypt0::from_slice(data.as_slice()).map_err(|err| {
-                    CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err))
-                })?;
-                let decrypted_message = msg.decrypt(&[], |data, aad| {
-                    let nonce = msg.unprotected.iv.as_slice();
-                    crate::xchacha20::decrypt_xchacha20_poly1305(
-                        nonce
-                            .try_into()
-                            .map_err(|_| CryptoError::InvalidNonceLength)?,
-                        &(*key.enc_key).into(),
-                        data,
-                        aad,
-                    )
-                })?;
+                let decrypted_message =
+                    crate::cose::decrypt_xchacha20_poly1305(data.as_slice(), key)?;
                 Ok(decrypted_message)
             }
             _ => Err(CryptoError::WrongKeyType),
@@ -363,11 +349,12 @@ mod tests {
     use super::EncString;
     use crate::{
         derive_symmetric_key, CryptoError, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+        KEY_ID_SIZE,
     };
 
     #[test]
     fn test_enc_roundtrip_xchacha20() {
-        let key_id = [0u8; 24];
+        let key_id = [0u8; KEY_ID_SIZE];
         let enc_key = [0u8; 32];
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id,
@@ -509,7 +496,7 @@ mod tests {
         let enc_string: EncString = enc_str.parse().unwrap();
 
         let debug_string = format!("{:?}", enc_string);
-        assert_eq!(debug_string, "EncString");
+        assert_eq!(debug_string, enc_str);
     }
 
     #[test]

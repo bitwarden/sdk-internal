@@ -2,7 +2,6 @@ use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
     CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
@@ -10,7 +9,7 @@ use tsify_next::Tsify;
 use super::Cipher;
 use crate::VaultParseError;
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -24,7 +23,7 @@ pub struct Attachment {
     pub key: Option<EncString>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -37,7 +36,7 @@ pub struct AttachmentView {
     pub key: Option<EncString>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AttachmentEncryptResult {
@@ -47,7 +46,7 @@ pub struct AttachmentEncryptResult {
 
 pub struct AttachmentFile {
     pub cipher: Cipher,
-    pub attachment: Attachment,
+    pub attachment: AttachmentView,
 
     /// There are three different ways attachments are encrypted.
     /// 1. UserKey / OrgKey (Contents) - Legacy
@@ -88,8 +87,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         // with it, and then encrypt the key with the cipher key
         let attachment_key = ctx.generate_symmetric_key(ATTACHMENT_KEY)?;
         let encrypted_contents = self.contents.encrypt(ctx, attachment_key)?;
-        attachment.key =
-            Some(ctx.encrypt_symmetric_key_with_symmetric_key(ciphers_key, attachment_key)?);
+        attachment.key = Some(ctx.wrap_symmetric_key(ciphers_key, attachment_key)?);
 
         let contents = encrypted_contents.to_buffer()?;
 
@@ -124,11 +122,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, Vec<u8>> for AttachmentFile {
 
         // Version 2 or 3, `AttachmentKey` or `CipherKey(AttachmentKey)`
         if let Some(attachment_key) = &self.attachment.key {
-            let content_key = ctx.decrypt_symmetric_key_with_symmetric_key(
-                ciphers_key,
-                ATTACHMENT_KEY,
-                attachment_key,
-            )?;
+            let content_key =
+                ctx.unwrap_symmetric_key(ciphers_key, ATTACHMENT_KEY, attachment_key)?;
             self.contents.decrypt(ctx, content_key)
         } else {
             // Legacy attachment version 1, use user/org key
@@ -196,7 +191,7 @@ mod tests {
 
     use crate::{
         cipher::cipher::{CipherRepromptType, CipherType},
-        Attachment, AttachmentFile, AttachmentFileView, AttachmentView, Cipher,
+        AttachmentFile, AttachmentFileView, AttachmentView, Cipher,
     };
 
     #[test]
@@ -272,13 +267,13 @@ mod tests {
         let user_key: SymmetricCryptoKey = "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string().try_into().unwrap();
         let key_store = create_test_crypto_with_user_key(user_key);
 
-        let attachment = Attachment {
+        let attachment = AttachmentView {
             id: None,
             url: None,
             size: Some("161".into()),
             size_name: Some("161 Bytes".into()),
-            file_name: Some("2.M3z1MOO9eBG9BWRTEUbPog==|jPw0By1AakHDfoaY8UOwOQ==|eP9/J1583OJpHsSM4ZnXZzdBHfqVTXnOXGlkkmAKSfA=".parse().unwrap()),
-            key: Some("2.r288/AOSPiaLFkW07EBGBw==|SAmnnCbOLFjX5lnURvoualOetQwuyPc54PAmHDTRrhT0gwO9ailna9U09q9bmBfI5XrjNNEsuXssgzNygRkezoVQvZQggZddOwHB6KQW5EQ=|erIMUJp8j+aTcmhdE50zEX+ipv/eR1sZ7EwULJm/6DY=".parse().unwrap())
+            file_name: Some("Test.txt".into()),
+            key: Some("2.r288/AOSPiaLFkW07EBGBw==|SAmnnCbOLFjX5lnURvoualOetQwuyPc54PAmHDTRrhT0gwO9ailna9U09q9bmBfI5XrjNNEsuXssgzNygRkezoVQvZQggZddOwHB6KQW5EQ=|erIMUJp8j+aTcmhdE50zEX+ipv/eR1sZ7EwULJm/6DY=".parse().unwrap()),
         };
 
         let cipher  = Cipher {
@@ -329,12 +324,12 @@ mod tests {
         let user_key: SymmetricCryptoKey = "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string().try_into().unwrap();
         let key_store = create_test_crypto_with_user_key(user_key);
 
-        let attachment = Attachment {
+        let attachment = AttachmentView {
             id: None,
             url: None,
             size: Some("161".into()),
             size_name: Some("161 Bytes".into()),
-            file_name: Some("2.qTJdrgQe+tLCHTlPHMJXLw==|0we9+uYJPEY3FU5SblX2hg==|+fL/wTF/WgpoV+BNzmsmi284O0QNdVBUYmfqqs0CG1E=".parse().unwrap()),
+            file_name: Some("Test.txt".into()),
             key: None,
         };
 

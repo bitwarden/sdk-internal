@@ -1,9 +1,9 @@
 use std::pin::Pin;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use generic_array::{typenum::U32, GenericArray};
+use generic_array::GenericArray;
 use rand::Rng;
-use schemars::JsonSchema;
+use typenum::U32;
 use zeroize::{Zeroize, Zeroizing};
 
 use super::{
@@ -15,7 +15,7 @@ use crate::{
     CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey,
 };
 
-#[derive(Copy, Clone, JsonSchema)]
+#[derive(Copy, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum HashPurpose {
     ServerAuthorization = 1,
@@ -163,11 +163,13 @@ pub(super) fn decrypt_user_key(
 ///
 /// WARNING: This function should only be used with a proper cryptographic random number generator.
 /// If you do not have a good reason for using this, use [MasterKey::make_user_key] instead.
+///
+/// This function is only split out from [MasterKey::make_user_key], to make it unit testable.
 fn make_user_key(
-    mut rng: impl rand::RngCore,
+    rng: impl rand::RngCore + rand::CryptoRng,
     master_key: &MasterKey,
 ) -> Result<(UserKey, EncString)> {
-    let user_key = SymmetricCryptoKey::generate_aes256_cbc_hmac_internal(&mut rng);
+    let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key_internal(rng);
     let protected = master_key.encrypt_user_key(&user_key)?;
     Ok((UserKey::new(user_key), protected))
 }

@@ -1,6 +1,5 @@
 #[cfg(feature = "internal")]
-use bitwarden_crypto::EncString;
-use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, UnauthenticatedSharedKey};
+use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use uuid::Uuid;
@@ -88,21 +87,25 @@ impl EncryptionSettings {
         Ok(())
     }
 
-    /// Initialize the encryption settings with only a single decrypted key.
+    /// Initialize the encryption settings with only a single decrypted organization key.
     /// This is used only for logging in Secrets Manager with an access token
     #[cfg(feature = "secrets")]
-    pub(crate) fn new_single_key(key: SymmetricCryptoKey, store: &KeyStore<KeyIds>) {
+    pub(crate) fn new_single_org_key(
+        organization_id: Uuid,
+        key: SymmetricCryptoKey,
+        store: &KeyStore<KeyIds>,
+    ) {
         // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
         #[allow(deprecated)]
         store
             .context_mut()
-            .set_symmetric_key(SymmetricKeyId::User, key)
+            .set_symmetric_key(SymmetricKeyId::Organization(organization_id), key)
             .expect("Mutable context");
     }
 
     #[cfg(feature = "internal")]
     pub(crate) fn set_org_keys(
-        org_enc_keys: Vec<(Uuid, UnauthenticatedSharedKey)>,
+        org_enc_keys: Vec<(Uuid, UnsignedSharedKey)>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
         use crate::key_management::AsymmetricKeyId;

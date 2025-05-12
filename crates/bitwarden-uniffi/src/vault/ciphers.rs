@@ -4,10 +4,10 @@ use uuid::Uuid;
 use crate::{error::Error, Result};
 
 #[derive(uniffi::Object)]
-pub struct ClientCiphers(pub(crate) bitwarden_vault::ClientCiphers);
+pub struct CiphersClient(pub(crate) bitwarden_vault::CiphersClient);
 
 #[uniffi::export]
-impl ClientCiphers {
+impl CiphersClient {
     /// Encrypt cipher
     pub fn encrypt(&self, cipher_view: CipherView) -> Result<Cipher> {
         Ok(self.0.encrypt(cipher_view).map_err(Error::Encrypt)?)

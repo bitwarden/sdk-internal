@@ -14,7 +14,7 @@ static ALLOC: ZeroizingAllocator<std::alloc::System> = ZeroizingAllocator(std::a
 
 mod aes;
 mod enc_string;
-pub use enc_string::{EncString, UnauthenticatedSharedKey};
+pub use enc_string::{EncString, UnsignedSharedKey};
 mod error;
 pub use error::CryptoError;
 pub(crate) use error::Result;
@@ -32,7 +32,6 @@ mod store;
 pub use store::{KeyStore, KeyStoreContext};
 mod cose;
 mod signing;
-pub(crate) use signing::SigningNamespace;
 mod traits;
 mod xchacha20;
 pub use traits::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};

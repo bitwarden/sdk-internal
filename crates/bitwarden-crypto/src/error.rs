@@ -54,14 +54,14 @@ pub enum CryptoError {
     #[error("Key algorithm does not match encrypted data type")]
     WrongKeyType,
 
+    #[error("Invalid nonce length")]
+    InvalidNonceLength,
+
     #[error("Invalid signature")]
     InvalidSignature,
 
     #[error("Invalid namespace")]
     InvalidNamespace,
-
-    #[error("Invalid nonce length")]
-    InvalidNonceLength,
 }
 
 #[derive(Debug, Error)]
@@ -84,6 +84,8 @@ pub enum EncStringParseError {
     InvalidLength { expected: usize, got: usize },
     #[error("Invalid encoding {0}")]
     InvalidCoseEncoding(coset::CoseError),
+    #[error("Algorithm missing in COSE header")]
+    CoseMissingAlgorithm,
 }
 
 #[derive(Debug, Error)]

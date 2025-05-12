@@ -1,5 +1,3 @@
-use schemars::JsonSchema;
-
 /// Validate the provided password passes the provided Master Password Requirements Policy.
 pub(crate) fn satisfies_policy(
     password: String,
@@ -33,7 +31,7 @@ pub(crate) fn satisfies_policy(
     true
 }
 
-#[derive(Debug, JsonSchema)]
+#[derive(Debug)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[allow(dead_code)]
 pub struct MasterPasswordPolicyOptions {

@@ -3,10 +3,10 @@ use bitwarden_vault::{PasswordHistory, PasswordHistoryView};
 use crate::{error::Error, Result};
 
 #[derive(uniffi::Object)]
-pub struct ClientPasswordHistory(pub(crate) bitwarden_vault::ClientPasswordHistory);
+pub struct PasswordHistoryClient(pub(crate) bitwarden_vault::PasswordHistoryClient);
 
 #[uniffi::export]
-impl ClientPasswordHistory {
+impl PasswordHistoryClient {
     /// Encrypt password history
     pub fn encrypt(&self, password_history: PasswordHistoryView) -> Result<PasswordHistory> {
         Ok(self.0.encrypt(password_history).map_err(Error::Encrypt)?)

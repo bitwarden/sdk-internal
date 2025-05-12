@@ -1,6 +1,6 @@
 use bitwarden_crypto::CryptoError;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{EncString, UnauthenticatedSharedKey};
+use bitwarden_crypto::{EncString, UnsignedSharedKey};
 
 use super::crypto::{
     derive_key_connector, make_key_pair, make_signing_keys, verify_asymmetric_keys,
@@ -76,7 +76,7 @@ impl CryptoClient {
     pub fn enroll_admin_password_reset(
         &self,
         public_key: String,
-    ) -> Result<UnauthenticatedSharedKey, EnrollAdminPasswordResetError> {
+    ) -> Result<UnsignedSharedKey, EnrollAdminPasswordResetError> {
         enroll_admin_password_reset(&self.client, public_key)
     }
 

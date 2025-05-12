@@ -4,7 +4,7 @@ use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, UnauthenticatedSharedKey};
+use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -209,14 +209,18 @@ impl InternalClient {
     }
 
     #[cfg(feature = "secrets")]
-    pub(crate) fn initialize_crypto_single_key(&self, key: SymmetricCryptoKey) {
-        EncryptionSettings::new_single_key(key, &self.key_store);
+    pub(crate) fn initialize_crypto_single_org_key(
+        &self,
+        organization_id: Uuid,
+        key: SymmetricCryptoKey,
+    ) {
+        EncryptionSettings::new_single_org_key(organization_id, key, &self.key_store);
     }
 
     #[cfg(feature = "internal")]
     pub fn initialize_org_crypto(
         &self,
-        org_keys: Vec<(Uuid, UnauthenticatedSharedKey)>,
+        org_keys: Vec<(Uuid, UnsignedSharedKey)>,
     ) -> Result<(), EncryptionSettingsError> {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
     }
