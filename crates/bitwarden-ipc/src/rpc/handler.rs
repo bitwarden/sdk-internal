@@ -69,7 +69,7 @@ where
 }
 
 #[async_trait::async_trait]
-pub(crate) trait ErasedRpcHandler {
+pub(crate) trait ErasedRpcHandler: Send + Sync {
     async fn handle(&self, serialized_request: Vec<u8>) -> Result<Vec<u8>, RpcError>;
 }
 
