@@ -1,25 +1,27 @@
+use tokio::sync::RwLock;
+
 use crate::rpc::error::RpcError;
 
 use super::handler::{ErasedRpcHandler, RpcHandler};
 use super::request::RpcRequest;
 
 pub struct RpcHandlerRegistry {
-    handlers: std::collections::HashMap<String, Box<dyn ErasedRpcHandler>>,
+    handlers: RwLock<std::collections::HashMap<String, Box<dyn ErasedRpcHandler>>>,
 }
 
 impl RpcHandlerRegistry {
     pub fn new() -> Self {
         Self {
-            handlers: std::collections::HashMap::new(),
+            handlers: RwLock::new(std::collections::HashMap::new()),
         }
     }
 
-    pub fn register<H>(&mut self, handler: H)
+    pub async fn register<H>(&self, handler: H)
     where
         H: RpcHandler + ErasedRpcHandler + 'static,
     {
         let name = H::Request::name();
-        self.handlers.insert(name, Box::new(handler));
+        self.handlers.write().await.insert(name, Box::new(handler));
     }
 
     pub async fn handle(
@@ -27,7 +29,7 @@ impl RpcHandlerRegistry {
         name: &str,
         serialized_request: Vec<u8>,
     ) -> Result<Vec<u8>, RpcError> {
-        match self.handlers.get(name) {
+        match self.handlers.read().await.get(name) {
             Some(handler) => handler.handle(serialized_request).await,
             None => Err(RpcError::NoHandlerFound),
         }
@@ -79,9 +81,9 @@ mod test {
 
     #[tokio::test]
     async fn handle_runs_previously_registered_handler() {
-        let mut registry = RpcHandlerRegistry::new();
+        let registry = RpcHandlerRegistry::new();
 
-        registry.register(TestHandler);
+        registry.register(TestHandler).await;
 
         let request = TestRequest { a: 1, b: 2 };
         let request_bytes = serde_json::to_vec(&request).unwrap();

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use bitwarden_error::bitwarden_error;
 use bitwarden_threading::cancellation_token::CancellationToken;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{select, sync::RwLock};
 
@@ -13,10 +14,15 @@ use crate::{
         TypedOutgoingMessage,
     },
     rpc::{
-        error::RpcError, handler_registry::RpcHandlerRegistry, request::RpcRequest,
-        request_message::RpcRequestMessage, response_message::RpcResponseMessage,
+        error::RpcError,
+        handler::{self},
+        handler_registry::RpcHandlerRegistry,
+        request::RpcRequest,
+        request_message::RpcRequestMessage,
+        response_message::RpcResponseMessage,
     },
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
+    RpcHandler,
 };
 
 /// An IPC client that handles communication between different components and clients.
@@ -216,6 +222,18 @@ where
         if let Some(cancellation_token) = cancellation_token.take() {
             cancellation_token.cancel();
         }
+    }
+
+    pub async fn register_rpc_handler<H>(self: &Arc<Self>, handler: H)
+    where
+        H: RpcHandler + Send + Sync + 'static,
+        <H as handler::RpcHandler>::Request: Serialize,
+        <H as handler::RpcHandler>::Request: for<'de> Deserialize<'de>,
+        <<H as handler::RpcHandler>::Request as RpcRequest>::Response: Serialize,
+        <<H as handler::RpcHandler>::Request as RpcRequest>::Response: for<'de> Deserialize<'de>,
+    {
+        println!("Registering handler for {}", H::Request::name());
+        self.handlers.register(handler).await;
     }
 
     /// Send a message
@@ -831,6 +849,18 @@ mod tests {
             }
         }
 
+        struct TestHandler;
+
+        impl RpcHandler for TestHandler {
+            type Request = TestRequest;
+
+            async fn handle(&self, request: Self::Request) -> TestResponse {
+                TestResponse {
+                    result: request.a + request.b,
+                }
+            }
+        }
+
         #[tokio::test]
         async fn request_sends_message_and_returns_response() {
             let crypto_provider = NoEncryptionCryptoProvider;
@@ -903,6 +933,9 @@ mod tests {
             let request = TestRequest { a: 1, b: 2 };
             let response = TestResponse { result: 3 };
 
+            // Register the handler
+            client.register_rpc_handler(TestHandler).await;
+
             // Simulate receiving a request
             let simulated_request = RpcRequestMessage {
                 request: request.try_into().unwrap(),
@@ -935,7 +968,7 @@ mod tests {
                 .expect("Deserialization should not fail");
             let result: TestResponse = outgoing_response.result.unwrap().try_into().unwrap();
 
-            assert_eq!(outgoing_messages[0].topic, Some(request_id));
+            assert_eq!(outgoing_messages[0].topic, Some(RpcResponseMessage::name()));
             assert_eq!(outgoing_response.request_type, "TestRequest");
             assert_eq!(result, response);
         }
