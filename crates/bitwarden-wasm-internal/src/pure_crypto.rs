@@ -1,7 +1,10 @@
 use std::str::FromStr;
 
+use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, SymmetricCryptoKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CryptoError, Decryptable, EncString,
+    Encryptable, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey, SymmetricCryptoKey,
+    UnsignedSharedKey,
 };
 use wasm_bindgen::prelude::*;
 
@@ -72,7 +75,6 @@ impl PureCrypto {
             .to_buffer()
     }
 
-    // Userkey encryption with password
     pub fn decrypt_user_key_with_master_password(
         encrypted_user_key: String,
         master_password: String,
@@ -99,13 +101,169 @@ impl PureCrypto {
         Ok(result.to_string())
     }
 
-    // Generate userkey
-    pub fn generate_user_key_aes256_cbc_hmac() -> Vec<u8> {
+    pub fn make_user_key_aes256_cbc_hmac() -> Vec<u8> {
         SymmetricCryptoKey::make_aes256_cbc_hmac_key().to_encoded()
     }
 
-    pub fn generate_user_key_xchacha20_poly1305() -> Vec<u8> {
+    pub fn make_user_key_xchacha20_poly1305() -> Vec<u8> {
         SymmetricCryptoKey::make_xchacha20_poly1305_key().to_encoded()
+    }
+
+    /// Wraps (encrypts) a symmetric key using a symmetric wrapping key, returning the wrapped key
+    /// as an EncString.
+    pub fn wrap_symmetric_key(
+        key_to_be_wrapped: Vec<u8>,
+        wrapping_key: Vec<u8>,
+    ) -> Result<String, CryptoError> {
+        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
+        let mut context = tmp_store.context();
+        #[allow(deprecated)]
+        context.set_symmetric_key(
+            SymmetricKeyId::Local("wrapping_key"),
+            SymmetricCryptoKey::try_from(wrapping_key)?,
+        )?;
+        #[allow(deprecated)]
+        context.set_symmetric_key(
+            SymmetricKeyId::Local("key_to_wrap"),
+            SymmetricCryptoKey::try_from(key_to_be_wrapped)?,
+        )?;
+        // Note: The order of arguments is different here, and should probably be refactored
+        Ok(context
+            .wrap_symmetric_key(
+                SymmetricKeyId::Local("wrapping_key"),
+                SymmetricKeyId::Local("key_to_wrap"),
+            )?
+            .to_string())
+    }
+
+    /// Unwraps (decrypts) a wrapped symmetric key using a symmetric wrapping key, returning the
+    /// unwrapped key as a serialized byte array.
+    pub fn unwrap_symmetric_key(
+        wrapped_key: String,
+        wrapping_key: Vec<u8>,
+    ) -> Result<Vec<u8>, CryptoError> {
+        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
+        let mut context = tmp_store.context();
+        #[allow(deprecated)]
+        context.set_symmetric_key(
+            SymmetricKeyId::Local("wrapping_key"),
+            SymmetricCryptoKey::try_from(wrapping_key)?,
+        )?;
+        // Note: The order of arguments is different here, and should probably be refactored
+        context.unwrap_symmetric_key(
+            SymmetricKeyId::Local("wrapping_key"),
+            SymmetricKeyId::Local("wrapped_key"),
+            &EncString::from_str(wrapped_key.as_str())?,
+        )?;
+        #[allow(deprecated)]
+        let key = context.dangerous_get_symmetric_key(SymmetricKeyId::Local("wrapped_key"))?;
+        Ok(key.to_encoded())
+    }
+
+    /// Wraps (encrypts) an SPKI DER encoded encapsulation (public) key using a symmetric wrapping
+    /// key. Note: Usually, a public key is - by definition - public, so this should not be
+    /// used. The specific use-case for this function is to enable rotateable key sets, where
+    /// the "public key" is not public, with the intent of preventing the server from being able
+    /// to overwrite the user key unlocked by the rotateable keyset.
+    pub fn wrap_encapsulation_key(
+        encapsulation_key: Vec<u8>,
+        wrapping_key: Vec<u8>,
+    ) -> Result<String, CryptoError> {
+        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
+        let mut context = tmp_store.context();
+        #[allow(deprecated)]
+        context.set_symmetric_key(
+            SymmetricKeyId::Local("wrapping_key"),
+            SymmetricCryptoKey::try_from(wrapping_key)?,
+        )?;
+        // Note: The order of arguments is different here, and should probably be refactored
+        Ok(encapsulation_key
+            .encrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))?
+            .to_string())
+    }
+
+    /// Unwraps (decrypts) a wrapped SPKI DER encoded encapsulation (public) key using a symmetric
+    /// wrapping key.
+    pub fn unwrap_encapsulation_key(
+        wrapped_key: String,
+        wrapping_key: Vec<u8>,
+    ) -> Result<Vec<u8>, CryptoError> {
+        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
+        let mut context = tmp_store.context();
+        #[allow(deprecated)]
+        context.set_symmetric_key(
+            SymmetricKeyId::Local("wrapping_key"),
+            SymmetricCryptoKey::try_from(wrapping_key)?,
+        )?;
+        // Note: The order of arguments is different here, and should probably be refactored
+        EncString::from_str(wrapped_key.as_str())?
+            .decrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))
+    }
+
+    /// Wraps (encrypts) a PKCS8 DER encoded decapsulation (private) key using a symmetric wrapping
+    /// key,
+    pub fn wrap_decapsulation_key(
+        decapsulation_key: Vec<u8>,
+        wrapping_key: Vec<u8>,
+    ) -> Result<String, CryptoError> {
+        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
+        let mut context = tmp_store.context();
+        #[allow(deprecated)]
+        context.set_symmetric_key(
+            SymmetricKeyId::Local("wrapping_key"),
+            SymmetricCryptoKey::try_from(wrapping_key)?,
+        )?;
+        // Note: The order of arguments is different here, and should probably be refactored
+        Ok(decapsulation_key
+            .encrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))?
+            .to_string())
+    }
+
+    /// Unwraps (decrypts) a wrapped PKCS8 DER encoded decapsulation (private) key using a symmetric
+    /// wrapping key.
+    pub fn unwrap_decapsulation_key(
+        wrapped_key: String,
+        wrapping_key: Vec<u8>,
+    ) -> Result<Vec<u8>, CryptoError> {
+        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
+        let mut context = tmp_store.context();
+        #[allow(deprecated)]
+        context.set_symmetric_key(
+            SymmetricKeyId::Local("wrapping_key"),
+            SymmetricCryptoKey::try_from(wrapping_key)?,
+        )?;
+        // Note: The order of arguments is different here, and should probably be refactored
+        EncString::from_str(wrapped_key.as_str())?
+            .decrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))
+    }
+
+    /// Encapsulates (encrypts) a symmetric key using an asymmetric encapsulation key (public key)
+    /// in SPKI format, returning the encapsulated key as a string. Note: This is unsigned, so
+    /// the sender's authenticity cannot be verified by the recipient.
+    pub fn encapsulate_key_unsigned(
+        shared_key: Vec<u8>,
+        encapsulation_key: Vec<u8>,
+    ) -> Result<String, CryptoError> {
+        let encapsulation_key = AsymmetricPublicCryptoKey::from_der(encapsulation_key.as_slice())?;
+        Ok(UnsignedSharedKey::encapsulate_key_unsigned(
+            &SymmetricCryptoKey::try_from(shared_key)?,
+            &encapsulation_key,
+        )?
+        .to_string())
+    }
+
+    /// Decapsulates (decrypts) a symmetric key using an decapsulation key (private key) in PKCS8
+    /// DER format. Note: This is unsigned, so the sender's authenticity cannot be verified by the
+    /// recipient.
+    pub fn decapsulate_key_unsigned(
+        encapsulated_key: String,
+        decapsulation_key: Vec<u8>,
+    ) -> Result<Vec<u8>, CryptoError> {
+        Ok(UnsignedSharedKey::from_str(encapsulated_key.as_str())?
+            .decapsulate_key_unsigned(&AsymmetricCryptoKey::from_der(
+                decapsulation_key.as_slice(),
+            )?)?
+            .to_encoded())
     }
 }
 
@@ -133,6 +291,35 @@ mod tests {
         2, 89, 112, 178, 83, 25, 77, 130, 187, 127, 85, 179, 211, 159, 186, 111, 44, 109, 211, 18,
         120, 104, 144, 4, 76, 3,
     ];
+
+    const PEM_KEY: &str = "-----BEGIN PRIVATE KEY-----
+MIIEwAIBADANBgkqhkiG9w0BAQEFAASCBKowggSmAgEAAoIBAQDiTQVuzhdygFz5
+qv14i+XFDGTnDravzUQT1hPKPGUZOUSZ1gwdNgkWqOIaOnR65BHEnL0sp4bnuiYc
+afeK2JAW5Sc8Z7IxBNSuAwhQmuKx3RochMIiuCkI2/p+JvUQoJu6FBNm8OoJ4Cwm
+qqHGZESMfnpQDCuDrB3JdJEdXhtmnl0C48sGjOk3WaBMcgGqn8LbJDUlyu1zdqyv
+b0waJf0iV4PJm2fkUl7+57D/2TkpbCqURVnZK1FFIEg8mr6FzSN1F2pOfktkNYZw
+P7MSNR7o81CkRSCMr7EkIVa+MZYMBx106BMK7FXgWB7nbSpsWKxBk7ZDHkID2fam
+rEcVtrzDAgMBAAECggEBAKwq9OssGGKgjhvUnyrLJHAZ0dqIMyzk+dotkLjX4gKi
+szJmyqiep6N5sStLNbsZMPtoU/RZMCW0VbJgXFhiEp2YkZU/Py5UAoqw++53J+kx
+0d/IkPphKbb3xUec0+1mg5O6GljDCQuiZXS1dIa/WfeZcezclW6Dz9WovY6ePjJ+
+8vEBR1icbNKzyeINd6MtPtpcgQPHtDwHvhPyUDbKDYGbLvjh9nui8h4+ZUlXKuVR
+jB0ChxiKV1xJRjkrEVoulOOicd5r597WfB2ghax3pvRZ4MdXemCXm3gQYqPVKach
+vGU+1cPQR/MBJZpxT+EZA97xwtFS3gqwbxJaNFcoE8ECgYEA9OaeYZhQPDo485tI
+1u/Z7L/3PNape9hBQIXoW7+MgcQ5NiWqYh8Jnj43EIYa0wM/ECQINr1Za8Q5e6KR
+J30FcU+kfyjuQ0jeXdNELGU/fx5XXNg/vV8GevHwxRlwzqZTCg6UExUZzbYEQqd7
+l+wPyETGeua5xCEywA1nX/D101kCgYEA7I6aMFjhEjO71RmzNhqjKJt6DOghoOfQ
+TjhaaanNEhLYSbenFz1mlb21mW67ulmz162saKdIYLxQNJIP8ZPmxh4ummOJI8w9
+ClHfo8WuCI2hCjJ19xbQJocSbTA5aJg6lA1IDVZMDbQwsnAByPRGpaLHBT/Q9Bye
+KvCMB+9amXsCgYEAx65yXSkP4sumPBrVHUub6MntERIGRxBgw/drKcPZEMWp0FiN
+wEuGUBxyUWrG3F69QK/gcqGZE6F/LSu0JvptQaKqgXQiMYJsrRvhbkFvsHpQyUcZ
+UZL1ebFjm5HOxPAgrQaN/bEqxOwwNRjSUWEMzUImg3c06JIZCzbinvudtKECgYEA
+kY3JF/iIPI/yglP27lKDlCfeeHSYxI3+oTKRhzSAxx8rUGidenJAXeDGDauR/T7W
+pt3pGNfddBBK9Z3uC4Iq3DqUCFE4f/taj7ADAJ1Q0Vh7/28/IJM77ojr8J1cpZwN
+Zy2o6PPxhfkagaDjqEeN9Lrs5LD4nEvDkr5CG1vOjmMCgYEAvIBFKRm31NyF8jLi
+CVuPwC5PzrW5iThDmsWTaXFpB3esUsbICO2pEz872oeQS+Em4GO5vXUlpbbFPzup
+PFhA8iMJ8TAvemhvc7oM0OZqpU6p3K4seHf6BkwLxumoA3vDJfovu9RuXVcJVOnf
+DnqOsltgPomWZ7xVfMkm9niL2OA=
+-----END PRIVATE KEY-----";
 
     #[test]
     fn test_symmetric_decrypt() {
@@ -194,13 +381,13 @@ mod tests {
 
     #[test]
     fn test_make_aes256_cbc_hmac_key() {
-        let key = PureCrypto::generate_user_key_aes256_cbc_hmac();
+        let key = PureCrypto::make_user_key_aes256_cbc_hmac();
         assert_eq!(key.len(), 64);
     }
 
     #[test]
     fn test_make_xchacha20_poly1305_key() {
-        let key = PureCrypto::generate_user_key_xchacha20_poly1305();
+        let key = PureCrypto::make_user_key_xchacha20_poly1305();
         assert!(key.len() > 64);
     }
 
@@ -211,7 +398,7 @@ mod tests {
         let kdf = Kdf::PBKDF2 {
             iterations: NonZero::try_from(600000).unwrap(),
         };
-        let user_key = PureCrypto::generate_user_key_aes256_cbc_hmac();
+        let user_key = PureCrypto::make_user_key_aes256_cbc_hmac();
         let encrypted_user_key = PureCrypto::encrypt_user_key_with_master_password(
             user_key.clone(),
             master_password.to_string(),
@@ -227,5 +414,59 @@ mod tests {
         )
         .unwrap();
         assert_eq!(user_key, decrypted_user_key);
+    }
+
+    #[test]
+    fn test_wrap_unwrap_symmetric_key() {
+        let key_to_be_wrapped = PureCrypto::make_user_key_aes256_cbc_hmac();
+        let wrapping_key = PureCrypto::make_user_key_aes256_cbc_hmac();
+        let wrapped_key =
+            PureCrypto::wrap_symmetric_key(key_to_be_wrapped.clone(), wrapping_key.clone())
+                .unwrap();
+        let unwrapped_key = PureCrypto::unwrap_symmetric_key(wrapped_key, wrapping_key).unwrap();
+        assert_eq!(key_to_be_wrapped, unwrapped_key);
+    }
+
+    #[test]
+    fn test_wrap_encapsulation_key() {
+        let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
+        let encapsulation_key = decapsulation_key.to_public_der().unwrap();
+        let wrapping_key = PureCrypto::make_user_key_aes256_cbc_hmac();
+        let wrapped_key =
+            PureCrypto::wrap_encapsulation_key(encapsulation_key.clone(), wrapping_key.clone())
+                .unwrap();
+        let unwrapped_key =
+            PureCrypto::unwrap_encapsulation_key(wrapped_key, wrapping_key).unwrap();
+        assert_eq!(encapsulation_key, unwrapped_key);
+    }
+
+    #[test]
+    fn test_wrap_decapsulation_key() {
+        let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
+        let wrapping_key = PureCrypto::make_user_key_aes256_cbc_hmac();
+        let wrapped_key = PureCrypto::wrap_decapsulation_key(
+            decapsulation_key.to_der().unwrap(),
+            wrapping_key.clone(),
+        )
+        .unwrap();
+        let unwrapped_key =
+            PureCrypto::unwrap_decapsulation_key(wrapped_key, wrapping_key).unwrap();
+        assert_eq!(decapsulation_key.to_der().unwrap(), unwrapped_key);
+    }
+
+    #[test]
+    fn test_encapsulate_key_unsigned() {
+        let shared_key = PureCrypto::make_user_key_aes256_cbc_hmac();
+        let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
+        let encapsulation_key = decapsulation_key.to_public_der().unwrap();
+        let encapsulated_key =
+            PureCrypto::encapsulate_key_unsigned(shared_key.clone(), encapsulation_key.clone())
+                .unwrap();
+        let unwrapped_key = PureCrypto::decapsulate_key_unsigned(
+            encapsulated_key,
+            decapsulation_key.to_der().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(shared_key, unwrapped_key);
     }
 }
