@@ -16,14 +16,14 @@ key_ids! {
         User,
         Organization(uuid::Uuid),
         #[local]
-        Local(&'static str),
+        Local(uuid::Uuid),
     }
 
     #[asymmetric]
     pub enum AsymmetricKeyId {
         UserPrivateKey,
         #[local]
-        Local(&'static str),
+        Local(uuid::Uuid),
     }
 
     pub KeyIds => SymmetricKeyId, AsymmetricKeyId;
