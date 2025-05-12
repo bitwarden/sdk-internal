@@ -143,7 +143,15 @@ impl SigningKey {
         }
     }
 
-    pub(crate) fn sign(&self, namespace: &SigningNamespace, data: &[u8]) -> Signature {
+    /// Signs the given payload with the signing key, under a given namespace.
+    /// This returns a [`Signature`] object, that does not contain the payload.
+    /// The payload must be stored separately, and needs to be provided when verifying the
+    /// signature.
+    ///
+    /// This should be used when multiple signers are required, or when signatures need to be
+    /// replaceable without re-uploading the object, or if the signed object should be parseable
+    /// by the server side, without the use of COSE on the server.
+    pub(crate) fn sign_detached(&self, namespace: &SigningNamespace, data: &[u8]) -> Signature {
         Signature::from(
             coset::CoseSign1Builder::new()
                 .protected(
@@ -159,6 +167,31 @@ impl SigningKey {
                 .create_detached_signature(data, &[], |pt| self.sign_raw(pt))
                 .build(),
         )
+    }
+
+    /// Signs the given payload with the signing key, under a given namespace.
+    /// This returns a [`SignedObject`] object, that contains the payload.
+    /// The payload is included in the signature, and does not need to be provided when verifying
+    /// the signature.
+    ///
+    /// This should be used when only one signer is required, so that only one object needs to be
+    /// kept track of.
+    pub(crate) fn sign(&self, namespace: &SigningNamespace, data: &[u8]) -> Result<SignedObject> {
+        let cose_sign1 = coset::CoseSign1Builder::new()
+            .protected(
+                coset::HeaderBuilder::new()
+                    .algorithm(self.cose_algorithm())
+                    .key_id((&self.id).into())
+                    .value(
+                        SIGNING_NAMESPACE,
+                        ciborium::Value::Integer(Integer::from(namespace.as_i64())),
+                    )
+                    .build(),
+            )
+            .payload(data.to_vec())
+            .create_signature(&[], |pt| self.sign_raw(pt))
+            .build();
+        Ok(SignedObject(cose_sign1))
     }
 
     /// Signs the given byte array with the signing key.
@@ -265,7 +298,7 @@ impl VerifyingKey {
     /// Verifies the signature of the given data, for the given namespace.
     /// This should never be used directly, but only through the `verify` method, to enforce
     /// strong domain separation of the signatures.
-    pub(crate) fn verify(
+    pub(crate) fn verify_signature(
         &self,
         namespace: &SigningNamespace,
         signature: &Signature,
@@ -286,6 +319,27 @@ impl VerifyingKey {
             .inner()
             .verify_detached_signature(data, &[], |sig, data| self.verify_raw(sig, data))
             .is_ok()
+    }
+
+    /// Verifies the signature of a signed object, for the given namespace, and returns the payload.
+    pub(crate) fn get_verified_payload(
+        &self,
+        namespace: &SigningNamespace,
+        signature: &SignedObject,
+    ) -> Result<Vec<u8>> {
+        let Some(_alg) = &signature.inner().protected.header.alg else {
+            return Err(CryptoError::InvalidSignature);
+        };
+
+        let signature_namespace = signature.namespace()?;
+        if signature_namespace != *namespace {
+            return Err(CryptoError::InvalidNamespace);
+        }
+
+        signature
+            .inner()
+            .verify_signature(&[], |sig, data| self.verify_raw(sig, data))?;
+        signature.payload()
     }
 
     /// Verifies the signature of the given data, for the given namespace.
@@ -356,6 +410,63 @@ impl Signature {
     }
 }
 
+/// A signed object has a cryptographical attestation to a (namespace, data) pair. The namespace and
+/// data are included in the signature object.
+#[allow(unused)]
+struct SignedObject(CoseSign1);
+
+impl From<CoseSign1> for SignedObject {
+    fn from(cose_sign1: CoseSign1) -> Self {
+        SignedObject(cose_sign1)
+    }
+}
+
+#[allow(unused)]
+impl SignedObject {
+    fn from_cose(bytes: &[u8]) -> Result<Self> {
+        let cose_sign1 = CoseSign1::from_slice(bytes).map_err(|_| CryptoError::InvalidSignature)?;
+        Ok(SignedObject(cose_sign1))
+    }
+
+    fn to_cose(&self) -> Result<Vec<u8>> {
+        self.0
+            .clone()
+            .to_vec()
+            .map_err(|_| CryptoError::InvalidSignature)
+    }
+
+    fn inner(&self) -> &CoseSign1 {
+        &self.0
+    }
+
+    fn namespace(&self) -> Result<SigningNamespace> {
+        let mut namespace = None;
+        for (key, value) in &self.0.protected.header.rest {
+            if let Label::Int(key) = key {
+                if *key == SIGNING_NAMESPACE {
+                    namespace.replace(value);
+                }
+            }
+        }
+        let Some(namespace) = namespace else {
+            return Err(CryptoError::InvalidNamespace);
+        };
+        let Some(namespace) = namespace.as_integer() else {
+            return Err(CryptoError::InvalidNamespace);
+        };
+        let namespace: i128 = namespace.into();
+        SigningNamespace::try_from_i64(namespace as i64)
+    }
+
+    fn payload(&self) -> Result<Vec<u8>> {
+        self.0
+            .payload
+            .as_ref()
+            .ok_or(CryptoError::InvalidSignature)
+            .map(|payload| payload.to_vec())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -395,7 +506,18 @@ mod tests {
         assert_eq!(verifying_key.to_cose().unwrap(), VERIFYING_KEY);
         assert_eq!(signature.to_cose().unwrap(), SIGNATURE);
 
-        assert!(verifying_key.verify(&namespace, &signature, data));
+        assert!(verifying_key.verify_signature(&namespace, &signature, data));
+    }
+
+    #[test]
+    fn test_sign_detached_roundtrip() {
+        let signing_key = SigningKey::make_ed25519().unwrap();
+        let verifying_key = signing_key.to_verifying_key();
+        let data = b"Test message";
+        let namespace = SigningNamespace::EncryptionMetadata;
+
+        let signature = signing_key.sign_detached(&namespace, data);
+        assert!(verifying_key.verify_signature(&namespace, &signature, data));
     }
 
     #[test]
@@ -404,20 +526,22 @@ mod tests {
         let verifying_key = signing_key.to_verifying_key();
         let data = b"Test message";
         let namespace = SigningNamespace::EncryptionMetadata;
-
-        let signature = signing_key.sign(&namespace, data);
-        assert!(verifying_key.verify(&namespace, &signature, data));
+        let signed_object = signing_key.sign(&namespace, data).unwrap();
+        let payload = verifying_key
+            .get_verified_payload(&namespace, &signed_object)
+            .unwrap();
+        assert_eq!(payload, data);
     }
 
     #[test]
-    fn test_changed_signature_fails() {
+    fn test_changed_payload_fails() {
         let signing_key = SigningKey::make_ed25519().unwrap();
         let verifying_key = signing_key.to_verifying_key();
         let data = b"Test message";
         let namespace = SigningNamespace::EncryptionMetadata;
 
-        let signature = signing_key.sign(&namespace, data);
-        assert!(!verifying_key.verify(&namespace, &signature, b"Goodbye, world!"));
+        let signature = signing_key.sign_detached(&namespace, data);
+        assert!(!verifying_key.verify_signature(&namespace, &signature, b"Test message 2"));
     }
 
     #[test]
@@ -428,8 +552,42 @@ mod tests {
         let namespace = SigningNamespace::EncryptionMetadata;
         let other_namespace = SigningNamespace::Test;
 
-        let signature = signing_key.sign(&namespace, data);
-        assert!(!verifying_key.verify(&other_namespace, &signature, data));
+        let signature = signing_key.sign_detached(&namespace, data);
+        assert!(!verifying_key.verify_signature(&other_namespace, &signature, data));
+    }
+
+    #[test]
+    fn test_changed_namespace_fails_signed_object() {
+        let signing_key = SigningKey::make_ed25519().unwrap();
+        let verifying_key = signing_key.to_verifying_key();
+        let data = b"Test message";
+        let namespace = SigningNamespace::EncryptionMetadata;
+        let other_namespace = SigningNamespace::Test;
+        let signed_object = signing_key.sign(&namespace, data).unwrap();
+        assert!(verifying_key
+            .get_verified_payload(&other_namespace, &signed_object)
+            .is_err());
+    }
+
+    #[test]
+    fn test_cose_roundtrip_signature() {
+        let signing_key = SigningKey::make_ed25519().unwrap();
+        let cose =
+            signing_key.sign_detached(&SigningNamespace::EncryptionMetadata, b"Test message");
+        let cose = cose.to_cose().unwrap();
+        let parsed_cose = Signature::from_cose(&cose).unwrap();
+        assert_eq!(cose, parsed_cose.to_cose().unwrap());
+    }
+
+    #[test]
+    fn test_cose_roundtrip_signed_object() {
+        let signing_key = SigningKey::make_ed25519().unwrap();
+        let cose = signing_key
+            .sign(&SigningNamespace::EncryptionMetadata, b"Test message")
+            .unwrap();
+        let cose = cose.to_cose().unwrap();
+        let parsed_cose = SignedObject::from_cose(&cose).unwrap();
+        assert_eq!(cose, parsed_cose.to_cose().unwrap());
     }
 
     #[test]
