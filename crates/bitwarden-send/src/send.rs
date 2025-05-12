@@ -143,8 +143,6 @@ pub struct SendListView {
     pub expiration_date: Option<DateTime<Utc>>,
 }
 
-const SEND_KEY: SymmetricKeyId = SymmetricKeyId::Local("send_key");
-
 impl Send {
     pub fn get_key(
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -160,7 +158,7 @@ impl Send {
         key: &[u8],
     ) -> Result<SymmetricKeyId, CryptoError> {
         let key = Zeroizing::new(key.try_into().map_err(|_| CryptoError::InvalidKeyLen)?);
-        ctx.derive_shareable_key(SEND_KEY, key, "send", Some("send"))
+        ctx.derive_shareable_key(key, "send", Some("send"))
     }
 }
 

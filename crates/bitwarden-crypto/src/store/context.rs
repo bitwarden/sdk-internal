@@ -133,15 +133,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// * `encryption_key` - The key id used to decrypt the `encrypted_key`. It must already exist
     ///   in the context
-    /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
-    ///   will be overwritten
     /// * `encrypted_key` - The key to decrypt
     pub fn unwrap_symmetric_key(
         &mut self,
         encryption_key: Ids::Symmetric,
-        new_key_id: Ids::Symmetric,
         encrypted_key: &EncString,
     ) -> Result<Ids::Symmetric> {
+        let new_key_id = Ids::Symmetric::new_local();
         let mut new_key_material =
             self.decrypt_data_with_symmetric_key(encryption_key, encrypted_key)?;
 
@@ -245,7 +243,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Generate a new random symmetric key and store it in the context
-    pub fn generate_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<Ids::Symmetric> {
+    pub fn generate_symmetric_key(&mut self) -> Result<Ids::Symmetric> {
+        let key_id = Ids::Symmetric::new_local();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         #[allow(deprecated)]
         self.set_symmetric_key(key_id, key)?;
@@ -258,11 +257,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Bitwarden `clients` repository.
     pub fn derive_shareable_key(
         &mut self,
-        key_id: Ids::Symmetric,
         secret: Zeroizing<[u8; 16]>,
         name: &str,
         info: Option<&str>,
     ) -> Result<Ids::Symmetric> {
+        let key_id = Ids::Symmetric::new_local();
         #[allow(deprecated)]
         self.set_symmetric_key(
             key_id,
@@ -322,6 +321,12 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(())
     }
 
+    pub fn add_local_symmetric_key(&mut self, key: SymmetricCryptoKey) -> Result<Ids::Symmetric> {
+        let key_id = Ids::Symmetric::new_local();
+        self.local_symmetric_keys.upsert(key_id, key);
+        Ok(key_id)
+    }
+
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn set_asymmetric_key(
         &mut self,
@@ -379,6 +384,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 #[cfg(test)]
 #[allow(deprecated)]
 mod tests {
+    use uuid::Uuid;
+
     use crate::{
         store::{tests::DataView, KeyStore},
         traits::tests::{TestIds, TestSymmKey},
@@ -412,7 +419,7 @@ mod tests {
         let mut ctx = store.context();
 
         // Generate and insert a key
-        let key_1_id = TestSymmKey::C(1);
+        let key_1_id = TestSymmKey::C(Uuid::new_v4());
         let key_1 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
         ctx.set_symmetric_key(key_1_id, key_1.clone()).unwrap();
@@ -420,7 +427,7 @@ mod tests {
         assert!(ctx.has_symmetric_key(key_1_id));
 
         // Generate and insert a new key
-        let key_2_id = TestSymmKey::C(2);
+        let key_2_id = TestSymmKey::C(Uuid::new_v4());
         let key_2 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
         ctx.set_symmetric_key(key_2_id, key_2.clone()).unwrap();
@@ -431,10 +438,7 @@ mod tests {
         let key_2_enc = ctx.wrap_symmetric_key(key_1_id, key_2_id).unwrap();
 
         // Decrypt the new key with the old key in a different identifier
-        let new_key_id = TestSymmKey::C(3);
-
-        ctx.unwrap_symmetric_key(key_1_id, new_key_id, &key_2_enc)
-            .unwrap();
+        let new_key_id = ctx.unwrap_symmetric_key(key_1_id, &key_2_enc).unwrap();
 
         // Now `key_2_id` and `new_key_id` contain the same key, so we should be able to encrypt
         // with one and decrypt with the other

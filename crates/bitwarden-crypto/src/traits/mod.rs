@@ -25,7 +25,7 @@ pub(crate) mod tests {
             B((u8, u8)),
 
             #[local]
-            C(u8),
+            C(uuid::Uuid),
         }
 
         #[asymmetric]
@@ -33,7 +33,7 @@ pub(crate) mod tests {
             A(u8),
             B,
             #[local]
-            C(&'static str),
+            C(uuid::Uuid),
         }
 
        pub TestIds => TestSymmKey, TestAsymmKey;
