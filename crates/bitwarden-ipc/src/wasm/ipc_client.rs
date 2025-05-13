@@ -16,7 +16,8 @@ use crate::{
 #[wasm_bindgen(js_name = IpcClient)]
 pub struct JsIpcClient {
     // TODO: Change session provider to a JS-implemented one
-    client: Arc<
+    #[wasm_bindgen(skip)]
+    pub client: Arc<
         IpcClient<
             NoEncryptionCryptoProvider,
             JsCommunicationBackend,
