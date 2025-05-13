@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
-use crate::{endpoint::Endpoint, rpc::request::RpcRequest, RpcHandler};
+use crate::{rpc::request::RpcRequest, RpcHandler};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoverRequest;
@@ -12,9 +12,7 @@ pub struct DiscoverRequest;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct DiscoverResponse {
-    pub identity: Endpoint,
     pub version: String,
-    pub sdk_version: String,
 }
 
 impl RpcRequest for DiscoverRequest {
