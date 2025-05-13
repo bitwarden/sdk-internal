@@ -7,7 +7,9 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend, AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, SigningKey, SymmetricCryptoKey, UnsignedSharedKey
+    derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
+    AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, SigningKey,
+    SymmetricCryptoKey, UnsignedSharedKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]

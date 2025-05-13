@@ -1,5 +1,5 @@
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{EncString, UnsignedSharedKey, SymmetricCryptoKey, KeyStore};
+use bitwarden_crypto::{EncString, KeyStore, SymmetricCryptoKey, UnsignedSharedKey};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use uuid::Uuid;

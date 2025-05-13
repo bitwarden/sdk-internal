@@ -1,7 +1,7 @@
 use std::{cmp::max, pin::Pin};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use coset::{iana::{KeyOperation}, CborSerializable, RegisteredLabelWithPrivate};
+use coset::{iana::KeyOperation, CborSerializable, RegisteredLabelWithPrivate};
 use generic_array::GenericArray;
 use rand::Rng;
 #[cfg(test)]
