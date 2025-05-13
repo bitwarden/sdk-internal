@@ -7,9 +7,7 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
-    AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, SymmetricCryptoKey,
-    UnsignedSharedKey,
+    derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend, AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, SigningKey, SymmetricCryptoKey, UnsignedSharedKey
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -311,6 +309,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{key_id:?}")))
     }
 
+    #[allow(unused)]
     fn get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
         if key_id.is_local() {
             self.local_signing_keys.get(key_id)
@@ -416,7 +415,7 @@ mod tests {
 
         // Generate and insert a key
         let key_a0_id = TestSigningKey::A(0);
-        let key_a0 = SigningKey::make_ed25519_key();
+        let key_a0 = SigningKey::make_ed25519().unwrap();
         store
             .context_mut()
             .set_signing_key(key_a0_id, key_a0.clone())

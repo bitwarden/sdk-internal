@@ -1,7 +1,7 @@
 use std::{cmp::max, pin::Pin};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use coset::{iana::KeyOperation, CborSerializable, RegisteredLabelWithPrivate};
+use coset::{iana::{KeyOperation}, CborSerializable, RegisteredLabelWithPrivate};
 use generic_array::GenericArray;
 use rand::Rng;
 #[cfg(test)]
@@ -295,41 +295,6 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
 
         value.zeroize();
         result
-    }
-}
-
-fn parse_cose_key(cose_key: &coset::CoseKey) -> Result<SymmetricCryptoKey, CryptoError> {
-    let key_bytes = cose_key
-        .params
-        .iter()
-        .find_map(|(label, value)| {
-            const SYMMETRIC_KEY: i64 = iana::SymmetricKeyParameter::K as i64;
-            if let (Label::Int(SYMMETRIC_KEY), ciborium::Value::Bytes(bytes)) = (label, value) {
-                Some(bytes)
-            } else {
-                None
-            }
-        })
-        .ok_or(CryptoError::InvalidKey)?;
-
-    match cose_key.alg.clone().ok_or(CryptoError::InvalidKey)? {
-        coset::RegisteredLabelWithPrivate::PrivateUse(cose::XCHACHA20_POLY1305) => {
-            if key_bytes.len() == 32 {
-                let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
-                enc_key.copy_from_slice(key_bytes);
-                let key_id = cose_key
-                    .key_id
-                    .clone()
-                    .try_into()
-                    .map_err(|_| CryptoError::InvalidKey)?;
-                Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(
-                    XChaCha20Poly1305Key { enc_key, key_id },
-                ))
-            } else {
-                Err(CryptoError::InvalidKey)
-            }
-        }
-        _ => Err(CryptoError::InvalidKey),
     }
 }
 

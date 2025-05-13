@@ -8,9 +8,9 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
-    SymmetricCryptoKey, UnsignedSharedKey, UserKey,
+    AsymmetricCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey
 };
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
@@ -566,7 +566,7 @@ pub struct MakeSigningKeysResponse {
 
 pub fn make_signing_keys(wrapping_key: String) -> Result<MakeSigningKeysResponse, CryptoError> {
     let wrapping_key = SymmetricCryptoKey::try_from(wrapping_key)?;
-    let signature_keypair = SigningKey::make_ed25519_key();
+    let signature_keypair = SigningKey::make_ed25519().unwrap();
     // This needs to be changed to use the correct cose content format before rolling out to real
     // accounts
     let encrypted_signing_key = signature_keypair
@@ -868,7 +868,7 @@ mod tests {
 
     #[test]
     fn test_make_signing_keys() {
-        let user_key = SymmetricCryptoKey::generate_aes256_cbc_hmac();
+        let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let response = make_signing_keys(user_key.to_base64()).unwrap();
         assert!(!response.verifying_key.is_empty());
         let _: Vec<u8> = response.signing_key.decrypt_with_key(&user_key).unwrap();

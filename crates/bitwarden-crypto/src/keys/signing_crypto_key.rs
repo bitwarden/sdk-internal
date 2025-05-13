@@ -7,35 +7,36 @@ use coset::{
 };
 use ed25519_dalek::Signer;
 use rand::rngs::OsRng;
+use zeroize::ZeroizeOnDrop;
 
-use super::key_id::KeyId;
+use super::{key_id::KeyId, CryptoKey};
 use crate::{cose::SIGNING_NAMESPACE, error::Result, signing::SigningNamespace, CryptoError};
 
-#[allow(unused)]
+#[derive(Clone, zeroize::ZeroizeOnDrop)]
 enum SigningCryptoKeyEnum {
     Ed25519(ed25519_dalek::SigningKey),
 }
 
-#[allow(unused)]
 enum VerifyingKeyEnum {
     Ed25519(ed25519_dalek::VerifyingKey),
 }
 
-#[allow(unused)]
-struct SigningKey {
+#[derive(Clone, ZeroizeOnDrop)]
+pub struct SigningKey {
     id: KeyId,
     inner: SigningCryptoKeyEnum,
 }
 
-#[allow(unused)]
-struct VerifyingKey {
+impl CryptoKey for SigningKey {}
+
+pub struct VerifyingKey {
     id: KeyId,
     inner: VerifyingKeyEnum,
 }
 
-#[allow(unused)]
 impl SigningKey {
-    fn make_ed25519() -> Result<Self> {
+    /// Creates a new ed25519 signing key.
+    pub fn make_ed25519() -> Result<Self> {
         Ok(SigningKey {
             id: KeyId::make(),
             inner: SigningCryptoKeyEnum::Ed25519(ed25519_dalek::SigningKey::generate(&mut OsRng)),
@@ -48,7 +49,7 @@ impl SigningKey {
         }
     }
 
-    fn to_cose(&self) -> Result<Vec<u8>> {
+    pub fn to_cose(&self) -> Result<Vec<u8>> {
         match &self.inner {
             SigningCryptoKeyEnum::Ed25519(key) => {
                 coset::CoseKeyBuilder::new_okp_key()
@@ -82,7 +83,7 @@ impl SigningKey {
         }
     }
 
-    fn from_cose(bytes: &[u8]) -> Result<Self> {
+    pub fn from_cose(bytes: &[u8]) -> Result<Self> {
         let cose_key = CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
         let (key_id, Some(algorithm), key_type) = (cose_key.key_id, cose_key.alg, cose_key.kty)
         else {
@@ -151,7 +152,7 @@ impl SigningKey {
     /// This should be used when multiple signers are required, or when signatures need to be
     /// replaceable without re-uploading the object, or if the signed object should be parseable
     /// by the server side, without the use of COSE on the server.
-    pub(crate) fn sign_detached(&self, namespace: &SigningNamespace, data: &[u8]) -> Signature {
+    pub fn sign_detached(&self, namespace: &SigningNamespace, data: &[u8]) -> Signature {
         Signature::from(
             coset::CoseSign1Builder::new()
                 .protected(
@@ -176,7 +177,7 @@ impl SigningKey {
     ///
     /// This should be used when only one signer is required, so that only one object needs to be
     /// kept track of.
-    pub(crate) fn sign(&self, namespace: &SigningNamespace, data: &[u8]) -> Result<SignedObject> {
+    pub fn sign(&self, namespace: &SigningNamespace, data: &[u8]) -> Result<SignedObject> {
         let cose_sign1 = coset::CoseSign1Builder::new()
             .protected(
                 coset::HeaderBuilder::new()
@@ -203,7 +204,7 @@ impl SigningKey {
         }
     }
 
-    fn to_verifying_key(&self) -> VerifyingKey {
+    pub fn to_verifying_key(&self) -> VerifyingKey {
         match &self.inner {
             SigningCryptoKeyEnum::Ed25519(key) => VerifyingKey {
                 id: self.id.clone(),
@@ -215,7 +216,7 @@ impl SigningKey {
 
 #[allow(unused)]
 impl VerifyingKey {
-    fn to_cose(&self) -> Result<Vec<u8>> {
+    pub fn to_cose(&self) -> Result<Vec<u8>> {
         match &self.inner {
             VerifyingKeyEnum::Ed25519(key) => coset::CoseKeyBuilder::new_okp_key()
                 .key_id((&self.id).into())
@@ -235,7 +236,7 @@ impl VerifyingKey {
         }
     }
 
-    fn from_cose(bytes: &[u8]) -> Result<Self> {
+    pub fn from_cose(bytes: &[u8]) -> Result<Self> {
         let cose_key = coset::CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
 
         let (key_id, Some(algorithm), key_type) = (cose_key.key_id, cose_key.alg, cose_key.kty)
@@ -298,7 +299,7 @@ impl VerifyingKey {
     /// Verifies the signature of the given data, for the given namespace.
     /// This should never be used directly, but only through the `verify` method, to enforce
     /// strong domain separation of the signatures.
-    pub(crate) fn verify_signature(
+    pub fn verify_signature(
         &self,
         namespace: &SigningNamespace,
         signature: &Signature,
@@ -322,7 +323,7 @@ impl VerifyingKey {
     }
 
     /// Verifies the signature of a signed object, for the given namespace, and returns the payload.
-    pub(crate) fn get_verified_payload(
+    pub fn get_verified_payload(
         &self,
         namespace: &SigningNamespace,
         signature: &SignedObject,
@@ -364,7 +365,7 @@ impl VerifyingKey {
 /// the signature object, the data is not. One data object can be signed multiple times, with
 /// different namespaces / by different signers, depending on the application needs.
 #[allow(unused)]
-struct Signature(CoseSign1);
+pub struct Signature(CoseSign1);
 
 impl From<CoseSign1> for Signature {
     fn from(cose_sign1: CoseSign1) -> Self {
@@ -413,7 +414,7 @@ impl Signature {
 /// A signed object has a cryptographical attestation to a (namespace, data) pair. The namespace and
 /// data are included in the signature object.
 #[allow(unused)]
-struct SignedObject(CoseSign1);
+pub struct SignedObject(CoseSign1);
 
 impl From<CoseSign1> for SignedObject {
     fn from(cose_sign1: CoseSign1) -> Self {
