@@ -49,8 +49,13 @@ mod test {
         b: i32,
     }
 
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    struct TestResponse {
+        result: i32,
+    }
+
     impl RpcRequest for TestRequest {
-        type Response = i32;
+        type Response = TestResponse;
 
         fn name() -> String {
             "TestRequest".to_string()
@@ -62,8 +67,42 @@ mod test {
     impl RpcHandler for TestHandler {
         type Request = TestRequest;
 
-        async fn handle(&self, request: Self::Request) -> i32 {
-            request.a + request.b
+        async fn handle(&self, request: Self::Request) -> TestResponse {
+            TestResponse {
+                result: request.a + request.b,
+            }
+        }
+    }
+
+    impl TryFrom<TestRequest> for Vec<u8> {
+        type Error = serde_json::Error;
+
+        fn try_from(value: TestRequest) -> Result<Self, Self::Error> {
+            serde_json::to_vec(&value)
+        }
+    }
+
+    impl TryFrom<Vec<u8>> for TestRequest {
+        type Error = serde_json::Error;
+
+        fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+            serde_json::from_slice(&value)
+        }
+    }
+
+    impl TryFrom<TestResponse> for Vec<u8> {
+        type Error = serde_json::Error;
+
+        fn try_from(value: TestResponse) -> Result<Self, Self::Error> {
+            serde_json::to_vec(&value)
+        }
+    }
+
+    impl TryFrom<Vec<u8>> for TestResponse {
+        type Error = serde_json::Error;
+
+        fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+            serde_json::from_slice(&value)
         }
     }
 
