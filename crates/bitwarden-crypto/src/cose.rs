@@ -16,6 +16,11 @@ use crate::{
 /// the draft was never published as an RFC, we use a private-use value for the algorithm.
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
 
+// Labels
+//
+// The label used for the namespace ensuring strong domain separation when using signatures.
+pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
+
 /// Encrypts a plaintext message using XChaCha20Poly1305 and returns a COSE Encrypt0 message
 pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext: &[u8],
