@@ -47,7 +47,6 @@ pub async fn test_get_cipher() {
     #[async_trait::async_trait]
     impl Store<Cipher> for CipherStore {
         async fn get(&self, id: String) -> Cipher {
-            // self.0.type_id();
             self.0
                 .call(move |state| {
                     Box::pin(async move {
