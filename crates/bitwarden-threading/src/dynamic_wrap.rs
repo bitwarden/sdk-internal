@@ -52,13 +52,13 @@ impl<Input> FunctionWrapper<Input> {
 }
 
 pub struct AsyncFunctionWrapper<Input> {
-    function: Box<dyn FnOnce(Arc<Input>) -> Pin<Box<dyn Future<Output = Box<dyn Any>>>>>,
+    function: Box<dyn FnOnce(Arc<Input>) -> Pin<Box<dyn Future<Output = DynamicOutput>>>>,
 }
 
 impl<Input> AsyncFunctionWrapper<Input> {
     pub fn new<F>(function: F) -> Self
     where
-        F: FnOnce(Arc<Input>) -> Pin<Box<dyn Future<Output = Box<dyn Any>>>> + 'static,
+        F: FnOnce(Arc<Input>) -> Pin<Box<dyn Future<Output = DynamicOutput>>> + 'static,
     {
         AsyncFunctionWrapper {
             function: Box::new(function),
@@ -75,14 +75,13 @@ impl<Input> AsyncFunctionWrapper<Input> {
             let input = input.clone();
             Box::pin(async move {
                 let result = function(input).await;
-                wrap(result)
+                DynamicOutput::wrap(result)
             })
         })
     }
 
     pub async fn call(self, input: Arc<Input>) -> DynamicOutput {
-        let result = (self.function)(input).await;
-        DynamicOutput::new(result)
+        (self.function)(input).await
     }
 }
 
@@ -95,8 +94,14 @@ impl DynamicOutput {
         DynamicOutput { value }
     }
 
-    pub fn get<T: Any>(self) -> Result<Box<T>, Box<(dyn Any + 'static)>> {
-        self.value.downcast::<T>()
+    pub fn wrap(value: impl Any) -> Self {
+        DynamicOutput::new(wrap(value))
+    }
+
+    pub fn get<T: Any>(self) -> Result<Box<T>, DynamicOutput> {
+        self.value
+            .downcast::<T>()
+            .map_err(|e| DynamicOutput::new(e))
     }
 }
 
@@ -116,7 +121,7 @@ mod test {
     fn test_function_wrapper() {
         let wrapper = FunctionWrapper::new(|x: &i32| wrap(x * 2));
         let result = wrapper.call(&21);
-        let unwrapped: Box<i32> = result.get().unwrap();
+        let unwrapped: Box<i32> = result.get().map_err(|_| "Failed to unwrap").unwrap();
         assert_eq!(unwrapped, Box::new(42));
     }
 
@@ -141,7 +146,10 @@ mod test {
         {
             let wrapped_function = FunctionWrapper::wrap(function);
             let dynamic_output = remote.run(wrapped_function);
-            dynamic_output.get().expect("Failed to unwrap the output")
+            dynamic_output
+                .get()
+                .map_err(|_| "Failed to unwrap")
+                .unwrap()
         }
 
         let remote_object = RemoteObject { state: 21 };
@@ -172,7 +180,10 @@ mod test {
         {
             let wrapped_function = AsyncFunctionWrapper::wrap(function);
             let dynamic_output = remote.run(wrapped_function).await;
-            dynamic_output.get().expect("Failed to unwrap the output")
+            dynamic_output
+                .get()
+                .map_err(|_| "Failed to unwrap")
+                .unwrap()
         }
 
         let remote_object = RemoteObject {
