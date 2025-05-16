@@ -1,7 +1,7 @@
 ###############################################
 #                 Build stage                 #
 ###############################################
-FROM rust:1.85 AS base
+FROM rust:1.86 AS base
 WORKDIR /app
 
 # Make sure the correct rust toolchain is installed only once
