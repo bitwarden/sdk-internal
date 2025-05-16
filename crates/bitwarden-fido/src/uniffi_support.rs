@@ -1,3 +1,3 @@
 use uuid::Uuid;
 
-uniffi::ffi_converter_forward!(Uuid, bitwarden_core::UniFfiTag, crate::UniFfiTag);
+uniffi::use_remote_type!(bitwarden_core::Uuid);
