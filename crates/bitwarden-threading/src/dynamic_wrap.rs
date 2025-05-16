@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, future::Future, pin::Pin};
 
 pub fn wrap(value: impl Any) -> Box<dyn Any> {
     Box::new(value)
@@ -8,14 +8,27 @@ pub fn try_unwrap<T: Any>(boxed: Box<dyn Any>) -> Option<T> {
     boxed.downcast::<T>().ok().map(|b| *b)
 }
 
+// pub fn pin_wrap(value: impl Any) -> Pin<Box<dyn Any>> {
+//     Box::pin(value)
+// }
+
+// pub fn try_pin_unwrap<T: Any + Unpin>(boxed: Pin<Box<dyn Any>>) -> Option<T> {
+//     // We need to convert the Pin<Box<dyn Any>> to a Box<dyn Any> first
+//     // and then downcast it to the desired type
+//     // This is safe because we are the only owner of the Pin<Box<dyn Any>>
+//     // and we know that it is safe to convert it to a Box<dyn Any>
+
+//     let unpinned = boxed.
+// }
+
 pub struct FunctionWrapper<Input> {
-    function: Box<dyn FnOnce(Input) -> Box<dyn Any>>,
+    function: Box<dyn FnOnce(&Input) -> Box<dyn Any>>,
 }
 
 impl<Input> FunctionWrapper<Input> {
     pub fn new<F>(function: F) -> Self
     where
-        F: FnOnce(Input) -> Box<dyn Any> + 'static,
+        F: FnOnce(&Input) -> Box<dyn Any> + 'static,
     {
         FunctionWrapper {
             function: Box::new(function),
@@ -24,7 +37,7 @@ impl<Input> FunctionWrapper<Input> {
 
     pub fn wrap<F, Output>(function: F) -> Self
     where
-        F: FnOnce(Input) -> Output + 'static,
+        F: FnOnce(&Input) -> Output + 'static,
         Output: 'static,
     {
         FunctionWrapper::new(move |input| {
@@ -33,7 +46,7 @@ impl<Input> FunctionWrapper<Input> {
         })
     }
 
-    pub fn call(self, input: Input) -> DynamicOutput {
+    pub fn call(self, input: &Input) -> DynamicOutput {
         DynamicOutput::new((self.function)(input))
     }
 }
@@ -45,11 +58,24 @@ impl<Input> FunctionWrapper<Input> {
 // impl<Input> AsyncFunctionWrapper<Input> {
 //     pub fn new<F>(function: F) -> Self
 //     where
-//         F: FnOnce(Input) -> Pin<Box<dyn Future<Output = Box<dyn Any>>> + 'static,
+//         F: FnOnce(Input) -> Pin<Box<dyn Future<Output = Box<dyn Any>>>> + 'static,
 //     {
-//         FunctionWrapper {
+//         AsyncFunctionWrapper {
 //             function: Box::new(function),
 //         }
+//     }
+
+//     pub fn wrap<F, Output>(function: F) -> Self
+//     where
+//         F: FnOnce(Input) -> Pin<Box<dyn Future<Output = Output>>> + 'static,
+//         Output: 'static,
+//     {
+//         AsyncFunctionWrapper::new(|input| {
+//             Box::pin(async move {
+//                 let result = function(input).await;
+//                 wrap(result)
+//             })
+//         })
 //     }
 
 //     pub fn call(self, input: Input) -> DynamicOutput {
@@ -85,8 +111,8 @@ mod test {
 
     #[test]
     fn test_function_wrapper() {
-        let wrapper = FunctionWrapper::new(|x: i32| wrap(x * 2));
-        let result = wrapper.call(21);
+        let wrapper = FunctionWrapper::new(|x: &i32| wrap(x * 2));
+        let result = wrapper.call(&21);
         let unwrapped: Box<i32> = result.get().unwrap();
         assert_eq!(unwrapped, Box::new(42));
     }
@@ -99,13 +125,13 @@ mod test {
 
         impl RemoteObject {
             pub fn run(&self, function: FunctionWrapper<i32>) -> DynamicOutput {
-                function.call(self.state)
+                function.call(&self.state)
             }
         }
 
         fn run_on_remote<Output>(
             remote: &RemoteObject,
-            function: impl FnOnce(i32) -> Output + 'static,
+            function: impl FnOnce(&i32) -> Output + 'static,
         ) -> Box<Output>
         where
             Output: 'static,
@@ -117,7 +143,7 @@ mod test {
 
         let remote_object = RemoteObject { state: 21 };
 
-        let result = run_on_remote(&remote_object, |x: i32| x * 2);
+        let result = run_on_remote(&remote_object, |x: &i32| x * 2);
 
         assert_eq!(result, Box::new(42));
     }
