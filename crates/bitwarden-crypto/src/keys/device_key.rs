@@ -39,11 +39,11 @@ impl DeviceKey {
 
         let protected_device_public_key = device_private_key
             .to_public_der()?
-            .encrypt_with_key(user_key)?;
+            .encrypt_with_key(user_key, &crate::cose::ContentFormat::OctetStream)?;
 
         let protected_device_private_key = device_private_key
             .to_der()?
-            .encrypt_with_key(&device_key.0)?;
+            .encrypt_with_key(&device_key.0, &crate::cose::ContentFormat::Pkcs8)?;
 
         Ok(TrustDeviceResponse {
             device_key: device_key.to_base64(),

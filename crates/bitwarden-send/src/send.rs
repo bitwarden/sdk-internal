@@ -8,8 +8,8 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    generate_random_bytes, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey,
-    KeyStoreContext,
+    generate_random_bytes, ContentFormat, CryptoError, Decryptable, EncString, Encryptable,
+    IdentifyKey, KeyStoreContext,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -194,9 +194,10 @@ impl Encryptable<KeyIds, SymmetricKeyId, SendText> for SendTextView {
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
+        _content_format: ContentFormat,
     ) -> Result<SendText, CryptoError> {
         Ok(SendText {
-            text: self.text.encrypt(ctx, key)?,
+            text: self.text.encrypt(ctx, key, ContentFormat::Utf8)?,
             hidden: self.hidden,
         })
     }
@@ -222,10 +223,11 @@ impl Encryptable<KeyIds, SymmetricKeyId, SendFile> for SendFileView {
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
+        _content_format: ContentFormat,
     ) -> Result<SendFile, CryptoError> {
         Ok(SendFile {
             id: self.id.clone(),
-            file_name: self.file_name.encrypt(ctx, key)?,
+            file_name: self.file_name.encrypt(ctx, key, ContentFormat::Utf8)?,
             size: self.size.clone(),
             size_name: self.size_name.clone(),
         })
@@ -302,6 +304,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, Send> for SendView {
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
+        _content_format: ContentFormat,
     ) -> Result<Send, CryptoError> {
         // For sends, we first decrypt the send key with the user key, and stretch it to it's full
         // size For the rest of the fields, we ignore the provided SymmetricCryptoKey and
@@ -325,17 +328,18 @@ impl Encryptable<KeyIds, SymmetricKeyId, Send> for SendView {
             id: self.id,
             access_id: self.access_id.clone(),
 
-            name: self.name.encrypt(ctx, send_key)?,
-            notes: self.notes.encrypt(ctx, send_key)?,
-            key: k.encrypt(ctx, key)?,
+            name: self.name.encrypt(ctx, send_key, ContentFormat::Utf8)?,
+            notes: self.notes.encrypt(ctx, send_key, ContentFormat::Utf8)?,
+            // In the future, this should support cose key content type
+            key: k.encrypt(ctx, key, ContentFormat::OctetStream)?,
             password: self.new_password.as_ref().map(|password| {
                 let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
                 STANDARD.encode(password)
             }),
 
             r#type: self.r#type,
-            file: self.file.encrypt(ctx, send_key)?,
-            text: self.text.encrypt(ctx, send_key)?,
+            file: self.file.encrypt(ctx, send_key, ContentFormat::Utf8)?,
+            text: self.text.encrypt(ctx, send_key, ContentFormat::Utf8)?,
 
             max_access_count: self.max_access_count,
             access_count: self.access_count,
