@@ -1,11 +1,3 @@
-mod call_bridge;
-mod call_target;
-pub mod dynamic_wrap;
 mod thread_bound_dispatcher;
-mod traits;
 
-// Re-export types to make sure wasm_bindgen picks them up
-#[cfg(feature = "wasm")]
-pub mod wasm;
-
-pub use call_bridge::{bridge, bridge_function, CallBridge, CallError};
+pub use thread_bound_dispatcher::ThreadBoundDispatcher;
