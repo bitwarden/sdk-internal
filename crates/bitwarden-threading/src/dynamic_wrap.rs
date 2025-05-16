@@ -1,4 +1,4 @@
-use std::{any::Any, future::Future, pin::Pin};
+use std::{any::Any, future::Future, pin::Pin, sync::Arc};
 
 pub fn wrap(value: impl Any) -> Box<dyn Any> {
     Box::new(value)
@@ -51,37 +51,40 @@ impl<Input> FunctionWrapper<Input> {
     }
 }
 
-// pub struct AsyncFunctionWrapper<Input> {
-//     function: Box<dyn FnOnce(Input) -> Pin<Box<dyn Future<Output = Box<dyn Any>>>>>,
-// }
+pub struct AsyncFunctionWrapper<Input> {
+    function: Box<dyn FnOnce(Arc<Input>) -> Pin<Box<dyn Future<Output = Box<dyn Any>>>>>,
+}
 
-// impl<Input> AsyncFunctionWrapper<Input> {
-//     pub fn new<F>(function: F) -> Self
-//     where
-//         F: FnOnce(Input) -> Pin<Box<dyn Future<Output = Box<dyn Any>>>> + 'static,
-//     {
-//         AsyncFunctionWrapper {
-//             function: Box::new(function),
-//         }
-//     }
+impl<Input> AsyncFunctionWrapper<Input> {
+    pub fn new<F>(function: F) -> Self
+    where
+        F: FnOnce(Arc<Input>) -> Pin<Box<dyn Future<Output = Box<dyn Any>>>> + 'static,
+    {
+        AsyncFunctionWrapper {
+            function: Box::new(function),
+        }
+    }
 
-//     pub fn wrap<F, Output>(function: F) -> Self
-//     where
-//         F: FnOnce(Input) -> Pin<Box<dyn Future<Output = Output>>> + 'static,
-//         Output: 'static,
-//     {
-//         AsyncFunctionWrapper::new(|input| {
-//             Box::pin(async move {
-//                 let result = function(input).await;
-//                 wrap(result)
-//             })
-//         })
-//     }
+    pub fn wrap<F, Output>(function: F) -> Self
+    where
+        F: FnOnce(Arc<Input>) -> Pin<Box<dyn Future<Output = Output>>> + 'static,
+        Input: 'static,
+        Output: 'static,
+    {
+        AsyncFunctionWrapper::new(move |input: Arc<Input>| {
+            let input = input.clone();
+            Box::pin(async move {
+                let result = function(input).await;
+                wrap(result)
+            })
+        })
+    }
 
-//     pub fn call(self, input: Input) -> DynamicOutput {
-//         DynamicOutput::new((self.function)(input))
-//     }
-// }
+    pub async fn call(self, input: Arc<Input>) -> DynamicOutput {
+        let result = (self.function)(input).await;
+        DynamicOutput::new(result)
+    }
+}
 
 pub struct DynamicOutput {
     value: Box<dyn Any + 'static>,
@@ -144,6 +147,42 @@ mod test {
         let remote_object = RemoteObject { state: 21 };
 
         let result = run_on_remote(&remote_object, |x: &i32| x * 2);
+
+        assert_eq!(result, Box::new(42));
+    }
+
+    #[tokio::test]
+    async fn test_async_function_wrapper_remote_execution() {
+        struct RemoteObject {
+            state: Arc<i32>,
+        }
+
+        impl RemoteObject {
+            pub async fn run(&self, function: AsyncFunctionWrapper<i32>) -> DynamicOutput {
+                function.call(self.state.clone()).await
+            }
+        }
+
+        async fn run_on_remote<Output>(
+            remote: &RemoteObject,
+            function: impl FnOnce(Arc<i32>) -> Pin<Box<dyn Future<Output = Output>>> + 'static,
+        ) -> Box<Output>
+        where
+            Output: 'static,
+        {
+            let wrapped_function = AsyncFunctionWrapper::wrap(function);
+            let dynamic_output = remote.run(wrapped_function).await;
+            dynamic_output.get().expect("Failed to unwrap the output")
+        }
+
+        let remote_object = RemoteObject {
+            state: Arc::new(21),
+        };
+
+        let result = run_on_remote(&remote_object, |x: Arc<i32>| {
+            Box::pin(async move { x.clone().as_ref() * 2 })
+        })
+        .await;
 
         assert_eq!(result, Box::new(42));
     }
