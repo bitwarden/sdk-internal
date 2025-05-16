@@ -5,8 +5,9 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 use uuid::Uuid;
-
+use crate::tree::TreeItem;
 use crate::VaultParseError;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -29,7 +30,7 @@ pub struct Collection {
     pub manage: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CollectionView {
@@ -84,4 +85,23 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
             manage: collection.manage.unwrap_or(false),
         })
     }
+}
+
+impl TreeItem for CollectionView {
+    fn id(&self) -> Option<Uuid> {
+        self.id
+    }
+
+    fn short_name(&self) -> &str {
+        &self.path().last().unwrap()
+    }
+
+    fn path(&self) -> Vec<&str> {
+        self.name
+            .split(Self::DELIMITER)
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<&str>>()
+    }
+
+    const DELIMITER: char = '/';
 }

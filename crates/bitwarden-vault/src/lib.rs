@@ -32,4 +32,6 @@ pub use vault_client::{VaultClient, VaultClientExt};
 
 mod sync;
 mod totp_client;
+mod tree;
+
 pub use sync::{SyncRequest, SyncResponse};
