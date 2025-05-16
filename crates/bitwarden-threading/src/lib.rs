@@ -1,5 +1,7 @@
 mod call_bridge;
 mod call_target;
+mod dynamic_wrap;
+mod thread_bound_dispatcher;
 mod traits;
 
 // Re-export types to make sure wasm_bindgen picks them up

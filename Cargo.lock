@@ -625,6 +625,7 @@ version = "1.0.0"
 dependencies = [
  "bitwarden-error",
  "js-sys",
+ "log",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
