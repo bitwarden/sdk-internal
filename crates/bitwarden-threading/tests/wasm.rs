@@ -50,22 +50,30 @@ pub async fn test_get_cipher() {
             // self.0.type_id();
             self.0
                 .call(move |state| {
-                    let cipher = async {
+                    Box::pin(async move {
                         let js_value_cipher = state.get(id).await;
                         let cipher: Cipher = serde_wasm_bindgen::from_value(js_value_cipher)
                             .expect("Failed to convert JsValue to Cipher");
                         cipher
-                    };
-                    Box::pin(async move { cipher.await })
+                    })
                 })
                 .await
                 .unwrap()
         }
 
         async fn save(&self, item: Cipher) {
-            // self.call(move |state| Box::pin(async move { state.save(item) }))
-            //     .await
-            //     .unwrap();
+            self.0
+                .call(move |state| {
+                    Box::pin(async move {
+                        state.save(item).await;
+                    })
+                })
+                .await
+                .unwrap();
         }
     }
+
+    let store = CipherStore(bound_cipher_service);
+    let cipher = store.get("some-cipher".to_owned()).await;
+    store.save(cipher).await;
 }

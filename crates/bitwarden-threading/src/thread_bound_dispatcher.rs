@@ -11,7 +11,7 @@ use tokio::task::spawn_local;
 use wasm_bindgen_futures::spawn_local;
 
 struct CallRequest<ThreadState> {
-    function: Box<dyn FnOnce(Arc<ThreadState>) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send>,
+    function: Box<dyn FnOnce(Arc<ThreadState>) -> Pin<Box<dyn Future<Output = ()>>> + Send>,
 }
 
 #[derive(Debug, Error)]
@@ -47,15 +47,13 @@ where
 
     pub async fn call<F, Output>(&self, function: F) -> Result<Output, CallError>
     where
-        F: FnOnce(Arc<ThreadState>) -> Pin<Box<dyn Future<Output = Output> + Send>>
-            + Send
-            + 'static,
+        F: FnOnce(Arc<ThreadState>) -> Pin<Box<dyn Future<Output = Output>>> + Send + 'static,
         Output: Send + Sync + 'static,
     {
         let (return_channel_tx, return_channel_rx) = tokio::sync::oneshot::channel();
 
         let function_wrapper: Box<
-            dyn FnOnce(Arc<ThreadState>) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send,
+            dyn FnOnce(Arc<ThreadState>) -> Pin<Box<dyn Future<Output = ()>>> + Send,
         > = Box::new(|state| {
             let result = function(state);
             Box::pin(async move {
