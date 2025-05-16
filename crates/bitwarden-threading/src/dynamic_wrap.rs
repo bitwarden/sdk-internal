@@ -22,10 +22,40 @@ impl<Input> FunctionWrapper<Input> {
         }
     }
 
+    pub fn wrap<F, Output>(function: F) -> Self
+    where
+        F: FnOnce(Input) -> Output + 'static,
+        Output: 'static,
+    {
+        FunctionWrapper::new(move |input| {
+            let result = function(input);
+            wrap(result)
+        })
+    }
+
     pub fn call(self, input: Input) -> DynamicOutput {
         DynamicOutput::new((self.function)(input))
     }
 }
+
+// pub struct AsyncFunctionWrapper<Input> {
+//     function: Box<dyn FnOnce(Input) -> Pin<Box<dyn Future<Output = Box<dyn Any>>>>>,
+// }
+
+// impl<Input> AsyncFunctionWrapper<Input> {
+//     pub fn new<F>(function: F) -> Self
+//     where
+//         F: FnOnce(Input) -> Pin<Box<dyn Future<Output = Box<dyn Any>>> + 'static,
+//     {
+//         FunctionWrapper {
+//             function: Box::new(function),
+//         }
+//     }
+
+//     pub fn call(self, input: Input) -> DynamicOutput {
+//         DynamicOutput::new((self.function)(input))
+//     }
+// }
 
 pub struct DynamicOutput {
     value: Box<dyn Any + 'static>,
@@ -80,10 +110,7 @@ mod test {
         where
             Output: 'static,
         {
-            let wrapped_function = FunctionWrapper::new(move |x: i32| {
-                let result = function(x);
-                wrap(result)
-            });
+            let wrapped_function = FunctionWrapper::wrap(function);
             let dynamic_output = remote.run(wrapped_function);
             dynamic_output.get().expect("Failed to unwrap the output")
         }
