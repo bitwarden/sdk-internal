@@ -623,6 +623,7 @@ dependencies = [
 name = "bitwarden-threading"
 version = "1.0.0"
 dependencies = [
+ "async-trait",
  "bitwarden-error",
  "js-sys",
  "log",
