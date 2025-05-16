@@ -1,6 +1,6 @@
 mod call_bridge;
 mod call_target;
-mod dynamic_wrap;
+pub mod dynamic_wrap;
 mod thread_bound_dispatcher;
 mod traits;
 
