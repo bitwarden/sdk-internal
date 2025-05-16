@@ -1,14 +1,22 @@
+use std::fmt::Debug;
+
 use crate::message::{IncomingMessage, OutgoingMessage};
 
 /// This trait defines the interface that will be used to send and receive messages over IPC.
 /// It is up to the platform to implement this trait and any necessary thread synchronization and
 /// broadcasting.
-pub trait CommunicationBackend {
-    type SendError;
+pub trait CommunicationBackend: Send + Sync + 'static {
+    type SendError: Debug + Send + Sync + 'static;
     type Receiver: CommunicationBackendReceiver;
 
     /// Send a message to the destination specified in the message. This function may be called
-    /// from any thread at any time. The implementation will handle any necessary synchronization.
+    /// from any thread at any time.
+    ///
+    /// An error should only be returned for fatal and unrecoverable errors.
+    /// Returning an error will cause the IPC client to stop processing messages.
+    ///
+    /// The implementation of this trait needs to guarantee that:
+    ///     - Multiple concurrent receivers and senders can coexist.
     fn send(
         &self,
         message: OutgoingMessage,
@@ -20,7 +28,8 @@ pub trait CommunicationBackend {
     /// The implementation of this trait needs to guarantee that:
     ///     - Multiple concurrent receivers may be created.
     ///     - All concurrent receivers will receive the same messages.
-    fn subscribe(&self) -> impl std::future::Future<Output = Self::Receiver>;
+    ///      - Multiple concurrent receivers and senders can coexist.
+    fn subscribe(&self) -> impl std::future::Future<Output = Self::Receiver> + Send + Sync;
 }
 
 /// This trait defines the interface for receiving messages from the communication backend.
@@ -29,23 +38,25 @@ pub trait CommunicationBackend {
 ///     - The receiver buffers messages from the creation of the receiver until the first call to
 ///       receive().
 ///     - The receiver buffers messages between calls to receive().
-pub trait CommunicationBackendReceiver {
-    type ReceiveError;
+pub trait CommunicationBackendReceiver: Send + Sync + 'static {
+    type ReceiveError: Debug + Send + Sync + 'static;
 
     /// Receive a message. This function will block asynchronously until a message is received.
+    ///
+    /// An error should only be returned for fatal and unrecoverable errors.
+    /// Returning an error will cause the IPC client to stop processing messages.
     ///
     /// Do not call this function from multiple threads at the same time. Use the subscribe function
     /// to create one receiver per thread.
     fn receive(
         &self,
-    ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>>;
+    ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>> + Send + Sync;
 }
 
 #[cfg(test)]
 pub mod tests {
     use std::sync::Arc;
 
-    use thiserror::Error;
     use tokio::sync::{
         broadcast::{self, Receiver, Sender},
         RwLock,
@@ -103,12 +114,6 @@ pub mod tests {
         }
     }
 
-    #[derive(Debug, Clone, Error, PartialEq)]
-    pub enum TestCommunicationBackendReceiveError {
-        #[error("Could not receive mock message since no messages were queued")]
-        NoQueuedMessages,
-    }
-
     impl CommunicationBackend for TestCommunicationBackend {
         type SendError = ();
         type Receiver = TestCommunicationBackendReceiver;
@@ -124,16 +129,13 @@ pub mod tests {
     }
 
     impl CommunicationBackendReceiver for TestCommunicationBackendReceiver {
-        type ReceiveError = TestCommunicationBackendReceiveError;
+        type ReceiveError = ();
 
         async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
-            let mut receiver = self.0.write().await;
-
-            if receiver.is_empty() {
-                return Err(TestCommunicationBackendReceiveError::NoQueuedMessages);
-            }
-
-            Ok(receiver
+            Ok(self
+                .0
+                .write()
+                .await
                 .recv()
                 .await
                 .expect("Failed to receive incoming message"))
