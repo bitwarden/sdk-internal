@@ -34,7 +34,10 @@ impl CiphersClient {
         }
 
         let cipher = key_store.encrypt(cipher_view)?;
-        Ok(EncryptionContext { cipher, user_id })
+        Ok(EncryptionContext {
+            cipher,
+            encrypted_for: user_id,
+        })
     }
 
     pub fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
@@ -233,7 +236,7 @@ mod tests {
         // Assert the cipher has a key, and the attachment is still readable
         let EncryptionContext {
             cipher: new_cipher,
-            user_id: _,
+            encrypted_for: _,
         } = client.vault().ciphers().encrypt(view).unwrap();
         assert!(new_cipher.key.is_some());
 
@@ -275,7 +278,7 @@ mod tests {
         // Assert the cipher has a key, and the attachment is still readable
         let EncryptionContext {
             cipher: new_cipher,
-            user_id: _,
+            encrypted_for: _,
         } = client.vault().ciphers().encrypt(view).unwrap();
         assert!(new_cipher.key.is_some());
 
@@ -322,7 +325,7 @@ mod tests {
             .unwrap();
         let EncryptionContext {
             cipher: new_cipher,
-            user_id: _,
+            encrypted_for: _,
         } = client.vault().ciphers().encrypt(new_view).unwrap();
 
         let attachment = new_cipher
