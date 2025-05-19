@@ -61,6 +61,7 @@ impl SigningKey {
         }
     }
 
+    /// Serializes the signing key to a COSE-formatted byte array.
     pub fn to_cose(&self) -> Result<Vec<u8>> {
         match &self.inner {
             SigningCryptoKeyEnum::Ed25519(key) => {
@@ -95,6 +96,7 @@ impl SigningKey {
         }
     }
 
+    /// Deserializes a COSE-formatted byte array into a signing key.
     pub fn from_cose(bytes: &[u8]) -> Result<Self> {
         let cose_key = CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
         let (key_id, Some(algorithm), key_type) = (cose_key.key_id, cose_key.alg, cose_key.kty)
@@ -234,6 +236,7 @@ impl SigningKey {
 
 #[allow(unused)]
 impl VerifyingKey {
+    /// Serializes the verifying key to a COSE-formatted byte array.
     pub fn to_cose(&self) -> Result<Vec<u8>> {
         match &self.inner {
             VerifyingKeyEnum::Ed25519(key) => coset::CoseKeyBuilder::new_okp_key()
@@ -254,6 +257,7 @@ impl VerifyingKey {
         }
     }
 
+    /// Deserializes a COSE-formatted byte array into a verifying key.
     pub fn from_cose(bytes: &[u8]) -> Result<Self> {
         let cose_key = coset::CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
 
@@ -378,6 +382,7 @@ impl VerifyingKey {
         }
     }
 
+    /// Returns the signature scheme used by the verifying key.
     pub fn algorithm(&self) -> SignatureAlgorithm {
         match &self.inner {
             VerifyingKeyEnum::Ed25519(_) => SignatureAlgorithm::Ed25519,

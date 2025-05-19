@@ -276,6 +276,7 @@ impl PureCrypto {
         verifying_key.to_cose()
     }
 
+    /// Returns the algorithm used for the given verifying key.
     pub fn key_algorithm_for_verifying_key(
         verifying_key: Vec<u8>,
     ) -> Result<SignatureAlgorithm, CryptoError> {
@@ -284,6 +285,10 @@ impl PureCrypto {
         Ok(algorithm)
     }
 
+    /// For a given signing identity (verifying key), this function verifies that the signing
+    /// identity claimed ownership of the public key. This is a one-sided claim and merely shows
+    /// that the signing identity has the intent to receive messages encrypted to the public
+    /// key.
     pub fn verify_public_key_ownership_claim(
         claim: Vec<u8>,
         public_key: Vec<u8>,
