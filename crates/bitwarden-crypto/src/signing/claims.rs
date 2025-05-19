@@ -46,12 +46,10 @@ impl SignedPublicKeyOwnershipClaim {
         verifying_key: &VerifyingKey,
     ) -> Result<bool, CryptoError> {
         let signed_object = SignedObject::from_cose(&self.0)?;
-        let claim = verifying_key.get_verified_payload(&SigningNamespace::PublicKeyOwnershipClaim, &signed_object)?; 
-        println!("Signed object: {:?}", claim);
-        let claim: PublicKeyOwnershipClaim = ciborium::de::from_reader(&claim[..]).map_err(|_| {
+        let serialized_claim = verifying_key.get_verified_payload(&SigningNamespace::PublicKeyOwnershipClaim, &signed_object)?; 
+        let claim: PublicKeyOwnershipClaim = ciborium::de::from_reader(&serialized_claim[..]).map_err(|_| {
             CryptoError::InvalidEncoding
         })?;
-        println!("Claim: {:?}", claim);
         Ok(public_key.verify_fingerprint(&claim.fingerprint))
     }
 
