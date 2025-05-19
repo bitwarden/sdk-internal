@@ -23,11 +23,31 @@ pub enum CallError {
     ChannelReceive(String),
 }
 
-pub struct ThreadBoundDispatcher<ThreadState> {
+/// A runner that takes a non-`Send`, non-`Sync` state and makes it `Send + Sync` compatible.
+///
+/// `ThreadBoundRunner` is designed to safely encapsulate a `!Send + !Sync` state object by
+/// pinning it to a single thread using `spawn_local`. It provides a `Send + Sync` API that
+/// allows other threads to submit tasks (function pointers or closures) that operate on the
+/// thread-bound state.
+///
+/// Tasks are queued via an internal channel and are executed sequentially on the owning thread.
+///
+/// # Example
+/// ```ignore
+/// let runner = ThreadBoundRunner::new(my_state);
+///
+/// runner.run_in_thread(|state| async move {
+///     // do something with `state`
+/// });
+/// ```
+///
+/// This pattern is useful for interacting with APIs or data structures that must remain
+/// on the same thread, such as GUI toolkits, WebAssembly contexts, or other thread-bound environments.
+pub struct ThreadBoundRunner<ThreadState> {
     call_channel_tx: tokio::sync::mpsc::Sender<CallRequest<ThreadState>>,
 }
 
-impl<ThreadState> ThreadBoundDispatcher<ThreadState>
+impl<ThreadState> ThreadBoundRunner<ThreadState>
 where
     ThreadState: 'static,
 {
@@ -42,10 +62,10 @@ where
             }
         });
 
-        ThreadBoundDispatcher { call_channel_tx }
+        ThreadBoundRunner { call_channel_tx }
     }
 
-    pub async fn call<F, Output>(&self, function: F) -> Result<Output, CallError>
+    pub async fn run_in_thread<F, Output>(&self, function: F) -> Result<Output, CallError>
     where
         F: FnOnce(Arc<ThreadState>) -> Pin<Box<dyn Future<Output = Output>>> + Send + 'static,
         Output: Send + Sync + 'static,
@@ -129,10 +149,10 @@ mod test {
         run_test(async {
             let target = Target::default();
 
-            let dispatcher = ThreadBoundDispatcher::new(target);
+            let dispatcher = ThreadBoundRunner::new(target);
 
             let result = dispatcher
-                .call(|target| {
+                .run_in_thread(|target| {
                     let input = (1, 2);
                     let result = target.add(input);
                     Box::pin(async move { result })
@@ -162,10 +182,10 @@ mod test {
         run_test(async {
             let target = Target::default();
 
-            let dispatcher = ThreadBoundDispatcher::new(target);
+            let dispatcher = ThreadBoundRunner::new(target);
 
             let result = dispatcher
-                .call(|target| {
+                .run_in_thread(|target| {
                     Box::pin(async move {
                         let input = (1, 2);
                         let result = target.add(input).await;

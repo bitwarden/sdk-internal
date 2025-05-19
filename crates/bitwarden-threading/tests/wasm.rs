@@ -1,4 +1,4 @@
-use bitwarden_threading::ThreadBoundDispatcher;
+use bitwarden_threading::ThreadBoundRunner;
 use serde::{Deserialize, Serialize};
 use tsify_next::{serde_wasm_bindgen, Tsify};
 use wasm_bindgen::prelude::*;
@@ -40,15 +40,15 @@ pub async fn test_wasm() {
 #[tokio::test]
 pub async fn test_get_cipher() {
     let cipher_service = CipherService::new();
-    let bound_cipher_service = ThreadBoundDispatcher::new(cipher_service);
+    let bound_cipher_service = ThreadBoundRunner::new(cipher_service);
 
-    struct CipherStore(ThreadBoundDispatcher<CipherService>);
+    struct CipherStore(ThreadBoundRunner<CipherService>);
 
     #[async_trait::async_trait]
     impl Store<Cipher> for CipherStore {
         async fn get(&self, id: String) -> Cipher {
             self.0
-                .call(move |state| {
+                .run_in_thread(move |state| {
                     Box::pin(async move {
                         let js_value_cipher = state.get(id).await;
                         let cipher: Cipher = serde_wasm_bindgen::from_value(js_value_cipher)
@@ -62,7 +62,7 @@ pub async fn test_get_cipher() {
 
         async fn save(&self, item: Cipher) {
             self.0
-                .call(move |state| {
+                .run_in_thread(move |state| {
                     Box::pin(async move {
                         state.save(item).await;
                     })

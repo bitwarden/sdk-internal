@@ -1,3 +1,3 @@
-mod thread_bound_dispatcher;
+mod thread_bound_runner;
 
-pub use thread_bound_dispatcher::ThreadBoundDispatcher;
+pub use thread_bound_runner::ThreadBoundRunner;
