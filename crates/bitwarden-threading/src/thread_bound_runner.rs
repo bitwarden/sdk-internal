@@ -16,11 +16,8 @@ struct CallRequest<ThreadState> {
 
 #[derive(Debug, Error)]
 pub enum CallError {
-    #[error("Failed to request function call: {0}")]
-    ChannelSend(String),
-
-    #[error("Failed to receive return value: {0}")]
-    ChannelReceive(String),
+    #[error("The call failed before it could return a value (thread probably panicked): {0}")]
+    CallFailed(String),
 }
 
 /// A runner that takes a non-`Send`, non-`Sync` state and makes it `Send + Sync` compatible.
@@ -58,7 +55,10 @@ where
         spawn_local(async move {
             let state = Rc::new(state);
             while let Some(request) = call_channel_rx.recv().await {
-                (request.function)(state.clone()).await;
+                let state = state.clone();
+                spawn_local(async move {
+                    (request.function)(state).await;
+                });
             }
         });
 
@@ -88,10 +88,10 @@ where
         self.call_channel_tx
             .send(request)
             .await
-            .map_err(|e| CallError::ChannelSend(e.to_string()))?;
+            .expect("Call channel should not be able to close while anything still still has a reference to this object");
         return_channel_rx
             .await
-            .map_err(|e| CallError::ChannelReceive(e.to_string()))
+            .map_err(|e| CallError::CallFailed(e.to_string()))
     }
 }
 
@@ -171,6 +171,32 @@ mod test {
     async fn calls_async_function_and_returns_value() {
         run_test(async {
             let runner = ThreadBoundRunner::new(State::default());
+
+            let result = runner
+                .run_in_thread(|state| async move {
+                    let input = (1, 2);
+                    let result = state.async_add(input).await;
+                    result
+                })
+                .await
+                .expect("Calling function failed");
+
+            assert_eq!(result, 3);
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn can_continue_running_if_a_call_panics() {
+        run_test(async {
+            let runner = ThreadBoundRunner::new(State::default());
+
+            runner
+                .run_in_thread::<_, _, ()>(|state| async move {
+                    panic!("This is a test panic");
+                })
+                .await
+                .expect_err("Calling function should have panicked");
 
             let result = runner
                 .run_in_thread(|state| async move {
