@@ -178,7 +178,7 @@ impl InternalClient {
     }
 
     pub fn get_user_id(&self) -> Option<Uuid> {
-        self.user_id.read().expect("RwLock is not poisoned").clone()
+        *self.user_id.read().expect("RwLock is not poisoned")
     }
 
     #[cfg(feature = "internal")]
