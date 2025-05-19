@@ -8,7 +8,7 @@ use coset::{
 use ed25519_dalek::Signer;
 use rand::rngs::OsRng;
 
-use super::key_id::KeyId;
+use super::{key_id::KeyId, KEY_ID_SIZE};
 use crate::{cose::SIGNING_NAMESPACE, error::Result, signing::SigningNamespace, CryptoError};
 
 #[allow(unused)]
@@ -88,7 +88,7 @@ impl SigningKey {
         else {
             return Err(CryptoError::InvalidKey);
         };
-        let key_id: [u8; 16] = key_id
+        let key_id: [u8; KEY_ID_SIZE] = key_id
             .as_slice()
             .try_into()
             .map_err(|_| CryptoError::InvalidKey)?;
@@ -242,7 +242,7 @@ impl VerifyingKey {
         else {
             return Err(CryptoError::InvalidKey);
         };
-        let key_id: [u8; 16] = key_id
+        let key_id: [u8; KEY_ID_SIZE] = key_id
             .as_slice()
             .try_into()
             .map_err(|_| CryptoError::InvalidKey)?;
