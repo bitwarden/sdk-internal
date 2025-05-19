@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{CryptoError, FingerprintableKey, PublicKeyFingerprint, SignedObject, SigningKey, VerifyingKey};
+use crate::{AsymmetricPublicCryptoKey, CryptoError, FingerprintableKey, PublicKeyFingerprint, SignedObject, SigningKey, VerifyingKey};
+use crate::keys::Fingerprintable;
 
 use super::SigningNamespace;
 
@@ -27,7 +28,7 @@ pub struct SignedPublicKeyOwnershipClaim(Vec<u8>);
 
 impl SignedPublicKeyOwnershipClaim {
     pub fn make_claim_with_key(
-        public_key: &impl FingerprintableKey,
+        public_key: &AsymmetricPublicCryptoKey,
         signing_key: &SigningKey,
     ) -> Result<Self, CryptoError> {
         let claim = PublicKeyOwnershipClaim::for_public_key(public_key);
@@ -41,7 +42,7 @@ impl SignedPublicKeyOwnershipClaim {
 
     pub fn verify_claim(
         &self,
-        public_key: &impl FingerprintableKey,
+        public_key: &AsymmetricPublicCryptoKey,
         verifying_key: &VerifyingKey,
     ) -> Result<bool, CryptoError> {
         let signed_object = SignedObject::from_cose(&self.0)?;

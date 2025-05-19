@@ -25,8 +25,7 @@ pub use pin_key::PinKey;
 mod kdf;
 mod key_id;
 mod fingerprint;
-pub use fingerprint::{FingerprintableKey};
-pub(crate) use fingerprint::{PublicKeyFingerprint};
+pub(crate) use fingerprint::{FingerprintableKey, Fingerprintable, PublicKeyFingerprint};
 pub use kdf::{
     default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
     default_pbkdf2_iterations, Kdf,

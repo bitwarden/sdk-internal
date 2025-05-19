@@ -2,7 +2,9 @@ use std::str::FromStr;
 
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CryptoError, Decryptable, EncString, Encryptable, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey, SignatureAlgorithm, SignedPublicKeyOwnershipClaim, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CryptoError, Decryptable, EncString,
+    Encryptable, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey, SignatureAlgorithm,
+    SignedPublicKeyOwnershipClaim, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
 };
 use wasm_bindgen::prelude::*;
 
@@ -266,12 +268,9 @@ impl PureCrypto {
 
     pub fn verifying_key_for_signing_key(
         signing_key: String,
-        wrapping_key: Vec<u8>
+        wrapping_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
-        let bytes = Self::symmetric_decrypt_bytes(
-            signing_key,
-            wrapping_key,
-        )?;
+        let bytes = Self::symmetric_decrypt_bytes(signing_key, wrapping_key)?;
         let signing_key = SigningKey::from_cose(&bytes)?;
         let verifying_key = signing_key.to_verifying_key();
         verifying_key.to_cose()
@@ -356,15 +355,14 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         use base64::{engine::general_purpose::STANDARD, Engine};
         let claim: &str = "hFgbowEnBFC0jWbAn9dOvZfguK1cFmKIOgABOH8CoFhIoWtmaW5nZXJwcmludKJmZGlnZXN0WCDe5H2OEmMdkRddB1roMtfRqL15s0D9oVeGgFBQW7nM3GlhbGdvcml0aG1mU2hhMjU2WECFkZ/zA4W6O4qMoaQG4Df3jLhEatZH0JGdqe3VxxajDaAjk9JIGZShHLDp1Rgks0p9h2m74P/OgtphVvgdxB0C";
         let public_key: &str = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlGvPL2LFnoaaQ73uk4vh1X5rRsNpSp+ATzxIuwm/5BcOA37a87GCvBnT/LrYS/ylPHJkOeSxQGkbS8JhuZrk97FVsMTpX2GAyLMmyuT4H9J+AU6QFfZzRhtQlh37WmjclDm0/gZgLORP+osH6irhuPBU8xPrbOPi3lvNc9RKhk8UYddnOnfwUimu0C0GBZpkbBZCrwhDz+UAZdP9gm/wdhxgWwYwzQhmy8hrDLCWmmyb0oR2xuQ2BMGJpqxBhDVY4tKcH4YSNmKy2iOHUFBAo0NtCJdOydCy+aJhAlI49cOydyPOnGHSM0K73RvCTjgzl8c98H7lhB/ObNckpHmplwIDAQAB";
-        let verifying_key: &str = "pgEBAlC0jWbAn9dOvZfguK1cFmKIAycEgQIgBiFYIDxhBrAPfGD9X/DLa+FS16Q4519WAmGv+Fq6w9cf45tg";
+        let verifying_key: &str =
+            "pgEBAlC0jWbAn9dOvZfguK1cFmKIAycEgQIgBiFYIDxhBrAPfGD9X/DLa+FS16Q4519WAmGv+Fq6w9cf45tg";
         let claim = STANDARD.decode(claim).unwrap();
         let public_key = STANDARD.decode(public_key).unwrap();
         let verifying_key = STANDARD.decode(verifying_key).unwrap();
-        let result = PureCrypto::verify_public_key_ownership_claim(
-            claim,
-            public_key,
-            verifying_key,
-        ).unwrap();
+        let result =
+            PureCrypto::verify_public_key_ownership_claim(claim, public_key, verifying_key)
+                .unwrap();
         assert!(result);
     }
 

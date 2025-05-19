@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use sha2::Digest;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-enum PublicKeyFingerprintAlgorithm {
+pub(crate) enum PublicKeyFingerprintAlgorithm {
     Sha256 = 1,
 }
 
@@ -16,11 +16,11 @@ enum PublicKeyFingerprintAlgorithm {
 /// When signing a key, or showing a key to a user, this representation is used.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct PublicKeyFingerprint {
-    pub digest: serde_bytes::ByteBuf,
-    pub algorithm: PublicKeyFingerprintAlgorithm,
+    pub(crate) digest: serde_bytes::ByteBuf,
+    pub(crate) algorithm: PublicKeyFingerprintAlgorithm,
 }
 
-pub(crate) trait Fingerprintable {
+pub trait Fingerprintable {
     fn fingerprint(&self) -> PublicKeyFingerprint;
     fn verify_fingerprint(
         &self,

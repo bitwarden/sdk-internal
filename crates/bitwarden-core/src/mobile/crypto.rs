@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, SignatureAlgorithm, SignedPublicKeyOwnershipClaim, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, SignedPublicKeyOwnershipClaim, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
