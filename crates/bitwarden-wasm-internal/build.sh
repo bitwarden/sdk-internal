@@ -39,3 +39,6 @@ wasm-opt -Os ./crates/bitwarden-wasm-internal/npm/node/bitwarden_wasm_internal_b
 # Transpile to JS
 wasm2js -Os ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.js
 npx terser ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.js -o ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.js
+
+# Typecheck the generated TypeScript definitions
+npx tsc --noEmit --lib es2015 crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal.d.ts
