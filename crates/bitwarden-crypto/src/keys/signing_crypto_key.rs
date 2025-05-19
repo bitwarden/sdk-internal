@@ -351,10 +351,10 @@ impl VerifyingKey {
                 let sig = ed25519_dalek::Signature::from_bytes(
                     signature
                         .try_into()
-                        .map_err(|_| crate::error::CryptoError::InvalidSignature)?,
+                        .map_err(|_| CryptoError::InvalidSignature)?,
                 );
                 key.verify_strict(data, &sig)
-                    .map_err(|_| crate::error::CryptoError::InvalidSignature)
+                    .map_err(|_| CryptoError::InvalidSignature)
             }
         }
     }
