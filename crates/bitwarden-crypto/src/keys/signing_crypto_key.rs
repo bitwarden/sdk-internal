@@ -57,23 +57,12 @@ impl SigningKey {
                 coset::CoseKeyBuilder::new_okp_key()
                     .key_id((&self.id).into())
                     .algorithm(Algorithm::EdDSA)
-                    // Note: X does not refer to the X coordinate of the public key curve point, but
-                    // to the verifying key, as represented by the curve spec. In the
-                    // case of Ed25519, this is the compressed Y coordinate. This was ill-defined in
-                    // earlier drafts of the standard. https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
-                    //
-                    // Note: By the standard, the public key is optional (but RECOMMENDED) here, and
-                    // can be derived on the fly.
                     .param(
-                        OkpKeyParameter::X.to_i64(),
-                        Value::Bytes(key.verifying_key().to_bytes().into()),
-                    )
-                    .param(
-                        OkpKeyParameter::D.to_i64(),
+                        OkpKeyParameter::D.to_i64(), // Signing key
                         Value::Bytes(key.to_bytes().into()),
                     )
                     .param(
-                        OkpKeyParameter::Crv.to_i64(),
+                        OkpKeyParameter::Crv.to_i64(), // Elliptic curve identifier
                         Value::Integer(Integer::from(EllipticCurve::Ed25519.to_i64())),
                     )
                     .add_key_op(KeyOperation::Sign)
@@ -227,6 +216,10 @@ impl VerifyingKey {
                     OkpKeyParameter::Crv.to_i64(),
                     Value::Integer(Integer::from(EllipticCurve::Ed25519.to_i64())),
                 )
+                // Note: X does not refer to the X coordinate of the public key curve point, but
+                // to the verifying key (signature public key), as represented by the curve spec. In the
+                // case of Ed25519, this is the compressed Y coordinate. This was ill-defined in
+                // earlier drafts of the standard. https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
                 .param(
                     OkpKeyParameter::X.to_i64(),
                     Value::Bytes(key.to_bytes().to_vec()),
