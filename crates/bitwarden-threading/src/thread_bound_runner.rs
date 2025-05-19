@@ -3,15 +3,18 @@
 
 use std::{future::Future, pin::Pin, rc::Rc};
 
+use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::task::spawn_local;
-
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::spawn_local;
 
+type CallFunction<ThreadState> =
+    Box<dyn FnOnce(Rc<ThreadState>) -> Pin<Box<dyn Future<Output = ()>>> + Send>;
+
 struct CallRequest<ThreadState> {
-    function: Box<dyn FnOnce(Rc<ThreadState>) -> Pin<Box<dyn Future<Output = ()>>> + Send>,
+    function: CallFunction<ThreadState>,
 }
 
 /// The call failed before it could return a value. This should not happen unless
@@ -19,6 +22,7 @@ struct CallRequest<ThreadState> {
 /// panics.
 #[derive(Debug, Error)]
 #[error("The call failed before it could return a value: {0}")]
+#[bitwarden_error(basic)]
 pub struct CallError(String);
 
 /// A runner that takes a non-`Send`, non-`Sync` state and makes it `Send + Sync` compatible.
@@ -40,7 +44,8 @@ pub struct CallError(String);
 /// ```
 ///
 /// This pattern is useful for interacting with APIs or data structures that must remain
-/// on the same thread, such as GUI toolkits, WebAssembly contexts, or other thread-bound environments.
+/// on the same thread, such as GUI toolkits, WebAssembly contexts, or other thread-bound
+/// environments.
 pub struct ThreadBoundRunner<ThreadState> {
     call_channel_tx: tokio::sync::mpsc::Sender<CallRequest<ThreadState>>,
 }
@@ -153,6 +158,7 @@ mod test {
             input.0 + input.1
         }
 
+        #[allow(clippy::unused_async)]
         pub async fn async_add(&self, input: (i32, i32)) -> i32 {
             input.0 + input.1
         }
@@ -166,8 +172,7 @@ mod test {
             let result = runner
                 .run_in_thread(|state| async move {
                     let input = (1, 2);
-                    let result = state.add(input);
-                    result
+                    state.add(input)
                 })
                 .await
                 .expect("Calling function failed");
@@ -185,8 +190,7 @@ mod test {
             let result = runner
                 .run_in_thread(|state| async move {
                     let input = (1, 2);
-                    let result = state.async_add(input).await;
-                    result
+                    state.async_add(input).await
                 })
                 .await
                 .expect("Calling function failed");
@@ -211,8 +215,7 @@ mod test {
             let result = runner
                 .run_in_thread(|state| async move {
                     let input = (1, 2);
-                    let result = state.async_add(input).await;
-                    result
+                    state.async_add(input).await
                 })
                 .await
                 .expect("Calling function failed");

@@ -10,7 +10,7 @@ trait Store<T> {
     async fn save(&self, item: T);
 }
 
-#[derive(Debug, Tsify, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Tsify, Serialize, Deserialize, PartialEq, Eq)]
 #[tsify(into_wasm_abi, from_wasm_abi)]
 struct Cipher {
     id: String,
@@ -66,7 +66,7 @@ pub async fn test_get_cipher() {
                     cipher
                 })
                 .await
-                .unwrap()
+                .expect("Failed to get cipher")
         }
 
         async fn save(&self, item: Cipher) {
@@ -75,7 +75,7 @@ pub async fn test_get_cipher() {
                     state.save(item).await;
                 })
                 .await
-                .unwrap();
+                .expect("Failed to save cipher");
         }
     }
 
@@ -86,8 +86,8 @@ pub async fn test_get_cipher() {
         password: "password".to_owned(),
     };
 
-    store.save(cipher).await;
+    store.save(cipher.clone()).await;
     let result = store.get("id".to_owned()).await;
 
-    assert_eq!(result, result);
+    assert_eq!(result, cipher);
 }
