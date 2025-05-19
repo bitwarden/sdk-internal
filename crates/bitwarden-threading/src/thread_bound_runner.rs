@@ -65,30 +65,30 @@ where
         ThreadBoundRunner { call_channel_tx }
     }
 
-    pub async fn run_in_thread<F, Output>(&self, function: F) -> Result<Output, CallError>
+    pub async fn run_in_thread<F, Fut, Output>(&self, function: F) -> Result<Output, CallError>
     where
-        F: FnOnce(Arc<ThreadState>) -> Pin<Box<dyn Future<Output = Output>>> + Send + 'static,
+        F: FnOnce(Arc<ThreadState>) -> Fut + Send + 'static,
+        Fut: Future<Output = Output>,
         Output: Send + Sync + 'static,
     {
         let (return_channel_tx, return_channel_rx) = tokio::sync::oneshot::channel();
+        let request = CallRequest {
+            function: Box::new(|state| {
+                Box::pin(async move {
+                    let result = function(state);
+                    return_channel_tx.send(result.await).unwrap_or_else(|_| {
+                        log::warn!(
+                            "ThreadBoundDispatcher failed to send result back to the caller"
+                        );
+                    });
+                })
+            }),
+        };
 
-        let function_wrapper: Box<
-            dyn FnOnce(Arc<ThreadState>) -> Pin<Box<dyn Future<Output = ()>>> + Send,
-        > = Box::new(|state| {
-            let result = function(state);
-            Box::pin(async move {
-                return_channel_tx.send(result.await).unwrap_or_else(|_| {
-                    log::warn!("ThreadBoundDispatcher failed to send result back to the caller");
-                });
-            })
-        });
         self.call_channel_tx
-            .send(CallRequest {
-                function: function_wrapper,
-            })
+            .send(request)
             .await
             .map_err(|e| CallError::ChannelSend(e.to_string()))?;
-
         return_channel_rx
             .await
             .map_err(|e| CallError::ChannelReceive(e.to_string()))
@@ -152,10 +152,10 @@ mod test {
             let dispatcher = ThreadBoundRunner::new(target);
 
             let result = dispatcher
-                .run_in_thread(|target| {
+                .run_in_thread(|target| async move {
                     let input = (1, 2);
                     let result = target.add(input);
-                    Box::pin(async move { result })
+                    result
                 })
                 .await
                 .expect("Calling function failed");
@@ -185,12 +185,10 @@ mod test {
             let dispatcher = ThreadBoundRunner::new(target);
 
             let result = dispatcher
-                .run_in_thread(|target| {
-                    Box::pin(async move {
-                        let input = (1, 2);
-                        let result = target.add(input).await;
-                        result
-                    })
+                .run_in_thread(|target| async move {
+                    let input = (1, 2);
+                    let result = target.add(input).await;
+                    result
                 })
                 .await
                 .expect("Calling function failed");

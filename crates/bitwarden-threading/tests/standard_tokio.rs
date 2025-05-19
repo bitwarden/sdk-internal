@@ -49,19 +49,17 @@ pub async fn test_get_cipher() {
         impl Store<Cipher> for CipherStore {
             async fn get(&self, id: String) -> Option<Cipher> {
                 self.0
-                    .run_in_thread(move |state| {
-                        Box::pin(async move { state.lock().await.ciphers.get(&id).cloned() })
-                    })
+                    .run_in_thread(
+                        |state| async move { state.lock().await.ciphers.get(&id).cloned() },
+                    )
                     .await
                     .unwrap()
             }
 
             async fn save(&self, item: Cipher) {
                 self.0
-                    .run_in_thread(move |state| {
-                        Box::pin(
-                            async move { state.lock().await.ciphers.insert(item.id.clone(), item) },
-                        )
+                    .run_in_thread(|state| async move {
+                        state.lock().await.ciphers.insert(item.id.clone(), item)
                     })
                     .await
                     .unwrap();
