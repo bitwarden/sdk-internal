@@ -21,12 +21,15 @@ enum VerifyingKeyEnum {
     Ed25519(ed25519_dalek::VerifyingKey),
 }
 
+/// A signing key is a private key used for signing data. An associated `VerifyingKey` can be derived from it.
 #[allow(unused)]
 struct SigningKey {
     id: KeyId,
     inner: SigningCryptoKeyEnum,
 }
 
+/// A verifying key is a public key used for verifying signatures. It can be published to other users,
+/// who can use it to verify that messages were signed by the holder of the corresponding `SigningKey`. 
 #[allow(unused)]
 struct VerifyingKey {
     id: KeyId,
