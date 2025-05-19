@@ -14,11 +14,12 @@ struct CallRequest<ThreadState> {
     function: Box<dyn FnOnce(Rc<ThreadState>) -> Pin<Box<dyn Future<Output = ()>>> + Send>,
 }
 
+/// The call failed before it could return a value. This should not happen unless
+/// the thread panics, which can only happen if the function passed to `run_in_thread`
+/// panics.
 #[derive(Debug, Error)]
-pub enum CallError {
-    #[error("The call failed before it could return a value (thread probably panicked): {0}")]
-    CallFailed(String),
-}
+#[error("The call failed before it could return a value: {0}")]
+pub struct CallError(String);
 
 /// A runner that takes a non-`Send`, non-`Sync` state and makes it `Send + Sync` compatible.
 ///
@@ -65,6 +66,15 @@ where
         ThreadBoundRunner { call_channel_tx }
     }
 
+    /// Submit a task to be executed on the thread-bound state.
+    ///
+    /// The provided function is executed on the thread that owns the internal `ThreadState`,
+    /// ensuring safe access to `!Send + !Sync` data. Tasks are dispatched in the order they are
+    /// received, but because they are asynchronous, multiple tasks may be in-flight and running
+    /// concurrently if their futures yield.
+    ///
+    /// # Returns
+    /// A future that resolves to the result of the function once it has been executed.
     pub async fn run_in_thread<F, Fut, Output>(&self, function: F) -> Result<Output, CallError>
     where
         F: FnOnce(Rc<ThreadState>) -> Fut + Send + 'static,
@@ -91,7 +101,7 @@ where
             .expect("Call channel should not be able to close while anything still still has a reference to this object");
         return_channel_rx
             .await
-            .map_err(|e| CallError::CallFailed(e.to_string()))
+            .map_err(|e| CallError(e.to_string()))
     }
 }
 
