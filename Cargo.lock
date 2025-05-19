@@ -625,6 +625,7 @@ version = "1.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
+ "console_error_panic_hook",
  "js-sys",
  "log",
  "serde",
@@ -634,6 +635,7 @@ dependencies = [
  "tsify-next",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-bindgen-test",
 ]
 
 [[package]]

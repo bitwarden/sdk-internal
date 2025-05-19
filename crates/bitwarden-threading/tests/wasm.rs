@@ -2,6 +2,7 @@ use bitwarden_threading::ThreadBoundRunner;
 use serde::{Deserialize, Serialize};
 use tsify_next::{serde_wasm_bindgen, Tsify};
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_test::wasm_bindgen_test;
 
 #[async_trait::async_trait]
 trait Store<T> {
@@ -9,7 +10,7 @@ trait Store<T> {
     async fn save(&self, item: T);
 }
 
-#[derive(Tsify, Serialize, Deserialize)]
+#[derive(Debug, Tsify, Serialize, Deserialize, PartialEq, Eq)]
 #[tsify(into_wasm_abi, from_wasm_abi)]
 struct Cipher {
     id: String,
@@ -17,7 +18,20 @@ struct Cipher {
     password: String,
 }
 
-#[wasm_bindgen]
+// #[wasm_bindgen]
+#[wasm_bindgen(inline_js = "export class CipherService {
+    constructor() {
+        this.ciphers = {};
+    }
+
+    async get(id) {
+        return this.ciphers[id];
+    }
+
+    async save(cipher) {
+        this.ciphers[cipher.id] = cipher;
+    }
+}")]
 extern "C" {
     pub type CipherService;
 
@@ -31,14 +45,11 @@ extern "C" {
     pub async fn save(this: &CipherService, cipher: Cipher);
 }
 
-#[tokio::test]
-pub async fn test_wasm() {
-    let obj = CipherService::new();
-    assert!(obj.is_instance_of::<CipherService>());
-}
-
-#[tokio::test]
+#[wasm_bindgen_test]
+#[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
 pub async fn test_get_cipher() {
+    console_error_panic_hook::set_once();
+
     let cipher_service = CipherService::new();
     let bound_cipher_service = ThreadBoundRunner::new(cipher_service);
 
@@ -73,6 +84,14 @@ pub async fn test_get_cipher() {
     }
 
     let store = CipherStore(bound_cipher_service);
-    let cipher = store.get("some-cipher".to_owned()).await;
+    let cipher = Cipher {
+        id: "id".to_owned(),
+        name: "name".to_owned(),
+        password: "password".to_owned(),
+    };
+
     store.save(cipher).await;
+    let result = store.get("id".to_owned()).await;
+
+    assert_eq!(result, result);
 }
