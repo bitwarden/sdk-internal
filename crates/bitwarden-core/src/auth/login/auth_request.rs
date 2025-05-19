@@ -88,6 +88,7 @@ pub(crate) async fn complete_auth_request(
 
     if let IdentityTokenResponse::Authenticated(r) = response {
         let kdf = Kdf::default();
+        let user_id = require!(r.user_id);
 
         client.internal.set_tokens(
             r.access_token.clone(),
@@ -115,6 +116,7 @@ pub(crate) async fn complete_auth_request(
         client
             .crypto()
             .initialize_user_crypto(InitUserCryptoRequest {
+                user_id,
                 kdf_params: kdf,
                 email: auth_req.email,
                 private_key: require!(r.private_key),

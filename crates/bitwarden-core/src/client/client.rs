@@ -75,6 +75,7 @@ impl Client {
 
         Self {
             internal: Arc::new(InternalClient {
+                user_id: RwLock::new(None),
                 tokens: RwLock::new(Tokens::default()),
                 login_method: RwLock::new(None),
                 #[cfg(feature = "internal")]

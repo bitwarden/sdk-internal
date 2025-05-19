@@ -44,6 +44,7 @@ pub(crate) struct Tokens {
 
 #[derive(Debug)]
 pub struct InternalClient {
+    pub(crate) user_id: RwLock<Option<Uuid>>,
     pub(crate) tokens: RwLock<Tokens>,
     pub(crate) login_method: RwLock<Option<Arc<LoginMethod>>>,
 
@@ -170,6 +171,17 @@ impl InternalClient {
 
     pub fn get_key_store(&self) -> &KeyStore<KeyIds> {
         &self.key_store
+    }
+
+    pub fn set_user_id(&self, user_id: Uuid) {
+        *self.user_id.write().expect("RwLock is not poisoned") = Some(user_id);
+    }
+
+    pub fn get_user_id(&self) -> Option<Uuid> {
+        self.user_id
+            .read()
+            .expect("RwLock is not poisoned")
+            .clone()
     }
 
     #[cfg(feature = "internal")]
