@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{future::Future, pin::Pin, rc::Rc};
 
 use thiserror::Error;
 #[cfg(not(target_arch = "wasm32"))]
@@ -11,7 +11,7 @@ use tokio::task::spawn_local;
 use wasm_bindgen_futures::spawn_local;
 
 struct CallRequest<ThreadState> {
-    function: Box<dyn FnOnce(Arc<ThreadState>) -> Pin<Box<dyn Future<Output = ()>>> + Send>,
+    function: Box<dyn FnOnce(Rc<ThreadState>) -> Pin<Box<dyn Future<Output = ()>>> + Send>,
 }
 
 #[derive(Debug, Error)]
@@ -56,7 +56,7 @@ where
             tokio::sync::mpsc::channel::<CallRequest<ThreadState>>(1);
 
         spawn_local(async move {
-            let state = Arc::new(state);
+            let state = Rc::new(state);
             while let Some(request) = call_channel_rx.recv().await {
                 (request.function)(state.clone()).await;
             }
@@ -67,7 +67,7 @@ where
 
     pub async fn run_in_thread<F, Fut, Output>(&self, function: F) -> Result<Output, CallError>
     where
-        F: FnOnce(Arc<ThreadState>) -> Fut + Send + 'static,
+        F: FnOnce(Rc<ThreadState>) -> Fut + Send + 'static,
         Fut: Future<Output = Output>,
         Output: Send + Sync + 'static,
     {
