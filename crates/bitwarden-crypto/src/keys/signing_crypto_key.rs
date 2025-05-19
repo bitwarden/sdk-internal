@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use tsify_next::Tsify;
 use zeroize::ZeroizeOnDrop;
 
-use super::{key_id::KeyId, CryptoKey};
+use super::{key_id::KeyId, CryptoKey, KEY_ID_SIZE};
 use crate::{cose::SIGNING_NAMESPACE, error::Result, signing::SigningNamespace, CryptoError};
 
 /// The type of key / signature scheme used for signing and verifying. 
@@ -103,7 +103,7 @@ impl SigningKey {
         else {
             return Err(CryptoError::InvalidKey);
         };
-        let key_id: [u8; 16] = key_id
+        let key_id: [u8; KEY_ID_SIZE] = key_id
             .as_slice()
             .try_into()
             .map_err(|_| CryptoError::InvalidKey)?;
@@ -265,7 +265,7 @@ impl VerifyingKey {
         else {
             return Err(CryptoError::InvalidKey);
         };
-        let key_id: [u8; 16] = key_id
+        let key_id: [u8; KEY_ID_SIZE] = key_id
             .as_slice()
             .try_into()
             .map_err(|_| CryptoError::InvalidKey)?;
@@ -374,10 +374,10 @@ impl VerifyingKey {
                 let sig = ed25519_dalek::Signature::from_bytes(
                     signature
                         .try_into()
-                        .map_err(|_| crate::error::CryptoError::InvalidSignature)?,
+                        .map_err(|_| CryptoError::InvalidSignature)?,
                 );
                 key.verify_strict(data, &sig)
-                    .map_err(|_| crate::error::CryptoError::InvalidSignature)
+                    .map_err(|_| CryptoError::InvalidSignature)
             }
         }
     }

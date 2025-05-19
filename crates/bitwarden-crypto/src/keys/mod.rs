@@ -30,6 +30,5 @@ pub use kdf::{
     default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
     default_pbkdf2_iterations, Kdf,
 };
-#[cfg(test)]
 pub(crate) use key_id::KEY_ID_SIZE;
 mod utils;
