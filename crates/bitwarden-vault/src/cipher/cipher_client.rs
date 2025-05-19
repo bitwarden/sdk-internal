@@ -6,12 +6,15 @@ use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError, VaultClient,
 };
 
+use super::EncryptionContext;
+
 pub struct CiphersClient {
     pub(crate) client: Client,
 }
 
 impl CiphersClient {
-    pub fn encrypt(&self, mut cipher_view: CipherView) -> Result<Cipher, EncryptError> {
+    pub fn encrypt(&self, mut cipher_view: CipherView) -> Result<EncryptionContext, EncryptError> {
+        let user_id = self.client.internal.get_user_id().ok_or(EncryptError::MissingUserId)?;
         let key_store = self.client.internal.get_key_store();
 
         // TODO: Once this flag is removed, the key generation logic should
@@ -28,7 +31,7 @@ impl CiphersClient {
         }
 
         let cipher = key_store.encrypt(cipher_view)?;
-        Ok(cipher)
+        Ok(EncryptionContext{cipher, user_id})
     }
 
     pub fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
@@ -225,7 +228,7 @@ mod tests {
         assert!(cipher.key.is_none());
 
         // Assert the cipher has a key, and the attachment is still readable
-        let new_cipher = client.vault().ciphers().encrypt(view).unwrap();
+        let EncryptionContext{cipher: new_cipher, user_id: _} = client.vault().ciphers().encrypt(view).unwrap();
         assert!(new_cipher.key.is_some());
 
         let view = client.vault().ciphers().decrypt(new_cipher).unwrap();
@@ -264,7 +267,7 @@ mod tests {
         assert!(cipher.key.is_none());
 
         // Assert the cipher has a key, and the attachment is still readable
-        let new_cipher = client.vault().ciphers().encrypt(view).unwrap();
+        let EncryptionContext{cipher: new_cipher, user_id: _} = client.vault().ciphers().encrypt(view).unwrap();
         assert!(new_cipher.key.is_some());
 
         let view = client
@@ -308,7 +311,7 @@ mod tests {
                 "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap(),
             )
             .unwrap();
-        let new_cipher = client.vault().ciphers().encrypt(new_view).unwrap();
+        let EncryptionContext{cipher: new_cipher, user_id: _} = client.vault().ciphers().encrypt(new_view).unwrap();
 
         let attachment = new_cipher
             .clone()
