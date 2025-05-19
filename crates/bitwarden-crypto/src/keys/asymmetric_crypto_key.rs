@@ -1,8 +1,8 @@
 use std::pin::Pin;
 
-use rsa::{pkcs8::DecodePublicKey, RsaPrivateKey, RsaPublicKey};
+use rsa::{pkcs8::DecodePublicKey, traits::PublicKeyParts, RsaPrivateKey, RsaPublicKey};
 
-use super::key_encryptable::CryptoKey;
+use super::{fingerprint::FingerprintableKey, key_encryptable::CryptoKey};
 use crate::error::{CryptoError, Result};
 
 /// Trait to allow both [`AsymmetricCryptoKey`] and [`AsymmetricPublicCryptoKey`] to be used to
@@ -31,6 +31,15 @@ impl AsymmetricPublicCryptoKey {
 impl AsymmetricEncryptable for AsymmetricPublicCryptoKey {
     fn to_public_key(&self) -> &RsaPublicKey {
         &self.key
+    }
+}
+
+impl FingerprintableKey for AsymmetricPublicCryptoKey {
+    fn fingerprint_parts(&self) -> Vec<Vec<u8>> {
+        vec![
+            self.key.n().to_bytes_le().as_slice().to_vec(),
+            self.key.e().to_bytes_le().as_slice().to_vec(),
+        ]
     }
 }
 

@@ -3,9 +3,9 @@ use bitwarden_crypto::CryptoError;
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 
 use super::crypto::{
-    derive_key_connector, make_key_pair, make_signing_keys, verify_asymmetric_keys,
+    derive_key_connector, make_key_pair, make_user_signing_keys, verify_asymmetric_keys,
     DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
-    MakeKeyPairResponse, MakeSigningKeysResponse, MobileCryptoError, VerifyAsymmetricKeysRequest,
+    MakeKeyPairResponse, MakeUserSigningKeysResponse, MobileCryptoError, VerifyAsymmetricKeysRequest,
     VerifyAsymmetricKeysResponse,
 };
 #[cfg(feature = "internal")]
@@ -105,9 +105,8 @@ impl CryptoClient {
 
     pub fn make_signing_keys(
         &self,
-        wrapping_key: String,
-    ) -> Result<MakeSigningKeysResponse, CryptoError> {
-        make_signing_keys(wrapping_key)
+    ) -> Result<MakeUserSigningKeysResponse, CryptoError> {
+        make_user_signing_keys(&self.client)
     }
 }
 

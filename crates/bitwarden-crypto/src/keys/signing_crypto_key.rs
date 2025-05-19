@@ -7,10 +7,22 @@ use coset::{
 };
 use ed25519_dalek::Signer;
 use rand::rngs::OsRng;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use tsify_next::Tsify;
 use zeroize::ZeroizeOnDrop;
 
 use super::{key_id::KeyId, CryptoKey};
 use crate::{cose::SIGNING_NAMESPACE, error::Result, signing::SigningNamespace, CryptoError};
+
+/// The type of key / signature scheme used for signing and verifying. 
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub enum SignatureAlgorithm {
+    Ed25519,
+}
 
 #[derive(Clone, zeroize::ZeroizeOnDrop)]
 enum SigningCryptoKeyEnum {
@@ -212,6 +224,12 @@ impl SigningKey {
             },
         }
     }
+    
+    pub fn algorithm(&self) -> SignatureAlgorithm {
+        match &self.inner {
+            SigningCryptoKeyEnum::Ed25519(_) => SignatureAlgorithm::Ed25519,
+        }
+    }
 }
 
 #[allow(unused)]
@@ -359,6 +377,12 @@ impl VerifyingKey {
             }
         }
     }
+
+    pub fn algorithm(&self) -> SignatureAlgorithm {
+        match &self.inner {
+            VerifyingKeyEnum::Ed25519(_) => SignatureAlgorithm::Ed25519,
+        }
+    }
 }
 
 /// A signature cryptographically attests to a (namespace, data) pair. The namespace is included in
@@ -424,12 +448,12 @@ impl From<CoseSign1> for SignedObject {
 
 #[allow(unused)]
 impl SignedObject {
-    fn from_cose(bytes: &[u8]) -> Result<Self> {
+    pub(crate) fn from_cose(bytes: &[u8]) -> Result<Self> {
         let cose_sign1 = CoseSign1::from_slice(bytes).map_err(|_| CryptoError::InvalidSignature)?;
         Ok(SignedObject(cose_sign1))
     }
 
-    fn to_cose(&self) -> Result<Vec<u8>> {
+    pub(crate) fn to_cose(&self) -> Result<Vec<u8>> {
         self.0
             .clone()
             .to_vec()

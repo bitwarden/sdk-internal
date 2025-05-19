@@ -8,8 +8,7 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
-    SigningKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, SignatureAlgorithm, SignedPublicKeyOwnershipClaim, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -18,7 +17,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
-    key_management::SymmetricKeyId,
+    key_management::{AsymmetricKeyId, SymmetricKeyId},
     Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
 };
 
@@ -558,27 +557,47 @@ pub(super) fn verify_asymmetric_keys(
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct MakeSigningKeysResponse {
+pub struct MakeUserSigningKeysResponse {
     /// The verifying key
     verifying_key: String,
     /// Signing key, encrypted with a symmetric key (user key, org key)
     signing_key: EncString,
+
+    /// A signed object claiming ownership of a public key. This ties the public key to the signature key
+    signed_public_key_ownership_claim: String,
 }
 
-pub fn make_signing_keys(wrapping_key: String) -> Result<MakeSigningKeysResponse, CryptoError> {
-    let wrapping_key = SymmetricCryptoKey::try_from(wrapping_key)?;
+/// Makes a new set of signing keys for a user. This also creates a signed public-key ownership claim for the currently used public key.
+#[allow(deprecated)]
+pub fn make_user_signing_keys(client: &Client) -> Result<MakeUserSigningKeysResponse, CryptoError> {
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+    let public_key = ctx
+        .dangerous_get_asymmetric_key(AsymmetricKeyId::UserPrivateKey)
+        .map_err(|_| CryptoError::InvalidKey)?
+        .to_public_der()?;
+    let public_key = AsymmetricPublicCryptoKey::from_der(&public_key)
+        .map_err(|_| CryptoError::InvalidKey)?;
+
+    let wrapping_key = ctx
+        .dangerous_get_symmetric_key(SymmetricKeyId::User)
+        .map_err(|_| CryptoError::InvalidKey)?;
     let signature_keypair = SigningKey::make_ed25519().unwrap();
     // This needs to be changed to use the correct cose content format before rolling out to real
     // accounts
     let encrypted_signing_key = signature_keypair
-        .to_cose()?
-        .encrypt_with_key(&wrapping_key)?;
+        .to_cose()?;
     let serialized_verifying_key = signature_keypair.to_verifying_key().to_cose()?;
     let serialized_verifying_key_b64 = STANDARD.encode(serialized_verifying_key);
+    let signed_public_key_ownership_claim = SignedPublicKeyOwnershipClaim::make_claim_with_key(
+        &public_key,
+        &signature_keypair,
+    )?;
 
-    Ok(MakeSigningKeysResponse {
+    Ok(MakeUserSigningKeysResponse {
         verifying_key: serialized_verifying_key_b64,
-        signing_key: encrypted_signing_key,
+        signing_key: encrypted_signing_key.encrypt_with_key(wrapping_key)?,
+        signed_public_key_ownership_claim: STANDARD.encode(signed_public_key_ownership_claim.as_bytes()),
     })
 }
 
@@ -865,14 +884,6 @@ mod tests {
         let encrypted_private_key = response.user_key_encrypted_private_key;
         let private_key: Vec<u8> = encrypted_private_key.decrypt_with_key(&user_key.0).unwrap();
         assert!(!private_key.is_empty());
-    }
-
-    #[test]
-    fn test_make_signing_keys() {
-        let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let response = make_signing_keys(user_key.to_base64()).unwrap();
-        assert!(!response.verifying_key.is_empty());
-        let _: Vec<u8> = response.signing_key.decrypt_with_key(&user_key).unwrap();
     }
 
     #[test]

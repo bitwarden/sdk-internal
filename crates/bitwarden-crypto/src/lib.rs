@@ -32,6 +32,7 @@ mod store;
 pub use store::{KeyStore, KeyStoreContext};
 mod cose;
 mod signing;
+pub use signing::*;
 mod traits;
 mod xchacha20;
 pub use traits::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};

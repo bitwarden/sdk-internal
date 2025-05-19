@@ -1,8 +1,8 @@
 use bitwarden_core::{
     client::encryption_settings::EncryptionSettingsError,
     mobile::crypto::{
-        InitOrgCryptoRequest, InitUserCryptoRequest, MakeKeyPairResponse, MakeSigningKeysResponse,
-        VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
+        InitOrgCryptoRequest, InitUserCryptoRequest, MakeKeyPairResponse,
+        MakeUserSigningKeysResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
     },
 };
 use bitwarden_crypto::CryptoError;
@@ -55,10 +55,7 @@ impl CryptoClient {
 
     /// Generates a new signing key pair and encrypts the signing key with the provided symmetric
     /// key. Crypto initialization not required.
-    pub fn make_signing_keys(
-        &self,
-        wrapping_key: String,
-    ) -> Result<MakeSigningKeysResponse, CryptoError> {
-        self.0.make_signing_keys(wrapping_key)
+    pub fn make_signing_keys(&self) -> Result<MakeUserSigningKeysResponse, CryptoError> {
+        self.0.make_signing_keys()
     }
 }

@@ -62,6 +62,9 @@ pub enum CryptoError {
 
     #[error("Invalid namespace")]
     InvalidNamespace,
+
+    #[error("Invalid encoding")]
+    InvalidEncoding,
 }
 
 #[derive(Debug, Error)]
