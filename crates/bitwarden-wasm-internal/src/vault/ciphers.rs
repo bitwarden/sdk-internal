@@ -1,5 +1,6 @@
 use bitwarden_vault::{
-    Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError, EncryptionContext, Fido2CredentialView
+    Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError, EncryptionContext,
+    Fido2CredentialView,
 };
 use wasm_bindgen::prelude::wasm_bindgen;
 

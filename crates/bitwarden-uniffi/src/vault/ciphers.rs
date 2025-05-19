@@ -1,4 +1,4 @@
-use bitwarden_vault::{Cipher, EncryptionContext, CipherListView, CipherView, Fido2CredentialView};
+use bitwarden_vault::{Cipher, CipherListView, CipherView, EncryptionContext, Fido2CredentialView};
 use uuid::Uuid;
 
 use crate::{error::Error, Result};
