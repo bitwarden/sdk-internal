@@ -39,7 +39,7 @@ pub enum MobileCryptoError {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct InitUserCryptoRequest {
-    pub user_id: uuid::Uuid,
+    pub user_id: Option<uuid::Uuid>,
     /// The user's KDF parameters, as received from the prelogin request
     pub kdf_params: Kdf,
     /// The user's email address
@@ -132,7 +132,9 @@ pub async fn initialize_user_crypto(
 
     let private_key: EncString = req.private_key.parse()?;
 
-    client.internal.set_user_id(req.user_id);
+    if let Some(user_id) = req.user_id {
+        client.internal.set_user_id(user_id);
+    }
 
     match req.method {
         InitUserCryptoMethod::Password { password, user_key } => {
@@ -567,7 +569,7 @@ mod tests {
         initialize_user_crypto(
             & client,
             InitUserCryptoRequest {
-                user_id: uuid::Uuid::new_v4(),
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
@@ -587,7 +589,7 @@ mod tests {
         initialize_user_crypto(
             &client2,
             InitUserCryptoRequest {
-                user_id: uuid::Uuid::new_v4(),
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
@@ -643,7 +645,7 @@ mod tests {
         initialize_user_crypto(
             & client,
             InitUserCryptoRequest {
-                user_id: uuid::Uuid::new_v4(),
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: Kdf::PBKDF2 {
                     iterations: 100_000.try_into().unwrap(),
                 },
@@ -665,7 +667,7 @@ mod tests {
         initialize_user_crypto(
             &client2,
             InitUserCryptoRequest {
-                user_id: uuid::Uuid::new_v4(),
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: Kdf::PBKDF2 {
                     iterations: 100_000.try_into().unwrap(),
                 },
@@ -708,7 +710,7 @@ mod tests {
         initialize_user_crypto(
             &client3,
             InitUserCryptoRequest {
-                user_id: uuid::Uuid::new_v4(),
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: Kdf::PBKDF2 {
                     iterations: 100_000.try_into().unwrap(),
                 },
