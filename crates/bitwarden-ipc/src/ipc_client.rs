@@ -374,7 +374,6 @@ mod tests {
 
     #[tokio::test]
     async fn returns_send_error_when_crypto_provider_returns_error() {
-        // TODO: THIS LOCKS UP!
         let message = OutgoingMessage {
             payload: vec![],
             destination: Endpoint::BrowserBackground,
