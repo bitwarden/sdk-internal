@@ -28,8 +28,7 @@ impl VaultClient {
         let mut result = String::new();
         let ciphers = store.list().await.expect("msg");
         for cipher in ciphers {
-            result.push_str(&serde_json::to_string(&cipher).expect("msg"));
-            result.push('\n');
+            result.push_str(format!("{cipher:?}\n").as_str());
         }
         result
     }
