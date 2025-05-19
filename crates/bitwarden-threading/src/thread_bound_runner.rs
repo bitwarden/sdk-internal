@@ -132,29 +132,31 @@ mod test {
         }
     }
 
+    #[derive(Default)]
+    struct State {
+        /// This is a marker to ensure that the struct is not Send
+        _un_send_marker: std::marker::PhantomData<*const ()>,
+    }
+
+    impl State {
+        pub fn add(&self, input: (i32, i32)) -> i32 {
+            input.0 + input.1
+        }
+
+        pub async fn async_add(&self, input: (i32, i32)) -> i32 {
+            input.0 + input.1
+        }
+    }
+
     #[tokio::test]
     async fn calls_function_and_returns_value() {
-        #[derive(Default)]
-        struct Target {
-            /// This is a marker to ensure that the struct is not Send
-            _un_send_marker: std::marker::PhantomData<*const ()>,
-        }
-
-        impl Target {
-            pub fn add(&self, input: (i32, i32)) -> i32 {
-                input.0 + input.1
-            }
-        }
-
         run_test(async {
-            let target = Target::default();
+            let runner = ThreadBoundRunner::new(State::default());
 
-            let dispatcher = ThreadBoundRunner::new(target);
-
-            let result = dispatcher
-                .run_in_thread(|target| async move {
+            let result = runner
+                .run_in_thread(|state| async move {
                     let input = (1, 2);
-                    let result = target.add(input);
+                    let result = state.add(input);
                     result
                 })
                 .await
@@ -167,27 +169,13 @@ mod test {
 
     #[tokio::test]
     async fn calls_async_function_and_returns_value() {
-        #[derive(Default)]
-        struct Target {
-            /// This is a marker to ensure that the struct is not Send
-            _un_send_marker: std::marker::PhantomData<*const ()>,
-        }
-
-        impl Target {
-            pub async fn add(&self, input: (i32, i32)) -> i32 {
-                input.0 + input.1
-            }
-        }
-
         run_test(async {
-            let target = Target::default();
+            let runner = ThreadBoundRunner::new(State::default());
 
-            let dispatcher = ThreadBoundRunner::new(target);
-
-            let result = dispatcher
-                .run_in_thread(|target| async move {
+            let result = runner
+                .run_in_thread(|state| async move {
                     let input = (1, 2);
-                    let result = target.add(input).await;
+                    let result = state.async_add(input).await;
                     result
                 })
                 .await
