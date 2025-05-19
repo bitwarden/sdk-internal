@@ -5,14 +5,14 @@ use crate::keys::Fingerprintable;
 
 use super::SigningNamespace;
 
-
+/// The non-serialized version of `PublicKeyOwnershipClaim`
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct PublicKeyOwnershipClaim {
-    pub fingerprint: PublicKeyFingerprint,
+    pub(crate) fingerprint: PublicKeyFingerprint,
 }
 
 impl PublicKeyOwnershipClaim {
-    pub fn for_public_key(
+    pub(crate) fn for_public_key(
         public_key: &impl FingerprintableKey,
     ) -> Self {
         Self {
