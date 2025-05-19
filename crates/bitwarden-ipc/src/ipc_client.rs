@@ -183,9 +183,7 @@ where
 
     pub async fn stop(self: &Arc<Self>) {
         let mut incoming = self.incoming.write().await;
-        if let Some(receiver) = incoming.take() {
-            drop(receiver);
-        }
+        let _ = incoming.take();
 
         let mut cancellation_handle = self.cancellation_handle.write().await;
         if let Some(cancellation_rx) = cancellation_handle.take() {
