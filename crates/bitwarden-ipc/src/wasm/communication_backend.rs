@@ -66,11 +66,11 @@ impl JsCommunicationBackend {
     }
 }
 
-impl From<&JsCommunicationBackend> for ThreadSafeJsCommunicationBackend {
-    fn from(backend: &JsCommunicationBackend) -> Self {
+impl JsCommunicationBackend {
+    pub fn wrap_thread_safe(&self) -> ThreadSafeJsCommunicationBackend {
         let (cancel_tx, mut cancel_rx) = tokio::sync::watch::channel(false);
         let (send_tx, mut send_rx) = tokio::sync::mpsc::channel(CHANNEL_BUFFER_CAPACITY);
-        let sender = backend.sender.clone();
+        let sender = self.sender.clone();
 
         wasm_bindgen_futures::spawn_local(async move {
             loop {
@@ -101,7 +101,7 @@ impl From<&JsCommunicationBackend> for ThreadSafeJsCommunicationBackend {
 
         ThreadSafeJsCommunicationBackend {
             send_tx,
-            receive_rx: backend.receive_rx.resubscribe(),
+            receive_rx: self.receive_rx.resubscribe(),
             cancel_tx,
         }
     }

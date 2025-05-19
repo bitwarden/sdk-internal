@@ -43,7 +43,7 @@ impl JsIpcClient {
     #[wasm_bindgen(constructor)]
     pub fn new(communication_provider: &JsCommunicationBackend) -> JsIpcClient {
         let communication_provider: ThreadSafeJsCommunicationBackend =
-            communication_provider.into();
+            communication_provider.wrap_thread_safe();
         JsIpcClient {
             client: IpcClient::new(
                 NoEncryptionCryptoProvider,
