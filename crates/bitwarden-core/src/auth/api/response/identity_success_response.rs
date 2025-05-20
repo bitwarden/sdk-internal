@@ -3,7 +3,6 @@ use std::{collections::HashMap, num::NonZeroU32};
 use bitwarden_api_identity::models::KdfType;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct IdentityTokenSuccessResponse {
@@ -35,8 +34,6 @@ pub struct IdentityTokenSuccessResponse {
     api_use_key_connector: Option<bool>,
     #[serde(rename = "keyConnectorUrl", alias = "KeyConnectorUrl")]
     key_connector_url: Option<String>,
-    #[serde(rename = "userId", alias = "UserId")]
-    pub user_id: Option<Uuid>,
 
     /// Stores unknown api response fields
     extra: Option<HashMap<String, Value>>,
@@ -51,7 +48,6 @@ mod test {
     impl Default for IdentityTokenSuccessResponse {
         fn default() -> Self {
             Self {
-                user_id: Some(uuid::uuid!("060000fb-0922-4dd3-b170-6e15cb5df8c8")),
                 access_token: Default::default(),
                 expires_in: Default::default(),
                 refresh_token: Default::default(),

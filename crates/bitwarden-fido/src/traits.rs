@@ -1,6 +1,4 @@
-use bitwarden_vault::{
-    Cipher, CipherListView, CipherView, EncryptionContext, Fido2CredentialNewView,
-};
+use bitwarden_vault::{CipherListView, CipherView, EncryptionContext, Fido2CredentialNewView};
 use passkey::authenticator::UIHint;
 use thiserror::Error;
 
