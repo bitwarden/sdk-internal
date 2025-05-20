@@ -71,10 +71,10 @@ fn derive_fingerprint(fingerprint_parts: Vec<Vec<u8>>) -> PublicKeyFingerprint {
 /// concatenation of the bytes, and thus may lead to the same hash for different (N,E) pairs.
 ///
 /// This function hashes each input separately, concatenates the hashes, and then hashes the result.
-/// 
+///
 /// Assumption: H is a cryptographic hash function, with respect to:
 /// - Second pre-image resistance
-/// 
+///
 /// Assumption: H's output has a constant length output HS
 ///
 /// Specifically, the construction is:
