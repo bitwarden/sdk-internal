@@ -1,27 +1,26 @@
 //! Signing is used to assert integrity of a message to others or to oneself.
 //!
 //! Signing and signature verification operations are divided into three layers here:
-//! (public) High-level: Give a struct, namespace, and get a signed object or signature + serialized
-//! message.
-//! - Purpose: Serialization should not be decided by the consumer of this interface, but rather by
+//! - (public) High-level: Give a struct, namespace, and get a signed object or signature + serialized message.
+//!   Purpose: Serialization should not be decided by the consumer of this interface, but rather by
 //!   the signing implementation. Each consumer shouldn't have to make the decision on how to
 //!   serialize. Further, the serialization format is written to the signature object, and verified.
-//! Mid-level: Give a byte array, content format, namespace, and get a signed object or signature.
-//! - Purpose: All signatures should be domain-separated, so that any proofs only need to consider
+//! - Mid-level: Give a byte array, content format, namespace, and get a signed object or signature.
+//!   Purpose: All signatures should be domain-separated, so that any proofs only need to consider
 //!   the allowed messages under the current namespace, and cross-protocol attacks are not possible.
-//! Low-level: Give a byte array, and get a signature.
-//! - Purpose: This just implements the signing of byte arrays. Digital signature schemes generally
+//! - Low-level: Give a byte array, and get a signature.
+//!   Purpose: This just implements the signing of byte arrays. Digital signature schemes generally
 //!   just care about a set of input bytes to sign; and this operation implements that per-supported
 //!   digital signature scheme. To add support for a new scheme, only this operation needs to be
 //!   implemented for the new signing key type.
 //!
 //! Further, there are two kinds of signing operations supported here:
-//! Sign: Create a signed object that contains the payload.
-//! - Purpose: If only one signature is needed for an object then it is simpler to keep the
+//! - Sign: Create a signed object that contains the payload.
+//!   Purpose: If only one signature is needed for an object then it is simpler to keep the
 //!   signature and payload together in one blob, so they cannot be separated.
-//! Sign detached: Create a signature that does not contain the payload; but the serialized payload
-//! is returned.
-//! - Purpose: If multiple signatures are needed for one object, then sign detached can be used.
+//! - Sign detached: Create a signature that does not contain the payload; but the serialized payload
+//!   is returned.
+//!   Purpose: If multiple signatures are needed for one object, then sign detached can be used.
 
 use ciborium::value::Integer;
 use coset::iana::CoapContentFormat;
@@ -475,13 +474,11 @@ mod tests {
         };
         let namespace = SigningNamespace::ExampleNamespace;
         let (signature, serialized_message) = signing_key.sign_detached(&data, &namespace).unwrap();
-        assert!(
-            verifying_key.verify_signature(
-                &serialized_message.serialized_message_bytes,
-                &namespace,
-                &signature
-            )
-        );
+        assert!(verifying_key.verify_signature(
+            &serialized_message.serialized_message_bytes,
+            &namespace,
+            &signature
+        ));
         let decoded_message: TestMessage = decode_message(&serialized_message).unwrap();
         assert_eq!(decoded_message, data);
     }
@@ -513,13 +510,11 @@ mod tests {
                 &namespace,
             )
             .unwrap();
-        assert!(
-            verifying_key.verify_signature(
-                &serialized_message.serialized_message_bytes,
-                &namespace,
-                &countersignature
-            )
-        );
+        assert!(verifying_key.verify_signature(
+            &serialized_message.serialized_message_bytes,
+            &namespace,
+            &countersignature
+        ));
     }
 
     #[test]
@@ -536,13 +531,11 @@ mod tests {
             .get_mut(0)
             .unwrap();
         *modified_message = 0xFF;
-        assert!(
-            !verifying_key.verify_signature(
-                &serialized_message.serialized_message_bytes,
-                &namespace,
-                &signature
-            )
-        );
+        assert!(!verifying_key.verify_signature(
+            &serialized_message.serialized_message_bytes,
+            &namespace,
+            &signature
+        ));
     }
 
     #[test]
@@ -554,20 +547,16 @@ mod tests {
         let other_namespace = SigningNamespace::PublicKeyOwnershipClaim;
 
         let (signature, serialized_message) = signing_key.sign_detached(&data, &namespace).unwrap();
-        assert!(
-            !verifying_key.verify_signature(
-                &serialized_message.serialized_message_bytes,
-                &other_namespace,
-                &signature
-            )
-        );
-        assert!(
-            verifying_key.verify_signature(
-                &serialized_message.serialized_message_bytes,
-                &namespace,
-                &signature
-            )
-        );
+        assert!(!verifying_key.verify_signature(
+            &serialized_message.serialized_message_bytes,
+            &other_namespace,
+            &signature
+        ));
+        assert!(verifying_key.verify_signature(
+            &serialized_message.serialized_message_bytes,
+            &namespace,
+            &signature
+        ));
     }
 
     #[test]
