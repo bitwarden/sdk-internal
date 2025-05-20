@@ -83,11 +83,11 @@ impl SigningKey {
     ///    field1: "Test message".to_string(),
     /// };
     /// let namespace = SigningNamespace::ExampleNamespace;
-    /// let (signature, serialized_message) = alice_key.sign_detached(&message, &namespace).unwrap();\
-    /// // Alice shares (signature, serialized_message) with Bob.
+    /// let (signature, serialized_message) = alice_key.sign_detached(&message,
+    /// &namespace).unwrap();\ // Alice shares (signature, serialized_message) with Bob.
     /// // Bob verifies the contents of serialized_message using application logic, then signs it:
-    /// let (bob_signature, serialized_message) = bob_key.counter_sign(&serialized_message, &signature, &namespace).unwrap();
-    /// ```
+    /// let (bob_signature, serialized_message) = bob_key.counter_sign(&serialized_message,
+    /// &signature, &namespace).unwrap(); ```
     #[allow(unused)]
     pub fn counter_sign_detached(
         &self,
@@ -506,8 +506,7 @@ mod tests {
         let verifying_key = signing_key.to_verifying_key();
         let data = "Test message".to_string();
         let namespace = SigningNamespace::ExampleNamespace;
-        let (signature, serialized_message) =
-            signing_key.sign_detached(&data, &namespace).unwrap();
+        let (signature, serialized_message) = signing_key.sign_detached(&data, &namespace).unwrap();
         let countersignature = signing_key
             .counter_sign_detached(
                 serialized_message.serialized_message_bytes.clone(),
@@ -523,7 +522,6 @@ mod tests {
             ),
             true
         );
-
     }
 
     #[test]
