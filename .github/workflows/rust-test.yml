@@ -45,6 +45,9 @@ jobs:
       - name: Test
         run: cargo test --workspace --all-features
 
+      - name: Test WASM
+        run: cargo test --target wasm32-unknown-unknown -p bitwarden-threading -p bitwarden-error --all-features
+
   coverage:
     name: Coverage
     runs-on: ubuntu-24.04

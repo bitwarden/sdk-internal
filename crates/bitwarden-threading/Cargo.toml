@@ -22,12 +22,12 @@ thiserror = { workspace = true }
 tokio = { features = ["sync", "time"], workspace = true }
 tsify-next = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true }
 
 [dev-dependencies]
 async-trait = "0.1.88"
 console_error_panic_hook = "0.1.7"
 tokio = { workspace = true, features = ["rt"] }
-wasm-bindgen-futures = { workspace = true }
 wasm-bindgen-test = { workspace = true }
 
 [lints]
