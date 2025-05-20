@@ -171,7 +171,7 @@ impl SigningKey {
         namespace: &SigningNamespace,
     ) -> Result<SignedObject, CryptoError> {
         let message = encode_message(message)?;
-        Ok(self.sign_bytes(&message, namespace)?)
+        self.sign_bytes(&message, namespace)
     }
 
     /// Signs the given payload with the signing key, under a given namespace.
@@ -460,7 +460,7 @@ mod tests {
             }
         );
         assert!(verifying_key.verify_signature(
-            &SERIALIZED_MESSAGE,
+            SERIALIZED_MESSAGE,
             &SigningNamespace::ExampleNamespace,
             &signature
         ));
@@ -475,13 +475,12 @@ mod tests {
         };
         let namespace = SigningNamespace::ExampleNamespace;
         let (signature, serialized_message) = signing_key.sign_detached(&data, &namespace).unwrap();
-        assert_eq!(
+        assert!(
             verifying_key.verify_signature(
                 &serialized_message.serialized_message_bytes,
                 &namespace,
                 &signature
-            ),
-            true
+            )
         );
         let decoded_message: TestMessage = decode_message(&serialized_message).unwrap();
         assert_eq!(decoded_message, data);
@@ -514,13 +513,12 @@ mod tests {
                 &namespace,
             )
             .unwrap();
-        assert_eq!(
+        assert!(
             verifying_key.verify_signature(
                 &serialized_message.serialized_message_bytes,
                 &namespace,
                 &countersignature
-            ),
-            true
+            )
         );
     }
 
@@ -539,11 +537,11 @@ mod tests {
             .unwrap();
         *modified_message = 0xFF;
         assert!(
-            verifying_key.verify_signature(
+            !verifying_key.verify_signature(
                 &serialized_message.serialized_message_bytes,
                 &namespace,
                 &signature
-            ) == false
+            )
         );
     }
 
@@ -557,18 +555,18 @@ mod tests {
 
         let (signature, serialized_message) = signing_key.sign_detached(&data, &namespace).unwrap();
         assert!(
-            verifying_key.verify_signature(
+            !verifying_key.verify_signature(
                 &serialized_message.serialized_message_bytes,
                 &other_namespace,
                 &signature
-            ) == false
+            )
         );
         assert!(
             verifying_key.verify_signature(
                 &serialized_message.serialized_message_bytes,
                 &namespace,
                 &signature
-            ) == true
+            )
         );
     }
 

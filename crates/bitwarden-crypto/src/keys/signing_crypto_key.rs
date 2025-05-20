@@ -70,7 +70,7 @@ pub struct VerifyingKey {
 impl SigningKey {
     /// Makes a new signing key for the given signature scheme.
     pub fn make(key_algorithm: SignatureAlgorithm) -> Result<Self> {
-        match { key_algorithm } {
+        match key_algorithm {
             SignatureAlgorithm::Ed25519 => Ok(SigningKey {
                 id: KeyId::make(),
                 inner: RawSigningKey::Ed25519(ed25519_dalek::SigningKey::generate(&mut OsRng)),
