@@ -1,10 +1,9 @@
 use bitwarden_core::require;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::VaultParseError;
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct GlobalDomains {
     pub r#type: i32,
     pub domains: Vec<String>,

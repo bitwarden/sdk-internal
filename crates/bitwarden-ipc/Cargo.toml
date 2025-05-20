@@ -14,7 +14,8 @@ wasm = [
     "dep:tsify-next",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
-    "dep:js-sys"
+    "dep:js-sys",
+    "bitwarden-error/wasm"
 ] # WASM support
 
 [dependencies]

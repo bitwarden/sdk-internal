@@ -1,8 +1,8 @@
 use std::pin::Pin;
 
-use aes::cipher::typenum::U64;
-use generic_array::{typenum::U32, GenericArray};
+use generic_array::GenericArray;
 use hmac::Mac;
+use typenum::{U32, U64};
 use zeroize::{Zeroize, Zeroizing};
 
 use super::Aes256CbcHmacKey;

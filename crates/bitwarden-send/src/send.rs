@@ -12,7 +12,6 @@ use bitwarden_crypto::{
     KeyStoreContext,
 };
 use chrono::{DateTime, Utc};
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
@@ -22,7 +21,7 @@ use crate::SendParseError;
 
 const SEND_ITERATIONS: u32 = 100_000;
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendFile {
@@ -33,7 +32,7 @@ pub struct SendFile {
     pub size_name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendFileView {
@@ -44,7 +43,7 @@ pub struct SendFileView {
     pub size_name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendText {
@@ -52,7 +51,7 @@ pub struct SendText {
     pub hidden: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendTextView {
@@ -60,7 +59,7 @@ pub struct SendTextView {
     pub hidden: bool,
 }
 
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, JsonSchema, PartialEq)]
+#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum SendType {
@@ -68,7 +67,7 @@ pub enum SendType {
     File = 1,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct Send {
@@ -94,7 +93,7 @@ pub struct Send {
     pub expiration_date: Option<DateTime<Utc>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendView {
@@ -127,7 +126,7 @@ pub struct SendView {
     pub expiration_date: Option<DateTime<Utc>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendListView {
