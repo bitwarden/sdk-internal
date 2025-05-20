@@ -586,7 +586,7 @@ pub fn make_user_signing_keys(client: &Client) -> Result<MakeUserSigningKeysResp
     let wrapping_key = ctx
         .dangerous_get_symmetric_key(SymmetricKeyId::User)
         .map_err(|_| CryptoError::InvalidKey)?;
-    let signature_keypair = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+    let signature_keypair = SigningKey::make(SignatureAlgorithm::Ed25519).map_err(|_| CryptoError::InvalidKey)?;
     // This needs to be changed to use the correct cose content format before rolling out to real
     // accounts
     let encrypted_signing_key = signature_keypair.to_cose()?;
