@@ -420,7 +420,7 @@ class Fido2CredentialStoreImpl: Fido2CredentialStore {
         abort()
     }
 
-    func saveCredential(cred: BitwardenSdk.Cipher) async throws {
+    func saveCredential(cred: BitwardenSdk.EncryptionContext) async throws {
         print("SAVED CREDENTIAL")
     }
 }
