@@ -3,13 +3,12 @@ use std::{
     sync::{RwLockReadGuard, RwLockWriteGuard},
 };
 
+use serde::Serialize;
 use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
-    AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, SigningKey,
-    SymmetricCryptoKey, UnsignedSharedKey,
+    derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend, AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, Signature, SignatureAlgorithm, SignedObject, SigningKey, SymmetricCryptoKey, UnsignedSharedKey
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -250,11 +249,27 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         self.get_asymmetric_key(key_id).is_ok()
     }
 
+    // Returns `true` if the context has a signing key with the given identifier
+    pub fn has_signing_key(&self, key_id: Ids::Signing) -> bool {
+        self.get_signing_key(key_id).is_ok()
+    }
+
     /// Generate a new random symmetric key and store it in the context
     pub fn generate_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<Ids::Symmetric> {
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         #[allow(deprecated)]
         self.set_symmetric_key(key_id, key)?;
+        Ok(key_id)
+    }
+
+    // Generate a new signature key using the current default algorithm, and store it in the context
+    pub fn make_signing_key(
+        &mut self,
+        key_id: Ids::Signing,
+    ) -> Result<Ids::Signing> {
+        let key = SigningKey::make(SignatureAlgorithm::default_algorithm())?;
+        #[allow(deprecated)]
+        self.set_signing_key(key_id, key)?;
         Ok(key_id)
     }
 
@@ -291,6 +306,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key_id: Ids::Asymmetric,
     ) -> Result<&AsymmetricCryptoKey> {
         self.get_asymmetric_key(key_id)
+    }
+
+    #[deprecated(note = "This function should ideally never be used outside this crate")]
+    pub fn dangerous_get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
+        self.get_signing_key(key_id)
     }
 
     fn get_symmetric_key(&self, key_id: Ids::Symmetric) -> Result<&SymmetricCryptoKey> {
@@ -399,6 +419,33 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 EncString::encrypt_xchacha20_poly1305(data, key)
             }
         }
+    }
+
+    /// Signs the given data using the specified signing key, for the given [crate::SigningNamespace]
+    /// and returns the signature and the serialized message. See [crate::SigningKey::sign]
+    #[allow(unused)]
+    pub(crate) fn sign<Message: Serialize>(
+        &self,
+        key: Ids::Signing,
+        message: &Message,
+        namespace: &crate::SigningNamespace,
+    ) -> Result<SignedObject> {
+        let key = self.get_signing_key(key)?;
+        key.sign(message, namespace)
+    }
+
+    /// Signs the given data using the specified signing key, for the given [crate::SigningNamespace]
+    /// and returns the signature and the serialized message. See [crate::SigningKey::sign_detached]
+    #[allow(unused)]
+    pub(crate) fn sign_detached<Message: Serialize>(
+        &self,
+        key: Ids::Signing,
+        message: &Message,
+        namespace: &crate::SigningNamespace,
+    ) -> Result<(Signature, Vec<u8>)> {
+        let key = self.get_signing_key(key)?;
+        let (signature, serialized_message) = key.sign_detached(message, namespace)?;
+        Ok((signature, serialized_message.as_ref().to_vec()))
     }
 }
 
