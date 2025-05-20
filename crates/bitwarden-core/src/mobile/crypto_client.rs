@@ -5,8 +5,8 @@ use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use super::crypto::{
     derive_key_connector, make_key_pair, make_user_signing_keys, verify_asymmetric_keys,
     DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
-    MakeKeyPairResponse, MakeUserSigningKeysResponse, MobileCryptoError, VerifyAsymmetricKeysRequest,
-    VerifyAsymmetricKeysResponse,
+    MakeKeyPairResponse, MakeUserSigningKeysResponse, MobileCryptoError,
+    VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
 };
 #[cfg(feature = "internal")]
 use crate::mobile::crypto::{
@@ -103,9 +103,7 @@ impl CryptoClient {
         verify_asymmetric_keys(request)
     }
 
-    pub fn make_signing_keys(
-        &self,
-    ) -> Result<MakeUserSigningKeysResponse, CryptoError> {
+    pub fn make_signing_keys(&self) -> Result<MakeUserSigningKeysResponse, CryptoError> {
         make_user_signing_keys(&self.client)
     }
 }

@@ -8,7 +8,9 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, SignedPublicKeyOwnershipClaim, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable,
+    KeyEncryptable, MasterKey, SignatureAlgorithm, SignedPublicKeyOwnershipClaim, SigningKey,
+    SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -563,11 +565,13 @@ pub struct MakeUserSigningKeysResponse {
     /// Signing key, encrypted with a symmetric key (user key, org key)
     signing_key: EncString,
 
-    /// A signed object claiming ownership of a public key. This ties the public key to the signature key
+    /// A signed object claiming ownership of a public key. This ties the public key to the
+    /// signature key
     signed_public_key_ownership_claim: String,
 }
 
-/// Makes a new set of signing keys for a user. This also creates a signed public-key ownership claim for the currently used public key.
+/// Makes a new set of signing keys for a user. This also creates a signed public-key ownership
+/// claim for the currently used public key.
 #[allow(deprecated)]
 pub fn make_user_signing_keys(client: &Client) -> Result<MakeUserSigningKeysResponse, CryptoError> {
     let key_store = client.internal.get_key_store();
@@ -576,28 +580,26 @@ pub fn make_user_signing_keys(client: &Client) -> Result<MakeUserSigningKeysResp
         .dangerous_get_asymmetric_key(AsymmetricKeyId::UserPrivateKey)
         .map_err(|_| CryptoError::InvalidKey)?
         .to_public_der()?;
-    let public_key = AsymmetricPublicCryptoKey::from_der(&public_key)
-        .map_err(|_| CryptoError::InvalidKey)?;
+    let public_key =
+        AsymmetricPublicCryptoKey::from_der(&public_key).map_err(|_| CryptoError::InvalidKey)?;
 
     let wrapping_key = ctx
         .dangerous_get_symmetric_key(SymmetricKeyId::User)
         .map_err(|_| CryptoError::InvalidKey)?;
-    let signature_keypair = SigningKey::make_ed25519().unwrap();
+    let signature_keypair = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
     // This needs to be changed to use the correct cose content format before rolling out to real
     // accounts
-    let encrypted_signing_key = signature_keypair
-        .to_cose()?;
+    let encrypted_signing_key = signature_keypair.to_cose()?;
     let serialized_verifying_key = signature_keypair.to_verifying_key().to_cose()?;
     let serialized_verifying_key_b64 = STANDARD.encode(serialized_verifying_key);
-    let signed_public_key_ownership_claim = SignedPublicKeyOwnershipClaim::make_claim_with_key(
-        &public_key,
-        &signature_keypair,
-    )?;
+    let signed_public_key_ownership_claim =
+        SignedPublicKeyOwnershipClaim::make_claim_with_key(&public_key, &signature_keypair)?;
 
     Ok(MakeUserSigningKeysResponse {
         verifying_key: serialized_verifying_key_b64,
         signing_key: encrypted_signing_key.encrypt_with_key(wrapping_key)?,
-        signed_public_key_ownership_claim: STANDARD.encode(signed_public_key_ownership_claim.as_bytes()),
+        signed_public_key_ownership_claim: STANDARD
+            .encode(signed_public_key_ownership_claim.as_bytes()),
     })
 }
 

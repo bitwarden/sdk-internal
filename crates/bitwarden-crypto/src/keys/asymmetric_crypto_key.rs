@@ -8,7 +8,7 @@ use crate::error::{CryptoError, Result};
 /// Trait to allow both [`AsymmetricCryptoKey`] and [`AsymmetricPublicCryptoKey`] to be used to
 /// encrypt [UnsignedSharedKey](crate::UnsignedSharedKey).
 pub trait AsymmetricEncryptable {
-    fn to_public_key(&self) -> &RsaPublicKey;
+    fn to_public_rsa_key(&self) -> &RsaPublicKey;
 }
 
 /// An asymmetric public encryption key. Can only encrypt
@@ -29,7 +29,7 @@ impl AsymmetricPublicCryptoKey {
 }
 
 impl AsymmetricEncryptable for AsymmetricPublicCryptoKey {
-    fn to_public_key(&self) -> &RsaPublicKey {
+    fn to_public_rsa_key(&self) -> &RsaPublicKey {
         &self.key
     }
 }
@@ -102,16 +102,22 @@ impl AsymmetricCryptoKey {
     pub fn to_public_der(&self) -> Result<Vec<u8>> {
         use rsa::pkcs8::EncodePublicKey;
         Ok(self
-            .to_public_key()
+            .to_public_rsa_key()
             .to_public_key_der()
             .map_err(|_| CryptoError::InvalidKey)?
             .as_bytes()
             .to_owned())
     }
+
+    pub fn to_public_key(&self) -> AsymmetricPublicCryptoKey {
+        AsymmetricPublicCryptoKey {
+            key: self.key.to_public_key().clone(),
+        }
+    }
 }
 
 impl AsymmetricEncryptable for AsymmetricCryptoKey {
-    fn to_public_key(&self) -> &RsaPublicKey {
+    fn to_public_rsa_key(&self) -> &RsaPublicKey {
         (*self.key).as_ref()
     }
 }

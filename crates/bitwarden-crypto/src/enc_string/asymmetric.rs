@@ -162,7 +162,7 @@ impl UnsignedSharedKey {
         encapsulation_key: &dyn AsymmetricEncryptable,
     ) -> Result<UnsignedSharedKey> {
         let enc = encrypt_rsa2048_oaep_sha1(
-            encapsulation_key.to_public_key(),
+            encapsulation_key.to_public_rsa_key(),
             &encapsulated_key.to_encoded(),
         )?;
         Ok(UnsignedSharedKey::Rsa2048_OaepSha1_B64 { data: enc })

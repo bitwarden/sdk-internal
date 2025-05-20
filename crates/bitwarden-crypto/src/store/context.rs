@@ -408,7 +408,7 @@ mod tests {
     use crate::{
         store::{tests::DataView, KeyStore},
         traits::tests::{TestIds, TestSigningKey, TestSymmKey},
-        Decryptable, Encryptable, SigningKey, SymmetricCryptoKey,
+        Decryptable, Encryptable, SignatureAlgorithm, SigningKey, SymmetricCryptoKey,
     };
 
     #[test]
@@ -417,10 +417,10 @@ mod tests {
 
         // Generate and insert a key
         let key_a0_id = TestSigningKey::A(0);
-        let key_a0 = SigningKey::make_ed25519().unwrap();
+        let key_a0 = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
         store
             .context_mut()
-            .set_signing_key(key_a0_id, key_a0.clone())
+            .set_signing_key(key_a0_id, key_a0)
             .unwrap();
     }
 
