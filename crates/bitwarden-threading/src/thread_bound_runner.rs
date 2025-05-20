@@ -46,6 +46,7 @@ pub struct CallError(String);
 /// This pattern is useful for interacting with APIs or data structures that must remain
 /// on the same thread, such as GUI toolkits, WebAssembly contexts, or other thread-bound
 /// environments.
+#[derive(Clone)]
 pub struct ThreadBoundRunner<ThreadState> {
     call_channel_tx: tokio::sync::mpsc::Sender<CallRequest<ThreadState>>,
 }
