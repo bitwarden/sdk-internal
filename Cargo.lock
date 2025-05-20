@@ -555,6 +555,7 @@ name = "bitwarden-ipc"
 version = "1.0.0"
 dependencies = [
  "bitwarden-error",
+ "bitwarden-threading",
  "js-sys",
  "log",
  "serde",

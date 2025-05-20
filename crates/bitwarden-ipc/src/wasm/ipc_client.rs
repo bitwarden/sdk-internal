@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use wasm_bindgen::prelude::*;
 
-use super::{communication_backend::JsCommunicationBackend, ThreadSafeJsCommunicationBackend};
+use super::communication_backend::JsCommunicationBackend;
 use crate::{
     ipc_client::{IpcClientSubscription, ReceiveError, SubscribeError},
     message::{IncomingMessage, OutgoingMessage},
@@ -16,7 +16,7 @@ pub struct JsIpcClient {
     client: Arc<
         IpcClient<
             NoEncryptionCryptoProvider,
-            ThreadSafeJsCommunicationBackend,
+            JsCommunicationBackend,
             InMemorySessionRepository<()>,
         >,
     >,
@@ -26,7 +26,7 @@ pub struct JsIpcClient {
 pub struct JsIpcClientSubscription {
     subscription: IpcClientSubscription<
         NoEncryptionCryptoProvider,
-        ThreadSafeJsCommunicationBackend,
+        JsCommunicationBackend,
         InMemorySessionRepository<()>,
     >,
 }
@@ -42,12 +42,10 @@ impl JsIpcClientSubscription {
 impl JsIpcClient {
     #[wasm_bindgen(constructor)]
     pub fn new(communication_provider: &JsCommunicationBackend) -> JsIpcClient {
-        let communication_provider: ThreadSafeJsCommunicationBackend =
-            communication_provider.wrap_thread_safe();
         JsIpcClient {
             client: IpcClient::new(
                 NoEncryptionCryptoProvider,
-                communication_provider,
+                communication_provider.clone(),
                 InMemorySessionRepository::new(HashMap::new()),
             ),
         }
