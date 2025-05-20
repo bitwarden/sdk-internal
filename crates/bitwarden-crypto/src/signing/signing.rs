@@ -60,10 +60,10 @@ impl SigningKey {
     /// let (signature, serialized_message) = signing_key.sign_detached(&message, &namespace).unwrap();
     /// // Verification
     /// let verifying_key = signing_key.to_verifying_key();
-    /// assert!(verifying_key.verify_signature(&serialized_message.serialized_message_bytes, &namespace, &signature));
+    /// assert!(verifying_key.verify_signature(&serialized_message.as_ref(), &namespace, &signature));
     /// ```
     #[allow(unused)]
-    pub(crate) fn sign_detached<Message: Serialize>(
+    pub fn sign_detached<Message: Serialize>(
         &self,
         message: &Message,
         namespace: &SigningNamespace,
@@ -89,7 +89,7 @@ impl SigningKey {
     /// let (bob_signature, serialized_message) = bob_key.counter_sign(&serialized_message, &signature, &namespace).unwrap();
     /// ```
     #[allow(unused)]
-    pub(crate) fn counter_sign_detached<Message: Serialize>(
+    pub fn counter_sign_detached(
         &self,
         serialized_message_bytes: Vec<u8>,
         initial_signature: &Signature,
@@ -101,7 +101,13 @@ impl SigningKey {
             return Err(SignatureError::InvalidNamespace.into());
         }
 
-        Err(SignatureError::InvalidSignature.into())
+        Ok(self.sign_detached_bytes(
+            &SerializedMessage {
+                serialized_message_bytes,
+                content_type: initial_signature.content_type()?,
+            },
+            namespace,
+        ))
     }
 
     /// Signs the given payload with the signing key, under a given namespace.
@@ -154,13 +160,12 @@ impl SigningKey {
     /// };
     /// let namespace = SigningNamespace::ExampleNamespace;
     /// let signed_object = signing_key.sign(&message, &namespace).unwrap();
-    /// assert_eq!(signed_object.payload(), message);
     /// // The signed object can be verified using the verifying key:
     /// let verifying_key = signing_key.to_verifying_key();
     /// let payload: TestMessage = verifying_key.get_verified_payload(&signed_object, &namespace).unwrap();
     /// assert_eq!(payload, message);
     /// ```
-    pub(crate) fn sign<Message: Serialize>(
+    pub fn sign<Message: Serialize>(
         &self,
         message: &Message,
         namespace: &SigningNamespace,
@@ -211,9 +216,9 @@ pub struct SerializedMessage {
     content_type: CoapContentFormat,
 }
 
-impl Into<Vec<u8>> for SerializedMessage {
-    fn into(self) -> Vec<u8> {
-        self.serialized_message_bytes
+impl AsRef<[u8]> for SerializedMessage {
+    fn as_ref(&self) -> &[u8] {
+        &self.serialized_message_bytes
     }
 }
 
@@ -231,7 +236,7 @@ impl VerifyingKey {
     /// [`SigningKey::sign_detached`], for the given namespace. The namespace must match the one
     /// used to create the signature.
     #[allow(unused)]
-    pub(crate) fn verify_signature(
+    pub fn verify_signature(
         &self,
         serialized_message_bytes: &[u8],
         namespace: &SigningNamespace,
@@ -258,7 +263,7 @@ impl VerifyingKey {
 
     /// Verifies the signature of a signed object, created by [`SigningKey::sign`], for the given
     /// namespace and returns the deserialized payload, if the signature is valid.
-    pub(crate) fn get_verified_payload<Message: DeserializeOwned>(
+    pub fn get_verified_payload<Message: DeserializeOwned>(
         &self,
         signed_object: &SignedObject,
         namespace: &SigningNamespace,
@@ -493,6 +498,32 @@ mod tests {
             .get_verified_payload(&signed_object, &namespace)
             .unwrap();
         assert_eq!(payload, data);
+    }
+
+    #[test]
+    fn test_countersign_roundtrip() {
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+        let verifying_key = signing_key.to_verifying_key();
+        let data = "Test message".to_string();
+        let namespace = SigningNamespace::ExampleNamespace;
+        let (signature, serialized_message) =
+            signing_key.sign_detached(&data, &namespace).unwrap();
+        let countersignature = signing_key
+            .counter_sign_detached(
+                serialized_message.serialized_message_bytes.clone(),
+                &signature,
+                &namespace,
+            )
+            .unwrap();
+        assert_eq!(
+            verifying_key.verify_signature(
+                &serialized_message.serialized_message_bytes,
+                &namespace,
+                &countersignature
+            ),
+            true
+        );
+
     }
 
     #[test]

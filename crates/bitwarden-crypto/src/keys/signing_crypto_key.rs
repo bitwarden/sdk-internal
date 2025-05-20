@@ -415,7 +415,7 @@ impl SignedObject {
         )
     }
 
-    pub(crate) fn payload(&self) -> Result<Vec<u8>> {
+    pub fn payload(&self) -> Result<Vec<u8>> {
         self.0
             .payload
             .as_ref()
