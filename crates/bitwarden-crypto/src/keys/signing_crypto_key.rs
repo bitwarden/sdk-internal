@@ -31,7 +31,8 @@ pub enum SignatureAlgorithm {
 }
 
 impl SignatureAlgorithm {
-    pub fn default() -> Self {
+    /// Returns the currently accepted safe algorithm for new keys.
+    pub fn default_algorithm() -> Self {
         SignatureAlgorithm::Ed25519
     }
 }
