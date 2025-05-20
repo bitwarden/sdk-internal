@@ -456,8 +456,9 @@ impl SignedObject {
         let Some(namespace) = namespace.as_integer() else {
             return Err(SignatureError::InvalidNamespace.into());
         };
-        let namespace: i128 = namespace.into();
-        SigningNamespace::try_from_i64(namespace as i64)
+        SigningNamespace::try_from_i64(namespace.try_into().map_err(|_| {
+            SignatureError::InvalidNamespace
+        })?)
     }
 
     fn payload(&self) -> Result<Vec<u8>> {
