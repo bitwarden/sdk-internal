@@ -57,11 +57,8 @@ pub enum CryptoError {
     #[error("Invalid nonce length")]
     InvalidNonceLength,
 
-    #[error("Invalid signature")]
-    InvalidSignature,
-
-    #[error("Invalid namespace")]
-    InvalidNamespace,
+    #[error("Signature error, {0}")]
+    SignatureError(#[from] SignatureError),
 }
 
 #[derive(Debug, Error)]
@@ -96,6 +93,14 @@ pub enum RsaError {
     CreatePrivateKey,
     #[error("Rsa error, {0}")]
     Rsa(#[from] rsa::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum SignatureError {
+    #[error("Invalid signature")]
+    InvalidSignature,
+    #[error("Invalid namespace")]
+    InvalidNamespace,
 }
 
 /// Alias for `Result<T, CryptoError>`.

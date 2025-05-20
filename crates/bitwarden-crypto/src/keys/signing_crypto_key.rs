@@ -9,7 +9,7 @@ use ed25519_dalek::Signer;
 use rand::rngs::OsRng;
 
 use super::{key_id::KeyId, KEY_ID_SIZE};
-use crate::{cose::SIGNING_NAMESPACE, error::Result, signing::SigningNamespace, CryptoError};
+use crate::{cose::SIGNING_NAMESPACE, error::{Result, SignatureError}, signing::SigningNamespace, CryptoError};
 
 #[allow(unused)]
 enum SigningCryptoKeyEnum {
@@ -92,16 +92,13 @@ impl SigningKey {
                     && alg == RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA) =>
             {
                 // https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
-                let (mut crv, mut x, mut d) = (None, None, None);
+                let (mut crv, mut d) = (None, None);
                 for (key, value) in &cose_key.params {
                     if let Label::Int(i) = key {
                         let key = OkpKeyParameter::from_i64(*i).ok_or(CryptoError::InvalidKey)?;
                         match key {
                             OkpKeyParameter::Crv => {
                                 crv.replace(value);
-                            }
-                            OkpKeyParameter::X => {
-                                x.replace(value);
                             }
                             OkpKeyParameter::D => {
                                 d.replace(value);
@@ -111,7 +108,7 @@ impl SigningKey {
                     }
                 }
 
-                let (Some(_x), Some(d), Some(crv)) = (x, d, crv) else {
+                let (Some(d), Some(crv)) = (d, crv) else {
                     return Err(CryptoError::InvalidKey);
                 };
                 let crv: i128 = crv.as_integer().ok_or(CryptoError::InvalidKey)?.into();
@@ -324,12 +321,12 @@ impl VerifyingKey {
         signature: &SignedObject,
     ) -> Result<Vec<u8>> {
         let Some(_alg) = &signature.inner().protected.header.alg else {
-            return Err(CryptoError::InvalidSignature);
+            return Err(SignatureError::InvalidSignature.into());
         };
 
         let signature_namespace = signature.namespace()?;
         if signature_namespace != *namespace {
-            return Err(CryptoError::InvalidNamespace);
+            return Err(SignatureError::InvalidNamespace.into());
         }
 
         signature
@@ -347,10 +344,10 @@ impl VerifyingKey {
                 let sig = ed25519_dalek::Signature::from_bytes(
                     signature
                         .try_into()
-                        .map_err(|_| CryptoError::InvalidSignature)?,
+                        .map_err(|_| SignatureError::InvalidSignature)?,
                 );
                 key.verify_strict(data, &sig)
-                    .map_err(|_| CryptoError::InvalidSignature)
+                    .map_err(|_| SignatureError::InvalidSignature.into())
             }
         }
     }
@@ -370,8 +367,8 @@ impl From<CoseSign1> for Signature {
 
 #[allow(unused)]
 impl Signature {
-    fn from_cose(bytes: &[u8]) -> Result<Self> {
-        let cose_sign1 = CoseSign1::from_slice(bytes).map_err(|_| CryptoError::InvalidSignature)?;
+    fn from_cose(bytes: &[u8]) -> Result<Self, CryptoError> {
+        let cose_sign1 = CoseSign1::from_slice(bytes).map_err(|_| SignatureError::InvalidSignature)?;
         Ok(Signature(cose_sign1))
     }
 
@@ -379,7 +376,7 @@ impl Signature {
         self.0
             .clone()
             .to_vec()
-            .map_err(|_| CryptoError::InvalidSignature)
+            .map_err(|_| SignatureError::InvalidSignature.into())
     }
 
     fn inner(&self) -> &CoseSign1 {
@@ -396,10 +393,10 @@ impl Signature {
             }
         }
         let Some(namespace) = namespace else {
-            return Err(CryptoError::InvalidNamespace);
+            return Err(SignatureError::InvalidNamespace.into());
         };
         let Some(namespace) = namespace.as_integer() else {
-            return Err(CryptoError::InvalidNamespace);
+            return Err(SignatureError::InvalidNamespace.into());
         };
         let namespace: i128 = namespace.into();
         SigningNamespace::try_from_i64(namespace as i64)
@@ -419,8 +416,8 @@ impl From<CoseSign1> for SignedObject {
 
 #[allow(unused)]
 impl SignedObject {
-    fn from_cose(bytes: &[u8]) -> Result<Self> {
-        let cose_sign1 = CoseSign1::from_slice(bytes).map_err(|_| CryptoError::InvalidSignature)?;
+    fn from_cose(bytes: &[u8]) -> Result<Self, CryptoError> {
+        let cose_sign1 = CoseSign1::from_slice(bytes).map_err(|_| SignatureError::InvalidSignature)?;
         Ok(SignedObject(cose_sign1))
     }
 
@@ -428,7 +425,7 @@ impl SignedObject {
         self.0
             .clone()
             .to_vec()
-            .map_err(|_| CryptoError::InvalidSignature)
+            .map_err(|_| SignatureError::InvalidSignature.into())
     }
 
     fn inner(&self) -> &CoseSign1 {
@@ -445,10 +442,10 @@ impl SignedObject {
             }
         }
         let Some(namespace) = namespace else {
-            return Err(CryptoError::InvalidNamespace);
+            return Err(SignatureError::InvalidNamespace.into());
         };
         let Some(namespace) = namespace.as_integer() else {
-            return Err(CryptoError::InvalidNamespace);
+            return Err(SignatureError::InvalidNamespace.into());
         };
         let namespace: i128 = namespace.into();
         SigningNamespace::try_from_i64(namespace as i64)
@@ -458,7 +455,7 @@ impl SignedObject {
         self.0
             .payload
             .as_ref()
-            .ok_or(CryptoError::InvalidSignature)
+            .ok_or(SignatureError::InvalidSignature.into())
             .map(|payload| payload.to_vec())
     }
 }

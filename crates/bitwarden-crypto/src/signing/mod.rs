@@ -1,4 +1,4 @@
-use crate::CryptoError;
+use crate::{error::SignatureError, CryptoError};
 
 /// Signing is domain-separated within bitwarden, to prevent cross protocol attacks.
 ///
@@ -21,7 +21,7 @@ impl SigningNamespace {
             1 => Ok(Self::EncryptionMetadata),
             #[cfg(test)]
             -1 => Ok(Self::Test),
-            _ => Err(CryptoError::InvalidNamespace),
+            _ => Err(SignatureError::InvalidNamespace.into()),
         }
     }
 }
