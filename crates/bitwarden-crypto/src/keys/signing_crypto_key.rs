@@ -9,7 +9,12 @@ use ed25519_dalek::Signer;
 use rand::rngs::OsRng;
 
 use super::{key_id::KeyId, KEY_ID_SIZE};
-use crate::{cose::SIGNING_NAMESPACE, error::{Result, SignatureError}, signing::SigningNamespace, CryptoError};
+use crate::{
+    cose::SIGNING_NAMESPACE,
+    error::{Result, SignatureError},
+    signing::SigningNamespace,
+    CryptoError,
+};
 
 #[allow(unused)]
 enum SigningCryptoKeyEnum {
@@ -21,15 +26,17 @@ enum VerifyingKeyEnum {
     Ed25519(ed25519_dalek::VerifyingKey),
 }
 
-/// A signing key is a private key used for signing data. An associated `VerifyingKey` can be derived from it.
+/// A signing key is a private key used for signing data. An associated `VerifyingKey` can be
+/// derived from it.
 #[allow(unused)]
 struct SigningKey {
     id: KeyId,
     inner: SigningCryptoKeyEnum,
 }
 
-/// A verifying key is a public key used for verifying signatures. It can be published to other users,
-/// who can use it to verify that messages were signed by the holder of the corresponding `SigningKey`. 
+/// A verifying key is a public key used for verifying signatures. It can be published to other
+/// users, who can use it to verify that messages were signed by the holder of the corresponding
+/// `SigningKey`.
 #[allow(unused)]
 struct VerifyingKey {
     id: KeyId,
@@ -214,9 +221,9 @@ impl VerifyingKey {
                     Value::Integer(Integer::from(EllipticCurve::Ed25519.to_i64())),
                 )
                 // Note: X does not refer to the X coordinate of the public key curve point, but
-                // to the verifying key (signature public key), as represented by the curve spec. In the
-                // case of Ed25519, this is the compressed Y coordinate. This was ill-defined in
-                // earlier drafts of the standard. https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
+                // to the verifying key (signature public key), as represented by the curve spec. In
+                // the case of Ed25519, this is the compressed Y coordinate. This
+                // was ill-defined in earlier drafts of the standard. https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
                 .param(
                     OkpKeyParameter::X.to_i64(),
                     Value::Bytes(key.to_bytes().to_vec()),
@@ -368,7 +375,8 @@ impl From<CoseSign1> for Signature {
 #[allow(unused)]
 impl Signature {
     fn from_cose(bytes: &[u8]) -> Result<Self, CryptoError> {
-        let cose_sign1 = CoseSign1::from_slice(bytes).map_err(|_| SignatureError::InvalidSignature)?;
+        let cose_sign1 =
+            CoseSign1::from_slice(bytes).map_err(|_| SignatureError::InvalidSignature)?;
         Ok(Signature(cose_sign1))
     }
 
@@ -417,7 +425,8 @@ impl From<CoseSign1> for SignedObject {
 #[allow(unused)]
 impl SignedObject {
     fn from_cose(bytes: &[u8]) -> Result<Self, CryptoError> {
-        let cose_sign1 = CoseSign1::from_slice(bytes).map_err(|_| SignatureError::InvalidSignature)?;
+        let cose_sign1 =
+            CoseSign1::from_slice(bytes).map_err(|_| SignatureError::InvalidSignature)?;
         Ok(SignedObject(cose_sign1))
     }
 
@@ -463,12 +472,34 @@ impl SignedObject {
 #[cfg(test)]
 mod tests {
     use super::*;
- 
-    const SIGNING_KEY: &[u8] = &[166, 1, 1, 2, 80, 46, 133, 42, 0, 247, 84, 68, 139, 178, 110, 111, 186, 249, 52, 227, 197, 3, 39, 4, 130, 1, 2, 35, 88, 32, 31, 72, 18, 5, 81, 182, 75, 229, 106, 91, 174, 171, 136, 48, 87, 10, 231, 220, 24, 134, 42, 189, 54, 217, 51, 206, 23, 49, 140, 165, 23, 125, 32, 6];
-    const VERIFYING_KEY: &[u8] = &[166, 1, 1, 2, 80, 46, 133, 42, 0, 247, 84, 68, 139, 178, 110, 111, 186, 249, 52, 227, 197, 3, 39, 4, 129, 2, 32, 6, 33, 88, 32, 40, 62, 139, 254, 182, 152, 40, 135, 232, 175, 93, 191, 16, 31, 208, 54, 5, 136, 208, 14, 159, 199, 204, 209, 11, 161, 171, 213, 128, 101, 224, 160];
+
+    const SIGNING_KEY: &[u8] = &[
+        166, 1, 1, 2, 80, 46, 133, 42, 0, 247, 84, 68, 139, 178, 110, 111, 186, 249, 52, 227, 197,
+        3, 39, 4, 130, 1, 2, 35, 88, 32, 31, 72, 18, 5, 81, 182, 75, 229, 106, 91, 174, 171, 136,
+        48, 87, 10, 231, 220, 24, 134, 42, 189, 54, 217, 51, 206, 23, 49, 140, 165, 23, 125, 32, 6,
+    ];
+    const VERIFYING_KEY: &[u8] = &[
+        166, 1, 1, 2, 80, 46, 133, 42, 0, 247, 84, 68, 139, 178, 110, 111, 186, 249, 52, 227, 197,
+        3, 39, 4, 129, 2, 32, 6, 33, 88, 32, 40, 62, 139, 254, 182, 152, 40, 135, 232, 175, 93,
+        191, 16, 31, 208, 54, 5, 136, 208, 14, 159, 199, 204, 209, 11, 161, 171, 213, 128, 101,
+        224, 160,
+    ];
     /// Uses the ´SigningNamespace::EncryptionMetadata´ namespace, "Test message" as data
-    const SIGNATURE: &[u8] = &[132, 88, 27, 163, 1, 39, 4, 80, 46, 133, 42, 0, 247, 84, 68, 139, 178, 110, 111, 186, 249, 52, 227, 197, 58, 0, 1, 56, 127, 1, 160, 246, 88, 64, 187, 108, 86, 209, 43, 187, 42, 117, 179, 178, 83, 190, 102, 200, 225, 126, 67, 16, 69, 6, 60, 119, 8, 201, 141, 57, 44, 72, 208, 81, 42, 2, 87, 32, 84, 194, 144, 84, 0, 33, 47, 67, 64, 21, 200, 222, 33, 123, 50, 154, 204, 32, 185, 180, 143, 88, 57, 50, 73, 36, 74, 34, 132, 5];
-    const SIGNED_OBJECT: &[u8] = &[132, 88, 27, 163, 1, 39, 4, 80, 46, 133, 42, 0, 247, 84, 68, 139, 178, 110, 111, 186, 249, 52, 227, 197, 58, 0, 1, 56, 127, 1, 160, 76, 84, 101, 115, 116, 32, 109, 101, 115, 115, 97, 103, 101, 88, 64, 187, 108, 86, 209, 43, 187, 42, 117, 179, 178, 83, 190, 102, 200, 225, 126, 67, 16, 69, 6, 60, 119, 8, 201, 141, 57, 44, 72, 208, 81, 42, 2, 87, 32, 84, 194, 144, 84, 0, 33, 47, 67, 64, 21, 200, 222, 33, 123, 50, 154, 204, 32, 185, 180, 143, 88, 57, 50, 73, 36, 74, 34, 132, 5];
+    const SIGNATURE: &[u8] = &[
+        132, 88, 27, 163, 1, 39, 4, 80, 46, 133, 42, 0, 247, 84, 68, 139, 178, 110, 111, 186, 249,
+        52, 227, 197, 58, 0, 1, 56, 127, 1, 160, 246, 88, 64, 187, 108, 86, 209, 43, 187, 42, 117,
+        179, 178, 83, 190, 102, 200, 225, 126, 67, 16, 69, 6, 60, 119, 8, 201, 141, 57, 44, 72,
+        208, 81, 42, 2, 87, 32, 84, 194, 144, 84, 0, 33, 47, 67, 64, 21, 200, 222, 33, 123, 50,
+        154, 204, 32, 185, 180, 143, 88, 57, 50, 73, 36, 74, 34, 132, 5,
+    ];
+    const SIGNED_OBJECT: &[u8] = &[
+        132, 88, 27, 163, 1, 39, 4, 80, 46, 133, 42, 0, 247, 84, 68, 139, 178, 110, 111, 186, 249,
+        52, 227, 197, 58, 0, 1, 56, 127, 1, 160, 76, 84, 101, 115, 116, 32, 109, 101, 115, 115, 97,
+        103, 101, 88, 64, 187, 108, 86, 209, 43, 187, 42, 117, 179, 178, 83, 190, 102, 200, 225,
+        126, 67, 16, 69, 6, 60, 119, 8, 201, 141, 57, 44, 72, 208, 81, 42, 2, 87, 32, 84, 194, 144,
+        84, 0, 33, 47, 67, 64, 21, 200, 222, 33, 123, 50, 154, 204, 32, 185, 180, 143, 88, 57, 50,
+        73, 36, 74, 34, 132, 5,
+    ];
 
     #[test]
     fn test_signature_using_test_vectors() {
