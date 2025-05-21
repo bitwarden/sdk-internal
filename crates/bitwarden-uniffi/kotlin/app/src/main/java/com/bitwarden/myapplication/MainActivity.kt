@@ -253,6 +253,7 @@ class MainActivity : FragmentActivity() {
                 kdfParams = kdf,
                 email = EMAIL,
                 privateKey = loginBody.PrivateKey,
+                signingKey = null,
                 method = InitUserCryptoMethod.Password(
                     password = PASSWORD, userKey = loginBody.Key
                 )
@@ -337,6 +338,7 @@ class MainActivity : FragmentActivity() {
                         kdfParams = kdf,
                         email = EMAIL,
                         privateKey = privateKey!!,
+                        signingKey = null,
                         method = InitUserCryptoMethod.DecryptedKey(decryptedUserKey = key)
                     )
                 )
@@ -374,6 +376,7 @@ class MainActivity : FragmentActivity() {
                     kdfParams = kdf,
                     email = EMAIL,
                     privateKey = privateKey!!,
+                    signingKey = null,
                     method = InitUserCryptoMethod.Pin(
                         pinProtectedUserKey = pinProtectedUserKey, pin = PIN
                     )

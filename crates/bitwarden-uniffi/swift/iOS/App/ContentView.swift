@@ -192,6 +192,7 @@ struct ContentView: View {
                 kdfParams: kdf,
                 email: EMAIL,
                 privateKey: loginData.PrivateKey,
+                signingKey: nil,
                 method: InitUserCryptoMethod.password(
                     password: PASSWORD,
                     userKey: loginData.Key
