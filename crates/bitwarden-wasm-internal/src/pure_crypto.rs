@@ -357,6 +357,53 @@ PFhA8iMJ8TAvemhvc7oM0OZqpU6p3K4seHf6BkwLxumoA3vDJfovu9RuXVcJVOnf
 DnqOsltgPomWZ7xVfMkm9niL2OA=
 -----END PRIVATE KEY-----";
 
+    const SIGNING_KEY_WRAPPING_KEY: &[u8] = &[
+        40, 215, 110, 199, 183, 4, 182, 78, 213, 123, 251, 113, 72, 223, 57, 2, 3, 81, 136, 19, 88,
+        78, 206, 176, 158, 251, 211, 84, 1, 199, 203, 142, 176, 227, 187, 136, 209, 79, 23, 13, 44,
+        224, 90, 10, 191, 72, 22, 227, 171, 105, 107, 139, 24, 49, 9, 150, 103, 139, 151, 204, 165,
+        121, 165, 71,
+    ];
+    const WRAPPED_SIGNING_KEY: &str = "2.TNBR4qijqxOxD7BQgePL1g==|42N+N/oif73CPb+7w9zfEo409i4iI7FJscsKjzhy2iLO8HRiF3avTYJhoVrpgd4dZz1+Ibj6FaPeZPEfO7U8ozKqMUPjkih1l+h5+YNh+3s=|wZsJJLfgNlkhIjDAfBiyLqq4LcbjYwOD+d3/2hTcI34=";
+    const SIGNING_KEY: &[u8] = &[
+        166, 1, 1, 2, 80, 123, 226, 102, 228, 194, 232, 71, 30, 183, 42, 219, 193, 50, 30, 21, 43,
+        3, 39, 4, 130, 1, 2, 35, 88, 32, 148, 2, 66, 69, 169, 57, 129, 240, 37, 18, 225, 211, 207,
+        133, 66, 143, 204, 238, 113, 152, 43, 112, 133, 173, 179, 17, 202, 135, 175, 237, 1, 59,
+        32, 6,
+    ];
+    const VERIFYING_KEY: &[u8] = &[
+        166, 1, 1, 2, 80, 123, 226, 102, 228, 194, 232, 71, 30, 183, 42, 219, 193, 50, 30, 21, 43,
+        3, 39, 4, 129, 2, 32, 6, 33, 88, 32, 63, 70, 49, 37, 246, 232, 146, 144, 83, 224, 0, 17,
+        111, 248, 16, 242, 69, 195, 84, 46, 39, 218, 55, 63, 90, 112, 148, 91, 224, 186, 122, 4,
+    ];
+    const PUBLIC_KEY_OWNERSHIP_CLAIM: &[u8] = &[
+        132, 88, 30, 164, 1, 39, 3, 24, 60, 4, 80, 123, 226, 102, 228, 194, 232, 71, 30, 183, 42,
+        219, 193, 50, 30, 21, 43, 58, 0, 1, 56, 127, 1, 160, 88, 72, 161, 107, 102, 105, 110, 103,
+        101, 114, 112, 114, 105, 110, 116, 162, 102, 100, 105, 103, 101, 115, 116, 88, 32, 157,
+        225, 74, 231, 216, 192, 213, 240, 234, 67, 3, 221, 30, 3, 145, 141, 17, 73, 71, 233, 20, 4,
+        102, 134, 195, 186, 11, 109, 142, 59, 25, 59, 105, 97, 108, 103, 111, 114, 105, 116, 104,
+        109, 102, 83, 104, 97, 50, 53, 54, 88, 64, 19, 244, 252, 60, 39, 88, 200, 62, 208, 147,
+        106, 200, 57, 125, 189, 6, 253, 109, 197, 164, 207, 193, 15, 242, 195, 241, 4, 229, 235,
+        178, 207, 61, 157, 51, 178, 6, 151, 49, 129, 21, 206, 105, 158, 174, 88, 206, 11, 149, 138,
+        27, 103, 15, 251, 110, 251, 148, 233, 124, 129, 29, 41, 250, 47, 10,
+    ];
+    const PUBLIC_KEY: &[u8] = &[
+        48, 130, 1, 34, 48, 13, 6, 9, 42, 134, 72, 134, 247, 13, 1, 1, 1, 5, 0, 3, 130, 1, 15, 0,
+        48, 130, 1, 10, 2, 130, 1, 1, 0, 173, 4, 54, 63, 125, 12, 254, 38, 115, 34, 95, 164, 148,
+        115, 86, 140, 129, 74, 19, 70, 212, 212, 130, 163, 105, 249, 101, 120, 154, 46, 194, 250,
+        229, 242, 156, 67, 109, 179, 187, 134, 59, 235, 60, 107, 144, 163, 35, 22, 109, 230, 134,
+        243, 44, 243, 79, 84, 76, 11, 64, 56, 236, 167, 98, 26, 30, 213, 143, 105, 52, 92, 129, 92,
+        88, 22, 115, 135, 63, 215, 79, 8, 11, 183, 124, 10, 73, 231, 170, 110, 210, 178, 22, 100,
+        76, 75, 118, 202, 252, 204, 67, 204, 152, 6, 244, 208, 161, 146, 103, 225, 233, 239, 88,
+        195, 88, 150, 230, 111, 62, 142, 12, 157, 184, 155, 34, 84, 237, 111, 11, 97, 56, 152, 130,
+        14, 72, 123, 140, 47, 137, 5, 97, 166, 4, 147, 111, 23, 65, 78, 63, 208, 198, 50, 161, 39,
+        80, 143, 100, 194, 37, 252, 194, 53, 207, 166, 168, 250, 165, 121, 9, 207, 90, 36, 213,
+        211, 84, 255, 14, 205, 114, 135, 217, 137, 105, 232, 58, 169, 222, 10, 13, 138, 203, 16,
+        12, 122, 72, 227, 95, 160, 111, 54, 200, 198, 143, 156, 15, 143, 196, 50, 150, 204, 144,
+        255, 162, 248, 50, 28, 47, 66, 9, 83, 158, 67, 9, 50, 147, 174, 147, 200, 199, 238, 190,
+        248, 60, 114, 218, 32, 209, 120, 218, 17, 234, 14, 128, 192, 166, 33, 60, 73, 227, 108,
+        201, 41, 160, 81, 133, 171, 205, 221, 2, 3, 1, 0, 1,
+    ];
+
     #[test]
     fn test_symmetric_decrypt() {
         let enc_string = EncString::from_str(ENCRYPTED).unwrap();
@@ -504,5 +551,75 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         )
         .unwrap();
         assert_eq!(shared_key, unwrapped_key);
+    }
+
+    #[test]
+    fn make_test_vectors() {
+        let key = PureCrypto::make_user_key_aes256_cbc_hmac();
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+        let verifying_key = signing_key.to_verifying_key();
+        let verifying_key_cose = verifying_key.to_cose().unwrap();
+        let signing_key_cose = signing_key.to_cose().unwrap();
+        let wrapped_signing_key =
+            PureCrypto::symmetric_encrypt_bytes(signing_key_cose.clone(), key.clone()).unwrap();
+        let asymmetric_crypto_key = AsymmetricCryptoKey::make();
+        let pubkey = asymmetric_crypto_key.to_public_key();
+        let public_key_ownership_claim =
+            SignedPublicKeyOwnershipClaim::make_claim_with_key(&pubkey, &signing_key).unwrap();
+
+        println!("const SIGNING_KEY_WRAPPING_KEY: &[u8] = {:?}", key);
+        println!(
+            "const WRAPPED_SIGNING_KEY: &str = {:?}",
+            wrapped_signing_key
+        );
+        println!("const SIGNING_KEY: &[u8] = {:?}", signing_key_cose);
+        println!("const VERIFYING_KEY: &[u8] = {:?}", verifying_key_cose);
+        println!(
+            "const PUBLIC_KEY_OWNERSHIP_CLAIM: &[u8] = {:?}",
+            public_key_ownership_claim.as_bytes()
+        );
+        println!(
+            "const PUBLIC_KEY: &[u8] = {:?}",
+            asymmetric_crypto_key.to_public_der()
+        );
+    }
+
+    #[test]
+    fn test_verify_public_key_ownership_claim() {
+        let public_key = AsymmetricPublicCryptoKey::from_der(PUBLIC_KEY).unwrap();
+        let verifying_key = VerifyingKey::from_cose(VERIFYING_KEY).unwrap();
+        let claim = SignedPublicKeyOwnershipClaim::from_bytes(PUBLIC_KEY_OWNERSHIP_CLAIM).unwrap();
+        let result = claim.verify_claim(&public_key, &verifying_key);
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_key_algorithm_for_verifying_key() {
+        let verifying_key = VerifyingKey::from_cose(VERIFYING_KEY).unwrap();
+        let algorithm =
+            PureCrypto::key_algorithm_for_verifying_key(verifying_key.to_cose().unwrap()).unwrap();
+        assert_eq!(algorithm, SignatureAlgorithm::Ed25519);
+    }
+
+    #[test]
+    fn test_verifying_key_for_signing_key() {
+        let wrapped_signing_key = PureCrypto::symmetric_encrypt_bytes(
+            SIGNING_KEY.to_vec(),
+            SIGNING_KEY_WRAPPING_KEY.to_vec(),
+        )
+        .unwrap();
+        let verifying_key = VerifyingKey::from_cose(VERIFYING_KEY).unwrap();
+        let verifying_key_derived = PureCrypto::verifying_key_for_signing_key(
+            wrapped_signing_key.to_string(),
+            SIGNING_KEY_WRAPPING_KEY.to_vec(),
+        )
+        .unwrap();
+        let verifying_key_derived =
+            VerifyingKey::from_cose(verifying_key_derived.as_slice()).unwrap();
+        assert_eq!(
+            verifying_key.to_cose().unwrap(),
+            verifying_key_derived.to_cose().unwrap()
+        );
     }
 }

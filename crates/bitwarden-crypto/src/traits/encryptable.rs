@@ -84,7 +84,7 @@ mod tests {
         let store = KeyStore::<TestIds>::default();
 
         let symm_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let asymm_key = AsymmetricCryptoKey::generate(&mut rand::thread_rng());
+        let asymm_key = AsymmetricCryptoKey::make();
 
         #[allow(deprecated)]
         store

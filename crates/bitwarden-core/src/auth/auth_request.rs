@@ -31,9 +31,7 @@ pub struct AuthRequestResponse {
 /// to another device. Where the user confirms the validity by confirming the fingerprint. The user
 /// key is then encrypted using the public key and returned to the initiating device.
 pub(crate) fn new_auth_request(email: &str) -> Result<AuthRequestResponse, CryptoError> {
-    let mut rng = rand::thread_rng();
-
-    let key = AsymmetricCryptoKey::generate(&mut rng);
+    let key = AsymmetricCryptoKey::make();
 
     let spki = key.to_public_der()?;
 

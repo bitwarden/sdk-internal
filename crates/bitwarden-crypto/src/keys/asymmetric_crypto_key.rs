@@ -67,7 +67,12 @@ impl zeroize::ZeroizeOnDrop for AsymmetricCryptoKey {}
 
 impl AsymmetricCryptoKey {
     /// Generate a random AsymmetricCryptoKey (RSA-2048).
-    pub fn generate<R: rand::CryptoRng + rand::RngCore>(rng: &mut R) -> Self {
+    pub fn make() -> Self {
+        use rand::rngs::OsRng;
+        Self::make_internal(&mut OsRng)
+    }
+
+    fn make_internal<R: rand::CryptoRng + rand::RngCore>(rng: &mut R) -> Self {
         let bits = 2048;
 
         Self {

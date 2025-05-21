@@ -83,8 +83,6 @@ impl SignedPublicKeyOwnershipClaim {
 
 #[cfg(test)]
 mod tests {
-    use rand::rngs::OsRng;
-
     use super::*;
     use crate::{AsymmetricCryptoKey, SignatureAlgorithm};
 
@@ -92,7 +90,7 @@ mod tests {
     fn test_public_key_ownership_claim() {
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
         let verifying_key = signing_key.to_verifying_key();
-        let public_key = AsymmetricCryptoKey::generate(&mut OsRng).to_public_key();
+        let public_key = AsymmetricCryptoKey::make().to_public_key();
         let claim =
             SignedPublicKeyOwnershipClaim::make_claim_with_key(&public_key, &signing_key).unwrap();
         assert!(claim.verify_claim(&public_key, &verifying_key).unwrap());
