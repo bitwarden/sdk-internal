@@ -554,37 +554,6 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
     }
 
     #[test]
-    fn make_test_vectors() {
-        let key = PureCrypto::make_user_key_aes256_cbc_hmac();
-        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
-        let verifying_key = signing_key.to_verifying_key();
-        let verifying_key_cose = verifying_key.to_cose().unwrap();
-        let signing_key_cose = signing_key.to_cose().unwrap();
-        let wrapped_signing_key =
-            PureCrypto::symmetric_encrypt_bytes(signing_key_cose.clone(), key.clone()).unwrap();
-        let asymmetric_crypto_key = AsymmetricCryptoKey::make();
-        let pubkey = asymmetric_crypto_key.to_public_key();
-        let public_key_ownership_claim =
-            SignedPublicKeyOwnershipClaim::make_claim_with_key(&pubkey, &signing_key).unwrap();
-
-        println!("const SIGNING_KEY_WRAPPING_KEY: &[u8] = {:?}", key);
-        println!(
-            "const WRAPPED_SIGNING_KEY: &str = {:?}",
-            wrapped_signing_key
-        );
-        println!("const SIGNING_KEY: &[u8] = {:?}", signing_key_cose);
-        println!("const VERIFYING_KEY: &[u8] = {:?}", verifying_key_cose);
-        println!(
-            "const PUBLIC_KEY_OWNERSHIP_CLAIM: &[u8] = {:?}",
-            public_key_ownership_claim.as_bytes()
-        );
-        println!(
-            "const PUBLIC_KEY: &[u8] = {:?}",
-            asymmetric_crypto_key.to_public_der()
-        );
-    }
-
-    #[test]
     fn test_verify_public_key_ownership_claim() {
         let public_key = AsymmetricPublicCryptoKey::from_der(PUBLIC_KEY).unwrap();
         let verifying_key = VerifyingKey::from_cose(VERIFYING_KEY).unwrap();
