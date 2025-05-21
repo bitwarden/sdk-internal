@@ -42,13 +42,16 @@ jobs:
 
       - name: Version output
         id: version-output
+        env:
+          BRANCH: "${{ github.head_ref || github.ref_name }}"
         run: |
           if [ -z ${{ inputs.version }} ]; then
-            BRANCH=${{ github.head_ref || github.ref_name }}
             VERSION=0.2.0-${BRANCH/\//-}.${{ github.run_number }}
             echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "### NPM Version: $VERSION" >> $GITHUB_STEP_SUMMARY
           else
             echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "### NPM Version: ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
           fi
 
   npm:
