@@ -11,10 +11,10 @@ export interface Repository<T> {
 "#;
 
 macro_rules! create_wasm_repository {
-    ($name:ident, $ty:ty) => {
+    ($name:ident, $ty:ty, $typescript_ty:literal) => {
         #[wasm_bindgen]
         extern "C" {
-            #[wasm_bindgen(js_name = $name, typescript_type = "Repository<Cipher>")]
+            #[wasm_bindgen(js_name = $name, typescript_type = $typescript_ty)]
             pub type $name;
 
             #[wasm_bindgen(method, catch)]
@@ -44,20 +44,20 @@ macro_rules! create_wasm_repository {
             ) -> ::std::sync::Arc<impl bitwarden_core::client::repository::Repository<$ty>> {
                 use ::bitwarden_core::client::repository::*;
 
-                use crate::platform::repository::__macro_internal::*;
+                use $crate::platform::repository::__macro_internal::*;
 
-                struct Store(::bitwarden_threading::ThreadBoundRunner<CipherRepository>);
+                struct Store(::bitwarden_threading::ThreadBoundRunner<$name>);
                 let store = Store(::bitwarden_threading::ThreadBoundRunner::new(self));
 
                 #[async_trait::async_trait]
-                impl Repository<Cipher> for Store {
-                    async fn get(&self, id: String) -> Result<Option<Cipher>, RepositoryError> {
+                impl Repository<$ty> for Store {
+                    async fn get(&self, id: String) -> Result<Option<$ty>, RepositoryError> {
                         run_convert(&self.0, |s| async move { s.get(id).await }).await
                     }
-                    async fn list(&self) -> Result<Vec<Cipher>, RepositoryError> {
+                    async fn list(&self) -> Result<Vec<$ty>, RepositoryError> {
                         run_convert(&self.0, |s| async move { s.list().await }).await
                     }
-                    async fn set(&self, id: String, value: Cipher) -> Result<(), RepositoryError> {
+                    async fn set(&self, id: String, value: $ty) -> Result<(), RepositoryError> {
                         run_convert(&self.0, |s| async move { s.set(id, value).await.and(UNIT) })
                             .await
                     }

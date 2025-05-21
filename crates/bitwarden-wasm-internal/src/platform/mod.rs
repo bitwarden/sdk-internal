@@ -29,7 +29,7 @@ impl RepositoryClient {
     }
 }
 
-repository::create_wasm_repository!(CipherRepository, Cipher);
+repository::create_wasm_repository!(CipherRepository, Cipher, "Repository<Cipher>");
 
 #[wasm_bindgen]
 impl RepositoryClient {
