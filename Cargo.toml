@@ -29,6 +29,7 @@ bitwarden-fido = { path = "crates/bitwarden-fido", version = "=1.0.0" }
 bitwarden-generators = { path = "crates/bitwarden-generators", version = "=1.0.0" }
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=1.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=1.0.0" }
+bitwarden-threading = { path = "crates/bitwarden-threading", version = "=1.0.0" }
 bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=1.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=1.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=1.0.0" }
@@ -63,6 +64,7 @@ validator = { version = ">=0.18.1, <0.20", features = ["derive"] }
 wasm-bindgen = { version = ">=0.2.91, <0.3", features = ["serde-serialize"] }
 js-sys = { version = ">=0.3.72, <0.4" }
 wasm-bindgen-futures = "0.4.41"
+wasm-bindgen-test = "0.3.45"
 
 # There is an incompatibility when using pkcs5 and chacha20 on wasm builds. This can be removed once a new
 # rustcrypto-formats crate version is released since the fix has been upstreamed.
