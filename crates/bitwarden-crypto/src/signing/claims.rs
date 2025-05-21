@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use super::SigningNamespace;
 use crate::{
     keys::Fingerprintable, AsymmetricPublicCryptoKey, CryptoError, FingerprintableKey,
@@ -5,6 +7,7 @@ use crate::{
 };
 
 /// The non-serialized version of `SignedPublicKeyOwnershipClaim`
+#[derive(Serialize, Deserialize)]
 pub(crate) struct PublicKeyOwnershipClaim {
     pub(crate) fingerprint: PublicKeyFingerprint,
 }
