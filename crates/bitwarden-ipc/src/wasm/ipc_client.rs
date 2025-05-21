@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use super::{communication_backend::JsCommunicationBackend, ThreadSafeJsCommunicationBackend};
 use crate::{
-    ipc_client::{IpcClientSubscription, ReceiveError, StartError, SubscribeError},
+    ipc_client::{IpcClientSubscription, ReceiveError, SubscribeError},
     message::{IncomingMessage, OutgoingMessage},
     traits::{InMemorySessionRepository, NoEncryptionCryptoProvider},
     IpcClient,
@@ -53,7 +53,7 @@ impl JsIpcClient {
         }
     }
 
-    pub async fn start(&self) -> Result<(), StartError> {
+    pub async fn start(&self) {
         self.client.start().await
     }
 

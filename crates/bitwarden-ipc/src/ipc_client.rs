@@ -63,11 +63,6 @@ pub enum SubscribeError {
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
-#[bitwarden_error(basic)]
-#[error("Failed to start the IPC client: {0}")]
-pub struct StartError(String);
-
-#[derive(Debug, Error, PartialEq, Eq)]
 #[bitwarden_error(flat)]
 pub enum ReceiveError {
     #[error("Failed to subscribe to the IPC channel: {0}")]
@@ -116,27 +111,22 @@ where
         })
     }
 
-    pub async fn start(self: &Arc<Self>) -> Result<(), StartError> {
-        let client = self.clone();
+    pub async fn start(self: &Arc<Self>) {
         let (cancellation_handle_tx, mut cancellation_handle_rx) =
             tokio::sync::watch::channel(false);
-        let (await_init_tx, await_init_rx) = tokio::sync::oneshot::channel();
         let mut cancellation_handle = self.cancellation_handle.write().await;
 
         *cancellation_handle = Some(cancellation_handle_tx);
 
+        let com_receiver = self.communication.subscribe().await;
+        let (client_tx, client_rx) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);
+
+        let mut client_incoming = self.incoming.write().await;
+        *client_incoming = Some(client_rx);
+        let _ = client_incoming;
+
+        let client = self.clone();
         let future = async move {
-            let com_receiver = client.communication.subscribe().await;
-            let (client_tx, client_rx) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);
-
-            let mut client_incoming = client.incoming.write().await;
-            *client_incoming = Some(client_rx);
-            drop(client_incoming);
-
-            await_init_tx
-                .send(())
-                .expect("Sending init signal should not fail");
-
             loop {
                 select! {
                     _ = cancellation_handle_rx.changed() => {
@@ -170,9 +160,6 @@ where
 
         #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(future);
-
-        await_init_rx.await.map_err(|e| StartError(e.to_string()))?;
-        Ok(())
     }
 
     pub async fn is_running(self: &Arc<Self>) -> bool {
@@ -386,10 +373,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider, session_map);
-        client
-            .start()
-            .await
-            .expect("Starting client should not fail");
+        client.start().await;
 
         let error = client.send(message).await.unwrap_err();
 
@@ -407,10 +391,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        client
-            .start()
-            .await
-            .expect("Starting client should not fail");
+        client.start().await;
 
         client.send(message.clone()).await.unwrap();
 
@@ -430,10 +411,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        client
-            .start()
-            .await
-            .expect("Starting client should not fail");
+        client.start().await;
 
         let mut subscription = client
             .subscribe(None)
@@ -464,10 +442,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        client
-            .start()
-            .await
-            .expect("Starting client should not fail");
+        client.start().await;
         let mut subscription = client
             .subscribe(Some("matching_topic".to_owned()))
             .await
@@ -528,10 +503,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        client
-            .start()
-            .await
-            .expect("Starting client should not fail");
+        client.start().await;
         let mut subscription = client
             .subscribe_typed::<TestPayload>()
             .await
@@ -591,10 +563,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        client
-            .start()
-            .await
-            .expect("Starting client should not fail");
+        client.start().await;
         let mut subscription = client
             .subscribe_typed::<TestPayload>()
             .await
@@ -619,10 +588,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider, session_map);
-        client
-            .start()
-            .await
-            .expect("Starting client should not fail");
+        client.start().await;
 
         let error = client.send(message).await.unwrap_err();
         let is_running = client.is_running().await;
@@ -640,10 +606,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider, session_map);
-        client
-            .start()
-            .await
-            .expect("Starting client should not fail");
+        client.start().await;
 
         // Give the client some time to process the error
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -661,10 +624,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider, session_map);
-        client
-            .start()
-            .await
-            .expect("Starting client should not fail");
+        client.start().await;
 
         // Give the client some time to process
         tokio::time::sleep(Duration::from_millis(100)).await;
