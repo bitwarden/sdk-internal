@@ -62,10 +62,7 @@ where
         spawn_local(async move {
             let state = Rc::new(state);
             while let Some(request) = call_channel_rx.recv().await {
-                let state = state.clone();
-                spawn_local(async move {
-                    (request.function)(state).await;
-                });
+                spawn_local((request.function)(state.clone()));
             }
         });
 
