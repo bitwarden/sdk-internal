@@ -4,7 +4,7 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext,
+    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext
 };
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -51,12 +51,11 @@ pub struct FieldView {
     pub linked_id: Option<LinkedIdType>,
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Field> for FieldView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Field> for FieldView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
-        _content_format: ContentFormat,
     ) -> Result<Field, CryptoError> {
         Ok(Field {
             name: self.name.encrypt(ctx, key, ContentFormat::Utf8)?,

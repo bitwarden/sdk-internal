@@ -5,7 +5,7 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext,
+    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -192,12 +192,11 @@ impl From<Fido2CredentialFullView> for Fido2CredentialNewView {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2CredentialFullView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2CredentialFullView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
-        _content_format: ContentFormat,
     ) -> Result<Fido2Credential, CryptoError> {
         Ok(Fido2Credential {
             credential_id: self.credential_id.encrypt(ctx, key, ContentFormat::Utf8)?,
@@ -317,12 +316,11 @@ pub struct LoginListView {
     pub uris: Option<Vec<LoginUriView>>,
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, LoginUri> for LoginUriView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, LoginUri> for LoginUriView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
-        _content_format: ContentFormat,
     ) -> Result<LoginUri, CryptoError> {
         Ok(LoginUri {
             uri: self.uri.encrypt(ctx, key, ContentFormat::Utf8)?,
@@ -332,18 +330,17 @@ impl Encryptable<KeyIds, SymmetricKeyId, LoginUri> for LoginUriView {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Login> for LoginView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Login> for LoginView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
-        _content_format: ContentFormat,
     ) -> Result<Login, CryptoError> {
         Ok(Login {
             username: self.username.encrypt(ctx, key, ContentFormat::Utf8)?,
             password: self.password.encrypt(ctx, key, ContentFormat::Utf8)?,
             password_revision_date: self.password_revision_date,
-            uris: self.uris.encrypt(ctx, key, ContentFormat::Utf8)?,
+            uris: self.uris.encrypt_composite(ctx, key)?,
             totp: self.totp.encrypt(ctx, key, ContentFormat::Utf8)?,
             autofill_on_page_load: self.autofill_on_page_load,
             fido2_credentials: self.fido2_credentials.clone(),
@@ -403,12 +400,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, LoginListView> for Login {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2CredentialView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2CredentialView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
-        _content_format: ContentFormat,
     ) -> Result<Fido2Credential, CryptoError> {
         Ok(Fido2Credential {
             credential_id: self.credential_id.encrypt(ctx, key, ContentFormat::Utf8)?,

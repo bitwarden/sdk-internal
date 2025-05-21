@@ -4,7 +4,7 @@ use bitwarden_core::{
     require, MissingFieldError, VaultLockedError,
 };
 use bitwarden_crypto::{
-    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
+    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext
 };
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
@@ -210,12 +210,11 @@ impl CipherListView {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
-        _content_format: ContentFormat,
     ) -> Result<Cipher, CryptoError> {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
@@ -241,19 +240,19 @@ impl Encryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             r#type: cipher_view.r#type,
             login: cipher_view
                 .login
-                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+                .encrypt_composite(ctx, ciphers_key)?,
             identity: cipher_view
                 .identity
-                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+                .encrypt_composite(ctx, ciphers_key)?,
             card: cipher_view
                 .card
-                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+                .encrypt_composite(ctx, ciphers_key)?,
             secure_note: cipher_view
                 .secure_note
-                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+                .encrypt_composite(ctx, ciphers_key)?,
             ssh_key: cipher_view
                 .ssh_key
-                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+                .encrypt_composite(ctx, ciphers_key)?,
             favorite: cipher_view.favorite,
             reprompt: cipher_view.reprompt,
             organization_use_totp: cipher_view.organization_use_totp,
@@ -261,17 +260,16 @@ impl Encryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             view_password: cipher_view.view_password,
             local_data: cipher_view
                 .local_data
-                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+                .encrypt_composite(ctx, ciphers_key)?,
             attachments: cipher_view
                 .attachments
-                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+                .encrypt_composite(ctx, ciphers_key)?,
             fields: cipher_view
                 .fields
-                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
-            password_history: cipher_view.password_history.encrypt(
+                .encrypt_composite(ctx, ciphers_key)?,
+            password_history: cipher_view.password_history.encrypt_composite(
                 ctx,
                 ciphers_key,
-                ContentFormat::Utf8,
             )?,
             creation_date: cipher_view.creation_date,
             deleted_date: cipher_view.deleted_date,
@@ -550,7 +548,7 @@ impl CipherView {
                 let dec_fido2_credentials: Vec<Fido2CredentialFullView> =
                     fido2_credentials.decrypt(ctx, old_key)?;
                 *fido2_credentials =
-                    dec_fido2_credentials.encrypt(ctx, new_key, ContentFormat::DomainObject)?;
+                    dec_fido2_credentials.encrypt_composite(ctx, new_key)?;
             }
         }
         Ok(())
@@ -594,7 +592,7 @@ impl CipherView {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         require!(self.login.as_mut()).fido2_credentials =
-            Some(creds.encrypt(ctx, ciphers_key, ContentFormat::DomainObject)?);
+            Some(creds.encrypt_composite(ctx, ciphers_key)?);
 
         Ok(())
     }

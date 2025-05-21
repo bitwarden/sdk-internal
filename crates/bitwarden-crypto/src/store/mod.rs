@@ -26,7 +26,7 @@ use std::sync::{Arc, RwLock};
 
 use rayon::prelude::*;
 
-use crate::{cose::ContentFormat, Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
+use crate::{CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds};
 
 mod backend;
 mod context;
@@ -74,9 +74,9 @@ pub use context::KeyStoreContext;
 ///        SymmKeyId::User
 ///    }
 /// }
-/// impl Encryptable<Ids, SymmKeyId, EncString> for Data {
-///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId, content_format: ContentFormat) -> Result<EncString, CryptoError> {
-///         self.0.encrypt(ctx, key, content_format)
+/// impl CompositeEncryptable<Ids, SymmKeyId, EncString> for Data {
+///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
+///         self.0.encrypt(ctx, key)
 ///     }
 /// }
 ///
@@ -209,12 +209,12 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     /// already be present in the store, otherwise this will return an error.
     /// This method is not parallelized, and is meant for single item encryption.
     /// If you need to encrypt multiple items, use `encrypt_list` instead.
-    pub fn encrypt<Key: KeyId, Data: Encryptable<Ids, Key, Output> + IdentifyKey<Key>, Output>(
+    pub fn encrypt<Key: KeyId, Data: CompositeEncryptable<Ids, Key, Output> + IdentifyKey<Key>, Output>(
         &self,
         data: Data,
     ) -> Result<Output, crate::CryptoError> {
         let key = data.key_identifier();
-        data.encrypt(&mut self.context(), key, ContentFormat::OctetStream)
+        data.encrypt_composite(&mut self.context(), key)
     }
 
     /// Decrypt a list of items using this key store. The keys returned by
@@ -257,7 +257,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     /// single item encryption.
     pub fn encrypt_list<
         Key: KeyId,
-        Data: Encryptable<Ids, Key, Output> + IdentifyKey<Key> + Send + Sync,
+        Data: CompositeEncryptable<Ids, Key, Output> + IdentifyKey<Key> + Send + Sync,
         Output: Send + Sync,
     >(
         &self,
@@ -272,7 +272,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
 
                 for item in chunk {
                     let key = item.key_identifier();
-                    result.push(item.encrypt(&mut ctx, key, ContentFormat::DomainObject));
+                    result.push(item.encrypt_composite(&mut ctx, key));
                     ctx.clear_local();
                 }
 
@@ -304,9 +304,7 @@ fn batch_chunk_size(len: usize) -> usize {
 #[cfg(test)]
 pub(crate) mod tests {
     use crate::{
-        store::{KeyStore, KeyStoreContext},
-        traits::tests::{TestIds, TestSymmKey},
-        EncString, SymmetricCryptoKey,
+        store::{KeyStore, KeyStoreContext}, traits::tests::{TestIds, TestSymmKey}, EncString, Encryptable, SymmetricCryptoKey
     };
 
     pub struct DataView(pub String, pub TestSymmKey);
@@ -324,14 +322,13 @@ pub(crate) mod tests {
         }
     }
 
-    impl crate::Encryptable<TestIds, TestSymmKey, Data> for DataView {
-        fn encrypt(
+    impl crate::CompositeEncryptable<TestIds, TestSymmKey, Data> for DataView {
+        fn encrypt_composite(
             &self,
             ctx: &mut KeyStoreContext<TestIds>,
             key: TestSymmKey,
-            _content_format: crate::cose::ContentFormat,
         ) -> Result<Data, crate::CryptoError> {
-            Ok(Data(self.0.encrypt(ctx, key, _content_format)?, key))
+            Ok(Data(self.0.encrypt(ctx, key, crate::ContentFormat::Utf8)?, key))
         }
     }
 

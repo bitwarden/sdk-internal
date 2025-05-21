@@ -1,5 +1,5 @@
 mod encryptable;
-pub use encryptable::Encryptable;
+pub use encryptable::{CompositeEncryptable, Encryptable};
 mod decryptable;
 pub use decryptable::Decryptable;
 

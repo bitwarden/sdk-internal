@@ -1,8 +1,47 @@
 use crate::{store::KeyStoreContext, ContentFormat, CryptoError, EncString, KeyId, KeyIds};
 
-/// An encryption operation that takes the input value and encrypts it into the output value.
+/// An encryption operation that takes the input value and encrypts the fields on it recursively.
 /// Implementations should generally consist of calling [Encryptable::encrypt] for all the fields of
 /// the type.
+pub trait CompositeEncryptable<Ids: KeyIds, Key: KeyId, Output> {
+    /// For a struct made up of many small encstrings, such as a cipher, this takes the struct
+    /// and recursively encrypts all the fields / sub-structs.
+    fn encrypt_composite(
+        &self,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Key,
+    ) -> Result<Output, CryptoError>;
+}
+
+impl<Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output>
+    CompositeEncryptable<Ids, Key, Option<Output>> for Option<T>
+{
+    fn encrypt_composite(
+        &self,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Key,
+    ) -> Result<Option<Output>, CryptoError> {
+        self.as_ref()
+            .map(|value| value.encrypt_composite(ctx, key))
+            .transpose()
+    }
+}
+
+impl <Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output>
+    CompositeEncryptable<Ids, Key, Vec<Output>> for Vec<T>
+{
+    fn encrypt_composite(
+        &self,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Key,
+    ) -> Result<Vec<Output>, CryptoError> {
+        self.iter()
+            .map(|value| value.encrypt_composite(ctx, key))
+            .collect()
+    }
+}
+
+/// An encryption operation that takes the input value - a primitive such as `Vec<u8>`, `String` - and encrypts it into the output value.
 pub trait Encryptable<Ids: KeyIds, Key: KeyId, Output> {
     fn encrypt(
         &self,
@@ -89,8 +128,7 @@ impl<Ids: KeyIds, Key: KeyId, T: Encryptable<Ids, Key, Output>, Output>
 #[cfg(test)]
 mod tests {
     use crate::{
-        cose::ContentFormat, traits::tests::*, AsymmetricCryptoKey, Decryptable, Encryptable,
-        KeyStore, SymmetricCryptoKey,
+        cose::ContentFormat, traits::tests::*, AsymmetricCryptoKey, Decryptable, Encryptable, KeyStore, SymmetricCryptoKey
     };
 
     fn test_store() -> KeyStore<TestIds> {

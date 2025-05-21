@@ -31,9 +31,6 @@ pub enum ContentFormat {
     Pkcs8,
     CoseKey,
     OctetStream,
-    /// Domain object should never be serialized. It is used to indicate when we call an encrypt
-    /// operation on a complex object that consists of multiple, individually encrypted fields
-    DomainObject,
 }
 
 /// Encrypts a plaintext message using XChaCha20Poly1305 and returns a COSE Encrypt0 message
@@ -52,8 +49,6 @@ pub(crate) fn encrypt_xchacha20_poly1305(
         ContentFormat::OctetStream => {
             protected_header.content_format(CoapContentFormat::OctetStream)
         }
-        // This should panic, and should never be implemented to be reachable!
-        ContentFormat::DomainObject => unreachable!(),
     };
     let mut protected_header = protected_header.build();
     // This should be adjusted to use the builder pattern once implemented in coset.

@@ -8,8 +8,7 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    generate_random_bytes, ContentFormat, CryptoError, Decryptable, EncString, Encryptable,
-    IdentifyKey, KeyStoreContext,
+    generate_random_bytes, CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -189,12 +188,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendTextView> for SendText {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, SendText> for SendTextView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, SendText> for SendTextView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
-        _content_format: ContentFormat,
     ) -> Result<SendText, CryptoError> {
         Ok(SendText {
             text: self.text.encrypt(ctx, key, ContentFormat::Utf8)?,
@@ -218,12 +216,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendFileView> for SendFile {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, SendFile> for SendFileView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, SendFile> for SendFileView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
-        _content_format: ContentFormat,
     ) -> Result<SendFile, CryptoError> {
         Ok(SendFile {
             id: self.id.clone(),
@@ -299,12 +296,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendListView> for Send {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Send> for SendView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Send> for SendView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
-        _content_format: ContentFormat,
     ) -> Result<Send, CryptoError> {
         // For sends, we first decrypt the send key with the user key, and stretch it to it's full
         // size For the rest of the fields, we ignore the provided SymmetricCryptoKey and
@@ -338,8 +334,8 @@ impl Encryptable<KeyIds, SymmetricKeyId, Send> for SendView {
             }),
 
             r#type: self.r#type,
-            file: self.file.encrypt(ctx, send_key, ContentFormat::Utf8)?,
-            text: self.text.encrypt(ctx, send_key, ContentFormat::Utf8)?,
+            file: self.file.encrypt_composite(ctx, send_key)?,
+            text: self.text.encrypt_composite(ctx, send_key)?,
 
             max_access_count: self.max_access_count,
             access_count: self.access_count,

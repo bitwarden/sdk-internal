@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::CipherIdentityModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext,
+    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -59,12 +59,11 @@ pub struct IdentityView {
     pub license_number: Option<String>,
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Identity> for IdentityView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Identity> for IdentityView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
-        _content_format: ContentFormat,
     ) -> Result<Identity, CryptoError> {
         Ok(Identity {
             title: self.title.encrypt(ctx, key, ContentFormat::Utf8)?,

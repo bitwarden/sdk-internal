@@ -1,6 +1,6 @@
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
+    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -73,12 +73,11 @@ impl IdentifyKey<SymmetricKeyId> for AttachmentFile {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for AttachmentFileView<'_> {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for AttachmentFileView<'_> {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
-        _content_format: ContentFormat,
     ) -> Result<AttachmentEncryptResult, CryptoError> {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key)?;
 
@@ -99,7 +98,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         attachment.size_name = Some(size_name(contents.len()));
 
         Ok(AttachmentEncryptResult {
-            attachment: attachment.encrypt(ctx, ciphers_key, ContentFormat::DomainObject)?,
+            attachment: attachment.encrypt_composite(ctx, ciphers_key)?,
             contents,
         })
     }
@@ -135,12 +134,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, Vec<u8>> for AttachmentFile {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Attachment> for AttachmentView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Attachment> for AttachmentView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
-        _content_format: ContentFormat,
     ) -> Result<Attachment, CryptoError> {
         Ok(Attachment {
             id: self.id.clone(),

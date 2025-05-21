@@ -53,8 +53,8 @@ use crate::{
 ///
 /// const LOCAL_KEY: SymmKeyId = SymmKeyId::Local("local_key_id");
 ///
-/// impl Encryptable<Ids, SymmKeyId, EncString> for Data {
-///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId, content_format: ContentFormat) -> Result<EncString, CryptoError> {
+/// impl CompositeEncryptable<Ids, SymmKeyId, EncString> for Data {
+///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
 ///         let local_key_id = ctx.unwrap_symmetric_key(key, LOCAL_KEY, &self.key)?;
 ///         self.name.encrypt(ctx, local_key_id, content_format)
 ///     }
@@ -382,13 +382,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 #[allow(deprecated)]
 mod tests {
     use crate::{
-        cose::ContentFormat,
-        store::{
+        cose::ContentFormat, store::{
             tests::{Data, DataView},
             KeyStore,
-        },
-        traits::tests::{TestIds, TestSymmKey},
-        Decryptable, Encryptable, SymmetricCryptoKey,
+        }, traits::tests::{TestIds, TestSymmKey}, CompositeEncryptable, Decryptable, Encryptable, SymmetricCryptoKey
     };
 
     #[test]
@@ -409,7 +406,7 @@ mod tests {
         // Encrypt some data with the key
         let data = DataView("Hello, World!".to_string(), key_a0_id);
         let _encrypted: Data = data
-            .encrypt(&mut store.context(), key_a0_id, ContentFormat::DomainObject)
+            .encrypt_composite(&mut store.context(), key_a0_id)
             .unwrap();
     }
 
@@ -449,7 +446,7 @@ mod tests {
 
         let data = DataView("Hello, World!".to_string(), key_2_id);
         let encrypted = data
-            .encrypt(&mut ctx, key_2_id, ContentFormat::OctetStream)
+            .encrypt_composite(&mut ctx, key_2_id)
             .unwrap();
 
         let decrypted1 = encrypted.decrypt(&mut ctx, key_2_id).unwrap();
