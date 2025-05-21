@@ -1,7 +1,7 @@
 use ciborium::{value::Integer, Value};
 use coset::{
     iana::{
-        self, Algorithm, CoapContentFormat, EllipticCurve, EnumI64, KeyOperation, KeyType,
+        Algorithm, CoapContentFormat, EllipticCurve, EnumI64, KeyOperation, KeyType,
         OkpKeyParameter,
     },
     CborSerializable, CoseKey, CoseSign1, Label, RegisteredLabel, RegisteredLabelWithPrivate,
