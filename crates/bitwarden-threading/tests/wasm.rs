@@ -18,7 +18,6 @@ struct Cipher {
     password: String,
 }
 
-// #[wasm_bindgen]
 #[wasm_bindgen(inline_js = "export class CipherService {
     constructor() {
         this.ciphers = {};
