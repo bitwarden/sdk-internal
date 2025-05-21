@@ -266,6 +266,8 @@ impl PureCrypto {
             .to_encoded())
     }
 
+    /// Given a wrapped signing key and the symmetric key it is wrapped with, this returns
+    /// the corresponding verifying key.
     pub fn verifying_key_for_signing_key(
         signing_key: String,
         wrapping_key: Vec<u8>,
