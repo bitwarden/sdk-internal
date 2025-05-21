@@ -136,6 +136,7 @@ pub async fn initialize_user_crypto(
     use crate::auth::{auth_request_decrypt_master_key, auth_request_decrypt_user_key};
 
     let private_key: EncString = req.private_key.parse()?;
+    let signing_key: Option<EncString> = req.signing_key.map(|s| s.parse()).transpose()?;
 
     match req.method {
         InitUserCryptoMethod::Password { password, user_key } => {
@@ -146,7 +147,7 @@ pub async fn initialize_user_crypto(
                 master_key,
                 user_key,
                 private_key,
-                None,
+                signing_key,
             )?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
@@ -164,7 +165,7 @@ pub async fn initialize_user_crypto(
                 pin_key,
                 pin_protected_user_key,
                 private_key,
-                None,
+                signing_key,
             )?;
         }
         InitUserCryptoMethod::AuthRequest {
@@ -186,7 +187,7 @@ pub async fn initialize_user_crypto(
             };
             client
                 .internal
-                .initialize_user_crypto_decrypted_key(user_key, private_key, None)?;
+                .initialize_user_crypto_decrypted_key(user_key, private_key, signing_key)?;
         }
         InitUserCryptoMethod::DeviceKey {
             device_key,
@@ -199,7 +200,7 @@ pub async fn initialize_user_crypto(
 
             client
                 .internal
-                .initialize_user_crypto_decrypted_key(user_key, private_key, None)?;
+                .initialize_user_crypto_decrypted_key(user_key, private_key, signing_key)?;
         }
         InitUserCryptoMethod::KeyConnector {
             master_key,
@@ -215,7 +216,7 @@ pub async fn initialize_user_crypto(
                 master_key,
                 user_key,
                 private_key,
-                None,
+                signing_key,
             )?;
         }
     }
