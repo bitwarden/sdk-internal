@@ -53,7 +53,6 @@ mod test {
                 refresh_token: Default::default(),
                 token_type: Default::default(),
                 private_key: Default::default(),
-                user_key_encrypted_signing_key: Default::default(),
                 key: Default::default(),
                 two_factor_token: Default::default(),
                 kdf: KdfType::default(),

@@ -252,24 +252,25 @@ impl VerifyingKey {
                     return Err(CryptoError::InvalidKey);
                 };
 
-                let crv: i128 = crv.as_integer().ok_or(CryptoError::InvalidKey)?.into();
-                if crv == iana::EllipticCurve::Ed25519.to_i64().into() {
-                    let verifying_key_bytes: &[u8; 32] = x
-                        .as_bytes()
-                        .ok_or(CryptoError::InvalidKey)?
-                        .as_slice()
-                        .try_into()
-                        .map_err(|_| CryptoError::InvalidKey)?;
-                    let verifying_key =
-                        ed25519_dalek::VerifyingKey::from_bytes(verifying_key_bytes)
-                            .map_err(|_| CryptoError::InvalidKey)?;
-                    Ok(VerifyingKey {
-                        id: key_id,
-                        inner: RawVerifyingKey::Ed25519(verifying_key),
-                    })
-                } else {
-                    Err(CryptoError::InvalidKey)
+                if i128::from(crv.as_integer().ok_or(CryptoError::InvalidKey)?) !=
+                    EllipticCurve::Ed25519.to_i64().into()
+                {
+                    return Err(CryptoError::InvalidKey);
                 }
+
+                let verifying_key_bytes: &[u8; 32] = x
+                    .as_bytes()
+                    .ok_or(CryptoError::InvalidKey)?
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| CryptoError::InvalidKey)?;
+                let verifying_key =
+                    ed25519_dalek::VerifyingKey::from_bytes(verifying_key_bytes)
+                        .map_err(|_| CryptoError::InvalidKey)?;
+                Ok(VerifyingKey {
+                    id: key_id,
+                    inner: RawVerifyingKey::Ed25519(verifying_key),
+                })
             }
             _ => Err(CryptoError::InvalidKey),
         }
