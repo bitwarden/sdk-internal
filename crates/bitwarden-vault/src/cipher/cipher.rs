@@ -324,9 +324,7 @@ impl Cipher {
     ) -> Result<SymmetricKeyId, CryptoError> {
         const CIPHER_KEY: SymmetricKeyId = SymmetricKeyId::Local("cipher_key");
         match ciphers_key {
-            Some(ciphers_key) => {
-                ctx.decrypt_symmetric_key_with_symmetric_key(key, CIPHER_KEY, ciphers_key)
-            }
+            Some(ciphers_key) => ctx.unwrap_symmetric_key(key, CIPHER_KEY, ciphers_key),
             None => Ok(key),
         }
     }
@@ -464,7 +462,7 @@ impl CipherView {
         self.reencrypt_attachment_keys(ctx, old_ciphers_key, new_key)?;
         self.reencrypt_fido2_credentials(ctx, old_ciphers_key, new_key)?;
 
-        self.key = Some(ctx.encrypt_symmetric_key_with_symmetric_key(key, new_key)?);
+        self.key = Some(ctx.wrap_symmetric_key(key, new_key)?);
         Ok(())
     }
 
@@ -900,7 +898,7 @@ mod tests {
 
     #[test]
     fn test_generate_cipher_key() {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key_store = create_test_crypto_with_user_key(key);
 
         let original_cipher = generate_cipher();
@@ -926,7 +924,7 @@ mod tests {
 
     #[test]
     fn test_generate_cipher_key_when_a_cipher_key_already_exists() {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key_store = create_test_crypto_with_user_key(key);
 
         let mut original_cipher = generate_cipher();
@@ -936,7 +934,7 @@ mod tests {
             let cipher_key = ctx.generate_symmetric_key(CIPHER_KEY).unwrap();
 
             original_cipher.key = Some(
-                ctx.encrypt_symmetric_key_with_symmetric_key(SymmetricKeyId::User, cipher_key)
+                ctx.wrap_symmetric_key(SymmetricKeyId::User, cipher_key)
                     .unwrap(),
             );
         }
@@ -955,7 +953,7 @@ mod tests {
 
     #[test]
     fn test_generate_cipher_key_ignores_attachments_without_key() {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key_store = create_test_crypto_with_user_key(key);
 
         let mut cipher = generate_cipher();
@@ -978,8 +976,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_to_org() {
         let org = uuid::Uuid::new_v4();
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let org_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         // Create a cipher with a user key
@@ -1003,8 +1001,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_to_org_manually() {
         let org = uuid::Uuid::new_v4();
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let org_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         // Create a cipher with a user key
@@ -1023,8 +1021,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_with_attachment_without_key_to_org() {
         let org = uuid::Uuid::new_v4();
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let org_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         let mut cipher = generate_cipher();
@@ -1047,8 +1045,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_with_attachment_with_key_to_org() {
         let org = uuid::Uuid::new_v4();
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let org_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
         let org_key = SymmetricKeyId::Organization(org);
 
@@ -1059,7 +1057,7 @@ mod tests {
                 .generate_symmetric_key(SymmetricKeyId::Local("test_attachment_key"))
                 .unwrap();
             let attachment_key_enc = ctx
-                .encrypt_symmetric_key_with_symmetric_key(SymmetricKeyId::User, attachment_key)
+                .wrap_symmetric_key(SymmetricKeyId::User, attachment_key)
                 .unwrap();
             #[allow(deprecated)]
             let attachment_key_val = ctx
@@ -1097,7 +1095,7 @@ mod tests {
             .unwrap();
         let new_attachment_key_dec: SymmetricCryptoKey = new_attachment_key_dec.try_into().unwrap();
 
-        assert_eq!(new_attachment_key_dec.to_vec(), attachment_key_val.to_vec());
+        assert_eq!(new_attachment_key_dec, attachment_key_val);
 
         let cred2: Fido2CredentialFullView = cipher
             .login
@@ -1115,8 +1113,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_with_key_with_attachment_with_key_to_org() {
         let org = uuid::Uuid::new_v4();
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
-        let org_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
         let org_key = SymmetricKeyId::Organization(org);
 
@@ -1126,16 +1124,14 @@ mod tests {
             .generate_symmetric_key(SymmetricKeyId::Local("test_cipher_key"))
             .unwrap();
         let cipher_key_enc = ctx
-            .encrypt_symmetric_key_with_symmetric_key(SymmetricKeyId::User, cipher_key)
+            .wrap_symmetric_key(SymmetricKeyId::User, cipher_key)
             .unwrap();
 
         // Attachment has a key that is encrypted with the cipher key
         let attachment_key = ctx
             .generate_symmetric_key(SymmetricKeyId::Local("test_attachment_key"))
             .unwrap();
-        let attachment_key_enc = ctx
-            .encrypt_symmetric_key_with_symmetric_key(cipher_key, attachment_key)
-            .unwrap();
+        let attachment_key_enc = ctx.wrap_symmetric_key(cipher_key, attachment_key).unwrap();
 
         let mut cipher = generate_cipher();
         cipher.key = Some(cipher_key_enc);
@@ -1168,7 +1164,7 @@ mod tests {
         #[allow(deprecated)]
         let cipher_key_val = ctx.dangerous_get_symmetric_key(cipher_key).unwrap();
 
-        assert_eq!(new_cipher_key_dec.to_vec(), cipher_key_val.to_vec());
+        assert_eq!(new_cipher_key_dec, *cipher_key_val);
 
         // Check that the attachment key hasn't changed
         assert_eq!(
@@ -1340,7 +1336,7 @@ mod tests {
     #[test]
     fn test_decrypt_fido2_private_key() {
         let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::generate(rand::thread_rng()));
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
         let mut ctx = key_store.context();
 
         let mut cipher_view = generate_cipher();

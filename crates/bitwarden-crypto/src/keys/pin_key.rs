@@ -1,10 +1,10 @@
 use super::{
     kdf::{Kdf, KdfDerivedKeyMaterial},
     master_key::{decrypt_user_key, encrypt_user_key},
+    utils::stretch_key,
 };
 use crate::{
-    keys::{key_encryptable::CryptoKey, utils::stretch_key},
-    EncString, KeyEncryptable, Result, SymmetricCryptoKey,
+    keys::key_encryptable::CryptoKey, EncString, KeyEncryptable, Result, SymmetricCryptoKey,
 };
 
 /// Pin Key.

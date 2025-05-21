@@ -17,28 +17,40 @@
 use chacha20poly1305::{AeadCore, AeadInPlace, KeyInit, XChaCha20Poly1305};
 use generic_array::GenericArray;
 use rand::{CryptoRng, RngCore};
+use typenum::Unsigned;
 
 use crate::CryptoError;
 
-#[allow(unused)]
+pub(crate) const NONCE_SIZE: usize = <XChaCha20Poly1305 as AeadCore>::NonceSize::USIZE;
+pub(crate) const KEY_SIZE: usize = 32;
+
 pub(crate) struct XChaCha20Poly1305Ciphertext {
     nonce: GenericArray<u8, <XChaCha20Poly1305 as AeadCore>::NonceSize>,
-    ciphertext: Vec<u8>,
+    encrypted_bytes: Vec<u8>,
 }
 
-#[allow(unused)]
-fn encrypt_xchacha20_poly1305(
-    key: &[u8; 32],
+impl XChaCha20Poly1305Ciphertext {
+    pub(crate) fn nonce(&self) -> [u8; NONCE_SIZE] {
+        self.nonce.into()
+    }
+
+    pub(crate) fn encrypted_bytes(&self) -> &[u8] {
+        &self.encrypted_bytes
+    }
+}
+
+pub(crate) fn encrypt_xchacha20_poly1305(
+    key: &[u8; KEY_SIZE],
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
 ) -> XChaCha20Poly1305Ciphertext {
-    let mut rng = rand::thread_rng();
+    let rng = rand::thread_rng();
     encrypt_xchacha20_poly1305_internal(rng, key, plaintext_secret_data, associated_data)
 }
 
 fn encrypt_xchacha20_poly1305_internal(
     rng: impl RngCore + CryptoRng,
-    key: &[u8; 32],
+    key: &[u8; KEY_SIZE],
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
 ) -> XChaCha20Poly1305Ciphertext {
@@ -51,14 +63,13 @@ fn encrypt_xchacha20_poly1305_internal(
 
     XChaCha20Poly1305Ciphertext {
         nonce: *nonce,
-        ciphertext: buffer,
+        encrypted_bytes: buffer,
     }
 }
 
-#[allow(unused)]
 pub(crate) fn decrypt_xchacha20_poly1305(
-    nonce: &[u8; 24],
-    key: &[u8; 32],
+    nonce: &[u8; NONCE_SIZE],
+    key: &[u8; KEY_SIZE],
     ciphertext: &[u8],
     associated_data: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
@@ -79,14 +90,14 @@ mod tests {
 
     #[test]
     fn test_encrypt_decrypt_xchacha20() {
-        let key = [0u8; 32];
+        let key = [0u8; KEY_SIZE];
         let plaintext_secret_data = b"My secret data";
         let authenticated_data = b"My authenticated data";
         let encrypted = encrypt_xchacha20_poly1305(&key, plaintext_secret_data, authenticated_data);
         let decrypted = decrypt_xchacha20_poly1305(
             &encrypted.nonce.into(),
             &key,
-            &encrypted.ciphertext,
+            &encrypted.encrypted_bytes,
             authenticated_data,
         )
         .unwrap();
@@ -95,17 +106,17 @@ mod tests {
 
     #[test]
     fn test_fails_when_ciphertext_changed() {
-        let key = [0u8; 32];
+        let key = [0u8; KEY_SIZE];
         let plaintext_secret_data = b"My secret data";
         let authenticated_data = b"My authenticated data";
 
         let mut encrypted =
             encrypt_xchacha20_poly1305(&key, plaintext_secret_data, authenticated_data);
-        encrypted.ciphertext[0] = encrypted.ciphertext[0].wrapping_add(1);
+        encrypted.encrypted_bytes[0] = encrypted.encrypted_bytes[0].wrapping_add(1);
         let result = decrypt_xchacha20_poly1305(
             &encrypted.nonce.into(),
             &key,
-            &encrypted.ciphertext,
+            &encrypted.encrypted_bytes,
             authenticated_data,
         );
         assert!(result.is_err());
@@ -113,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_fails_when_associated_data_changed() {
-        let key = [0u8; 32];
+        let key = [0u8; KEY_SIZE];
         let plaintext_secret_data = b"My secret data";
         let mut authenticated_data = b"My authenticated data".to_vec();
 
@@ -123,7 +134,7 @@ mod tests {
         let result = decrypt_xchacha20_poly1305(
             &encrypted.nonce.into(),
             &key,
-            &encrypted.ciphertext,
+            &encrypted.encrypted_bytes,
             authenticated_data.as_slice(),
         );
         assert!(result.is_err());
@@ -131,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_fails_when_nonce_changed() {
-        let key = [0u8; 32];
+        let key = [0u8; KEY_SIZE];
         let plaintext_secret_data = b"My secret data";
         let authenticated_data = b"My authenticated data";
 
@@ -141,7 +152,7 @@ mod tests {
         let result = decrypt_xchacha20_poly1305(
             &encrypted.nonce.into(),
             &key,
-            &encrypted.ciphertext,
+            &encrypted.encrypted_bytes,
             authenticated_data,
         );
         assert!(result.is_err());

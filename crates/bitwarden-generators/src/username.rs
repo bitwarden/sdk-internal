@@ -1,12 +1,16 @@
 use bitwarden_crypto::EFF_LONG_WORD_LIST;
+use bitwarden_error::bitwarden_error;
 use rand::{distributions::Distribution, seq::SliceRandom, Rng, RngCore};
 use reqwest::StatusCode;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use tsify_next::Tsify;
 
 use crate::util::capitalize_first_letter;
 
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum UsernameError {
     #[error("Invalid API Key")]
@@ -24,6 +28,7 @@ pub enum UsernameError {
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum AppendType {
     /// Generates a random string of 8 lowercase characters as part of your username
     Random,
@@ -34,6 +39,11 @@ pub enum AppendType {
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify_next::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 /// Configures the email forwarding service to use.
 /// For instructions on how to configure each service, see the documentation:
 /// <https://bitwarden.com/help/generator/#username-types>
@@ -66,6 +76,11 @@ pub enum ForwarderServiceType {
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify_next::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 pub enum UsernameGeneratorRequest {
     /// Generates a single word username
     Word {
