@@ -1,4 +1,4 @@
-use crate::{store::KeyStoreContext, CryptoError, EncString, KeyId, KeyIds};
+use crate::{store::KeyStoreContext, ContentFormat, CryptoError, EncString, KeyId, KeyIds};
 
 /// An encryption operation that takes the input value and encrypts it into the output value.
 /// Implementations should generally consist of calling [Encryptable::encrypt] for all the fields of
@@ -8,7 +8,7 @@ pub trait Encryptable<Ids: KeyIds, Key: KeyId, Output> {
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         key: Key,
-        content_format: crate::cose::ContentFormat,
+        content_format: ContentFormat,
     ) -> Result<Output, CryptoError>;
 }
 
@@ -17,7 +17,7 @@ impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for &[u8] {
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         key: Ids::Symmetric,
-        content_format: crate::cose::ContentFormat,
+        content_format: ContentFormat,
     ) -> Result<EncString, CryptoError> {
         ctx.encrypt_data_with_symmetric_key(key, self, content_format)
     }
@@ -28,7 +28,7 @@ impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for Vec<u8> {
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         key: Ids::Symmetric,
-        content_format: crate::cose::ContentFormat,
+        content_format: ContentFormat,
     ) -> Result<EncString, CryptoError> {
         ctx.encrypt_data_with_symmetric_key(key, self, content_format)
     }
@@ -39,7 +39,7 @@ impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for &str {
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         key: Ids::Symmetric,
-        content_format: crate::cose::ContentFormat,
+        content_format: ContentFormat,
     ) -> Result<EncString, CryptoError> {
         self.as_bytes().encrypt(ctx, key, content_format)
     }
@@ -78,7 +78,7 @@ impl<Ids: KeyIds, Key: KeyId, T: Encryptable<Ids, Key, Output>, Output>
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         key: Key,
-        content_format: crate::cose::ContentFormat,
+        content_format: ContentFormat,
     ) -> Result<Vec<Output>, CryptoError> {
         self.iter()
             .map(|value| value.encrypt(ctx, key, content_format))
