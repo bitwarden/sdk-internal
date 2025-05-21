@@ -15,14 +15,17 @@ pub use asymmetric_crypto_key::{
     AsymmetricCryptoKey, AsymmetricEncryptable, AsymmetricPublicCryptoKey,
 };
 mod signing_crypto_key;
+pub use signing_crypto_key::{SigningKey, *};
 mod user_key;
 pub use user_key::UserKey;
 mod device_key;
 pub use device_key::{DeviceKey, TrustDeviceResponse};
 mod pin_key;
 pub use pin_key::PinKey;
+mod fingerprint;
 mod kdf;
 mod key_id;
+pub(crate) use fingerprint::{Fingerprintable, FingerprintableKey, PublicKeyFingerprint};
 pub use kdf::{
     default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
     default_pbkdf2_iterations, Kdf,

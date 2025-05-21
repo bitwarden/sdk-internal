@@ -25,6 +25,7 @@ bitwarden-ipc = { workspace = true, features = ["wasm"] }
 bitwarden-ssh = { workspace = true, features = ["wasm"] }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
 chrono = { workspace = true }
+base64 = ">=0.22.1, <0.23.0"
 console_error_panic_hook = "0.1.7"
 console_log = { version = "1.0.0", features = ["color"] }
 js-sys = "0.3.68"

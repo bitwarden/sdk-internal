@@ -59,6 +59,12 @@ pub enum CryptoError {
 
     #[error("Signature error, {0}")]
     SignatureError(#[from] SignatureError),
+
+    #[error("Cose encoding error")]
+    CoseEncodingError,
+
+    #[error("Invalid encoding")]
+    InvalidEncoding,
 }
 
 #[derive(Debug, Error)]

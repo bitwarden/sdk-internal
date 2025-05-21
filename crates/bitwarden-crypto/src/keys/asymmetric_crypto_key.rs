@@ -1,14 +1,14 @@
 use std::pin::Pin;
 
-use rsa::{pkcs8::DecodePublicKey, RsaPrivateKey, RsaPublicKey};
+use rsa::{pkcs8::DecodePublicKey, traits::PublicKeyParts, RsaPrivateKey, RsaPublicKey};
 
-use super::key_encryptable::CryptoKey;
+use super::{fingerprint::FingerprintableKey, key_encryptable::CryptoKey};
 use crate::error::{CryptoError, Result};
 
 /// Trait to allow both [`AsymmetricCryptoKey`] and [`AsymmetricPublicCryptoKey`] to be used to
 /// encrypt [UnsignedSharedKey](crate::UnsignedSharedKey).
 pub trait AsymmetricEncryptable {
-    fn to_public_key(&self) -> &RsaPublicKey;
+    fn to_public_rsa_key(&self) -> &RsaPublicKey;
 }
 
 /// An asymmetric public encryption key. Can only encrypt
@@ -29,8 +29,17 @@ impl AsymmetricPublicCryptoKey {
 }
 
 impl AsymmetricEncryptable for AsymmetricPublicCryptoKey {
-    fn to_public_key(&self) -> &RsaPublicKey {
+    fn to_public_rsa_key(&self) -> &RsaPublicKey {
         &self.key
+    }
+}
+
+impl FingerprintableKey for AsymmetricPublicCryptoKey {
+    fn fingerprint_parts(&self) -> Vec<Vec<u8>> {
+        vec![
+            self.key.n().to_bytes_le().as_slice().to_vec(),
+            self.key.e().to_bytes_le().as_slice().to_vec(),
+        ]
     }
 }
 
@@ -93,16 +102,22 @@ impl AsymmetricCryptoKey {
     pub fn to_public_der(&self) -> Result<Vec<u8>> {
         use rsa::pkcs8::EncodePublicKey;
         Ok(self
-            .to_public_key()
+            .to_public_rsa_key()
             .to_public_key_der()
             .map_err(|_| CryptoError::InvalidKey)?
             .as_bytes()
             .to_owned())
     }
+
+    pub fn to_public_key(&self) -> AsymmetricPublicCryptoKey {
+        AsymmetricPublicCryptoKey {
+            key: self.key.to_public_key().clone(),
+        }
+    }
 }
 
 impl AsymmetricEncryptable for AsymmetricCryptoKey {
-    fn to_public_key(&self) -> &RsaPublicKey {
+    fn to_public_rsa_key(&self) -> &RsaPublicKey {
         (*self.key).as_ref()
     }
 }

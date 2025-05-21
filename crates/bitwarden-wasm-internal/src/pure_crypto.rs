@@ -3,8 +3,8 @@ use std::str::FromStr;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
     AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CryptoError, Decryptable, EncString,
-    Encryptable, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey, SymmetricCryptoKey,
-    UnsignedSharedKey,
+    Encryptable, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey, SignatureAlgorithm,
+    SignedPublicKeyOwnershipClaim, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
 };
 use wasm_bindgen::prelude::*;
 
@@ -264,6 +264,40 @@ impl PureCrypto {
                 decapsulation_key.as_slice(),
             )?)?
             .to_encoded())
+    }
+
+    pub fn verifying_key_for_signing_key(
+        signing_key: String,
+        wrapping_key: Vec<u8>,
+    ) -> Result<Vec<u8>, CryptoError> {
+        let bytes = Self::symmetric_decrypt_bytes(signing_key, wrapping_key)?;
+        let signing_key = SigningKey::from_cose(&bytes)?;
+        let verifying_key = signing_key.to_verifying_key();
+        verifying_key.to_cose()
+    }
+
+    /// Returns the algorithm used for the given verifying key.
+    pub fn key_algorithm_for_verifying_key(
+        verifying_key: Vec<u8>,
+    ) -> Result<SignatureAlgorithm, CryptoError> {
+        let verifying_key = VerifyingKey::from_cose(verifying_key.as_slice())?;
+        let algorithm = verifying_key.algorithm();
+        Ok(algorithm)
+    }
+
+    /// For a given signing identity (verifying key), this function verifies that the signing
+    /// identity claimed ownership of the public key. This is a one-sided claim and merely shows
+    /// that the signing identity has the intent to receive messages encrypted to the public
+    /// key.
+    pub fn verify_public_key_ownership_claim(
+        claim: Vec<u8>,
+        public_key: Vec<u8>,
+        verifying_key: Vec<u8>,
+    ) -> Result<bool, CryptoError> {
+        let claim = SignedPublicKeyOwnershipClaim::from_bytes(claim.as_slice())?;
+        let public_key = AsymmetricPublicCryptoKey::from_der(public_key.as_slice())?;
+        let verifying_key = VerifyingKey::from_cose(verifying_key.as_slice())?;
+        claim.verify_claim(&public_key, &verifying_key)
     }
 }
 

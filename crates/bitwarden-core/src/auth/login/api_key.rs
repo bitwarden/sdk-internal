@@ -51,9 +51,12 @@ pub(crate) async fn login_api_key(
         let user_key: EncString = require!(r.key.as_deref()).parse()?;
         let private_key: EncString = require!(r.private_key.as_deref()).parse()?;
 
-        client
-            .internal
-            .initialize_user_crypto_master_key(master_key, user_key, private_key)?;
+        client.internal.initialize_user_crypto_master_key(
+            master_key,
+            user_key,
+            private_key,
+            None,
+        )?;
     }
 
     Ok(ApiKeyLoginResponse::process_response(response))
