@@ -39,7 +39,7 @@ impl PublicKeyOwnershipClaim {
 /// // Initial setup
 /// let bob_signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
 /// let bob_verifying_key = bob_signing_key.to_verifying_key();
-/// let bob_public_key = AsymmetricCryptoKey::generate(&mut OsRng).to_public_key();
+/// let bob_public_key = AsymmetricCryptoKey::make().to_public_key();
 ///
 /// // Alice trusts Bob's verifying key - this becomes Bob's cryptographic identity.
 /// let bob_claim = SignedPublicKeyOwnershipClaim::make_claim_with_key(&bob_public_key, &bob_signing_key).unwrap();
