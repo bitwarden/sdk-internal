@@ -112,17 +112,17 @@ impl SigningKey {
     /// Deserializes a COSE-formatted byte array into a signing key.
     pub fn from_cose(bytes: &[u8]) -> Result<Self> {
         let cose_key = CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
-        let (key_id, Some(algorithm), key_type) = (cose_key.key_id, cose_key.alg, cose_key.kty)
-        else {
+
+        let Some(algorithm) = cose_key.alg else {
             return Err(CryptoError::InvalidKey);
         };
-        let key_id: [u8; KEY_ID_SIZE] = key_id
+        let key_id: [u8; KEY_ID_SIZE] = cose_key
+            .key_id
             .as_slice()
             .try_into()
             .map_err(|_| CryptoError::InvalidKey)?;
         let key_id: KeyId = key_id.into();
-
-        match (key_type, algorithm) {
+        match (cose_key.kty, algorithm) {
             (kty, alg)
                 if kty == RegisteredLabel::Assigned(KeyType::OKP)
                     && alg == RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA) =>
@@ -218,17 +218,16 @@ impl VerifyingKey {
     pub fn from_cose(bytes: &[u8]) -> Result<Self> {
         let cose_key = coset::CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
 
-        let (key_id, Some(algorithm), key_type) = (cose_key.key_id, cose_key.alg, cose_key.kty)
-        else {
+        let Some(algorithm) = cose_key.alg else {
             return Err(CryptoError::InvalidKey);
         };
-        let key_id: [u8; KEY_ID_SIZE] = key_id
+        let key_id: [u8; 16] = cose_key
+            .key_id
             .as_slice()
             .try_into()
             .map_err(|_| CryptoError::InvalidKey)?;
         let key_id: KeyId = key_id.into();
-
-        match (key_type, algorithm) {
+        match (cose_key.kty, algorithm) {
             (kty, alg)
                 if kty == RegisteredLabel::Assigned(KeyType::OKP)
                     && alg == RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA) =>
@@ -252,8 +251,8 @@ impl VerifyingKey {
                     return Err(CryptoError::InvalidKey);
                 };
 
-                if i128::from(crv.as_integer().ok_or(CryptoError::InvalidKey)?) !=
-                    EllipticCurve::Ed25519.to_i64().into()
+                if i128::from(crv.as_integer().ok_or(CryptoError::InvalidKey)?)
+                    != EllipticCurve::Ed25519.to_i64().into()
                 {
                     return Err(CryptoError::InvalidKey);
                 }
@@ -264,9 +263,8 @@ impl VerifyingKey {
                     .as_slice()
                     .try_into()
                     .map_err(|_| CryptoError::InvalidKey)?;
-                let verifying_key =
-                    ed25519_dalek::VerifyingKey::from_bytes(verifying_key_bytes)
-                        .map_err(|_| CryptoError::InvalidKey)?;
+                let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(verifying_key_bytes)
+                    .map_err(|_| CryptoError::InvalidKey)?;
                 Ok(VerifyingKey {
                     id: key_id,
                     inner: RawVerifyingKey::Ed25519(verifying_key),
@@ -315,22 +313,27 @@ impl Signature {
     }
 
     pub(crate) fn namespace(&self) -> Result<SigningNamespace> {
-        let mut namespace = None;
-        for (key, value) in &self.0.protected.header.rest {
-            if let Label::Int(key) = key {
-                if *key == SIGNING_NAMESPACE {
-                    namespace.replace(value);
+        let namespace = self
+            .0
+            .protected
+            .header
+            .rest
+            .iter()
+            .find_map(|(key, value)| {
+                if let Label::Int(key) = key {
+                    if *key == SIGNING_NAMESPACE {
+                        return value.as_integer();
+                    }
                 }
-            }
-        }
-        let Some(namespace) = namespace else {
-            return Err(SignatureError::InvalidNamespace.into());
-        };
-        let Some(namespace) = namespace.as_integer() else {
-            return Err(SignatureError::InvalidNamespace.into());
-        };
-        let namespace: i128 = namespace.into();
-        SigningNamespace::try_from_i64(namespace as i64)
+                None
+            })
+            .ok_or(SignatureError::InvalidNamespace)?;
+
+        SigningNamespace::try_from_i64(
+            i128::from(namespace)
+                .try_into()
+                .map_err(|_| SignatureError::InvalidNamespace)?,
+        )
     }
 
     pub(crate) fn content_type(&self) -> Result<CoapContentFormat, CryptoError> {
@@ -396,22 +399,24 @@ impl SignedObject {
     }
 
     pub(crate) fn namespace(&self) -> Result<SigningNamespace> {
-        let mut namespace = None;
-        for (key, value) in &self.0.protected.header.rest {
-            if let Label::Int(key) = key {
-                if *key == SIGNING_NAMESPACE {
-                    namespace.replace(value);
+        let namespace = self
+            .0
+            .protected
+            .header
+            .rest
+            .iter()
+            .find_map(|(key, value)| {
+                if let Label::Int(key) = key {
+                    if *key == SIGNING_NAMESPACE {
+                        return value.as_integer();
+                    }
                 }
-            }
-        }
-        let Some(namespace) = namespace else {
-            return Err(SignatureError::InvalidNamespace.into());
-        };
-        let Some(namespace) = namespace.as_integer() else {
-            return Err(SignatureError::InvalidNamespace.into());
-        };
+                None
+            })
+            .ok_or(SignatureError::InvalidNamespace)?;
+
         SigningNamespace::try_from_i64(
-            namespace
+            i128::from(namespace)
                 .try_into()
                 .map_err(|_| SignatureError::InvalidNamespace)?,
         )
