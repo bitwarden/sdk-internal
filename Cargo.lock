@@ -403,7 +403,7 @@ dependencies = [
  "serde_json",
  "serde_qs",
  "serde_repr",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tsify-next",
  "uniffi",
@@ -442,7 +442,7 @@ dependencies = [
  "sha1",
  "sha2",
  "subtle",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tsify-next",
  "typenum",
  "uniffi",
@@ -476,7 +476,7 @@ dependencies = [
  "quote",
  "serde",
  "syn",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tsify-next",
  "wasm-bindgen",
 ]
@@ -498,7 +498,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tsify-next",
  "uniffi",
  "uuid",
@@ -524,7 +524,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "uniffi",
  "uuid",
 ]
@@ -542,7 +542,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tsify-next",
  "uniffi",
@@ -558,7 +558,7 @@ dependencies = [
  "js-sys",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tsify-next",
  "wasm-bindgen",
@@ -576,7 +576,7 @@ dependencies = [
  "chrono",
  "serde",
  "serde_repr",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "uniffi",
  "uuid",
  "wasm-bindgen",
@@ -595,7 +595,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "uuid",
  "validator",
@@ -616,7 +616,7 @@ dependencies = [
  "rsa",
  "serde",
  "ssh-key",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tsify-next",
  "uniffi",
  "wasm-bindgen",
@@ -629,6 +629,7 @@ dependencies = [
  "async-trait",
  "bitwarden-error",
  "console_error_panic_hook",
+ "gloo-timers",
  "js-sys",
  "log",
  "serde",
@@ -663,7 +664,7 @@ dependencies = [
  "oslog",
  "rustls-platform-verifier",
  "schemars",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "uniffi",
  "uuid",
 ]
@@ -688,7 +689,7 @@ dependencies = [
  "serde_repr",
  "sha1",
  "sha2",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tsify-next",
  "uniffi",
@@ -1777,6 +1778,18 @@ name = "glob"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8d1add55171497b4705a648c6b583acafb01d58050a51727785f0b2c8e0a2b2"
+
+[[package]]
+name = "gloo-timers"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbb143cf96099802033e0d4f4963b19fd2e0b728bcf076cd9cf7f6634f092994"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "js-sys",
+ "wasm-bindgen",
+]
 
 [[package]]
 name = "goblin"
