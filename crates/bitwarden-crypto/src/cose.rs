@@ -16,8 +16,8 @@ use crate::{
 /// the draft was never published as an RFC, we use a private-use value for the algorithm.
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
 
-/// Labels
-///
+// Labels
+//
 /// The label used for the namespace ensuring strong domain separation when using signatures.
 pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
 
