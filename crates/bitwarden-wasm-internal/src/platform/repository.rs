@@ -43,7 +43,6 @@ macro_rules! create_wasm_repository {
                 self,
             ) -> ::std::sync::Arc<impl bitwarden_core::client::repository::Repository<$ty>> {
                 use ::bitwarden_core::client::repository::*;
-
                 use $crate::platform::repository::__macro_internal::*;
 
                 struct Store(::bitwarden_threading::ThreadBoundRunner<$name>);
