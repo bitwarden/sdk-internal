@@ -4,7 +4,7 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext
+    CompositeEncryptable, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext, TypedEncryptable
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -53,7 +53,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Folder> for FolderView {
     ) -> Result<Folder, CryptoError> {
         Ok(Folder {
             id: self.id,
-            name: self.name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            name: self.name.encrypt(ctx, key)?,
             revision_date: self.revision_date,
         })
     }

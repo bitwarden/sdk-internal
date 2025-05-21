@@ -8,7 +8,7 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    generate_random_bytes, CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext
+    generate_random_bytes, CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext, TypedEncryptable
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -195,7 +195,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, SendText> for SendTextView {
         key: SymmetricKeyId,
     ) -> Result<SendText, CryptoError> {
         Ok(SendText {
-            text: self.text.encrypt(ctx, key, ContentFormat::Utf8)?,
+            text: self.text.encrypt(ctx, key)?,
             hidden: self.hidden,
         })
     }
@@ -224,7 +224,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, SendFile> for SendFileView {
     ) -> Result<SendFile, CryptoError> {
         Ok(SendFile {
             id: self.id.clone(),
-            file_name: self.file_name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            file_name: self.file_name.encrypt(ctx, key)?,
             size: self.size.clone(),
             size_name: self.size_name.clone(),
         })
@@ -324,8 +324,8 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Send> for SendView {
             id: self.id,
             access_id: self.access_id.clone(),
 
-            name: self.name.encrypt(ctx, send_key, ContentFormat::Utf8)?,
-            notes: self.notes.encrypt(ctx, send_key, ContentFormat::Utf8)?,
+            name: self.name.encrypt(ctx, send_key)?,
+            notes: self.notes.encrypt(ctx, send_key)?,
             // In the future, this should support cose key content type
             key: k.encrypt(ctx, key, ContentFormat::OctetStream)?,
             password: self.new_password.as_ref().map(|password| {

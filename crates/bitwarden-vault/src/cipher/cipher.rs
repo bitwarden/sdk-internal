@@ -4,7 +4,7 @@ use bitwarden_core::{
     require, MissingFieldError, VaultLockedError,
 };
 use bitwarden_crypto::{
-    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext
+    CompositeEncryptable, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext, TypedEncryptable
 };
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
@@ -233,10 +233,10 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             key: cipher_view.key,
             name: cipher_view
                 .name
-                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+                .encrypt(ctx, ciphers_key)?,
             notes: cipher_view
                 .notes
-                .encrypt(ctx, ciphers_key, ContentFormat::Utf8)?,
+                .encrypt(ctx, ciphers_key)?,
             r#type: cipher_view.r#type,
             login: cipher_view
                 .login
@@ -825,39 +825,39 @@ mod tests {
         Fido2Credential {
             credential_id: "123"
                 .to_string()
-                .encrypt(ctx, key, ContentFormat::Utf8)
+                .encrypt(ctx, key)
                 .unwrap(),
             key_type: "public-key"
                 .to_string()
-                .encrypt(ctx, key, ContentFormat::Utf8)
+                .encrypt(ctx, key)
                 .unwrap(),
             key_algorithm: "ECDSA"
                 .to_string()
-                .encrypt(ctx, key, ContentFormat::Utf8)
+                .encrypt(ctx, key)
                 .unwrap(),
             key_curve: "P-256"
                 .to_string()
-                .encrypt(ctx, key, ContentFormat::Utf8)
+                .encrypt(ctx, key)
                 .unwrap(),
             key_value: "123"
                 .to_string()
-                .encrypt(ctx, key, ContentFormat::Utf8)
+                .encrypt(ctx, key)
                 .unwrap(),
             rp_id: "123"
                 .to_string()
-                .encrypt(ctx, key, ContentFormat::Utf8)
+                .encrypt(ctx, key)
                 .unwrap(),
             user_handle: None,
             user_name: None,
             counter: "123"
                 .to_string()
-                .encrypt(ctx, key, ContentFormat::Utf8)
+                .encrypt(ctx, key)
                 .unwrap(),
             rp_name: None,
             user_display_name: None,
             discoverable: "true"
                 .to_string()
-                .encrypt(ctx, key, ContentFormat::Utf8)
+                .encrypt(ctx, key)
                 .unwrap(),
             creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
         }
@@ -1354,15 +1354,15 @@ mod tests {
         let original_subtitle = "SHA256:1JjFjvPRkj1Gbf2qRP1dgHiIzEuNAEvp+92x99jw3K0".to_string();
         let fingerprint_encrypted = original_subtitle
             .to_owned()
-            .encrypt(&mut ctx, key, ContentFormat::Utf8)
+            .encrypt(&mut ctx, key)
             .unwrap();
         let private_key_encrypted = ""
             .to_string()
-            .encrypt(&mut ctx, key, ContentFormat::Utf8)
+            .encrypt(&mut ctx, key)
             .unwrap();
         let public_key_encrypted = ""
             .to_string()
-            .encrypt(&mut ctx, key, ContentFormat::Utf8)
+            .encrypt(&mut ctx, key)
             .unwrap();
         let ssh_key_cipher = Cipher {
             id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
@@ -1373,7 +1373,7 @@ mod tests {
             key: None,
             name: "My test ssh key"
                 .to_string()
-                .encrypt(&mut ctx, key, ContentFormat::Utf8)
+                .encrypt(&mut ctx, key)
                 .unwrap(),
             notes: None,
             login: None,

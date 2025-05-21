@@ -382,10 +382,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 #[allow(deprecated)]
 mod tests {
     use crate::{
-        cose::ContentFormat, store::{
+        store::{
             tests::{Data, DataView},
             KeyStore,
-        }, traits::tests::{TestIds, TestSymmKey}, CompositeEncryptable, Decryptable, Encryptable, SymmetricCryptoKey
+        }, traits::tests::{TestIds, TestSymmKey}, CompositeEncryptable, Decryptable, SymmetricCryptoKey
     };
 
     #[test]

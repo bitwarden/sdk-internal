@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::SecretUpdateRequestModel;
 use bitwarden_core::{key_management::SymmetricKeyId, Client};
-use bitwarden_crypto::{ContentFormat, Encryptable};
+use bitwarden_crypto::{Encryptable, TypedEncryptable};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -43,18 +43,18 @@ pub(crate) async fn update_secret(
                 .key
                 .clone()
                 .trim()
-                .encrypt(&mut ctx, key, ContentFormat::Utf8)?
+                .encrypt(&mut ctx, key)?
                 .to_string(),
             value: input
                 .value
                 .clone()
-                .encrypt(&mut ctx, key, ContentFormat::Utf8)?
+                .encrypt(&mut ctx, key)?
                 .to_string(),
             note: input
                 .note
                 .clone()
                 .trim()
-                .encrypt(&mut ctx, key, ContentFormat::Utf8)?
+                .encrypt(&mut ctx, key)?
                 .to_string(),
             project_ids: input.project_ids.clone(),
             access_policies_requests: None,

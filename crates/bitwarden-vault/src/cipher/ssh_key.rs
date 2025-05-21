@@ -1,6 +1,6 @@
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext
+    CompositeEncryptable, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext, TypedEncryptable
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -39,9 +39,9 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, SshKey> for SshKeyView {
         key: SymmetricKeyId,
     ) -> Result<SshKey, CryptoError> {
         Ok(SshKey {
-            private_key: self.private_key.encrypt(ctx, key, ContentFormat::Utf8)?,
-            public_key: self.public_key.encrypt(ctx, key, ContentFormat::Utf8)?,
-            fingerprint: self.fingerprint.encrypt(ctx, key, ContentFormat::Utf8)?,
+            private_key: self.private_key.encrypt(ctx, key)?,
+            public_key: self.public_key.encrypt(ctx, key)?,
+            fingerprint: self.fingerprint.encrypt(ctx, key)?,
         })
     }
 }

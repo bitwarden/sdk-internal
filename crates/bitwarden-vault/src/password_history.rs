@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::CipherPasswordHistoryModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext
+    CompositeEncryptable, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext, TypedEncryptable
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -46,7 +46,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, PasswordHistory> for PasswordH
         key: SymmetricKeyId,
     ) -> Result<PasswordHistory, CryptoError> {
         Ok(PasswordHistory {
-            password: self.password.encrypt(ctx, key, ContentFormat::Utf8)?,
+            password: self.password.encrypt(ctx, key)?,
             last_used_date: self.last_used_date,
         })
     }

@@ -304,7 +304,7 @@ fn batch_chunk_size(len: usize) -> usize {
 #[cfg(test)]
 pub(crate) mod tests {
     use crate::{
-        store::{KeyStore, KeyStoreContext}, traits::tests::{TestIds, TestSymmKey}, EncString, Encryptable, SymmetricCryptoKey
+        store::{KeyStore, KeyStoreContext}, traits::tests::{TestIds, TestSymmKey}, EncString, Encryptable, SymmetricCryptoKey, TypedEncryptable
     };
 
     pub struct DataView(pub String, pub TestSymmKey);
@@ -328,7 +328,7 @@ pub(crate) mod tests {
             ctx: &mut KeyStoreContext<TestIds>,
             key: TestSymmKey,
         ) -> Result<Data, crate::CryptoError> {
-            Ok(Data(self.0.encrypt(ctx, key, crate::ContentFormat::Utf8)?, key))
+            Ok(Data(self.0.encrypt(ctx, key)?, key))
         }
     }
 

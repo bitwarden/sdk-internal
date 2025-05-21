@@ -5,7 +5,7 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext
+    CompositeEncryptable, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext, TypedEncryptable
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -199,24 +199,24 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2Cred
         key: SymmetricKeyId,
     ) -> Result<Fido2Credential, CryptoError> {
         Ok(Fido2Credential {
-            credential_id: self.credential_id.encrypt(ctx, key, ContentFormat::Utf8)?,
-            key_type: self.key_type.encrypt(ctx, key, ContentFormat::Utf8)?,
-            key_algorithm: self.key_algorithm.encrypt(ctx, key, ContentFormat::Utf8)?,
-            key_curve: self.key_curve.encrypt(ctx, key, ContentFormat::Utf8)?,
-            key_value: self.key_value.encrypt(ctx, key, ContentFormat::Utf8)?,
-            rp_id: self.rp_id.encrypt(ctx, key, ContentFormat::Utf8)?,
+            credential_id: self.credential_id.encrypt(ctx, key)?,
+            key_type: self.key_type.encrypt(ctx, key)?,
+            key_algorithm: self.key_algorithm.encrypt(ctx, key)?,
+            key_curve: self.key_curve.encrypt(ctx, key)?,
+            key_value: self.key_value.encrypt(ctx, key)?,
+            rp_id: self.rp_id.encrypt(ctx, key)?,
             user_handle: self
                 .user_handle
                 .as_ref()
-                .map(|h| h.encrypt(ctx, key, ContentFormat::Utf8))
+                .map(|h| h.encrypt(ctx, key))
                 .transpose()?,
-            user_name: self.user_name.encrypt(ctx, key, ContentFormat::Utf8)?,
-            counter: self.counter.encrypt(ctx, key, ContentFormat::Utf8)?,
-            rp_name: self.rp_name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            user_name: self.user_name.encrypt(ctx, key)?,
+            counter: self.counter.encrypt(ctx, key)?,
+            rp_name: self.rp_name.encrypt(ctx, key)?,
             user_display_name: self
                 .user_display_name
-                .encrypt(ctx, key, ContentFormat::Utf8)?,
-            discoverable: self.discoverable.encrypt(ctx, key, ContentFormat::Utf8)?,
+                .encrypt(ctx, key)?,
+            discoverable: self.discoverable.encrypt(ctx, key)?,
             creation_date: self.creation_date,
         })
     }
@@ -323,9 +323,9 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, LoginUri> for LoginUriView {
         key: SymmetricKeyId,
     ) -> Result<LoginUri, CryptoError> {
         Ok(LoginUri {
-            uri: self.uri.encrypt(ctx, key, ContentFormat::Utf8)?,
+            uri: self.uri.encrypt(ctx, key)?,
             r#match: self.r#match,
-            uri_checksum: self.uri_checksum.encrypt(ctx, key, ContentFormat::Utf8)?,
+            uri_checksum: self.uri_checksum.encrypt(ctx, key)?,
         })
     }
 }
@@ -337,11 +337,11 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Login> for LoginView {
         key: SymmetricKeyId,
     ) -> Result<Login, CryptoError> {
         Ok(Login {
-            username: self.username.encrypt(ctx, key, ContentFormat::Utf8)?,
-            password: self.password.encrypt(ctx, key, ContentFormat::Utf8)?,
+            username: self.username.encrypt(ctx, key)?,
+            password: self.password.encrypt(ctx, key)?,
             password_revision_date: self.password_revision_date,
             uris: self.uris.encrypt_composite(ctx, key)?,
-            totp: self.totp.encrypt(ctx, key, ContentFormat::Utf8)?,
+            totp: self.totp.encrypt(ctx, key)?,
             autofill_on_page_load: self.autofill_on_page_load,
             fido2_credentials: self.fido2_credentials.clone(),
         })
@@ -407,28 +407,28 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2Cred
         key: SymmetricKeyId,
     ) -> Result<Fido2Credential, CryptoError> {
         Ok(Fido2Credential {
-            credential_id: self.credential_id.encrypt(ctx, key, ContentFormat::Utf8)?,
-            key_type: self.key_type.encrypt(ctx, key, ContentFormat::Utf8)?,
-            key_algorithm: self.key_algorithm.encrypt(ctx, key, ContentFormat::Utf8)?,
-            key_curve: self.key_curve.encrypt(ctx, key, ContentFormat::Utf8)?,
+            credential_id: self.credential_id.encrypt(ctx, key)?,
+            key_type: self.key_type.encrypt(ctx, key)?,
+            key_algorithm: self.key_algorithm.encrypt(ctx, key)?,
+            key_curve: self.key_curve.encrypt(ctx, key)?,
             key_value: self.key_value.clone(),
-            rp_id: self.rp_id.encrypt(ctx, key, ContentFormat::Utf8)?,
+            rp_id: self.rp_id.encrypt(ctx, key)?,
             user_handle: self
                 .user_handle
                 .as_ref()
-                .map(|h| h.encrypt(ctx, key, ContentFormat::Utf8))
+                .map(|h| h.encrypt(ctx, key))
                 .transpose()?,
             user_name: self
                 .user_name
                 .as_ref()
-                .map(|n| n.encrypt(ctx, key, ContentFormat::Utf8))
+                .map(|n| n.encrypt(ctx, key))
                 .transpose()?,
-            counter: self.counter.encrypt(ctx, key, ContentFormat::Utf8)?,
-            rp_name: self.rp_name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            counter: self.counter.encrypt(ctx, key)?,
+            rp_name: self.rp_name.encrypt(ctx, key)?,
             user_display_name: self
                 .user_display_name
-                .encrypt(ctx, key, ContentFormat::Utf8)?,
-            discoverable: self.discoverable.encrypt(ctx, key, ContentFormat::Utf8)?,
+                .encrypt(ctx, key)?,
+            discoverable: self.discoverable.encrypt(ctx, key)?,
             creation_date: self.creation_date,
         })
     }

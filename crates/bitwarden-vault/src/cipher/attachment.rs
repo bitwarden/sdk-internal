@@ -1,6 +1,6 @@
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext
+    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext, TypedEncryptable
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -145,7 +145,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Attachment> for AttachmentView
             url: self.url.clone(),
             size: self.size.clone(),
             size_name: self.size_name.clone(),
-            file_name: self.file_name.encrypt(ctx, key, ContentFormat::Utf8)?,
+            file_name: self.file_name.encrypt(ctx, key)?,
             key: self.key.clone(),
         })
     }
