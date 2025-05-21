@@ -60,4 +60,8 @@ impl VaultClient {
             .generate_totp_cipher_view(view, time)
             .map_err(Error::Totp)?)
     }
+
+    pub async fn print_the_ciphers(&self) -> String {
+        self.0.print_the_ciphers().await
+    }
 }

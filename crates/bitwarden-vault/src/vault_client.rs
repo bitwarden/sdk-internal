@@ -2,7 +2,7 @@ use bitwarden_core::Client;
 
 use crate::{
     sync::{sync, SyncError},
-    SyncRequest, SyncResponse,
+    Cipher, SyncRequest, SyncResponse,
 };
 
 #[derive(Clone)]
@@ -17,6 +17,20 @@ impl VaultClient {
 
     pub async fn sync(&self, input: &SyncRequest) -> Result<SyncResponse, SyncError> {
         sync(&self.client, input).await
+    }
+
+    pub async fn print_the_ciphers(&self) -> String {
+        let store = self
+            .client
+            .internal
+            .get_repository::<Cipher>()
+            .expect("msg");
+        let mut result = String::new();
+        let ciphers = store.list().await.expect("msg");
+        for cipher in ciphers {
+            result.push_str(format!("{cipher:?}\n").as_str());
+        }
+        result
     }
 }
 

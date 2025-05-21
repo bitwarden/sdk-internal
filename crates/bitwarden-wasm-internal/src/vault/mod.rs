@@ -36,4 +36,8 @@ impl VaultClient {
     pub fn totp(&self) -> TotpClient {
         TotpClient::new(self.0.clone())
     }
+
+    pub async fn print_the_ciphers(&self) -> String {
+        self.0.print_the_ciphers().await
+    }
 }
