@@ -859,7 +859,7 @@ mod tests {
         let invalid_private_key = "bad_key"
             .to_string()
             .into_bytes()
-            .encrypt_with_key(&user_key.0, bitwarden_crypto::ContentFormat::Utf8)
+            .encrypt_with_key(&user_key.0, ContentFormat::Utf8)
             .unwrap();
 
         let request = VerifyAsymmetricKeysRequest {
