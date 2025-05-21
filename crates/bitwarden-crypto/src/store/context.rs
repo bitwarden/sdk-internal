@@ -456,9 +456,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        store::{tests::DataView, KeyStore},
-        traits::tests::{TestIds, TestSigningKey, TestSymmKey},
-        CryptoError, Decryptable, Encryptable, SignatureAlgorithm, SigningKey, SymmetricCryptoKey,
+        store::{tests::DataView, KeyStore}, traits::tests::{TestIds, TestSigningKey, TestSymmKey}, CryptoError, Decryptable, Encryptable, SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey
     };
 
     #[test]
@@ -565,11 +563,11 @@ mod tests {
                 &TestData {
                     data: "Hello".to_string(),
                 },
-                &&crate::SigningNamespace::ExampleNamespace,
+                &SigningNamespace::ExampleNamespace,
             )
             .unwrap();
         let payload: Result<TestData, CryptoError> = verifying_key
-            .get_verified_payload(&signed_object, &crate::SigningNamespace::ExampleNamespace);
+            .get_verified_payload(&signed_object, &SigningNamespace::ExampleNamespace);
         assert!(payload.is_ok());
 
         let (signature, serialized_message) = store
@@ -579,12 +577,12 @@ mod tests {
                 &TestData {
                     data: "Hello".to_string(),
                 },
-                &&crate::SigningNamespace::ExampleNamespace,
+                &SigningNamespace::ExampleNamespace,
             )
             .unwrap();
         assert!(verifying_key.verify_signature(
             &serialized_message,
-            &crate::SigningNamespace::ExampleNamespace,
+            &SigningNamespace::ExampleNamespace,
             &signature
         ));
     }
