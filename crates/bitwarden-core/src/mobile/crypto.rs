@@ -133,7 +133,7 @@ pub async fn initialize_user_crypto(
     let private_key: EncString = req.private_key.parse()?;
 
     if let Some(user_id) = req.user_id {
-        client.internal.set_user_id(user_id);
+        client.internal.init_user_id(user_id)?;
     }
 
     match req.method {
