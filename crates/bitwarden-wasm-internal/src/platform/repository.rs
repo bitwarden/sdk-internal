@@ -1,45 +1,4 @@
-use ::tokio::sync::oneshot::Sender;
-use bitwarden_core::client::repository::RepositoryError;
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
-
-pub enum RepositoryMessage<T> {
-    Get(String, Sender<Result<Option<T>, RepositoryError>>),
-    List(Sender<Result<Vec<T>, RepositoryError>>),
-    Set(String, T, Sender<Result<(), RepositoryError>>),
-    Remove(String, Sender<Result<(), RepositoryError>>),
-}
-
-#[derive(Debug, Clone)]
-pub struct ChannelRepository<T> {
-    pub sender: ::tokio::sync::mpsc::Sender<RepositoryMessage<T>>,
-}
-
-impl<T> ChannelRepository<T> {
-    async fn send<Res>(&self, func: impl FnOnce(Sender<Res>) -> RepositoryMessage<T>) -> Res {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        self.sender
-            .send(func(tx))
-            .await
-            .expect("must always send a message");
-        rx.await.expect("must always receive a response")
-    }
-}
-
-#[async_trait::async_trait]
-impl<T: Send> bitwarden_core::client::repository::Repository<T> for ChannelRepository<T> {
-    async fn get(&self, id: String) -> Result<Option<T>, RepositoryError> {
-        self.send(|tx| RepositoryMessage::Get(id, tx)).await
-    }
-    async fn list(&self) -> Result<Vec<T>, RepositoryError> {
-        self.send(|tx| RepositoryMessage::List(tx)).await
-    }
-    async fn set(&self, id: String, value: T) -> Result<(), RepositoryError> {
-        self.send(|tx| RepositoryMessage::Set(id, value, tx)).await
-    }
-    async fn remove(&self, id: String) -> Result<(), RepositoryError> {
-        self.send(|tx| RepositoryMessage::Remove(id, tx)).await
-    }
-}
+use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen(typescript_custom_section)]
 const REPOSITORY_CUSTOM_TS_TYPE: &'static str = r#"
@@ -50,16 +9,6 @@ export interface Repository<T> {
     remove(id: string): Promise<void>;
 }
 "#;
-pub fn convert_result<T: serde::de::DeserializeOwned>(
-    result: Result<JsValue, JsValue>,
-) -> Result<T, RepositoryError> {
-    result
-        .map_err(|e| RepositoryError::Internal(format!("{e:?}")))
-        .and_then(|value| {
-            ::tsify_next::serde_wasm_bindgen::from_value(value)
-                .map_err(|e| RepositoryError::Internal(e.to_string()))
-        })
-}
 
 macro_rules! create_wasm_repository {
     ($name:ident, $ty:ty) => {
@@ -92,44 +41,72 @@ macro_rules! create_wasm_repository {
         impl $name {
             pub fn into_channel_impl(
                 self,
-            ) -> ::std::sync::Arc<$crate::platform::repository::ChannelRepository<$ty>> {
-                let (tx, mut rx) = tokio::sync::mpsc::channel(16);
+            ) -> ::std::sync::Arc<impl bitwarden_core::client::repository::Repository<$ty>> {
+                use ::bitwarden_core::client::repository::*;
 
-                use $crate::platform::repository::RepositoryMessage;
+                use crate::platform::repository::__macro_internal::*;
 
-                wasm_bindgen_futures::spawn_local(async move {
-                    while let Some(cmd) = rx.recv().await {
-                        match cmd {
-                            RepositoryMessage::Get(id, sender) => {
-                                let result = self.get(id).await;
-                                let _ = sender
-                                    .send($crate::platform::repository::convert_result(result));
-                            }
-                            RepositoryMessage::List(sender) => {
-                                let result = self.list().await;
-                                let _ = sender
-                                    .send($crate::platform::repository::convert_result(result));
-                            }
-                            RepositoryMessage::Set(id, value, sender) => {
-                                let result = self.set(id, value).await;
-                                let _ = sender.send($crate::platform::repository::convert_result(
-                                    result.and(Ok(::wasm_bindgen::JsValue::UNDEFINED)),
-                                ));
-                            }
-                            RepositoryMessage::Remove(id, sender) => {
-                                let result = self.remove(id).await;
-                                let _ = sender.send($crate::platform::repository::convert_result(
-                                    result.and(Ok(::wasm_bindgen::JsValue::UNDEFINED)),
-                                ));
-                            }
-                        }
+                struct Store(::bitwarden_threading::ThreadBoundRunner<CipherRepository>);
+                let store = Store(::bitwarden_threading::ThreadBoundRunner::new(self));
+
+                #[async_trait::async_trait]
+                impl Repository<Cipher> for Store {
+                    async fn get(&self, id: String) -> Result<Option<Cipher>, RepositoryError> {
+                        run_convert(&self.0, |s| async move { s.get(id).await }).await
                     }
-                });
-                ::std::sync::Arc::new($crate::platform::repository::ChannelRepository {
-                    sender: tx,
-                })
+                    async fn list(&self) -> Result<Vec<Cipher>, RepositoryError> {
+                        run_convert(&self.0, |s| async move { s.list().await }).await
+                    }
+                    async fn set(&self, id: String, value: Cipher) -> Result<(), RepositoryError> {
+                        run_convert(&self.0, |s| async move { s.set(id, value).await.and(UNIT) })
+                            .await
+                    }
+                    async fn remove(&self, id: String) -> Result<(), RepositoryError> {
+                        run_convert(&self.0, |s| async move { s.remove(id).await.and(UNIT) }).await
+                    }
+                }
+
+                ::std::sync::Arc::new(store)
             }
         }
     };
 }
 pub(super) use create_wasm_repository;
+
+/// Some utilities to handle the conversion of JsValue to Rust types.
+/// They exist outside the macro to try to reduce code bloat in the generated code.
+#[doc(hidden)]
+pub mod __macro_internal {
+    use std::{future::Future, rc::Rc};
+
+    use bitwarden_core::client::repository::RepositoryError;
+    use wasm_bindgen::JsValue;
+
+    pub const UNIT: Result<JsValue, JsValue> = Ok(JsValue::UNDEFINED);
+
+    pub async fn run_convert<T: 'static, Func, Fut, Ret>(
+        runner: &::bitwarden_threading::ThreadBoundRunner<T>,
+        f: Func,
+    ) -> Result<Ret, RepositoryError>
+    where
+        Func: FnOnce(Rc<T>) -> Fut + Send + 'static,
+        Fut: Future<Output = Result<JsValue, JsValue>>,
+        Ret: serde::de::DeserializeOwned + Send + Sync + 'static,
+    {
+        runner
+            .run_in_thread(|state| async move { convert_result(f(state).await) })
+            .await
+            .expect("Task should not panic")
+    }
+
+    fn convert_result<T: serde::de::DeserializeOwned>(
+        result: Result<JsValue, JsValue>,
+    ) -> Result<T, RepositoryError> {
+        result
+            .map_err(|e| RepositoryError::Internal(format!("{e:?}")))
+            .and_then(|value| {
+                ::tsify_next::serde_wasm_bindgen::from_value(value)
+                    .map_err(|e| RepositoryError::Internal(e.to_string()))
+            })
+    }
+}

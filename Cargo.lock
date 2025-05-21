@@ -710,6 +710,7 @@ dependencies = [
  "bitwarden-generators",
  "bitwarden-ipc",
  "bitwarden-ssh",
+ "bitwarden-threading",
  "bitwarden-vault",
  "chrono",
  "console_error_panic_hook",

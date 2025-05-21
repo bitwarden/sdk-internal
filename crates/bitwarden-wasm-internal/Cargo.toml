@@ -24,6 +24,7 @@ bitwarden-exporters = { workspace = true, features = ["wasm"] }
 bitwarden-generators = { workspace = true, features = ["wasm"] }
 bitwarden-ipc = { workspace = true, features = ["wasm"] }
 bitwarden-ssh = { workspace = true, features = ["wasm"] }
+bitwarden-threading = { workspace = true }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
 chrono = { workspace = true }
 console_error_panic_hook = "0.1.7"
