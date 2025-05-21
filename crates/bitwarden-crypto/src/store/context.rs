@@ -8,7 +8,9 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend, AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, Signature, SignatureAlgorithm, SignedObject, SigningKey, SymmetricCryptoKey, UnsignedSharedKey
+    derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
+    AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, Signature,
+    SignatureAlgorithm, SignedObject, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -263,10 +265,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     // Generate a new signature key using the current default algorithm, and store it in the context
-    pub fn make_signing_key(
-        &mut self,
-        key_id: Ids::Signing,
-    ) -> Result<Ids::Signing> {
+    pub fn make_signing_key(&mut self, key_id: Ids::Signing) -> Result<Ids::Signing> {
         let key = SigningKey::make(SignatureAlgorithm::default_algorithm())?;
         #[allow(deprecated)]
         self.set_signing_key(key_id, key)?;
@@ -421,8 +420,9 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         }
     }
 
-    /// Signs the given data using the specified signing key, for the given [crate::SigningNamespace]
-    /// and returns the signature and the serialized message. See [crate::SigningKey::sign]
+    /// Signs the given data using the specified signing key, for the given
+    /// [crate::SigningNamespace] and returns the signature and the serialized message. See
+    /// [crate::SigningKey::sign]
     #[allow(unused)]
     pub(crate) fn sign<Message: Serialize>(
         &self,
@@ -434,8 +434,9 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key.sign(message, namespace)
     }
 
-    /// Signs the given data using the specified signing key, for the given [crate::SigningNamespace]
-    /// and returns the signature and the serialized message. See [crate::SigningKey::sign_detached]
+    /// Signs the given data using the specified signing key, for the given
+    /// [crate::SigningNamespace] and returns the signature and the serialized message. See
+    /// [crate::SigningKey::sign_detached]
     #[allow(unused)]
     pub(crate) fn sign_detached<Message: Serialize>(
         &self,
@@ -455,7 +456,9 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        store::{tests::DataView, KeyStore}, traits::tests::{TestIds, TestSigningKey, TestSymmKey}, CryptoError, Decryptable, Encryptable, SignatureAlgorithm, SigningKey, SymmetricCryptoKey
+        store::{tests::DataView, KeyStore},
+        traits::tests::{TestIds, TestSigningKey, TestSymmKey},
+        CryptoError, Decryptable, Encryptable, SignatureAlgorithm, SigningKey, SymmetricCryptoKey,
     };
 
     #[test]
@@ -535,7 +538,6 @@ mod tests {
         assert_eq!(decrypted1.0, decrypted2.0);
     }
 
-
     #[test]
     fn test_signing() {
         let store: KeyStore<TestIds> = KeyStore::default();
@@ -558,15 +560,32 @@ mod tests {
         }
         let signed_object = store
             .context()
-            .sign(key_a0_id, &TestData { data: "Hello".to_string() }, &&crate::SigningNamespace::ExampleNamespace)
+            .sign(
+                key_a0_id,
+                &TestData {
+                    data: "Hello".to_string(),
+                },
+                &&crate::SigningNamespace::ExampleNamespace,
+            )
             .unwrap();
-        let payload: Result<TestData, CryptoError> = verifying_key.get_verified_payload(&signed_object, &crate::SigningNamespace::ExampleNamespace);
+        let payload: Result<TestData, CryptoError> = verifying_key
+            .get_verified_payload(&signed_object, &crate::SigningNamespace::ExampleNamespace);
         assert!(payload.is_ok());
 
         let (signature, serialized_message) = store
             .context()
-            .sign_detached(key_a0_id, &TestData { data: "Hello".to_string() }, &&crate::SigningNamespace::ExampleNamespace)
+            .sign_detached(
+                key_a0_id,
+                &TestData {
+                    data: "Hello".to_string(),
+                },
+                &&crate::SigningNamespace::ExampleNamespace,
+            )
             .unwrap();
-        assert!(verifying_key.verify_signature(&serialized_message, &crate::SigningNamespace::ExampleNamespace, &signature));
+        assert!(verifying_key.verify_signature(
+            &serialized_message,
+            &crate::SigningNamespace::ExampleNamespace,
+            &signature
+        ));
     }
 }
