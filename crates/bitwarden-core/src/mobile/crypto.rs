@@ -32,7 +32,7 @@ pub enum MobileCryptoError {
     Crypto(#[from] bitwarden_crypto::CryptoError),
 }
 
-/// thState used for initializing the user cryptographic state.
+/// State used for initializing the user cryptographic state.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
