@@ -67,7 +67,7 @@ fn derive_fingerprint(fingerprint_parts: Vec<Vec<u8>>) -> PublicKeyFingerprint {
 
 /// This function ensures an injective mapping of the inputs to the output hash.
 /// Concatenating the inputs does not work. For RSA this could mean that:
-/// with data = [N,E], |nnnnnn|ee|, and |nnnnnnn|e| would both be valid interpretations of the
+/// with data = \[N,E\], |nnnnnn|ee|, and |nnnnnnn|e| would both be valid interpretations of the
 /// concatenation of the bytes, and thus may lead to the same hash for different (N,E) pairs.
 ///
 /// This function hashes each input separately, concatenates the hashes, and then hashes the result.
