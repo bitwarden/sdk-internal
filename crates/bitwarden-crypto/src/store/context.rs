@@ -452,10 +452,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 #[cfg(test)]
 #[allow(deprecated)]
 mod tests {
+    use serde::{Deserialize, Serialize};
+
     use crate::{
-        store::{tests::DataView, KeyStore},
-        traits::tests::{TestIds, TestSigningKey, TestSymmKey},
-        Decryptable, Encryptable, SignatureAlgorithm, SigningKey, SymmetricCryptoKey,
+        store::{tests::DataView, KeyStore}, traits::tests::{TestIds, TestSigningKey, TestSymmKey}, CryptoError, Decryptable, Encryptable, SignatureAlgorithm, SigningKey, SymmetricCryptoKey
     };
 
     #[test]
@@ -533,5 +533,40 @@ mod tests {
 
         // Assert that the decrypted data is the same
         assert_eq!(decrypted1.0, decrypted2.0);
+    }
+
+
+    #[test]
+    fn test_signing() {
+        let store: KeyStore<TestIds> = KeyStore::default();
+
+        // Generate and insert a key
+        let key_a0_id = TestSigningKey::A(0);
+        let key_a0 = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+        let verifying_key = key_a0.to_verifying_key();
+        store
+            .context_mut()
+            .set_signing_key(key_a0_id, key_a0)
+            .unwrap();
+
+        assert!(store.context().has_signing_key(key_a0_id));
+
+        // Sign some data with the key
+        #[derive(Serialize, Deserialize)]
+        struct TestData {
+            data: String,
+        }
+        let signed_object = store
+            .context()
+            .sign(key_a0_id, &TestData { data: "Hello".to_string() }, &&crate::SigningNamespace::ExampleNamespace)
+            .unwrap();
+        let payload: Result<TestData, CryptoError> = verifying_key.get_verified_payload(&signed_object, &crate::SigningNamespace::ExampleNamespace);
+        assert!(payload.is_ok());
+
+        let (signature, serialized_message) = store
+            .context()
+            .sign_detached(key_a0_id, &TestData { data: "Hello".to_string() }, &&crate::SigningNamespace::ExampleNamespace)
+            .unwrap();
+        assert!(verifying_key.verify_signature(&serialized_message, &crate::SigningNamespace::ExampleNamespace, &signature));
     }
 }
