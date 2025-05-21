@@ -372,7 +372,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
-                EncString::encrypt_xchacha20_poly1305(data, key, &content_format)
+                EncString::encrypt_xchacha20_poly1305(data, key, content_format)
             }
         }
     }

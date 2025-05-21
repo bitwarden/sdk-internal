@@ -8,8 +8,7 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
-    SymmetricCryptoKey, UnsignedSharedKey, UserKey,
+    AsymmetricCryptoKey, ContentFormat, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -329,7 +328,7 @@ pub(super) fn derive_pin_key(
 
     Ok(DerivePinKeyResponse {
         pin_protected_user_key,
-        encrypted_pin: pin.encrypt_with_key(user_key, &bitwarden_crypto::ContentFormat::Utf8)?,
+        encrypted_pin: pin.encrypt_with_key(user_key, ContentFormat::Utf8)?,
     })
 }
 

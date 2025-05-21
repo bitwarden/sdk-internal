@@ -58,10 +58,10 @@ pub(crate) fn export_encrypted_json(
         kdf_memory,
         kdf_parallelism,
         enc_key_validation: enc_key_validation
-            .encrypt_with_key(&key, &ContentFormat::Utf8)?
+            .encrypt_with_key(&key, ContentFormat::Utf8)?
             .to_string(),
         data: decrypted_export
-            .encrypt_with_key(&key, &ContentFormat::Utf8)?
+            .encrypt_with_key(&key, ContentFormat::Utf8)?
             .to_string(),
     };
 

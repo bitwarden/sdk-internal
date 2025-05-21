@@ -56,7 +56,7 @@ impl PureCrypto {
 
     pub fn symmetric_encrypt_string(plain: String, key: Vec<u8>) -> Result<String, CryptoError> {
         plain
-            .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?, &ContentFormat::Utf8)
+            .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?, ContentFormat::Utf8)
             .map(|enc| enc.to_string())
     }
 
@@ -64,7 +64,7 @@ impl PureCrypto {
         plain
             .encrypt_with_key(
                 &SymmetricCryptoKey::try_from(key)?,
-                &ContentFormat::OctetStream,
+                ContentFormat::OctetStream,
             )
             .map(|enc| enc.to_string())
     }
@@ -76,7 +76,7 @@ impl PureCrypto {
         plain
             .encrypt_with_key(
                 &SymmetricCryptoKey::try_from(key)?,
-                &ContentFormat::OctetStream,
+                ContentFormat::OctetStream,
             )?
             .to_buffer()
     }

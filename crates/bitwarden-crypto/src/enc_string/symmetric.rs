@@ -259,7 +259,7 @@ impl EncString {
     pub(crate) fn encrypt_xchacha20_poly1305(
         data_dec: &[u8],
         key: &XChaCha20Poly1305Key,
-        content_format: &ContentFormat,
+        content_format: ContentFormat,
     ) -> Result<EncString> {
         let data = crate::cose::encrypt_xchacha20_poly1305(data_dec, key, content_format)?;
         Ok(EncString::Cose_Encrypt0_B64 { data })
@@ -279,7 +279,7 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
     fn encrypt_with_key(
         self,
         key: &SymmetricCryptoKey,
-        content_format: &ContentFormat,
+        content_format: ContentFormat,
     ) -> Result<EncString> {
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
@@ -320,7 +320,7 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for String {
     fn encrypt_with_key(
         self,
         key: &SymmetricCryptoKey,
-        content_format: &ContentFormat,
+        content_format: ContentFormat,
     ) -> Result<EncString> {
         self.as_bytes().encrypt_with_key(key, content_format)
     }
@@ -330,7 +330,7 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
     fn encrypt_with_key(
         self,
         key: &SymmetricCryptoKey,
-        content_format: &ContentFormat,
+        content_format: ContentFormat,
     ) -> Result<EncString> {
         self.as_bytes().encrypt_with_key(key, content_format)
     }
@@ -377,7 +377,7 @@ mod tests {
         let test_string = "encrypted_test_string";
         let cipher = test_string
             .to_owned()
-            .encrypt_with_key(&key, &ContentFormat::Utf8)
+            .encrypt_with_key(&key, ContentFormat::Utf8)
             .unwrap();
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);
@@ -390,7 +390,7 @@ mod tests {
         let test_string = "encrypted_test_string";
         let cipher = test_string
             .to_string()
-            .encrypt_with_key(&key, &ContentFormat::Utf8)
+            .encrypt_with_key(&key, ContentFormat::Utf8)
             .unwrap();
 
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
@@ -404,7 +404,7 @@ mod tests {
         let test_string: &'static str = "encrypted_test_string";
         let cipher = test_string
             .to_string()
-            .encrypt_with_key(&key, &ContentFormat::Utf8)
+            .encrypt_with_key(&key, ContentFormat::Utf8)
             .unwrap();
 
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();

@@ -40,7 +40,7 @@ pub enum ContentFormat {
 pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext: &[u8],
     key: &crate::XChaCha20Poly1305Key,
-    content_format: &ContentFormat,
+    content_format: ContentFormat,
 ) -> Result<Vec<u8>, CryptoError> {
     let protected_header = coset::HeaderBuilder::new();
     let protected_header = match content_format {
@@ -61,7 +61,7 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     // https://github.com/google/coset/issues/105
     protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
 
-    let encoded_plaintext = if *content_format == ContentFormat::Utf8 {
+    let encoded_plaintext = if content_format == ContentFormat::Utf8 {
         // Pad the data to a block size in order to hide plaintext length
         let mut plaintext = plaintext.to_vec();
         crate::keys::utils::pad_bytes(&mut plaintext, XCHACHA20_TEXT_PAD_BLOCK_SIZE);
@@ -176,7 +176,7 @@ mod test {
 
         let plaintext = b"Hello, world!";
         let encrypted =
-            encrypt_xchacha20_poly1305(plaintext, key, &ContentFormat::OctetStream).unwrap();
+            encrypt_xchacha20_poly1305(plaintext, key, ContentFormat::OctetStream).unwrap();
         let decrypted = decrypt_xchacha20_poly1305(&encrypted, key).unwrap();
         assert_eq!(decrypted, plaintext);
     }
