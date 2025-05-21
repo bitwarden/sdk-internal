@@ -15,8 +15,6 @@ pub struct IdentityTokenSuccessResponse {
     pub(crate) private_key: Option<String>,
     #[serde(alias = "Key")]
     pub(crate) key: Option<String>,
-    #[serde(alias = "userKeyEncryptedSigningKey")]
-    pub(crate) user_key_encrypted_signing_key: Option<String>,
     #[serde(rename = "twoFactorToken")]
     two_factor_token: Option<String>,
     #[serde(alias = "Kdf")]

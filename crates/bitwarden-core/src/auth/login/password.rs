@@ -52,17 +52,12 @@ pub(crate) async fn login_password(
 
         let user_key: EncString = require!(r.key.as_deref()).parse()?;
         let private_key: EncString = require!(r.private_key.as_deref()).parse()?;
-        let signing_key = r
-            .user_key_encrypted_signing_key
-            .clone()
-            .map(|s| s.parse())
-            .transpose()?;
 
         client.internal.initialize_user_crypto_master_key(
             master_key,
             user_key,
             private_key,
-            signing_key,
+            None
         )?;
     }
 
