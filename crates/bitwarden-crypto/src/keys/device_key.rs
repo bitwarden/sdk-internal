@@ -29,10 +29,9 @@ impl DeviceKey {
     /// Note: Input has to be a SymmetricCryptoKey instead of UserKey because that's what we get
     /// from EncSettings.
     pub fn trust_device(user_key: &SymmetricCryptoKey) -> Result<TrustDeviceResponse> {
-        let mut rng = rand::thread_rng();
         let device_key = DeviceKey(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
 
-        let device_private_key = AsymmetricCryptoKey::generate(&mut rng);
+        let device_private_key = AsymmetricCryptoKey::make();
 
         let protected_user_key =
             UnsignedSharedKey::encapsulate_key_unsigned(user_key, &device_private_key)?;
