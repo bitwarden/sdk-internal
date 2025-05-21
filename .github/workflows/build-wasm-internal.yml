@@ -25,8 +25,10 @@ jobs:
 
       - name: Set version (PR)
         if: ${{ github.event_name == 'pull_request' }}
+        env:
+          PR_HEAD_REF: "${{ github.event.pull_request.head.ref }}"
         run: |
-          echo REF_NAME="${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+          echo REF_NAME="$PR_HEAD_REF" >> $GITHUB_ENV
           echo SHA="${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
 
       - name: Set env variables (Branch/Tag)

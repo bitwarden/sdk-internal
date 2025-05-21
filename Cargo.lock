@@ -623,6 +623,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-threading"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "bitwarden-error",
+ "console_error_panic_hook",
+ "js-sys",
+ "log",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tsify-next",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test",
+]
+
+[[package]]
 name = "bitwarden-uniffi"
 version = "0.1.0"
 dependencies = [
