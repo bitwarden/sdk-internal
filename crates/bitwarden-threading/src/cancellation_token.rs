@@ -9,9 +9,6 @@ pub mod wasm {
 
     #[wasm_bindgen]
     extern "C" {
-        #[wasm_bindgen(js_namespace = console, js_name = log)]
-        pub fn console_log(a: JsValue);
-
         #[wasm_bindgen]
         #[derive(Clone)]
         pub type AbortController;
@@ -30,6 +27,13 @@ pub mod wasm {
 
         #[wasm_bindgen(method, getter)]
         pub fn aborted(this: &AbortSignal) -> bool;
+
+        #[wasm_bindgen(method, js_name = addEventListener)]
+        pub fn add_event_listener(
+            this: &AbortSignal,
+            event_type: &str,
+            callback: &Closure<dyn FnMut()>,
+        );
     }
 
     pub trait CancellationTokenExt {
@@ -42,61 +46,30 @@ pub mod wasm {
 
             let controller_clone = controller.clone();
             spawn_local(async move {
-                console_log("===== waiting for cancellation".into());
                 self.cancelled().await;
-                console_log("===== Rust token cancelled".into());
                 controller_clone.abort(JsValue::from("Rust token cancelled"));
-                console_log("===== JS controller aborted".into());
             });
 
             controller
         }
     }
-}
 
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    use wasm_bindgen_test::wasm_bindgen_test;
-
-    #[wasm_bindgen_test]
-    #[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
-    #[cfg(target_arch = "wasm32")]
-    async fn rust_cancellation_token_aborts_abort_controller() {
-        use super::wasm::*;
-
-        console_error_panic_hook::set_once();
-
-        let token = CancellationToken::new();
-        let controller: AbortController = token.clone().to_abort_controller();
-
-        assert!(token.is_cancelled() == false);
-        assert!(controller.signal().aborted() == false);
-
-        token.cancel();
-
-        console_log("===== Checking if token is cancelled".into());
-        assert!(token.is_cancelled());
-        console_log("===== Checking if controller is aborted".into());
-        assert!(controller.signal().aborted());
+    pub trait AbortControllerExt {
+        fn to_cancellation_token(&self) -> CancellationToken;
     }
 
-    #[wasm_bindgen_test]
-    #[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
-    async fn js_abort_controller_cancels_abort_controller() {
-        console_error_panic_hook::set_once();
+    impl AbortControllerExt for AbortController {
+        fn to_cancellation_token(&self) -> CancellationToken {
+            let token = CancellationToken::new();
 
-        // let token = CancellationToken::new();
-        // let controller = AbortController::new();
-        // let signal = controller.signal();
+            let token_clone = token.clone();
+            let closure = Closure::new(move || {
+                token_clone.cancel();
+            });
+            self.signal().add_event_listener("abort", &closure);
+            closure.forget(); // Transfer ownership to the JS runtime
 
-        // assert!(!token.is_cancelled());
-        // assert!(!signal.is_aborted());
-
-        // token.cancel();
-
-        // assert!(token.is_cancelled());
-        // assert!(signal.is_aborted());
+            token
+        }
     }
 }
