@@ -9,9 +9,6 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
-[features]
-time = ["gloo-timers"]
-
 [dependencies]
 bitwarden-error = { workspace = true }
 log = { workspace = true }
@@ -22,7 +19,7 @@ tokio = { features = ["sync", "time", "rt"], workspace = true }
 tokio-util = { version = "0.7.15" }
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
-gloo-timers = { version = "0.3.0", features = ["futures"], optional = true }
+gloo-timers = { version = "0.3.0", features = ["futures"] }
 js-sys = { workspace = true }
 tsify-next = { workspace = true }
 wasm-bindgen = { workspace = true }
