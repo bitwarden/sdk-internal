@@ -4,8 +4,8 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey,
-    KeyStoreContext, TypedEncryptable,
+    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
+    PrimitiveEncryptableWithContentType,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

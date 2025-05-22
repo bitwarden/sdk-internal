@@ -1,8 +1,8 @@
 use bitwarden_api_api::models::CipherPasswordHistoryModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey,
-    KeyStoreContext, TypedEncryptable,
+    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
+    PrimitiveEncryptableWithContentType,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

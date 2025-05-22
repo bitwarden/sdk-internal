@@ -4,8 +4,8 @@ use bitwarden_core::{
     require, MissingFieldError, VaultLockedError,
 };
 use bitwarden_crypto::{
-    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey,
-    KeyStoreContext, TypedEncryptable,
+    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
+    PrimitiveEncryptableWithContentType,
 };
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};

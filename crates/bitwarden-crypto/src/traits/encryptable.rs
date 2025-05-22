@@ -43,12 +43,12 @@ impl<Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output>
 
 /// An encryption operation that takes the input value - a primitive such as `String` and encrypts
 /// it into the output value. The implementation decides the content format.
-pub trait TypedEncryptable<Ids: KeyIds, Key: KeyId, Output> {
+pub trait PrimitiveEncryptableWithContentType<Ids: KeyIds, Key: KeyId, Output> {
     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: Key) -> Result<Output, CryptoError>;
 }
 
-impl<Ids: KeyIds, Key: KeyId, T: TypedEncryptable<Ids, Key, Output>, Output>
-    TypedEncryptable<Ids, Key, Option<Output>> for Option<T>
+impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptableWithContentType<Ids, Key, Output>, Output>
+    PrimitiveEncryptableWithContentType<Ids, Key, Option<Output>> for Option<T>
 {
     fn encrypt(
         &self,
@@ -61,7 +61,7 @@ impl<Ids: KeyIds, Key: KeyId, T: TypedEncryptable<Ids, Key, Output>, Output>
     }
 }
 
-impl<Ids: KeyIds> TypedEncryptable<Ids, Ids::Symmetric, EncString> for &str {
+impl<Ids: KeyIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncString> for &str {
     fn encrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -71,7 +71,7 @@ impl<Ids: KeyIds> TypedEncryptable<Ids, Ids::Symmetric, EncString> for &str {
     }
 }
 
-impl<Ids: KeyIds> TypedEncryptable<Ids, Ids::Symmetric, EncString> for String {
+impl<Ids: KeyIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncString> for String {
     fn encrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -148,7 +148,7 @@ impl<Ids: KeyIds, Key: KeyId, T: Encryptable<Ids, Key, Output>, Output>
 mod tests {
     use crate::{
         cose::ContentFormat, traits::tests::*, AsymmetricCryptoKey, Decryptable, Encryptable,
-        KeyStore, SymmetricCryptoKey, TypedEncryptable,
+        KeyStore, PrimitiveEncryptableWithContentType, SymmetricCryptoKey,
     };
 
     fn test_store() -> KeyStore<TestIds> {

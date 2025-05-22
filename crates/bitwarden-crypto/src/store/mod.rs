@@ -310,7 +310,7 @@ pub(crate) mod tests {
     use crate::{
         store::{KeyStore, KeyStoreContext},
         traits::tests::{TestIds, TestSymmKey},
-        EncString, SymmetricCryptoKey, TypedEncryptable,
+        EncString, PrimitiveEncryptableWithContentType, SymmetricCryptoKey,
     };
 
     pub struct DataView(pub String, pub TestSymmKey);

@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::SecretUpdateRequestModel;
 use bitwarden_core::{key_management::SymmetricKeyId, Client};
-use bitwarden_crypto::TypedEncryptable;
+use bitwarden_crypto::PrimitiveEncryptableWithContentType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

@@ -2,7 +2,7 @@ use bitwarden_api_api::models::CipherCardModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
-    TypedEncryptable,
+    PrimitiveEncryptableWithContentType,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
