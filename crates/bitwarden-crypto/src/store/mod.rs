@@ -129,7 +129,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     /// context-local store will be cleared when the context is dropped.
     ///
     /// If you are only looking to encrypt or decrypt items, you should implement
-    /// [Encryptable]/[Decryptable] and use the [KeyStore::encrypt], [KeyStore::decrypt],
+    /// [CompositeEncryptable]/[Decryptable] and use the [KeyStore::encrypt], [KeyStore::decrypt],
     /// [KeyStore::encrypt_list] and [KeyStore::decrypt_list] methods instead.
     ///
     /// The current implementation of context only clears the keys automatically when the context is
@@ -143,10 +143,10 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     /// future to also not be [Send].
     ///
     /// Some other possible use cases for this API and alternative recommendations are:
-    /// - Decrypting or encrypting multiple [Decryptable] or [Encryptable] items while sharing any
+    /// - Decrypting or encrypting multiple [Decryptable] or [CompositeEncryptable] items while sharing any
     ///   local keys. This is not recommended as it can lead to fragile and flaky
     ///   decryption/encryption operations. We recommend any local keys to be used only in the
-    ///   context of a single [Encryptable] or [Decryptable] implementation. In the future we might
+    ///   context of a single [CompositeEncryptable] or [Decryptable] implementation. In the future we might
     ///   enforce this.
     /// - Obtaining the key material directly. We strongly recommend against doing this as it can
     ///   lead to key material being leaked, but we need to support it for backwards compatibility.
@@ -310,7 +310,7 @@ pub(crate) mod tests {
     use crate::{
         store::{KeyStore, KeyStoreContext},
         traits::tests::{TestIds, TestSymmKey},
-        EncString, PrimitiveEncryptableWithContentType, SymmetricCryptoKey,
+        EncString, SymmetricCryptoKey, PrimitiveEncryptableWithContentType,
     };
 
     pub struct DataView(pub String, pub TestSymmKey);
