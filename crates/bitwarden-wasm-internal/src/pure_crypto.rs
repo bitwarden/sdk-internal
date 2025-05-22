@@ -187,7 +187,7 @@ impl PureCrypto {
             .encrypt(
                 &mut context,
                 SymmetricKeyId::Local("wrapping_key"),
-                ContentFormat::OctetStream,
+                ContentFormat::Pkcs8,
             )?
             .to_string())
     }
