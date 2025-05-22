@@ -1,3 +1,4 @@
+#![allow(unused_imports)] // Rust analyzer doesn't understand the `wasm_bindgen_test` macro
 use std::time::Duration;
 
 use bitwarden_threading::{
