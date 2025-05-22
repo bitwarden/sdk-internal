@@ -19,8 +19,9 @@ mod test {
     #[wasm_bindgen_test]
     #[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
     async fn should_sleep_wasm() {
-        use super::*;
         use js_sys::Date;
+
+        use super::*;
 
         console_error_panic_hook::set_once();
         let start = Date::now();
@@ -36,8 +37,9 @@ mod test {
     // #[cfg(not(target_arch = "wasm32"))]
     #[tokio::test]
     async fn should_sleep_tokio() {
-        use super::*;
         use std::time::Instant;
+
+        use super::*;
 
         let start = Instant::now();
 

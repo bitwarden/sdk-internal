@@ -1,9 +1,12 @@
-use bitwarden_threading::cancellation_token::{
-    wasm::{AbortController, AbortControllerExt, CancellationTokenExt},
-    CancellationToken,
-};
-use bitwarden_threading::time::sleep;
 use std::time::Duration;
+
+use bitwarden_threading::{
+    cancellation_token::{
+        wasm::{AbortController, AbortControllerExt, CancellationTokenExt},
+        CancellationToken,
+    },
+    time::sleep,
+};
 use wasm_bindgen::externref_heap_live_count;
 use wasm_bindgen_test::wasm_bindgen_test;
 
@@ -145,7 +148,8 @@ mod to_bidirectional_abort_controller {
         // Dropping the token should the internal strong reference to the JS object, leaving us
         // with only the strong reference that was returned to the caller.
         // We check this because the reference is kept within a spawn_local future and it'll only be
-        // dropped when the future is dropped. And the future needs to be dropped or we'll leak memory.
+        // dropped when the future is dropped. And the future needs to be dropped or we'll leak
+        // memory.
         assert_eq!(
             heap_count_after_dropping_guard,
             heap_count_after_creating_abort_controller - 1,
@@ -292,7 +296,8 @@ mod to_bidirectional_cancellation_token {
         // Dropping the token should the internal strong reference to the JS object, leaving us
         // with only the strong reference that was returned to the caller.
         // We check this because the reference is kept within a spawn_local future and it'll only be
-        // dropped when the future is dropped. And the future needs to be dropped or we'll leak memory.
+        // dropped when the future is dropped. And the future needs to be dropped or we'll leak
+        // memory.
         assert_eq!(
             heap_count_after_dropping_guard, heap_count_before_creating_cancellation_token,
             "Dropping the token should drop the internal strong reference to the JS object"
