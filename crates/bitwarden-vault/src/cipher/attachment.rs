@@ -1,6 +1,7 @@
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext, TypedEncryptable
+    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable,
+    IdentifyKey, KeyStoreContext, TypedEncryptable,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -73,7 +74,9 @@ impl IdentifyKey<SymmetricKeyId> for AttachmentFile {
     }
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for AttachmentFileView<'_> {
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult>
+    for AttachmentFileView<'_>
+{
     fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,

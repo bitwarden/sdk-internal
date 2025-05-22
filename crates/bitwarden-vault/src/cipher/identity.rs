@@ -1,7 +1,8 @@
 use bitwarden_api_api::models::CipherIdentityModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CompositeEncryptable, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext, TypedEncryptable
+    CompositeEncryptable, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext,
+    TypedEncryptable,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -82,9 +83,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Identity> for IdentityView {
             phone: self.phone.encrypt(ctx, key)?,
             ssn: self.ssn.encrypt(ctx, key)?,
             username: self.username.encrypt(ctx, key)?,
-            passport_number: self
-                .passport_number
-                .encrypt(ctx, key)?,
+            passport_number: self.passport_number.encrypt(ctx, key)?,
             license_number: self.license_number.encrypt(ctx, key)?,
         })
     }

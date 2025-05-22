@@ -39,17 +39,8 @@ pub(crate) async fn update_secret(
     let secret = {
         let mut ctx = key_store.context();
         Some(SecretUpdateRequestModel {
-            key: input
-                .key
-                .clone()
-                .trim()
-                .encrypt(&mut ctx, key)?
-                .to_string(),
-            value: input
-                .value
-                .clone()
-                .encrypt(&mut ctx, key)?
-                .to_string(),
+            key: input.key.clone().trim().encrypt(&mut ctx, key)?.to_string(),
+            value: input.value.clone().encrypt(&mut ctx, key)?.to_string(),
             note: input
                 .note
                 .clone()

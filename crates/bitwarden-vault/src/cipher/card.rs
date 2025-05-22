@@ -1,7 +1,8 @@
 use bitwarden_api_api::models::CipherCardModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CompositeEncryptable, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext, TypedEncryptable
+    CompositeEncryptable, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext,
+    TypedEncryptable,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -59,9 +60,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Card> for CardView {
         key: SymmetricKeyId,
     ) -> Result<Card, CryptoError> {
         Ok(Card {
-            cardholder_name: self
-                .cardholder_name
-                .encrypt(ctx, key)?,
+            cardholder_name: self.cardholder_name.encrypt(ctx, key)?,
             exp_month: self.exp_month.encrypt(ctx, key)?,
             exp_year: self.exp_year.encrypt(ctx, key)?,
             code: self.code.encrypt(ctx, key)?,

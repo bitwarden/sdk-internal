@@ -385,7 +385,9 @@ mod tests {
         store::{
             tests::{Data, DataView},
             KeyStore,
-        }, traits::tests::{TestIds, TestSymmKey}, CompositeEncryptable, Decryptable, SymmetricCryptoKey
+        },
+        traits::tests::{TestIds, TestSymmKey},
+        CompositeEncryptable, Decryptable, SymmetricCryptoKey,
     };
 
     #[test]
@@ -445,9 +447,7 @@ mod tests {
         // with one and decrypt with the other
 
         let data = DataView("Hello, World!".to_string(), key_2_id);
-        let encrypted = data
-            .encrypt_composite(&mut ctx, key_2_id)
-            .unwrap();
+        let encrypted = data.encrypt_composite(&mut ctx, key_2_id).unwrap();
 
         let decrypted1 = encrypted.decrypt(&mut ctx, key_2_id).unwrap();
         let decrypted2 = encrypted.decrypt(&mut ctx, new_key_id).unwrap();

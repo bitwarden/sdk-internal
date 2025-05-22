@@ -209,7 +209,11 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     /// already be present in the store, otherwise this will return an error.
     /// This method is not parallelized, and is meant for single item encryption.
     /// If you need to encrypt multiple items, use `encrypt_list` instead.
-    pub fn encrypt<Key: KeyId, Data: CompositeEncryptable<Ids, Key, Output> + IdentifyKey<Key>, Output>(
+    pub fn encrypt<
+        Key: KeyId,
+        Data: CompositeEncryptable<Ids, Key, Output> + IdentifyKey<Key>,
+        Output,
+    >(
         &self,
         data: Data,
     ) -> Result<Output, crate::CryptoError> {
@@ -304,7 +308,9 @@ fn batch_chunk_size(len: usize) -> usize {
 #[cfg(test)]
 pub(crate) mod tests {
     use crate::{
-        store::{KeyStore, KeyStoreContext}, traits::tests::{TestIds, TestSymmKey}, EncString, Encryptable, SymmetricCryptoKey, TypedEncryptable
+        store::{KeyStore, KeyStoreContext},
+        traits::tests::{TestIds, TestSymmKey},
+        EncString, Encryptable, SymmetricCryptoKey, TypedEncryptable,
     };
 
     pub struct DataView(pub String, pub TestSymmKey);

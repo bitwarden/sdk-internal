@@ -1,5 +1,6 @@
 use crate::{
-    error::Result, AsymmetricCryptoKey, ContentFormat, CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, UnsignedSharedKey
+    error::Result, AsymmetricCryptoKey, ContentFormat, CryptoError, EncString, KeyDecryptable,
+    KeyEncryptable, SymmetricCryptoKey, UnsignedSharedKey,
 };
 
 /// Device Key

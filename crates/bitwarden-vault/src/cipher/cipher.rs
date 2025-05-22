@@ -4,7 +4,8 @@ use bitwarden_core::{
     require, MissingFieldError, VaultLockedError,
 };
 use bitwarden_crypto::{
-    CompositeEncryptable, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext, TypedEncryptable
+    CompositeEncryptable, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey,
+    KeyStoreContext, TypedEncryptable,
 };
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
@@ -231,46 +232,29 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             folder_id: cipher_view.folder_id,
             collection_ids: cipher_view.collection_ids,
             key: cipher_view.key,
-            name: cipher_view
-                .name
-                .encrypt(ctx, ciphers_key)?,
-            notes: cipher_view
-                .notes
-                .encrypt(ctx, ciphers_key)?,
+            name: cipher_view.name.encrypt(ctx, ciphers_key)?,
+            notes: cipher_view.notes.encrypt(ctx, ciphers_key)?,
             r#type: cipher_view.r#type,
-            login: cipher_view
-                .login
-                .encrypt_composite(ctx, ciphers_key)?,
-            identity: cipher_view
-                .identity
-                .encrypt_composite(ctx, ciphers_key)?,
-            card: cipher_view
-                .card
-                .encrypt_composite(ctx, ciphers_key)?,
+            login: cipher_view.login.encrypt_composite(ctx, ciphers_key)?,
+            identity: cipher_view.identity.encrypt_composite(ctx, ciphers_key)?,
+            card: cipher_view.card.encrypt_composite(ctx, ciphers_key)?,
             secure_note: cipher_view
                 .secure_note
                 .encrypt_composite(ctx, ciphers_key)?,
-            ssh_key: cipher_view
-                .ssh_key
-                .encrypt_composite(ctx, ciphers_key)?,
+            ssh_key: cipher_view.ssh_key.encrypt_composite(ctx, ciphers_key)?,
             favorite: cipher_view.favorite,
             reprompt: cipher_view.reprompt,
             organization_use_totp: cipher_view.organization_use_totp,
             edit: cipher_view.edit,
             view_password: cipher_view.view_password,
-            local_data: cipher_view
-                .local_data
-                .encrypt_composite(ctx, ciphers_key)?,
+            local_data: cipher_view.local_data.encrypt_composite(ctx, ciphers_key)?,
             attachments: cipher_view
                 .attachments
                 .encrypt_composite(ctx, ciphers_key)?,
-            fields: cipher_view
-                .fields
+            fields: cipher_view.fields.encrypt_composite(ctx, ciphers_key)?,
+            password_history: cipher_view
+                .password_history
                 .encrypt_composite(ctx, ciphers_key)?,
-            password_history: cipher_view.password_history.encrypt_composite(
-                ctx,
-                ciphers_key,
-            )?,
             creation_date: cipher_view.creation_date,
             deleted_date: cipher_view.deleted_date,
             revision_date: cipher_view.revision_date,
@@ -547,8 +531,7 @@ impl CipherView {
             if let Some(fido2_credentials) = &mut login.fido2_credentials {
                 let dec_fido2_credentials: Vec<Fido2CredentialFullView> =
                     fido2_credentials.decrypt(ctx, old_key)?;
-                *fido2_credentials =
-                    dec_fido2_credentials.encrypt_composite(ctx, new_key)?;
+                *fido2_credentials = dec_fido2_credentials.encrypt_composite(ctx, new_key)?;
             }
         }
         Ok(())
@@ -823,42 +806,18 @@ mod tests {
 
     fn generate_fido2(ctx: &mut KeyStoreContext<KeyIds>, key: SymmetricKeyId) -> Fido2Credential {
         Fido2Credential {
-            credential_id: "123"
-                .to_string()
-                .encrypt(ctx, key)
-                .unwrap(),
-            key_type: "public-key"
-                .to_string()
-                .encrypt(ctx, key)
-                .unwrap(),
-            key_algorithm: "ECDSA"
-                .to_string()
-                .encrypt(ctx, key)
-                .unwrap(),
-            key_curve: "P-256"
-                .to_string()
-                .encrypt(ctx, key)
-                .unwrap(),
-            key_value: "123"
-                .to_string()
-                .encrypt(ctx, key)
-                .unwrap(),
-            rp_id: "123"
-                .to_string()
-                .encrypt(ctx, key)
-                .unwrap(),
+            credential_id: "123".to_string().encrypt(ctx, key).unwrap(),
+            key_type: "public-key".to_string().encrypt(ctx, key).unwrap(),
+            key_algorithm: "ECDSA".to_string().encrypt(ctx, key).unwrap(),
+            key_curve: "P-256".to_string().encrypt(ctx, key).unwrap(),
+            key_value: "123".to_string().encrypt(ctx, key).unwrap(),
+            rp_id: "123".to_string().encrypt(ctx, key).unwrap(),
             user_handle: None,
             user_name: None,
-            counter: "123"
-                .to_string()
-                .encrypt(ctx, key)
-                .unwrap(),
+            counter: "123".to_string().encrypt(ctx, key).unwrap(),
             rp_name: None,
             user_display_name: None,
-            discoverable: "true"
-                .to_string()
-                .encrypt(ctx, key)
-                .unwrap(),
+            discoverable: "true".to_string().encrypt(ctx, key).unwrap(),
             creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
         }
     }
@@ -1352,18 +1311,9 @@ mod tests {
         let mut ctx = key_store.context();
 
         let original_subtitle = "SHA256:1JjFjvPRkj1Gbf2qRP1dgHiIzEuNAEvp+92x99jw3K0".to_string();
-        let fingerprint_encrypted = original_subtitle
-            .to_owned()
-            .encrypt(&mut ctx, key)
-            .unwrap();
-        let private_key_encrypted = ""
-            .to_string()
-            .encrypt(&mut ctx, key)
-            .unwrap();
-        let public_key_encrypted = ""
-            .to_string()
-            .encrypt(&mut ctx, key)
-            .unwrap();
+        let fingerprint_encrypted = original_subtitle.to_owned().encrypt(&mut ctx, key).unwrap();
+        let private_key_encrypted = "".to_string().encrypt(&mut ctx, key).unwrap();
+        let public_key_encrypted = "".to_string().encrypt(&mut ctx, key).unwrap();
         let ssh_key_cipher = Cipher {
             id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
             organization_id: None,

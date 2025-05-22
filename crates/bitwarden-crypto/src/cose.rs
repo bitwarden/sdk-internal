@@ -24,10 +24,12 @@ pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
 const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
 const CONTENT_TYPE_PADDED_UTF8: &str = "application/utf8-padded";
 
-/// The content format describes the format of the contained bytes. Message encryption always happens on the byte level, and this
-/// allows determining what format the contained data has. For instance, an `EncString` in most cases contains UTF-8 encoded
-/// text. In some cases it may contain a Pkcs8 private key, or a COSE key. Specifically, for COSE keys, this allows distinguishing between
-/// the old symmetric key format, represented as `ContentFormat::OctetStream`, and the new COSE key format, represented as `ContentFormat::CoseKey`.
+/// The content format describes the format of the contained bytes. Message encryption always
+/// happens on the byte level, and this allows determining what format the contained data has. For
+/// instance, an `EncString` in most cases contains UTF-8 encoded text. In some cases it may contain
+/// a Pkcs8 private key, or a COSE key. Specifically, for COSE keys, this allows distinguishing
+/// between the old symmetric key format, represented as `ContentFormat::OctetStream`, and the new
+/// COSE key format, represented as `ContentFormat::CoseKey`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum ContentFormat {

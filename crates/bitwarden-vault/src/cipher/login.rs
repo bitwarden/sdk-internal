@@ -5,7 +5,8 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    CompositeEncryptable, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext, TypedEncryptable
+    CompositeEncryptable, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext,
+    TypedEncryptable,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -213,9 +214,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2Cred
             user_name: self.user_name.encrypt(ctx, key)?,
             counter: self.counter.encrypt(ctx, key)?,
             rp_name: self.rp_name.encrypt(ctx, key)?,
-            user_display_name: self
-                .user_display_name
-                .encrypt(ctx, key)?,
+            user_display_name: self.user_display_name.encrypt(ctx, key)?,
             discoverable: self.discoverable.encrypt(ctx, key)?,
             creation_date: self.creation_date,
         })
@@ -425,9 +424,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2Cred
                 .transpose()?,
             counter: self.counter.encrypt(ctx, key)?,
             rp_name: self.rp_name.encrypt(ctx, key)?,
-            user_display_name: self
-                .user_display_name
-                .encrypt(ctx, key)?,
+            user_display_name: self.user_display_name.encrypt(ctx, key)?,
             discoverable: self.discoverable.encrypt(ctx, key)?,
             creation_date: self.creation_date,
         })

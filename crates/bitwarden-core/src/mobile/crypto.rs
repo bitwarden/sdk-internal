@@ -8,7 +8,8 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, ContentFormat, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey
+    AsymmetricCryptoKey, ContentFormat, CryptoError, EncString, Kdf, KeyDecryptable,
+    KeyEncryptable, MasterKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]

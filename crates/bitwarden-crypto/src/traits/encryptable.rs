@@ -27,7 +27,7 @@ impl<Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output>
     }
 }
 
-impl <Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output>
+impl<Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output>
     CompositeEncryptable<Ids, Key, Vec<Output>> for Vec<T>
 {
     fn encrypt_composite(
@@ -41,14 +41,10 @@ impl <Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output
     }
 }
 
-/// An encryption operation that takes the input value - a primitive such as `String` and encrypts it into the output value.
-/// The implementation decides the content format.
+/// An encryption operation that takes the input value - a primitive such as `String` and encrypts
+/// it into the output value. The implementation decides the content format.
 pub trait TypedEncryptable<Ids: KeyIds, Key: KeyId, Output> {
-    fn encrypt(
-        &self,
-        ctx: &mut KeyStoreContext<Ids>,
-        key: Key,
-    ) -> Result<Output, CryptoError>;
+    fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: Key) -> Result<Output, CryptoError>;
 }
 
 impl<Ids: KeyIds, Key: KeyId, T: TypedEncryptable<Ids, Key, Output>, Output>
@@ -65,8 +61,7 @@ impl<Ids: KeyIds, Key: KeyId, T: TypedEncryptable<Ids, Key, Output>, Output>
     }
 }
 
-impl<Ids: KeyIds> TypedEncryptable<Ids, Ids::Symmetric, EncString> for &str
-{
+impl<Ids: KeyIds> TypedEncryptable<Ids, Ids::Symmetric, EncString> for &str {
     fn encrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -76,8 +71,7 @@ impl<Ids: KeyIds> TypedEncryptable<Ids, Ids::Symmetric, EncString> for &str
     }
 }
 
-impl<Ids: KeyIds> TypedEncryptable<Ids, Ids::Symmetric, EncString> for String
-{
+impl<Ids: KeyIds> TypedEncryptable<Ids, Ids::Symmetric, EncString> for String {
     fn encrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -87,7 +81,8 @@ impl<Ids: KeyIds> TypedEncryptable<Ids, Ids::Symmetric, EncString> for String
     }
 }
 
-/// An encryption operation that takes the input value - a primitive such as `Vec<u8>` - and encrypts it into the output value.
+/// An encryption operation that takes the input value - a primitive such as `Vec<u8>` - and
+/// encrypts it into the output value.
 pub trait Encryptable<Ids: KeyIds, Key: KeyId, Output> {
     fn encrypt(
         &self,
@@ -152,7 +147,8 @@ impl<Ids: KeyIds, Key: KeyId, T: Encryptable<Ids, Key, Output>, Output>
 #[cfg(test)]
 mod tests {
     use crate::{
-        cose::ContentFormat, traits::tests::*, AsymmetricCryptoKey, Decryptable, Encryptable, KeyStore, SymmetricCryptoKey, TypedEncryptable
+        cose::ContentFormat, traits::tests::*, AsymmetricCryptoKey, Decryptable, Encryptable,
+        KeyStore, SymmetricCryptoKey, TypedEncryptable,
     };
 
     fn test_store() -> KeyStore<TestIds> {
@@ -207,12 +203,8 @@ mod tests {
         let string_data = "Hello, World!".to_string();
         let str_data: &str = string_data.as_str();
 
-        let string_encrypted = string_data
-            .encrypt(&mut ctx, key)
-            .unwrap();
-        let str_encrypted = str_data
-            .encrypt(&mut ctx, key)
-            .unwrap();
+        let string_encrypted = string_data.encrypt(&mut ctx, key).unwrap();
+        let str_encrypted = str_data.encrypt(&mut ctx, key).unwrap();
 
         let string_decrypted: String = string_encrypted.decrypt(&mut ctx, key).unwrap();
         let str_decrypted: String = str_encrypted.decrypt(&mut ctx, key).unwrap();
@@ -229,9 +221,7 @@ mod tests {
 
         let string_data = Some("Hello, World!".to_string());
 
-        let string_encrypted = string_data
-            .encrypt(&mut ctx, key)
-            .unwrap();
+        let string_encrypted = string_data.encrypt(&mut ctx, key).unwrap();
 
         let string_decrypted: Option<String> = string_encrypted.decrypt(&mut ctx, key).unwrap();
 
@@ -245,17 +235,13 @@ mod tests {
 
         let key = TestSymmKey::A(0);
         let none_data: Option<String> = None;
-        let string_encrypted = none_data
-            .encrypt(&mut ctx, key)
-            .unwrap();
+        let string_encrypted = none_data.encrypt(&mut ctx, key).unwrap();
         assert_eq!(string_encrypted, None);
 
         // The None implementation will not do any decrypt operations, so it won't fail even if the
         // key doesn't exist
         let bad_key = TestSymmKey::B((0, 1));
-        let string_encrypted_bad = none_data
-            .encrypt(&mut ctx, bad_key)
-            .unwrap();
+        let string_encrypted_bad = none_data.encrypt(&mut ctx, bad_key).unwrap();
         assert_eq!(string_encrypted_bad, None);
     }
 }

@@ -34,7 +34,9 @@ mod cose;
 mod traits;
 pub use cose::ContentFormat;
 mod xchacha20;
-pub use traits::{Decryptable, Encryptable, CompositeEncryptable, TypedEncryptable, IdentifyKey, KeyId, KeyIds};
+pub use traits::{
+    CompositeEncryptable, Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds, TypedEncryptable,
+};
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
 
 #[cfg(feature = "uniffi")]
