@@ -83,6 +83,8 @@ pub enum EncStringParseError {
     InvalidCoseEncoding(coset::CoseError),
     #[error("Algorithm missing in COSE header")]
     CoseMissingAlgorithm,
+    #[error("Content type missing in COSE header")]
+    CoseMissingContentType,
 }
 
 #[derive(Debug, Error)]

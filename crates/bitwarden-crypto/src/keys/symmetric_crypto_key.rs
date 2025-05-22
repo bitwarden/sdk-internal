@@ -208,6 +208,13 @@ impl SymmetricCryptoKey {
         }
     }
 
+    pub(crate) fn try_from_cose(serialized_key: &[u8]) -> Result<Self, CryptoError> {
+        let cose_key = coset::CoseKey::from_slice(serialized_key)
+            .map_err(|_| CryptoError::InvalidKey)?;
+        let key = SymmetricCryptoKey::try_from(&cose_key)?;
+        Ok(key)
+    }
+
     pub fn to_base64(&self) -> String {
         STANDARD.encode(self.to_encoded())
     }
@@ -286,9 +293,7 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
             Ok(Self::Aes256CbcKey(Aes256CbcKey { enc_key }))
         } else if value.len() > Self::AES256_CBC_HMAC_KEY_LEN {
             let unpadded_value = unpad_key(value)?;
-            let cose_key =
-                coset::CoseKey::from_slice(unpadded_value).map_err(|_| CryptoError::InvalidKey)?;
-            SymmetricCryptoKey::try_from(&cose_key)
+            Ok(Self::try_from_cose(unpadded_value)?)
         } else {
             Err(CryptoError::InvalidKeyLen)
         };

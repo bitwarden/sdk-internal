@@ -92,7 +92,7 @@ pub(crate) fn encrypt_xchacha20_poly1305(
 pub(crate) fn decrypt_xchacha20_poly1305(
     cose_encrypt0_message: &[u8],
     key: &crate::XChaCha20Poly1305Key,
-) -> Result<Vec<u8>, CryptoError> {
+) -> Result<(Vec<u8>, ContentFormat), CryptoError> {
     let msg = coset::CoseEncrypt0::from_slice(cose_encrypt0_message)
         .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))?;
     let Some(ref alg) = msg.protected.header.alg else {
@@ -117,12 +117,30 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     })?;
 
     if let Some(ref content_type) = msg.protected.header.content_type {
-        if *content_type == ContentType::Text(CONTENT_TYPE_PADDED_UTF8.to_string()) {
-            // Unpad the data to get the original plaintext
-            return crate::keys::utils::unpad_bytes(&decrypted_message).map(|bytes| bytes.to_vec());
+        match content_type {
+            ContentType::Text(format) if format == CONTENT_TYPE_PADDED_UTF8 => {
+                if *content_type == ContentType::Text(CONTENT_TYPE_PADDED_UTF8.to_string()) {
+                    // Unpad the data to get the original plaintext
+                    let data = crate::keys::utils::unpad_bytes(&decrypted_message)
+                        .map_err(|_| CryptoError::InvalidPadding)?;
+                    return Ok((data.to_vec(), ContentFormat::Utf8));
+                }
+            },
+            ContentType::Assigned(content_format) if *content_format == CoapContentFormat::Pkcs8 => {
+                return Ok((decrypted_message.to_vec(), ContentFormat::Pkcs8));
+            }
+            ContentType::Assigned(content_format) if *content_format == CoapContentFormat::CoseKey => {
+                return Ok((decrypted_message.to_vec(), ContentFormat::CoseKey));
+            }
+            ContentType::Assigned(content_format) if *content_format == CoapContentFormat::OctetStream => {
+                return Ok((decrypted_message.to_vec(), ContentFormat::OctetStream));
+            }
+            _ => {}
         }
     }
-    Ok(decrypted_message)
+    Err(CryptoError::EncString(
+        EncStringParseError::CoseMissingContentType,
+    ))
 }
 
 const SYMMETRIC_KEY: Label = Label::Int(iana::SymmetricKeyParameter::K as i64);
@@ -168,7 +186,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_encrypt_decrypt_roundtrip() {
+    fn test_encrypt_decrypt_roundtrip_octetstream() {
         let SymmetricCryptoKey::XChaCha20Poly1305Key(ref key) =
             SymmetricCryptoKey::make_xchacha20_poly1305_key()
         else {
@@ -179,6 +197,49 @@ mod test {
         let encrypted =
             encrypt_xchacha20_poly1305(plaintext, key, ContentFormat::OctetStream).unwrap();
         let decrypted = decrypt_xchacha20_poly1305(&encrypted, key).unwrap();
-        assert_eq!(decrypted, plaintext);
+        assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::OctetStream));
     }
+
+    #[test]
+    fn test_encrypt_decrypt_roundtrip_utf8() {
+        let SymmetricCryptoKey::XChaCha20Poly1305Key(ref key) =
+            SymmetricCryptoKey::make_xchacha20_poly1305_key()
+        else {
+            panic!("Failed to create XChaCha20Poly1305Key");
+        };
+
+        let plaintext = b"Hello, world!";
+        let encrypted = encrypt_xchacha20_poly1305(plaintext, key, ContentFormat::Utf8).unwrap();
+        let decrypted = decrypt_xchacha20_poly1305(&encrypted, key).unwrap();
+        assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::Utf8));
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_roundtrip_pkcs8() {
+        let SymmetricCryptoKey::XChaCha20Poly1305Key(ref key) =
+            SymmetricCryptoKey::make_xchacha20_poly1305_key()
+        else {
+            panic!("Failed to create XChaCha20Poly1305Key");
+        };
+
+        let plaintext = b"Hello, world!";
+        let encrypted = encrypt_xchacha20_poly1305(plaintext, key, ContentFormat::Pkcs8).unwrap();
+        let decrypted = decrypt_xchacha20_poly1305(&encrypted, key).unwrap();
+        assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::Pkcs8));
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_roundtrip_cosekey() {
+        let SymmetricCryptoKey::XChaCha20Poly1305Key(ref key) =
+            SymmetricCryptoKey::make_xchacha20_poly1305_key()
+        else {
+            panic!("Failed to create XChaCha20Poly1305Key");
+        };
+
+        let plaintext = b"Hello, world!";
+        let encrypted = encrypt_xchacha20_poly1305(plaintext, key, ContentFormat::CoseKey).unwrap();
+        let decrypted = decrypt_xchacha20_poly1305(&encrypted, key).unwrap();
+        assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::CoseKey));
+    }
+
 }

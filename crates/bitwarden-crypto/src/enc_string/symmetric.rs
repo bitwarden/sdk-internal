@@ -307,7 +307,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let decrypted_message =
+                let (decrypted_message, _) =
                     crate::cose::decrypt_xchacha20_poly1305(data.as_slice(), key)?;
                 Ok(decrypted_message)
             }
