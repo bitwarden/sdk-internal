@@ -4,7 +4,7 @@ use bitwarden_core::{
     require, MissingFieldError, VaultLockedError,
 };
 use bitwarden_crypto::{
-    CompositeEncryptable, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey,
+    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey,
     KeyStoreContext, TypedEncryptable,
 };
 use bitwarden_error::bitwarden_error;

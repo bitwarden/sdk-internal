@@ -5,7 +5,7 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    CompositeEncryptable, CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext,
+    CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
     TypedEncryptable,
 };
 use chrono::{DateTime, Utc};
