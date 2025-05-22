@@ -143,11 +143,11 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     /// future to also not be [Send].
     ///
     /// Some other possible use cases for this API and alternative recommendations are:
-    /// - Decrypting or encrypting multiple [Decryptable] or [CompositeEncryptable] items while sharing any
-    ///   local keys. This is not recommended as it can lead to fragile and flaky
+    /// - Decrypting or encrypting multiple [Decryptable] or [CompositeEncryptable] items while
+    ///   sharing any local keys. This is not recommended as it can lead to fragile and flaky
     ///   decryption/encryption operations. We recommend any local keys to be used only in the
-    ///   context of a single [CompositeEncryptable] or [Decryptable] implementation. In the future we might
-    ///   enforce this.
+    ///   context of a single [CompositeEncryptable] or [Decryptable] implementation. In the future
+    ///   we might enforce this.
     /// - Obtaining the key material directly. We strongly recommend against doing this as it can
     ///   lead to key material being leaked, but we need to support it for backwards compatibility.
     ///   If you want to access the key material to encrypt it or derive a new key from it, we
@@ -310,7 +310,7 @@ pub(crate) mod tests {
     use crate::{
         store::{KeyStore, KeyStoreContext},
         traits::tests::{TestIds, TestSymmKey},
-        EncString, SymmetricCryptoKey, PrimitiveEncryptableWithContentType,
+        EncString, PrimitiveEncryptableWithContentType, SymmetricCryptoKey,
     };
 
     pub struct DataView(pub String, pub TestSymmKey);
