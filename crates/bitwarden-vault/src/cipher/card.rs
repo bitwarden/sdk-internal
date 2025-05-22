@@ -3,7 +3,7 @@ use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use tsify_next::Tsify;
+use tsify::Tsify;
 
 use crate::VaultParseError;
 
