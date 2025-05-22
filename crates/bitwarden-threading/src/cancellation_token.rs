@@ -44,11 +44,7 @@ pub mod wasm {
         fn to_abort_controller(self) -> AbortController {
             let controller = AbortController::new();
 
-            let controller_clone = controller.clone();
-            spawn_local(async move {
-                self.cancelled().await;
-                controller_clone.abort(JsValue::from("Rust token cancelled"));
-            });
+            connect_token_and_controller(self.clone(), controller.clone());
 
             controller
         }
@@ -62,14 +58,24 @@ pub mod wasm {
         fn to_cancellation_token(&self) -> CancellationToken {
             let token = CancellationToken::new();
 
-            let token_clone = token.clone();
-            let closure = Closure::new(move || {
-                token_clone.cancel();
-            });
-            self.signal().add_event_listener("abort", &closure);
-            closure.forget(); // Transfer ownership to the JS runtime
+            connect_token_and_controller(token.clone(), self.clone());
 
             token
         }
+    }
+
+    fn connect_token_and_controller(token: CancellationToken, controller: AbortController) {
+        let token_clone = token.clone();
+        let controller_clone = controller.clone();
+        spawn_local(async move {
+            token_clone.cancelled().await;
+            controller_clone.abort(JsValue::from("Rust token cancelled"));
+        });
+
+        let closure = Closure::new(move || {
+            token.cancel();
+        });
+        controller.signal().add_event_listener("abort", &closure);
+        closure.forget(); // Transfer ownership to the JS runtime
     }
 }
