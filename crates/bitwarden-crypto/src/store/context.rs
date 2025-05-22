@@ -132,8 +132,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// # Arguments
     ///
-    /// * `wrapping_key` - The key id used to decrypt the `wrapped_key`. It must already exist
-    ///   in the context
+    /// * `wrapping_key` - The key id used to decrypt the `wrapped_key`. It must already exist in
+    ///   the context
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
     /// * `wrapped_key` - The key to decrypt
@@ -147,30 +147,39 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
         let key = match (wrapped_key, wrapping_key) {
             (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
-                SymmetricCryptoKey::try_from(crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)?)?
+                SymmetricCryptoKey::try_from(crate::aes::decrypt_aes256(
+                    iv,
+                    data.clone(),
+                    &key.enc_key,
+                )?)?
             }
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
+            ) => SymmetricCryptoKey::try_from(crate::aes::decrypt_aes256_hmac(
+                iv,
+                mac,
+                data.clone(),
+                &key.mac_key,
+                &key.enc_key,
+            )?)?,
+            (
+                EncString::Cose_Encrypt0_B64 { data },
+                SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                SymmetricCryptoKey::try_from(crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)?)?
-            }
-            (EncString::Cose_Encrypt0_B64 { data }, SymmetricCryptoKey::XChaCha20Poly1305Key(key)) => {
-                let (content_bytes, content_format) = crate::cose::decrypt_xchacha20_poly1305(data, key)?;
+                let (content_bytes, content_format) =
+                    crate::cose::decrypt_xchacha20_poly1305(data, key)?;
                 match content_format {
                     ContentFormat::OctetStream => SymmetricCryptoKey::try_from(content_bytes)?,
                     ContentFormat::CoseKey => SymmetricCryptoKey::try_from_cose(&content_bytes)?,
-                    _ => return Err(CryptoError::InvalidKey)
+                    _ => return Err(CryptoError::InvalidKey),
                 }
             }
             _ => return Err(CryptoError::InvalidKey),
         };
 
         #[allow(deprecated)]
-        self.set_symmetric_key(
-            new_key_id,
-            key,
-        )?;
+        self.set_symmetric_key(new_key_id, key)?;
 
         // Returning the new key identifier for convenience
         Ok(new_key_id)
@@ -199,12 +208,14 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         // or `Aes256CbcKey`, or by specifying the content format to be CoseKey, in case the
         // wrapped key is a `XChaCha20Poly1305Key`.
         match (wrapping_key_instance, key_to_wrap_instance) {
-            (Aes256CbcHmacKey(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_) | XChaCha20Poly1305Key(_)) => self
-                .encrypt_data_with_symmetric_key(
-                    wrapping_key,
-                    key_to_wrap_instance.to_encoded().as_slice(),
-                    ContentFormat::OctetStream,
-                ),
+            (
+                Aes256CbcHmacKey(_),
+                Aes256CbcHmacKey(_) | Aes256CbcKey(_) | XChaCha20Poly1305Key(_),
+            ) => self.encrypt_data_with_symmetric_key(
+                wrapping_key,
+                key_to_wrap_instance.to_encoded().as_slice(),
+                ContentFormat::OctetStream,
+            ),
             (XChaCha20Poly1305Key(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => self
                 .encrypt_data_with_symmetric_key(
                     wrapping_key,
@@ -388,7 +399,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
-            (EncString::Cose_Encrypt0_B64 { data }, SymmetricCryptoKey::XChaCha20Poly1305Key(key)) => {
+            (
+                EncString::Cose_Encrypt0_B64 { data },
+                SymmetricCryptoKey::XChaCha20Poly1305Key(key),
+            ) => {
                 let (data, _) = crate::cose::decrypt_xchacha20_poly1305(data, key)?;
                 Ok(data)
             }
@@ -501,30 +515,48 @@ mod tests {
         // Aes256 CBC HMAC keys
         let key_aes_1_id = TestSymmKey::A(1);
         let key_aes_1 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        ctx.set_symmetric_key(key_aes_1_id, key_aes_1.clone()).unwrap();
+        ctx.set_symmetric_key(key_aes_1_id, key_aes_1.clone())
+            .unwrap();
         let key_aes_2_id = TestSymmKey::A(2);
         let key_aes_2 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        ctx.set_symmetric_key(key_aes_2_id, key_aes_2.clone()).unwrap();
+        ctx.set_symmetric_key(key_aes_2_id, key_aes_2.clone())
+            .unwrap();
 
         // XChaCha20 Poly1305 keys
         let key_xchacha_3_id = TestSymmKey::A(3);
         let key_xchacha_3 = SymmetricCryptoKey::make_xchacha20_poly1305_key();
-        ctx.set_symmetric_key(key_xchacha_3_id, key_xchacha_3.clone()).unwrap();
+        ctx.set_symmetric_key(key_xchacha_3_id, key_xchacha_3.clone())
+            .unwrap();
         let key_xchacha_4_id = TestSymmKey::A(4);
         let key_xchacha_4 = SymmetricCryptoKey::make_xchacha20_poly1305_key();
-        ctx.set_symmetric_key(key_xchacha_4_id, key_xchacha_4.clone()).unwrap();
+        ctx.set_symmetric_key(key_xchacha_4_id, key_xchacha_4.clone())
+            .unwrap();
 
         // Wrap and unwrap the keys
         let wrapped_key_1_2 = ctx.wrap_symmetric_key(key_aes_1_id, key_aes_2_id).unwrap();
-        let wrapped_key_1_3 = ctx.wrap_symmetric_key(key_aes_1_id, key_xchacha_3_id).unwrap();
-        let wrapped_key_3_1 = ctx.wrap_symmetric_key(key_xchacha_3_id, key_aes_1_id).unwrap();
-        let wrapped_key_3_4 = ctx.wrap_symmetric_key(key_xchacha_3_id, key_xchacha_4_id).unwrap();
+        let wrapped_key_1_3 = ctx
+            .wrap_symmetric_key(key_aes_1_id, key_xchacha_3_id)
+            .unwrap();
+        let wrapped_key_3_1 = ctx
+            .wrap_symmetric_key(key_xchacha_3_id, key_aes_1_id)
+            .unwrap();
+        let wrapped_key_3_4 = ctx
+            .wrap_symmetric_key(key_xchacha_3_id, key_xchacha_4_id)
+            .unwrap();
 
         // Unwrap the keys
-        let unwrapped_key_2 = ctx.unwrap_symmetric_key(key_aes_1_id, key_aes_2_id, &wrapped_key_1_2).unwrap();
-        let unwrapped_key_3 = ctx.unwrap_symmetric_key(key_aes_1_id, key_xchacha_3_id, &wrapped_key_1_3).unwrap();
-        let unwrapped_key_1 = ctx.unwrap_symmetric_key(key_xchacha_3_id, key_aes_1_id, &wrapped_key_3_1).unwrap();
-        let unwrapped_key_4 = ctx.unwrap_symmetric_key(key_xchacha_3_id, key_xchacha_4_id, &wrapped_key_3_4).unwrap();
+        let unwrapped_key_2 = ctx
+            .unwrap_symmetric_key(key_aes_1_id, key_aes_2_id, &wrapped_key_1_2)
+            .unwrap();
+        let unwrapped_key_3 = ctx
+            .unwrap_symmetric_key(key_aes_1_id, key_xchacha_3_id, &wrapped_key_1_3)
+            .unwrap();
+        let unwrapped_key_1 = ctx
+            .unwrap_symmetric_key(key_xchacha_3_id, key_aes_1_id, &wrapped_key_3_1)
+            .unwrap();
+        let unwrapped_key_4 = ctx
+            .unwrap_symmetric_key(key_xchacha_3_id, key_xchacha_4_id, &wrapped_key_3_4)
+            .unwrap();
 
         // Assert that the unwrapped keys are the same as the original keys
         assert_eq!(unwrapped_key_2, key_aes_2_id);

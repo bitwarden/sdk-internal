@@ -125,14 +125,20 @@ pub(crate) fn decrypt_xchacha20_poly1305(
                         .map_err(|_| CryptoError::InvalidPadding)?;
                     return Ok((data.to_vec(), ContentFormat::Utf8));
                 }
-            },
-            ContentType::Assigned(content_format) if *content_format == CoapContentFormat::Pkcs8 => {
+            }
+            ContentType::Assigned(content_format)
+                if *content_format == CoapContentFormat::Pkcs8 =>
+            {
                 return Ok((decrypted_message.to_vec(), ContentFormat::Pkcs8));
             }
-            ContentType::Assigned(content_format) if *content_format == CoapContentFormat::CoseKey => {
+            ContentType::Assigned(content_format)
+                if *content_format == CoapContentFormat::CoseKey =>
+            {
                 return Ok((decrypted_message.to_vec(), ContentFormat::CoseKey));
             }
-            ContentType::Assigned(content_format) if *content_format == CoapContentFormat::OctetStream => {
+            ContentType::Assigned(content_format)
+                if *content_format == CoapContentFormat::OctetStream =>
+            {
                 return Ok((decrypted_message.to_vec(), ContentFormat::OctetStream));
             }
             _ => {}
@@ -241,5 +247,4 @@ mod test {
         let decrypted = decrypt_xchacha20_poly1305(&encrypted, key).unwrap();
         assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::CoseKey));
     }
-
 }

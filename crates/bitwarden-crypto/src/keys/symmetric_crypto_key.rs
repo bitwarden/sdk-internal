@@ -209,8 +209,8 @@ impl SymmetricCryptoKey {
     }
 
     pub(crate) fn try_from_cose(serialized_key: &[u8]) -> Result<Self, CryptoError> {
-        let cose_key = coset::CoseKey::from_slice(serialized_key)
-            .map_err(|_| CryptoError::InvalidKey)?;
+        let cose_key =
+            coset::CoseKey::from_slice(serialized_key).map_err(|_| CryptoError::InvalidKey)?;
         let key = SymmetricCryptoKey::try_from(&cose_key)?;
         Ok(key)
     }
