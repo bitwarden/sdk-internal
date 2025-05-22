@@ -185,6 +185,18 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                     key_to_wrap_instance.to_encoded().as_slice(),
                     ContentFormat::OctetStream,
                 ),
+            (XChaCha20Poly1305Key(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => self
+                .encrypt_data_with_symmetric_key(
+                    wrapping_key,
+                    key_to_wrap_instance.to_encoded().as_slice(),
+                    ContentFormat::OctetStream,
+                ),
+            (XChaCha20Poly1305Key(_), XChaCha20Poly1305Key(_)) => self
+                .encrypt_data_with_symmetric_key(
+                    wrapping_key,
+                    key_to_wrap_instance.to_encoded_raw().as_slice(),
+                    ContentFormat::CoseKey,
+                ),
             _ => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperation::EncryptionNotImplementedForKey,
             )),
