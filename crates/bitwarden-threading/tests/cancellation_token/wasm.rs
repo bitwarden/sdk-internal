@@ -2,7 +2,7 @@ use bitwarden_threading::cancellation_token::{
     wasm::{AbortController, AbortControllerExt, CancellationTokenExt},
     CancellationToken,
 };
-use bitwarden_threading::sleep;
+use bitwarden_threading::time::sleep;
 use std::time::Duration;
 use wasm_bindgen::externref_heap_live_count;
 use wasm_bindgen_test::wasm_bindgen_test;
