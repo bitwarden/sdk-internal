@@ -14,7 +14,7 @@ use crate::{
     tsify(into_wasm_abi, from_wasm_abi)
 )]
 #[repr(transparent)]
-pub struct OrganizationId(pub uuid::Uuid);
+pub struct OrganizationId(#[tsify(type = r#"Tagged<Uuid, "OrganizationId">"#)] pub uuid::Uuid);
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CiphersClient {
