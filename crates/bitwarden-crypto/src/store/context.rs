@@ -15,7 +15,7 @@ use crate::{
 /// The context of a crypto operation using [super::KeyStore]
 ///
 /// This will usually be accessed from an implementation of [crate::Decryptable] or
-/// [crate::Encryptable], but can also be obtained through [super::KeyStore::context]
+/// [crate::Encryptable], [crate::TypedEncryptable], but can also be obtained through [super::KeyStore::context]
 ///
 /// This context contains access to the user keys stored in the [super::KeyStore] (sometimes
 /// referred to as `global keys`) and it also contains it's own individual secure backend for key
@@ -56,7 +56,7 @@ use crate::{
 /// impl CompositeEncryptable<Ids, SymmKeyId, EncString> for Data {
 ///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
 ///         let local_key_id = ctx.unwrap_symmetric_key(key, LOCAL_KEY, &self.key)?;
-///         self.name.encrypt(ctx, local_key_id, content_format)
+///         self.name.encrypt(ctx, local_key_id)
 ///     }
 /// }
 /// ```
