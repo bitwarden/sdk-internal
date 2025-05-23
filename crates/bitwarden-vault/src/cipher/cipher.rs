@@ -68,6 +68,17 @@ pub enum CipherRepromptType {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct EncryptionContext {
+    /// The Id of the user that encrypted the cipher. It should always represent a UserId, even for
+    /// Organization-owned ciphers
+    pub encrypted_for: Uuid,
+    pub cipher: Cipher,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Cipher {
     pub id: Option<Uuid>,
     pub organization_id: Option<Uuid>,

@@ -243,6 +243,7 @@ mod tests {
         new_device
             .crypto()
             .initialize_user_crypto(InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: kdf,
                 email: email.to_owned(),
                 private_key: private_key.to_owned(),

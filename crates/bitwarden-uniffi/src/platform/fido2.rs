@@ -7,7 +7,7 @@ use bitwarden_fido::{
     PublicKeyCredentialAuthenticatorAttestationResponse, PublicKeyCredentialRpEntity,
     PublicKeyCredentialUserEntity,
 };
-use bitwarden_vault::{Cipher, CipherListView, CipherView, Fido2CredentialNewView};
+use bitwarden_vault::{CipherListView, CipherView, EncryptionContext, Fido2CredentialNewView};
 
 use crate::error::{Error, Result};
 
@@ -245,7 +245,7 @@ pub trait Fido2CredentialStore: Send + Sync {
 
     async fn all_credentials(&self) -> Result<Vec<CipherListView>, Fido2CallbackError>;
 
-    async fn save_credential(&self, cred: Cipher) -> Result<(), Fido2CallbackError>;
+    async fn save_credential(&self, cred: EncryptionContext) -> Result<(), Fido2CallbackError>;
 }
 
 // Because uniffi doesn't support external traits, we have to make a copy of the trait here.
@@ -271,7 +271,7 @@ impl bitwarden_fido::Fido2CredentialStore for UniffiTraitBridge<&dyn Fido2Creden
         self.0.all_credentials().await.map_err(Into::into)
     }
 
-    async fn save_credential(&self, cred: Cipher) -> Result<(), BitFido2CallbackError> {
+    async fn save_credential(&self, cred: EncryptionContext) -> Result<(), BitFido2CallbackError> {
         self.0.save_credential(cred).await.map_err(Into::into)
     }
 }

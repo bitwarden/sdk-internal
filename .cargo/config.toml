@@ -6,6 +6,7 @@ rustflags = ["--cfg", "aes_armv8"]
 
 [target.wasm32-unknown-unknown]
 rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
+runner = 'wasm-bindgen-test-runner'
 
 # Enable support for 16k pages on Android, JNA is using these same flags
 # https://android-developers.googleblog.com/2024/08/adding-16-kb-page-size-to-android.html

@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
@@ -13,6 +13,7 @@ use super::login_method::ServiceAccountLoginMethod;
 use crate::{
     auth::renew::renew_token,
     client::{encryption_settings::EncryptionSettings, login_method::LoginMethod},
+    error::UserIdAlreadySetError,
     key_management::KeyIds,
     DeviceType,
 };
@@ -44,6 +45,7 @@ pub(crate) struct Tokens {
 
 #[derive(Debug)]
 pub struct InternalClient {
+    pub(crate) user_id: OnceLock<Uuid>,
     pub(crate) tokens: RwLock<Tokens>,
     pub(crate) login_method: RwLock<Option<Arc<LoginMethod>>>,
 
@@ -170,6 +172,14 @@ impl InternalClient {
 
     pub fn get_key_store(&self) -> &KeyStore<KeyIds> {
         &self.key_store
+    }
+
+    pub fn init_user_id(&self, user_id: Uuid) -> Result<(), UserIdAlreadySetError> {
+        self.user_id.set(user_id).map_err(|_| UserIdAlreadySetError)
+    }
+
+    pub fn get_user_id(&self) -> Option<Uuid> {
+        self.user_id.get().copied()
     }
 
     #[cfg(feature = "internal")]

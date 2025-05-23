@@ -20,7 +20,7 @@ pub use attachment_client::{AttachmentsClient, DecryptFileError, EncryptFileErro
 pub use card::{CardBrand, CardView};
 pub use cipher::{
     Cipher, CipherError, CipherListView, CipherListViewType, CipherRepromptType, CipherType,
-    CipherView,
+    CipherView, EncryptionContext,
 };
 pub use cipher_client::CiphersClient;
 pub use field::FieldView;

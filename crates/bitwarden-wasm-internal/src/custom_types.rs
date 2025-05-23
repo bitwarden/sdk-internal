@@ -2,7 +2,15 @@
 /// Everything in the string below is appended to the generated TypeScript definition file.
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type Uuid = string;
+
+import { Tagged } from "type-fest";
+
+/**
+ * A string that **MUST** be a valid UUID.
+ *
+ * Never create or cast to this type directly, use the `uuid<T>()` function instead.
+ */
+export type Uuid = unknown;
 
 /**
  * RFC3339 compliant date-time string.

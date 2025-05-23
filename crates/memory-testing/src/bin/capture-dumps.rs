@@ -11,10 +11,10 @@ fn dump_process_to_bytearray(pid: u32, output_dir: &Path, output_name: &Path) ->
         .output()?;
 
     if !output.status.success() {
-        return io::Result::Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!("Failed to dump process: {:?}", output),
-        ));
+        return io::Result::Err(io::Error::other(format!(
+            "Failed to dump process: {:?}",
+            output
+        )));
     }
 
     let core_path = format!("core.{}", pid);
