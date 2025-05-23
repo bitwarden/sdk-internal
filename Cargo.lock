@@ -580,12 +580,14 @@ dependencies = [
  "async-trait",
  "bitwarden-error",
  "console_error_panic_hook",
+ "gloo-timers",
  "js-sys",
  "log",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
  "tokio",
+ "tokio-util",
  "tsify-next",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -1747,6 +1749,18 @@ name = "glob"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8d1add55171497b4705a648c6b583acafb01d58050a51727785f0b2c8e0a2b2"
+
+[[package]]
+name = "gloo-timers"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbb143cf96099802033e0d4f4963b19fd2e0b728bcf076cd9cf7f6634f092994"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "js-sys",
+ "wasm-bindgen",
+]
 
 [[package]]
 name = "goblin"
