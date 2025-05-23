@@ -1,4 +1,4 @@
-use std::{cmp::max, pin::Pin};
+use std::pin::Pin;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use coset::{iana::KeyOperation, CborSerializable, RegisteredLabelWithPrivate};
@@ -208,6 +208,13 @@ impl SymmetricCryptoKey {
         }
     }
 
+    pub(crate) fn try_from_cose(serialized_key: &[u8]) -> Result<Self, CryptoError> {
+        let cose_key =
+            coset::CoseKey::from_slice(serialized_key).map_err(|_| CryptoError::InvalidKey)?;
+        let key = SymmetricCryptoKey::try_from(&cose_key)?;
+        Ok(key)
+    }
+
     pub fn to_base64(&self) -> String {
         STANDARD.encode(self.to_encoded())
     }
@@ -286,9 +293,7 @@ impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
             Ok(Self::Aes256CbcKey(Aes256CbcKey { enc_key }))
         } else if value.len() > Self::AES256_CBC_HMAC_KEY_LEN {
             let unpadded_value = unpad_key(value)?;
-            let cose_key =
-                coset::CoseKey::from_slice(unpadded_value).map_err(|_| CryptoError::InvalidKey)?;
-            SymmetricCryptoKey::try_from(&cose_key)
+            Ok(Self::try_from_cose(unpadded_value)?)
         } else {
             Err(CryptoError::InvalidKeyLen)
         };
@@ -347,10 +352,7 @@ impl std::fmt::Debug for XChaCha20Poly1305Key {
 /// size of the byte array. The previous key types [SymmetricCryptoKey::Aes256CbcHmacKey] and
 /// [SymmetricCryptoKey::Aes256CbcKey] are 64 and 32 bytes long respectively.
 fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
-    // at least 1 byte of padding is required
-    let pad_bytes = min_length.saturating_sub(key_bytes.len()).max(1);
-    let padded_length = max(min_length, key_bytes.len() + 1);
-    key_bytes.resize(padded_length, pad_bytes as u8);
+    crate::keys::utils::pad_bytes(key_bytes, min_length);
 }
 
 /// Unpad a key that is padded using the PKCS7-like padding defined by [pad_key].
@@ -364,11 +366,7 @@ fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
 /// size of the byte array the previous key types [SymmetricCryptoKey::Aes256CbcHmacKey] and
 /// [SymmetricCryptoKey::Aes256CbcKey] are 64 and 32 bytes long respectively.
 fn unpad_key(key_bytes: &[u8]) -> Result<&[u8], CryptoError> {
-    let pad_len = *key_bytes.last().ok_or(CryptoError::InvalidKey)? as usize;
-    if pad_len >= key_bytes.len() {
-        return Err(CryptoError::InvalidKey);
-    }
-    Ok(key_bytes[..key_bytes.len() - pad_len].as_ref())
+    crate::keys::utils::unpad_bytes(key_bytes).map_err(|_| CryptoError::InvalidKey)
 }
 
 #[cfg(test)]

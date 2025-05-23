@@ -1,54 +1,54 @@
-use crate::{store::KeyStoreContext, CryptoError, EncString, KeyId, KeyIds};
+use crate::{store::KeyStoreContext, ContentFormat, CryptoError, EncString, KeyId, KeyIds};
 
-/// An encryption operation that takes the input value and encrypts it into the output value.
+/// An encryption operation that takes the input value and encrypts the fields on it recursively.
 /// Implementations should generally consist of calling [Encryptable::encrypt] for all the fields of
 /// the type.
-pub trait Encryptable<Ids: KeyIds, Key: KeyId, Output> {
+pub trait CompositeEncryptable<Ids: KeyIds, Key: KeyId, Output> {
+    /// For a struct made up of many small encstrings, such as a cipher, this takes the struct
+    /// and recursively encrypts all the fields / sub-structs.
+    fn encrypt_composite(
+        &self,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Key,
+    ) -> Result<Output, CryptoError>;
+}
+
+impl<Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output>
+    CompositeEncryptable<Ids, Key, Option<Output>> for Option<T>
+{
+    fn encrypt_composite(
+        &self,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Key,
+    ) -> Result<Option<Output>, CryptoError> {
+        self.as_ref()
+            .map(|value| value.encrypt_composite(ctx, key))
+            .transpose()
+    }
+}
+
+impl<Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output>
+    CompositeEncryptable<Ids, Key, Vec<Output>> for Vec<T>
+{
+    fn encrypt_composite(
+        &self,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Key,
+    ) -> Result<Vec<Output>, CryptoError> {
+        self.iter()
+            .map(|value| value.encrypt_composite(ctx, key))
+            .collect()
+    }
+}
+
+/// An encryption operation that takes the input value - a primitive such as `String` and encrypts
+/// it into the output value. The implementation decides the content format.
+pub trait PrimitiveEncryptableWithContentType<Ids: KeyIds, Key: KeyId, Output> {
     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: Key) -> Result<Output, CryptoError>;
 }
 
-impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for &[u8] {
-    fn encrypt(
-        &self,
-        ctx: &mut KeyStoreContext<Ids>,
-        key: Ids::Symmetric,
-    ) -> Result<EncString, CryptoError> {
-        ctx.encrypt_data_with_symmetric_key(key, self)
-    }
-}
-
-impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for Vec<u8> {
-    fn encrypt(
-        &self,
-        ctx: &mut KeyStoreContext<Ids>,
-        key: Ids::Symmetric,
-    ) -> Result<EncString, CryptoError> {
-        ctx.encrypt_data_with_symmetric_key(key, self)
-    }
-}
-
-impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for &str {
-    fn encrypt(
-        &self,
-        ctx: &mut KeyStoreContext<Ids>,
-        key: Ids::Symmetric,
-    ) -> Result<EncString, CryptoError> {
-        self.as_bytes().encrypt(ctx, key)
-    }
-}
-
-impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for String {
-    fn encrypt(
-        &self,
-        ctx: &mut KeyStoreContext<Ids>,
-        key: Ids::Symmetric,
-    ) -> Result<EncString, CryptoError> {
-        self.as_bytes().encrypt(ctx, key)
-    }
-}
-
-impl<Ids: KeyIds, Key: KeyId, T: Encryptable<Ids, Key, Output>, Output>
-    Encryptable<Ids, Key, Option<Output>> for Option<T>
+impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptableWithContentType<Ids, Key, Output>, Output>
+    PrimitiveEncryptableWithContentType<Ids, Key, Option<Output>> for Option<T>
 {
     fn encrypt(
         &self,
@@ -61,6 +61,74 @@ impl<Ids: KeyIds, Key: KeyId, T: Encryptable<Ids, Key, Output>, Output>
     }
 }
 
+impl<Ids: KeyIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncString> for &str {
+    fn encrypt(
+        &self,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Symmetric,
+    ) -> Result<EncString, CryptoError> {
+        self.as_bytes().encrypt(ctx, key, ContentFormat::Utf8)
+    }
+}
+
+impl<Ids: KeyIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncString> for String {
+    fn encrypt(
+        &self,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Symmetric,
+    ) -> Result<EncString, CryptoError> {
+        self.as_bytes().encrypt(ctx, key, ContentFormat::Utf8)
+    }
+}
+
+/// An encryption operation that takes the input value - a primitive such as `Vec<u8>` - and
+/// encrypts it into the output value.
+pub trait Encryptable<Ids: KeyIds, Key: KeyId, Output> {
+    fn encrypt(
+        &self,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Key,
+        content_format: ContentFormat,
+    ) -> Result<Output, CryptoError>;
+}
+
+impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for &[u8] {
+    fn encrypt(
+        &self,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Symmetric,
+        content_format: ContentFormat,
+    ) -> Result<EncString, CryptoError> {
+        ctx.encrypt_data_with_symmetric_key(key, self, content_format)
+    }
+}
+
+impl<Ids: KeyIds> Encryptable<Ids, Ids::Symmetric, EncString> for Vec<u8> {
+    fn encrypt(
+        &self,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Symmetric,
+        content_format: ContentFormat,
+    ) -> Result<EncString, CryptoError> {
+        ctx.encrypt_data_with_symmetric_key(key, self, content_format)
+    }
+}
+
+impl<Ids: KeyIds, Key: KeyId, T: Encryptable<Ids, Key, Output>, Output>
+    Encryptable<Ids, Key, Option<Output>> for Option<T>
+{
+    fn encrypt(
+        &self,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Key,
+        content_format: crate::cose::ContentFormat,
+    ) -> Result<Option<Output>, CryptoError> {
+        self.as_ref()
+            .map(|value| value.encrypt(ctx, key, content_format))
+            .transpose()
+    }
+}
+
 impl<Ids: KeyIds, Key: KeyId, T: Encryptable<Ids, Key, Output>, Output>
     Encryptable<Ids, Key, Vec<Output>> for Vec<T>
 {
@@ -68,16 +136,19 @@ impl<Ids: KeyIds, Key: KeyId, T: Encryptable<Ids, Key, Output>, Output>
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         key: Key,
+        content_format: ContentFormat,
     ) -> Result<Vec<Output>, CryptoError> {
-        self.iter().map(|value| value.encrypt(ctx, key)).collect()
+        self.iter()
+            .map(|value| value.encrypt(ctx, key, content_format))
+            .collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        traits::tests::*, AsymmetricCryptoKey, Decryptable, Encryptable, KeyStore,
-        SymmetricCryptoKey,
+        cose::ContentFormat, traits::tests::*, AsymmetricCryptoKey, Decryptable, Encryptable,
+        KeyStore, PrimitiveEncryptableWithContentType, SymmetricCryptoKey,
     };
 
     fn test_store() -> KeyStore<TestIds> {
@@ -109,8 +180,12 @@ mod tests {
         let vec_data = vec![1, 2, 3, 4, 5];
         let slice_data: &[u8] = &vec_data;
 
-        let vec_encrypted = vec_data.encrypt(&mut ctx, key).unwrap();
-        let slice_encrypted = slice_data.encrypt(&mut ctx, key).unwrap();
+        let vec_encrypted = vec_data
+            .encrypt(&mut ctx, key, ContentFormat::OctetStream)
+            .unwrap();
+        let slice_encrypted = slice_data
+            .encrypt(&mut ctx, key, ContentFormat::OctetStream)
+            .unwrap();
 
         let vec_decrypted: Vec<u8> = vec_encrypted.decrypt(&mut ctx, key).unwrap();
         let slice_decrypted: Vec<u8> = slice_encrypted.decrypt(&mut ctx, key).unwrap();

@@ -8,8 +8,8 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
-    SymmetricCryptoKey, UnsignedSharedKey, UserKey,
+    AsymmetricCryptoKey, ContentFormat, CryptoError, EncString, Kdf, KeyDecryptable,
+    KeyEncryptable, MasterKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -334,7 +334,7 @@ pub(super) fn derive_pin_key(
 
     Ok(DerivePinKeyResponse {
         pin_protected_user_key,
-        encrypted_pin: pin.encrypt_with_key(user_key)?,
+        encrypted_pin: pin.encrypt_with_key(user_key, ContentFormat::Utf8)?,
     })
 }
 
@@ -870,7 +870,7 @@ mod tests {
         let invalid_private_key = "bad_key"
             .to_string()
             .into_bytes()
-            .encrypt_with_key(&user_key.0)
+            .encrypt_with_key(&user_key.0, ContentFormat::Utf8)
             .unwrap();
 
         let request = VerifyAsymmetricKeysRequest {

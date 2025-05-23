@@ -1,6 +1,6 @@
 use crate::{
-    error::Result, AsymmetricCryptoKey, CryptoError, EncString, KeyDecryptable, KeyEncryptable,
-    SymmetricCryptoKey, UnsignedSharedKey,
+    error::Result, AsymmetricCryptoKey, ContentFormat, CryptoError, EncString, KeyDecryptable,
+    KeyEncryptable, SymmetricCryptoKey, UnsignedSharedKey,
 };
 
 /// Device Key
@@ -39,11 +39,11 @@ impl DeviceKey {
 
         let protected_device_public_key = device_private_key
             .to_public_der()?
-            .encrypt_with_key(user_key)?;
+            .encrypt_with_key(user_key, ContentFormat::OctetStream)?;
 
         let protected_device_private_key = device_private_key
             .to_der()?
-            .encrypt_with_key(&device_key.0)?;
+            .encrypt_with_key(&device_key.0, ContentFormat::Pkcs8)?;
 
         Ok(TrustDeviceResponse {
             device_key: device_key.to_base64(),
