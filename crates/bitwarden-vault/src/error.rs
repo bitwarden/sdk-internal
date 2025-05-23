@@ -9,6 +9,8 @@ pub enum EncryptError {
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
     VaultLocked(#[from] bitwarden_core::VaultLockedError),
+    #[error("Client User Id has not been set")]
+    MissingUserId,
 }
 
 /// Generic error type for decryption errors
