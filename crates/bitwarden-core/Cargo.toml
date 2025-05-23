@@ -17,14 +17,14 @@ keywords.workspace = true
 [features]
 internal = ["dep:zxcvbn"]
 no-memory-hardening = [
-    "bitwarden-crypto/no-memory-hardening",
+    "bitwarden-crypto/no-memory-hardening"
 ] # Disable memory hardening features
 secrets = [] # Secrets manager API
 uniffi = ["bitwarden-crypto/uniffi", "dep:uniffi"] # Uniffi bindings
 wasm = [
     "bitwarden-error/wasm",
     "dep:wasm-bindgen",
-    "dep:tsify-next",
+    "dep:tsify-next"
 ] # WASM support
 
 [dependencies]

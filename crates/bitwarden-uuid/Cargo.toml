@@ -16,7 +16,7 @@ keywords.workspace = true
 
 [features]
 wasm = [
-    "bitwarden-uuid-macro/wasm",
+    "bitwarden-uuid-macro/wasm"
     #"dep:js-sys",
     #"dep:tsify-next",
     #"dep:wasm-bindgen",
