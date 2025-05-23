@@ -506,7 +506,9 @@ name = "bitwarden-ipc"
 version = "1.0.0"
 dependencies = [
  "bitwarden-error",
+ "bitwarden-threading",
  "js-sys",
+ "log",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -586,6 +588,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.12",
  "tokio",
+ "tokio-util",
  "tsify-next",
  "wasm-bindgen",
  "wasm-bindgen-futures",

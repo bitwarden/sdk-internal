@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use bitwarden_error::bitwarden_error;
+use bitwarden_threading::ThreadBoundRunner;
 use thiserror::Error;
 use tokio::sync::RwLock;
 use wasm_bindgen::prelude::*;
@@ -7,11 +10,6 @@ use crate::{
     message::{IncomingMessage, OutgoingMessage},
     traits::{CommunicationBackend, CommunicationBackendReceiver},
 };
-
-#[derive(Debug, Error)]
-#[bitwarden_error(basic)]
-#[error("Failed to deserialize incoming message: {0}")]
-pub struct DeserializeError(String);
 
 #[derive(Debug, Error)]
 #[bitwarden_error(basic)]
@@ -42,9 +40,19 @@ extern "C" {
 
 #[wasm_bindgen(js_name = IpcCommunicationBackend)]
 pub struct JsCommunicationBackend {
-    sender: JsCommunicationBackendSender,
+    sender: Arc<ThreadBoundRunner<JsCommunicationBackendSender>>,
     receive_rx: tokio::sync::broadcast::Receiver<IncomingMessage>,
     receive_tx: tokio::sync::broadcast::Sender<IncomingMessage>,
+}
+
+impl Clone for JsCommunicationBackend {
+    fn clone(&self) -> Self {
+        Self {
+            sender: self.sender.clone(),
+            receive_rx: self.receive_rx.resubscribe(),
+            receive_tx: self.receive_tx.clone(),
+        }
+    }
 }
 
 #[wasm_bindgen(js_class = IpcCommunicationBackend)]
@@ -53,7 +61,7 @@ impl JsCommunicationBackend {
     pub fn new(sender: JsCommunicationBackendSender) -> Self {
         let (receive_tx, receive_rx) = tokio::sync::broadcast::channel(20);
         Self {
-            sender,
+            sender: Arc::new(ThreadBoundRunner::new(sender)),
             receive_rx,
             receive_tx,
         }
@@ -69,11 +77,18 @@ impl JsCommunicationBackend {
 }
 
 impl CommunicationBackend for JsCommunicationBackend {
-    type SendError = JsValue;
+    type SendError = String;
     type Receiver = RwLock<tokio::sync::broadcast::Receiver<IncomingMessage>>;
 
     async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
-        self.sender.send(message).await
+        let result = self
+            .sender
+            .run_in_thread(|sender| async move {
+                sender.send(message).await.map_err(|e| format!("{:?}", e))
+            })
+            .await;
+
+        Ok(result.map_err(|e| e.to_string())??)
     }
 
     async fn subscribe(&self) -> Self::Receiver {
@@ -82,14 +97,9 @@ impl CommunicationBackend for JsCommunicationBackend {
 }
 
 impl CommunicationBackendReceiver for RwLock<tokio::sync::broadcast::Receiver<IncomingMessage>> {
-    type ReceiveError = JsValue;
+    type ReceiveError = String;
 
     async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
-        Ok(self
-            .write()
-            .await
-            .recv()
-            .await
-            .map_err(|e| ChannelError(e.to_string()))?)
+        self.write().await.recv().await.map_err(|e| e.to_string())
     }
 }
