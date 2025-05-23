@@ -22,18 +22,38 @@ pub fn uuid(input: TokenStream) -> TokenStream {
         #[repr(transparent)]
         #vis struct #ident(
             #[tsify(type = #tsify_type)]
-            pub uuid::Uuid
+            uuid::Uuid
         );
 
         #[cfg(not(feature = "wasm"))]
         #[derive(serde::Serialize, serde::Deserialize)]
         #[repr(transparent)]
         #vis struct #ident(
-            pub uuid::Uuid
+            uuid::Uuid
         );
 
         #[cfg(feature = "uniffi")]
         uniffi::custom_newtype!(#ident, uuid::Uuid);
+
+        impl #ident {
+            pub fn new(value: uuid::Uuid) -> Self {
+                Self(value)
+            }
+        }
+
+        impl std::str::FromStr for #ident {
+            type Err = uuid::Error;
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                uuid::Uuid::from_str(s).map(Self)
+            }
+        }
+
+        impl From<#ident> for uuid::Uuid {
+            fn from(value: #ident) -> Self {
+                value.0
+            }
+        }
     };
 
     TokenStream::from(expanded)

@@ -64,7 +64,7 @@ impl CiphersClient {
         organization_id: OrganizationId,
     ) -> Result<CipherView, CipherError> {
         let key_store = self.client.internal.get_key_store();
-        cipher_view.move_to_organization(&mut key_store.context(), organization_id.0)?;
+        cipher_view.move_to_organization(&mut key_store.context(), organization_id.into())?;
         Ok(cipher_view)
     }
 
