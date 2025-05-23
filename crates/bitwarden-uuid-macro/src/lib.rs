@@ -14,24 +14,16 @@ pub fn uuid(input: TokenStream) -> TokenStream {
     let name_str = ident.to_string();
 
     let tsify_type = format!("Tagged<Uuid, \"{}\">", name_str);
-    let doc_string = format!("NewType wrapper for `{}`", name_str);
+    let doc_string = format!(" NewType wrapper for `{}`", name_str);
 
     let expanded = quote! {
-        #[cfg(feature = "wasm")]
         #[doc = #doc_string]
-        #[derive(::serde::Serialize, ::serde::Deserialize, ::tsify_next::Tsify)]
-        #[tsify(into_wasm_abi, from_wasm_abi)]
-        #[repr(transparent)]
-        #vis struct #ident(
-            #[tsify(type = #tsify_type)]
-            ::uuid::Uuid
-        );
-
-        #[cfg(not(feature = "wasm"))]
-        #[doc = #doc_string]
+        #[cfg_attr(feature = "wasm", derive(::tsify_next::Tsify), tsify(into_wasm_abi, from_wasm_abi))]
         #[derive(::serde::Serialize, ::serde::Deserialize)]
         #[repr(transparent)]
-        #vis struct #ident(
+        #vis struct #ident
+        (
+            #[cfg_attr(feature = "wasm", tsify(type = #tsify_type))]
             ::uuid::Uuid
         );
 
