@@ -234,7 +234,6 @@ class MainActivity : FragmentActivity() {
 
         val loginBody = http.post(IDENTITY_URL + "connect/token") {
             contentType(ContentType.Application.Json)
-            header("Auth-Email", Base64.getEncoder().encodeToString(EMAIL.toByteArray()))
             setBody(FormDataContent(Parameters.build {
                 append("scope", "api offline_access")
                 append("client_id", "web")
