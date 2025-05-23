@@ -34,7 +34,6 @@ mod test {
         assert!(elapsed >= 90.0, "Elapsed time was less than expected");
     }
 
-    // #[cfg(not(target_arch = "wasm32"))]
     #[tokio::test]
     async fn should_sleep_tokio() {
         use std::time::Instant;
