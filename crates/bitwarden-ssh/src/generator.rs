@@ -2,7 +2,7 @@ use bitwarden_vault::SshKeyView;
 use serde::{Deserialize, Serialize};
 use ssh_key::{rand_core::CryptoRngCore, Algorithm};
 #[cfg(feature = "wasm")]
-use tsify_next::Tsify;
+use tsify::Tsify;
 
 use crate::{
     error::{self, KeyGenerationError},
