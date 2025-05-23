@@ -1,5 +1,6 @@
 use bitwarden_core::Client;
 use bitwarden_crypto::IdentifyKey;
+use bitwarden_uuid::uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -7,14 +8,7 @@ use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError, VaultClient,
 };
 
-/// NewType representing an Organization ID. This ensures type safety.
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify_next::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
-#[repr(transparent)]
-pub struct OrganizationId(#[tsify(type = r#"Tagged<Uuid, "OrganizationId">"#)] pub uuid::Uuid);
+uuid!(pub OrganizationId);
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CiphersClient {

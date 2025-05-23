@@ -650,6 +650,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-uuid"
+version = "1.0.0"
+dependencies = [
+ "bitwarden-uuid-macro",
+]
+
+[[package]]
+name = "bitwarden-uuid-macro"
+version = "1.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "bitwarden-vault"
 version = "1.0.0"
 dependencies = [
@@ -658,6 +674,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-uuid",
  "chrono",
  "data-encoding",
  "hmac",
