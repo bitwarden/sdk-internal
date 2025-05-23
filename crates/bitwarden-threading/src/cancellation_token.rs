@@ -41,13 +41,23 @@ pub mod wasm {
 
     impl AbortControllerExt for AbortController {
         fn to_cancellation_token(&self) -> CancellationToken {
+            self.signal().to_cancellation_token()
+        }
+    }
+
+    pub trait AbortSignalExt {
+        fn to_cancellation_token(&self) -> CancellationToken;
+    }
+
+    impl AbortSignalExt for AbortSignal {
+        fn to_cancellation_token(&self) -> CancellationToken {
             let token = CancellationToken::new();
 
             let token_clone = token.clone();
             let closure = Closure::new(move || {
                 token_clone.cancel();
             });
-            self.signal().add_event_listener("abort", &closure);
+            self.add_event_listener("abort", &closure);
             closure.forget(); // Transfer ownership to the JS runtime
 
             token
