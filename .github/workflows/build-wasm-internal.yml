@@ -60,6 +60,9 @@ jobs:
           RUST_TOOLCHAIN="$(grep -oP '^channel.*"(\K.*?)(?=")' ../../rust-toolchain.toml)"
           echo "RUST_TOOLCHAIN=${RUST_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
 
+      - name: NPM setup
+        run: npm ci
+
       - name: Install rust
         uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0 # stable
         with:
