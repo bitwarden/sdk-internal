@@ -19,20 +19,20 @@ pub fn uuid(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         #[cfg(feature = "wasm")]
         #[doc = #doc_string]
-        #[derive(serde::Serialize, serde::Deserialize, tsify_next::Tsify)]
+        #[derive(::serde::Serialize, ::serde::Deserialize, ::tsify_next::Tsify)]
         #[tsify(into_wasm_abi, from_wasm_abi)]
         #[repr(transparent)]
         #vis struct #ident(
             #[tsify(type = #tsify_type)]
-            uuid::Uuid
+            ::uuid::Uuid
         );
 
         #[cfg(not(feature = "wasm"))]
         #[doc = #doc_string]
-        #[derive(serde::Serialize, serde::Deserialize)]
+        #[derive(::serde::Serialize, ::serde::Deserialize)]
         #[repr(transparent)]
         #vis struct #ident(
-            uuid::Uuid
+            ::uuid::Uuid
         );
 
         #[cfg(feature = "uniffi")]
@@ -44,7 +44,7 @@ pub fn uuid(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl std::str::FromStr for #ident {
+        impl ::std::str::FromStr for #ident {
             type Err = uuid::Error;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -52,7 +52,7 @@ pub fn uuid(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl From<#ident> for uuid::Uuid {
+        impl From<#ident> for ::uuid::Uuid {
             fn from(value: #ident) -> Self {
                 value.0
             }

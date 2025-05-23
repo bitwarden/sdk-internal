@@ -218,7 +218,7 @@ mod tests {
         //  Move cipher to organization
         let res = client.vault().ciphers().move_to_organization(
             view,
-            OrganizationId("1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap()),
+            "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap(),
         );
 
         assert!(res.is_err());
@@ -323,7 +323,7 @@ mod tests {
             .ciphers()
             .move_to_organization(
                 view,
-                OrganizationId("1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap()),
+                "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap(),
             )
             .unwrap();
         let EncryptionContext {
