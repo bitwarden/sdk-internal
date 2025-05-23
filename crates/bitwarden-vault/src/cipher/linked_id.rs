@@ -16,12 +16,7 @@ pub enum LinkedIdType {
 }
 
 #[cfg(feature = "uniffi")]
-uniffi::custom_type!(LinkedIdType, u32, {
-    try_lift: |val| {
-        LinkedIdType::try_from(val).map_err(|e| e.into())
-    },
-    lower: |obj| obj.into(),
-});
+uniffi::custom_type!(LinkedIdType, u32);
 
 impl From<LinkedIdType> for u32 {
     fn from(v: LinkedIdType) -> Self {

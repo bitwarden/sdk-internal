@@ -7,11 +7,7 @@ use uuid::Uuid;
 uniffi::use_remote_type!(bitwarden_crypto::NonZeroU32);
 
 type DateTime = chrono::DateTime<chrono::Utc>;
-uniffi::custom_type!(DateTime, std::time::SystemTime, {
-    remote,
-    try_lift: |val| Ok(Self::from(val)),
-    lower: |obj| obj.into(),
-});
+uniffi::custom_type!(DateTime, std::time::SystemTime, { remote });
 
 uniffi::custom_type!(Uuid, String, {
     remote,
