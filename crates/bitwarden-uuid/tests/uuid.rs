@@ -23,3 +23,22 @@ fn test_new() {
 
     assert_eq!(uuid, Into::<Uuid>::into(id));
 }
+
+#[test]
+fn test_serialize() {
+    let id: TestId = "d4a722ff-ce51-47f1-ba42-c2216f547851".parse().unwrap();
+
+    let serialized = serde_json::to_string(&id).unwrap();
+
+    assert_eq!(serialized, "\"d4a722ff-ce51-47f1-ba42-c2216f547851\"");
+}
+
+#[test]
+fn test_deserialize() {
+    let id: TestId = "d4a722ff-ce51-47f1-ba42-c2216f547851".parse().unwrap();
+
+    let deserialized: TestId =
+        serde_json::from_str("\"d4a722ff-ce51-47f1-ba42-c2216f547851\"").unwrap();
+
+    assert_eq!(id, deserialized);
+}

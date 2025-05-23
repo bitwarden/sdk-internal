@@ -21,7 +21,11 @@ pub fn uuid(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         #[doc = #doc_string]
         #[cfg_attr(feature = "wasm", derive(::tsify_next::Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-        #[derive(::serde::Serialize, ::serde::Deserialize)]
+        #[derive(
+            ::serde::Serialize, ::serde::Deserialize,
+            ::std::cmp::PartialEq, ::std::cmp::Eq,
+            ::std::clone::Clone, ::std::marker::Copy, ::std::fmt::Debug
+        )]
         #[repr(transparent)]
         #vis struct #ident
         (
