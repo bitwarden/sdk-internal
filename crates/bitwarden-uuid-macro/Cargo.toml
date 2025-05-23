@@ -14,9 +14,6 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
-[features]
-wasm = []
-
 [dependencies]
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
