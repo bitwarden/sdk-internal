@@ -36,6 +36,10 @@ pub mod wasm {
     }
 
     pub trait AbortControllerExt {
+        /// Converts an `AbortController` to a `CancellationToken`.
+        /// The signal only travels in one direction: `AbortController` -> `CancellationToken`,
+        /// i.e. the `CancellationToken` will be cancelled when the `AbortController` is aborted
+        /// but not the other way around.
         fn to_cancellation_token(&self) -> CancellationToken;
     }
 
@@ -46,6 +50,10 @@ pub mod wasm {
     }
 
     pub trait AbortSignalExt {
+        /// Converts an `AbortSignal` to a `CancellationToken`.
+        /// The signal only travels in one direction: `AbortSignal` -> `CancellationToken`,
+        /// i.e. the `CancellationToken` will be cancelled when the `AbortSignal` is aborted
+        /// but not the other way around.
         fn to_cancellation_token(&self) -> CancellationToken;
     }
 
