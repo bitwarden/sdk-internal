@@ -674,6 +674,8 @@ name = "bitwarden-uuid"
 version = "1.0.0"
 dependencies = [
  "bitwarden-uuid-macro",
+ "serde",
+ "uuid",
 ]
 
 [[package]]
