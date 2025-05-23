@@ -1,5 +1,5 @@
 use bitwarden_vault::{
-    Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
+    Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError, EncryptionContext,
     Fido2CredentialView,
 };
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -23,7 +23,7 @@ impl CiphersClient {
     /// # Returns
     /// - `Ok(Cipher)` containing the encrypted cipher
     /// - `Err(EncryptError)` if encryption fails
-    pub fn encrypt(&self, cipher_view: CipherView) -> Result<Cipher, EncryptError> {
+    pub fn encrypt(&self, cipher_view: CipherView) -> Result<EncryptionContext, EncryptError> {
         self.0.encrypt(cipher_view)
     }
 
