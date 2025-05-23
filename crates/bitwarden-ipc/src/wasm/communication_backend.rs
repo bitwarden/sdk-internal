@@ -88,7 +88,7 @@ impl CommunicationBackend for JsCommunicationBackend {
             })
             .await;
 
-        Ok(result.map_err(|e| e.to_string())??)
+        result.map_err(|e| e.to_string())?
     }
 
     async fn subscribe(&self) -> Self::Receiver {
