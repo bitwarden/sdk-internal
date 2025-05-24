@@ -554,6 +554,7 @@ dependencies = [
 name = "bitwarden-ipc"
 version = "1.0.0"
 dependencies = [
+ "async-trait",
  "bitwarden-error",
  "bitwarden-threading",
  "js-sys",
@@ -563,6 +564,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tsify-next",
+ "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
