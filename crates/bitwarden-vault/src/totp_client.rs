@@ -1,12 +1,11 @@
 use bitwarden_core::Client;
 use chrono::{DateTime, Utc};
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::{
     generate_totp, generate_totp_cipher_view, CipherListView, TotpError, TotpResponse, VaultClient,
 };
-
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct TotpClient {

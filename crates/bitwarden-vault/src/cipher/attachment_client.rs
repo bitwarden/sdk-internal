@@ -4,14 +4,13 @@ use bitwarden_core::Client;
 use bitwarden_crypto::EncString;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
     Cipher, DecryptError, EncryptError, VaultClient,
 };
-
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct AttachmentsClient {
