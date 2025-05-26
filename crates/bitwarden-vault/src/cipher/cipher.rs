@@ -1,19 +1,19 @@
 use bitwarden_api_api::models::CipherDetailsResponseModel;
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
-    require, MissingFieldError, VaultLockedError,
+    require, MissingFieldError, OrganizationId, UserId, VaultLockedError,
 };
 use bitwarden_crypto::{
     CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
 use bitwarden_error::bitwarden_error;
+use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
-use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -26,9 +26,11 @@ use super::{
     secure_note, ssh_key,
 };
 use crate::{
-    password_history, Fido2CredentialFullView, Fido2CredentialView, Login, LoginView,
-    VaultParseError,
+    password_history, CollectionId, Fido2CredentialFullView, Fido2CredentialView, FolderId, Login,
+    LoginView, VaultParseError,
 };
+
+uuid_newtype!(pub CipherId);
 
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
@@ -71,7 +73,7 @@ pub enum CipherRepromptType {
 pub struct EncryptionContext {
     /// The Id of the user that encrypted the cipher. It should always represent a UserId, even for
     /// Organization-owned ciphers
-    pub encrypted_for: Uuid,
+    pub encrypted_for: UserId,
     pub cipher: Cipher,
 }
 
@@ -80,10 +82,10 @@ pub struct EncryptionContext {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Cipher {
-    pub id: Option<Uuid>,
-    pub organization_id: Option<Uuid>,
-    pub folder_id: Option<Uuid>,
-    pub collection_ids: Vec<Uuid>,
+    pub id: Option<CipherId>,
+    pub organization_id: Option<OrganizationId>,
+    pub folder_id: Option<FolderId>,
+    pub collection_ids: Vec<CollectionId>,
 
     /// More recent ciphers uses individual encryption keys to encrypt the other fields of the
     /// Cipher.
@@ -121,10 +123,10 @@ pub struct Cipher {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherView {
-    pub id: Option<Uuid>,
-    pub organization_id: Option<Uuid>,
-    pub folder_id: Option<Uuid>,
-    pub collection_ids: Vec<Uuid>,
+    pub id: Option<CipherId>,
+    pub organization_id: Option<OrganizationId>,
+    pub folder_id: Option<FolderId>,
+    pub collection_ids: Vec<CollectionId>,
 
     /// Temporary, required to support re-encrypting existing items.
     pub key: Option<EncString>,
@@ -173,10 +175,10 @@ pub enum CipherListViewType {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherListView {
-    pub id: Option<Uuid>,
-    pub organization_id: Option<Uuid>,
-    pub folder_id: Option<Uuid>,
-    pub collection_ids: Vec<Uuid>,
+    pub id: Option<CipherId>,
+    pub organization_id: Option<OrganizationId>,
+    pub folder_id: Option<FolderId>,
+    pub collection_ids: Vec<CollectionId>,
 
     /// Temporary, required to support calculating TOTP from CipherListView.
     pub key: Option<EncString>,
@@ -543,10 +545,10 @@ impl CipherView {
     pub fn move_to_organization(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
-        organization_id: Uuid,
+        organization_id: OrganizationId,
     ) -> Result<(), CipherError> {
         let old_key = self.key_identifier();
-        let new_key = SymmetricKeyId::Organization(organization_id);
+        let new_key = SymmetricKeyId::Organization(organization_id.into());
 
         // If any attachment is missing a key we can't reencrypt the attachment keys
         if self.attachments.iter().flatten().any(|a| a.key.is_none()) {
@@ -658,7 +660,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
 impl IdentifyKey<SymmetricKeyId> for Cipher {
     fn key_identifier(&self) -> SymmetricKeyId {
         match self.organization_id {
-            Some(organization_id) => SymmetricKeyId::Organization(organization_id),
+            Some(organization_id) => SymmetricKeyId::Organization(organization_id.into()),
             None => SymmetricKeyId::User,
         }
     }
@@ -667,7 +669,7 @@ impl IdentifyKey<SymmetricKeyId> for Cipher {
 impl IdentifyKey<SymmetricKeyId> for CipherView {
     fn key_identifier(&self) -> SymmetricKeyId {
         match self.organization_id {
-            Some(organization_id) => SymmetricKeyId::Organization(organization_id),
+            Some(organization_id) => SymmetricKeyId::Organization(organization_id.into()),
             None => SymmetricKeyId::User,
         }
     }
@@ -676,7 +678,7 @@ impl IdentifyKey<SymmetricKeyId> for CipherView {
 impl IdentifyKey<SymmetricKeyId> for CipherListView {
     fn key_identifier(&self) -> SymmetricKeyId {
         match self.organization_id {
-            Some(organization_id) => SymmetricKeyId::Organization(organization_id),
+            Some(organization_id) => SymmetricKeyId::Organization(organization_id.into()),
             None => SymmetricKeyId::User,
         }
     }
@@ -687,10 +689,15 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
 
     fn try_from(cipher: CipherDetailsResponseModel) -> Result<Self, Self::Error> {
         Ok(Self {
-            id: cipher.id,
-            organization_id: cipher.organization_id,
-            folder_id: cipher.folder_id,
-            collection_ids: cipher.collection_ids.unwrap_or_default(),
+            id: cipher.id.map(CipherId::new),
+            organization_id: cipher.organization_id.map(OrganizationId::new),
+            folder_id: cipher.folder_id.map(FolderId::new),
+            collection_ids: cipher
+                .collection_ids
+                .unwrap_or_default()
+                .into_iter()
+                .map(CollectionId::new)
+                .collect(),
             name: require!(EncString::try_from_optional(cipher.name)?),
             notes: EncString::try_from_optional(cipher.notes)?,
             r#type: require!(cipher.r#type).into(),
@@ -766,7 +773,7 @@ mod tests {
     use crate::{login::Fido2CredentialListView, Fido2Credential};
 
     fn generate_cipher() -> CipherView {
-        let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
+        let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         CipherView {
             r#type: CipherType::Login,
             login: Some(LoginView {
@@ -986,10 +993,10 @@ mod tests {
 
     #[test]
     fn test_move_user_cipher_to_org() {
-        let org = uuid::Uuid::new_v4();
+        let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
+        let key_store = create_test_crypto_with_user_and_org_key(key, org.into(), org_key);
 
         // Create a cipher with a user key
         let mut cipher = generate_cipher();
@@ -1011,10 +1018,10 @@ mod tests {
 
     #[test]
     fn test_move_user_cipher_to_org_manually() {
-        let org = uuid::Uuid::new_v4();
+        let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
+        let key_store = create_test_crypto_with_user_and_org_key(key, org.into(), org_key);
 
         // Create a cipher with a user key
         let mut cipher = generate_cipher();
@@ -1031,10 +1038,10 @@ mod tests {
 
     #[test]
     fn test_move_user_cipher_with_attachment_without_key_to_org() {
-        let org = uuid::Uuid::new_v4();
+        let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
+        let key_store = create_test_crypto_with_user_and_org_key(key, org.into(), org_key);
 
         let mut cipher = generate_cipher();
         let attachment = AttachmentView {
@@ -1055,11 +1062,11 @@ mod tests {
 
     #[test]
     fn test_move_user_cipher_with_attachment_with_key_to_org() {
-        let org = uuid::Uuid::new_v4();
+        let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
-        let org_key = SymmetricKeyId::Organization(org);
+        let key_store = create_test_crypto_with_user_and_org_key(key, org.into(), org_key);
+        let org_key = SymmetricKeyId::Organization(org.into());
 
         // Attachment has a key that is encrypted with the user key, as the cipher has no key itself
         let (attachment_key_enc, attachment_key_val) = {
@@ -1123,11 +1130,11 @@ mod tests {
 
     #[test]
     fn test_move_user_cipher_with_key_with_attachment_with_key_to_org() {
-        let org = uuid::Uuid::new_v4();
+        let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
-        let org_key = SymmetricKeyId::Organization(org);
+        let key_store = create_test_crypto_with_user_and_org_key(key, org.into(), org_key);
+        let org_key = SymmetricKeyId::Organization(org.into());
 
         let mut ctx = key_store.context();
 

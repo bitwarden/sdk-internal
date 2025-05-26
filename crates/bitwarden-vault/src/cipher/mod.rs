@@ -19,8 +19,8 @@ pub use attachment::{
 pub use attachment_client::{AttachmentsClient, DecryptFileError, EncryptFileError};
 pub use card::{CardBrand, CardView};
 pub use cipher::{
-    Cipher, CipherError, CipherListView, CipherListViewType, CipherRepromptType, CipherType,
-    CipherView, EncryptionContext,
+    Cipher, CipherError, CipherId, CipherListView, CipherListViewType, CipherRepromptType,
+    CipherType, CipherView, EncryptionContext,
 };
 pub use cipher_client::CiphersClient;
 pub use field::FieldView;

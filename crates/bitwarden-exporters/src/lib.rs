@@ -1,7 +1,7 @@
 use std::fmt;
 
 use bitwarden_vault::{
-    CipherRepromptType, CipherView, Fido2CredentialFullView, LoginUriView, UriMatchType,
+    CipherRepromptType, CipherView, Fido2CredentialFullView, FolderId, LoginUriView, UriMatchType,
 };
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
@@ -117,7 +117,7 @@ impl From<ImportingCipher> for CipherView {
         Self {
             id: None,
             organization_id: None,
-            folder_id: value.folder_id,
+            folder_id: value.folder_id.map(FolderId::new),
             collection_ids: vec![],
             key: None,
             name: value.name,

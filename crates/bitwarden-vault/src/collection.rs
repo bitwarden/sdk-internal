@@ -1,13 +1,15 @@
 use bitwarden_api_api::models::CollectionDetailsResponseModel;
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
-    require,
+    require, OrganizationId,
 };
 use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
+use bitwarden_uuid::uuid_newtype;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::VaultParseError;
+
+uuid_newtype!(pub CollectionId);
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -18,8 +20,8 @@ use crate::VaultParseError;
     tsify(into_wasm_abi, from_wasm_abi)
 )]
 pub struct Collection {
-    pub id: Option<Uuid>,
-    pub organization_id: Uuid,
+    pub id: Option<CollectionId>,
+    pub organization_id: OrganizationId,
 
     pub name: EncString,
 
@@ -33,8 +35,8 @@ pub struct Collection {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CollectionView {
-    pub id: Option<Uuid>,
-    pub organization_id: Uuid,
+    pub id: Option<CollectionId>,
+    pub organization_id: OrganizationId,
 
     pub name: String,
 
@@ -46,7 +48,7 @@ pub struct CollectionView {
 
 impl IdentifyKey<SymmetricKeyId> for Collection {
     fn key_identifier(&self) -> SymmetricKeyId {
-        SymmetricKeyId::Organization(self.organization_id)
+        SymmetricKeyId::Organization(self.organization_id.into())
     }
 }
 
@@ -75,8 +77,8 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
 
     fn try_from(collection: CollectionDetailsResponseModel) -> Result<Self, Self::Error> {
         Ok(Collection {
-            id: collection.id,
-            organization_id: require!(collection.organization_id),
+            id: collection.id.map(CollectionId::new),
+            organization_id: OrganizationId::new(require!(collection.organization_id)),
             name: require!(collection.name).parse()?,
             external_id: collection.external_id,
             hide_passwords: collection.hide_passwords.unwrap_or(false),

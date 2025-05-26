@@ -80,7 +80,8 @@ impl Fido2CredentialAutofillView {
                             credential_id: string_to_guid_bytes(&c.credential_id)?,
                             cipher_id: cipher
                                 .id
-                                .ok_or(Fido2CredentialAutofillViewError::MissingCipherId)?,
+                                .ok_or(Fido2CredentialAutofillViewError::MissingCipherId)?
+                                .into(),
                             rp_id: c.rp_id.clone(),
                             user_handle: user_handle?,
                             user_name_for_ui: c
@@ -117,7 +118,8 @@ impl Fido2CredentialAutofillView {
                                 credential_id: string_to_guid_bytes(&c.credential_id)?,
                                 cipher_id: cipher
                                     .id
-                                    .ok_or(Fido2CredentialAutofillViewError::MissingCipherId)?,
+                                    .ok_or(Fido2CredentialAutofillViewError::MissingCipherId)?
+                                    .into(),
                                 rp_id: c.rp_id.clone(),
                                 user_handle: user_handle?,
                                 user_name_for_ui: c

@@ -647,6 +647,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-uuid",
  "chrono",
  "data-encoding",
  "hmac",

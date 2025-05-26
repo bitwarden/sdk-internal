@@ -8,7 +8,7 @@ use syn::{
 };
 
 #[proc_macro]
-pub fn uuid(input: TokenStream) -> TokenStream {
+pub fn uuid_newtype(input: TokenStream) -> TokenStream {
     // Parse input as: vis ident
     let input = parse_macro_input!(input as IdTypeInput);
     let ident = input.ident;
@@ -23,7 +23,7 @@ pub fn uuid(input: TokenStream) -> TokenStream {
         #[cfg_attr(feature = "wasm", derive(::tsify_next::Tsify), tsify(into_wasm_abi, from_wasm_abi))]
         #[derive(
             ::serde::Serialize, ::serde::Deserialize,
-            ::std::cmp::PartialEq, ::std::cmp::Eq,
+            ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::hash::Hash,
             ::std::clone::Clone, ::std::marker::Copy, ::std::fmt::Debug
         )]
         #[repr(transparent)]
@@ -39,6 +39,11 @@ pub fn uuid(input: TokenStream) -> TokenStream {
         impl #ident {
             pub fn new(value: uuid::Uuid) -> Self {
                 Self(value)
+            }
+
+            /// Create a new UUID v4 based id.
+            pub fn new_v4() -> Self {
+                Self(uuid::Uuid::new_v4())
             }
         }
 

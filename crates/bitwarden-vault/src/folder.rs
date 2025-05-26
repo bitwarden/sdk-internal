@@ -6,20 +6,22 @@ use bitwarden_core::{
 use bitwarden_crypto::{
     CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
 };
+use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use crate::VaultParseError;
+
+uuid_newtype!(pub FolderId);
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Folder {
-    id: Option<Uuid>,
+    id: Option<FolderId>,
     name: EncString,
     revision_date: DateTime<Utc>,
 }
@@ -29,7 +31,7 @@ pub struct Folder {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct FolderView {
-    pub id: Option<Uuid>,
+    pub id: Option<FolderId>,
     pub name: String,
     pub revision_date: DateTime<Utc>,
 }
@@ -78,7 +80,7 @@ impl TryFrom<FolderResponseModel> for Folder {
 
     fn try_from(folder: FolderResponseModel) -> Result<Self, Self::Error> {
         Ok(Folder {
-            id: folder.id,
+            id: folder.id.map(FolderId::new),
             name: require!(EncString::try_from_optional(folder.name)?),
             revision_date: require!(folder.revision_date).parse()?,
         })
