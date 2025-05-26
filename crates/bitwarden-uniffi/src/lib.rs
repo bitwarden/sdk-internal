@@ -113,6 +113,6 @@ fn init_logger() {
     android_logger::init_once(
         android_logger::Config::default()
             .with_tag("com.bitwarden.sdk")
-            .with_max_level(uniffi::deps::log::LevelFilter::Info),
+            .with_max_level(log::LevelFilter::Info),
     );
 }

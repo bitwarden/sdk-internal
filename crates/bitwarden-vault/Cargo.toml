@@ -41,7 +41,7 @@ sha1 = ">=0.10.5, <0.11"
 sha2 = ">=0.10.6, <0.11"
 thiserror = { workspace = true }
 tsify-next = { workspace = true, optional = true }
-uniffi = { version = "=0.28.3", optional = true }
+uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 

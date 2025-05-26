@@ -1,5 +1,5 @@
 [package]
-name = "bitwarden-error-macro"
+name = "bitwarden-uuid"
 description = """
 Internal crate for the bitwarden crate. Do not use.
 """
@@ -14,25 +14,13 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
-[features]
-wasm = []
-
 [dependencies]
-darling = "0.20.10"
-proc-macro2 = { workspace = true }
-quote = { workspace = true }
-syn = { workspace = true }
+bitwarden-uuid-macro = { workspace = true }
 
 [lints]
 workspace = true
 
-[lib]
-proc-macro = true
-
 [dev-dependencies]
-bitwarden-error = { workspace = true, features = ["wasm"] }
-js-sys.workspace = true
-serde.workspace = true
-thiserror.workspace = true
-tsify-next.workspace = true
-wasm-bindgen.workspace = true
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
