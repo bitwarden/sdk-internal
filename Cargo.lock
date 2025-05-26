@@ -626,6 +626,7 @@ dependencies = [
  "bitwarden-uuid-macro",
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "uuid",
  "wasm-bindgen-test",
 ]
@@ -648,7 +649,6 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
- "bitwarden-uuid",
  "chrono",
  "data-encoding",
  "hmac",
