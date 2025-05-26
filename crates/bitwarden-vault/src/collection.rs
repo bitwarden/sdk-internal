@@ -48,7 +48,7 @@ pub struct CollectionView {
 
 impl IdentifyKey<SymmetricKeyId> for Collection {
     fn key_identifier(&self) -> SymmetricKeyId {
-        SymmetricKeyId::Organization(self.organization_id.into())
+        SymmetricKeyId::Organization(self.organization_id)
     }
 }
 

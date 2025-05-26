@@ -223,7 +223,7 @@ impl InternalClient {
         organization_id: OrganizationId,
         key: SymmetricCryptoKey,
     ) {
-        EncryptionSettings::new_single_org_key(organization_id.into(), key, &self.key_store);
+        EncryptionSettings::new_single_org_key(organization_id, key, &self.key_store);
     }
 
     #[cfg(feature = "internal")]
@@ -231,12 +231,6 @@ impl InternalClient {
         &self,
         org_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
     ) -> Result<(), EncryptionSettingsError> {
-        EncryptionSettings::set_org_keys(
-            org_keys
-                .into_iter()
-                .map(|(id, key)| (id.into(), key))
-                .collect(),
-            &self.key_store,
-        )
+        EncryptionSettings::set_org_keys(org_keys, &self.key_store)
     }
 }

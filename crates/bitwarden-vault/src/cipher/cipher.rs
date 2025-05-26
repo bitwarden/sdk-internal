@@ -548,7 +548,7 @@ impl CipherView {
         organization_id: OrganizationId,
     ) -> Result<(), CipherError> {
         let old_key = self.key_identifier();
-        let new_key = SymmetricKeyId::Organization(organization_id.into());
+        let new_key = SymmetricKeyId::Organization(organization_id);
 
         // If any attachment is missing a key we can't reencrypt the attachment keys
         if self.attachments.iter().flatten().any(|a| a.key.is_none()) {
@@ -660,7 +660,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
 impl IdentifyKey<SymmetricKeyId> for Cipher {
     fn key_identifier(&self) -> SymmetricKeyId {
         match self.organization_id {
-            Some(organization_id) => SymmetricKeyId::Organization(organization_id.into()),
+            Some(organization_id) => SymmetricKeyId::Organization(organization_id),
             None => SymmetricKeyId::User,
         }
     }
@@ -669,7 +669,7 @@ impl IdentifyKey<SymmetricKeyId> for Cipher {
 impl IdentifyKey<SymmetricKeyId> for CipherView {
     fn key_identifier(&self) -> SymmetricKeyId {
         match self.organization_id {
-            Some(organization_id) => SymmetricKeyId::Organization(organization_id.into()),
+            Some(organization_id) => SymmetricKeyId::Organization(organization_id),
             None => SymmetricKeyId::User,
         }
     }
@@ -678,7 +678,7 @@ impl IdentifyKey<SymmetricKeyId> for CipherView {
 impl IdentifyKey<SymmetricKeyId> for CipherListView {
     fn key_identifier(&self) -> SymmetricKeyId {
         match self.organization_id {
-            Some(organization_id) => SymmetricKeyId::Organization(organization_id.into()),
+            Some(organization_id) => SymmetricKeyId::Organization(organization_id),
             None => SymmetricKeyId::User,
         }
     }
@@ -996,7 +996,7 @@ mod tests {
         let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let key_store = create_test_crypto_with_user_and_org_key(key, org.into(), org_key);
+        let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         // Create a cipher with a user key
         let mut cipher = generate_cipher();
@@ -1021,7 +1021,7 @@ mod tests {
         let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let key_store = create_test_crypto_with_user_and_org_key(key, org.into(), org_key);
+        let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         // Create a cipher with a user key
         let mut cipher = generate_cipher();
@@ -1041,7 +1041,7 @@ mod tests {
         let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let key_store = create_test_crypto_with_user_and_org_key(key, org.into(), org_key);
+        let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         let mut cipher = generate_cipher();
         let attachment = AttachmentView {
@@ -1065,8 +1065,8 @@ mod tests {
         let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let key_store = create_test_crypto_with_user_and_org_key(key, org.into(), org_key);
-        let org_key = SymmetricKeyId::Organization(org.into());
+        let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
+        let org_key = SymmetricKeyId::Organization(org);
 
         // Attachment has a key that is encrypted with the user key, as the cipher has no key itself
         let (attachment_key_enc, attachment_key_val) = {
@@ -1133,8 +1133,8 @@ mod tests {
         let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let key_store = create_test_crypto_with_user_and_org_key(key, org.into(), org_key);
-        let org_key = SymmetricKeyId::Organization(org.into());
+        let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
+        let org_key = SymmetricKeyId::Organization(org);
 
         let mut ctx = key_store.context();
 

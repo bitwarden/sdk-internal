@@ -94,7 +94,7 @@ impl EncryptionSettings {
         #[allow(deprecated)]
         store
             .context_mut()
-            .set_symmetric_key(SymmetricKeyId::Organization(organization_id.into()), key)
+            .set_symmetric_key(SymmetricKeyId::Organization(organization_id), key)
             .expect("Mutable context");
     }
 
@@ -122,7 +122,7 @@ impl EncryptionSettings {
         for (org_id, org_enc_key) in org_enc_keys {
             ctx.decapsulate_key_unsigned(
                 AsymmetricKeyId::UserPrivateKey,
-                SymmetricKeyId::Organization(org_id.into()),
+                SymmetricKeyId::Organization(org_id),
                 &org_enc_key,
             )?;
         }
