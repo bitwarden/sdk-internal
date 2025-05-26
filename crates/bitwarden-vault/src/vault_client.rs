@@ -5,7 +5,11 @@ use crate::{
     SyncRequest, SyncResponse,
 };
 
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
+
 #[derive(Clone)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct VaultClient {
     pub(crate) client: Client,
 }

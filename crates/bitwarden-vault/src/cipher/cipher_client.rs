@@ -85,6 +85,7 @@ impl CiphersClient {
     }
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl VaultClient {
     pub fn ciphers(&self) -> CiphersClient {
         CiphersClient {

@@ -33,6 +33,7 @@ impl FoldersClient {
     }
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl VaultClient {
     pub fn folders(&self) -> FoldersClient {
         FoldersClient {
