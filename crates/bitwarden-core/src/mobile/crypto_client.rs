@@ -3,10 +3,7 @@ use bitwarden_crypto::CryptoError;
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 
 use super::crypto::{
-    derive_key_connector, make_key_pair, make_user_signing_keys, verify_asymmetric_keys,
-    DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
-    MakeKeyPairResponse, MakeUserSigningKeysResponse, MobileCryptoError,
-    VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
+    derive_key_connector, get_wrapped_user_signing_key, make_key_pair, make_signed_public_key_ownership_claim, make_user_signing_keys, verify_asymmetric_keys, DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError, MakeKeyPairResponse, MakeUserSigningKeysResponse, MobileCryptoError, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse
 };
 #[cfg(feature = "internal")]
 use crate::mobile::crypto::{
@@ -105,6 +102,17 @@ impl CryptoClient {
 
     pub fn make_signing_keys(&self) -> Result<MakeUserSigningKeysResponse, CryptoError> {
         make_user_signing_keys(&self.client)
+    }
+
+    pub fn make_signed_public_key_ownership_claim(&self) -> Result<String, CryptoError> {
+        make_signed_public_key_ownership_claim(&self.client)
+    }
+
+    pub fn get_wrapped_user_signing_key(
+        &self,
+        new_user_key: String,
+    ) -> Result<EncString, CryptoError> {
+        get_wrapped_user_signing_key(&self.client, new_user_key)
     }
 }
 

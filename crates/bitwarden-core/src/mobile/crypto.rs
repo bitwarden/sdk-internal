@@ -19,7 +19,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
-    key_management::{AsymmetricKeyId, SymmetricKeyId},
+    key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId},
     Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
 };
 
@@ -607,6 +607,36 @@ pub fn make_user_signing_keys(client: &Client) -> Result<MakeUserSigningKeysResp
         signed_public_key_ownership_claim: STANDARD
             .encode(signed_public_key_ownership_claim.as_bytes()),
     })
+}
+
+pub fn make_signed_public_key_ownership_claim(
+    client: &Client,
+) -> Result<String, CryptoError> {
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+    #[allow(deprecated)]
+    let signing_key = ctx
+        .dangerous_get_signing_key(SigningKeyId::UserSigningKey)
+        .map_err(|_| CryptoError::InvalidKey)?;
+    #[allow(deprecated)]
+    let public_key = ctx
+        .dangerous_get_asymmetric_key(AsymmetricKeyId::UserPrivateKey)
+        .map_err(|_| CryptoError::InvalidKey)?
+        .to_public_key();
+    let signed_claim = SignedPublicKeyOwnershipClaim::make_claim_with_key(&public_key, &signing_key)?;
+    Ok(STANDARD.encode(signed_claim.as_bytes()))
+}
+
+#[allow(deprecated)]
+pub fn get_wrapped_user_signing_key(
+    client: &Client,
+    new_user_key: String,
+) -> Result<EncString, CryptoError> {
+    let key_store = client.internal.get_key_store();
+    let mut ctx = key_store.context();
+    ctx.set_symmetric_key(SymmetricKeyId::Local("tmp_wrapping_key"), SymmetricCryptoKey::try_from(new_user_key)?)?;
+    let wrapped_signing_key = ctx.wrap_signing_key(SymmetricKeyId::Local("tmp_wrapping_key"), SigningKeyId::UserSigningKey)?;
+    Ok(wrapped_signing_key)
 }
 
 #[cfg(test)]

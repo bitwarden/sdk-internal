@@ -196,6 +196,26 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         }
     }
 
+    pub fn wrap_signing_key(
+        &self,
+        wrapping_key: Ids::Symmetric,
+        key_to_wrap: Ids::Signing,
+    ) -> Result<EncString> {
+        use SymmetricCryptoKey::*;
+
+        let wrapping_key_instance = self.get_symmetric_key(wrapping_key)?;
+        let key_to_wrap_instance = self.get_signing_key(key_to_wrap)?;
+        match wrapping_key_instance {
+            XChaCha20Poly1305Key(_) => self.encrypt_data_with_symmetric_key(
+                wrapping_key,
+                &key_to_wrap_instance.to_cose()?,
+            ),
+            _ => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperation::EncryptionNotImplementedForKey,
+            )),
+        }
+    }
+
     /// Decapsulate a symmetric key into the context by using an already existing asymmetric key
     ///
     /// # Arguments

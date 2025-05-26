@@ -58,4 +58,16 @@ impl CryptoClient {
     pub fn make_signing_keys(&self) -> Result<MakeUserSigningKeysResponse, CryptoError> {
         self.0.make_signing_keys()
     }
+
+    pub fn make_signed_public_key_ownership_claim(&self) -> Result<String, CryptoError> {
+        self.0.make_signed_public_key_ownership_claim()
+    }
+
+    pub fn get_wrapped_user_signing_key(
+        &self,
+        new_user_key: String,
+    ) -> Result<String, CryptoError> {
+        self.0.get_wrapped_user_signing_key(new_user_key)
+            .map(|enc_string| enc_string.to_string())
+    }
 }
