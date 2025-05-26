@@ -23,8 +23,8 @@ pub fn uuid_newtype(input: TokenStream) -> TokenStream {
         #[cfg_attr(feature = "wasm", derive(::tsify_next::Tsify), tsify(into_wasm_abi, from_wasm_abi))]
         #[derive(
             ::serde::Serialize, ::serde::Deserialize,
-            ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::hash::Hash,
-            ::std::clone::Clone, ::std::marker::Copy, ::std::fmt::Debug
+            ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::cmp::PartialOrd, ::std::cmp::Ord,
+            ::std::hash::Hash, ::std::clone::Clone, ::std::marker::Copy, ::std::fmt::Debug
         )]
         #[repr(transparent)]
         #vis struct #ident

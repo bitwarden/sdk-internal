@@ -6,7 +6,6 @@ use thiserror::Error;
 
 #[cfg(any(feature = "secrets", feature = "internal"))]
 use crate::OrganizationId;
-
 use crate::{
     error::UserIdAlreadySetError,
     key_management::{AsymmetricKeyId, KeyIds, SymmetricKeyId},
