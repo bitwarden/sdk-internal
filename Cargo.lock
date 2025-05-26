@@ -625,8 +625,9 @@ version = "1.0.0"
 dependencies = [
  "bitwarden-uuid-macro",
  "serde",
- "serde_json",
+ "serde-wasm-bindgen",
  "uuid",
+ "wasm-bindgen-test",
 ]
 
 [[package]]
@@ -647,6 +648,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-uuid",
  "chrono",
  "data-encoding",
  "hmac",
