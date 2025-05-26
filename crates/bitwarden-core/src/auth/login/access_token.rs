@@ -35,7 +35,7 @@ pub(crate) async fn login_access_token(
                 .set_login_method(LoginMethod::ServiceAccount(
                     ServiceAccountLoginMethod::AccessToken {
                         access_token,
-                        organization_id: organization_id,
+                        organization_id,
                         state_file: Some(state_file.to_path_buf()),
                     },
                 ));
