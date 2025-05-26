@@ -41,4 +41,5 @@ wasm2js -Os ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm
 npx terser ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.js -o ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.js
 
 # Typecheck the generated TypeScript definitions
-npx tsc --noEmit --lib es2015 crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal.d.ts
+cd crates/bitwarden-wasm-internal/npm
+npx tsc --noEmit --lib es2020 bitwarden_wasm_internal.d.ts

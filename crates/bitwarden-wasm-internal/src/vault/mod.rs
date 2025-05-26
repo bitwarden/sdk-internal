@@ -1,14 +1,10 @@
 pub mod attachments;
-pub mod ciphers;
-pub mod folders;
 pub mod totp;
 
 use attachments::AttachmentsClient;
-use ciphers::CiphersClient;
+use bitwarden_vault::{CiphersClient, FoldersClient};
 use totp::TotpClient;
 use wasm_bindgen::prelude::*;
-
-use crate::FoldersClient;
 
 #[wasm_bindgen]
 pub struct VaultClient(bitwarden_vault::VaultClient);
@@ -26,11 +22,11 @@ impl VaultClient {
     }
 
     pub fn ciphers(&self) -> CiphersClient {
-        CiphersClient::new(self.0.ciphers())
+        self.0.ciphers()
     }
 
     pub fn folders(&self) -> FoldersClient {
-        FoldersClient::new(self.0.folders())
+        self.0.folders()
     }
 
     pub fn totp(&self) -> TotpClient {

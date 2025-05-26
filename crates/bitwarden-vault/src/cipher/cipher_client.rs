@@ -1,16 +1,19 @@
-use bitwarden_core::Client;
+use bitwarden_core::{Client, OrganizationId};
 use bitwarden_crypto::IdentifyKey;
-use uuid::Uuid;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError, VaultClient,
 };
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CiphersClient {
     pub(crate) client: Client,
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     pub fn encrypt(&self, mut cipher_view: CipherView) -> Result<EncryptionContext, EncryptError> {
         let user_id = self
@@ -64,10 +67,10 @@ impl CiphersClient {
     pub fn move_to_organization(
         &self,
         mut cipher_view: CipherView,
-        organization_id: Uuid,
+        organization_id: OrganizationId,
     ) -> Result<CipherView, CipherError> {
         let key_store = self.client.internal.get_key_store();
-        cipher_view.move_to_organization(&mut key_store.context(), organization_id)?;
+        cipher_view.move_to_organization(&mut key_store.context(), organization_id.into())?;
         Ok(cipher_view)
     }
 
