@@ -22,7 +22,7 @@ where
     sessions: Ses,
 
     incoming: RwLock<Option<tokio::sync::broadcast::Receiver<IncomingMessage>>>,
-    cancellation_handle: RwLock<Option<tokio::sync::watch::Sender<bool>>>,
+    cancellation_token: RwLock<Option<CancellationToken>>,
 }
 
 /// A subscription to receive messages over IPC.
@@ -102,16 +102,15 @@ where
             sessions,
 
             incoming: RwLock::new(None),
-            cancellation_handle: RwLock::new(None),
+            cancellation_token: RwLock::new(None),
         })
     }
 
     pub async fn start(self: &Arc<Self>) {
-        let (cancellation_handle_tx, mut cancellation_handle_rx) =
-            tokio::sync::watch::channel(false);
-        let mut cancellation_handle = self.cancellation_handle.write().await;
+        let cancellation_token = CancellationToken::new();
+        let mut self_cancellation_token = self.cancellation_token.write().await;
 
-        *cancellation_handle = Some(cancellation_handle_tx);
+        *self_cancellation_token = Some(cancellation_token.clone());
 
         let com_receiver = self.communication.subscribe().await;
         let (client_tx, client_rx) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);
@@ -124,11 +123,9 @@ where
         let future = async move {
             loop {
                 select! {
-                    _ = cancellation_handle_rx.changed() => {
-                        if *cancellation_handle_rx.borrow() {
-                            log::debug!("Cancellation signal received, stopping IPC client");
-                            break;
-                        }
+                    _ = cancellation_token.cancelled() => {
+                        log::debug!("Cancellation signal received, stopping IPC client");
+                        break;
                     }
                     received = client.crypto.receive(&com_receiver, &client.communication, &client.sessions) => {
                         match received {
@@ -159,17 +156,17 @@ where
 
     pub async fn is_running(self: &Arc<Self>) -> bool {
         let incoming = self.incoming.read().await;
-        let cancellation_handle = self.cancellation_handle.read().await;
-        incoming.is_some() && cancellation_handle.is_some()
+        let cancellation_token = self.cancellation_token.read().await;
+        incoming.is_some() && cancellation_token.is_some()
     }
 
     pub async fn stop(self: &Arc<Self>) {
         let mut incoming = self.incoming.write().await;
         let _ = incoming.take();
 
-        let mut cancellation_handle = self.cancellation_handle.write().await;
-        if let Some(cancellation_rx) = cancellation_handle.take() {
-            let _ = cancellation_rx.send(true);
+        let mut cancellation_token = self.cancellation_token.write().await;
+        if let Some(cancellation_token) = cancellation_token.take() {
+            cancellation_token.cancel();
         }
     }
 
