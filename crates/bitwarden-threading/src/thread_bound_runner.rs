@@ -7,7 +7,7 @@ use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::task::spawn_local;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "wasm"))]
 use wasm_bindgen_futures::spawn_local;
 
 type CallFunction<ThreadState> =

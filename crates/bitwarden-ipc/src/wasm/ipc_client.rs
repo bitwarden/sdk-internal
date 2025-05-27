@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use bitwarden_threading::cancellation_token::wasm::{AbortSignal, AbortSignalExt};
 use wasm_bindgen::prelude::*;
 
 use super::communication_backend::JsCommunicationBackend;
@@ -33,8 +34,12 @@ pub struct JsIpcClientSubscription {
 
 #[wasm_bindgen(js_class = IpcClientSubscription)]
 impl JsIpcClientSubscription {
-    pub async fn receive(&mut self) -> Result<IncomingMessage, ReceiveError> {
-        self.subscription.receive(None).await
+    pub async fn receive(
+        &mut self,
+        abort_signal: Option<AbortSignal>,
+    ) -> Result<IncomingMessage, ReceiveError> {
+        let cancellation_token = abort_signal.map(|signal| signal.to_cancellation_token());
+        self.subscription.receive(cancellation_token).await
     }
 }
 

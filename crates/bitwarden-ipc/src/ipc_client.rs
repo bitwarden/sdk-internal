@@ -1,6 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use bitwarden_error::bitwarden_error;
+use bitwarden_threading::cancellation_token::CancellationToken;
 use thiserror::Error;
 use tokio::{select, sync::RwLock};
 
@@ -70,6 +71,9 @@ pub enum ReceiveError {
 
     #[error("Timed out while waiting for a message: {0}")]
     Timeout(#[from] tokio::time::error::Elapsed),
+
+    #[error("Cancelled while waiting for a message")]
+    Cancelled,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -81,6 +85,9 @@ pub enum TypedReceiveError {
     #[error("Timed out while waiting for a message: {0}")]
     Timeout(#[from] tokio::time::error::Elapsed),
 
+    #[error("Cancelled while waiting for a message")]
+    Cancelled,
+
     #[error("Typing error: {0}")]
     Typing(String),
 }
@@ -90,6 +97,7 @@ impl From<ReceiveError> for TypedReceiveError {
         match value {
             ReceiveError::Channel(e) => TypedReceiveError::Channel(e),
             ReceiveError::Timeout(e) => TypedReceiveError::Timeout(e),
+            ReceiveError::Cancelled => TypedReceiveError::Cancelled,
         }
     }
 }
@@ -237,7 +245,7 @@ where
         &self,
         receiver: &mut tokio::sync::broadcast::Receiver<IncomingMessage>,
         topic: &Option<String>,
-        timeout: Option<Duration>,
+        cancellation_token: Option<CancellationToken>,
     ) -> Result<IncomingMessage, ReceiveError> {
         let receive_loop = async {
             loop {
@@ -248,11 +256,14 @@ where
             }
         };
 
-        Ok(if let Some(timeout) = timeout {
-            tokio::time::timeout(timeout, receive_loop).await??
-        } else {
-            receive_loop.await?
-        })
+        let cancellation_token = cancellation_token.unwrap_or_default();
+
+        select! {
+            _ = cancellation_token.cancelled() => {
+                Err(ReceiveError::Cancelled)
+            }
+            result = receive_loop => result,
+        }
     }
 }
 
@@ -263,13 +274,13 @@ where
     Ses: SessionRepository<Crypto::Session>,
 {
     /// Receive a message, optionally filtering by topic.
-    /// Setting the timeout to `None` will wait indefinitely.
+    /// Setting the cancellation_token to `None` will wait indefinitely.
     pub async fn receive(
         &mut self,
-        timeout: Option<Duration>,
+        cancellation_token: Option<CancellationToken>,
     ) -> Result<IncomingMessage, ReceiveError> {
         self.client
-            .receive(&mut self.receiver, &self.topic, timeout)
+            .receive(&mut self.receiver, &self.topic, cancellation_token)
             .await
     }
 }
@@ -283,15 +294,15 @@ where
     TryFromError: std::fmt::Display,
 {
     /// Receive a message.
-    /// Setting the timeout to `None` will wait indefinitely.
+    /// Setting the cancellation_token to `None` will wait indefinitely.
     pub async fn receive(
         &mut self,
-        timeout: Option<Duration>,
+        cancellation_token: Option<CancellationToken>,
     ) -> Result<TypedIncomingMessage<Payload>, TypedReceiveError> {
         let topic = Some(Payload::name());
         let received = self
             .client
-            .receive(&mut self.receiver, &topic, timeout)
+            .receive(&mut self.receiver, &topic, cancellation_token)
             .await?;
         received
             .try_into()
@@ -301,8 +312,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, time::Duration};
 
+    use bitwarden_threading::time::sleep;
     use serde::{Deserialize, Serialize};
 
     use super::*;
@@ -336,7 +348,7 @@ mod tests {
                 Some(result) => result.clone(),
                 None => {
                     // Simulate waiting for a message but never returning
-                    tokio::time::sleep(Duration::from_secs(600)).await;
+                    sleep(Duration::from_secs(600)).await;
                     Err("Simulated timeout".to_string())
                 }
             }
@@ -352,7 +364,7 @@ mod tests {
                 Some(result) => result.clone(),
                 None => {
                     // Simulate waiting for a message to be send but never returning
-                    tokio::time::sleep(Duration::from_secs(600)).await;
+                    sleep(Duration::from_secs(600)).await;
                     Err("Simulated timeout".to_string())
                 }
             }
