@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
-    Cipher, DecryptError, EncryptError, VaultClient,
+    Cipher, DecryptError, EncryptError,
 };
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -98,14 +98,5 @@ impl AttachmentsClient {
         let decrypted = self.decrypt_buffer(cipher, attachment, &data)?;
         std::fs::write(decrypted_file_path, decrypted)?;
         Ok(())
-    }
-}
-
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
-impl VaultClient {
-    pub fn attachments(&self) -> AttachmentsClient {
-        AttachmentsClient {
-            client: self.client.clone(),
-        }
     }
 }

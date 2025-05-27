@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     error::{DecryptError, EncryptError},
-    Folder, FolderView, VaultClient,
+    Folder, FolderView,
 };
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -30,14 +30,5 @@ impl FoldersClient {
         let key_store = self.client.internal.get_key_store();
         let views = key_store.decrypt_list(&folders)?;
         Ok(views)
-    }
-}
-
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
-impl VaultClient {
-    pub fn folders(&self) -> FoldersClient {
-        FoldersClient {
-            client: self.client.clone(),
-        }
     }
 }

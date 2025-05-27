@@ -627,8 +627,10 @@ version = "1.0.0"
 dependencies = [
  "bitwarden-uuid-macro",
  "serde",
+ "serde-wasm-bindgen",
  "serde_json",
  "uuid",
+ "wasm-bindgen-test",
 ]
 
 [[package]]

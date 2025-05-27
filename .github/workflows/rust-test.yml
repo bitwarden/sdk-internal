@@ -74,7 +74,7 @@ jobs:
         run: cargo install wasm-bindgen-cli --version 0.2.100
 
       - name: Test WASM
-        run: cargo test --target wasm32-unknown-unknown -p bitwarden-wasm-internal -p bitwarden-threading -p bitwarden-error --all-features
+        run: cargo test --target wasm32-unknown-unknown -p bitwarden-wasm-internal -p bitwarden-threading -p bitwarden-error -p bitwarden-uuid --all-features
 
   coverage:
     name: Coverage
