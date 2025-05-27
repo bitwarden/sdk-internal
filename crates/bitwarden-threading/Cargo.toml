@@ -10,7 +10,6 @@ license-file.workspace = true
 keywords.workspace = true
 
 [package.metadata.cargo-udeps.ignore]
-normal = ["gloo-timers"]     # only used on wasm32 targets
 development = ["tokio-test"] # only used in doc-tests
 
 [features]
@@ -23,7 +22,6 @@ wasm = [
 
 [dependencies]
 bitwarden-error = { workspace = true }
-gloo-timers = { version = "0.3.0", features = ["futures"], optional = true }
 js-sys = { workspace = true, optional = true }
 log = { workspace = true }
 serde = { workspace = true }
@@ -32,10 +30,10 @@ thiserror = { workspace = true }
 tokio = { features = ["sync", "time", "rt"], workspace = true }
 tokio-util = { version = "0.7.15" }
 wasm-bindgen = { workspace = true, optional = true }
-wasm-bindgen-futures = { workspace = true, optional = true }
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
 gloo-timers = { version = "0.3.0", features = ["futures"], optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
 async-trait = "0.1.88"
