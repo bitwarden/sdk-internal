@@ -16,30 +16,35 @@ impl VaultClient {
         Self { client }
     }
 
+    /// Attachment related operations.
     pub fn attachments(&self) -> AttachmentsClient {
         AttachmentsClient {
             client: self.client.clone(),
         }
     }
 
+    /// Cipher related operations.
     pub fn ciphers(&self) -> CiphersClient {
         CiphersClient {
             client: self.client.clone(),
         }
     }
 
+    /// Collection related operations.
     pub fn collections(&self) -> CollectionsClient {
         CollectionsClient {
             client: self.client.clone(),
         }
     }
 
+    /// Folder related operations.
     pub fn folders(&self) -> FoldersClient {
         FoldersClient {
             client: self.client.clone(),
         }
     }
 
+    /// Password history related operations.
     pub fn password_history(&self) -> PasswordHistoryClient {
         PasswordHistoryClient {
             client: self.client.clone(),
