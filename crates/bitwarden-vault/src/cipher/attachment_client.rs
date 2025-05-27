@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
-    Cipher, DecryptError, EncryptError, VaultClient,
+    Cipher, DecryptError, EncryptError,
 };
 
 pub struct AttachmentsClient {
@@ -90,13 +90,5 @@ impl AttachmentsClient {
         let decrypted = self.decrypt_buffer(cipher, attachment, &data)?;
         std::fs::write(decrypted_file_path, decrypted)?;
         Ok(())
-    }
-}
-
-impl VaultClient {
-    pub fn attachments(&self) -> AttachmentsClient {
-        AttachmentsClient {
-            client: self.client.clone(),
-        }
     }
 }
