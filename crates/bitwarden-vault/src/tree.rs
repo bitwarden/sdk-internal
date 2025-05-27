@@ -235,4 +235,41 @@ mod tests {
             panic!("Node not found");
         }
     }
+
+    #[test]
+    fn given_collection_with_two_children_where_there_parent_node_does_not_exist_children_are_returned_correctly() {
+        let child_1_id = Uuid::new_v4();
+        let grandparent_id = Uuid::new_v4();
+        let mut items = vec![
+            TestItem {
+                id: child_1_id,
+                name: "grandparent/parent/child1".to_string()
+            },
+            TestItem {
+                id: Uuid::new_v4(),
+                name: "grandparent/parent/child2".to_string()
+            },
+            TestItem {
+                id: grandparent_id,
+                name: "grandparent".to_string()
+            },
+        ];
+
+        let node_option = Tree::from_items(&mut items)
+            .get_item_by_id(child_1_id);
+
+        if let Some(node) = node_option {
+            let item = node.item;
+            let parent = node.parent;
+            let children = node.children;
+
+            assert_eq!(children.len(), 0);
+            assert_eq!(item.id(), Some(child_1_id));
+            assert_eq!(item.short_name(), "child1");
+            assert_eq!(item.path(), ["grandparent", "parent", "child1"]);
+            assert!(parent.is_none());
+        } else {
+            panic!("Node not found");
+        }
+    }
 }
