@@ -25,11 +25,7 @@ pub struct JsIpcClient {
 
 #[wasm_bindgen(js_name = IpcClientSubscription)]
 pub struct JsIpcClientSubscription {
-    subscription: IpcClientSubscription<
-        NoEncryptionCryptoProvider,
-        JsCommunicationBackend,
-        InMemorySessionRepository<()>,
-    >,
+    subscription: IpcClientSubscription,
 }
 
 #[wasm_bindgen(js_class = IpcClientSubscription)]

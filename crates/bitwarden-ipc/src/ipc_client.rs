@@ -29,14 +29,8 @@ where
 /// The subcription will start buffering messages after its creation and return them
 /// when receive() is called. Messages received before the subscription was created will not be
 /// returned.
-pub struct IpcClientSubscription<Crypto, Com, Ses>
-where
-    Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationBackend,
-    Ses: SessionRepository<Crypto::Session>,
-{
+pub struct IpcClientSubscription {
     receiver: tokio::sync::broadcast::Receiver<IncomingMessage>,
-    client: Arc<IpcClient<Crypto, Com, Ses>>,
     topic: Option<String>,
 }
 
@@ -44,17 +38,10 @@ where
 /// The subcription will start buffering messages after its creation and return them
 /// when receive() is called. Messages received before the subscription was created will not be
 /// returned.
-pub struct IpcClientTypedSubscription<Crypto, Com, Ses, Payload>
-where
-    Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationBackend,
-    Ses: SessionRepository<Crypto::Session>,
-    Payload: TryFrom<Vec<u8>> + PayloadTypeName,
-{
-    receiver: tokio::sync::broadcast::Receiver<IncomingMessage>,
-    client: Arc<IpcClient<Crypto, Com, Ses>>,
-    _payload: std::marker::PhantomData<Payload>,
-}
+pub struct IpcClientTypedSubscription<Payload: TryFrom<Vec<u8>> + PayloadTypeName>(
+    IpcClientSubscription,
+    std::marker::PhantomData<Payload>,
+);
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 #[bitwarden_error(flat)]
@@ -206,7 +193,7 @@ where
     pub async fn subscribe(
         self: &Arc<Self>,
         topic: Option<String>,
-    ) -> Result<IpcClientSubscription<Crypto, Com, Ses>, SubscribeError> {
+    ) -> Result<IpcClientSubscription, SubscribeError> {
         Ok(IpcClientSubscription {
             receiver: self
                 .incoming
@@ -215,7 +202,6 @@ where
                 .as_ref()
                 .ok_or(SubscribeError::NotStarted)?
                 .resubscribe(),
-            client: self.clone(),
             topic,
         })
     }
@@ -224,33 +210,28 @@ where
     /// type.
     pub async fn subscribe_typed<Payload>(
         self: &Arc<Self>,
-    ) -> Result<IpcClientTypedSubscription<Crypto, Com, Ses, Payload>, SubscribeError>
+    ) -> Result<IpcClientTypedSubscription<Payload>, SubscribeError>
     where
         Payload: TryFrom<Vec<u8>> + PayloadTypeName,
     {
-        Ok(IpcClientTypedSubscription {
-            receiver: self
-                .incoming
-                .read()
-                .await
-                .as_ref()
-                .ok_or(SubscribeError::NotStarted)?
-                .resubscribe(),
-            client: self.clone(),
-            _payload: std::marker::PhantomData,
-        })
+        Ok(IpcClientTypedSubscription(
+            self.subscribe(Some(Payload::name())).await?.into(),
+            std::marker::PhantomData,
+        ))
     }
+}
 
-    async fn receive(
-        &self,
-        receiver: &mut tokio::sync::broadcast::Receiver<IncomingMessage>,
-        topic: &Option<String>,
+impl IpcClientSubscription {
+    /// Receive a message, optionally filtering by topic.
+    /// Setting the cancellation_token to `None` will wait indefinitely.
+    pub async fn receive(
+        &mut self,
         cancellation_token: Option<CancellationToken>,
     ) -> Result<IncomingMessage, ReceiveError> {
         let receive_loop = async {
             loop {
-                let received = receiver.recv().await?;
-                if topic.is_none() || &received.topic == topic {
+                let received = self.receiver.recv().await?;
+                if self.topic.is_none() || received.topic == self.topic {
                     return Ok::<IncomingMessage, ReceiveError>(received);
                 }
             }
@@ -267,29 +248,8 @@ where
     }
 }
 
-impl<Crypto, Com, Ses> IpcClientSubscription<Crypto, Com, Ses>
+impl<Payload, TryFromError> IpcClientTypedSubscription<Payload>
 where
-    Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationBackend,
-    Ses: SessionRepository<Crypto::Session>,
-{
-    /// Receive a message, optionally filtering by topic.
-    /// Setting the cancellation_token to `None` will wait indefinitely.
-    pub async fn receive(
-        &mut self,
-        cancellation_token: Option<CancellationToken>,
-    ) -> Result<IncomingMessage, ReceiveError> {
-        self.client
-            .receive(&mut self.receiver, &self.topic, cancellation_token)
-            .await
-    }
-}
-
-impl<Crypto, Com, Ses, Payload, TryFromError> IpcClientTypedSubscription<Crypto, Com, Ses, Payload>
-where
-    Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationBackend,
-    Ses: SessionRepository<Crypto::Session>,
     Payload: TryFrom<Vec<u8>, Error = TryFromError> + PayloadTypeName,
     TryFromError: std::fmt::Display,
 {
@@ -299,11 +259,7 @@ where
         &mut self,
         cancellation_token: Option<CancellationToken>,
     ) -> Result<TypedIncomingMessage<Payload>, TypedReceiveError> {
-        let topic = Some(Payload::name());
-        let received = self
-            .client
-            .receive(&mut self.receiver, &topic, cancellation_token)
-            .await?;
+        let received = self.0.receive(cancellation_token).await?;
         received
             .try_into()
             .map_err(|e: TryFromError| TypedReceiveError::Typing(e.to_string()))
