@@ -3,9 +3,7 @@ use chrono::{DateTime, Utc};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{
-    generate_totp, generate_totp_cipher_view, CipherListView, TotpError, TotpResponse, VaultClient,
-};
+use crate::{generate_totp, generate_totp_cipher_view, CipherListView, TotpError, TotpResponse};
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct TotpClient {
@@ -59,14 +57,5 @@ impl TotpClient {
         let key_store = self.client.internal.get_key_store();
 
         generate_totp_cipher_view(&mut key_store.context(), view, time)
-    }
-}
-
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
-impl VaultClient {
-    pub fn totp(&self) -> TotpClient {
-        TotpClient {
-            client: self.client.clone(),
-        }
     }
 }

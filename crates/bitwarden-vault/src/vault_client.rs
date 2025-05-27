@@ -5,7 +5,7 @@ use wasm_bindgen::prelude::*;
 use crate::{
     sync::{sync, SyncError},
     AttachmentsClient, CiphersClient, CollectionsClient, FoldersClient, PasswordHistoryClient,
-    SyncRequest, SyncResponse,
+    SyncRequest, SyncResponse, TotpClient,
 };
 
 #[derive(Clone)]
@@ -57,6 +57,13 @@ impl VaultClient {
     /// Folder related operations.
     pub fn folders(&self) -> FoldersClient {
         FoldersClient {
+            client: self.client.clone(),
+        }
+    }
+
+    /// TOTP related operations.
+    pub fn totp(&self) -> TotpClient {
+        TotpClient {
             client: self.client.clone(),
         }
     }
