@@ -215,7 +215,7 @@ where
         Payload: TryFrom<Vec<u8>> + PayloadTypeName,
     {
         Ok(IpcClientTypedSubscription(
-            self.subscribe(Some(Payload::name())).await?.into(),
+            self.subscribe(Some(Payload::name())).await?,
             std::marker::PhantomData,
         ))
     }
