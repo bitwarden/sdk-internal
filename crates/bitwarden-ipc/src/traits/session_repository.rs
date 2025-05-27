@@ -1,13 +1,14 @@
 use std::collections::HashMap;
+use std::fmt::Debug;
 
 use tokio::sync::RwLock;
 
 use crate::endpoint::Endpoint;
 
 pub trait SessionRepository<Session>: Send + Sync + 'static {
-    type GetError: Send + Sync + 'static;
-    type SaveError: Send + Sync + 'static;
-    type RemoveError: Send + Sync + 'static;
+    type GetError: Debug + Send + Sync + 'static;
+    type SaveError: Debug + Send + Sync + 'static;
+    type RemoveError: Debug + Send + Sync + 'static;
 
     fn get(
         &self,
