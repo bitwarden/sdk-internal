@@ -18,8 +18,8 @@ pub trait TreeItem: Clone + Debug {
 #[derive(Clone, Debug)]
 pub struct TreeIndex<T: TreeItem> {
     pub id: usize, // location in the tree
-    pub data: T, // this will be the raw value
-    pub path: Vec<String>
+    pub data: T,   // this will be the raw value
+    pub path: Vec<String>,
 }
 
 impl<T: TreeItem> TreeIndex<T> {
@@ -35,7 +35,7 @@ impl<T: TreeItem> TreeIndex<T> {
 pub struct NodeItem<T: TreeItem> {
     pub item: T,
     pub parent: Option<T>,
-    pub children: Vec<T>
+    pub children: Vec<T>,
 }
 
 pub struct TreeNode {
@@ -43,11 +43,16 @@ pub struct TreeNode {
     pub item_id: Uuid,
     pub parent_idx: Option<usize>,
     pub children_idx: Vec<usize>,
-    pub path: Vec<String>
+    pub path: Vec<String>,
 }
 
 impl TreeNode {
-    pub fn new<T: TreeItem>(id: usize, parent_idx: Option<usize>, children_idx: Vec<usize>, index: TreeIndex<T>) -> Self {
+    pub fn new<T: TreeItem>(
+        id: usize,
+        parent_idx: Option<usize>,
+        children_idx: Vec<usize>,
+        index: TreeIndex<T>,
+    ) -> Self {
         TreeNode {
             id,
             item_id: index.data.id(),
@@ -61,15 +66,15 @@ impl TreeNode {
 pub struct Tree<T: TreeItem> {
     pub nodes: Vec<TreeNode>,
     pub items: Vec<TreeIndex<T>>,
-    path_to_node: HashMap<Vec<String>, usize>
+    path_to_node: HashMap<Vec<String>, usize>,
 }
 
 impl<T: TreeItem> Tree<T> {
     pub fn from_items(items: Vec<T>) -> Self {
-        let mut tree = Tree{
+        let mut tree = Tree {
             nodes: Vec::new(),
             items: Vec::new(),
-            path_to_node: HashMap::new()
+            path_to_node: HashMap::new(),
         };
 
         // sort items
@@ -98,12 +103,11 @@ impl<T: TreeItem> Tree<T> {
             parent.children_idx.push(index.id);
             parent.id
         });
-        
+
         // add new node
         let node = TreeNode::new(index.id, parent_id, vec![], index);
         self.path_to_node.insert(node.path.clone(), node.id);
         self.nodes.push(node);
-
     }
 
     fn get_item_by_id(&self, tree_item_id: Uuid) -> Option<NodeItem<T>> {
@@ -113,25 +117,27 @@ impl<T: TreeItem> Tree<T> {
             let node = self.nodes.get(item.id)?;
 
             // Get the parent if it exists
-            let parent = node.parent_idx
-                .and_then(|pid| self.nodes.get(pid));
+            let parent = node.parent_idx.and_then(|pid| self.nodes.get(pid));
 
             // Get all children nodes
-            let children: Vec<&TreeNode> = node.children_idx.iter()
+            let children: Vec<&TreeNode> = node
+                .children_idx
+                .iter()
                 .filter_map(|&child_id| self.nodes.get(child_id))
                 .collect();
 
             // Get corresponding items
             let parent_item = parent.and_then(|p| self.items.get(p.id));
-            let children_items: Vec<&TreeIndex<T>> = children.iter()
+            let children_items: Vec<&TreeIndex<T>> = children
+                .iter()
                 .filter_map(|child| self.items.get(child.id))
                 .collect();
 
             return Some(NodeItem {
                 item: item.data.clone(),
                 parent: parent_item.map(|p| p.data.clone()),
-                children: children_items.iter().map(|i| i.data.clone()).collect()
-            })
+                children: children_items.iter().map(|i| i.data.clone()).collect(),
+            });
         }
 
         None
@@ -141,21 +147,23 @@ impl<T: TreeItem> Tree<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use uuid::Uuid;
     use crate::tree::TreeItem;
-    
+    use uuid::Uuid;
+
     #[derive(Clone, Debug)]
     pub struct TestItem {
         pub id: Uuid,
-        pub name: String
+        pub name: String,
     }
-    
+
     impl TreeItem for TestItem {
         fn id(&self) -> Uuid {
             self.id
         }
 
-        fn short_name(&self) -> &str { self.path().last().unwrap() }
+        fn short_name(&self) -> &str {
+            self.path().last().unwrap()
+        }
 
         fn path(&self) -> Vec<&str> {
             self.name
@@ -166,25 +174,26 @@ mod tests {
 
         const DELIMITER: char = '/';
     }
-    
+
     #[test]
-    fn given_collection_with_one_parent_and_two_children_when_getting_parent_then_parent_is_returned_with_children_and_no_parent() {
+    fn given_collection_with_one_parent_and_two_children_when_getting_parent_then_parent_is_returned_with_children_and_no_parent(
+    ) {
         let parent_id = Uuid::new_v4();
         let items = vec![
             TestItem {
                 id: Uuid::new_v4(),
-                name: "parent/child1".to_string()
+                name: "parent/child1".to_string(),
             },
             TestItem {
                 id: parent_id,
-                name: "parent".to_string()
-            },            
+                name: "parent".to_string(),
+            },
             TestItem {
                 id: Uuid::new_v4(),
-                name: "parent/child2".to_string()
+                name: "parent/child2".to_string(),
             },
         ];
-        
+
         let node = Tree::from_items(items)
             .get_item_by_id(parent_id)
             .expect("Node not found");
@@ -201,21 +210,22 @@ mod tests {
     }
 
     #[test]
-    fn given_collection_with_one_parent_and_two_children_when_getting_child1_then_child1_is_returned_with_no_children_and_a_parent() {
+    fn given_collection_with_one_parent_and_two_children_when_getting_child1_then_child1_is_returned_with_no_children_and_a_parent(
+    ) {
         let child_1_id = Uuid::new_v4();
         let parent_id = Uuid::new_v4();
         let items = vec![
             TestItem {
                 id: child_1_id,
-                name: "parent/child1".to_string()
+                name: "parent/child1".to_string(),
             },
             TestItem {
                 id: parent_id,
-                name: "parent".to_string()
+                name: "parent".to_string(),
             },
             TestItem {
                 id: Uuid::new_v4(),
-                name: "parent/child2".to_string()
+                name: "parent/child2".to_string(),
             },
         ];
 
@@ -235,21 +245,22 @@ mod tests {
     }
 
     #[test]
-    fn given_collection_with_two_children_where_their_parent_node_does_not_exist_children_are_returned_correctly() {
+    fn given_collection_with_two_children_where_their_parent_node_does_not_exist_children_are_returned_correctly(
+    ) {
         let child_1_id = Uuid::new_v4();
         let grandparent_id = Uuid::new_v4();
         let items = vec![
             TestItem {
                 id: child_1_id,
-                name: "grandparent/parent/child1".to_string()
+                name: "grandparent/parent/child1".to_string(),
             },
             TestItem {
                 id: Uuid::new_v4(),
-                name: "grandparent/parent/child2".to_string()
+                name: "grandparent/parent/child2".to_string(),
             },
             TestItem {
                 id: grandparent_id,
-                name: "grandparent".to_string()
+                name: "grandparent".to_string(),
             },
         ];
 
