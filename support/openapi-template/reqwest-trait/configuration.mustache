@@ -16,7 +16,7 @@ use async_trait::async_trait;
 pub struct Configuration {
     pub base_path: String,
     pub user_agent: Option<String>,
-    pub client: {{#supportMiddleware}}reqwest_middleware::ClientWithMiddleware{{/supportMiddleware}}{{^supportMiddleware}}reqwest{{^supportAsync}}::blocking{{/supportAsync}}::Client{{/supportMiddleware}},
+    pub client: {{#supportMiddleware}}reqwest_middleware::ClientWithMiddleware{{/supportMiddleware}}{{^supportMiddleware}}reqwest::Client{{/supportMiddleware}},
     {{^supportTokenSource}}
     pub basic_auth: Option<BasicAuth>,
     pub oauth_access_token: Option<String>,
@@ -26,11 +26,9 @@ pub struct Configuration {
     {{#withAWSV4Signature}}
     pub aws_v4_key: Option<AWSv4Key>,
     {{/withAWSV4Signature}}
-    {{#supportAsync}}
     {{#supportTokenSource}}
     pub token_source: Arc<dyn TokenSource>,
     {{/supportTokenSource}}
-    {{/supportAsync}}
 }
 {{^supportTokenSource}}
 
@@ -93,7 +91,7 @@ impl Default for Configuration {
         Configuration {
             base_path: "{{{basePath}}}".to_owned(),
             user_agent: {{#httpUserAgent}}Some("{{{.}}}".to_owned()){{/httpUserAgent}}{{^httpUserAgent}}Some("OpenAPI-Generator/{{{version}}}/rust".to_owned()){{/httpUserAgent}},
-            client: {{#supportMiddleware}}reqwest_middleware::ClientBuilder::new(reqwest{{^supportAsync}}::blocking{{/supportAsync}}::Client::new()).build(){{/supportMiddleware}}{{^supportMiddleware}}reqwest{{^supportAsync}}::blocking{{/supportAsync}}::Client::new(){{/supportMiddleware}},
+            client: {{#supportMiddleware}}reqwest_middleware::ClientBuilder::new(reqwest::Client::new()).build(){{/supportMiddleware}}{{^supportMiddleware}}reqwest::Client::new(){{/supportMiddleware}},
             {{^supportTokenSource}}
             basic_auth: None,
             oauth_access_token: None,

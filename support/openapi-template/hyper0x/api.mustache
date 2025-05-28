@@ -1,46 +1,45 @@
 {{>partial_header}}
-use std::sync::Arc;
+use std::rc::Rc;
 use std::borrow::Borrow;
 use std::pin::Pin;
 #[allow(unused_imports)]
 use std::option::Option;
 
 use hyper;
-use hyper_util::client::legacy::connect::Connect;
 use futures::Future;
 
 use crate::models;
 use super::{Error, configuration};
 use super::request as __internal_request;
 
-pub struct {{{classname}}}Client<C: Connect>
+pub struct {{{classname}}}Client<C: hyper::client::connect::Connect>
     where C: Clone + std::marker::Send + Sync + 'static {
-    configuration: Arc<configuration::Configuration<C>>,
+    configuration: Rc<configuration::Configuration<C>>,
 }
 
-impl<C: Connect> {{{classname}}}Client<C>
+impl<C: hyper::client::connect::Connect> {{{classname}}}Client<C>
     where C: Clone + std::marker::Send + Sync {
-    pub fn new(configuration: Arc<configuration::Configuration<C>>) -> {{{classname}}}Client<C> {
+    pub fn new(configuration: Rc<configuration::Configuration<C>>) -> {{{classname}}}Client<C> {
         {{{classname}}}Client {
             configuration,
         }
     }
 }
 
-pub trait {{{classname}}}: Send + Sync {
+pub trait {{{classname}}} {
 {{#operations}}
 {{#operation}}
-    fn {{{operationId}}}(&self, {{#allParams}}{{{paramName}}}: {{^required}}Option<{{/required}}{{#required}}{{#isNullable}}Option<{{/isNullable}}{{/required}}{{#isString}}{{^isUuid}}&str{{/isUuid}}{{/isString}}{{#isUuid}}&str{{/isUuid}}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}models::{{/isContainer}}{{/isPrimitiveType}}{{{dataType}}}{{/isUuid}}{{/isString}}{{^required}}>{{/required}}{{#required}}{{#isNullable}}>{{/isNullable}}{{/required}}{{^-last}}, {{/-last}}{{/allParams}}) -> Pin<Box<dyn Future<Output = Result<{{^returnType}}(){{/returnType}}{{#returnType}}{{{returnType}}}{{/returnType}}, Error>> + Send>>;
+    fn {{{operationId}}}(&self, {{#allParams}}{{{paramName}}}: {{^required}}Option<{{/required}}{{#required}}{{#isNullable}}Option<{{/isNullable}}{{/required}}{{#isString}}{{^isUuid}}&str{{/isUuid}}{{/isString}}{{#isUuid}}&str{{/isUuid}}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}models::{{/isContainer}}{{/isPrimitiveType}}{{{dataType}}}{{/isUuid}}{{/isString}}{{^required}}>{{/required}}{{#required}}{{#isNullable}}>{{/isNullable}}{{/required}}{{^-last}}, {{/-last}}{{/allParams}}) -> Pin<Box<dyn Future<Output = Result<{{^returnType}}(){{/returnType}}{{#returnType}}{{{returnType}}}{{/returnType}}, Error>>>>;
 {{/operation}}
 {{/operations}}
 }
 
-impl<C: Connect>{{{classname}}} for {{{classname}}}Client<C>
+impl<C: hyper::client::connect::Connect>{{{classname}}} for {{{classname}}}Client<C>
     where C: Clone + std::marker::Send + Sync {
  {{#operations}}
  {{#operation}}
     #[allow(unused_mut)]
-    fn {{{operationId}}}(&self, {{#allParams}}{{{paramName}}}: {{^required}}Option<{{/required}}{{#required}}{{#isNullable}}Option<{{/isNullable}}{{/required}}{{#isString}}{{^isUuid}}&str{{/isUuid}}{{/isString}}{{#isUuid}}&str{{/isUuid}}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}models::{{/isContainer}}{{/isPrimitiveType}}{{{dataType}}}{{/isUuid}}{{/isString}}{{^required}}>{{/required}}{{#required}}{{#isNullable}}>{{/isNullable}}{{/required}}{{^-last}}, {{/-last}}{{/allParams}}) -> Pin<Box<dyn Future<Output = Result<{{^returnType}}(){{/returnType}}{{#returnType}}{{{.}}}{{/returnType}}, Error>> + Send>> {
+    fn {{{operationId}}}(&self, {{#allParams}}{{{paramName}}}: {{^required}}Option<{{/required}}{{#required}}{{#isNullable}}Option<{{/isNullable}}{{/required}}{{#isString}}{{^isUuid}}&str{{/isUuid}}{{/isString}}{{#isUuid}}&str{{/isUuid}}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}models::{{/isContainer}}{{/isPrimitiveType}}{{{dataType}}}{{/isUuid}}{{/isString}}{{^required}}>{{/required}}{{#required}}{{#isNullable}}>{{/isNullable}}{{/required}}{{^-last}}, {{/-last}}{{/allParams}}) -> Pin<Box<dyn Future<Output = Result<{{^returnType}}(){{/returnType}}{{#returnType}}{{{.}}}{{/returnType}}, Error>>>> {
         let mut req = __internal_request::Request::new(hyper::Method::{{{httpMethod.toUpperCase}}}, "{{{path}}}".to_string())
         {{#hasAuthMethods}}
         {{#authMethods}}
