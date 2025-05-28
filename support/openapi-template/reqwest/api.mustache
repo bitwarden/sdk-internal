@@ -23,7 +23,7 @@ pub struct {{{operationIdCamelCase}}}Params {
     ### &str and Vec<&str>
     }}{{^isUuid}}{{#isString}}{{#isArray}}Vec<{{/isArray}}String{{#isArray}}>{{/isArray}}{{/isString}}{{/isUuid}}{{!
     ### UUIDs
-    }}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}String{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
+    }}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}uuid::Uuid{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
     ### Models and primative types
     }}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}models::{{/isContainer}}{{/isPrimitiveType}}{{{dataType}}}{{/isUuid}}{{/isString}}{{!
     ### Option End
@@ -115,7 +115,7 @@ pub {{#supportAsync}}async {{/supportAsync}}fn {{{operationId}}}(configuration: 
 ### &str and Vec<&str>
 }}{{#isString}}{{#isArray}}Vec<{{/isArray}}{{^isUuid}}&str{{/isUuid}}{{#isArray}}>{{/isArray}}{{/isString}}{{!
 ### UUIDs
-}}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}&str{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
+}}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}uuid::Uuid{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
 ### Models and primative types
 }}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}models::{{/isContainer}}{{/isPrimitiveType}}{{{dataType}}}{{/isUuid}}{{/isString}}{{!
 ### Option End
@@ -142,7 +142,7 @@ pub {{#supportAsync}}async {{/supportAsync}}fn {{{operationId}}}(configuration: 
     {{/allParams}}
 {{/vendorExtensions.x-group-parameters}}
 
-    let uri_str = format!("{}{{{path}}}", configuration.base_path{{#pathParams}}, {{{baseName}}}={{#isString}}crate::apis::urlencode({{/isString}}{{{vendorExtensions.x-rust-param-identifier}}}{{^required}}.unwrap(){{/required}}{{#required}}{{#isNullable}}.unwrap(){{/isNullable}}{{/required}}{{#isArray}}.join(",").as_ref(){{/isArray}}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}.to_string(){{/isContainer}}{{/isPrimitiveType}}{{/isUuid}}{{/isString}}{{#isString}}){{/isString}}{{/pathParams}});
+    let uri_str = format!("{}{{{path}}}", configuration.base_path{{#pathParams}}, {{{baseName}}}={{#isString}}crate::apis::urlencode({{/isString}}{{{vendorExtensions.x-rust-param-identifier}}}{{^required}}.unwrap(){{/required}}{{#required}}{{#isNullable}}.unwrap(){{/isNullable}}{{#isUuid}}.to_string(){{/isUuid}}{{/required}}{{#isArray}}.join(",").as_ref(){{/isArray}}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}.to_string(){{/isContainer}}{{/isPrimitiveType}}{{/isUuid}}{{/isString}}{{#isString}}){{/isString}}{{/pathParams}});
     let mut req_builder = configuration.client.request(reqwest::Method::{{{httpMethod}}}, &uri_str);
 
     {{#queryParams}}

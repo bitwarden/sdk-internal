@@ -1,35 +1,18 @@
 [package]
 name = "{{{packageName}}}"
-version = "{{#lambdaVersion}}{{{packageVersion}}}{{/lambdaVersion}}"
-{{#infoEmail}}
-authors = ["{{{.}}}"]
-{{/infoEmail}}
-{{^infoEmail}}
-authors = ["OpenAPI Generator team and contributors"]
-{{/infoEmail}}
-{{#appDescription}}
+{{#description}}
 description = "{{{.}}}"
-{{/appDescription}}
-{{#licenseInfo}}
-license = "{{.}}"
-{{/licenseInfo}}
-{{^licenseInfo}}
-# Override this license by providing a License Object in the OpenAPI.
-license = "Unlicense"
-{{/licenseInfo}}
-edition = "2021"
-{{#publishRustRegistry}}
-publish = ["{{.}}"]
-{{/publishRustRegistry}}
-{{#repositoryUrl}}
-repository = "{{.}}"
-{{/repositoryUrl}}
-{{#documentationUrl}}
-documentation = "{{.}}"
-{{/documentationUrl}}
-{{#homePageUrl}}
-homepage = "{{.}}"
-{{/homePageUrl}}
+{{/description}}
+categories = ["api-bindings"]
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
 
 [dependencies]
 serde = { version = "^1.0", features = ["derive"] }
@@ -63,13 +46,13 @@ secrecy = "0.8.0"
 {{/withAWSV4Signature}}
 {{#reqwest}}
 {{^supportAsync}}
-reqwest = { version = "^0.12", default-features = false, features = ["json", "blocking", "multipart"] }
+reqwest = { version = "^0.12", default-features = false, features = ["json", "blocking", "multipart", "http2"] }
 {{#supportMiddleware}}
 reqwest-middleware = { version = "^0.4", features = ["json", "blocking", "multipart"] }
 {{/supportMiddleware}}
 {{/supportAsync}}
 {{#supportAsync}}
-reqwest = { version = "^0.12", default-features = false, features = ["json", "multipart"] }
+reqwest = { version = "^0.12", default-features = false, features = ["json", "multipart", "http2"] }
 {{#supportMiddleware}}
 reqwest-middleware = { version = "^0.4", features = ["json", "multipart"] }
 {{/supportMiddleware}}
@@ -82,7 +65,7 @@ google-cloud-token = "^0.1"
 {{/reqwest}}
 {{#reqwestTrait}}
 async-trait = "^0.1"
-reqwest = { version = "^0.12", default-features = false, features = ["json", "multipart"] }
+reqwest = { version = "^0.12", default-features = false, features = ["json", "multipart", "http2"] }
 {{#supportMiddleware}}
 reqwest-middleware = { version = "^0.4", features = ["json", "multipart"] }
 {{/supportMiddleware}}
