@@ -4,10 +4,9 @@ use std::fmt::Display;
 use bitwarden_core::{mobile::CryptoClient, Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
 use bitwarden_exporters::ExporterClientExt;
-use bitwarden_vault::VaultClientExt;
+use bitwarden_generators::GeneratorClientsExt;
+use bitwarden_vault::{VaultClient, VaultClientExt};
 use wasm_bindgen::prelude::*;
-
-use crate::{GeneratorClient, VaultClient};
 
 #[wasm_bindgen]
 pub struct BitwardenClient(pub(crate) Client);
@@ -45,12 +44,12 @@ impl BitwardenClient {
     }
 
     pub fn vault(&self) -> VaultClient {
-        VaultClient::new(self.0.vault())
+        self.0.vault()
     }
 
     /// Constructs a specific client for generating passwords and passphrases
-    pub fn generator(&self) -> GeneratorClient {
-        GeneratorClient::new(self.0.clone())
+    pub fn generator(&self) -> bitwarden_generators::GeneratorClient {
+        self.0.generator()
     }
 
     pub fn exporters(&self) -> bitwarden_exporters::ExporterClient {

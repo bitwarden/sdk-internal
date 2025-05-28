@@ -6,7 +6,6 @@ use bitwarden_crypto::{CryptoError, KeyStoreContext};
 use bitwarden_vault::{CipherListView, CipherListViewType, CipherView, LoginListView};
 use passkey::types::webauthn::UserVerificationRequirement;
 use reqwest::Url;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -15,7 +14,7 @@ use super::{
     Verification,
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct Fido2CredentialAutofillView {

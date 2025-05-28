@@ -55,7 +55,7 @@ use crate::{
 ///
 /// impl Encryptable<Ids, SymmKeyId, EncString> for Data {
 ///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
-///         let local_key_id = ctx.decrypt_symmetric_key_with_symmetric_key(key, LOCAL_KEY, &self.key)?;
+///         let local_key_id = ctx.unwrap_symmetric_key(key, LOCAL_KEY, &self.key)?;
 ///         self.name.encrypt(ctx, local_key_id)
 ///     }
 /// }
@@ -136,7 +136,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
     /// * `encrypted_key` - The key to decrypt
-    pub fn decrypt_symmetric_key_with_symmetric_key(
+    pub fn unwrap_symmetric_key(
         &mut self,
         encryption_key: Ids::Symmetric,
         new_key_id: Ids::Symmetric,
@@ -160,16 +160,33 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// # Arguments
     ///
-    /// * `encryption_key` - The key id used to encrypt the `key_to_encrypt`. It must already exist
-    ///   in the context
-    /// * `key_to_encrypt` - The key id to encrypt. It must already exist in the context
-    pub fn encrypt_symmetric_key_with_symmetric_key(
+    /// * `wrapping_key` - The key id used to wrap (encrypt) the `key_to_wrap`. It must already
+    ///   exist in the context
+    /// * `key_to_wrap` - The key id to wrap. It must already exist in the context
+    pub fn wrap_symmetric_key(
         &self,
-        encryption_key: Ids::Symmetric,
-        key_to_encrypt: Ids::Symmetric,
+        wrapping_key: Ids::Symmetric,
+        key_to_wrap: Ids::Symmetric,
     ) -> Result<EncString> {
-        let key_to_encrypt = self.get_symmetric_key(key_to_encrypt)?;
-        self.encrypt_data_with_symmetric_key(encryption_key, &key_to_encrypt.to_vec())
+        use SymmetricCryptoKey::*;
+
+        let wrapping_key_instance = self.get_symmetric_key(wrapping_key)?;
+        let key_to_wrap_instance = self.get_symmetric_key(key_to_wrap)?;
+        // `Aes256CbcHmacKey` can wrap keys by encrypting their byte serialization obtained using
+        // `SymmetricCryptoKey::to_encoded()`. `XChaCha20Poly1305Key` need to specify the
+        // content format to be either octet stream, in case the wrapped key is a Aes256CbcHmacKey
+        // or `Aes256CbcKey`, or by specifying the content format to be CoseKey, in case the
+        // wrapped key is a `XChaCha20Poly1305Key`.
+        match (wrapping_key_instance, key_to_wrap_instance) {
+            (Aes256CbcHmacKey(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => self
+                .encrypt_data_with_symmetric_key(
+                    wrapping_key,
+                    key_to_wrap_instance.to_encoded().as_slice(),
+                ),
+            _ => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperation::EncryptionNotImplementedForKey,
+            )),
+        }
     }
 
     /// Decapsulate a symmetric key into the context by using an already existing asymmetric key
@@ -229,7 +246,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
     /// Generate a new random symmetric key and store it in the context
     pub fn generate_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<Ids::Symmetric> {
-        let key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         #[allow(deprecated)]
         self.set_symmetric_key(key_id, key)?;
         Ok(key_id)
@@ -352,6 +369,9 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 UnsupportedOperation::EncryptionNotImplementedForKey,
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
+                EncString::encrypt_xchacha20_poly1305(data, key)
+            }
         }
     }
 }
@@ -367,12 +387,11 @@ mod tests {
 
     #[test]
     fn test_set_keys_for_encryption() {
-        let mut rng = rand::thread_rng();
         let store: KeyStore<TestIds> = KeyStore::default();
 
         // Generate and insert a key
         let key_a0_id = TestSymmKey::A(0);
-        let key_a0 = SymmetricCryptoKey::generate(&mut rng);
+        let key_a0 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
         store
             .context_mut()
@@ -388,14 +407,13 @@ mod tests {
 
     #[test]
     fn test_key_encryption() {
-        let mut rng = rand::thread_rng();
         let store: KeyStore<TestIds> = KeyStore::default();
 
         let mut ctx = store.context();
 
         // Generate and insert a key
         let key_1_id = TestSymmKey::C(1);
-        let key_1 = SymmetricCryptoKey::generate(&mut rng);
+        let key_1 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
         ctx.set_symmetric_key(key_1_id, key_1.clone()).unwrap();
 
@@ -403,21 +421,19 @@ mod tests {
 
         // Generate and insert a new key
         let key_2_id = TestSymmKey::C(2);
-        let key_2 = SymmetricCryptoKey::generate(&mut rng);
+        let key_2 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
         ctx.set_symmetric_key(key_2_id, key_2.clone()).unwrap();
 
         assert!(ctx.has_symmetric_key(key_2_id));
 
         // Encrypt the new key with the old key
-        let key_2_enc = ctx
-            .encrypt_symmetric_key_with_symmetric_key(key_1_id, key_2_id)
-            .unwrap();
+        let key_2_enc = ctx.wrap_symmetric_key(key_1_id, key_2_id).unwrap();
 
         // Decrypt the new key with the old key in a different identifier
         let new_key_id = TestSymmKey::C(3);
 
-        ctx.decrypt_symmetric_key_with_symmetric_key(key_1_id, new_key_id, &key_2_enc)
+        ctx.unwrap_symmetric_key(key_1_id, new_key_id, &key_2_enc)
             .unwrap();
 
         // Now `key_2_id` and `new_key_id` contain the same key, so we should be able to encrypt

@@ -37,11 +37,12 @@ pub enum MobileCryptoError {
 }
 
 /// State used for initializing the user cryptographic state.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct InitUserCryptoRequest {
+    pub user_id: Option<uuid::Uuid>,
     /// The user's KDF parameters, as received from the prelogin request
     pub kdf_params: Kdf,
     /// The user's email address
@@ -53,7 +54,7 @@ pub struct InitUserCryptoRequest {
 }
 
 /// The crypto method used to initialize the user cryptographic state.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -104,7 +105,7 @@ pub enum InitUserCryptoMethod {
 }
 
 /// Auth requests supports multiple initialization methods.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -133,6 +134,10 @@ pub async fn initialize_user_crypto(
     use crate::auth::{auth_request_decrypt_master_key, auth_request_decrypt_user_key};
 
     let private_key: EncString = req.private_key.parse()?;
+
+    if let Some(user_id) = req.user_id {
+        client.internal.init_user_id(user_id)?;
+    }
 
     match req.method {
         InitUserCryptoMethod::Password { password, user_key } => {
@@ -224,7 +229,7 @@ pub async fn initialize_user_crypto(
 }
 
 /// Represents the request to initialize the user's organizational cryptographic state.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -254,7 +259,7 @@ pub(super) async fn get_user_encryption_key(client: &Client) -> Result<String, M
 }
 
 /// Response from the `update_password` function
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -304,7 +309,7 @@ pub(super) fn update_password(
 }
 
 /// Request for deriving a pin protected user key
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -447,7 +452,7 @@ pub(super) fn derive_key_connector(
 }
 
 /// Response from the `make_key_pair` function
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -470,7 +475,7 @@ pub(super) fn make_key_pair(user_key: String) -> Result<MakeKeyPairResponse, Cry
 }
 
 /// Request for `verify_asymmetric_keys`.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -484,7 +489,7 @@ pub struct VerifyAsymmetricKeysRequest {
 }
 
 /// Response for `verify_asymmetric_keys`.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -574,6 +579,7 @@ mod tests {
         initialize_user_crypto(
             & client,
             InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
@@ -593,6 +599,7 @@ mod tests {
         initialize_user_crypto(
             &client2,
             InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
@@ -648,6 +655,7 @@ mod tests {
         initialize_user_crypto(
             & client,
             InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: Kdf::PBKDF2 {
                     iterations: 100_000.try_into().unwrap(),
                 },
@@ -669,6 +677,7 @@ mod tests {
         initialize_user_crypto(
             &client2,
             InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: Kdf::PBKDF2 {
                     iterations: 100_000.try_into().unwrap(),
                 },
@@ -711,6 +720,7 @@ mod tests {
         initialize_user_crypto(
             &client3,
             InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: Kdf::PBKDF2 {
                     iterations: 100_000.try_into().unwrap(),
                 },
@@ -786,7 +796,7 @@ mod tests {
             .dangerous_get_symmetric_key(SymmetricKeyId::User)
             .unwrap();
 
-        assert_eq!(&decrypted.to_vec(), &expected.to_vec());
+        assert_eq!(decrypted, *expected);
     }
 
     #[test]

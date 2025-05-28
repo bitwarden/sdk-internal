@@ -27,7 +27,6 @@ bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
 chrono = { workspace = true }
-schemars = { workspace = true }
 serde = { workspace = true }
 serde_repr = { workspace = true }
 thiserror = { workspace = true }

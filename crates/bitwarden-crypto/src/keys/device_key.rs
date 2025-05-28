@@ -30,7 +30,7 @@ impl DeviceKey {
     /// from EncSettings.
     pub fn trust_device(user_key: &SymmetricCryptoKey) -> Result<TrustDeviceResponse> {
         let mut rng = rand::thread_rng();
-        let device_key = DeviceKey(SymmetricCryptoKey::generate(&mut rng));
+        let device_key = DeviceKey(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
 
         let device_private_key = AsymmetricCryptoKey::generate(&mut rng);
 

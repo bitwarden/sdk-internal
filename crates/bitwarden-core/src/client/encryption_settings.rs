@@ -6,6 +6,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
+    error::UserIdAlreadySetError,
     key_management::{AsymmetricKeyId, KeyIds, SymmetricKeyId},
     MissingPrivateKeyError, VaultLockedError,
 };
@@ -27,6 +28,9 @@ pub enum EncryptionSettingsError {
 
     #[error(transparent)]
     MissingPrivateKey(#[from] MissingPrivateKeyError),
+
+    #[error(transparent)]
+    UserIdAlreadySetError(#[from] UserIdAlreadySetError),
 }
 
 pub struct EncryptionSettings {}
@@ -77,15 +81,19 @@ impl EncryptionSettings {
         Ok(())
     }
 
-    /// Initialize the encryption settings with only a single decrypted key.
+    /// Initialize the encryption settings with only a single decrypted organization key.
     /// This is used only for logging in Secrets Manager with an access token
     #[cfg(feature = "secrets")]
-    pub(crate) fn new_single_key(key: SymmetricCryptoKey, store: &KeyStore<KeyIds>) {
+    pub(crate) fn new_single_org_key(
+        organization_id: Uuid,
+        key: SymmetricCryptoKey,
+        store: &KeyStore<KeyIds>,
+    ) {
         // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
         #[allow(deprecated)]
         store
             .context_mut()
-            .set_symmetric_key(SymmetricKeyId::User, key)
+            .set_symmetric_key(SymmetricKeyId::Organization(organization_id), key)
             .expect("Mutable context");
     }
 
