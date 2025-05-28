@@ -108,16 +108,15 @@ where
 
     pub async fn start(self: &Arc<Self>) {
         let cancellation_token = CancellationToken::new();
-        let mut self_cancellation_token = self.cancellation_token.write().await;
-
-        *self_cancellation_token = Some(cancellation_token.clone());
+        self.cancellation_token
+            .write()
+            .await
+            .replace(cancellation_token.clone());
 
         let com_receiver = self.communication.subscribe().await;
         let (client_tx, client_rx) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);
 
-        let mut client_incoming = self.incoming.write().await;
-        *client_incoming = Some(client_rx);
-        let _ = client_incoming;
+        self.incoming.write().await.replace(client_rx);
 
         let client = self.clone();
         let future = async move {
@@ -155,9 +154,9 @@ where
     }
 
     pub async fn is_running(self: &Arc<Self>) -> bool {
-        let incoming = self.incoming.read().await;
-        let cancellation_token = self.cancellation_token.read().await;
-        incoming.is_some() && cancellation_token.is_some()
+        let has_incoming = self.incoming.read().await.is_some();
+        let has_cancellation_token = self.cancellation_token.read().await.is_some();
+        has_incoming && has_cancellation_token
     }
 
     pub async fn stop(self: &Arc<Self>) {
@@ -225,22 +224,20 @@ impl IpcClientSubscription {
         &mut self,
         cancellation_token: Option<CancellationToken>,
     ) -> Result<IncomingMessage, ReceiveError> {
-        let receive_loop = async {
-            loop {
-                let received = self.receiver.recv().await?;
-                if self.topic.is_none() || received.topic == self.topic {
-                    return Ok::<IncomingMessage, ReceiveError>(received);
-                }
-            }
-        };
-
         let cancellation_token = cancellation_token.unwrap_or_default();
 
-        select! {
-            _ = cancellation_token.cancelled() => {
-                Err(ReceiveError::Cancelled)
+        loop {
+            select! {
+                _ = cancellation_token.cancelled() => {
+                    return Err(ReceiveError::Cancelled)
+                }
+                result = self.receiver.recv() => {
+                    let received = result?;
+                    if self.topic.is_none() || received.topic == self.topic {
+                        return Ok::<IncomingMessage, ReceiveError>(received);
+                    }
+                }
             }
-            result = receive_loop => result,
         }
     }
 }
@@ -488,7 +485,6 @@ mod tests {
     }
 
     #[tokio::test]
-    // async fn skips_message_if_it_was_not_deserializable() {
     async fn returns_error_if_related_message_was_not_deserializable() {
         #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
         struct TestPayload {
