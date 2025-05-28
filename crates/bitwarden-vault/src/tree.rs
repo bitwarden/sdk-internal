@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use uuid::Uuid;
 
 pub trait TreeItem: Clone + Debug {
-    fn id(&self) -> Option<Uuid>;
+    fn id(&self) -> Uuid;
     /*
     This is the name that will be output when getting the tree nodes
      */
