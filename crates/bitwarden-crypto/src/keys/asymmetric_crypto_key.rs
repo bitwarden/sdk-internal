@@ -15,18 +15,18 @@ pub(crate) enum RawPublicKey {
 }
 
 #[derive(Clone)]
-pub struct AsymmetricCryptoPublicKey {
+pub struct AsymmetricPublicCryptoKey {
     inner: RawPublicKey,
 }
 
-impl AsymmetricCryptoPublicKey {
+impl AsymmetricPublicCryptoKey {
     pub(crate) fn inner(&self) -> &RawPublicKey {
         &self.inner
     }
 
     /// Build a public key from the SubjectPublicKeyInfo DER.
     pub fn from_der(der: &[u8]) -> Result<Self> {
-        Ok(AsymmetricCryptoPublicKey {
+        Ok(AsymmetricPublicCryptoKey {
             inner: RawPublicKey::RsaOaepSha1(
                 RsaPublicKey::from_public_key_der(der).map_err(|_| CryptoError::InvalidKey)?,
             ),
@@ -121,9 +121,9 @@ impl AsymmetricCryptoKey {
         }
     }
 
-    pub fn to_public_key(&self) -> AsymmetricCryptoPublicKey {
+    pub fn to_public_key(&self) -> AsymmetricPublicCryptoKey {
         match &self.inner {
-            RawPrivateKey::RsaOaepSha1(private_key) => AsymmetricCryptoPublicKey {
+            RawPrivateKey::RsaOaepSha1(private_key) => AsymmetricPublicCryptoKey {
                 inner: RawPublicKey::RsaOaepSha1(private_key.to_public_key()),
             },
         }
@@ -145,7 +145,7 @@ impl std::fmt::Debug for AsymmetricCryptoKey {
 mod tests {
     use base64::{engine::general_purpose::STANDARD, Engine};
 
-    use crate::{AsymmetricCryptoKey, AsymmetricCryptoPublicKey, SymmetricCryptoKey, UnsignedSharedKey};
+    use crate::{AsymmetricCryptoKey, AsymmetricPublicCryptoKey, SymmetricCryptoKey, UnsignedSharedKey};
 
     #[test]
     fn test_asymmetric_crypto_key() {
@@ -236,7 +236,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
             .unwrap();
 
         let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
-        let public_key = AsymmetricCryptoPublicKey::from_der(&public_key).unwrap();
+        let public_key = AsymmetricPublicCryptoKey::from_der(&public_key).unwrap();
 
         let raw_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(&raw_key, &public_key).unwrap();

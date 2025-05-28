@@ -9,7 +9,7 @@ use super::{from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result},
     rsa::encrypt_rsa2048_oaep_sha1,
-    AsymmetricCryptoKey, AsymmetricCryptoPublicKey, RawPrivateKey, RawPublicKey, SymmetricCryptoKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, RawPrivateKey, RawPublicKey, SymmetricCryptoKey,
 };
 // This module is a workaround to avoid deprecated warnings that come from the ZeroizeOnDrop
 // macro expansion
@@ -159,7 +159,7 @@ impl UnsignedSharedKey {
     /// and thus does not guarantee sender authenticity.
     pub fn encapsulate_key_unsigned(
         encapsulated_key: &SymmetricCryptoKey,
-        encapsulation_key: &AsymmetricCryptoPublicKey,
+        encapsulation_key: &AsymmetricPublicCryptoKey,
     ) -> Result<UnsignedSharedKey> {
         match encapsulation_key.inner() {
             RawPublicKey::RsaOaepSha1(rsa_public_key) => {

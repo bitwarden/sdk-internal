@@ -404,9 +404,9 @@ pub(super) fn enroll_admin_password_reset(
     public_key: String,
 ) -> Result<UnsignedSharedKey, EnrollAdminPasswordResetError> {
     use base64::{engine::general_purpose::STANDARD, Engine};
-    use bitwarden_crypto::AsymmetricCryptoPublicKey;
+    use bitwarden_crypto::AsymmetricPublicCryptoKey;
 
-    let public_key = AsymmetricCryptoPublicKey::from_der(&STANDARD.decode(public_key)?)?;
+    let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(public_key)?)?;
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption

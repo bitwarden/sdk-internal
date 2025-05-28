@@ -1,6 +1,6 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    fingerprint, generate_random_alphanumeric, CryptoError, AsymmetricCryptoKey, AsymmetricCryptoPublicKey,
+    fingerprint, generate_random_alphanumeric, CryptoError, AsymmetricCryptoKey, AsymmetricPublicCryptoKey,
     PublicKeyEncryptionAlgorithm, UnsignedSharedKey,
 };
 #[cfg(feature = "internal")]
@@ -91,7 +91,7 @@ pub(crate) fn approve_auth_request(
     client: &Client,
     public_key: String,
 ) -> Result<UnsignedSharedKey, ApproveAuthRequestError> {
-    let public_key = AsymmetricCryptoPublicKey::from_der(&STANDARD.decode(public_key)?)?;
+    let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(public_key)?)?;
 
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
