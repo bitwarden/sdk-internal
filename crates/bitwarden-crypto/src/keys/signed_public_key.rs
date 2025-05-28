@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 
-use super::PublicKey;
+use super::AsymmetricCryptoPublicKey;
 use crate::{
     cose::CoseSerializable, CryptoError, SignedObject, SigningKey, SigningNamespace, VerifyingKey,
 };
@@ -39,7 +39,7 @@ pub struct SignedPublicKeyMessage {
 }
 
 impl SignedPublicKeyMessage {
-    pub fn from_public_key(public_key: &PublicKey) -> Result<Self, CryptoError> {
+    pub fn from_public_key(public_key: &AsymmetricCryptoPublicKey) -> Result<Self, CryptoError> {
         Ok(SignedPublicKeyMessage {
             algorithm: PublicKeyEncryptionAlgorithms::RsaOaepSha1,
             content_format: PublicKeyFormat::Spki,
@@ -74,7 +74,7 @@ impl TryFrom<Vec<u8>> for SignedPublicKey {
 }
 
 impl SignedPublicKey {
-    pub fn verify_and_unwrap(self, verifying_key: &VerifyingKey) -> Result<PublicKey, CryptoError> {
+    pub fn verify_and_unwrap(self, verifying_key: &VerifyingKey) -> Result<AsymmetricCryptoPublicKey, CryptoError> {
         let public_key_message: SignedPublicKeyMessage = self
             .0
             .verify_and_unwrap(verifying_key, &SigningNamespace::SignedPublicKey)?;
@@ -83,7 +83,7 @@ impl SignedPublicKey {
             public_key_message.content_format,
         ) {
             (PublicKeyEncryptionAlgorithms::RsaOaepSha1, PublicKeyFormat::Spki) => Ok(
-                PublicKey::from_der(&public_key_message.public_key.into_vec())
+                AsymmetricCryptoPublicKey::from_der(&public_key_message.public_key.into_vec())
                     .map_err(|_| CryptoError::InvalidKey)?,
             ),
         }
@@ -93,12 +93,12 @@ impl SignedPublicKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{PrivateKey, PublicKeyEncryptionAlgorithm, SignatureAlgorithm};
+    use crate::{AsymmetricCryptoKey, PublicKeyEncryptionAlgorithm, SignatureAlgorithm};
 
     #[test]
     fn test_signed_asymmetric_public_key() {
         let public_key =
-            PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1).to_public_key();
+            AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1).to_public_key();
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
         let message = SignedPublicKeyMessage::from_public_key(&public_key).unwrap();
         let signed_public_key = message.sign(&signing_key).unwrap();

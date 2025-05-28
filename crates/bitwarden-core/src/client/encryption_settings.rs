@@ -42,7 +42,7 @@ impl EncryptionSettings {
         signing_key: Option<EncString>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
-        use bitwarden_crypto::{CoseSerializable, KeyDecryptable, PrivateKey, SigningKey};
+        use bitwarden_crypto::{CoseSerializable, KeyDecryptable, AsymmetricCryptoKey, SigningKey};
         use log::warn;
 
         use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
@@ -52,7 +52,7 @@ impl EncryptionSettings {
 
             // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a recovery
             // process in place.
-            PrivateKey::from_der(&dec)
+            AsymmetricCryptoKey::from_der(&dec)
                 .map_err(|_| {
                     warn!("Invalid private key");
                 })

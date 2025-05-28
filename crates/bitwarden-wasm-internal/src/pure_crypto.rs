@@ -3,7 +3,7 @@ use std::str::FromStr;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
     CoseSerializable, CryptoError, Decryptable, EncString, Encryptable, Kdf, KeyDecryptable,
-    KeyEncryptable, KeyStore, MasterKey, PrivateKey, PublicKey, SignatureAlgorithm,
+    KeyEncryptable, KeyStore, MasterKey, AsymmetricCryptoKey, AsymmetricCryptoPublicKey, SignatureAlgorithm,
     SignedPublicKey, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
 };
 use wasm_bindgen::prelude::*;
@@ -244,7 +244,7 @@ impl PureCrypto {
         shared_key: Vec<u8>,
         encapsulation_key: Vec<u8>,
     ) -> Result<String, CryptoError> {
-        let encapsulation_key = PublicKey::from_der(encapsulation_key.as_slice())?;
+        let encapsulation_key = AsymmetricCryptoPublicKey::from_der(encapsulation_key.as_slice())?;
         Ok(UnsignedSharedKey::encapsulate_key_unsigned(
             &SymmetricCryptoKey::try_from(shared_key)?,
             &encapsulation_key,
@@ -260,7 +260,7 @@ impl PureCrypto {
         decapsulation_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         Ok(UnsignedSharedKey::from_str(encapsulated_key.as_str())?
-            .decapsulate_key_unsigned(&PrivateKey::from_der(decapsulation_key.as_slice())?)?
+            .decapsulate_key_unsigned(&AsymmetricCryptoKey::from_der(decapsulation_key.as_slice())?)?
             .to_encoded())
     }
 
@@ -498,7 +498,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
     #[test]
     fn test_wrap_encapsulation_key() {
-        let decapsulation_key = PrivateKey::from_pem(PEM_KEY).unwrap();
+        let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
         let encapsulation_key = decapsulation_key.to_public_key().to_der().unwrap();
         let wrapping_key = PureCrypto::make_user_key_aes256_cbc_hmac();
         let wrapped_key =
@@ -511,7 +511,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
     #[test]
     fn test_wrap_decapsulation_key() {
-        let decapsulation_key = PrivateKey::from_pem(PEM_KEY).unwrap();
+        let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
         let wrapping_key = PureCrypto::make_user_key_aes256_cbc_hmac();
         let wrapped_key = PureCrypto::wrap_decapsulation_key(
             decapsulation_key.to_der().unwrap(),
@@ -526,7 +526,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
     #[test]
     fn test_encapsulate_key_unsigned() {
         let shared_key = PureCrypto::make_user_key_aes256_cbc_hmac();
-        let decapsulation_key = PrivateKey::from_pem(PEM_KEY).unwrap();
+        let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
         let encapsulation_key = decapsulation_key.to_public_key().to_der().unwrap();
         let encapsulated_key =
             PureCrypto::encapsulate_key_unsigned(shared_key.clone(), encapsulation_key.clone())

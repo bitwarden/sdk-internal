@@ -9,7 +9,7 @@ use zeroize::Zeroizing;
 use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
-    CryptoError, EncString, KeyId, KeyIds, PrivateKey, Result, Signature, SignatureAlgorithm,
+    CryptoError, EncString, KeyId, KeyIds, AsymmetricCryptoKey, Result, Signature, SignatureAlgorithm,
     SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey,
     UnsignedSharedKey,
 };
@@ -301,7 +301,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
-    pub fn dangerous_get_asymmetric_key(&self, key_id: Ids::Asymmetric) -> Result<&PrivateKey> {
+    pub fn dangerous_get_asymmetric_key(&self, key_id: Ids::Asymmetric) -> Result<&AsymmetricCryptoKey> {
         self.get_asymmetric_key(key_id)
     }
 
@@ -334,7 +334,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{key_id:?}")))
     }
 
-    fn get_asymmetric_key(&self, key_id: Ids::Asymmetric) -> Result<&PrivateKey> {
+    fn get_asymmetric_key(&self, key_id: Ids::Asymmetric) -> Result<&AsymmetricCryptoKey> {
         if key_id.is_local() {
             self.local_asymmetric_keys.get(key_id)
         } else {
@@ -371,7 +371,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
-    pub fn set_asymmetric_key(&mut self, key_id: Ids::Asymmetric, key: PrivateKey) -> Result<()> {
+    pub fn set_asymmetric_key(&mut self, key_id: Ids::Asymmetric, key: AsymmetricCryptoKey) -> Result<()> {
         if key_id.is_local() {
             self.local_asymmetric_keys.upsert(key_id, key);
         } else {

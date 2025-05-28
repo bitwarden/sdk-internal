@@ -1,6 +1,6 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    fingerprint, generate_random_alphanumeric, CryptoError, PrivateKey, PublicKey,
+    fingerprint, generate_random_alphanumeric, CryptoError, AsymmetricCryptoKey, AsymmetricCryptoPublicKey,
     PublicKeyEncryptionAlgorithm, UnsignedSharedKey,
 };
 #[cfg(feature = "internal")]
@@ -31,7 +31,7 @@ pub struct AuthRequestResponse {
 /// to another device. Where the user confirms the validity by confirming the fingerprint. The user
 /// key is then encrypted using the public key and returned to the initiating device.
 pub(crate) fn new_auth_request(email: &str) -> Result<AuthRequestResponse, CryptoError> {
-    let key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+    let key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
     let spki = key.to_public_key().to_der()?;
 
@@ -52,7 +52,7 @@ pub(crate) fn auth_request_decrypt_user_key(
     private_key: String,
     user_key: UnsignedSharedKey,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
-    let key = PrivateKey::from_der(&STANDARD.decode(private_key)?)?;
+    let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
     let key: SymmetricCryptoKey = user_key.decapsulate_key_unsigned(&key)?;
     Ok(key)
 }
@@ -66,7 +66,7 @@ pub(crate) fn auth_request_decrypt_master_key(
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
     use bitwarden_crypto::MasterKey;
 
-    let key = PrivateKey::from_der(&STANDARD.decode(private_key)?)?;
+    let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
     let master_key: SymmetricCryptoKey = master_key.decapsulate_key_unsigned(&key)?;
     let master_key = MasterKey::try_from(&master_key)?;
 
@@ -91,7 +91,7 @@ pub(crate) fn approve_auth_request(
     client: &Client,
     public_key: String,
 ) -> Result<UnsignedSharedKey, ApproveAuthRequestError> {
-    let public_key = PublicKey::from_der(&STANDARD.decode(public_key)?)?;
+    let public_key = AsymmetricCryptoPublicKey::from_der(&STANDARD.decode(public_key)?)?;
 
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
@@ -118,7 +118,7 @@ fn test_auth_request() {
     ];
 
     let private_key =
-        PrivateKey::from_der(&STANDARD.decode(&request.private_key).unwrap()).unwrap();
+        AsymmetricCryptoKey::from_der(&STANDARD.decode(&request.private_key).unwrap()).unwrap();
 
     let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(
         &SymmetricCryptoKey::try_from(secret.clone()).unwrap(),

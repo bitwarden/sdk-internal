@@ -11,7 +11,7 @@ pub use symmetric_crypto_key::{
     Aes256CbcHmacKey, Aes256CbcKey, SymmetricCryptoKey, XChaCha20Poly1305Key,
 };
 mod asymmetric_crypto_key;
-pub use asymmetric_crypto_key::{PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm};
+pub use asymmetric_crypto_key::{AsymmetricCryptoKey, AsymmetricCryptoPublicKey, PublicKeyEncryptionAlgorithm};
 pub(crate) use asymmetric_crypto_key::{RawPrivateKey, RawPublicKey};
 mod signed_public_key;
 pub use signed_public_key::{SignedPublicKey, SignedPublicKeyMessage};
