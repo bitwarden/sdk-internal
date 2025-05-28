@@ -25,7 +25,7 @@ impl AsRef<[u8]> for SerializedMessage {
 }
 
 impl SerializedMessage {
-    pub(super) fn from_bytes(bytes: Vec<u8>, content_type: CoapContentFormat) -> Self {
+    pub fn from_bytes(bytes: Vec<u8>, content_type: CoapContentFormat) -> Self {
         SerializedMessage {
             serialized_message_bytes: bytes,
             content_type,
@@ -53,7 +53,7 @@ impl SerializedMessage {
 
     /// Creates a new `SerializedMessage` from a byte array and content type.
     /// This currently implements only CBOR serialization, so the content type must be `Cbor`.
-    pub(super) fn decode<Message: DeserializeOwned>(&self) -> Result<Message, CryptoError> {
+    pub fn decode<Message: DeserializeOwned>(&self) -> Result<Message, CryptoError> {
         if self.content_type != CoapContentFormat::Cbor {
             return Err(CryptoError::CoseEncodingError);
         }

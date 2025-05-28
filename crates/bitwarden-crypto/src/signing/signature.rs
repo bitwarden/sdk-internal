@@ -49,7 +49,7 @@ impl Signature {
         )
     }
 
-    pub(super) fn content_type(&self) -> Result<CoapContentFormat, CryptoError> {
+    pub fn content_type(&self) -> Result<CoapContentFormat, CryptoError> {
         if let RegisteredLabel::Assigned(content_format) = self
             .0
             .protected
