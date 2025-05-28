@@ -1,6 +1,6 @@
 pub use tokio_util::sync::CancellationToken;
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "wasm")]
 pub mod wasm {
     use wasm_bindgen::prelude::*;
 
