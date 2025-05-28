@@ -18,6 +18,7 @@ pub use enc_string::{EncString, UnsignedSharedKey};
 mod error;
 pub use error::CryptoError;
 pub(crate) use error::Result;
+pub use opaque_ke::error::OpaqueError;
 mod fingerprint;
 pub use fingerprint::fingerprint;
 mod keys;
@@ -35,6 +36,8 @@ mod traits;
 mod xchacha20;
 pub use traits::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
+pub mod opaque_ke;
+pub mod rotateable_keyset;
 
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
