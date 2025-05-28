@@ -570,7 +570,6 @@ pub struct MakeUserSigningKeysResponse {
     verifying_key: String,
     /// Signing key, encrypted with a symmetric key (user key, org key)
     signing_key: EncString,
-
     /// A signed object claiming ownership of a public key. This ties the public key to the
     /// signature key
     signed_public_key: String,
