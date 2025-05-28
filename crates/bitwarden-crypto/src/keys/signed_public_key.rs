@@ -14,6 +14,7 @@ use crate::{
 /// Currently, only RSA with OAEP and SHA-1 keys are used.
 #[derive(Serialize, Deserialize)]
 enum PublicKeyEncryptionAlgorithms {
+    #[serde(rename = "0")]
     RsaOaepSha1 = 0,
 }
 
@@ -22,6 +23,7 @@ enum PublicKeyEncryptionAlgorithms {
 /// option in the future.
 #[derive(Serialize, Deserialize)]
 enum PublicKeyFormat {
+    #[serde(rename = "0")]
     Spki = 0,
 }
 
@@ -30,11 +32,14 @@ enum PublicKeyFormat {
 #[derive(Serialize, Deserialize)]
 pub struct SignedPublicKeyMessage {
     /// The algorithm/crypto system used with this public key.
+    #[serde(rename = "alg")]
     algorithm: PublicKeyEncryptionAlgorithms,
     /// The format of the public key.
+    #[serde(rename = "format")]
     content_format: PublicKeyFormat,
     /// The public key, serialized and formatted in the content format specified in
     /// `content_format`.
+    #[serde(rename = "key")]
     public_key: ByteBuf,
 }
 
