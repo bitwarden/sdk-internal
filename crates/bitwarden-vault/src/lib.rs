@@ -35,3 +35,5 @@ pub use sync::{SyncRequest, SyncResponse};
 
 mod totp_client;
 pub use totp_client::TotpClient;
+
+mod tree;

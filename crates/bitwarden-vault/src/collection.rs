@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use bitwarden_api_api::models::CollectionDetailsResponseModel;
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
@@ -7,7 +9,7 @@ use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStor
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::VaultParseError;
+use crate::{tree::TreeItem, VaultParseError};
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -29,7 +31,7 @@ pub struct Collection {
     pub manage: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CollectionView {
@@ -84,4 +86,23 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
             manage: collection.manage.unwrap_or(false),
         })
     }
+}
+
+impl TreeItem for CollectionView {
+    fn id(&self) -> Uuid {
+        self.id.unwrap_or_default()
+    }
+
+    fn short_name(&self) -> &str {
+        self.path().last().unwrap_or(&"")
+    }
+
+    fn path(&self) -> Vec<&str> {
+        self.name
+            .split(Self::DELIMITER)
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<&str>>()
+    }
+
+    const DELIMITER: char = '/';
 }
