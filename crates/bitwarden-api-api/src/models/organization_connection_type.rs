@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum OrganizationConnectionType {
     CloudBillingSync = 1,
@@ -32,14 +23,17 @@ pub enum OrganizationConnectionType {
 }
 
 impl std::fmt::Display for OrganizationConnectionType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::CloudBillingSync => write!(f, "1"),
-            Self::Scim => write!(f, "2"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::CloudBillingSync => "1",
+                Self::Scim => "2",
+            }
+        )
     }
 }
-
 impl Default for OrganizationConnectionType {
     fn default() -> OrganizationConnectionType {
         Self::CloudBillingSync

@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum Saml2SigningBehavior {
     IfIdpWantAuthnRequestsSigned = 0,
@@ -33,15 +24,18 @@ pub enum Saml2SigningBehavior {
 }
 
 impl std::fmt::Display for Saml2SigningBehavior {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::IfIdpWantAuthnRequestsSigned => write!(f, "0"),
-            Self::Always => write!(f, "1"),
-            Self::Never => write!(f, "3"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::IfIdpWantAuthnRequestsSigned => "0",
+                Self::Always => "1",
+                Self::Never => "3",
+            }
+        )
     }
 }
-
 impl Default for Saml2SigningBehavior {
     fn default() -> Saml2SigningBehavior {
         Self::IfIdpWantAuthnRequestsSigned
