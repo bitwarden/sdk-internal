@@ -1,3 +1,4 @@
-use bitwarden_uuid::uuid;
+use bitwarden_uuid::uuid_newtype;
 
-uuid!(pub OrganizationId);
+uuid_newtype!(pub OrganizationId);
+uuid_newtype!(pub UserId);
