@@ -79,8 +79,8 @@ impl TryFrom<Vec<u8>> for SignedPublicKey {
 }
 
 impl SignedPublicKey {
-    /// Verifies the signature of the public key against the provided `VerifyingKey`, and returns the 
-    /// `AsymmetricPublicCryptoKey` if the verification is successful.
+    /// Verifies the signature of the public key against the provided `VerifyingKey`, and returns
+    /// the `AsymmetricPublicCryptoKey` if the verification is successful.
     pub fn verify_and_unwrap(
         self,
         verifying_key: &VerifyingKey,
