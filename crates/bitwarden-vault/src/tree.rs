@@ -1,5 +1,5 @@
-use std::collections::HashMap;
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
+
 use uuid::Uuid;
 
 pub trait TreeItem: Clone + Debug {
@@ -146,9 +146,10 @@ impl<T: TreeItem> Tree<T> {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
+
     use super::*;
     use crate::tree::TreeItem;
-    use uuid::Uuid;
 
     #[derive(Clone, Debug)]
     pub struct TestItem {

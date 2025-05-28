@@ -1,5 +1,5 @@
-use crate::tree::TreeItem;
-use crate::VaultParseError;
+use std::fmt::Debug;
+
 use bitwarden_api_api::models::CollectionDetailsResponseModel;
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
@@ -7,8 +7,9 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 use uuid::Uuid;
+
+use crate::{tree::TreeItem, VaultParseError};
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
