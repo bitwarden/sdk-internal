@@ -1,6 +1,6 @@
 use bitwarden_core::Client;
 
-use crate::{error::DecryptError, Collection, CollectionView, VaultClient};
+use crate::{error::DecryptError, Collection, CollectionView};
 
 pub struct CollectionsClient {
     pub(crate) client: Client,
@@ -20,14 +20,6 @@ impl CollectionsClient {
         let key_store = self.client.internal.get_key_store();
         let views = key_store.decrypt_list(&collections)?;
         Ok(views)
-    }
-}
-
-impl VaultClient {
-    pub fn collections(&self) -> CollectionsClient {
-        CollectionsClient {
-            client: self.client.clone(),
-        }
     }
 }
 

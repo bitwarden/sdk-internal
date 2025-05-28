@@ -189,6 +189,7 @@ struct ContentView: View {
 
         try await clientCrypto.initializeUserCrypto(
             req: InitUserCryptoRequest(
+                userId: nil,
                 kdfParams: kdf,
                 email: EMAIL,
                 privateKey: loginData.PrivateKey,
@@ -247,6 +248,7 @@ struct ContentView: View {
         let key = biometricRetrieveValue()!
 
         try await clientCrypto.initializeUserCrypto(req: InitUserCryptoRequest(
+            userId: nil,
             kdfParams: kdf,
             email: EMAIL,
             privateKey: privateKey,
@@ -274,6 +276,7 @@ struct ContentView: View {
         let pinProtectedUserKey = defaults.string(forKey: "pinProtectedUserKey")!
 
         try await clientCrypto.initializeUserCrypto(req: InitUserCryptoRequest(
+            userId: nil,
             kdfParams: kdf,
             email: EMAIL,
             privateKey: privateKey,
@@ -420,7 +423,7 @@ class Fido2CredentialStoreImpl: Fido2CredentialStore {
         abort()
     }
 
-    func saveCredential(cred: BitwardenSdk.Cipher) async throws {
+    func saveCredential(cred: BitwardenSdk.EncryptionContext) async throws {
         print("SAVED CREDENTIAL")
     }
 }

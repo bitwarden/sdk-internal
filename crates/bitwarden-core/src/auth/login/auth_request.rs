@@ -115,6 +115,7 @@ pub(crate) async fn complete_auth_request(
         client
             .crypto()
             .initialize_user_crypto(InitUserCryptoRequest {
+                user_id: None,
                 kdf_params: kdf,
                 email: auth_req.email,
                 private_key: require!(r.private_key),

@@ -48,6 +48,11 @@ impl_bitwarden_error!(IdentityError, ApiError);
 #[error("The client is not authenticated or the session has expired")]
 pub struct NotAuthenticatedError;
 
+/// Client's user ID is already set.
+#[derive(Debug, Error)]
+#[error("The client user ID is already set")]
+pub struct UserIdAlreadySetError;
+
 /// Missing required field.
 #[derive(Debug, Error)]
 #[error("The response received was missing a required field: {0}")]

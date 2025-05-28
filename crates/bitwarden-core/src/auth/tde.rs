@@ -40,7 +40,8 @@ pub(super) fn make_register_tde_keys(
     client.internal.initialize_user_crypto_decrypted_key(
         user_key.0,
         key_pair.private.clone(),
-        // Note: Signing keys are not supported on registration yet. This needs to be changed as soon as registration is supported.
+        // Note: Signing keys are not supported on registration yet. This needs to be changed as
+        // soon as registration is supported.
         None,
     )?;
 

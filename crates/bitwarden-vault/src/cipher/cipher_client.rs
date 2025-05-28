@@ -1,17 +1,24 @@
-use bitwarden_core::Client;
+use bitwarden_core::{Client, OrganizationId};
 use bitwarden_crypto::IdentifyKey;
-use uuid::Uuid;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
-use crate::{
-    Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError, VaultClient,
-};
+use super::EncryptionContext;
+use crate::{Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError};
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CiphersClient {
     pub(crate) client: Client,
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
-    pub fn encrypt(&self, mut cipher_view: CipherView) -> Result<Cipher, EncryptError> {
+    pub fn encrypt(&self, mut cipher_view: CipherView) -> Result<EncryptionContext, EncryptError> {
+        let user_id = self
+            .client
+            .internal
+            .get_user_id()
+            .ok_or(EncryptError::MissingUserId)?;
         let key_store = self.client.internal.get_key_store();
 
         // TODO: Once this flag is removed, the key generation logic should
@@ -28,7 +35,10 @@ impl CiphersClient {
         }
 
         let cipher = key_store.encrypt(cipher_view)?;
-        Ok(cipher)
+        Ok(EncryptionContext {
+            cipher,
+            encrypted_for: user_id,
+        })
     }
 
     pub fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
@@ -55,10 +65,10 @@ impl CiphersClient {
     pub fn move_to_organization(
         &self,
         mut cipher_view: CipherView,
-        organization_id: Uuid,
+        organization_id: OrganizationId,
     ) -> Result<CipherView, CipherError> {
         let key_store = self.client.internal.get_key_store();
-        cipher_view.move_to_organization(&mut key_store.context(), organization_id)?;
+        cipher_view.move_to_organization(&mut key_store.context(), organization_id.into())?;
         Ok(cipher_view)
     }
 
@@ -70,14 +80,6 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
         Ok(decrypted_key)
-    }
-}
-
-impl VaultClient {
-    pub fn ciphers(&self) -> CiphersClient {
-        CiphersClient {
-            client: self.client.clone(),
-        }
     }
 }
 
@@ -225,7 +227,10 @@ mod tests {
         assert!(cipher.key.is_none());
 
         // Assert the cipher has a key, and the attachment is still readable
-        let new_cipher = client.vault().ciphers().encrypt(view).unwrap();
+        let EncryptionContext {
+            cipher: new_cipher,
+            encrypted_for: _,
+        } = client.vault().ciphers().encrypt(view).unwrap();
         assert!(new_cipher.key.is_some());
 
         let view = client.vault().ciphers().decrypt(new_cipher).unwrap();
@@ -264,7 +269,10 @@ mod tests {
         assert!(cipher.key.is_none());
 
         // Assert the cipher has a key, and the attachment is still readable
-        let new_cipher = client.vault().ciphers().encrypt(view).unwrap();
+        let EncryptionContext {
+            cipher: new_cipher,
+            encrypted_for: _,
+        } = client.vault().ciphers().encrypt(view).unwrap();
         assert!(new_cipher.key.is_some());
 
         let view = client
@@ -308,7 +316,10 @@ mod tests {
                 "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap(),
             )
             .unwrap();
-        let new_cipher = client.vault().ciphers().encrypt(new_view).unwrap();
+        let EncryptionContext {
+            cipher: new_cipher,
+            encrypted_for: _,
+        } = client.vault().ciphers().encrypt(new_view).unwrap();
 
         let attachment = new_cipher
             .clone()

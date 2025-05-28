@@ -5,7 +5,8 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
-    key_management::{KeyIds, SymmetricKeyId},
+    error::UserIdAlreadySetError,
+    key_management::{AsymmetricKeyId, KeyIds, SymmetricKeyId},
     MissingPrivateKeyError, VaultLockedError,
 };
 
@@ -26,6 +27,9 @@ pub enum EncryptionSettingsError {
 
     #[error(transparent)]
     MissingPrivateKey(#[from] MissingPrivateKeyError),
+
+    #[error(transparent)]
+    UserIdAlreadySetError(#[from] UserIdAlreadySetError),
 }
 
 pub struct EncryptionSettings {}
