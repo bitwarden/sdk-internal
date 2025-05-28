@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum Priority {
     Informational = 0,
@@ -35,17 +26,20 @@ pub enum Priority {
 }
 
 impl std::fmt::Display for Priority {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Informational => write!(f, "0"),
-            Self::Low => write!(f, "1"),
-            Self::Medium => write!(f, "2"),
-            Self::High => write!(f, "3"),
-            Self::Critical => write!(f, "4"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Informational => "0",
+                Self::Low => "1",
+                Self::Medium => "2",
+                Self::High => "3",
+                Self::Critical => "4",
+            }
+        )
     }
 }
-
 impl Default for Priority {
     fn default() -> Priority {
         Self::Informational

@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum ProviderUserType {
     ProviderAdmin = 0,
@@ -32,14 +23,17 @@ pub enum ProviderUserType {
 }
 
 impl std::fmt::Display for ProviderUserType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::ProviderAdmin => write!(f, "0"),
-            Self::ServiceUser => write!(f, "1"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::ProviderAdmin => "0",
+                Self::ServiceUser => "1",
+            }
+        )
     }
 }
-
 impl Default for ProviderUserType {
     fn default() -> ProviderUserType {
         Self::ProviderAdmin

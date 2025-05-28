@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum OrganizationUserType {
     Owner = 0,
@@ -34,16 +25,19 @@ pub enum OrganizationUserType {
 }
 
 impl std::fmt::Display for OrganizationUserType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Owner => write!(f, "0"),
-            Self::Admin => write!(f, "1"),
-            Self::User => write!(f, "2"),
-            Self::Custom => write!(f, "4"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Owner => "0",
+                Self::Admin => "1",
+                Self::User => "2",
+                Self::Custom => "4",
+            }
+        )
     }
 }
-
 impl Default for OrganizationUserType {
     fn default() -> OrganizationUserType {
         Self::Owner

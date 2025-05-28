@@ -2,12 +2,14 @@
 #![allow(
     clippy::too_many_arguments,
     clippy::empty_docs,
-    clippy::to_string_in_format_args
+    clippy::to_string_in_format_args,
+    clippy::needless_return
 )]
 
 extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
+extern crate serde_repr;
 extern crate url;
 
 pub mod apis;

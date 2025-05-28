@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum OrganizationUserStatusType {
     Invited = 0,
@@ -34,16 +25,19 @@ pub enum OrganizationUserStatusType {
 }
 
 impl std::fmt::Display for OrganizationUserStatusType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Invited => write!(f, "0"),
-            Self::Accepted => write!(f, "1"),
-            Self::Confirmed => write!(f, "2"),
-            Self::Revoked => write!(f, "-1"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Invited => "0",
+                Self::Accepted => "1",
+                Self::Confirmed => "2",
+                Self::Revoked => "-1",
+            }
+        )
     }
 }
-
 impl Default for OrganizationUserStatusType {
     fn default() -> OrganizationUserStatusType {
         Self::Invited

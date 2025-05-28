@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum AuthRequestType {
     AuthenticateAndUnlock = 0,
@@ -33,15 +24,18 @@ pub enum AuthRequestType {
 }
 
 impl std::fmt::Display for AuthRequestType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::AuthenticateAndUnlock => write!(f, "0"),
-            Self::Unlock => write!(f, "1"),
-            Self::AdminApproval => write!(f, "2"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::AuthenticateAndUnlock => "0",
+                Self::Unlock => "1",
+                Self::AdminApproval => "2",
+            }
+        )
     }
 }
-
 impl Default for AuthRequestType {
     fn default() -> AuthRequestType {
         Self::AuthenticateAndUnlock

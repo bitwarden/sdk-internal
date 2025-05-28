@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum ProviderStatusType {
     Pending = 0,
@@ -33,15 +24,18 @@ pub enum ProviderStatusType {
 }
 
 impl std::fmt::Display for ProviderStatusType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Pending => write!(f, "0"),
-            Self::Created => write!(f, "1"),
-            Self::Billable => write!(f, "2"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Pending => "0",
+                Self::Created => "1",
+                Self::Billable => "2",
+            }
+        )
     }
 }
-
 impl Default for ProviderStatusType {
     fn default() -> ProviderStatusType {
         Self::Pending

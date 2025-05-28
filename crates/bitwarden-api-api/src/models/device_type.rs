@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum DeviceType {
     Android = 0,
@@ -56,38 +47,41 @@ pub enum DeviceType {
 }
 
 impl std::fmt::Display for DeviceType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Android => write!(f, "0"),
-            Self::iOS => write!(f, "1"),
-            Self::ChromeExtension => write!(f, "2"),
-            Self::FirefoxExtension => write!(f, "3"),
-            Self::OperaExtension => write!(f, "4"),
-            Self::EdgeExtension => write!(f, "5"),
-            Self::WindowsDesktop => write!(f, "6"),
-            Self::MacOsDesktop => write!(f, "7"),
-            Self::LinuxDesktop => write!(f, "8"),
-            Self::ChromeBrowser => write!(f, "9"),
-            Self::FirefoxBrowser => write!(f, "10"),
-            Self::OperaBrowser => write!(f, "11"),
-            Self::EdgeBrowser => write!(f, "12"),
-            Self::IEBrowser => write!(f, "13"),
-            Self::UnknownBrowser => write!(f, "14"),
-            Self::AndroidAmazon => write!(f, "15"),
-            Self::UWP => write!(f, "16"),
-            Self::SafariBrowser => write!(f, "17"),
-            Self::VivaldiBrowser => write!(f, "18"),
-            Self::VivaldiExtension => write!(f, "19"),
-            Self::SafariExtension => write!(f, "20"),
-            Self::SDK => write!(f, "21"),
-            Self::Server => write!(f, "22"),
-            Self::WindowsCLI => write!(f, "23"),
-            Self::MacOsCLI => write!(f, "24"),
-            Self::LinuxCLI => write!(f, "25"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Android => "0",
+                Self::iOS => "1",
+                Self::ChromeExtension => "2",
+                Self::FirefoxExtension => "3",
+                Self::OperaExtension => "4",
+                Self::EdgeExtension => "5",
+                Self::WindowsDesktop => "6",
+                Self::MacOsDesktop => "7",
+                Self::LinuxDesktop => "8",
+                Self::ChromeBrowser => "9",
+                Self::FirefoxBrowser => "10",
+                Self::OperaBrowser => "11",
+                Self::EdgeBrowser => "12",
+                Self::IEBrowser => "13",
+                Self::UnknownBrowser => "14",
+                Self::AndroidAmazon => "15",
+                Self::UWP => "16",
+                Self::SafariBrowser => "17",
+                Self::VivaldiBrowser => "18",
+                Self::VivaldiExtension => "19",
+                Self::SafariExtension => "20",
+                Self::SDK => "21",
+                Self::Server => "22",
+                Self::WindowsCLI => "23",
+                Self::MacOsCLI => "24",
+                Self::LinuxCLI => "25",
+            }
+        )
     }
 }
-
 impl Default for DeviceType {
     fn default() -> DeviceType {
         Self::Android

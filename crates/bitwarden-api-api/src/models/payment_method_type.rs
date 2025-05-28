@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum PaymentMethodType {
     Card = 0,
@@ -38,20 +29,23 @@ pub enum PaymentMethodType {
 }
 
 impl std::fmt::Display for PaymentMethodType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Card => write!(f, "0"),
-            Self::BankAccount => write!(f, "1"),
-            Self::PayPal => write!(f, "2"),
-            Self::BitPay => write!(f, "3"),
-            Self::Credit => write!(f, "4"),
-            Self::WireTransfer => write!(f, "5"),
-            Self::Check => write!(f, "8"),
-            Self::None => write!(f, "255"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Card => "0",
+                Self::BankAccount => "1",
+                Self::PayPal => "2",
+                Self::BitPay => "3",
+                Self::Credit => "4",
+                Self::WireTransfer => "5",
+                Self::Check => "8",
+                Self::None => "255",
+            }
+        )
     }
 }
-
 impl Default for PaymentMethodType {
     fn default() -> PaymentMethodType {
         Self::Card

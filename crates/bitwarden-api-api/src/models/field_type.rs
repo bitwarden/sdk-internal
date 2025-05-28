@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum FieldType {
     Text = 0,
@@ -34,16 +25,19 @@ pub enum FieldType {
 }
 
 impl std::fmt::Display for FieldType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Text => write!(f, "0"),
-            Self::Hidden => write!(f, "1"),
-            Self::Boolean => write!(f, "2"),
-            Self::Linked => write!(f, "3"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Text => "0",
+                Self::Hidden => "1",
+                Self::Boolean => "2",
+                Self::Linked => "3",
+            }
+        )
     }
 }
-
 impl Default for FieldType {
     fn default() -> FieldType {
         Self::Text

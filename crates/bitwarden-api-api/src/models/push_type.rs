@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum PushType {
     SyncCipherUpdate = 0,
@@ -53,35 +44,38 @@ pub enum PushType {
 }
 
 impl std::fmt::Display for PushType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::SyncCipherUpdate => write!(f, "0"),
-            Self::SyncCipherCreate => write!(f, "1"),
-            Self::SyncLoginDelete => write!(f, "2"),
-            Self::SyncFolderDelete => write!(f, "3"),
-            Self::SyncCiphers => write!(f, "4"),
-            Self::SyncVault => write!(f, "5"),
-            Self::SyncOrgKeys => write!(f, "6"),
-            Self::SyncFolderCreate => write!(f, "7"),
-            Self::SyncFolderUpdate => write!(f, "8"),
-            Self::SyncCipherDelete => write!(f, "9"),
-            Self::SyncSettings => write!(f, "10"),
-            Self::LogOut => write!(f, "11"),
-            Self::SyncSendCreate => write!(f, "12"),
-            Self::SyncSendUpdate => write!(f, "13"),
-            Self::SyncSendDelete => write!(f, "14"),
-            Self::AuthRequest => write!(f, "15"),
-            Self::AuthRequestResponse => write!(f, "16"),
-            Self::SyncOrganizations => write!(f, "17"),
-            Self::SyncOrganizationStatusChanged => write!(f, "18"),
-            Self::SyncOrganizationCollectionSettingChanged => write!(f, "19"),
-            Self::Notification => write!(f, "20"),
-            Self::NotificationStatus => write!(f, "21"),
-            Self::PendingSecurityTasks => write!(f, "22"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::SyncCipherUpdate => "0",
+                Self::SyncCipherCreate => "1",
+                Self::SyncLoginDelete => "2",
+                Self::SyncFolderDelete => "3",
+                Self::SyncCiphers => "4",
+                Self::SyncVault => "5",
+                Self::SyncOrgKeys => "6",
+                Self::SyncFolderCreate => "7",
+                Self::SyncFolderUpdate => "8",
+                Self::SyncCipherDelete => "9",
+                Self::SyncSettings => "10",
+                Self::LogOut => "11",
+                Self::SyncSendCreate => "12",
+                Self::SyncSendUpdate => "13",
+                Self::SyncSendDelete => "14",
+                Self::AuthRequest => "15",
+                Self::AuthRequestResponse => "16",
+                Self::SyncOrganizations => "17",
+                Self::SyncOrganizationStatusChanged => "18",
+                Self::SyncOrganizationCollectionSettingChanged => "19",
+                Self::Notification => "20",
+                Self::NotificationStatus => "21",
+                Self::PendingSecurityTasks => "22",
+            }
+        )
     }
 }
-
 impl Default for PushType {
     fn default() -> PushType {
         Self::SyncCipherUpdate
