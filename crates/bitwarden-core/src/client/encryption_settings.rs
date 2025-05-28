@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::{
     error::UserIdAlreadySetError,
-    key_management::{AsymmetricKeyId, KeyIds, SymmetricKeyId},
+    key_management::{KeyIds, SymmetricKeyId},
     MissingPrivateKeyError, VaultLockedError,
 };
 
