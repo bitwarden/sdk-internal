@@ -88,12 +88,12 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
 }
 
 impl TreeItem for CollectionView {
-    fn id(&self) -> Option<Uuid> {
-        self.id
+    fn id(&self) -> Uuid {
+        self.id.unwrap_or_default()
     }
 
     fn short_name(&self) -> &str {
-        &self.path().last().unwrap()
+        self.path().last().unwrap_or(&&"")
     }
 
     fn path(&self) -> Vec<&str> {

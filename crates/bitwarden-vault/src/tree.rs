@@ -23,7 +23,7 @@ pub struct TreeIndex<T: TreeItem> {
 }
 
 impl<T: TreeItem> TreeIndex<T> {
-    pub fn new(id: usize, data: T) -> Self {
+    pub fn new(id: usize, data: &T) -> Self {
         TreeIndex {
             id,
             data: data.clone(),
@@ -50,7 +50,7 @@ impl TreeNode {
     pub fn new<T: TreeItem>(id: usize, parent_idx: Option<usize>, children_idx: Vec<usize>, index: TreeIndex<T>) -> Self {
         TreeNode {
             id,
-            item_id: index.data.id().unwrap(),
+            item_id: index.data.id(),
             parent_idx,
             children_idx,
             path: index.path,
@@ -65,7 +65,7 @@ pub struct Tree<T: TreeItem> {
 }
 
 impl<T: TreeItem> Tree<T> {
-    pub fn from_items(items: &mut Vec<T>) -> Self {
+    pub fn from_items(items: Vec<T>) -> Self {
         let mut tree = Tree{
             nodes: Vec::new(),
             items: Vec::new(),
@@ -73,11 +73,15 @@ impl<T: TreeItem> Tree<T> {
         };
 
         // sort items
-        items.sort_by(|a, b| a.path().len().cmp(&b.path().len()));
+        let sorted_items = {
+            let mut i = items.clone();
+            i.sort_by(|a, b| a.path().cmp(&b.path()));
+            i
+        };
 
         // add items
-        for (index, item) in items.iter().enumerate() {
-            let tree_index = TreeIndex::new(index, item.clone());
+        for (index, item) in sorted_items.iter().enumerate() {
+            let tree_index = TreeIndex::new(index, item);
             tree.items.push(tree_index.clone());
 
             tree.add_item(tree_index);
@@ -103,7 +107,7 @@ impl<T: TreeItem> Tree<T> {
     }
 
     fn get_item_by_id(&self, tree_item_id: Uuid) -> Option<NodeItem<T>> {
-        let item = self.items.iter().find(|i| i.data.id() == Some(tree_item_id));
+        let item = self.items.iter().find(|i| i.data.id() == tree_item_id);
 
         if let Some(item) = item {
             let node = self.nodes.get(item.id)?;
@@ -147,8 +151,8 @@ mod tests {
     }
     
     impl TreeItem for TestItem {
-        fn id(&self) -> Option<Uuid> {
-            Some(self.id)
+        fn id(&self) -> Uuid {
+            self.id
         }
 
         fn short_name(&self) -> &str { self.path().last().unwrap() }
@@ -166,7 +170,7 @@ mod tests {
     #[test]
     fn given_collection_with_one_parent_and_two_children_when_getting_parent_then_parent_is_returned_with_children_and_no_parent() {
         let parent_id = Uuid::new_v4();
-        let mut items = vec![
+        let items = vec![
             TestItem {
                 id: Uuid::new_v4(),
                 name: "parent/child1".to_string()
@@ -181,7 +185,7 @@ mod tests {
             },
         ];
         
-        let node_option = Tree::from_items(&mut items)
+        let node_option = Tree::from_items(items)
             .get_item_by_id(parent_id);
         
         if let Some(node) = node_option {
@@ -190,7 +194,7 @@ mod tests {
             let children = node.children;
             
             assert_eq!(children.len(), 2);
-            assert_eq!(item.id(), Some(parent_id));
+            assert_eq!(item.id(), parent_id);
             assert_eq!(item.short_name(), "parent");
             assert_eq!(item.path(), ["parent"]);
             assert!(parent.is_none());
@@ -203,7 +207,7 @@ mod tests {
     fn given_collection_with_one_parent_and_two_children_when_getting_child1_then_child1_is_returned_with_no_children_and_a_parent() {
         let child_1_id = Uuid::new_v4();
         let parent_id = Uuid::new_v4();
-        let mut items = vec![
+        let items = vec![
             TestItem {
                 id: child_1_id,
                 name: "parent/child1".to_string()
@@ -218,7 +222,7 @@ mod tests {
             },
         ];
 
-        let node_option = Tree::from_items(&mut items)
+        let node_option = Tree::from_items(items)
             .get_item_by_id(child_1_id);
 
         if let Some(node) = node_option {
@@ -227,7 +231,7 @@ mod tests {
             let children = node.children;
 
             assert_eq!(children.len(), 0);
-            assert_eq!(item.id(), Some(child_1_id));
+            assert_eq!(item.id(), child_1_id);
             assert_eq!(item.short_name(), "child1");
             assert_eq!(item.path(), ["parent", "child1"]);
             assert_eq!(parent.unwrap().id, parent_id);
@@ -240,7 +244,7 @@ mod tests {
     fn given_collection_with_two_children_where_there_parent_node_does_not_exist_children_are_returned_correctly() {
         let child_1_id = Uuid::new_v4();
         let grandparent_id = Uuid::new_v4();
-        let mut items = vec![
+        let items = vec![
             TestItem {
                 id: child_1_id,
                 name: "grandparent/parent/child1".to_string()
@@ -255,7 +259,7 @@ mod tests {
             },
         ];
 
-        let node_option = Tree::from_items(&mut items)
+        let node_option = Tree::from_items(items)
             .get_item_by_id(child_1_id);
 
         if let Some(node) = node_option {
@@ -264,7 +268,7 @@ mod tests {
             let children = node.children;
 
             assert_eq!(children.len(), 0);
-            assert_eq!(item.id(), Some(child_1_id));
+            assert_eq!(item.id(), child_1_id);
             assert_eq!(item.short_name(), "child1");
             assert_eq!(item.path(), ["grandparent", "parent", "child1"]);
             assert!(parent.is_none());
