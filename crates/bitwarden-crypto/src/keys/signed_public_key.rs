@@ -47,7 +47,7 @@ impl SignedPublicKeyMessage {
         })
     }
 
-    pub(crate) fn sign(&self, signing_key: &SigningKey) -> Result<SignedPublicKey, CryptoError> {
+    pub fn sign(&self, signing_key: &SigningKey) -> Result<SignedPublicKey, CryptoError> {
         Ok(SignedPublicKey(
             signing_key.sign(self, &SigningNamespace::SignedPublicKey)?,
         ))
