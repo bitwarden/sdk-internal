@@ -1,3 +1,4 @@
+use bitwarden_core::OrganizationId;
 use bitwarden_vault::{Cipher, CipherListView, CipherView, EncryptionContext, Fido2CredentialView};
 use uuid::Uuid;
 
@@ -41,7 +42,7 @@ impl CiphersClient {
     ) -> Result<CipherView> {
         Ok(self
             .0
-            .move_to_organization(cipher, organization_id)
+            .move_to_organization(cipher, OrganizationId::new(organization_id))
             .map_err(Error::Cipher)?)
     }
 }
