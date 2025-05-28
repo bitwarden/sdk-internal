@@ -42,3 +42,9 @@ crates/bitwarden-uniffi/swift/tmp
 crates/bitwarden-uniffi/swift/.build
 crates/bitwarden-uniffi/swift/.swiftpm
 crates/bitwarden-uniffi/kotlin/sdk/src/main/java/com/bitwarden/**/*.kt
+
+# Gradle
+.gradle
+
+# Nix
+result
