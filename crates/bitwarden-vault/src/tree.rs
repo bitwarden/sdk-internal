@@ -185,22 +185,19 @@ mod tests {
             },
         ];
         
-        let node_option = Tree::from_items(items)
-            .get_item_by_id(parent_id);
-        
-        if let Some(node) = node_option {
-            let item = node.item;
-            let parent = node.parent;
-            let children = node.children;
-            
-            assert_eq!(children.len(), 2);
-            assert_eq!(item.id(), parent_id);
-            assert_eq!(item.short_name(), "parent");
-            assert_eq!(item.path(), ["parent"]);
-            assert!(parent.is_none());
-        } else {
-            panic!("Node not found");
-        }
+        let node = Tree::from_items(items)
+            .get_item_by_id(parent_id)
+            .expect("Node not found");
+
+        let item = node.item;
+        let parent = node.parent;
+        let children = node.children;
+
+        assert_eq!(children.len(), 2);
+        assert_eq!(item.id(), parent_id);
+        assert_eq!(item.short_name(), "parent");
+        assert_eq!(item.path(), ["parent"]);
+        assert!(parent.is_none());
     }
 
     #[test]
@@ -222,26 +219,23 @@ mod tests {
             },
         ];
 
-        let node_option = Tree::from_items(items)
-            .get_item_by_id(child_1_id);
+        let node = Tree::from_items(items)
+            .get_item_by_id(child_1_id)
+            .expect("Node not found");
 
-        if let Some(node) = node_option {
-            let item = node.item;
-            let parent = node.parent;
-            let children = node.children;
+        let item = node.item;
+        let parent = node.parent;
+        let children = node.children;
 
-            assert_eq!(children.len(), 0);
-            assert_eq!(item.id(), child_1_id);
-            assert_eq!(item.short_name(), "child1");
-            assert_eq!(item.path(), ["parent", "child1"]);
-            assert_eq!(parent.unwrap().id, parent_id);
-        } else {
-            panic!("Node not found");
-        }
+        assert_eq!(children.len(), 0);
+        assert_eq!(item.id(), child_1_id);
+        assert_eq!(item.short_name(), "child1");
+        assert_eq!(item.path(), ["parent", "child1"]);
+        assert_eq!(parent.unwrap().id, parent_id);
     }
 
     #[test]
-    fn given_collection_with_two_children_where_there_parent_node_does_not_exist_children_are_returned_correctly() {
+    fn given_collection_with_two_children_where_their_parent_node_does_not_exist_children_are_returned_correctly() {
         let child_1_id = Uuid::new_v4();
         let grandparent_id = Uuid::new_v4();
         let items = vec![
@@ -259,21 +253,18 @@ mod tests {
             },
         ];
 
-        let node_option = Tree::from_items(items)
-            .get_item_by_id(child_1_id);
+        let node = Tree::from_items(items)
+            .get_item_by_id(child_1_id)
+            .expect("Node not found");
 
-        if let Some(node) = node_option {
-            let item = node.item;
-            let parent = node.parent;
-            let children = node.children;
+        let item = node.item;
+        let parent = node.parent;
+        let children = node.children;
 
-            assert_eq!(children.len(), 0);
-            assert_eq!(item.id(), child_1_id);
-            assert_eq!(item.short_name(), "child1");
-            assert_eq!(item.path(), ["grandparent", "parent", "child1"]);
-            assert!(parent.is_none());
-        } else {
-            panic!("Node not found");
-        }
+        assert_eq!(children.len(), 0);
+        assert_eq!(item.id(), child_1_id);
+        assert_eq!(item.short_name(), "child1");
+        assert_eq!(item.path(), ["grandparent", "parent", "child1"]);
+        assert!(parent.is_none());
     }
 }
