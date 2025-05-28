@@ -93,7 +93,7 @@ impl TreeItem for CollectionView {
     }
 
     fn short_name(&self) -> &str {
-        self.path().last().unwrap_or(&&"")
+        self.path().last().unwrap_or(&"")
     }
 
     fn path(&self) -> Vec<&str> {
