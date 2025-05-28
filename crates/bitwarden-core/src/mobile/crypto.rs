@@ -8,9 +8,8 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, SignatureAlgorithm, SignedPublicKeyOwnershipClaim, SigningKey,
-    SymmetricCryptoKey, UnsignedSharedKey, UserKey,
+    CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
+    PrivateKey, SignatureAlgorithm, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -19,7 +18,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
-    key_management::{AsymmetricKeyId, SymmetricKeyId},
+    key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId},
     Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
 };
 
@@ -405,9 +404,9 @@ pub(super) fn enroll_admin_password_reset(
     public_key: String,
 ) -> Result<UnsignedSharedKey, EnrollAdminPasswordResetError> {
     use base64::{engine::general_purpose::STANDARD, Engine};
-    use bitwarden_crypto::AsymmetricPublicCryptoKey;
+    use bitwarden_crypto::PublicKey;
 
-    let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(public_key)?)?;
+    let public_key = PublicKey::from_der(&STANDARD.decode(public_key)?)?;
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
@@ -527,11 +526,12 @@ pub(super) fn verify_asymmetric_keys(
             .decrypt_with_key(user_key)
             .map_err(VerifyError::DecryptFailed)?;
 
-        let private_key = AsymmetricCryptoKey::from_der(&decrypted_private_key)
-            .map_err(VerifyError::ParseFailed)?;
+        let private_key =
+            PrivateKey::from_der(&decrypted_private_key).map_err(VerifyError::ParseFailed)?;
 
         let derived_public_key_vec = private_key
-            .to_public_der()
+            .to_public_key()
+            .to_der()
             .map_err(VerifyError::PublicFailed)?;
 
         let derived_public_key = STANDARD.encode(derived_public_key_vec);
@@ -572,7 +572,7 @@ pub struct MakeUserSigningKeysResponse {
 
     /// A signed object claiming ownership of a public key. This ties the public key to the
     /// signature key
-    signed_public_key_ownership_claim: String,
+    signed_public_key: String,
 }
 
 /// Makes a new set of signing keys for a user. This also creates a signed public-key ownership
@@ -581,31 +581,24 @@ pub struct MakeUserSigningKeysResponse {
 pub fn make_user_signing_keys(client: &Client) -> Result<MakeUserSigningKeysResponse, CryptoError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
-    let public_key = ctx
-        .dangerous_get_asymmetric_key(AsymmetricKeyId::UserPrivateKey)
-        .map_err(|_| CryptoError::InvalidKey)?
-        .to_public_der()?;
-    let public_key =
-        AsymmetricPublicCryptoKey::from_der(&public_key).map_err(|_| CryptoError::InvalidKey)?;
 
     let wrapping_key = ctx
         .dangerous_get_symmetric_key(SymmetricKeyId::User)
         .map_err(|_| CryptoError::InvalidKey)?;
-    let signature_keypair =
-        SigningKey::make(SignatureAlgorithm::Ed25519).map_err(|_| CryptoError::InvalidKey)?;
-    // This needs to be changed to use the correct cose content format before rolling out to real
-    // accounts
-    let encrypted_signing_key = signature_keypair.to_cose()?;
-    let serialized_verifying_key = signature_keypair.to_verifying_key().to_cose()?;
-    let serialized_verifying_key_b64 = STANDARD.encode(serialized_verifying_key);
-    let signed_public_key_ownership_claim =
-        SignedPublicKeyOwnershipClaim::make_claim_with_key(&public_key, &signature_keypair)?;
+
+    // Make new keypair and sign the public key with it
+    let signature_keypair = SigningKey::make(SignatureAlgorithm::Ed25519)
+        .map_err(|_| CryptoError::InvalidKey)?;
+    let signed_public_key: Vec<u8> = ctx.make_signed_public_key(
+        AsymmetricKeyId::UserPrivateKey,
+        SigningKeyId::UserSigningKey,
+    )?.try_into()?;
 
     Ok(MakeUserSigningKeysResponse {
-        verifying_key: serialized_verifying_key_b64,
-        signing_key: encrypted_signing_key.encrypt_with_key(wrapping_key)?,
-        signed_public_key_ownership_claim: STANDARD
-            .encode(signed_public_key_ownership_claim.as_bytes()),
+        verifying_key: STANDARD.encode( signature_keypair.to_verifying_key().to_cose()?),
+        // this needs to be changed to use the correct COSE content format before rolling out to users
+        signing_key: signature_keypair.to_cose()?.encrypt_with_key(wrapping_key)?,
+        signed_public_key: STANDARD.encode(&signed_public_key),
     })
 }
 
@@ -811,7 +804,6 @@ mod tests {
     #[test]
     fn test_enroll_admin_password_reset() {
         use base64::{engine::general_purpose::STANDARD, Engine};
-        use bitwarden_crypto::AsymmetricCryptoKey;
 
         let client = Client::new(None);
 
@@ -836,8 +828,7 @@ mod tests {
         let encrypted = enroll_admin_password_reset(&client, public_key.to_owned()).unwrap();
 
         let private_key = "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCzLtEUdxfcLxDj84yaGFsVF5hZ8Hjlb08NMQDy1RnBma06I3ZESshLYzVz4r/gegMn9OOltfV/Yxlyvida8oW6qdlfJ7AVz6Oa8pV7BiL40C7b76+oqraQpyYw2HChANB1AhXL9SqWngKmLZwjA7qiCrmcc0kZHeOb4KnKtp9iVvPVs+8veFvKgYO4ba2AAOHKFdR0W55/agXfAy+fWUAkC8mc9ikyJdQWaPV6OZvC2XFkOseBQm9Rynudh3BQpoWiL6w620efe7t5k+02/EyOFJL9f/XEEjM/+Yo0t3LAfkuhHGeKiRST59Xc9hTEmyJTeVXROtz+0fjqOp3xkaObAgMBAAECggEACs4xhnO0HaZhh1/iH7zORMIRXKeyxP2LQiTR8xwN5JJ9wRWmGAR9VasS7EZFTDidIGVME2u/h4s5EqXnhxfO+0gGksVvgNXJ/qw87E8K2216g6ZNo6vSGA7H1GH2voWwejJ4/k/cJug6dz2S402rRAKh2Wong1arYHSkVlQp3diiMa5FHAOSE+Cy09O2ZsaF9IXQYUtlW6AVXFrBEPYH2kvkaPXchh8VETMijo6tbvoKLnUHe+wTaDMls7hy8exjtVyI59r3DNzjy1lNGaGb5QSnFMXR+eHhPZc844Wv02MxC15zKABADrl58gpJyjTl6XpDdHCYGsmGpVGH3X9TQQKBgQDz/9beFjzq59ve6rGwn+EtnQfSsyYT+jr7GN8lNEXb3YOFXBgPhfFIcHRh2R00Vm9w2ApfAx2cd8xm2I6HuvQ1Os7g26LWazvuWY0Qzb+KaCLQTEGH1RnTq6CCG+BTRq/a3J8M4t38GV5TWlzv8wr9U4dl6FR4efjb65HXs1GQ4QKBgQC7/uHfrOTEHrLeIeqEuSl0vWNqEotFKdKLV6xpOvNuxDGbgW4/r/zaxDqt0YBOXmRbQYSEhmO3oy9J6XfE1SUln0gbavZeW0HESCAmUIC88bDnspUwS9RxauqT5aF8ODKN/bNCWCnBM1xyonPOs1oT1nyparJVdQoG//Y7vkB3+wKBgBqLqPq8fKAp3XfhHLfUjREDVoiLyQa/YI9U42IOz9LdxKNLo6p8rgVthpvmnRDGnpUuS+KOWjhdqDVANjF6G3t3DG7WNl8Rh5Gk2H4NhFswfSkgQrjebFLlBy9gjQVCWXt8KSmjvPbiY6q52Aaa8IUjA0YJAregvXxfopxO+/7BAoGARicvEtDp7WWnSc1OPoj6N14VIxgYcI7SyrzE0d/1x3ffKzB5e7qomNpxKzvqrVP8DzG7ydh8jaKPmv1MfF8tpYRy3AhmN3/GYwCnPqT75YYrhcrWcVdax5gmQVqHkFtIQkRSCIftzPLlpMGKha/YBV8c1fvC4LD0NPh/Ynv0gtECgYEAyOZg95/kte0jpgUEgwuMrzkhY/AaUJULFuR5MkyvReEbtSBQwV5tx60+T95PHNiFooWWVXiLMsAgyI2IbkxVR1Pzdri3gWK5CTfqb7kLuaj/B7SGvBa2Sxo478KS5K8tBBBWkITqo+wLC0mn3uZi1dyMWO1zopTA+KtEGF2dtGQ=";
-        let private_key =
-            AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key).unwrap()).unwrap();
+        let private_key = PrivateKey::from_der(&STANDARD.decode(private_key).unwrap()).unwrap();
         let decrypted: SymmetricCryptoKey =
             encrypted.decapsulate_key_unsigned(&private_key).unwrap();
 

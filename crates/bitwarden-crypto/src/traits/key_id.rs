@@ -2,7 +2,7 @@ use std::{fmt::Debug, hash::Hash};
 
 use zeroize::ZeroizeOnDrop;
 
-use crate::{AsymmetricCryptoKey, CryptoKey, SigningKey, SymmetricCryptoKey};
+use crate::{CryptoKey, PrivateKey, SigningKey, SymmetricCryptoKey};
 
 /// Represents a key identifier that can be used to identify cryptographic keys in the
 /// key store. It is used to avoid exposing the key material directly in the public API.
@@ -29,7 +29,7 @@ pub trait KeyId:
 /// At the moment it's just symmetric and asymmetric keys.
 pub trait KeyIds {
     type Symmetric: KeyId<KeyValue = SymmetricCryptoKey>;
-    type Asymmetric: KeyId<KeyValue = AsymmetricCryptoKey>;
+    type Asymmetric: KeyId<KeyValue = PrivateKey>;
     type Signing: KeyId<KeyValue = SigningKey>;
 }
 
@@ -100,7 +100,7 @@ macro_rules! key_ids {
     };
 
     ( @key_type symmetric ) => { $crate::SymmetricCryptoKey };
-    ( @key_type asymmetric ) => { $crate::AsymmetricCryptoKey };
+    ( @key_type asymmetric ) => { $crate::PrivateKey };
     ( @key_type signing ) => { $crate::SigningKey };
 
     ( @variant_match $variant:ident ( $inner:ty ) ) => { $variant ( _ ) };

@@ -2,9 +2,9 @@ use std::str::FromStr;
 
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CryptoError, Decryptable, EncString,
-    Encryptable, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey, SignatureAlgorithm,
-    SignedPublicKeyOwnershipClaim, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
+    CoseSerializable, CryptoError, Decryptable, EncString, Encryptable, Kdf, KeyDecryptable,
+    KeyEncryptable, KeyStore, MasterKey, PrivateKey, PublicKey, SignatureAlgorithm,
+    SignedPublicKey, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
 };
 use wasm_bindgen::prelude::*;
 
@@ -244,7 +244,7 @@ impl PureCrypto {
         shared_key: Vec<u8>,
         encapsulation_key: Vec<u8>,
     ) -> Result<String, CryptoError> {
-        let encapsulation_key = AsymmetricPublicCryptoKey::from_der(encapsulation_key.as_slice())?;
+        let encapsulation_key = PublicKey::from_der(encapsulation_key.as_slice())?;
         Ok(UnsignedSharedKey::encapsulate_key_unsigned(
             &SymmetricCryptoKey::try_from(shared_key)?,
             &encapsulation_key,
@@ -260,9 +260,7 @@ impl PureCrypto {
         decapsulation_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         Ok(UnsignedSharedKey::from_str(encapsulated_key.as_str())?
-            .decapsulate_key_unsigned(&AsymmetricCryptoKey::from_der(
-                decapsulation_key.as_slice(),
-            )?)?
+            .decapsulate_key_unsigned(&PrivateKey::from_der(decapsulation_key.as_slice())?)?
             .to_encoded())
     }
 
@@ -291,15 +289,15 @@ impl PureCrypto {
     /// identity claimed ownership of the public key. This is a one-sided claim and merely shows
     /// that the signing identity has the intent to receive messages encrypted to the public
     /// key.
-    pub fn verify_public_key_ownership_claim(
-        claim: Vec<u8>,
-        public_key: Vec<u8>,
+    pub fn verify_and_unwrap_signed_public_key(
+        signed_public_key: Vec<u8>,
         verifying_key: Vec<u8>,
-    ) -> Result<bool, CryptoError> {
-        let claim = SignedPublicKeyOwnershipClaim::from_bytes(claim.as_slice())?;
-        let public_key = AsymmetricPublicCryptoKey::from_der(public_key.as_slice())?;
+    ) -> Result<Vec<u8>, CryptoError> {
+        let signed_public_key = SignedPublicKey::try_from(signed_public_key)?;
         let verifying_key = VerifyingKey::from_cose(verifying_key.as_slice())?;
-        claim.verify_claim(&public_key, &verifying_key)
+        signed_public_key
+            .verify_and_unwrap(&verifying_key)
+            .map(|public_key| public_key.to_der())?
     }
 }
 
@@ -373,17 +371,6 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         166, 1, 1, 2, 80, 123, 226, 102, 228, 194, 232, 71, 30, 183, 42, 219, 193, 50, 30, 21, 43,
         3, 39, 4, 129, 2, 32, 6, 33, 88, 32, 63, 70, 49, 37, 246, 232, 146, 144, 83, 224, 0, 17,
         111, 248, 16, 242, 69, 195, 84, 46, 39, 218, 55, 63, 90, 112, 148, 91, 224, 186, 122, 4,
-    ];
-    const PUBLIC_KEY_OWNERSHIP_CLAIM: &[u8] = &[
-        132, 88, 30, 164, 1, 39, 3, 24, 60, 4, 80, 123, 226, 102, 228, 194, 232, 71, 30, 183, 42,
-        219, 193, 50, 30, 21, 43, 58, 0, 1, 56, 127, 1, 160, 88, 72, 161, 107, 102, 105, 110, 103,
-        101, 114, 112, 114, 105, 110, 116, 162, 102, 100, 105, 103, 101, 115, 116, 88, 32, 157,
-        225, 74, 231, 216, 192, 213, 240, 234, 67, 3, 221, 30, 3, 145, 141, 17, 73, 71, 233, 20, 4,
-        102, 134, 195, 186, 11, 109, 142, 59, 25, 59, 105, 97, 108, 103, 111, 114, 105, 116, 104,
-        109, 102, 83, 104, 97, 50, 53, 54, 88, 64, 19, 244, 252, 60, 39, 88, 200, 62, 208, 147,
-        106, 200, 57, 125, 189, 6, 253, 109, 197, 164, 207, 193, 15, 242, 195, 241, 4, 229, 235,
-        178, 207, 61, 157, 51, 178, 6, 151, 49, 129, 21, 206, 105, 158, 174, 88, 206, 11, 149, 138,
-        27, 103, 15, 251, 110, 251, 148, 233, 124, 129, 29, 41, 250, 47, 10,
     ];
     const PUBLIC_KEY: &[u8] = &[
         48, 130, 1, 34, 48, 13, 6, 9, 42, 134, 72, 134, 247, 13, 1, 1, 1, 5, 0, 3, 130, 1, 15, 0,
@@ -511,8 +498,8 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
     #[test]
     fn test_wrap_encapsulation_key() {
-        let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
-        let encapsulation_key = decapsulation_key.to_public_der().unwrap();
+        let decapsulation_key = PrivateKey::from_pem(PEM_KEY).unwrap();
+        let encapsulation_key = decapsulation_key.to_public_key().to_der().unwrap();
         let wrapping_key = PureCrypto::make_user_key_aes256_cbc_hmac();
         let wrapped_key =
             PureCrypto::wrap_encapsulation_key(encapsulation_key.clone(), wrapping_key.clone())
@@ -524,7 +511,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
     #[test]
     fn test_wrap_decapsulation_key() {
-        let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
+        let decapsulation_key = PrivateKey::from_pem(PEM_KEY).unwrap();
         let wrapping_key = PureCrypto::make_user_key_aes256_cbc_hmac();
         let wrapped_key = PureCrypto::wrap_decapsulation_key(
             decapsulation_key.to_der().unwrap(),
@@ -539,8 +526,8 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
     #[test]
     fn test_encapsulate_key_unsigned() {
         let shared_key = PureCrypto::make_user_key_aes256_cbc_hmac();
-        let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
-        let encapsulation_key = decapsulation_key.to_public_der().unwrap();
+        let decapsulation_key = PrivateKey::from_pem(PEM_KEY).unwrap();
+        let encapsulation_key = decapsulation_key.to_public_key().to_der().unwrap();
         let encapsulated_key =
             PureCrypto::encapsulate_key_unsigned(shared_key.clone(), encapsulation_key.clone())
                 .unwrap();
@@ -550,16 +537,6 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         )
         .unwrap();
         assert_eq!(shared_key, unwrapped_key);
-    }
-
-    #[test]
-    fn test_verify_public_key_ownership_claim() {
-        let public_key = AsymmetricPublicCryptoKey::from_der(PUBLIC_KEY).unwrap();
-        let verifying_key = VerifyingKey::from_cose(VERIFYING_KEY).unwrap();
-        let claim = SignedPublicKeyOwnershipClaim::from_bytes(PUBLIC_KEY_OWNERSHIP_CLAIM).unwrap();
-        let result = claim.verify_claim(&public_key, &verifying_key);
-        assert!(result.is_ok());
-        assert!(result.unwrap());
     }
 
     #[test]

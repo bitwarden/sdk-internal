@@ -117,6 +117,12 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
     }
 }
 
+pub trait CoseSerializable {
+    fn to_cose(&self) -> Result<Vec<u8>, CryptoError>;
+    fn from_cose(bytes: &[u8]) -> Result<Self, CryptoError>
+    where
+        Self: Sized;
+}
 #[cfg(test)]
 mod test {
     use super::*;

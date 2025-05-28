@@ -69,7 +69,7 @@ pub(crate) fn generate_user_fingerprint(
     #[allow(deprecated)]
     let private_key = ctx.dangerous_get_asymmetric_key(AsymmetricKeyId::UserPrivateKey)?;
 
-    let public_key = private_key.to_public_der()?;
+    let public_key = private_key.to_public_key().to_der()?;
     let fingerprint = fingerprint(&fingerprint_material, &public_key)?;
 
     Ok(fingerprint)

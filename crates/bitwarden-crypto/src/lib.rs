@@ -31,6 +31,7 @@ pub use wordlist::EFF_LONG_WORD_LIST;
 mod store;
 pub use store::{KeyStore, KeyStoreContext};
 mod cose;
+pub use cose::CoseSerializable;
 mod signing;
 pub use signing::*;
 mod traits;

@@ -31,7 +31,7 @@ fn main() {
                 symmetric_keys.push((key.to_encoded(), key));
             }
             memory_testing::CaseCommand::AsymmetricKey { private_key } => {
-                let key = bitwarden_crypto::AsymmetricCryptoKey::from_pem(&private_key).unwrap();
+                let key = bitwarden_crypto::PrivateKey::from_pem(&private_key).unwrap();
                 asymmetric_keys.push(key);
             }
             memory_testing::CaseCommand::MasterKey {

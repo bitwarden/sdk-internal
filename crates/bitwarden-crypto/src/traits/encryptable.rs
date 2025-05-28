@@ -76,15 +76,15 @@ impl<Ids: KeyIds, Key: KeyId, T: Encryptable<Ids, Key, Output>, Output>
 #[cfg(test)]
 mod tests {
     use crate::{
-        traits::tests::*, AsymmetricCryptoKey, Decryptable, Encryptable, KeyStore,
-        SymmetricCryptoKey,
+        traits::tests::*, Decryptable, Encryptable, KeyStore, PrivateKey,
+        PublicKeyEncryptionAlgorithm, SymmetricCryptoKey,
     };
 
     fn test_store() -> KeyStore<TestIds> {
         let store = KeyStore::<TestIds>::default();
 
         let symm_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let asymm_key = AsymmetricCryptoKey::make();
+        let asymm_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
         #[allow(deprecated)]
         store

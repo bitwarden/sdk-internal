@@ -1,0 +1,266 @@
+use ciborium::value::Integer;
+use coset::{iana::CoapContentFormat, CborSerializable, CoseSign1, Label, RegisteredLabel};
+use serde::{de::DeserializeOwned, Serialize};
+
+use super::{
+    message::SerializedMessage, signing_key::SigningKey, verifying_key::VerifyingKey,
+    SigningNamespace,
+};
+use crate::{
+    cose::{CoseSerializable, SIGNING_NAMESPACE},
+    error::SignatureError,
+    CryptoError,
+};
+
+pub struct SignedObject(pub(crate) CoseSign1);
+
+impl From<CoseSign1> for SignedObject {
+    fn from(cose_sign1: CoseSign1) -> Self {
+        SignedObject(cose_sign1)
+    }
+}
+
+impl SignedObject {
+    pub fn content_type(&self) -> Result<CoapContentFormat, CryptoError> {
+        if let RegisteredLabel::Assigned(content_format) = self
+            .0
+            .protected
+            .header
+            .content_type
+            .clone()
+            .ok_or(CryptoError::from(SignatureError::InvalidSignature))?
+        {
+            Ok(content_format)
+        } else {
+            Err(SignatureError::InvalidSignature.into())
+        }
+    }
+
+    pub(crate) fn inner(&self) -> &CoseSign1 {
+        &self.0
+    }
+
+    pub(crate) fn namespace(&self) -> Result<SigningNamespace, CryptoError> {
+        let namespace = self
+            .0
+            .protected
+            .header
+            .rest
+            .iter()
+            .find_map(|(key, value)| {
+                if let Label::Int(key) = key {
+                    if *key == SIGNING_NAMESPACE {
+                        return value.as_integer();
+                    }
+                }
+                None
+            })
+            .ok_or(SignatureError::InvalidNamespace)?;
+
+        SigningNamespace::try_from_i64(
+            i128::from(namespace)
+                .try_into()
+                .map_err(|_| SignatureError::InvalidNamespace)?,
+        )
+    }
+
+    fn payload(&self) -> Result<Vec<u8>, CryptoError> {
+        self.0
+            .payload
+            .as_ref()
+            .ok_or(SignatureError::InvalidSignature.into())
+            .map(|payload| payload.to_vec())
+    }
+
+    /// Verifies the signature of the signed object and returns the payload, if the signature is
+    /// valid.
+    pub fn verify_and_unwrap<Message: DeserializeOwned>(
+        &self,
+        verifying_key: &VerifyingKey,
+        namespace: &SigningNamespace,
+    ) -> Result<Message, CryptoError> {
+        SerializedMessage::from_bytes(
+            self.verify_and_unwrap_bytes(verifying_key, namespace)?,
+            self.content_type()?,
+        )
+        .decode()
+    }
+
+    /// Verifies the signature of the signed object and returns the payload as raw bytes, if the
+    /// signature is valid.
+    fn verify_and_unwrap_bytes(
+        &self,
+        verifying_key: &VerifyingKey,
+        namespace: &SigningNamespace,
+    ) -> Result<Vec<u8>, CryptoError> {
+        let Some(_alg) = &self.inner().protected.header.alg else {
+            return Err(SignatureError::InvalidSignature.into());
+        };
+
+        let signature_namespace = self.namespace()?;
+        if signature_namespace != *namespace {
+            return Err(SignatureError::InvalidNamespace.into());
+        }
+
+        self.inner()
+            .verify_signature(&[], |sig, data| verifying_key.verify_raw(sig, data))?;
+        self.payload()
+    }
+}
+
+impl SigningKey {
+    /// Signs the given payload with the signing key, under a given namespace.
+    /// This is is the underlying implementation of the `sign` method, and takes
+    /// a raw byte array as input.
+    fn sign_bytes(
+        &self,
+        serialized_message: &SerializedMessage,
+        namespace: &SigningNamespace,
+    ) -> Result<SignedObject, CryptoError> {
+        let cose_sign1 = coset::CoseSign1Builder::new()
+            .protected(
+                coset::HeaderBuilder::new()
+                    .algorithm(self.cose_algorithm())
+                    .key_id((&self.id).into())
+                    .content_format(serialized_message.content_type())
+                    .value(
+                        SIGNING_NAMESPACE,
+                        ciborium::Value::Integer(Integer::from(namespace.as_i64())),
+                    )
+                    .build(),
+            )
+            .payload(serialized_message.as_bytes().to_vec())
+            .create_signature(&[], |pt| self.sign_raw(pt))
+            .build();
+        Ok(SignedObject(cose_sign1))
+    }
+
+    /// Signs the given payload with the signing key, under a given namespace.
+    /// This returns a [`SignedObject`] object, that contains the payload.
+    /// The payload is included in the signature, and does not need to be provided when verifying
+    /// the signature.
+    ///
+    /// This should be used when only one signer is required, so that only one object needs to be
+    /// kept track of.
+    /// ```
+    /// use bitwarden_crypto::{SigningNamespace, SignatureAlgorithm, SigningKey};
+    /// use serde::{Serialize, Deserialize};
+    ///
+    /// #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    /// struct TestMessage {
+    ///   field1: String,
+    /// }
+    ///
+    /// let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+    /// let message = TestMessage {
+    ///   field1: "Test message".to_string(),
+    /// };
+    /// let namespace = SigningNamespace::ExampleNamespace;
+    /// let signed_object = signing_key.sign(&message, &namespace).unwrap();
+    /// // The signed object can be verified using the verifying key:
+    /// let verifying_key = signing_key.to_verifying_key();
+    /// let payload: TestMessage = signed_object.verify_and_unwrap(&verifying_key, &namespace).unwrap();
+    /// assert_eq!(payload, message);
+    /// ```
+    pub fn sign<Message: Serialize>(
+        &self,
+        message: &Message,
+        namespace: &SigningNamespace,
+    ) -> Result<SignedObject, CryptoError> {
+        self.sign_bytes(&SerializedMessage::encode(message)?, namespace)
+    }
+}
+
+impl CoseSerializable for SignedObject {
+    fn from_cose(bytes: &[u8]) -> Result<Self, CryptoError> {
+        Ok(SignedObject(
+            CoseSign1::from_slice(bytes).map_err(|_| SignatureError::InvalidSignature)?,
+        ))
+    }
+
+    fn to_cose(&self) -> Result<Vec<u8>, CryptoError> {
+        self.0
+            .clone()
+            .to_vec()
+            .map_err(|_| SignatureError::InvalidSignature.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        CoseSerializable, CryptoError, SignedObject, SigningKey, SigningNamespace, TestMessage, VerifyingKey
+    };
+
+    const VERIFYING_KEY: &[u8] = &[
+        166, 1, 1, 2, 80, 55, 131, 40, 191, 230, 137, 76, 182, 184, 139, 94, 152, 45, 63, 13, 71,
+        3, 39, 4, 129, 2, 32, 6, 33, 88, 32, 93, 213, 35, 177, 81, 219, 226, 241, 147, 140, 238,
+        32, 34, 183, 213, 107, 227, 92, 75, 84, 208, 47, 198, 80, 18, 188, 172, 145, 184, 154, 26,
+        170,
+    ];
+    const SIGNED_OBJECT: &[u8] = &[
+        132, 88, 30, 164, 1, 39, 3, 24, 60, 4, 80, 55, 131, 40, 191, 230, 137, 76, 182, 184, 139,
+        94, 152, 45, 63, 13, 71, 58, 0, 1, 56, 127, 32, 160, 85, 161, 102, 102, 105, 101, 108, 100,
+        49, 108, 84, 101, 115, 116, 32, 109, 101, 115, 115, 97, 103, 101, 88, 64, 206, 83, 177,
+        184, 37, 103, 128, 39, 120, 174, 61, 4, 29, 184, 68, 46, 47, 203, 47, 246, 108, 160, 169,
+        114, 7, 165, 119, 198, 3, 209, 52, 249, 89, 31, 156, 255, 212, 75, 224, 78, 183, 37, 174,
+        63, 112, 70, 219, 246, 19, 213, 17, 121, 249, 244, 23, 182, 36, 193, 175, 55, 250, 65, 250,
+        6,
+    ];
+
+    #[test]
+    fn test_roundtrip_cose() {
+        let signed_object = SignedObject::from_cose(SIGNED_OBJECT).unwrap();
+        assert_eq!(
+            signed_object.content_type().unwrap(),
+            coset::iana::CoapContentFormat::Cbor
+        );
+        let cose_bytes = signed_object.to_cose().unwrap();
+        assert_eq!(cose_bytes, SIGNED_OBJECT);
+    }
+
+    #[test]
+    fn test_verify_and_unwrap_testvector() {
+        let test_message = TestMessage {
+            field1: "Test message".to_string(),
+        };
+        let signed_object = SignedObject::from_cose(SIGNED_OBJECT).unwrap();
+        let verifying_key = VerifyingKey::from_cose(VERIFYING_KEY).unwrap();
+        let namespace = SigningNamespace::ExampleNamespace;
+        let payload: TestMessage = signed_object
+            .verify_and_unwrap(&verifying_key, &namespace)
+            .unwrap();
+        assert_eq!(payload, test_message);
+    }
+
+    #[test]
+    fn test_sign_verify_and_unwrap_roundtrip() {
+        let signing_key = SigningKey::make(crate::SignatureAlgorithm::Ed25519).unwrap();
+        let test_message = TestMessage {
+            field1: "Test message".to_string(),
+        };
+        let namespace = SigningNamespace::ExampleNamespace;
+        let signed_object = signing_key.sign(&test_message, &namespace).unwrap();
+        let verifying_key = signing_key.to_verifying_key();
+        let payload: TestMessage = signed_object
+            .verify_and_unwrap(&verifying_key, &namespace)
+            .unwrap();
+        assert_eq!(payload, test_message);
+    }
+
+    #[test]
+    fn test_fail_namespace_changed() {
+        let signing_key = SigningKey::make(crate::SignatureAlgorithm::Ed25519).unwrap();
+        let test_message = TestMessage {
+            field1: "Test message".to_string(),
+        };
+        let namespace = SigningNamespace::ExampleNamespace;
+        let signed_object = signing_key.sign(&test_message, &namespace).unwrap();
+        let verifying_key = signing_key.to_verifying_key();
+
+        let different_namespace = SigningNamespace::ExampleNamespace2;
+        let result: Result<TestMessage, CryptoError> =
+            signed_object.verify_and_unwrap(&verifying_key, &different_namespace);
+        assert!(result.is_err());
+    }
+}

@@ -8,9 +8,10 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, error::UnsupportedOperation, store::backend::StoreBackend,
-    AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, Signature,
-    SignatureAlgorithm, SignedObject, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
+    derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
+    CryptoError, EncString, KeyId, KeyIds, PrivateKey, Result, Signature, SignatureAlgorithm,
+    SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey,
+    UnsignedSharedKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -237,7 +238,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ) -> Result<UnsignedSharedKey> {
         UnsignedSharedKey::encapsulate_key_unsigned(
             self.get_symmetric_key(shared_key)?,
-            self.get_asymmetric_key(encapsulation_key)?,
+            &self.get_asymmetric_key(encapsulation_key)?.to_public_key(),
         )
     }
 
@@ -300,11 +301,23 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
-    pub fn dangerous_get_asymmetric_key(
-        &self,
-        key_id: Ids::Asymmetric,
-    ) -> Result<&AsymmetricCryptoKey> {
+    pub fn dangerous_get_asymmetric_key(&self, key_id: Ids::Asymmetric) -> Result<&PrivateKey> {
         self.get_asymmetric_key(key_id)
+    }
+
+    /// Makes a signed public key from an asymmetric private key and signing key stored in context.
+    /// Signing a public key asserts ownership, and makes the claim to other users that if they want
+    /// to share with you, they can use this public key.
+    pub fn make_signed_public_key(
+        &self,
+        private_key_id: Ids::Asymmetric,
+        signing_key_id: Ids::Signing,
+    ) -> Result<SignedPublicKey> {
+        let public_key = self.get_asymmetric_key(private_key_id)?.to_public_key();
+        let signing_key = self.get_signing_key(signing_key_id)?;
+        let signed_public_key =
+            SignedPublicKeyMessage::from_public_key(&public_key)?.sign(signing_key)?;
+        Ok(signed_public_key)
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
@@ -321,7 +334,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{key_id:?}")))
     }
 
-    fn get_asymmetric_key(&self, key_id: Ids::Asymmetric) -> Result<&AsymmetricCryptoKey> {
+    fn get_asymmetric_key(&self, key_id: Ids::Asymmetric) -> Result<&PrivateKey> {
         if key_id.is_local() {
             self.local_asymmetric_keys.get(key_id)
         } else {
@@ -358,11 +371,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
-    pub fn set_asymmetric_key(
-        &mut self,
-        key_id: Ids::Asymmetric,
-        key: AsymmetricCryptoKey,
-    ) -> Result<()> {
+    pub fn set_asymmetric_key(&mut self, key_id: Ids::Asymmetric, key: PrivateKey) -> Result<()> {
         if key_id.is_local() {
             self.local_asymmetric_keys.upsert(key_id, key);
         } else {
@@ -430,8 +439,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         message: &Message,
         namespace: &crate::SigningNamespace,
     ) -> Result<SignedObject> {
-        let key = self.get_signing_key(key)?;
-        key.sign(message, namespace)
+        self.get_signing_key(key)?.sign(message, namespace)
     }
 
     /// Signs the given data using the specified signing key, for the given
@@ -443,10 +451,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key: Ids::Signing,
         message: &Message,
         namespace: &crate::SigningNamespace,
-    ) -> Result<(Signature, Vec<u8>)> {
-        let key = self.get_signing_key(key)?;
-        let (signature, serialized_message) = key.sign_detached(message, namespace)?;
-        Ok((signature, serialized_message.as_ref().to_vec()))
+    ) -> Result<(Signature, signing::SerializedMessage)> {
+        self.get_signing_key(key)?.sign_detached(message, namespace)
     }
 }
 
@@ -570,7 +576,7 @@ mod tests {
             )
             .unwrap();
         let payload: Result<TestData, CryptoError> =
-            verifying_key.get_verified_payload(&signed_object, &SigningNamespace::ExampleNamespace);
+            signed_object.verify_and_unwrap(&verifying_key, &SigningNamespace::ExampleNamespace);
         assert!(payload.is_ok());
 
         let (signature, serialized_message) = store
@@ -583,10 +589,10 @@ mod tests {
                 &SigningNamespace::ExampleNamespace,
             )
             .unwrap();
-        assert!(verifying_key.verify_signature(
-            &serialized_message,
-            &SigningNamespace::ExampleNamespace,
-            &signature
-        ));
+        assert!(signature.verify(
+            serialized_message.as_bytes(),
+            &verifying_key,
+            &SigningNamespace::ExampleNamespace
+        ))
     }
 }
