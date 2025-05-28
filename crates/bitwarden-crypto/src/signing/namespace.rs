@@ -10,7 +10,7 @@ use crate::{error::SignatureError, CryptoError};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SigningNamespace {
     /// The namespace for
-    /// [`SignedPublicKey`](crate::signing::SignedPublicKey).
+    /// [`SignedPublicKey`](crate::keys::SignedPublicKey).
     SignedPublicKey = 1,
 
     /// This namespace is only used in tests and documentation.

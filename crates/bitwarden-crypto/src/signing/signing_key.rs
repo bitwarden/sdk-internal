@@ -61,9 +61,9 @@ impl SigningKey {
     }
 
     /// Signs the given byte array with the signing key.
-    /// This should never be used directly by anything other than the second layer defined in
-    /// [super::message].
-    pub fn sign_raw(&self, data: &[u8]) -> Vec<u8> {
+    /// This should not be used directly other than for generating namespace separated signatures or
+    /// signed objects.
+    pub(super) fn sign_raw(&self, data: &[u8]) -> Vec<u8> {
         match &self.inner {
             RawSigningKey::Ed25519(key) => key.sign(data).to_bytes().to_vec(),
         }
