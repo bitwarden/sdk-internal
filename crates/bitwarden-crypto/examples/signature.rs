@@ -2,43 +2,60 @@ use bitwarden_crypto::CoseSerializable;
 use serde::{Deserialize, Serialize};
 
 fn main() {
-    // Alice wants to create a message, sign it, and send it to Bob. Bob should sign it too, and then finally Charlie should be able to
-    // verify both.
+    // Alice wants to create a message, sign it, and send it to Bob. Bob should sign it too, and
+    // then finally Charlie should be able to verify both.
 
     // Setup
     let mut mock_server = MockServer::new();
-    let alice_signature_key = bitwarden_crypto::SigningKey::make(bitwarden_crypto::SignatureAlgorithm::Ed25519)
-        .expect("Failed to create signing key for Alice");
+    let alice_signature_key =
+        bitwarden_crypto::SigningKey::make(bitwarden_crypto::SignatureAlgorithm::Ed25519)
+            .expect("Failed to create signing key for Alice");
     let alice_verifying_key = alice_signature_key.to_verifying_key();
-    let bob_signature_key = bitwarden_crypto::SigningKey::make(bitwarden_crypto::SignatureAlgorithm::Ed25519)
-        .expect("Failed to create signing key for Bob");
+    let bob_signature_key =
+        bitwarden_crypto::SigningKey::make(bitwarden_crypto::SignatureAlgorithm::Ed25519)
+            .expect("Failed to create signing key for Bob");
     let bob_verifying_key = bob_signature_key.to_verifying_key();
-    // We assume bob knows and trusts this verifying key previously via e.g. fingerprints or auditable key directory.
-    
+    // We assume bob knows and trusts this verifying key previously via e.g. fingerprints or
+    // auditable key directory.
+
     // Alice creates a message
     #[derive(Serialize, Deserialize)]
     struct MessageToCharlie {
         content: String,
     }
-    let (signature, serialized_message) = alice_signature_key.sign_detached(
-        &MessageToCharlie {
-            content: "Hello Charlie, this is Alice and Bob!".to_string(),
-        },
-        // The namespace should be unique per message type. It ensures no cross protocol attacks can happen.
-        &bitwarden_crypto::SigningNamespace::ExampleNamespace,
-    ).expect("Failed to sign message");
+    let (signature, serialized_message) = alice_signature_key
+        .sign_detached(
+            &MessageToCharlie {
+                content: "Hello Charlie, this is Alice and Bob!".to_string(),
+            },
+            // The namespace should be unique per message type. It ensures no cross protocol
+            // attacks can happen.
+            &bitwarden_crypto::SigningNamespace::ExampleNamespace,
+        )
+        .expect("Failed to sign message");
 
     // Alice sends the signed object to Bob
-    mock_server.upload("signature", signature.to_cose().expect("Failed to serialize signature"));
+    mock_server.upload(
+        "signature",
+        signature.to_cose().expect("Failed to serialize signature"),
+    );
     mock_server.upload("serialized_message", serialized_message.as_bytes().to_vec());
 
     // Bob retrieves the signed object from the server
     let retrieved_signature = bitwarden_crypto::Signature::from_cose(
-        &mock_server.download("signature").expect("Failed to download signature")
-    ).expect("Failed to deserialize signature");
+        &mock_server
+            .download("signature")
+            .expect("Failed to download signature"),
+    )
+    .expect("Failed to deserialize signature");
     let retrieved_serialized_message = bitwarden_crypto::SerializedMessage::from_bytes(
-        mock_server.download("serialized_message").expect("Failed to download serialized message").clone(),
-        retrieved_signature.content_type().expect("Failed to get content type from signature")
+        mock_server
+            .download("serialized_message")
+            .expect("Failed to download serialized message")
+            .clone(),
+        retrieved_signature
+            .content_type()
+            .expect("Failed to get content type from signature"),
     );
 
     // Bob verifies the signature using Alice's verifying key
@@ -51,22 +68,43 @@ fn main() {
     }
 
     // Bob signs the message for Charlie
-    let bobs_signature = bob_signature_key.counter_sign_detached(retrieved_serialized_message.as_bytes().to_vec(), &retrieved_signature, &bitwarden_crypto::SigningNamespace::ExampleNamespace)
+    let bobs_signature = bob_signature_key
+        .counter_sign_detached(
+            retrieved_serialized_message.as_bytes().to_vec(),
+            &retrieved_signature,
+            &bitwarden_crypto::SigningNamespace::ExampleNamespace,
+        )
         .expect("Failed to counter sign message");
     // Bob sends the counter signature to Charlie
-    mock_server.upload("bobs_signature", bobs_signature.to_cose().expect("Failed to serialize Bob's signature"));
+    mock_server.upload(
+        "bobs_signature",
+        bobs_signature
+            .to_cose()
+            .expect("Failed to serialize Bob's signature"),
+    );
 
     // Charlie retrieves the signatures, and the message
     let retrieved_serialized_message = bitwarden_crypto::SerializedMessage::from_bytes(
-        mock_server.download("serialized_message").expect("Failed to download serialized message").clone(),
-        retrieved_signature.content_type().expect("Failed to get content type from signature")
+        mock_server
+            .download("serialized_message")
+            .expect("Failed to download serialized message")
+            .clone(),
+        retrieved_signature
+            .content_type()
+            .expect("Failed to get content type from signature"),
     );
     let retrieved_alice_signature = bitwarden_crypto::Signature::from_cose(
-        &mock_server.download("signature").expect("Failed to download Alice's signature")
-    ).expect("Failed to deserialize Alice's signature");
+        &mock_server
+            .download("signature")
+            .expect("Failed to download Alice's signature"),
+    )
+    .expect("Failed to deserialize Alice's signature");
     let retrieved_bobs_signature = bitwarden_crypto::Signature::from_cose(
-        &mock_server.download("bobs_signature").expect("Failed to download Bob's signature")
-    ).expect("Failed to deserialize Bob's signature");
+        &mock_server
+            .download("bobs_signature")
+            .expect("Failed to download Bob's signature"),
+    )
+    .expect("Failed to deserialize Bob's signature");
 
     // Charlie verifies Alice's signature
     if !retrieved_alice_signature.verify(
@@ -88,7 +126,10 @@ fn main() {
     let verified_message: MessageToCharlie = retrieved_serialized_message
         .decode()
         .expect("Failed to decode serialized message");
-    println!("Charlie received a message from Alice and Bob: {}", verified_message.content);
+    println!(
+        "Charlie received a message from Alice and Bob: {}",
+        verified_message.content
+    );
 }
 
 pub(crate) struct MockServer {

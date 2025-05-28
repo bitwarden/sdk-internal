@@ -2,7 +2,7 @@ use std::{fmt::Debug, hash::Hash};
 
 use zeroize::ZeroizeOnDrop;
 
-use crate::{CryptoKey, AsymmetricCryptoKey, SigningKey, SymmetricCryptoKey};
+use crate::{AsymmetricCryptoKey, CryptoKey, SigningKey, SymmetricCryptoKey};
 
 /// Represents a key identifier that can be used to identify cryptographic keys in the
 /// key store. It is used to avoid exposing the key material directly in the public API.

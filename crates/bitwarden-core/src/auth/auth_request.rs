@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    fingerprint, generate_random_alphanumeric, CryptoError, AsymmetricCryptoKey, AsymmetricPublicCryptoKey,
-    PublicKeyEncryptionAlgorithm, UnsignedSharedKey,
+    fingerprint, generate_random_alphanumeric, AsymmetricCryptoKey, AsymmetricPublicCryptoKey,
+    CryptoError, PublicKeyEncryptionAlgorithm, UnsignedSharedKey,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, SymmetricCryptoKey};

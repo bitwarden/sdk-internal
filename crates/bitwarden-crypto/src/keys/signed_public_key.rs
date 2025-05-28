@@ -74,7 +74,10 @@ impl TryFrom<Vec<u8>> for SignedPublicKey {
 }
 
 impl SignedPublicKey {
-    pub fn verify_and_unwrap(self, verifying_key: &VerifyingKey) -> Result<AsymmetricPublicCryptoKey, CryptoError> {
+    pub fn verify_and_unwrap(
+        self,
+        verifying_key: &VerifyingKey,
+    ) -> Result<AsymmetricPublicCryptoKey, CryptoError> {
         let public_key_message: SignedPublicKeyMessage = self
             .0
             .verify_and_unwrap(verifying_key, &SigningNamespace::SignedPublicKey)?;

@@ -2,9 +2,10 @@ use std::str::FromStr;
 
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CoseSerializable, CryptoError, Decryptable, EncString, Encryptable, Kdf, KeyDecryptable,
-    KeyEncryptable, KeyStore, MasterKey, AsymmetricCryptoKey, AsymmetricPublicCryptoKey, SignatureAlgorithm,
-    SignedPublicKey, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CoseSerializable, CryptoError, Decryptable,
+    EncString, Encryptable, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey,
+    SignatureAlgorithm, SignedPublicKey, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
+    VerifyingKey,
 };
 use wasm_bindgen::prelude::*;
 
@@ -260,7 +261,9 @@ impl PureCrypto {
         decapsulation_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         Ok(UnsignedSharedKey::from_str(encapsulated_key.as_str())?
-            .decapsulate_key_unsigned(&AsymmetricCryptoKey::from_der(decapsulation_key.as_slice())?)?
+            .decapsulate_key_unsigned(&AsymmetricCryptoKey::from_der(
+                decapsulation_key.as_slice(),
+            )?)?
             .to_encoded())
     }
 

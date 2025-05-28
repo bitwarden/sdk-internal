@@ -76,7 +76,7 @@ impl<Ids: KeyIds, Key: KeyId, T: Encryptable<Ids, Key, Output>, Output>
 #[cfg(test)]
 mod tests {
     use crate::{
-        traits::tests::*, Decryptable, Encryptable, KeyStore, AsymmetricCryptoKey,
+        traits::tests::*, AsymmetricCryptoKey, Decryptable, Encryptable, KeyStore,
         PublicKeyEncryptionAlgorithm, SymmetricCryptoKey,
     };
 

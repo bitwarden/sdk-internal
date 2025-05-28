@@ -32,7 +32,8 @@ impl DeviceKey {
     pub fn trust_device(user_key: &SymmetricCryptoKey) -> Result<TrustDeviceResponse> {
         let device_key = DeviceKey(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
 
-        let device_private_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let device_private_key =
+            AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
         let protected_user_key = UnsignedSharedKey::encapsulate_key_unsigned(
             user_key,

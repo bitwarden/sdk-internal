@@ -189,7 +189,8 @@ impl CoseSerializable for SignedObject {
 #[cfg(test)]
 mod tests {
     use crate::{
-        CoseSerializable, CryptoError, SignedObject, SigningKey, SigningNamespace, TestMessage, VerifyingKey
+        CoseSerializable, CryptoError, SignedObject, SigningKey, SigningNamespace, TestMessage,
+        VerifyingKey,
     };
 
     const VERIFYING_KEY: &[u8] = &[

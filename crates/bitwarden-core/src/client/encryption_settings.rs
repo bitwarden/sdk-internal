@@ -42,7 +42,7 @@ impl EncryptionSettings {
         signing_key: Option<EncString>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
-        use bitwarden_crypto::{CoseSerializable, KeyDecryptable, AsymmetricCryptoKey, SigningKey};
+        use bitwarden_crypto::{AsymmetricCryptoKey, CoseSerializable, KeyDecryptable, SigningKey};
         use log::warn;
 
         use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
