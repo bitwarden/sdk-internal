@@ -1,5 +1,4 @@
 use bitwarden_core::MissingFieldError;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
@@ -7,7 +6,7 @@ use tsify_next::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum LinkedIdType {
@@ -17,22 +16,7 @@ pub enum LinkedIdType {
 }
 
 #[cfg(feature = "uniffi")]
-use crate::UniffiCustomTypeConverter;
-#[cfg(feature = "uniffi")]
 uniffi::custom_type!(LinkedIdType, u32);
-#[cfg(feature = "uniffi")]
-impl UniffiCustomTypeConverter for LinkedIdType {
-    type Builtin = u32;
-
-    fn into_custom(val: Self::Builtin) -> uniffi::Result<Self> {
-        let val = serde_json::Value::Number(val.into());
-        Ok(serde_json::from_value(val)?)
-    }
-
-    fn from_custom(obj: Self) -> Self::Builtin {
-        obj.into()
-    }
-}
 
 impl From<LinkedIdType> for u32 {
     fn from(v: LinkedIdType) -> Self {
@@ -43,7 +27,7 @@ impl From<LinkedIdType> for u32 {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Debug, JsonSchema)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Debug)]
 #[repr(u16)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum LoginLinkedIdType {
@@ -51,7 +35,7 @@ pub enum LoginLinkedIdType {
     Password = 101,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Debug, JsonSchema)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Debug)]
 #[repr(u16)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum CardLinkedIdType {
@@ -63,7 +47,7 @@ pub enum CardLinkedIdType {
     Number = 305,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Debug, JsonSchema)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Debug)]
 #[repr(u16)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum IdentityLinkedIdType {
@@ -91,37 +75,9 @@ pub enum IdentityLinkedIdType {
 impl TryFrom<u32> for LinkedIdType {
     type Error = MissingFieldError;
 
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
-        match value {
-            100 => Ok(LinkedIdType::Login(LoginLinkedIdType::Username)),
-            101 => Ok(LinkedIdType::Login(LoginLinkedIdType::Password)),
-            300 => Ok(LinkedIdType::Card(CardLinkedIdType::CardholderName)),
-            301 => Ok(LinkedIdType::Card(CardLinkedIdType::ExpMonth)),
-            302 => Ok(LinkedIdType::Card(CardLinkedIdType::ExpYear)),
-            303 => Ok(LinkedIdType::Card(CardLinkedIdType::Code)),
-            304 => Ok(LinkedIdType::Card(CardLinkedIdType::Brand)),
-            305 => Ok(LinkedIdType::Card(CardLinkedIdType::Number)),
-            400 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::Title)),
-            401 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::MiddleName)),
-            402 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::Address1)),
-            403 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::Address2)),
-            404 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::Address3)),
-            405 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::City)),
-            406 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::State)),
-            407 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::PostalCode)),
-            408 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::Country)),
-            409 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::Company)),
-            410 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::Email)),
-            411 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::Phone)),
-            412 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::Ssn)),
-            413 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::Username)),
-            414 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::PassportNumber)),
-            415 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::LicenseNumber)),
-            416 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::FirstName)),
-            417 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::LastName)),
-            418 => Ok(LinkedIdType::Identity(IdentityLinkedIdType::FullName)),
-            _ => Err(MissingFieldError("LinkedIdType")),
-        }
+    fn try_from(val: u32) -> Result<Self, Self::Error> {
+        let val = serde_json::Value::Number(val.into());
+        serde_json::from_value(val).map_err(|_| MissingFieldError("LinkedIdType"))
     }
 }
 
@@ -153,24 +109,17 @@ mod tests {
 
         assert_eq!(
             100,
-            crate::UniffiCustomTypeConverter::from_custom(LinkedIdType::Login(
-                LoginLinkedIdType::Username
-            ))
+            u32::from(LinkedIdType::Login(LoginLinkedIdType::Username))
         );
-        assert_eq!(
-            303,
-            crate::UniffiCustomTypeConverter::from_custom(LinkedIdType::Card(
-                CardLinkedIdType::Code
-            ))
-        );
+        assert_eq!(303, u32::from(LinkedIdType::Card(CardLinkedIdType::Code)));
 
         assert_eq!(
             LinkedIdType::Login(LoginLinkedIdType::Username),
-            crate::UniffiCustomTypeConverter::into_custom(100).unwrap()
+            100.try_into().unwrap()
         );
         assert_eq!(
             LinkedIdType::Card(CardLinkedIdType::Code),
-            crate::UniffiCustomTypeConverter::into_custom(303).unwrap()
+            303.try_into().unwrap()
         );
     }
 }

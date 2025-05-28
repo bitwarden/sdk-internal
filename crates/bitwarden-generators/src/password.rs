@@ -1,10 +1,14 @@
 use std::collections::BTreeSet;
 
+use bitwarden_error::bitwarden_error;
 use rand::{distributions::Distribution, seq::SliceRandom, RngCore};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use tsify_next::Tsify;
 
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum PasswordError {
     #[error("No character set enabled")]
@@ -17,6 +21,7 @@ pub enum PasswordError {
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PasswordGeneratorRequest {
     /// Include lowercase characters (a-z).
     pub lowercase: bool,

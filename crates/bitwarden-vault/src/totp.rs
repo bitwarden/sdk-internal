@@ -12,7 +12,6 @@ use data_encoding::BASE32_NOPAD;
 use hmac::{Hmac, Mac};
 use percent_encoding::{percent_decode_str, percent_encode, NON_ALPHANUMERIC};
 use reqwest::Url;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -45,7 +44,7 @@ pub enum TotpError {
     VaultLocked(#[from] VaultLockedError),
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]

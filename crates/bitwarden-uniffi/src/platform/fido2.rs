@@ -1,26 +1,23 @@
 use std::sync::Arc;
 
 use bitwarden_fido::{
-    CheckUserOptions, ClientData, ClientFido2Ext, Fido2CallbackError as BitFido2CallbackError,
+    CheckUserOptions, ClientData, Fido2CallbackError as BitFido2CallbackError,
     Fido2CredentialAutofillView, GetAssertionRequest, GetAssertionResult, MakeCredentialRequest,
     MakeCredentialResult, Origin, PublicKeyCredentialAuthenticatorAssertionResponse,
     PublicKeyCredentialAuthenticatorAttestationResponse, PublicKeyCredentialRpEntity,
     PublicKeyCredentialUserEntity,
 };
-use bitwarden_vault::{Cipher, CipherListView, CipherView, Fido2CredentialNewView};
+use bitwarden_vault::{CipherListView, CipherView, EncryptionContext, Fido2CredentialNewView};
 
-use crate::{
-    error::{Error, Result},
-    Client,
-};
+use crate::error::{Error, Result};
 
 #[derive(uniffi::Object)]
-pub struct ClientFido2(pub(crate) Arc<Client>);
+pub struct ClientFido2(pub(crate) bitwarden_fido::ClientFido2);
 
 #[uniffi::export]
 impl ClientFido2 {
     pub fn authenticator(
-        self: Arc<Self>,
+        &self,
         user_interface: Arc<dyn Fido2UserInterface>,
         credential_store: Arc<dyn Fido2CredentialStore>,
     ) -> Arc<ClientFido2Authenticator> {
@@ -32,7 +29,7 @@ impl ClientFido2 {
     }
 
     pub fn client(
-        self: Arc<Self>,
+        &self,
         user_interface: Arc<dyn Fido2UserInterface>,
         credential_store: Arc<dyn Fido2CredentialStore>,
     ) -> Arc<ClientFido2Client> {
@@ -44,13 +41,11 @@ impl ClientFido2 {
     }
 
     pub fn decrypt_fido2_autofill_credentials(
-        self: Arc<Self>,
+        &self,
         cipher_view: CipherView,
     ) -> Result<Vec<Fido2CredentialAutofillView>> {
         let result = self
             .0
-             .0
-            .fido2()
             .decrypt_fido2_autofill_credentials(cipher_view)
             .map_err(Error::DecryptFido2AutofillCredentials)?;
 
@@ -60,7 +55,7 @@ impl ClientFido2 {
 
 #[derive(uniffi::Object)]
 pub struct ClientFido2Authenticator(
-    pub(crate) Arc<Client>,
+    pub(crate) bitwarden_fido::ClientFido2,
     pub(crate) Arc<dyn Fido2UserInterface>,
     pub(crate) Arc<dyn Fido2CredentialStore>,
 );
@@ -71,10 +66,9 @@ impl ClientFido2Authenticator {
         &self,
         request: MakeCredentialRequest,
     ) -> Result<MakeCredentialResult> {
-        let fido2 = self.0 .0.fido2();
         let ui = UniffiTraitBridge(self.1.as_ref());
         let cs = UniffiTraitBridge(self.2.as_ref());
-        let mut auth = fido2.create_authenticator(&ui, &cs);
+        let mut auth = self.0.create_authenticator(&ui, &cs);
 
         let result = auth
             .make_credential(request)
@@ -84,10 +78,9 @@ impl ClientFido2Authenticator {
     }
 
     pub async fn get_assertion(&self, request: GetAssertionRequest) -> Result<GetAssertionResult> {
-        let fido2 = self.0 .0.fido2();
         let ui = UniffiTraitBridge(self.1.as_ref());
         let cs = UniffiTraitBridge(self.2.as_ref());
-        let mut auth = fido2.create_authenticator(&ui, &cs);
+        let mut auth = self.0.create_authenticator(&ui, &cs);
 
         let result = auth
             .get_assertion(request)
@@ -100,11 +93,9 @@ impl ClientFido2Authenticator {
         &self,
         rp_id: String,
     ) -> Result<Vec<Fido2CredentialAutofillView>> {
-        let fido2 = self.0 .0.fido2();
-
         let ui = UniffiTraitBridge(self.1.as_ref());
         let cs = UniffiTraitBridge(self.2.as_ref());
-        let mut auth = fido2.create_authenticator(&ui, &cs);
+        let mut auth = self.0.create_authenticator(&ui, &cs);
 
         let result = auth
             .silently_discover_credentials(rp_id)
@@ -114,10 +105,9 @@ impl ClientFido2Authenticator {
     }
 
     pub async fn credentials_for_autofill(&self) -> Result<Vec<Fido2CredentialAutofillView>> {
-        let fido2 = self.0 .0.fido2();
         let ui = UniffiTraitBridge(self.1.as_ref());
         let cs = UniffiTraitBridge(self.2.as_ref());
-        let mut auth = fido2.create_authenticator(&ui, &cs);
+        let mut auth = self.0.create_authenticator(&ui, &cs);
 
         let result = auth
             .credentials_for_autofill()
@@ -138,10 +128,9 @@ impl ClientFido2Client {
         request: String,
         client_data: ClientData,
     ) -> Result<PublicKeyCredentialAuthenticatorAttestationResponse> {
-        let fido2 = self.0 .0 .0.fido2();
         let ui = UniffiTraitBridge(self.0 .1.as_ref());
         let cs = UniffiTraitBridge(self.0 .2.as_ref());
-        let mut client = fido2.create_client(&ui, &cs);
+        let mut client = self.0 .0.create_client(&ui, &cs);
 
         let result = client
             .register(origin, request, client_data)
@@ -156,10 +145,9 @@ impl ClientFido2Client {
         request: String,
         client_data: ClientData,
     ) -> Result<PublicKeyCredentialAuthenticatorAssertionResponse> {
-        let fido2 = self.0 .0 .0.fido2();
         let ui = UniffiTraitBridge(self.0 .1.as_ref());
         let cs = UniffiTraitBridge(self.0 .2.as_ref());
-        let mut client = fido2.create_client(&ui, &cs);
+        let mut client = self.0 .0.create_client(&ui, &cs);
 
         let result = client
             .authenticate(origin, request, client_data)
@@ -257,7 +245,7 @@ pub trait Fido2CredentialStore: Send + Sync {
 
     async fn all_credentials(&self) -> Result<Vec<CipherListView>, Fido2CallbackError>;
 
-    async fn save_credential(&self, cred: Cipher) -> Result<(), Fido2CallbackError>;
+    async fn save_credential(&self, cred: EncryptionContext) -> Result<(), Fido2CallbackError>;
 }
 
 // Because uniffi doesn't support external traits, we have to make a copy of the trait here.
@@ -283,7 +271,7 @@ impl bitwarden_fido::Fido2CredentialStore for UniffiTraitBridge<&dyn Fido2Creden
         self.0.all_credentials().await.map_err(Into::into)
     }
 
-    async fn save_credential(&self, cred: Cipher) -> Result<(), BitFido2CallbackError> {
+    async fn save_credential(&self, cred: EncryptionContext) -> Result<(), BitFido2CallbackError> {
         self.0.save_credential(cred).await.map_err(Into::into)
     }
 }

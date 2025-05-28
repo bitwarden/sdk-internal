@@ -25,3 +25,6 @@ mod util;
 
 pub use bitwarden_crypto::ZeroizingAllocator;
 pub use client::{Client, ClientSettings, DeviceType};
+
+mod ids;
+pub use ids::*;

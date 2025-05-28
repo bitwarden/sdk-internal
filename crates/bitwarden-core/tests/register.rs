@@ -1,3 +1,5 @@
+//! Integration tests for the registration process
+
 /// Integration test for registering a new user and unlocking the vault
 #[cfg(feature = "internal")]
 #[tokio::test]
@@ -27,6 +29,7 @@ async fn test_register_initialize_crypto() {
     client
         .crypto()
         .initialize_user_crypto(InitUserCryptoRequest {
+            user_id: Some(uuid::Uuid::new_v4()),
             kdf_params: kdf,
             email: email.to_owned(),
             private_key: register_response.keys.private.to_string(),

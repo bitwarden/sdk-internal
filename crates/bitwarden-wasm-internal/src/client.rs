@@ -1,22 +1,23 @@
 extern crate console_error_panic_hook;
-use std::{fmt::Display, rc::Rc};
+use std::fmt::Display;
 
 use bitwarden_core::{Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
+use bitwarden_exporters::ExporterClientExt;
+use bitwarden_generators::GeneratorClientsExt;
+use bitwarden_vault::{VaultClient, VaultClientExt};
 use wasm_bindgen::prelude::*;
 
-use crate::{CryptoClient, VaultClient};
+use crate::CryptoClient;
 
-// Rc<...> is to avoid needing to take ownership of the Client during our async run_command
-// function https://github.com/rustwasm/wasm-bindgen/issues/2195#issuecomment-799588401
 #[wasm_bindgen]
-pub struct BitwardenClient(pub(crate) Rc<Client>);
+pub struct BitwardenClient(pub(crate) Client);
 
 #[wasm_bindgen]
 impl BitwardenClient {
     #[wasm_bindgen(constructor)]
     pub fn new(settings: Option<ClientSettings>) -> Self {
-        Self(Rc::new(Client::new(settings)))
+        Self(Client::new(settings))
     }
 
     /// Test method, echoes back the input
@@ -41,11 +42,20 @@ impl BitwardenClient {
     }
 
     pub fn crypto(&self) -> CryptoClient {
-        CryptoClient::new(self.0.clone())
+        CryptoClient::new(self.0.crypto())
     }
 
     pub fn vault(&self) -> VaultClient {
-        VaultClient::new(self.0.clone())
+        self.0.vault()
+    }
+
+    /// Constructs a specific client for generating passwords and passphrases
+    pub fn generator(&self) -> bitwarden_generators::GeneratorClient {
+        self.0.generator()
+    }
+
+    pub fn exporters(&self) -> bitwarden_exporters::ExporterClient {
+        self.0.exporters()
     }
 }
 

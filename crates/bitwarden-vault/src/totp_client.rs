@@ -1,10 +1,39 @@
+use bitwarden_core::Client;
 use chrono::{DateTime, Utc};
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
-use crate::{
-    generate_totp, generate_totp_cipher_view, CipherListView, TotpError, TotpResponse, VaultClient,
-};
+use crate::{generate_totp, generate_totp_cipher_view, CipherListView, TotpError, TotpResponse};
 
-impl<'a> VaultClient<'a> {
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub struct TotpClient {
+    pub(crate) client: Client,
+}
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen]
+impl TotpClient {
+    /// Generates a TOTP code from a provided key
+    ///
+    /// # Arguments
+    /// - `key` - Can be:
+    ///     - A base32 encoded string
+    ///     - OTP Auth URI
+    ///     - Steam URI
+    /// - `time_ms` - Optional timestamp in milliseconds
+    #[wasm_bindgen(js_name = "generate_totp")]
+    pub fn generate_totp_wasm(
+        &self,
+        key: String,
+        time_ms: Option<f64>,
+    ) -> Result<TotpResponse, TotpError> {
+        let datetime = time_ms.and_then(|time| DateTime::<Utc>::from_timestamp_millis(time as i64));
+
+        self.generate_totp(key, datetime)
+    }
+}
+
+impl TotpClient {
     /// Generate a TOTP code from a provided key.
     ///
     /// Key can be either:
@@ -12,7 +41,7 @@ impl<'a> VaultClient<'a> {
     /// - OTP Auth URI
     /// - Steam URI
     pub fn generate_totp(
-        &'a self,
+        &self,
         key: String,
         time: Option<DateTime<Utc>>,
     ) -> Result<TotpResponse, TotpError> {
@@ -21,7 +50,7 @@ impl<'a> VaultClient<'a> {
 
     /// Generate a TOTP code from a provided cipher list view.
     pub fn generate_totp_cipher_view(
-        &'a self,
+        &self,
         view: CipherListView,
         time: Option<DateTime<Utc>>,
     ) -> Result<TotpResponse, TotpError> {

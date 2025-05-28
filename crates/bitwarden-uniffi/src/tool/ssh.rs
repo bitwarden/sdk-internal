@@ -1,14 +1,12 @@
-use std::sync::Arc;
-
 use bitwarden_vault::SshKeyView;
 
 use crate::{
     error::{BitwardenError, Error},
-    Client, Result,
+    Result,
 };
 
 #[derive(uniffi::Object)]
-pub struct SshClient(pub Arc<Client>);
+pub struct SshClient();
 
 #[uniffi::export]
 impl SshClient {

@@ -1,4 +1,6 @@
 *
-!crates/*
-!Cargo.toml
-!Cargo.lock
+!/crates/*
+!/bitwarden_license/*
+!/Cargo.toml
+!/Cargo.lock
+!/rust-toolchain.toml

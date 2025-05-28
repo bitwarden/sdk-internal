@@ -37,7 +37,7 @@ uniffi = { workspace = true }
 uuid = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.14"
+android_logger = "0.15"
 
 # The use of rustls-platform-verifier requires some extra support to communicate with the Android platform
 jni = ">=0.21, <0.22"

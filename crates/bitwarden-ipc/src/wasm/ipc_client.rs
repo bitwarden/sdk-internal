@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use wasm_bindgen::prelude::*;
 
@@ -7,6 +7,7 @@ use super::{
     error::{JsReceiveError, JsSendError},
 };
 use crate::{
+    ipc_client::IpcClientSubscription,
     message::{IncomingMessage, OutgoingMessage},
     traits::{InMemorySessionRepository, NoEncryptionCryptoProvider},
     IpcClient,
@@ -15,11 +16,29 @@ use crate::{
 #[wasm_bindgen(js_name = IpcClient)]
 pub struct JsIpcClient {
     // TODO: Change session provider to a JS-implemented one
-    client: IpcClient<
+    client: Arc<
+        IpcClient<
+            NoEncryptionCryptoProvider,
+            JsCommunicationBackend,
+            InMemorySessionRepository<()>,
+        >,
+    >,
+}
+
+#[wasm_bindgen(js_name = IpcClientSubscription)]
+pub struct JsIpcClientSubscription {
+    subscription: IpcClientSubscription<
         NoEncryptionCryptoProvider,
         JsCommunicationBackend,
         InMemorySessionRepository<()>,
     >,
+}
+
+#[wasm_bindgen(js_class = IpcClientSubscription)]
+impl JsIpcClientSubscription {
+    pub async fn receive(&self) -> Result<IncomingMessage, JsReceiveError> {
+        self.subscription.receive(None).await.map_err(|e| e.into())
+    }
 }
 
 #[wasm_bindgen(js_class = IpcClient)]
@@ -39,7 +58,8 @@ impl JsIpcClient {
         self.client.send(message).await.map_err(|e| e.into())
     }
 
-    pub async fn receive(&self) -> Result<IncomingMessage, JsReceiveError> {
-        self.client.receive().await.map_err(|e| e.into())
+    pub async fn subscribe(&self) -> JsIpcClientSubscription {
+        let subscription = self.client.subscribe(None).await;
+        JsIpcClientSubscription { subscription }
     }
 }

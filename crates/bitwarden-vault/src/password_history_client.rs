@@ -1,12 +1,12 @@
 use bitwarden_core::Client;
 
-use crate::{DecryptError, EncryptError, PasswordHistory, PasswordHistoryView, VaultClient};
+use crate::{DecryptError, EncryptError, PasswordHistory, PasswordHistoryView};
 
-pub struct ClientPasswordHistory<'a> {
-    pub(crate) client: &'a Client,
+pub struct PasswordHistoryClient {
+    pub(crate) client: Client,
 }
 
-impl ClientPasswordHistory<'_> {
+impl PasswordHistoryClient {
     pub fn encrypt(
         &self,
         history_view: PasswordHistoryView,
@@ -23,13 +23,5 @@ impl ClientPasswordHistory<'_> {
         let key_store = self.client.internal.get_key_store();
         let history_view = key_store.decrypt_list(&history)?;
         Ok(history_view)
-    }
-}
-
-impl<'a> VaultClient<'a> {
-    pub fn password_history(&'a self) -> ClientPasswordHistory<'a> {
-        ClientPasswordHistory {
-            client: self.client,
-        }
     }
 }

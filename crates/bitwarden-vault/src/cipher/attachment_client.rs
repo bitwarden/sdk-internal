@@ -4,14 +4,17 @@ use bitwarden_core::Client;
 use bitwarden_crypto::EncString;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
-    Cipher, DecryptError, EncryptError, VaultClient,
+    Cipher, DecryptError, EncryptError,
 };
 
-pub struct ClientAttachments<'a> {
-    pub(crate) client: &'a Client,
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub struct AttachmentsClient {
+    pub(crate) client: Client,
 }
 
 /// Generic error type for vault encryption errors.
@@ -34,7 +37,25 @@ pub enum DecryptFileError {
     Io(#[from] std::io::Error),
 }
 
-impl ClientAttachments<'_> {
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl AttachmentsClient {
+    pub fn decrypt_buffer(
+        &self,
+        cipher: Cipher,
+        attachment: AttachmentView,
+        encrypted_buffer: &[u8],
+    ) -> Result<Vec<u8>, DecryptError> {
+        let key_store = self.client.internal.get_key_store();
+
+        Ok(key_store.decrypt(&AttachmentFile {
+            cipher,
+            attachment,
+            contents: EncString::from_buffer(encrypted_buffer)?,
+        })?)
+    }
+}
+
+impl AttachmentsClient {
     pub fn encrypt_buffer(
         &self,
         cipher: Cipher,
@@ -49,6 +70,7 @@ impl ClientAttachments<'_> {
             contents: buffer,
         })?)
     }
+
     pub fn encrypt_file(
         &self,
         cipher: Cipher,
@@ -65,24 +87,10 @@ impl ClientAttachments<'_> {
         Ok(attachment)
     }
 
-    pub fn decrypt_buffer(
-        &self,
-        cipher: Cipher,
-        attachment: Attachment,
-        encrypted_buffer: &[u8],
-    ) -> Result<Vec<u8>, DecryptError> {
-        let key_store = self.client.internal.get_key_store();
-
-        Ok(key_store.decrypt(&AttachmentFile {
-            cipher,
-            attachment,
-            contents: EncString::from_buffer(encrypted_buffer)?,
-        })?)
-    }
     pub fn decrypt_file(
         &self,
         cipher: Cipher,
-        attachment: Attachment,
+        attachment: AttachmentView,
         encrypted_file_path: &Path,
         decrypted_file_path: &Path,
     ) -> Result<(), DecryptFileError> {
@@ -90,13 +98,5 @@ impl ClientAttachments<'_> {
         let decrypted = self.decrypt_buffer(cipher, attachment, &data)?;
         std::fs::write(decrypted_file_path, decrypted)?;
         Ok(())
-    }
-}
-
-impl<'a> VaultClient<'a> {
-    pub fn attachments(&'a self) -> ClientAttachments<'a> {
-        ClientAttachments {
-            client: self.client,
-        }
     }
 }

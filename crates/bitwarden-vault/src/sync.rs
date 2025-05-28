@@ -4,7 +4,6 @@ use bitwarden_api_api::models::{
 use bitwarden_core::{
     client::encryption_settings::EncryptionSettingsError, require, Client, MissingFieldError,
 };
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
@@ -23,7 +22,7 @@ pub enum SyncError {
     EncryptionSettings(#[from] EncryptionSettingsError),
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SyncRequest {
     /// Exclude the subdomains from the response, defaults to false
@@ -49,7 +48,7 @@ pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncRes
     SyncResponse::process_response(sync)
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProfileResponse {
     pub id: Uuid,
@@ -61,20 +60,20 @@ pub struct ProfileResponse {
     pub organizations: Vec<ProfileOrganizationResponse>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProfileOrganizationResponse {
     pub id: Uuid,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DomainResponse {
     pub equivalent_domains: Vec<Vec<String>>,
     pub global_equivalent_domains: Vec<GlobalDomains>,
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SyncResponse {
     /// Data about the user, including their encryption keys and the organizations they are a part
