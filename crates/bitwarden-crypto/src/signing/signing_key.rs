@@ -30,6 +30,16 @@ pub struct SigningKey {
     inner: RawSigningKey,
 }
 
+// Note that `SigningKey` already implements ZeroizeOnDrop, so we don't need to do anything
+// We add this assertion to make sure that this is still true in the future
+// For any new keys, this needs to be checked
+const _: () = {
+    fn assert_zeroize_on_drop<T: zeroize::ZeroizeOnDrop>() {}
+    fn assert_all() {
+        assert_zeroize_on_drop::<ed25519_dalek::SigningKey>();
+    }
+};
+impl zeroize::ZeroizeOnDrop for SigningKey {}
 impl CryptoKey for SigningKey {}
 
 impl SigningKey {
@@ -38,7 +48,9 @@ impl SigningKey {
         match algorithm {
             SignatureAlgorithm::Ed25519 => Ok(SigningKey {
                 id: KeyId::make(),
-                inner: RawSigningKey::Ed25519(Box::pin(ed25519_dalek::SigningKey::generate(&mut OsRng))),
+                inner: RawSigningKey::Ed25519(Box::pin(ed25519_dalek::SigningKey::generate(
+                    &mut OsRng,
+                ))),
             }),
         }
     }
