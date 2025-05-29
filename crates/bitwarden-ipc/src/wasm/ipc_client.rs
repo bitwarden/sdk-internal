@@ -13,6 +13,7 @@ use crate::{
     IpcClient,
 };
 
+#[allow(missing_docs)]
 #[wasm_bindgen(js_name = IpcClient)]
 pub struct JsIpcClient {
     // TODO: Change session provider to a JS-implemented one
@@ -25,6 +26,7 @@ pub struct JsIpcClient {
     >,
 }
 
+#[allow(missing_docs)]
 #[wasm_bindgen(js_name = IpcClientSubscription)]
 pub struct JsIpcClientSubscription {
     subscription: IpcClientSubscription<
@@ -34,6 +36,7 @@ pub struct JsIpcClientSubscription {
     >,
 }
 
+#[allow(missing_docs)]
 #[wasm_bindgen(js_class = IpcClientSubscription)]
 impl JsIpcClientSubscription {
     pub async fn receive(&self) -> Result<IncomingMessage, JsReceiveError> {
@@ -43,6 +46,7 @@ impl JsIpcClientSubscription {
 
 #[wasm_bindgen(js_class = IpcClient)]
 impl JsIpcClient {
+    #[allow(missing_docs)]
     #[wasm_bindgen(constructor)]
     pub fn new(communication_provider: JsCommunicationBackend) -> JsIpcClient {
         JsIpcClient {
@@ -54,10 +58,12 @@ impl JsIpcClient {
         }
     }
 
+    #[allow(missing_docs)]
     pub async fn send(&self, message: OutgoingMessage) -> Result<(), JsSendError> {
         self.client.send(message).await.map_err(|e| e.into())
     }
 
+    #[allow(missing_docs)]
     pub async fn subscribe(&self) -> JsIpcClientSubscription {
         let subscription = self.client.subscribe(None).await;
         JsIpcClientSubscription { subscription }
