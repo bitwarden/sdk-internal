@@ -302,6 +302,7 @@ pub struct Identity {
     pub license_number: Option<String>,
 }
 
+#[allow(missing_docs)]
 #[derive(Clone)]
 pub struct SshKey {
     /// [OpenSSH private key](https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key), in PEM encoding.
