@@ -12,9 +12,7 @@ use super::{
     verifying_key::{RawVerifyingKey, VerifyingKey},
     SignatureAlgorithm,
 };
-use crate::{
-    cose::CoseSerializable, error::Result, keys::KeyId, CryptoError, CryptoKey,
-};
+use crate::{cose::CoseSerializable, error::Result, keys::KeyId, CryptoError, CryptoKey};
 
 /// A `SigningKey` without the key id. This enum contains a variant for each supported signature
 /// scheme.
