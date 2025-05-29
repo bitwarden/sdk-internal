@@ -1,3 +1,17 @@
+//! This module defines traits for encrypting data. There are three categories here.
+//!
+//! Some (legacy) encryptables are made up of many small individually encrypted items. For instance,
+//! a cipher is currently made up of many small `EncString`s and some further json objects that
+//! themselves contain `EncString`s. The use of this is generally discouraged for new designs.
+//! Still, this is generally the only trait that should be implemented outside of the crypto crate.
+//!
+//! Encrypting data directly, a content type must be provided, since an encrypted byte array alone
+//! is not enough to tell the decryption code how to interpret the decrypted bytes. For this, there
+//! are two traits, `PrimitiveEncryptable` and `PrimitiveEncryptableWithContentType`. The former
+//! assumes that the caller provides the content format when encrypting. The latter is a convenience
+//! trait that pre-defines the content format based on the type of data that is encrypted. This is
+//! currently done exactly for `String` and `&str`, which are encrypted as UTF-8,
+
 use crate::{store::KeyStoreContext, ContentFormat, CryptoError, EncString, KeyId, KeyIds};
 
 /// An encryption operation that takes the input value and encrypts the fields on it recursively.
