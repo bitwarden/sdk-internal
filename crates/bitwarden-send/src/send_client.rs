@@ -1,7 +1,9 @@
 use std::path::Path;
 
 use bitwarden_core::Client;
-use bitwarden_crypto::{ContentFormat, Decryptable, EncString, Encryptable, IdentifyKey};
+use bitwarden_crypto::{
+    ContentFormat, Decryptable, EncString, IdentifyKey, PrimitiveEncryptableWithoutContentType,
+};
 use thiserror::Error;
 
 use crate::{Send, SendListView, SendView};

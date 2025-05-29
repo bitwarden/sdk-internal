@@ -3,8 +3,8 @@ use std::str::FromStr;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
     AsymmetricCryptoKey, AsymmetricPublicCryptoKey, ContentFormat, CryptoError, Decryptable,
-    EncString, Encryptable, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey,
-    SymmetricCryptoKey, UnsignedSharedKey,
+    EncString, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey,
+    PrimitiveEncryptableWithoutContentType, SymmetricCryptoKey, UnsignedSharedKey,
 };
 use wasm_bindgen::prelude::*;
 

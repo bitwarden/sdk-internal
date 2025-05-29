@@ -1,7 +1,7 @@
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, Encryptable,
-    IdentifyKey, KeyStoreContext, PrimitiveEncryptableWithContentType,
+    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, IdentifyKey,
+    KeyStoreContext, PrimitiveEncryptableWithContentType, PrimitiveEncryptableWithoutContentType,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
