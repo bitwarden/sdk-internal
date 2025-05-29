@@ -250,6 +250,7 @@ class MainActivity : FragmentActivity() {
 
         client.crypto().initializeUserCrypto(
             InitUserCryptoRequest(
+                userId = null,
                 kdfParams = kdf,
                 email = EMAIL,
                 privateKey = loginBody.PrivateKey,
@@ -334,6 +335,7 @@ class MainActivity : FragmentActivity() {
             GlobalScope.launch {
                 client.crypto().initializeUserCrypto(
                     InitUserCryptoRequest(
+                        userId = null,
                         kdfParams = kdf,
                         email = EMAIL,
                         privateKey = privateKey!!,
@@ -371,6 +373,7 @@ class MainActivity : FragmentActivity() {
         GlobalScope.launch {
             client.crypto().initializeUserCrypto(
                 InitUserCryptoRequest(
+                    userId = null,
                     kdfParams = kdf,
                     email = EMAIL,
                     privateKey = privateKey!!,

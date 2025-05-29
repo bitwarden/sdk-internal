@@ -46,7 +46,11 @@ impl VaultClient {
     /// - OTP Auth URI
     /// - Steam URI
     pub fn generate_totp(&self, key: String, time: Option<DateTime<Utc>>) -> Result<TotpResponse> {
-        Ok(self.0.generate_totp(key, time).map_err(Error::Totp)?)
+        Ok(self
+            .0
+            .totp()
+            .generate_totp(key, time)
+            .map_err(Error::Totp)?)
     }
 
     /// Generate a TOTP code from a provided cipher list view.
@@ -57,6 +61,7 @@ impl VaultClient {
     ) -> Result<TotpResponse> {
         Ok(self
             .0
+            .totp()
             .generate_totp_cipher_view(view, time)
             .map_err(Error::Totp)?)
     }
