@@ -602,8 +602,8 @@ pub fn make_user_signing_keys(client: &Client) -> Result<MakeUserSigningKeysResp
 
     Ok(MakeUserSigningKeysResponse {
         verifying_key: STANDARD.encode(signature_keypair.to_verifying_key().to_cose()?),
-        // this needs to be changed to use the correct COSE content format before rolling out to
-        // users
+        // This needs to be changed to use the correct COSE content format before rolling out to
+        // users: https://bitwarden.atlassian.net/browse/PM-22189
         signing_key: signature_keypair
             .to_cose()?
             .encrypt_with_key(wrapping_key)?,
