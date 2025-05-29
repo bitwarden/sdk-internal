@@ -575,13 +575,12 @@ pub struct MakeUserSigningKeysResponse {
     verifying_key: String,
     /// Signing key, encrypted with a symmetric key (user key, org key)
     signing_key: EncString,
-    /// A signed object claiming ownership of a public key. This ties the public key to the
-    /// signature key
+    /// The user's public key, signed by the signing key
     signed_public_key: String,
 }
 
-/// Makes a new set of signing keys for a user. This also creates a signed public-key ownership
-/// claim for the currently used public key.
+/// Makes a new set of signing keys for a user. This also signs the public key with the signing key
+/// and returns the signed public key.
 pub fn make_user_signing_keys(client: &Client) -> Result<MakeUserSigningKeysResponse, CryptoError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
