@@ -15,15 +15,18 @@ use crate::{
 /// Aliases to maintain backward compatibility
 pub type ClientSecrets = SecretsClient;
 
+#[allow(missing_docs)]
 pub struct SecretsClient {
     client: Client,
 }
 
 impl SecretsClient {
+    #[allow(missing_docs)]
     pub fn new(client: Client) -> Self {
         Self { client }
     }
 
+    #[allow(missing_docs)]
     pub async fn get(
         &self,
         input: &SecretGetRequest,
@@ -31,6 +34,7 @@ impl SecretsClient {
         get_secret(&self.client, input).await
     }
 
+    #[allow(missing_docs)]
     pub async fn get_by_ids(
         &self,
         input: SecretsGetRequest,
@@ -38,6 +42,7 @@ impl SecretsClient {
         get_secrets_by_ids(&self.client, input).await
     }
 
+    #[allow(missing_docs)]
     pub async fn create(
         &self,
         input: &SecretCreateRequest,
@@ -45,6 +50,7 @@ impl SecretsClient {
         create_secret(&self.client, input).await
     }
 
+    #[allow(missing_docs)]
     pub async fn list(
         &self,
         input: &SecretIdentifiersRequest,
@@ -52,6 +58,7 @@ impl SecretsClient {
         list_secrets(&self.client, input).await
     }
 
+    #[allow(missing_docs)]
     pub async fn list_by_project(
         &self,
         input: &SecretIdentifiersByProjectRequest,
@@ -59,6 +66,7 @@ impl SecretsClient {
         list_secrets_by_project(&self.client, input).await
     }
 
+    #[allow(missing_docs)]
     pub async fn update(
         &self,
         input: &SecretPutRequest,
@@ -66,6 +74,7 @@ impl SecretsClient {
         update_secret(&self.client, input).await
     }
 
+    #[allow(missing_docs)]
     pub async fn delete(
         &self,
         input: SecretsDeleteRequest,
@@ -73,6 +82,7 @@ impl SecretsClient {
         delete_secrets(&self.client, input).await
     }
 
+    #[allow(missing_docs)]
     pub async fn sync(
         &self,
         input: &SecretsSyncRequest,
@@ -83,6 +93,7 @@ impl SecretsClient {
 
 /// This trait is for backward compatibility
 pub trait ClientSecretsExt {
+    #[allow(missing_docs)]
     fn secrets(&self) -> ClientSecrets;
 }
 
@@ -92,7 +103,9 @@ impl ClientSecretsExt for Client {
     }
 }
 
+#[allow(missing_docs)]
 pub trait SecretsClientExt {
+    #[allow(missing_docs)]
     fn secrets(&self) -> SecretsClient;
 }
 

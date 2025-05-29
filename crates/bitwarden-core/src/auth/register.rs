@@ -10,6 +10,7 @@ use thiserror::Error;
 
 use crate::{ApiError, Client};
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RegisterRequest {
@@ -19,6 +20,7 @@ pub struct RegisterRequest {
     pub password_hint: Option<String>,
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum RegisterError {
     #[error(transparent)]
@@ -81,6 +83,7 @@ pub(super) fn make_register_keys(
     })
 }
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct RegisterKeyResponse {
     pub master_password_hash: String,

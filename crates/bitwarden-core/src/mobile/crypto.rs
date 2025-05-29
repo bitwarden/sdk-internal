@@ -39,6 +39,7 @@ pub enum MobileCryptoError {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct InitUserCryptoRequest {
+    /// The user's ID.
     pub user_id: Option<uuid::Uuid>,
     /// The user's KDF parameters, as received from the prelogin request
     pub kdf_params: Kdf,

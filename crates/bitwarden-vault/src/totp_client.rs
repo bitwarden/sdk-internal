@@ -5,6 +5,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{generate_totp, generate_totp_cipher_view, CipherListView, TotpError, TotpResponse};
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct TotpClient {
     pub(crate) client: Client,

@@ -13,6 +13,7 @@ use uuid::Uuid;
 
 use crate::error::SecretsManagerError;
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SecretIdentifiersRequest {
@@ -36,6 +37,7 @@ pub(crate) async fn list_secrets(
     SecretIdentifiersResponse::process_response(res, &mut key_store.context())
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SecretIdentifiersByProjectRequest {
@@ -59,6 +61,7 @@ pub(crate) async fn list_secrets_by_project(
     SecretIdentifiersResponse::process_response(res, &mut key_store.context())
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SecretIdentifiersResponse {

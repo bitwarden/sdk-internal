@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use std::fmt::Display;
 
 use bitwarden_error::{bitwarden_error, flat_error::FlatError};

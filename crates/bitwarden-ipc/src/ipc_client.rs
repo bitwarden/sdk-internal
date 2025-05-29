@@ -8,6 +8,7 @@ use crate::{
     },
 };
 
+#[allow(missing_docs)]
 pub struct IpcClient<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
@@ -56,6 +57,7 @@ where
     Com: CommunicationBackend,
     Ses: SessionRepository<Session = Crypto::Session>,
 {
+    #[allow(missing_docs)]
     pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Arc<Self> {
         Arc::new(Self {
             crypto,

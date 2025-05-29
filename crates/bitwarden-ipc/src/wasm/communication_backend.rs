@@ -8,11 +8,13 @@ use crate::{
     traits::{CommunicationBackend, CommunicationBackendReceiver},
 };
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 #[bitwarden_error(basic)]
 #[error("Failed to deserialize incoming message: {0}")]
 pub struct DeserializeError(String);
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 #[bitwarden_error(basic)]
 #[error("Incoming message channel failed: {0}")]
@@ -27,19 +29,23 @@ export interface IpcCommunicationBackendSender {
 
 #[wasm_bindgen]
 extern "C" {
+    #[allow(missing_docs)]
     #[wasm_bindgen(js_name = IpcCommunicationBackendSender, typescript_type = "IpcCommunicationBackendSender")]
     pub type JsCommunicationBackendSender;
 
+    #[allow(missing_docs)]
     #[wasm_bindgen(catch, method, structural)]
     pub async fn send(
         this: &JsCommunicationBackendSender,
         message: OutgoingMessage,
     ) -> Result<(), JsValue>;
 
+    #[allow(missing_docs)]
     #[wasm_bindgen(catch, method, structural)]
     pub async fn receive(this: &JsCommunicationBackendSender) -> Result<JsValue, JsValue>;
 }
 
+#[allow(missing_docs)]
 #[wasm_bindgen(js_name = IpcCommunicationBackend)]
 pub struct JsCommunicationBackend {
     sender: JsCommunicationBackendSender,
@@ -49,6 +55,7 @@ pub struct JsCommunicationBackend {
 
 #[wasm_bindgen(js_class = IpcCommunicationBackend)]
 impl JsCommunicationBackend {
+    #[allow(missing_docs)]
     #[wasm_bindgen(constructor)]
     pub fn new(sender: JsCommunicationBackendSender) -> Self {
         let (receive_tx, receive_rx) = tokio::sync::broadcast::channel(20);

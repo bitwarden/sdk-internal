@@ -9,6 +9,7 @@ use tsify_next::Tsify;
 use super::Cipher;
 use crate::VaultParseError;
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -23,6 +24,7 @@ pub struct Attachment {
     pub key: Option<EncString>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -36,6 +38,7 @@ pub struct AttachmentView {
     pub key: Option<EncString>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -44,6 +47,7 @@ pub struct AttachmentEncryptResult {
     pub contents: Vec<u8>,
 }
 
+#[allow(missing_docs)]
 pub struct AttachmentFile {
     pub cipher: Cipher,
     pub attachment: AttachmentView,
@@ -55,6 +59,7 @@ pub struct AttachmentFile {
     pub contents: EncString,
 }
 
+#[allow(missing_docs)]
 pub struct AttachmentFileView<'a> {
     pub cipher: Cipher,
     pub attachment: AttachmentView,

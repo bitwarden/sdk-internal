@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 use crate::{error::SecretsManagerError, secrets::SecretResponse};
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SecretGetRequest {

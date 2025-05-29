@@ -1,6 +1,7 @@
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
+#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Error, Debug)]
 pub enum KeyGenerationError {
@@ -10,6 +11,7 @@ pub enum KeyGenerationError {
     KeyConversionError,
 }
 
+#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Error, Debug, PartialEq)]
 pub enum SshKeyImportError {
@@ -23,6 +25,7 @@ pub enum SshKeyImportError {
     UnsupportedKeyType,
 }
 
+#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Error, Debug, PartialEq)]
 pub enum SshKeyExportError {

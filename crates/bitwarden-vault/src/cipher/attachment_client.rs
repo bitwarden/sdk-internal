@@ -12,12 +12,14 @@ use crate::{
     Cipher, DecryptError, EncryptError,
 };
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct AttachmentsClient {
     pub(crate) client: Client,
 }
 
 /// Generic error type for vault encryption errors.
+#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum EncryptFileError {
@@ -28,6 +30,7 @@ pub enum EncryptFileError {
 }
 
 /// Generic error type for decryption errors
+#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum DecryptFileError {
@@ -39,6 +42,7 @@ pub enum DecryptFileError {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
+    #[allow(missing_docs)]
     pub fn decrypt_buffer(
         &self,
         cipher: Cipher,
@@ -56,6 +60,7 @@ impl AttachmentsClient {
 }
 
 impl AttachmentsClient {
+    #[allow(missing_docs)]
     pub fn encrypt_buffer(
         &self,
         cipher: Cipher,
@@ -71,6 +76,7 @@ impl AttachmentsClient {
         })?)
     }
 
+    #[allow(missing_docs)]
     pub fn encrypt_file(
         &self,
         cipher: Cipher,
@@ -87,6 +93,7 @@ impl AttachmentsClient {
         Ok(attachment)
     }
 
+    #[allow(missing_docs)]
     pub fn decrypt_file(
         &self,
         cipher: Cipher,

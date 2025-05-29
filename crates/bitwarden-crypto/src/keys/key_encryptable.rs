@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 use crate::{error::Result, CryptoError, SymmetricCryptoKey};
 
+#[allow(missing_docs)]
 pub trait KeyContainer: Send + Sync {
     fn get_key(&self, org_id: &Option<Uuid>) -> Result<&SymmetricCryptoKey, CryptoError>;
 }
@@ -15,12 +16,15 @@ impl<T: KeyContainer> KeyContainer for Arc<T> {
     }
 }
 
+#[allow(missing_docs)]
 pub trait CryptoKey {}
 
+#[allow(missing_docs)]
 pub trait KeyEncryptable<Key: CryptoKey, Output> {
     fn encrypt_with_key(self, key: &Key) -> Result<Output>;
 }
 
+#[allow(missing_docs)]
 pub trait KeyDecryptable<Key: CryptoKey, Output> {
     fn decrypt_with_key(&self, key: &Key) -> Result<Output>;
 }

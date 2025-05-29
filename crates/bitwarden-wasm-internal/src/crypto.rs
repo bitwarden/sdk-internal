@@ -8,10 +8,12 @@ use bitwarden_core::{
 use bitwarden_crypto::CryptoError;
 use wasm_bindgen::prelude::*;
 
+#[allow(missing_docs)]
 #[wasm_bindgen]
 pub struct CryptoClient(bitwarden_core::mobile::CryptoClient);
 
 impl CryptoClient {
+    #[allow(missing_docs)]
     pub fn new(client: bitwarden_core::mobile::CryptoClient) -> Self {
         Self(client)
     }

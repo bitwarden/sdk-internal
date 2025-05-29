@@ -1,8 +1,10 @@
 #![doc = include_str!("../README.md")]
 
+#[allow(missing_docs)]
 pub mod flat_error;
 
 #[cfg(feature = "wasm")]
+#[allow(missing_docs)]
 pub mod wasm;
 
 /// Re-export the `js_sys` crate since the proc macro depends on it.

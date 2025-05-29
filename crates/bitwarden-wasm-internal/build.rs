@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use std::{env, process::Command};
 
 fn main() {

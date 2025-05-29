@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 #[cfg(feature = "wasm")]
 use wasm_bindgen_test::*;
 

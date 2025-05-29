@@ -1,5 +1,6 @@
 use bitwarden_crypto::{CryptoError, MasterKey, RsaKeyPair};
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct KeyConnectorResponse {
     pub master_key: String,

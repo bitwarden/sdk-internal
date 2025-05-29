@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use bitwarden_crypto::ZeroizingAllocator;
 use criterion::{criterion_group, criterion_main};
 use default_allocator::criterion_benchmark;

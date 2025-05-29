@@ -4,6 +4,7 @@ use crate::{store::KeyStoreContext, CryptoError, EncString, KeyId, KeyIds};
 /// Implementations should generally consist of calling [Encryptable::encrypt] for all the fields of
 /// the type.
 pub trait Encryptable<Ids: KeyIds, Key: KeyId, Output> {
+    #[allow(missing_docs)]
     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: Key) -> Result<Output, CryptoError>;
 }
 

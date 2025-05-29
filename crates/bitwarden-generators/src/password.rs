@@ -8,6 +8,7 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
+#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum PasswordError {

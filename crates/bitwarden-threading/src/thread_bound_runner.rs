@@ -55,6 +55,7 @@ impl<ThreadState> ThreadBoundRunner<ThreadState>
 where
     ThreadState: 'static,
 {
+    #[allow(missing_docs)]
     pub fn new(state: ThreadState) -> Self {
         let (call_channel_tx, mut call_channel_rx) =
             tokio::sync::mpsc::channel::<CallRequest<ThreadState>>(1);

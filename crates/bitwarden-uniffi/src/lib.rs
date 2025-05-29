@@ -5,12 +5,17 @@ uniffi::setup_scaffolding!();
 use auth::AuthClient;
 use bitwarden_core::ClientSettings;
 
+#[allow(missing_docs)]
 pub mod auth;
+#[allow(missing_docs)]
 pub mod crypto;
 mod error;
+#[allow(missing_docs)]
 pub mod platform;
+#[allow(missing_docs)]
 pub mod tool;
 mod uniffi_support;
+#[allow(missing_docs)]
 pub mod vault;
 
 #[cfg(target_os = "android")]
@@ -26,6 +31,7 @@ use platform::PlatformClient;
 use tool::{ExporterClient, GeneratorClients, SendClient, SshClient};
 use vault::VaultClient;
 
+#[allow(missing_docs)]
 #[derive(uniffi::Object)]
 pub struct Client(pub(crate) bitwarden_core::Client);
 
@@ -52,6 +58,7 @@ impl Client {
         VaultClient(self.0.vault())
     }
 
+    #[allow(missing_docs)]
     pub fn platform(&self) -> PlatformClient {
         PlatformClient(self.0.clone())
     }

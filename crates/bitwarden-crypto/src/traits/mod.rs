@@ -9,6 +9,7 @@ pub use key_id::{KeyId, KeyIds};
 /// Types implementing [IdentifyKey] are capable of knowing which cryptographic key is
 /// needed to encrypt/decrypt them.
 pub trait IdentifyKey<Key: KeyId> {
+    #[allow(missing_docs)]
     fn key_identifier(&self) -> Key;
 }
 

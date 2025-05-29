@@ -10,11 +10,13 @@ use wasm_bindgen::prelude::*;
 
 use crate::CryptoClient;
 
+#[allow(missing_docs)]
 #[wasm_bindgen]
 pub struct BitwardenClient(pub(crate) Client);
 
 #[wasm_bindgen]
 impl BitwardenClient {
+    #[allow(missing_docs)]
     #[wasm_bindgen(constructor)]
     pub fn new(settings: Option<ClientSettings>) -> Self {
         Self(Client::new(settings))
@@ -25,10 +27,12 @@ impl BitwardenClient {
         msg
     }
 
+    #[allow(missing_docs)]
     pub fn version(&self) -> String {
         env!("SDK_VERSION").to_owned()
     }
 
+    #[allow(missing_docs)]
     pub fn throw(&self, msg: String) -> Result<(), TestError> {
         Err(TestError(msg))
     }
@@ -41,10 +45,12 @@ impl BitwardenClient {
         res.text().await.map_err(|e| e.to_string())
     }
 
+    #[allow(missing_docs)]
     pub fn crypto(&self) -> CryptoClient {
         CryptoClient::new(self.0.crypto())
     }
 
+    #[allow(missing_docs)]
     pub fn vault(&self) -> VaultClient {
         self.0.vault()
     }
@@ -54,6 +60,7 @@ impl BitwardenClient {
         self.0.generator()
     }
 
+    #[allow(missing_docs)]
     pub fn exporters(&self) -> bitwarden_exporters::ExporterClient {
         self.0.exporters()
     }

@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use crate::{error::SecretsManagerError, projects::ProjectResponse};
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProjectsListRequest {
@@ -30,6 +31,7 @@ pub(crate) async fn list_projects(
     ProjectsResponse::process_response(res, &mut key_store.context())
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProjectsResponse {

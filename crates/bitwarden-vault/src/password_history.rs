@@ -10,6 +10,7 @@ use tsify_next::Tsify;
 
 use crate::VaultParseError;
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -19,6 +20,7 @@ pub struct PasswordHistory {
     last_used_date: DateTime<Utc>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]

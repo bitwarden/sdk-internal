@@ -3,12 +3,18 @@ use chrono::{DateTime, Utc};
 
 use crate::error::{Error, Result};
 
+#[allow(missing_docs)]
 pub mod attachments;
+#[allow(missing_docs)]
 pub mod ciphers;
+#[allow(missing_docs)]
 pub mod collections;
+#[allow(missing_docs)]
 pub mod folders;
+#[allow(missing_docs)]
 pub mod password_history;
 
+#[allow(missing_docs)]
 #[derive(uniffi::Object)]
 pub struct VaultClient(pub(crate) bitwarden_vault::VaultClient);
 

@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum SendParseError {
     #[error(transparent)]

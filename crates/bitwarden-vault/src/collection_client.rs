@@ -2,17 +2,20 @@ use bitwarden_core::Client;
 
 use crate::{error::DecryptError, Collection, CollectionView};
 
+#[allow(missing_docs)]
 pub struct CollectionsClient {
     pub(crate) client: Client,
 }
 
 impl CollectionsClient {
+    #[allow(missing_docs)]
     pub fn decrypt(&self, collection: Collection) -> Result<CollectionView, DecryptError> {
         let key_store = self.client.internal.get_key_store();
         let view = key_store.decrypt(&collection)?;
         Ok(view)
     }
 
+    #[allow(missing_docs)]
     pub fn decrypt_list(
         &self,
         collections: Vec<Collection>,

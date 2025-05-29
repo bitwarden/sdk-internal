@@ -1,4 +1,4 @@
-#![allow(unexpected_cfgs)]
+#![allow(unexpected_cfgs, missing_docs)]
 
 use bitwarden_uuid::uuid;
 

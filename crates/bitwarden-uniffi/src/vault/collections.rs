@@ -2,6 +2,7 @@ use bitwarden_vault::{Collection, CollectionView};
 
 use crate::{error::Error, Result};
 
+#[allow(missing_docs)]
 #[derive(uniffi::Object)]
 pub struct CollectionsClient(pub(crate) bitwarden_vault::CollectionsClient);
 

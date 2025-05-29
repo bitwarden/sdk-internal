@@ -7,6 +7,7 @@ use thiserror::Error;
 use crate::{Send, SendListView, SendView};
 
 /// Generic error type for send encryption errors.
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum SendEncryptError {
     #[error(transparent)]
@@ -16,6 +17,7 @@ pub enum SendEncryptError {
 }
 
 /// Generic error type for send decryption errors
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum SendDecryptError {
     #[error(transparent)]
@@ -25,6 +27,7 @@ pub enum SendDecryptError {
 }
 
 /// Generic error type for send encryption errors.
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum SendEncryptFileError {
     #[error(transparent)]
@@ -34,6 +37,7 @@ pub enum SendEncryptFileError {
 }
 
 /// Generic error type for send decryption errors
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum SendDecryptFileError {
     #[error(transparent)]
@@ -42,6 +46,7 @@ pub enum SendDecryptFileError {
     Io(#[from] std::io::Error),
 }
 
+#[allow(missing_docs)]
 pub struct SendClient {
     client: Client,
 }
@@ -51,18 +56,21 @@ impl SendClient {
         Self { client }
     }
 
+    #[allow(missing_docs)]
     pub fn decrypt(&self, send: Send) -> Result<SendView, SendDecryptError> {
         let key_store = self.client.internal.get_key_store();
         let send_view = key_store.decrypt(&send)?;
         Ok(send_view)
     }
 
+    #[allow(missing_docs)]
     pub fn decrypt_list(&self, sends: Vec<Send>) -> Result<Vec<SendListView>, SendDecryptError> {
         let key_store = self.client.internal.get_key_store();
         let send_views = key_store.decrypt_list(&sends)?;
         Ok(send_views)
     }
 
+    #[allow(missing_docs)]
     pub fn decrypt_file(
         &self,
         send: Send,
@@ -75,6 +83,7 @@ impl SendClient {
         Ok(())
     }
 
+    #[allow(missing_docs)]
     pub fn decrypt_buffer(
         &self,
         send: Send,
@@ -89,6 +98,7 @@ impl SendClient {
         Ok(buf.decrypt(&mut ctx, key)?)
     }
 
+    #[allow(missing_docs)]
     pub fn encrypt(&self, send_view: SendView) -> Result<Send, SendEncryptError> {
         let key_store = self.client.internal.get_key_store();
 
@@ -97,6 +107,7 @@ impl SendClient {
         Ok(send)
     }
 
+    #[allow(missing_docs)]
     pub fn encrypt_file(
         &self,
         send: Send,
@@ -109,6 +120,7 @@ impl SendClient {
         Ok(())
     }
 
+    #[allow(missing_docs)]
     pub fn encrypt_buffer(&self, send: Send, buffer: &[u8]) -> Result<Vec<u8>, SendEncryptError> {
         let key_store = self.client.internal.get_key_store();
         let mut ctx = key_store.context();
@@ -120,6 +132,7 @@ impl SendClient {
     }
 }
 
+#[allow(missing_docs)]
 pub trait SendClientExt {
     fn sends(&self) -> SendClient;
 }

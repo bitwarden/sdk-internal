@@ -8,6 +8,7 @@ use crate::{
     SyncRequest, SyncResponse, TotpClient,
 };
 
+#[allow(missing_docs)]
 #[derive(Clone)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct VaultClient {
@@ -19,6 +20,7 @@ impl VaultClient {
         Self { client }
     }
 
+    #[allow(missing_docs)]
     pub async fn sync(&self, input: &SyncRequest) -> Result<SyncResponse, SyncError> {
         sync(&self.client, input).await
     }
@@ -69,6 +71,7 @@ impl VaultClient {
     }
 }
 
+#[allow(missing_docs)]
 pub trait VaultClientExt {
     fn vault(&self) -> VaultClient;
 }

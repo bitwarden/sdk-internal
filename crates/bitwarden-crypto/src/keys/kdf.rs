@@ -102,6 +102,7 @@ impl KdfDerivedKeyMaterial {
 ///
 /// In Bitwarden accounts can use multiple KDFs to derive their master key from their password. This
 /// Enum represents all the possible KDFs.
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]

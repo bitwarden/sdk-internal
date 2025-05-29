@@ -51,6 +51,7 @@ mod internal {
     /// Where:
     /// - `[type]`: is a digit number representing the variant.
     /// - `[data]`: is the encrypted data.
+    #[allow(missing_docs)]
     #[derive(Clone, zeroize::ZeroizeOnDrop)]
     #[allow(unused, non_camel_case_types)]
     pub enum UnsignedSharedKey {
