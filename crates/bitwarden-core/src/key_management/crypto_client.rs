@@ -5,12 +5,12 @@ use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use wasm_bindgen::prelude::*;
 
 use super::crypto::{
-    derive_key_connector, make_key_pair, verify_asymmetric_keys, DeriveKeyConnectorError,
-    DeriveKeyConnectorRequest, EnrollAdminPasswordResetError, MakeKeyPairResponse,
-    MobileCryptoError, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
+    derive_key_connector, make_key_pair, verify_asymmetric_keys, CryptoClientError,
+    DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
+    MakeKeyPairResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
 };
 #[cfg(feature = "internal")]
-use crate::mobile::crypto::{
+use crate::key_management::crypto::{
     derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
     initialize_org_crypto, initialize_user_crypto, update_password, DerivePinKeyResponse,
     InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
@@ -63,7 +63,7 @@ impl CryptoClient {
 impl CryptoClient {
     /// Get the uses's decrypted encryption key. Note: It's very important
     /// to keep this key safe, as it can be used to decrypt all of the user's data
-    pub async fn get_user_encryption_key(&self) -> Result<String, MobileCryptoError> {
+    pub async fn get_user_encryption_key(&self) -> Result<String, CryptoClientError> {
         get_user_encryption_key(&self.client).await
     }
 
@@ -72,14 +72,14 @@ impl CryptoClient {
     pub fn update_password(
         &self,
         new_password: String,
-    ) -> Result<UpdatePasswordResponse, MobileCryptoError> {
+    ) -> Result<UpdatePasswordResponse, CryptoClientError> {
         update_password(&self.client, new_password)
     }
 
     /// Generates a PIN protected user key from the provided PIN. The result can be stored and later
     /// used to initialize another client instance by using the PIN and the PIN key with
     /// `initialize_user_crypto`.
-    pub fn derive_pin_key(&self, pin: String) -> Result<DerivePinKeyResponse, MobileCryptoError> {
+    pub fn derive_pin_key(&self, pin: String) -> Result<DerivePinKeyResponse, CryptoClientError> {
         derive_pin_key(&self.client, pin)
     }
 
@@ -88,7 +88,7 @@ impl CryptoClient {
     pub fn derive_pin_user_key(
         &self,
         encrypted_pin: EncString,
-    ) -> Result<EncString, MobileCryptoError> {
+    ) -> Result<EncString, CryptoClientError> {
         derive_pin_user_key(&self.client, encrypted_pin)
     }
 

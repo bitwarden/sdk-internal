@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use bitwarden_crypto::Kdf;
 
 use crate::{
-    mobile::crypto::{
+    key_management::crypto::{
         initialize_org_crypto, initialize_user_crypto, InitOrgCryptoRequest, InitUserCryptoMethod,
         InitUserCryptoRequest,
     },

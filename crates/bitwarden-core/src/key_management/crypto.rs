@@ -27,7 +27,7 @@ use crate::{
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
-pub enum MobileCryptoError {
+pub enum CryptoClientError {
     #[error(transparent)]
     NotAuthenticated(#[from] NotAuthenticatedError),
     #[error(transparent)]
@@ -248,7 +248,7 @@ pub(crate) async fn initialize_org_crypto(
     Ok(())
 }
 
-pub(super) async fn get_user_encryption_key(client: &Client) -> Result<String, MobileCryptoError> {
+pub(super) async fn get_user_encryption_key(client: &Client) -> Result<String, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // This is needed because the mobile clients need access to the user encryption key
@@ -273,7 +273,7 @@ pub struct UpdatePasswordResponse {
 pub(super) fn update_password(
     client: &Client,
     new_password: String,
-) -> Result<UpdatePasswordResponse, MobileCryptoError> {
+) -> Result<UpdatePasswordResponse, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
@@ -323,7 +323,7 @@ pub struct DerivePinKeyResponse {
 pub(super) fn derive_pin_key(
     client: &Client,
     pin: String,
-) -> Result<DerivePinKeyResponse, MobileCryptoError> {
+) -> Result<DerivePinKeyResponse, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
@@ -346,7 +346,7 @@ pub(super) fn derive_pin_key(
 pub(super) fn derive_pin_user_key(
     client: &Client,
     encrypted_pin: EncString,
-) -> Result<EncString, MobileCryptoError> {
+) -> Result<EncString, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
@@ -366,7 +366,7 @@ fn derive_pin_protected_user_key(
     pin: &str,
     login_method: &LoginMethod,
     user_key: &SymmetricCryptoKey,
-) -> Result<EncString, MobileCryptoError> {
+) -> Result<EncString, CryptoClientError> {
     use bitwarden_crypto::PinKey;
 
     let derived_key = match login_method {
