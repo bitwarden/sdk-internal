@@ -1,18 +1,19 @@
 use ciborium::{value::Integer, Value};
 use coset::{
     iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
-    CborSerializable, CoseKey, Label, RegisteredLabel, RegisteredLabelWithPrivate,
+    CborSerializable, CoseKey, RegisteredLabel, RegisteredLabelWithPrivate,
 };
 use ed25519_dalek::Signer;
 use rand::rngs::OsRng;
 use zeroize::ZeroizeOnDrop;
 
 use super::{
+    ed25519_signing_key, key_id,
     verifying_key::{RawVerifyingKey, VerifyingKey},
     SignatureAlgorithm,
 };
 use crate::{
-    cose::CoseSerializable, error::Result, keys::KeyId, CryptoError, CryptoKey, KEY_ID_SIZE,
+    cose::CoseSerializable, error::Result, keys::KeyId, CryptoError, CryptoKey,
 };
 
 /// A `SigningKey` without the key id. This enum contains a variant for each supported signature
@@ -99,56 +100,19 @@ impl CoseSerializable for SigningKey {
     fn from_cose(bytes: &[u8]) -> Result<Self> {
         let cose_key = CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
 
-        let Some(algorithm) = cose_key.alg else {
+        let Some(ref algorithm) = cose_key.alg else {
             return Err(CryptoError::InvalidKey);
         };
-        let key_id: [u8; KEY_ID_SIZE] = cose_key
-            .key_id
-            .as_slice()
-            .try_into()
-            .map_err(|_| CryptoError::InvalidKey)?;
-        let key_id: KeyId = key_id.into();
-        match (cose_key.kty, algorithm) {
+        match (&cose_key.kty, algorithm) {
             (kty, alg)
-                if kty == RegisteredLabel::Assigned(KeyType::OKP)
-                    && alg == RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA) =>
+                if *kty == RegisteredLabel::Assigned(KeyType::OKP)
+                    && *alg == RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA) =>
             {
-                // https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
-                let (mut crv, mut d) = (None, None);
-                for (key, value) in &cose_key.params {
-                    if let Label::Int(i) = key {
-                        let key = OkpKeyParameter::from_i64(*i).ok_or(CryptoError::InvalidKey)?;
-                        match key {
-                            OkpKeyParameter::Crv => {
-                                crv.replace(value);
-                            }
-                            OkpKeyParameter::D => {
-                                d.replace(value);
-                            }
-                            _ => (),
-                        }
-                    }
-                }
-
-                let (Some(d), Some(crv)) = (d, crv) else {
-                    return Err(CryptoError::InvalidKey);
-                };
-                let crv: i128 = crv.as_integer().ok_or(CryptoError::InvalidKey)?.into();
-                if crv == EllipticCurve::Ed25519.to_i64().into() {
-                    let secret_key_bytes: &[u8; 32] = d
-                        .as_bytes()
-                        .ok_or(CryptoError::InvalidKey)?
-                        .as_slice()
-                        .try_into()
-                        .map_err(|_| CryptoError::InvalidKey)?;
-                    let key = ed25519_dalek::SigningKey::from_bytes(secret_key_bytes);
-                    Ok(SigningKey {
-                        id: key_id,
-                        inner: RawSigningKey::Ed25519(key),
-                    })
-                } else {
-                    Err(CryptoError::InvalidKey)
-                }
+                let key = ed25519_signing_key(&cose_key)?;
+                Ok(SigningKey {
+                    id: key_id(&cose_key)?,
+                    inner: RawSigningKey::Ed25519(key),
+                })
             }
             _ => Err(CryptoError::InvalidKey),
         }

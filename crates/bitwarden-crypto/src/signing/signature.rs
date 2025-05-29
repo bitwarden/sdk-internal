@@ -1,8 +1,11 @@
 use ciborium::value::Integer;
-use coset::{iana::CoapContentFormat, CborSerializable, CoseSign1, Label, RegisteredLabel};
+use coset::{iana::CoapContentFormat, CborSerializable, CoseSign1};
 use serde::Serialize;
 
-use super::{message::SerializedMessage, signing_key::SigningKey, SigningNamespace, VerifyingKey};
+use super::{
+    content_type, message::SerializedMessage, namespace, signing_key::SigningKey, SigningNamespace,
+    VerifyingKey,
+};
 use crate::{
     cose::{CoseSerializable, SIGNING_NAMESPACE},
     error::SignatureError,
@@ -26,42 +29,11 @@ impl Signature {
     }
 
     pub(self) fn namespace(&self) -> Result<SigningNamespace, CryptoError> {
-        let namespace = self
-            .0
-            .protected
-            .header
-            .rest
-            .iter()
-            .find_map(|(key, value)| {
-                if let Label::Int(key) = key {
-                    if *key == SIGNING_NAMESPACE {
-                        return value.as_integer();
-                    }
-                }
-                None
-            })
-            .ok_or(SignatureError::InvalidNamespace)?;
-
-        SigningNamespace::try_from_i64(
-            i128::from(namespace)
-                .try_into()
-                .map_err(|_| SignatureError::InvalidNamespace)?,
-        )
+        namespace(&self.0.protected)
     }
 
     pub fn content_type(&self) -> Result<CoapContentFormat, CryptoError> {
-        if let RegisteredLabel::Assigned(content_format) = self
-            .0
-            .protected
-            .header
-            .content_type
-            .clone()
-            .ok_or(CryptoError::from(SignatureError::InvalidSignature))?
-        {
-            Ok(content_format)
-        } else {
-            Err(SignatureError::InvalidSignature.into())
-        }
+        content_type(&self.0.protected)
     }
 
     /// Verifies the signature of the given serialized message bytes, created by

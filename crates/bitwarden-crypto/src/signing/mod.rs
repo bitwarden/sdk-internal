@@ -27,6 +27,8 @@
 //!   serialized payload is returned. Purpose: If multiple signatures are needed for one object,
 //!   then sign detached can be used.
 
+mod cose;
+pub(self) use cose::*; 
 mod namespace;
 pub use namespace::SigningNamespace;
 mod signed_object;

@@ -9,8 +9,8 @@ use coset::{
     CborSerializable, RegisteredLabel, RegisteredLabelWithPrivate,
 };
 
-use super::SignatureAlgorithm;
-use crate::{cose::CoseSerializable, error::SignatureError, keys::KeyId, CryptoError, KEY_ID_SIZE};
+use super::{ed25519_verifying_key, key_id, SignatureAlgorithm};
+use crate::{cose::CoseSerializable, error::SignatureError, keys::KeyId, CryptoError};
 
 /// A `VerifyingKey` without the key id. This enum contains a variant for each supported signature
 /// scheme.
@@ -83,56 +83,17 @@ impl CoseSerializable for VerifyingKey {
     {
         let cose_key = coset::CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
 
-        let Some(algorithm) = cose_key.alg else {
+        let Some(ref algorithm) = cose_key.alg else {
             return Err(CryptoError::InvalidKey);
         };
-        let key_id: [u8; KEY_ID_SIZE] = cose_key
-            .key_id
-            .as_slice()
-            .try_into()
-            .map_err(|_| CryptoError::InvalidKey)?;
-        let key_id: KeyId = key_id.into();
-        match (cose_key.kty, algorithm) {
+        match (&cose_key.kty, algorithm) {
             (kty, alg)
-                if kty == RegisteredLabel::Assigned(KeyType::OKP)
-                    && alg == RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA) =>
+                if *kty == RegisteredLabel::Assigned(KeyType::OKP)
+                    && *alg == RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA) =>
             {
-                let (mut crv, mut x) = (None, None);
-                for (key, value) in &cose_key.params {
-                    if let coset::Label::Int(i) = key {
-                        let key = OkpKeyParameter::from_i64(*i).ok_or(CryptoError::InvalidKey)?;
-                        match key {
-                            OkpKeyParameter::Crv => {
-                                crv.replace(value);
-                            }
-                            OkpKeyParameter::X => {
-                                x.replace(value);
-                            }
-                            _ => (),
-                        }
-                    }
-                }
-                let (Some(x), Some(crv)) = (x, crv) else {
-                    return Err(CryptoError::InvalidKey);
-                };
-
-                if i128::from(crv.as_integer().ok_or(CryptoError::InvalidKey)?)
-                    != EllipticCurve::Ed25519.to_i64().into()
-                {
-                    return Err(CryptoError::InvalidKey);
-                }
-
-                let verifying_key_bytes: &[u8; 32] = x
-                    .as_bytes()
-                    .ok_or(CryptoError::InvalidKey)?
-                    .as_slice()
-                    .try_into()
-                    .map_err(|_| CryptoError::InvalidKey)?;
-                let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(verifying_key_bytes)
-                    .map_err(|_| CryptoError::InvalidKey)?;
                 Ok(VerifyingKey {
-                    id: key_id,
-                    inner: RawVerifyingKey::Ed25519(verifying_key),
+                    id: key_id(&cose_key)?,
+                    inner: RawVerifyingKey::Ed25519(ed25519_verifying_key(&cose_key)?),
                 })
             }
             _ => Err(CryptoError::InvalidKey),
