@@ -1,7 +1,6 @@
 mod encryptable;
 pub use encryptable::{
-    CompositeEncryptable, PrimitiveEncryptableWithContentType,
-    PrimitiveEncryptableWithoutContentType,
+    CompositeEncryptable, PrimitiveEncryptable, PrimitiveEncryptableWithContentType,
 };
 mod decryptable;
 pub use decryptable::Decryptable;

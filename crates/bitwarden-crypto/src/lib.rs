@@ -35,8 +35,8 @@ mod traits;
 pub use cose::ContentFormat;
 mod xchacha20;
 pub use traits::{
-    CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds,
-    PrimitiveEncryptableWithContentType, PrimitiveEncryptableWithoutContentType,
+    CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds, PrimitiveEncryptable,
+    PrimitiveEncryptableWithContentType,
 };
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
 
