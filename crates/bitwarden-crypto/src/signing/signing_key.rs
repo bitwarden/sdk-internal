@@ -1,3 +1,5 @@
+use std::pin::Pin;
+
 use ciborium::{value::Integer, Value};
 use coset::{
     iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
@@ -5,7 +7,6 @@ use coset::{
 };
 use ed25519_dalek::Signer;
 use rand::rngs::OsRng;
-use zeroize::ZeroizeOnDrop;
 
 use super::{
     ed25519_signing_key, key_id,
@@ -16,14 +17,14 @@ use crate::{cose::CoseSerializable, error::Result, keys::KeyId, CryptoError, Cry
 
 /// A `SigningKey` without the key id. This enum contains a variant for each supported signature
 /// scheme.
-#[derive(Clone, zeroize::ZeroizeOnDrop)]
+#[derive(Clone)]
 enum RawSigningKey {
-    Ed25519(ed25519_dalek::SigningKey),
+    Ed25519(Pin<Box<ed25519_dalek::SigningKey>>),
 }
 
 /// A signing key is a private key used for signing data. An associated `VerifyingKey` can be
 /// derived from it.
-#[derive(Clone, ZeroizeOnDrop)]
+#[derive(Clone)]
 pub struct SigningKey {
     pub(super) id: KeyId,
     inner: RawSigningKey,
@@ -37,7 +38,7 @@ impl SigningKey {
         match algorithm {
             SignatureAlgorithm::Ed25519 => Ok(SigningKey {
                 id: KeyId::make(),
-                inner: RawSigningKey::Ed25519(ed25519_dalek::SigningKey::generate(&mut OsRng)),
+                inner: RawSigningKey::Ed25519(Box::pin(ed25519_dalek::SigningKey::generate(&mut OsRng))),
             }),
         }
     }
@@ -106,10 +107,9 @@ impl CoseSerializable for SigningKey {
                 if *kty == RegisteredLabel::Assigned(KeyType::OKP)
                     && *alg == RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA) =>
             {
-                let key = ed25519_signing_key(&cose_key)?;
                 Ok(SigningKey {
                     id: key_id(&cose_key)?,
-                    inner: RawSigningKey::Ed25519(key),
+                    inner: RawSigningKey::Ed25519(Box::pin(ed25519_signing_key(&cose_key)?)),
                 })
             }
             _ => Err(CryptoError::InvalidKey),

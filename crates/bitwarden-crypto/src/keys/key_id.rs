@@ -12,12 +12,6 @@ pub(crate) const KEY_ID_SIZE: usize = 16;
 #[derive(Clone)]
 pub(crate) struct KeyId(Uuid);
 
-impl zeroize::Zeroize for KeyId {
-    fn zeroize(&mut self) {
-        self.0 = Uuid::nil();
-    }
-}
-
 /// Fixed length identifiers for keys.
 /// These are intended to be unique and constant per-key.
 ///
