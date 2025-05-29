@@ -582,11 +582,11 @@ pub struct MakeUserSigningKeysResponse {
 
 /// Makes a new set of signing keys for a user. This also creates a signed public-key ownership
 /// claim for the currently used public key.
-#[allow(deprecated)]
 pub fn make_user_signing_keys(client: &Client) -> Result<MakeUserSigningKeysResponse, CryptoError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
 
+    #[allow(deprecated)]
     let wrapping_key = ctx
         .dangerous_get_symmetric_key(SymmetricKeyId::User)
         .map_err(|_| CryptoError::InvalidKey)?;
