@@ -45,36 +45,23 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     key: &crate::XChaCha20Poly1305Key,
     content_format: ContentFormat,
 ) -> Result<Vec<u8>, CryptoError> {
-    let protected_header = coset::HeaderBuilder::new();
-    let protected_header = match content_format {
-        // UTF-8 directly would leak the plaintext size. This is not acceptable for certain data
-        // (passwords).
-        ContentFormat::Utf8 => protected_header.content_type(CONTENT_TYPE_PADDED_UTF8.to_string()),
-        ContentFormat::Pkcs8 => protected_header.content_format(CoapContentFormat::Pkcs8),
-        ContentFormat::CoseKey => protected_header.content_format(CoapContentFormat::CoseKey),
-        ContentFormat::OctetStream => {
-            protected_header.content_format(CoapContentFormat::OctetStream)
-        }
-    };
-    let mut protected_header = protected_header.build();
+    let mut plaintext = plaintext.to_vec();
+
+    let mut protected_header: coset::Header = content_format.into();
+
+    if should_pad_content(&content_format) {
+        // Pad the data to a block size in order to hide plaintext length
+        crate::keys::utils::pad_bytes(&mut plaintext, XCHACHA20_TEXT_PAD_BLOCK_SIZE);
+    }
     // This should be adjusted to use the builder pattern once implemented in coset.
     // The related coset upstream issue is:
     // https://github.com/google/coset/issues/105
     protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
 
-    let encoded_plaintext = if content_format == ContentFormat::Utf8 {
-        // Pad the data to a block size in order to hide plaintext length
-        let mut plaintext = plaintext.to_vec();
-        crate::keys::utils::pad_bytes(&mut plaintext, XCHACHA20_TEXT_PAD_BLOCK_SIZE);
-        plaintext
-    } else {
-        plaintext.to_vec()
-    };
-
     let mut nonce = [0u8; xchacha20::NONCE_SIZE];
     let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
         .protected(protected_header)
-        .create_ciphertext(&encoded_plaintext, &[], |data, aad| {
+        .create_ciphertext(&plaintext, &[], |data, aad| {
             let ciphertext =
                 crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
             nonce = ciphertext.nonce();
@@ -95,6 +82,7 @@ pub(crate) fn decrypt_xchacha20_poly1305(
 ) -> Result<(Vec<u8>, ContentFormat), CryptoError> {
     let msg = coset::CoseEncrypt0::from_slice(cose_encrypt0_message)
         .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))?;
+
     let Some(ref alg) = msg.protected.header.alg else {
         return Err(CryptoError::EncString(
             EncStringParseError::CoseMissingAlgorithm,
@@ -103,8 +91,10 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     if *alg != coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) {
         return Err(CryptoError::WrongKeyType);
     }
+    let content_format = ContentFormat::try_from(&msg.protected.header)
+        .map_err(|_| CryptoError::EncString(EncStringParseError::CoseMissingContentType))?;
 
-    let decrypted_message = msg.decrypt(&[], |data, aad| {
+    let mut decrypted_message = msg.decrypt(&[], |data, aad| {
         let nonce = msg.unprotected.iv.as_slice();
         crate::xchacha20::decrypt_xchacha20_poly1305(
             nonce
@@ -116,37 +106,13 @@ pub(crate) fn decrypt_xchacha20_poly1305(
         )
     })?;
 
-    if let Some(ref content_type) = msg.protected.header.content_type {
-        match content_type {
-            ContentType::Text(format) if format == CONTENT_TYPE_PADDED_UTF8 => {
-                if *content_type == ContentType::Text(CONTENT_TYPE_PADDED_UTF8.to_string()) {
-                    // Unpad the data to get the original plaintext
-                    let data = crate::keys::utils::unpad_bytes(&decrypted_message)
-                        .map_err(|_| CryptoError::InvalidPadding)?;
-                    return Ok((data.to_vec(), ContentFormat::Utf8));
-                }
-            }
-            ContentType::Assigned(content_format)
-                if *content_format == CoapContentFormat::Pkcs8 =>
-            {
-                return Ok((decrypted_message.to_vec(), ContentFormat::Pkcs8));
-            }
-            ContentType::Assigned(content_format)
-                if *content_format == CoapContentFormat::CoseKey =>
-            {
-                return Ok((decrypted_message.to_vec(), ContentFormat::CoseKey));
-            }
-            ContentType::Assigned(content_format)
-                if *content_format == CoapContentFormat::OctetStream =>
-            {
-                return Ok((decrypted_message.to_vec(), ContentFormat::OctetStream));
-            }
-            _ => {}
-        }
+    if should_pad_content(&content_format) {
+        // Unpad the data to get the original plaintext
+        let data = crate::keys::utils::unpad_bytes(&mut decrypted_message)?;
+        return Ok((data.to_vec(), content_format));
     }
-    Err(CryptoError::EncString(
-        EncStringParseError::CoseMissingContentType,
-    ))
+
+    return Ok((decrypted_message, content_format));
 }
 
 const SYMMETRIC_KEY: Label = Label::Int(iana::SymmetricKeyParameter::K as i64);
@@ -185,6 +151,48 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
             _ => Err(CryptoError::InvalidKey),
         }
     }
+}
+
+impl From<ContentFormat> for coset::Header {
+    fn from(format: ContentFormat) -> Self {
+        let header = coset::HeaderBuilder::new();
+        let header = match format {
+            ContentFormat::Utf8 => header.content_type(CONTENT_TYPE_PADDED_UTF8.to_string()),
+            ContentFormat::Pkcs8 => header.content_format(CoapContentFormat::Pkcs8),
+            ContentFormat::CoseKey => header.content_format(CoapContentFormat::CoseKey),
+            ContentFormat::OctetStream => header.content_format(CoapContentFormat::OctetStream),
+        };
+        let mut header = header.build();
+        // This should be adjusted to use the builder pattern once implemented in coset.
+        // The related coset upstream issue is:
+        // https://github.com/google/coset/issues/105
+        header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
+        header
+    }
+}
+
+impl TryFrom<&coset::Header> for ContentFormat {
+    type Error = CryptoError;
+
+    fn try_from(header: &coset::Header) -> Result<Self, Self::Error> {
+        match header.content_type.as_ref() {
+            Some(ContentType::Text(format)) if format == CONTENT_TYPE_PADDED_UTF8 => {
+                Ok(ContentFormat::Utf8)
+            }
+            Some(ContentType::Assigned(CoapContentFormat::Pkcs8)) => Ok(ContentFormat::Pkcs8),
+            Some(ContentType::Assigned(CoapContentFormat::CoseKey)) => Ok(ContentFormat::CoseKey),
+            Some(ContentType::Assigned(CoapContentFormat::OctetStream)) => {
+                Ok(ContentFormat::OctetStream)
+            }
+            _ => Err(CryptoError::EncString(
+                EncStringParseError::CoseMissingContentType,
+            )),
+        }
+    }
+}
+
+fn should_pad_content(format: &ContentFormat) -> bool {
+    matches!(format, ContentFormat::Utf8)
 }
 
 #[cfg(test)]
