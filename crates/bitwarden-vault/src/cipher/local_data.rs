@@ -1,5 +1,5 @@
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-use bitwarden_crypto::{CryptoError, Decryptable, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{CompositeEncryptable, CryptoError, Decryptable, KeyStoreContext};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -23,8 +23,8 @@ pub struct LocalDataView {
     last_launched: Option<DateTime<Utc>>,
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, LocalData> for LocalDataView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, LocalData> for LocalDataView {
+    fn encrypt_composite(
         &self,
         _ctx: &mut KeyStoreContext<KeyIds>,
         _key: SymmetricKeyId,
