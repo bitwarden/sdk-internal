@@ -377,6 +377,7 @@ dependencies = [
  "ciborium",
  "coset",
  "criterion",
+ "ed25519-dalek",
  "generic-array",
  "hkdf",
  "hmac",
@@ -389,6 +390,7 @@ dependencies = [
  "rsa",
  "schemars",
  "serde",
+ "serde_bytes",
  "serde_json",
  "sha1",
  "sha2",
@@ -674,6 +676,7 @@ dependencies = [
 name = "bitwarden-wasm-internal"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
@@ -1251,6 +1254,7 @@ dependencies = [
  "fiat-crypto",
  "rustc_version",
  "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -1449,8 +1453,11 @@ checksum = "4a3daa8e81a3963a60642bcc1f90a670680bd4a77535faa384e9d1c79d620871"
 dependencies = [
  "curve25519-dalek",
  "ed25519",
+ "rand_core 0.6.4",
+ "serde",
  "sha2",
  "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -3519,6 +3526,15 @@ dependencies = [
  "js-sys",
  "serde",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "serde_bytes"
+version = "0.11.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8437fd221bde2d4ca316d61b90e337e9e702b3820b87d63caa9ba6c02bd06d96"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

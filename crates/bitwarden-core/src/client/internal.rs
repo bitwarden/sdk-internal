@@ -8,14 +8,12 @@ use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
 use chrono::Utc;
 use uuid::Uuid;
 
+use super::encryption_settings::EncryptionSettings;
 #[cfg(feature = "secrets")]
 use super::login_method::ServiceAccountLoginMethod;
 use crate::{
-    auth::renew::renew_token,
-    client::{encryption_settings::EncryptionSettings, login_method::LoginMethod},
-    error::UserIdAlreadySetError,
-    key_management::KeyIds,
-    DeviceType,
+    auth::renew::renew_token, client::login_method::LoginMethod, error::UserIdAlreadySetError,
+    key_management::KeyIds, DeviceType,
 };
 #[cfg(feature = "internal")]
 use crate::{
@@ -188,9 +186,10 @@ impl InternalClient {
         master_key: MasterKey,
         user_key: EncString,
         private_key: EncString,
+        signing_key: Option<EncString>,
     ) -> Result<(), EncryptionSettingsError> {
         let user_key = master_key.decrypt_user_key(user_key)?;
-        EncryptionSettings::new_decrypted_key(user_key, private_key, &self.key_store)?;
+        EncryptionSettings::new_decrypted_key(user_key, private_key, signing_key, &self.key_store)?;
 
         Ok(())
     }
@@ -200,8 +199,9 @@ impl InternalClient {
         &self,
         user_key: SymmetricCryptoKey,
         private_key: EncString,
+        signing_key: Option<EncString>,
     ) -> Result<(), EncryptionSettingsError> {
-        EncryptionSettings::new_decrypted_key(user_key, private_key, &self.key_store)?;
+        EncryptionSettings::new_decrypted_key(user_key, private_key, signing_key, &self.key_store)?;
 
         Ok(())
     }
@@ -212,9 +212,10 @@ impl InternalClient {
         pin_key: PinKey,
         pin_protected_user_key: EncString,
         private_key: EncString,
+        signing_key: Option<EncString>,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = pin_key.decrypt_user_key(pin_protected_user_key)?;
-        self.initialize_user_crypto_decrypted_key(decrypted_user_key, private_key)
+        self.initialize_user_crypto_decrypted_key(decrypted_user_key, private_key, signing_key)
     }
 
     #[cfg(feature = "secrets")]

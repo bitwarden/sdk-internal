@@ -5,44 +5,58 @@ use rsa::{pkcs8::DecodePublicKey, RsaPrivateKey, RsaPublicKey};
 use super::key_encryptable::CryptoKey;
 use crate::error::{CryptoError, Result};
 
-/// Trait to allow both [`AsymmetricCryptoKey`] and [`AsymmetricPublicCryptoKey`] to be used to
-/// encrypt [UnsignedSharedKey](crate::UnsignedSharedKey).
-pub trait AsymmetricEncryptable {
-    fn to_public_key(&self) -> &RsaPublicKey;
+pub enum PublicKeyEncryptionAlgorithm {
+    RsaOaepSha1,
 }
 
-/// An asymmetric public encryption key. Can only encrypt
-/// [UnsignedSharedKey](crate::UnsignedSharedKey), usually accompanied by a
-/// [AsymmetricCryptoKey]
+#[derive(Clone)]
+pub(crate) enum RawPublicKey {
+    RsaOaepSha1(RsaPublicKey),
+}
+
+#[derive(Clone)]
 pub struct AsymmetricPublicCryptoKey {
-    key: RsaPublicKey,
+    inner: RawPublicKey,
 }
 
 impl AsymmetricPublicCryptoKey {
+    pub(crate) fn inner(&self) -> &RawPublicKey {
+        &self.inner
+    }
+
     /// Build a public key from the SubjectPublicKeyInfo DER.
     pub fn from_der(der: &[u8]) -> Result<Self> {
-        Ok(Self {
-            key: rsa::RsaPublicKey::from_public_key_der(der)
-                .map_err(|_| CryptoError::InvalidKey)?,
+        Ok(AsymmetricPublicCryptoKey {
+            inner: RawPublicKey::RsaOaepSha1(
+                RsaPublicKey::from_public_key_der(der).map_err(|_| CryptoError::InvalidKey)?,
+            ),
         })
     }
-}
 
-impl AsymmetricEncryptable for AsymmetricPublicCryptoKey {
-    fn to_public_key(&self) -> &RsaPublicKey {
-        &self.key
+    pub fn to_der(&self) -> Result<Vec<u8>> {
+        use rsa::pkcs8::EncodePublicKey;
+        match &self.inner {
+            RawPublicKey::RsaOaepSha1(public_key) => Ok(public_key
+                .to_public_key_der()
+                .map_err(|_| CryptoError::InvalidKey)?
+                .as_bytes()
+                .to_owned()),
+        }
     }
 }
 
-/// An asymmetric encryption key. Contains both the public and private key. Can be used to both
-/// encrypt and decrypt [`UnsignedSharedKey`](crate::UnsignedSharedKey).
 #[derive(Clone)]
-pub struct AsymmetricCryptoKey {
+pub(crate) enum RawPrivateKey {
     // RsaPrivateKey is not a Copy type so this isn't completely necessary, but
     // to keep the compiler from making stack copies when moving this struct around,
     // we use a Box to keep the values on the heap. We also pin the box to make sure
     // that the contents can't be pulled out of the box and moved
-    pub(crate) key: Pin<Box<RsaPrivateKey>>,
+    RsaOaepSha1(Pin<Box<RsaPrivateKey>>),
+}
+
+#[derive(Clone)]
+pub struct AsymmetricCryptoKey {
+    inner: RawPrivateKey,
 }
 
 // Note that RsaPrivateKey already implements ZeroizeOnDrop, so we don't need to do anything
@@ -53,61 +67,72 @@ const _: () = {
         assert_zeroize_on_drop::<RsaPrivateKey>();
     }
 };
-
 impl zeroize::ZeroizeOnDrop for AsymmetricCryptoKey {}
+impl CryptoKey for AsymmetricCryptoKey {}
 
 impl AsymmetricCryptoKey {
     /// Generate a random AsymmetricCryptoKey (RSA-2048).
-    pub fn generate<R: rand::CryptoRng + rand::RngCore>(rng: &mut R) -> Self {
-        let bits = 2048;
+    pub fn make(algorithm: PublicKeyEncryptionAlgorithm) -> Self {
+        use rand::rngs::OsRng;
+        Self::make_internal(algorithm, &mut OsRng)
+    }
 
-        Self {
-            key: Box::pin(RsaPrivateKey::new(rng, bits).expect("failed to generate a key")),
+    fn make_internal<R: rand::CryptoRng + rand::RngCore>(
+        algorithm: PublicKeyEncryptionAlgorithm,
+        rng: &mut R,
+    ) -> Self {
+        match algorithm {
+            PublicKeyEncryptionAlgorithm::RsaOaepSha1 => Self {
+                inner: RawPrivateKey::RsaOaepSha1(Box::pin(
+                    RsaPrivateKey::new(rng, 2048).expect("failed to generate a key"),
+                )),
+            },
         }
     }
 
     pub fn from_pem(pem: &str) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
-            key: Box::pin(RsaPrivateKey::from_pkcs8_pem(pem).map_err(|_| CryptoError::InvalidKey)?),
+            inner: RawPrivateKey::RsaOaepSha1(Box::pin(
+                RsaPrivateKey::from_pkcs8_pem(pem).map_err(|_| CryptoError::InvalidKey)?,
+            )),
         })
     }
 
     pub fn from_der(der: &[u8]) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
-            key: Box::pin(RsaPrivateKey::from_pkcs8_der(der).map_err(|_| CryptoError::InvalidKey)?),
+            inner: RawPrivateKey::RsaOaepSha1(Box::pin(
+                RsaPrivateKey::from_pkcs8_der(der).map_err(|_| CryptoError::InvalidKey)?,
+            )),
         })
     }
 
     pub fn to_der(&self) -> Result<Vec<u8>> {
-        use rsa::pkcs8::EncodePrivateKey;
-        Ok(self
-            .key
-            .to_pkcs8_der()
-            .map_err(|_| CryptoError::InvalidKey)?
-            .as_bytes()
-            .to_owned())
+        match &self.inner {
+            RawPrivateKey::RsaOaepSha1(private_key) => {
+                use rsa::pkcs8::EncodePrivateKey;
+                Ok(private_key
+                    .to_pkcs8_der()
+                    .map_err(|_| CryptoError::InvalidKey)?
+                    .as_bytes()
+                    .to_owned())
+            }
+        }
     }
 
-    pub fn to_public_der(&self) -> Result<Vec<u8>> {
-        use rsa::pkcs8::EncodePublicKey;
-        Ok(self
-            .to_public_key()
-            .to_public_key_der()
-            .map_err(|_| CryptoError::InvalidKey)?
-            .as_bytes()
-            .to_owned())
+    pub fn to_public_key(&self) -> AsymmetricPublicCryptoKey {
+        match &self.inner {
+            RawPrivateKey::RsaOaepSha1(private_key) => AsymmetricPublicCryptoKey {
+                inner: RawPublicKey::RsaOaepSha1(private_key.to_public_key()),
+            },
+        }
+    }
+
+    pub(crate) fn inner(&self) -> &RawPrivateKey {
+        &self.inner
     }
 }
-
-impl AsymmetricEncryptable for AsymmetricCryptoKey {
-    fn to_public_key(&self) -> &RsaPublicKey {
-        (*self.key).as_ref()
-    }
-}
-
-impl CryptoKey for AsymmetricCryptoKey {}
 
 // We manually implement these to make sure we don't print any sensitive data
 impl std::fmt::Debug for AsymmetricCryptoKey {
@@ -160,7 +185,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         // Load the two different formats and check they are the same key
         let pem_key = AsymmetricCryptoKey::from_pem(pem_key_str).unwrap();
         let der_key = AsymmetricCryptoKey::from_der(&der_key_vec).unwrap();
-        assert_eq!(pem_key.key, der_key.key);
+        assert_eq!(pem_key.to_der().unwrap(), der_key.to_der().unwrap());
 
         // Check that the keys can be converted back to DER
         assert_eq!(der_key.to_der().unwrap(), der_key_vec);
