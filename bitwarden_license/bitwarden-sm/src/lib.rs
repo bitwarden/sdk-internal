@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+#![doc = include_str!("../README.md")]
 
 mod client_projects;
 mod client_secrets;
