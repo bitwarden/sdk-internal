@@ -62,9 +62,6 @@ pub enum CryptoError {
 
     #[error("Cose encoding error")]
     CoseEncodingError,
-
-    #[error("Invalid encoding")]
-    InvalidEncoding,
 }
 
 #[derive(Debug, Error)]
