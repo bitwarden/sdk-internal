@@ -125,7 +125,7 @@ pub enum AuthRequestMethod {
 }
 
 /// Initialize the user's cryptographic state.
-pub async fn initialize_user_crypto(
+pub(super) async fn initialize_user_crypto(
     client: &Client,
     req: InitUserCryptoRequest,
 ) -> Result<(), EncryptionSettingsError> {
@@ -239,7 +239,7 @@ pub struct InitOrgCryptoRequest {
 }
 
 /// Initialize the user's organizational cryptographic state.
-pub(crate) async fn initialize_org_crypto(
+pub(super) async fn initialize_org_crypto(
     client: &Client,
     req: InitOrgCryptoRequest,
 ) -> Result<(), EncryptionSettingsError> {
