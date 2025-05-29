@@ -346,7 +346,6 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{key_id:?}")))
     }
 
-    #[allow(unused)]
     fn get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
         if key_id.is_local() {
             self.local_signing_keys.get(key_id)
