@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
 #[cfg(feature = "uniffi")]
@@ -23,3 +25,6 @@ mod util;
 
 pub use bitwarden_crypto::ZeroizingAllocator;
 pub use client::{Client, ClientSettings, DeviceType};
+
+mod ids;
+pub use ids::*;

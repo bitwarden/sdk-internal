@@ -6,9 +6,11 @@ publish = false
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license-file.workspace = true
+keywords.workspace = true
 
 [features]
 
@@ -35,7 +37,7 @@ uniffi = { workspace = true }
 uuid = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.14"
+android_logger = "0.15"
 
 # The use of rustls-platform-verifier requires some extra support to communicate with the Android platform
 jni = ">=0.21, <0.22"

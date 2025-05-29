@@ -1,15 +1,19 @@
 use bitwarden_core::Client;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::{
     error::{DecryptError, EncryptError},
-    Folder, FolderView, VaultClient,
+    Folder, FolderView,
 };
 
-pub struct ClientFolders<'a> {
-    pub(crate) client: &'a Client,
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub struct FoldersClient {
+    pub(crate) client: Client,
 }
 
-impl ClientFolders<'_> {
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl FoldersClient {
     pub fn encrypt(&self, folder_view: FolderView) -> Result<Folder, EncryptError> {
         let key_store = self.client.internal.get_key_store();
         let folder = key_store.encrypt(folder_view)?;
@@ -26,13 +30,5 @@ impl ClientFolders<'_> {
         let key_store = self.client.internal.get_key_store();
         let views = key_store.decrypt_list(&folders)?;
         Ok(views)
-    }
-}
-
-impl<'a> VaultClient<'a> {
-    pub fn folders(&'a self) -> ClientFolders<'a> {
-        ClientFolders {
-            client: self.client,
-        }
     }
 }

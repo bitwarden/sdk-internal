@@ -1,10 +1,10 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{AsymmetricEncString, EncString, Kdf, MasterKey, PinKey};
+use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -13,6 +13,7 @@ use super::login_method::ServiceAccountLoginMethod;
 use crate::{
     auth::renew::renew_token,
     client::{encryption_settings::EncryptionSettings, login_method::LoginMethod},
+    error::UserIdAlreadySetError,
     key_management::KeyIds,
     DeviceType,
 };
@@ -44,6 +45,7 @@ pub(crate) struct Tokens {
 
 #[derive(Debug)]
 pub struct InternalClient {
+    pub(crate) user_id: OnceLock<Uuid>,
     pub(crate) tokens: RwLock<Tokens>,
     pub(crate) login_method: RwLock<Option<Arc<LoginMethod>>>,
 
@@ -172,6 +174,14 @@ impl InternalClient {
         &self.key_store
     }
 
+    pub fn init_user_id(&self, user_id: Uuid) -> Result<(), UserIdAlreadySetError> {
+        self.user_id.set(user_id).map_err(|_| UserIdAlreadySetError)
+    }
+
+    pub fn get_user_id(&self) -> Option<Uuid> {
+        self.user_id.get().copied()
+    }
+
     #[cfg(feature = "internal")]
     pub(crate) fn initialize_user_crypto_master_key(
         &self,
@@ -208,14 +218,18 @@ impl InternalClient {
     }
 
     #[cfg(feature = "secrets")]
-    pub(crate) fn initialize_crypto_single_key(&self, key: SymmetricCryptoKey) {
-        EncryptionSettings::new_single_key(key, &self.key_store);
+    pub(crate) fn initialize_crypto_single_org_key(
+        &self,
+        organization_id: Uuid,
+        key: SymmetricCryptoKey,
+    ) {
+        EncryptionSettings::new_single_org_key(organization_id, key, &self.key_store);
     }
 
     #[cfg(feature = "internal")]
     pub fn initialize_org_crypto(
         &self,
-        org_keys: Vec<(Uuid, AsymmetricEncString)>,
+        org_keys: Vec<(Uuid, UnsignedSharedKey)>,
     ) -> Result<(), EncryptionSettingsError> {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
     }

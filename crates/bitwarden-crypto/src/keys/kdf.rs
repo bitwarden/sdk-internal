@@ -1,11 +1,12 @@
 use std::{num::NonZeroU32, pin::Pin};
 
-use generic_array::{typenum::U32, GenericArray};
+use generic_array::GenericArray;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
+use typenum::U32;
 use zeroize::Zeroize;
 
 use crate::CryptoError;

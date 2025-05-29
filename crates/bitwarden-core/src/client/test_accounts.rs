@@ -117,6 +117,7 @@ pub struct TestAccount {
 pub fn test_bitwarden_com_account() -> TestAccount {
     TestAccount {
         user: InitUserCryptoRequest {
+            user_id: Some(uuid::uuid!("060000fb-0922-4dd3-b170-6e15cb5df8c8")),
             kdf_params: Kdf::PBKDF2 {
                 iterations: 600_000.try_into().unwrap(),
             },
@@ -139,7 +140,7 @@ pub fn test_bitwarden_com_account() -> TestAccount {
 
 /// ### `legacy@bitwarden.com`
 ///
-/// Account which has a user_key of type `AesCbc256_B64` which is deprecated.
+/// Account which has a user_key of type `Aes256Cbc_B64` which is deprecated.
 ///
 /// - Email: `legacy@bitwarden.com`
 /// - Password: `asdfasdfasdf`
@@ -174,6 +175,7 @@ pub fn test_bitwarden_com_account() -> TestAccount {
 pub fn test_legacy_user_key_account() -> TestAccount {
     TestAccount {
         user: InitUserCryptoRequest {
+            user_id: Some(uuid::uuid!("060000fb-0922-4dd3-b170-6e15cb5df8c8")),
             kdf_params: Kdf::PBKDF2 {
                 iterations: 600_000.try_into().unwrap(),
             },
