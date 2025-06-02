@@ -103,7 +103,7 @@ impl CoseSerializable for VerifyingKey {
                 })
             }
             _ => Err(EncodingError::UnsupportedValue(
-                "unsupported COSE key type or algorithm",
+                "COSE key type or algorithm",
             )),
         }
     }
