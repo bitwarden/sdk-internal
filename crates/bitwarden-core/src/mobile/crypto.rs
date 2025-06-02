@@ -50,7 +50,6 @@ pub struct InitUserCryptoRequest {
     pub private_key: String,
     /// The user's signing key
     pub signing_key: Option<String>,
-
     /// The initialization method to use
     pub method: InitUserCryptoMethod,
 }
