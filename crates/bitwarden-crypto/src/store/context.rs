@@ -15,7 +15,8 @@ use crate::{
 /// The context of a crypto operation using [super::KeyStore]
 ///
 /// This will usually be accessed from an implementation of [crate::Decryptable] or
-/// [crate::Encryptable], [crate::PrimitiveEncryptableWithContentType], but can also be obtained
+/// [crate::CompositeEncryptable], [crate::PrimitiveEncryptable],
+/// [crate::PrimitiveEncryptableWithContentType], but can also be obtained
 /// through [super::KeyStore::context]
 ///
 /// This context contains access to the user keys stored in the [super::KeyStore] (sometimes
