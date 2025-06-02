@@ -15,8 +15,9 @@
 use crate::{store::KeyStoreContext, ContentFormat, CryptoError, EncString, KeyId, KeyIds};
 
 /// An encryption operation that takes the input value and encrypts the fields on it recursively.
-/// Implementations should generally consist of calling [Encryptable::encrypt] for all the fields of
-/// the type.
+/// Implementations should generally consist of calling [PrimitiveEncryptable::encrypt] or
+/// [PrimitiveEncryptableWithContentType::encrypt] for all the fields of the type. Sometimes, it is
+/// necessary to call [CompositeEncryptable::encrypt_composite], if the object is not a flat struct.
 pub trait CompositeEncryptable<Ids: KeyIds, Key: KeyId, Output> {
     /// For a struct made up of many small encstrings, such as a cipher, this takes the struct
     /// and recursively encrypts all the fields / sub-structs.
