@@ -48,7 +48,6 @@ pub struct InitUserCryptoRequest {
     pub email: String,
     /// The user's encrypted private key
     pub private_key: String,
-
     /// The user's signing key
     pub signing_key: Option<String>,
 
