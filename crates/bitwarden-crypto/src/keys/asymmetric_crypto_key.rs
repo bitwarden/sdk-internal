@@ -73,8 +73,7 @@ impl CryptoKey for AsymmetricCryptoKey {}
 impl AsymmetricCryptoKey {
     /// Generate a random AsymmetricCryptoKey (RSA-2048).
     pub fn make(algorithm: PublicKeyEncryptionAlgorithm) -> Self {
-        use rand::rngs::OsRng;
-        Self::make_internal(algorithm, &mut OsRng)
+        Self::make_internal(algorithm, &mut rand::thread_rng())
     }
 
     fn make_internal<R: rand::CryptoRng + rand::RngCore>(
