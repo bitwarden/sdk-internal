@@ -50,7 +50,7 @@ impl SignedObject {
     ) -> Result<Message, CryptoError> {
         SerializedMessage::from_bytes(
             self.verify_and_unwrap_bytes(verifying_key, namespace)?,
-            self.content_type().map_err(Into::<CryptoError>::into)?,
+            self.content_type()?,
         )
         .decode()
         .map_err(Into::into)

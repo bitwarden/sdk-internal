@@ -74,7 +74,7 @@ pub(super) fn ed25519_signing_key(
                 .map_err(|_| EncodingError::InvalidCoseEncoding)?,
         ))
     } else {
-        Err(EncodingError::UnsupportedValue("OKP curve").into())
+        Err(EncodingError::UnsupportedValue("OKP curve"))
     }
 }
 
@@ -91,7 +91,7 @@ pub(super) fn ed25519_verifying_key(
         )
         .map_err(|_| EncodingError::InvalidValue("ed25519 verifying key"))?)
     } else {
-        Err(EncodingError::UnsupportedValue("OKP curve").into())
+        Err(EncodingError::UnsupportedValue("OKP curve"))
     }
 }
 
