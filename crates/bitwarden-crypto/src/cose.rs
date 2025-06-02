@@ -94,7 +94,7 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     let content_format = ContentFormat::try_from(&msg.protected.header)
         .map_err(|_| CryptoError::EncString(EncStringParseError::CoseMissingContentType))?;
 
-    let mut decrypted_message = msg.decrypt(&[], |data, aad| {
+    let decrypted_message = msg.decrypt(&[], |data, aad| {
         let nonce = msg.unprotected.iv.as_slice();
         crate::xchacha20::decrypt_xchacha20_poly1305(
             nonce
@@ -108,11 +108,11 @@ pub(crate) fn decrypt_xchacha20_poly1305(
 
     if should_pad_content(&content_format) {
         // Unpad the data to get the original plaintext
-        let data = crate::keys::utils::unpad_bytes(&mut decrypted_message)?;
+        let data = crate::keys::utils::unpad_bytes(&decrypted_message)?;
         return Ok((data.to_vec(), content_format));
     }
 
-    return Ok((decrypted_message, content_format));
+    Ok((decrypted_message, content_format))
 }
 
 const SYMMETRIC_KEY: Label = Label::Int(iana::SymmetricKeyParameter::K as i64);
