@@ -49,7 +49,7 @@ impl SigningKey {
             SignatureAlgorithm::Ed25519 => Ok(SigningKey {
                 id: KeyId::make(),
                 inner: RawSigningKey::Ed25519(Box::pin(ed25519_dalek::SigningKey::generate(
-                    &mut OsRng,
+                    &mut rand::thread_rng(),
                 ))),
             }),
         }
