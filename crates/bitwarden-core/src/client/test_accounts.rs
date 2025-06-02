@@ -126,7 +126,7 @@ pub fn test_bitwarden_com_account() -> TestAccount {
 
             method: InitUserCryptoMethod::Password {
                 password: "asdfasdfasdf".to_owned(),
-                user_key: "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=".to_owned(),
+                user_key: "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=".parse().unwrap(),
             }
         },
         org: Some(InitOrgCryptoRequest {
@@ -183,7 +183,7 @@ pub fn test_legacy_user_key_account() -> TestAccount {
             private_key: "2.leBIE5u0aQUeXi++JzAnrA==|P8x+hs00RJx7epw+49qVtBhLJxE/JTL5dEHg6kq5pbZLdUY8ZvWK49v0EqgHbv1r298N9+msoO9hmdSIVIAZyycemYDSoc1rX4S1KpS/ZMA/Vd3VLFb+o13Ts62GFQ5ygHKgQZfzjU6jO5P/B/0igzFoxyJDomhW5NBC1P9+e/5qNRZN8loKvAaWc/7XtpRayPQqWx+AgYc2ntb1GF5hRVrW4M47bG5ZKllbJWtQKg2sXIy2lDBbKLRFWF4RFzNVcXQGMoPdWLY0f3uTwUH01dyGmFFMbOvfBEuYqmZyPdd93ve8zuFOEqkj46Ulpq2CVG8NvZARTwsdKl6XB0wGuHFoTsDJT2SJGl67pBBKsVRGxy059QW+9hAIB+emIV0T/7+0rvdeSXZ4AbG+oXGEXFTkHefwJKfeT0MBTAjYKr7ZRLgqvf7n39+nCEJU4l22kp8FmjcWIU7AgNipdGHC+UT2yfOcYlvgBgWDcMXcbVDMyus9105RgcW6PHozUj7yjbohI/A3XWmAFufP6BSnmEFCKoik78X/ry09xwiH2rN4KVXe/k9LpRNB2QBGIVsfgCrkxjeE8r0nA59Rvwrhny1z5BkvMW/N1KrGuafg/IYgegx72gJNuZPZlFu1Vs7HxySHmzYvm3DPV7bzCaAxxNtvZmQquNIEnsDQfjJO76iL1JCtDqNJVzGLHTMTr7S5hkOcydcH3kfKwZdA1ULVd2qu0SwOUEP/ECjU/cS5INy6WPYzNMAe/g2DISpQjNwBb5K17PIiGOR7/Q/A6E8pVnkHiAXuUFr9aLOYN9BWSu5Z+BPHH65na2FDmssix5WV09I2sUBfvdNCjkrUGdYgo8E+vOTn35x9GJHF45uhmgC1yAn/+/RSpORlrSVJ7NNP11dn3htUpSsIy/b7ituAu8Ry5mhicFU8CXJL4NeMlXThUt8P++wxs4wMkBvJ8J9NJAVKbAOA2o+GOdjbh6Ww3IRegkurWh4oL/dFSx0LpaXJuw6HFT/LzticPlSwHtUP11hZ81seMsXmkSZd8IugRFfwpPl7N6PVRWDOKxLf4gPqcnJ11TvfasXy1uolV2vZCPbrbbVzQMPdVwL/OzwfhqsIgQZI8rsDMK5D2EX8MaT8MDfGcsYcVTL9PmuZYLpOUnnHX0A1opAAa9iPw3d+eWB/GAyLvKPnMTUqVNos8HcCktXckCshihA8QuBJOwg3m0j2LPSZ5Jvf8gbXauBmt9I4IlJq0xfpgquYY1WNnO8IcWE4N9W+ASvOr9gnduA6CkDeAlyMUFmdpkeCjGMcsV741bTCPApSQlL3/TOT1cjK3iejWpz0OaVHXyg02hW2fNkOfYfr81GvnLvlHxIg4Prw89gKuWU+kQk82lFQo6QQpqbCbJC2FleurD8tYoSY0srhuioVInffvTxw2NMF7FQEqUcsK9AMKSEiDqzBi35Um/fiE3JL4XZBFw8Xzl7X3ab5nlg8X+xD5uSZY+oxD3sDVXjLaQ5JUoys+MCm0FkUj85l0zT6rvM4QLhU1RDK1U51T9HJhh8hsFJsqL4abRzwEWG7PSi859zN4UsgyuQfmBJv/n7QAFCbrJhVBlGB1TKLZRzvgmKoxTYTG3cJFkjetLcUTwrwC9naxAQRfF4=|ufHf73IzJ707dx44w4fjkuD7tDa50OwmmkxcypAT9uQ=".parse::<EncString>().unwrap().to_owned(),
             method: InitUserCryptoMethod::Password {
                 password: "asdfasdfasdf".to_owned(),
-                user_key: "0.8UClLa8IPE1iZT7chy5wzQ==|6PVfHnVk5S3XqEtQemnM5yb4JodxmPkkWzmDRdfyHtjORmvxqlLX40tBJZ+CKxQWmS8tpEB5w39rbgHg/gqs0haGdZG4cPbywsgGzxZ7uNI=".to_owned(),
+                user_key: "0.8UClLa8IPE1iZT7chy5wzQ==|6PVfHnVk5S3XqEtQemnM5yb4JodxmPkkWzmDRdfyHtjORmvxqlLX40tBJZ+CKxQWmS8tpEB5w39rbgHg/gqs0haGdZG4cPbywsgGzxZ7uNI=".parse().unwrap(),
             }
         },
 org: None,

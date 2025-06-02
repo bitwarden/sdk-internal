@@ -61,7 +61,7 @@ pub enum InitUserCryptoMethod {
         /// The user's master password
         password: String,
         /// The user's encrypted symmetric crypto key
-        user_key: String,
+        user_key: EncString,
     },
     /// Never lock and/or biometric unlock
     DecryptedKey {
@@ -97,7 +97,7 @@ pub enum InitUserCryptoMethod {
         /// Base64 encoded master key, retrieved from the key connector.
         master_key: String,
         /// The user's encrypted symmetric crypto key
-        user_key: String,
+        user_key: EncString,
     },
 }
 
@@ -136,8 +136,6 @@ pub async fn initialize_user_crypto(
 
     match req.method {
         InitUserCryptoMethod::Password { password, user_key } => {
-            let user_key: EncString = user_key.parse()?;
-
             let master_key = MasterKey::derive(&password, &req.email, &req.kdf_params)?;
             client.internal.initialize_user_crypto_master_key(
                 master_key,
@@ -204,7 +202,6 @@ pub async fn initialize_user_crypto(
                 .decode(master_key)
                 .map_err(|_| CryptoError::InvalidKey)?;
             let master_key = MasterKey::try_from(master_key_bytes.as_mut_slice())?;
-            let user_key: EncString = user_key.parse()?;
 
             client.internal.initialize_user_crypto_master_key(
                 master_key,
@@ -577,7 +574,7 @@ mod tests {
                 private_key: priv_key.to_owned(),
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
-                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".into(),
+                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
                 },
             },
         )
@@ -597,7 +594,7 @@ mod tests {
                 private_key: priv_key.to_owned(),
                 method: InitUserCryptoMethod::Password {
                     password: "123412341234".into(),
-                    user_key: new_password_response.new_key.to_string(),
+                    user_key: new_password_response.new_key,
                 },
             },
         )
@@ -655,7 +652,7 @@ mod tests {
                 private_key: priv_key.to_owned(),
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
-                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".into(),
+                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
                 },
             },
         )
