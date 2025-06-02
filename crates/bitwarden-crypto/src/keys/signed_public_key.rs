@@ -7,7 +7,8 @@ use serde_bytes::ByteBuf;
 
 use super::AsymmetricPublicCryptoKey;
 use crate::{
-    cose::CoseSerializable, CryptoError, SignedObject, SigningKey, SigningNamespace, VerifyingKey,
+    cose::CoseSerializable, CryptoError, RawPublicKey, SignedObject, SigningKey, SigningNamespace,
+    VerifyingKey,
 };
 
 /// `PublicKeyEncryptionAlgorithm` defines the algorithms used for asymmetric encryption.
@@ -45,11 +46,13 @@ pub struct SignedPublicKeyMessage {
 
 impl SignedPublicKeyMessage {
     pub fn from_public_key(public_key: &AsymmetricPublicCryptoKey) -> Result<Self, CryptoError> {
-        Ok(SignedPublicKeyMessage {
-            algorithm: PublicKeyEncryptionAlgorithms::RsaOaepSha1,
-            content_format: PublicKeyFormat::Spki,
-            public_key: ByteBuf::from(public_key.to_der()?),
-        })
+        match public_key.inner() {
+            RawPublicKey::RsaOaepSha1(_) => Ok(SignedPublicKeyMessage {
+                algorithm: PublicKeyEncryptionAlgorithms::RsaOaepSha1,
+                content_format: PublicKeyFormat::Spki,
+                public_key: ByteBuf::from(public_key.to_der()?),
+            }),
+        }
     }
 
     pub fn sign(&self, signing_key: &SigningKey) -> Result<SignedPublicKey, CryptoError> {
