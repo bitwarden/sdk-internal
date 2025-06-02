@@ -10,12 +10,11 @@ use uuid::Uuid;
 
 #[cfg(feature = "secrets")]
 use super::login_method::ServiceAccountLoginMethod;
+#[cfg(any(feature = "internal", feature = "secrets"))]
+use crate::client::encryption_settings::EncryptionSettings;
 use crate::{
-    auth::renew::renew_token,
-    client::{encryption_settings::EncryptionSettings, login_method::LoginMethod},
-    error::UserIdAlreadySetError,
-    key_management::KeyIds,
-    DeviceType,
+    auth::renew::renew_token, client::login_method::LoginMethod, error::UserIdAlreadySetError,
+    key_management::KeyIds, DeviceType,
 };
 #[cfg(feature = "internal")]
 use crate::{
