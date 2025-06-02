@@ -1,8 +1,7 @@
 use bitwarden_core::{
     client::encryption_settings::EncryptionSettingsError,
     mobile::crypto::{
-        InitOrgCryptoRequest, InitUserCryptoRequest, MakeKeyPairResponse,
-        MakeUserSigningKeysResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
+        InitOrgCryptoRequest, InitUserCryptoRequest, MakeKeyPairResponse, MakeUserSigningKeysResponse, RotateUserKeysResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse
     },
 };
 use bitwarden_crypto::CryptoError;
@@ -57,5 +56,12 @@ impl CryptoClient {
     /// key. Crypto initialization not required.
     pub fn make_signing_keys(&self) -> Result<MakeUserSigningKeysResponse, CryptoError> {
         self.0.make_signing_keys()
+    }
+
+    pub fn rotate_account_keys(
+        &self,
+        user_key: String,
+    ) -> Result<RotateUserKeysResponse, CryptoError> {
+        self.0.rotate_account_keys(user_key)
     }
 }

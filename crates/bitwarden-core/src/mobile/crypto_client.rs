@@ -3,10 +3,7 @@ use bitwarden_crypto::CryptoError;
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 
 use super::crypto::{
-    derive_key_connector, make_key_pair, make_user_signing_keys, verify_asymmetric_keys,
-    DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
-    MakeKeyPairResponse, MakeUserSigningKeysResponse, MobileCryptoError,
-    VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
+    derive_key_connector, make_key_pair, make_user_signing_keys, rotate_account_keys, verify_asymmetric_keys, DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError, MakeKeyPairResponse, MakeUserSigningKeysResponse, MobileCryptoError, RotateUserKeysResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse
 };
 #[cfg(feature = "internal")]
 use crate::mobile::crypto::{
@@ -105,6 +102,13 @@ impl CryptoClient {
 
     pub fn make_signing_keys(&self) -> Result<MakeUserSigningKeysResponse, CryptoError> {
         make_user_signing_keys(&self.client)
+    }
+
+    pub fn rotate_account_keys(
+        &self,
+        user_key: String,
+    ) -> Result<RotateUserKeysResponse, CryptoError> {
+        rotate_account_keys(&self.client, user_key)
     }
 }
 
