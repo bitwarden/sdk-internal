@@ -10,7 +10,12 @@ use coset::{
 };
 
 use super::{ed25519_verifying_key, key_id, SignatureAlgorithm};
-use crate::{cose::CoseSerializable, error::SignatureError, keys::KeyId, CryptoError};
+use crate::{
+    cose::CoseSerializable,
+    error::{EncodingError, SignatureError},
+    keys::KeyId,
+    CryptoError,
+};
 
 /// A `VerifyingKey` without the key id. This enum contains a variant for each supported signature
 /// scheme.
@@ -53,7 +58,7 @@ impl VerifyingKey {
 }
 
 impl CoseSerializable for VerifyingKey {
-    fn to_cose(&self) -> Result<Vec<u8>, CryptoError> {
+    fn to_cose(&self) -> Result<Vec<u8>, EncodingError> {
         match &self.inner {
             RawVerifyingKey::Ed25519(key) => coset::CoseKeyBuilder::new_okp_key()
                 .key_id((&self.id).into())
@@ -73,18 +78,19 @@ impl CoseSerializable for VerifyingKey {
                 .add_key_op(KeyOperation::Verify)
                 .build()
                 .to_vec()
-                .map_err(|_| CryptoError::InvalidKey),
+                .map_err(|_| EncodingError::InvalidCoseEncoding),
         }
     }
 
-    fn from_cose(bytes: &[u8]) -> Result<Self, CryptoError>
+    fn from_cose(bytes: &[u8]) -> Result<Self, EncodingError>
     where
         Self: Sized,
     {
-        let cose_key = coset::CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
+        let cose_key =
+            coset::CoseKey::from_slice(bytes).map_err(|_| EncodingError::InvalidCoseEncoding)?;
 
         let Some(ref algorithm) = cose_key.alg else {
-            return Err(CryptoError::InvalidKey);
+            return Err(EncodingError::MissingValue("Cose key algorithm"));
         };
         match (&cose_key.kty, algorithm) {
             (kty, alg)
@@ -96,7 +102,9 @@ impl CoseSerializable for VerifyingKey {
                     inner: RawVerifyingKey::Ed25519(ed25519_verifying_key(&cose_key)?),
                 })
             }
-            _ => Err(CryptoError::InvalidKey),
+            _ => Err(EncodingError::UnsupportedValue(
+                "unsupported COSE key type or algorithm",
+            )),
         }
     }
 }

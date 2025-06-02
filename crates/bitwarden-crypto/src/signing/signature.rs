@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{
     cose::{CoseSerializable, SIGNING_NAMESPACE},
-    error::SignatureError,
+    error::{EncodingError, SignatureError},
     CryptoError,
 };
 
@@ -171,17 +171,17 @@ impl SigningKey {
 }
 
 impl CoseSerializable for Signature {
-    fn from_cose(bytes: &[u8]) -> Result<Self, CryptoError> {
+    fn from_cose(bytes: &[u8]) -> Result<Self, EncodingError> {
         let cose_sign1 =
-            CoseSign1::from_slice(bytes).map_err(|_| SignatureError::InvalidSignature)?;
+            CoseSign1::from_slice(bytes).map_err(|_| EncodingError::InvalidCoseEncoding)?;
         Ok(Signature(cose_sign1))
     }
 
-    fn to_cose(&self) -> Result<Vec<u8>, CryptoError> {
+    fn to_cose(&self) -> Result<Vec<u8>, EncodingError> {
         self.0
             .clone()
             .to_vec()
-            .map_err(|_| SignatureError::InvalidSignature.into())
+            .map_err(|_| EncodingError::InvalidCoseEncoding)
     }
 }
 

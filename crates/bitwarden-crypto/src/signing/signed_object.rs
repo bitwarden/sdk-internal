@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{
     cose::{CoseSerializable, SIGNING_NAMESPACE},
-    error::SignatureError,
+    error::{EncodingError, SignatureError},
     CryptoError,
 };
 
@@ -50,9 +50,10 @@ impl SignedObject {
     ) -> Result<Message, CryptoError> {
         SerializedMessage::from_bytes(
             self.verify_and_unwrap_bytes(verifying_key, namespace)?,
-            self.content_type()?,
+            self.content_type().map_err(Into::<CryptoError>::into)?,
         )
         .decode()
+        .map_err(Into::into)
     }
 
     /// Verifies the signature of the signed object and returns the payload as raw bytes, if the
@@ -141,17 +142,17 @@ impl SigningKey {
 }
 
 impl CoseSerializable for SignedObject {
-    fn from_cose(bytes: &[u8]) -> Result<Self, CryptoError> {
+    fn from_cose(bytes: &[u8]) -> Result<Self, EncodingError> {
         Ok(SignedObject(
-            CoseSign1::from_slice(bytes).map_err(|_| SignatureError::InvalidSignature)?,
+            CoseSign1::from_slice(bytes).map_err(|_| EncodingError::InvalidCoseEncoding)?,
         ))
     }
 
-    fn to_cose(&self) -> Result<Vec<u8>, CryptoError> {
+    fn to_cose(&self) -> Result<Vec<u8>, EncodingError> {
         self.0
             .clone()
             .to_vec()
-            .map_err(|_| SignatureError::InvalidSignature.into())
+            .map_err(|_| EncodingError::InvalidCoseEncoding)
     }
 }
 

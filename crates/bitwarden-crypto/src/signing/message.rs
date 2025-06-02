@@ -9,7 +9,7 @@
 use coset::iana::CoapContentFormat;
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::CryptoError;
+use crate::error::EncodingError;
 
 /// A message (struct) to be signed, serialized to a byte array, along with the content format of
 /// the bytes.
@@ -41,10 +41,10 @@ impl SerializedMessage {
     }
 
     /// Encodes a message into a `SerializedMessage` using CBOR serialization.
-    pub(super) fn encode<Message: Serialize>(message: &Message) -> Result<Self, CryptoError> {
+    pub(super) fn encode<Message: Serialize>(message: &Message) -> Result<Self, EncodingError> {
         let mut buffer = Vec::new();
         ciborium::ser::into_writer(message, &mut buffer)
-            .map_err(|_| CryptoError::CoseEncodingError)?;
+            .map_err(|_| EncodingError::InvalidCborSerialization)?;
         Ok(SerializedMessage {
             serialized_message_bytes: buffer,
             content_type: CoapContentFormat::Cbor,
@@ -53,13 +53,13 @@ impl SerializedMessage {
 
     /// Creates a new `SerializedMessage` from a byte array and content type.
     /// This currently implements only CBOR serialization, so the content type must be `Cbor`.
-    pub fn decode<Message: DeserializeOwned>(&self) -> Result<Message, CryptoError> {
+    pub fn decode<Message: DeserializeOwned>(&self) -> Result<Message, EncodingError> {
         if self.content_type != CoapContentFormat::Cbor {
-            return Err(CryptoError::CoseEncodingError);
+            return Err(EncodingError::InvalidValue("Unsupported content type"));
         }
 
         ciborium::de::from_reader(self.serialized_message_bytes.as_slice())
-            .map_err(|_| CryptoError::CoseEncodingError)
+            .map_err(|_| EncodingError::InvalidCborSerialization)
     }
 }
 

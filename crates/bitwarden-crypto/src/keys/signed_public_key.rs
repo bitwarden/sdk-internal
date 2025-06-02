@@ -7,8 +7,8 @@ use serde_bytes::ByteBuf;
 
 use super::AsymmetricPublicCryptoKey;
 use crate::{
-    cose::CoseSerializable, CryptoError, RawPublicKey, SignedObject, SigningKey, SigningNamespace,
-    VerifyingKey,
+    cose::CoseSerializable, error::EncodingError, CryptoError, RawPublicKey, SignedObject,
+    SigningKey, SigningNamespace, VerifyingKey,
 };
 
 /// `PublicKeyEncryptionAlgorithm` defines the algorithms used for asymmetric encryption.
@@ -68,15 +68,15 @@ impl SignedPublicKeyMessage {
 pub struct SignedPublicKey(pub(crate) SignedObject);
 
 impl TryInto<Vec<u8>> for SignedPublicKey {
-    type Error = CryptoError;
-    fn try_into(self) -> Result<Vec<u8>, CryptoError> {
+    type Error = EncodingError;
+    fn try_into(self) -> Result<Vec<u8>, EncodingError> {
         self.0.to_cose()
     }
 }
 
 impl TryFrom<Vec<u8>> for SignedPublicKey {
-    type Error = CryptoError;
-    fn try_from(bytes: Vec<u8>) -> Result<Self, CryptoError> {
+    type Error = EncodingError;
+    fn try_from(bytes: Vec<u8>) -> Result<Self, EncodingError> {
         Ok(SignedPublicKey(SignedObject::from_cose(&bytes)?))
     }
 }
@@ -97,7 +97,7 @@ impl SignedPublicKey {
         ) {
             (PublicKeyEncryptionAlgorithms::RsaOaepSha1, PublicKeyFormat::Spki) => Ok(
                 AsymmetricPublicCryptoKey::from_der(&public_key_message.public_key.into_vec())
-                    .map_err(|_| CryptoError::InvalidKey)?,
+                    .map_err(|_| EncodingError::InvalidValue("public key"))?,
             ),
         }
     }

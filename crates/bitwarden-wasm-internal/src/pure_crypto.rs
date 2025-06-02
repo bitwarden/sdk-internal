@@ -276,7 +276,7 @@ impl PureCrypto {
         let bytes = Self::symmetric_decrypt_bytes(signing_key, wrapping_key)?;
         let signing_key = SigningKey::from_cose(&bytes)?;
         let verifying_key = signing_key.to_verifying_key();
-        verifying_key.to_cose()
+        verifying_key.to_cose().map_err(Into::<CryptoError>::into)
     }
 
     /// Returns the algorithm used for the given verifying key.

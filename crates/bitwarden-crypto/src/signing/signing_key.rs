@@ -6,14 +6,18 @@ use coset::{
     CborSerializable, CoseKey, RegisteredLabel, RegisteredLabelWithPrivate,
 };
 use ed25519_dalek::Signer;
-use rand::rngs::OsRng;
 
 use super::{
     ed25519_signing_key, key_id,
     verifying_key::{RawVerifyingKey, VerifyingKey},
     SignatureAlgorithm,
 };
-use crate::{cose::CoseSerializable, error::Result, keys::KeyId, CryptoError, CryptoKey};
+use crate::{
+    cose::CoseSerializable,
+    error::{EncodingError, Result},
+    keys::KeyId,
+    CryptoKey,
+};
 
 /// A `SigningKey` without the key id. This enum contains a variant for each supported signature
 /// scheme.
@@ -84,7 +88,7 @@ impl SigningKey {
 
 impl CoseSerializable for SigningKey {
     /// Serializes the signing key to a COSE-formatted byte array.
-    fn to_cose(&self) -> Result<Vec<u8>> {
+    fn to_cose(&self) -> Result<Vec<u8>, EncodingError> {
         match &self.inner {
             RawSigningKey::Ed25519(key) => {
                 coset::CoseKeyBuilder::new_okp_key()
@@ -102,17 +106,18 @@ impl CoseSerializable for SigningKey {
                     .add_key_op(KeyOperation::Verify)
                     .build()
                     .to_vec()
-                    .map_err(|_| CryptoError::InvalidKey)
+                    .map_err(|_| EncodingError::InvalidCoseEncoding)
             }
         }
     }
 
     /// Deserializes a COSE-formatted byte array into a signing key.
-    fn from_cose(bytes: &[u8]) -> Result<Self> {
-        let cose_key = CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
+    fn from_cose(bytes: &[u8]) -> Result<Self, EncodingError> {
+        let cose_key =
+            CoseKey::from_slice(bytes).map_err(|_| EncodingError::InvalidCoseEncoding)?;
 
         let Some(ref algorithm) = cose_key.alg else {
-            return Err(CryptoError::InvalidKey);
+            return Err(EncodingError::MissingValue("cose key algorithm"));
         };
         match (&cose_key.kty, algorithm) {
             (kty, alg)
@@ -124,7 +129,9 @@ impl CoseSerializable for SigningKey {
                     inner: RawSigningKey::Ed25519(Box::pin(ed25519_signing_key(&cose_key)?)),
                 })
             }
-            _ => Err(CryptoError::InvalidKey),
+            _ => Err(EncodingError::UnsupportedValue(
+                "cose key type or algorithm",
+            )),
         }
     }
 }

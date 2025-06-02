@@ -46,7 +46,9 @@ impl EncryptionSettings {
         signing_key: Option<EncString>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
-        use bitwarden_crypto::{AsymmetricCryptoKey, CoseSerializable, KeyDecryptable, SigningKey};
+        use bitwarden_crypto::{
+            AsymmetricCryptoKey, CoseSerializable, CryptoError, KeyDecryptable, SigningKey,
+        };
         use log::warn;
 
         use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
@@ -70,7 +72,7 @@ impl EncryptionSettings {
         let signing_key = signing_key
             .map(|key| {
                 let dec: Vec<u8> = key.decrypt_with_key(&user_key)?;
-                SigningKey::from_cose(dec.as_slice())
+                SigningKey::from_cose(dec.as_slice()).map_err(Into::<CryptoError>::into)
             })
             .transpose()?;
 
