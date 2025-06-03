@@ -25,6 +25,8 @@ impl From<CoseSign1> for SignedObject {
 }
 
 impl SignedObject {
+    /// Parses the signature headers and returns the content type of the signed data. The content
+    /// type indicates how the serialized message that was signed was encoded.
     pub fn content_type(&self) -> Result<CoapContentFormat, CryptoError> {
         content_type(&self.0.protected)
     }
