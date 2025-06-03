@@ -89,9 +89,10 @@ impl CoseSerializable for VerifyingKey {
         let cose_key =
             coset::CoseKey::from_slice(bytes).map_err(|_| EncodingError::InvalidCoseEncoding)?;
 
-        let algorithm = cose_key.alg.as_ref().ok_or(EncodingError::MissingValue(
-            "COSE key algorithm",
-        ))?;
+        let algorithm = cose_key
+            .alg
+            .as_ref()
+            .ok_or(EncodingError::MissingValue("COSE key algorithm"))?;
         match (&cose_key.kty, algorithm) {
             (
                 RegisteredLabel::Assigned(KeyType::OKP),

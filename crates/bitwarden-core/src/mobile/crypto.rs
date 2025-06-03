@@ -150,9 +150,11 @@ pub async fn initialize_user_crypto(
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
-            client
-                .internal
-                .initialize_user_crypto_decrypted_key(user_key, req.private_key, req.signing_key)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                req.private_key,
+                req.signing_key,
+            )?;
         }
         InitUserCryptoMethod::Pin {
             pin,
@@ -163,7 +165,7 @@ pub async fn initialize_user_crypto(
                 pin_key,
                 pin_protected_user_key,
                 req.private_key,
-                req.signing_key
+                req.signing_key,
             )?;
         }
         InitUserCryptoMethod::AuthRequest {
@@ -183,9 +185,11 @@ pub async fn initialize_user_crypto(
                     auth_request_key,
                 )?,
             };
-            client
-                .internal
-                .initialize_user_crypto_decrypted_key(user_key, req.private_key, req.signing_key)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                req.private_key,
+                req.signing_key,
+            )?;
         }
         InitUserCryptoMethod::DeviceKey {
             device_key,
@@ -196,9 +200,11 @@ pub async fn initialize_user_crypto(
             let user_key = device_key
                 .decrypt_user_key(protected_device_private_key, device_protected_user_key)?;
 
-            client
-                .internal
-                .initialize_user_crypto_decrypted_key(user_key, req.private_key, req.signing_key)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                req.private_key,
+                req.signing_key,
+            )?;
         }
         InitUserCryptoMethod::KeyConnector {
             master_key,
