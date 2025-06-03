@@ -63,15 +63,14 @@ impl SignatureAlgorithm {
 }
 
 #[cfg(test)]
-#[derive(Deserialize, Debug, PartialEq, Serialize)]
-pub(super) struct TestMessage {
-    field1: String,
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
     use crate::CoseSerializable;
+
+    #[derive(Deserialize, Debug, PartialEq, Serialize)]
+    struct TestMessage {
+        field1: String,
+    }
 
     /// The function used to create the test vectors below, and can be used to re-generate them.
     /// Once rolled out to user accounts, this function can be removed, because at that point we

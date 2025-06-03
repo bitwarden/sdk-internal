@@ -179,6 +179,11 @@ mod tests {
         6,
     ];
 
+    #[derive(Deserialize, Debug, PartialEq, Serialize)]
+    struct TestMessage {
+        field1: String,
+    }
+
     #[test]
     fn test_roundtrip_cose() {
         let signed_object = SignedObject::from_cose(SIGNED_OBJECT).unwrap();
