@@ -45,16 +45,15 @@ pub(super) fn namespace(
 pub(super) fn content_type(
     protected_header: &ProtectedHeader,
 ) -> Result<coset::iana::CoapContentFormat, CryptoError> {
-    if let RegisteredLabel::Assigned(content_format) = protected_header
+    protected_header
         .header
         .content_type
-        .clone()
-        .ok_or(CryptoError::from(SignatureError::InvalidSignature))?
-    {
-        Ok(content_format)
-    } else {
-        Err(SignatureError::InvalidSignature.into())
-    }
+        .as_ref()
+        .and_then(|ct| match ct {
+            RegisteredLabel::Assigned(content_format) => Some(*content_format),
+            _ => None,
+        })
+        .ok_or_else(|| SignatureError::InvalidSignature.into())
 }
 
 /// Helper function to extract the key ID from a `CoseKey`. The key ID is a standardized header
