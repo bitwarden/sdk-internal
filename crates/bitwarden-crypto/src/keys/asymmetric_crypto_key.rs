@@ -5,6 +5,7 @@ use rsa::{pkcs8::DecodePublicKey, RsaPrivateKey, RsaPublicKey};
 use super::key_encryptable::CryptoKey;
 use crate::error::{CryptoError, Result};
 
+/// Algorithm / public key encryption scheme used for encryption/decryption.
 pub enum PublicKeyEncryptionAlgorithm {
     RsaOaepSha1,
 }
