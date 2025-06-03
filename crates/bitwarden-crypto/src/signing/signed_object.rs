@@ -12,6 +12,10 @@ use crate::{
     CryptoError,
 };
 
+/// A signed object is a message containing a payload and signature that attests the payload's
+/// integrity and authenticity for a specific namespace and signature key. In order to gain access
+/// to the payload, the caller must provide the correct namespace and verifying key, ensuring that
+/// the caller cannot forget to validate the signature before using the payload.
 pub struct SignedObject(pub(crate) CoseSign1);
 
 impl From<CoseSign1> for SignedObject {
