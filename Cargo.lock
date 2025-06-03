@@ -449,7 +449,6 @@ dependencies = [
  "credential-exchange-format",
  "csv",
  "num-traits",
- "rand 0.8.5",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -533,7 +532,6 @@ dependencies = [
  "thiserror 2.0.12",
  "uniffi",
  "uuid",
- "wasm-bindgen",
  "zeroize",
 ]
 
@@ -587,7 +585,6 @@ dependencies = [
  "js-sys",
  "log",
  "serde",
- "serde_json",
  "thiserror 2.0.12",
  "tokio",
  "tokio-util",
@@ -618,7 +615,6 @@ dependencies = [
  "log",
  "oslog",
  "rustls-platform-verifier",
- "schemars",
  "thiserror 2.0.12",
  "uniffi",
  "uuid",
@@ -640,7 +636,6 @@ dependencies = [
 name = "bitwarden-uuid-macro"
 version = "1.0.0"
 dependencies = [
- "proc-macro2",
  "quote",
  "syn",
 ]
@@ -658,7 +653,6 @@ dependencies = [
  "data-encoding",
  "hmac",
  "percent-encoding",
- "rand 0.8.5",
  "reqwest",
  "serde",
  "serde_json",
@@ -686,12 +680,9 @@ dependencies = [
  "bitwarden-ipc",
  "bitwarden-ssh",
  "bitwarden-vault",
- "chrono",
  "console_error_panic_hook",
  "console_log",
- "js-sys",
  "log",
- "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
@@ -745,7 +736,6 @@ version = "0.0.2"
 dependencies = [
  "bitwarden-cli",
  "bitwarden-core",
- "bitwarden-crypto",
  "bitwarden-generators",
  "bitwarden-vault",
  "clap",

@@ -1,14 +1,17 @@
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{EncString, KeyStore, SymmetricCryptoKey, UnsignedSharedKey};
+use bitwarden_crypto::{AsymmetricCryptoKey, EncString, UnsignedSharedKey};
+#[cfg(any(feature = "internal", feature = "secrets"))]
+use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
+#[cfg(any(feature = "internal", feature = "secrets"))]
 use uuid::Uuid;
 
-use crate::{
-    error::UserIdAlreadySetError,
-    key_management::{KeyIds, SymmetricKeyId},
-    MissingPrivateKeyError, VaultLockedError,
-};
+#[cfg(feature = "internal")]
+use crate::key_management::AsymmetricKeyId;
+#[cfg(any(feature = "internal", feature = "secrets"))]
+use crate::key_management::{KeyIds, SymmetricKeyId};
+use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError, VaultLockedError};
 
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
