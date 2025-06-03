@@ -570,7 +570,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
     fn test_key_algorithm_for_verifying_key() {
         let verifying_key = VerifyingKey::from_cose(VERIFYING_KEY).unwrap();
         let algorithm =
-            PureCrypto::key_algorithm_for_verifying_key(verifying_key.to_cose().unwrap()).unwrap();
+            PureCrypto::key_algorithm_for_verifying_key(verifying_key.to_cose()).unwrap();
         assert_eq!(algorithm, SignatureAlgorithm::Ed25519);
     }
 
@@ -590,8 +590,8 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let verifying_key_derived =
             VerifyingKey::from_cose(verifying_key_derived.as_slice()).unwrap();
         assert_eq!(
-            verifying_key.to_cose().unwrap(),
-            verifying_key_derived.to_cose().unwrap()
+            verifying_key.to_cose(),
+            verifying_key_derived.to_cose()
         );
     }
 
