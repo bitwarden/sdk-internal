@@ -41,6 +41,9 @@ impl Signature {
     /// Verifies the signature of the given serialized message bytes, created by
     /// [`SigningKey::sign_detached`], for the given namespace. The namespace must match the one
     /// used to create the signature.
+    ///
+    /// The first anticipated consumer will be signed org memberships / emergency access:
+    /// https://bitwarden.atlassian.net/browse/PM-17458
     #[allow(unused)]
     pub fn verify(
         &self,
