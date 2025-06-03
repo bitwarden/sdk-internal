@@ -126,6 +126,8 @@ impl AsymmetricCryptoKey {
         }
     }
 
+    /// Derives the public key corresponding to this private key. This is deterministic
+    /// and always derives the same public key.
     pub fn to_public_key(&self) -> AsymmetricPublicCryptoKey {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => AsymmetricPublicCryptoKey {
