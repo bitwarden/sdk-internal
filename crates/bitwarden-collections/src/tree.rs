@@ -149,7 +149,6 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::tree::TreeItem;
 
     #[derive(Clone, Debug)]
     pub struct TestItem {

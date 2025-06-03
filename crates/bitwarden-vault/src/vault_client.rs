@@ -1,10 +1,10 @@
 use bitwarden_core::Client;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
-
+use crate::collection_client::CollectionsClient;
 use crate::{
     sync::{sync, SyncError},
-    AttachmentsClient, CiphersClient, CollectionsClient, FoldersClient, PasswordHistoryClient,
+    AttachmentsClient, CiphersClient, FoldersClient, PasswordHistoryClient,
     SyncRequest, SyncResponse, TotpClient,
 };
 

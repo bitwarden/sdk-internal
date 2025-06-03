@@ -7,10 +7,6 @@ mod uniffi_support;
 
 mod cipher;
 pub use cipher::*;
-mod collection;
-pub use collection::{Collection, CollectionView};
-mod collection_client;
-pub use collection_client::CollectionsClient;
 mod folder;
 pub use folder::{Folder, FolderView};
 mod folder_client;
@@ -34,6 +30,7 @@ mod sync;
 pub use sync::{SyncRequest, SyncResponse};
 
 mod totp_client;
+pub mod collection_client;
+
 pub use totp_client::TotpClient;
 
-mod tree;

@@ -1,6 +1,6 @@
+use bitwarden_collections::collection::{CollectionView, Collection};
 use bitwarden_core::Client;
-
-use crate::{error::DecryptError, Collection, CollectionView};
+use crate::DecryptError;
 
 pub struct CollectionsClient {
     pub(crate) client: Client,

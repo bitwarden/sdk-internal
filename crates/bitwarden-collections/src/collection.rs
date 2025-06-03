@@ -1,15 +1,13 @@
-use std::fmt::Debug;
-
 use bitwarden_api_api::models::CollectionDetailsResponseModel;
-use bitwarden_core::{
-    key_management::{KeyIds, SymmetricKeyId},
-    require,
-};
-use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
-use crate::{tree::TreeItem, VaultParseError};
+use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
+
+use uuid::Uuid;
+use serde::{Deserialize, Serialize};
+use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+use bitwarden_core::require;
+use crate::error::CollectionsParseError;
+use crate::tree::TreeItem;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -46,12 +44,6 @@ pub struct CollectionView {
     pub manage: bool,
 }
 
-impl IdentifyKey<SymmetricKeyId> for Collection {
-    fn key_identifier(&self) -> SymmetricKeyId {
-        SymmetricKeyId::Organization(self.organization_id)
-    }
-}
-
 impl Decryptable<KeyIds, SymmetricKeyId, CollectionView> for Collection {
     fn decrypt(
         &self,
@@ -73,7 +65,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CollectionView> for Collection {
 }
 
 impl TryFrom<CollectionDetailsResponseModel> for Collection {
-    type Error = VaultParseError;
+    type Error = CollectionsParseError;
 
     fn try_from(collection: CollectionDetailsResponseModel) -> Result<Self, Self::Error> {
         Ok(Collection {
@@ -85,6 +77,12 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
             read_only: collection.read_only.unwrap_or(false),
             manage: collection.manage.unwrap_or(false),
         })
+    }
+}
+
+impl IdentifyKey<SymmetricKeyId> for Collection {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::Organization(self.organization_id)
     }
 }
 
