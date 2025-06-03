@@ -49,7 +49,7 @@ pub struct InitUserCryptoRequest {
     /// The user's encrypted private key
     pub private_key: String,
     /// The user's signing key
-    pub signing_key: Option<String>,
+    pub signing_key: Option<EncString>,
     /// The initialization method to use
     pub method: InitUserCryptoMethod,
 }
@@ -135,7 +135,7 @@ pub async fn initialize_user_crypto(
     use crate::auth::{auth_request_decrypt_master_key, auth_request_decrypt_user_key};
 
     let private_key: EncString = req.private_key.parse()?;
-    let signing_key: Option<EncString> = req.signing_key.map(|s| s.parse()).transpose()?;
+    let signing_key = req.signing_key;
 
     if let Some(user_id) = req.user_id {
         client.internal.init_user_id(user_id)?;
