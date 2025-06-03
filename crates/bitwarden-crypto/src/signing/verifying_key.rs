@@ -64,7 +64,7 @@ impl CoseSerializable for VerifyingKey {
                 .key_id((&self.id).into())
                 .algorithm(Algorithm::EdDSA)
                 .param(
-                    OkpKeyParameter::Crv.to_i64(),
+                    OkpKeyParameter::Crv.to_i64(), // Elliptic curve identifier
                     Value::Integer(Integer::from(EllipticCurve::Ed25519.to_i64())),
                 )
                 // Note: X does not refer to the X coordinate of the public key curve point, but
