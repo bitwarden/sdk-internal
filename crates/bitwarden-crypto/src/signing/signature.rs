@@ -43,7 +43,7 @@ impl Signature {
     /// used to create the signature.
     ///
     /// The first anticipated consumer will be signed org memberships / emergency access:
-    /// https://bitwarden.atlassian.net/browse/PM-17458
+    /// <https://bitwarden.atlassian.net/browse/PM-17458>
     #[allow(unused)]
     pub fn verify(
         &self,
