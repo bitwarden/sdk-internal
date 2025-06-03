@@ -592,7 +592,7 @@ pub fn make_user_signing_keys(client: &Client) -> Result<MakeUserSigningKeysResp
             AsymmetricKeyId::UserPrivateKey,
             SigningKeyId::UserSigningKey,
         )?
-        .try_into()?;
+        .into();
 
     Ok(MakeUserSigningKeysResponse {
         verifying_key: STANDARD.encode(signature_keypair.to_verifying_key().to_cose()),
