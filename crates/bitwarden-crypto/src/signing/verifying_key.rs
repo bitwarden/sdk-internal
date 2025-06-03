@@ -89,19 +89,17 @@ impl CoseSerializable for VerifyingKey {
         let cose_key =
             coset::CoseKey::from_slice(bytes).map_err(|_| EncodingError::InvalidCoseEncoding)?;
 
-        let Some(ref algorithm) = cose_key.alg else {
-            return Err(EncodingError::MissingValue("Cose key algorithm"));
-        };
+        let algorithm = cose_key.alg.as_ref().ok_or(EncodingError::MissingValue(
+            "COSE key algorithm",
+        ))?;
         match (&cose_key.kty, algorithm) {
-            (kty, alg)
-                if *kty == RegisteredLabel::Assigned(KeyType::OKP)
-                    && *alg == RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA) =>
-            {
-                Ok(VerifyingKey {
-                    id: key_id(&cose_key)?,
-                    inner: RawVerifyingKey::Ed25519(ed25519_verifying_key(&cose_key)?),
-                })
-            }
+            (
+                RegisteredLabel::Assigned(KeyType::OKP),
+                RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA),
+            ) => Ok(VerifyingKey {
+                id: key_id(&cose_key)?,
+                inner: RawVerifyingKey::Ed25519(ed25519_verifying_key(&cose_key)?),
+            }),
             _ => Err(EncodingError::UnsupportedValue(
                 "COSE key type or algorithm",
             )),
