@@ -13,6 +13,8 @@ use crate::{
     CryptoError, KEY_ID_SIZE,
 };
 
+/// Helper function to extract the namespace from a `ProtectedHeader`. The namespace is a custom header set
+/// on the protected headers of the signature object.
 pub(super) fn namespace(
     protected_header: &ProtectedHeader,
 ) -> Result<SigningNamespace, CryptoError> {
@@ -37,6 +39,9 @@ pub(super) fn namespace(
     )
 }
 
+/// Helper function to extract the content type from a `ProtectedHeader`. The content type is a standardized
+/// header set on the protected headers of the signature object. Currently we only support registered values,
+/// but PrivateUse values are also allowed in the COSE specification.
 pub(super) fn content_type(
     protected_header: &ProtectedHeader,
 ) -> Result<coset::iana::CoapContentFormat, CryptoError> {
@@ -52,6 +57,8 @@ pub(super) fn content_type(
     }
 }
 
+/// Helper function to extract the key ID from a `CoseKey`. The key ID is a standardized header
+/// and always set in bitwarden-crypto generated encrypted messages or signatures.
 pub(super) fn key_id(cose_key: &CoseKey) -> Result<KeyId, EncodingError> {
     let key_id: [u8; KEY_ID_SIZE] = cose_key
         .key_id
@@ -62,6 +69,7 @@ pub(super) fn key_id(cose_key: &CoseKey) -> Result<KeyId, EncodingError> {
     Ok(key_id)
 }
 
+/// Helper function to parse a ed25519 signing key from a `CoseKey`.
 pub(super) fn ed25519_signing_key(
     cose_key: &CoseKey,
 ) -> Result<ed25519_dalek::SigningKey, EncodingError> {
@@ -78,6 +86,7 @@ pub(super) fn ed25519_signing_key(
     }
 }
 
+/// Helper function to parse a ed25519 verifying key from a `CoseKey`.
 pub(super) fn ed25519_verifying_key(
     cose_key: &CoseKey,
 ) -> Result<ed25519_dalek::VerifyingKey, EncodingError> {
@@ -95,6 +104,7 @@ pub(super) fn ed25519_verifying_key(
     }
 }
 
+/// Helper function to parse the private key `d` from a `CoseKey`.
 fn okp_d(cose_key: &CoseKey) -> Result<&[u8], EncodingError> {
     // https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
     let mut d = None;
@@ -113,6 +123,7 @@ fn okp_d(cose_key: &CoseKey) -> Result<&[u8], EncodingError> {
         .as_slice())
 }
 
+/// Helper function to parse the public key `x` from a `CoseKey`.
 fn okp_x(cose_key: &CoseKey) -> Result<&[u8], EncodingError> {
     // https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
     let mut x = None;
@@ -131,6 +142,7 @@ fn okp_x(cose_key: &CoseKey) -> Result<&[u8], EncodingError> {
         .as_slice())
 }
 
+/// Helper function to parse the OKP curve from a `CoseKey`.
 fn okp_curve(cose_key: &CoseKey) -> Result<i128, EncodingError> {
     // https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
     let mut crv = None;
