@@ -63,9 +63,9 @@ impl SignedObject {
         verifying_key: &VerifyingKey,
         namespace: &SigningNamespace,
     ) -> Result<Vec<u8>, CryptoError> {
-        let Some(_alg) = &self.inner().protected.header.alg else {
+        if self.inner().protected.header.alg.is_none() {
             return Err(SignatureError::InvalidSignature.into());
-        };
+        }
 
         if self.namespace()? != *namespace {
             return Err(SignatureError::InvalidNamespace.into());
