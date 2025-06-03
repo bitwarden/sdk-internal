@@ -12,7 +12,6 @@ pub enum SigningNamespace {
     /// The namespace for
     /// [`SignedPublicKey`](crate::keys::SignedPublicKey).
     SignedPublicKey = 1,
-
     /// This namespace is only used in tests and documentation.
     ExampleNamespace = -1,
     /// This namespace is only used in tests and documentation.
