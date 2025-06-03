@@ -20,10 +20,13 @@ pub enum SigningNamespace {
 }
 
 impl SigningNamespace {
+    /// Returns the numeric value of the namespace.
     pub fn as_i64(&self) -> i64 {
         *self as i64
     }
 
+    /// Converts an i64 value to a `SigningNamespace`, and fails if there is no corresponding
+    /// namespace for the value.
     pub fn try_from_i64(value: i64) -> Result<Self, CryptoError> {
         match value {
             1 => Ok(Self::SignedPublicKey),
