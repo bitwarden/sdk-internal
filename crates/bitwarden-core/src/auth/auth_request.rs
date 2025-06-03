@@ -244,7 +244,7 @@ mod tests {
                 user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: kdf,
                 email: email.to_owned(),
-                private_key: private_key,
+                private_key,
                 signing_key: None,
                 method: InitUserCryptoMethod::AuthRequest {
                     request_private_key: auth_req.private_key,
