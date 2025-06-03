@@ -13,8 +13,8 @@ use crate::{
     CryptoError, KEY_ID_SIZE,
 };
 
-/// Helper function to extract the namespace from a `ProtectedHeader`. The namespace is a custom header set
-/// on the protected headers of the signature object.
+/// Helper function to extract the namespace from a `ProtectedHeader`. The namespace is a custom
+/// header set on the protected headers of the signature object.
 pub(super) fn namespace(
     protected_header: &ProtectedHeader,
 ) -> Result<SigningNamespace, CryptoError> {
@@ -39,9 +39,9 @@ pub(super) fn namespace(
     )
 }
 
-/// Helper function to extract the content type from a `ProtectedHeader`. The content type is a standardized
-/// header set on the protected headers of the signature object. Currently we only support registered values,
-/// but PrivateUse values are also allowed in the COSE specification.
+/// Helper function to extract the content type from a `ProtectedHeader`. The content type is a
+/// standardized header set on the protected headers of the signature object. Currently we only
+/// support registered values, but PrivateUse values are also allowed in the COSE specification.
 pub(super) fn content_type(
     protected_header: &ProtectedHeader,
 ) -> Result<coset::iana::CoapContentFormat, CryptoError> {
