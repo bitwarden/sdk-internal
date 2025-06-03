@@ -42,3 +42,18 @@ fn test_deserialize() {
 
     assert_eq!(id, deserialized);
 }
+
+#[wasm_bindgen_test::wasm_bindgen_test]
+#[allow(dead_code)]
+fn test_wasm_serialize() {
+    let id: TestId = "d4a722ff-ce51-47f1-ba42-c2216f547851"
+        .parse()
+        .expect("Test");
+
+    let serialized = serde_wasm_bindgen::to_value(&id).expect("Test");
+
+    assert_eq!(
+        serialized.as_string().expect("Test"),
+        "d4a722ff-ce51-47f1-ba42-c2216f547851"
+    );
+}

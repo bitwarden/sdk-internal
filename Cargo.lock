@@ -446,7 +446,6 @@ dependencies = [
  "credential-exchange-format",
  "csv",
  "num-traits",
- "rand 0.8.5",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -530,7 +529,6 @@ dependencies = [
  "thiserror 2.0.12",
  "uniffi",
  "uuid",
- "wasm-bindgen",
  "zeroize",
 ]
 
@@ -580,12 +578,13 @@ dependencies = [
  "async-trait",
  "bitwarden-error",
  "console_error_panic_hook",
+ "gloo-timers",
  "js-sys",
  "log",
  "serde",
- "serde_json",
  "thiserror 2.0.12",
  "tokio",
+ "tokio-util",
  "tsify-next",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -613,7 +612,6 @@ dependencies = [
  "log",
  "oslog",
  "rustls-platform-verifier",
- "schemars",
  "thiserror 2.0.12",
  "uniffi",
  "uuid",
@@ -625,15 +623,16 @@ version = "1.0.0"
 dependencies = [
  "bitwarden-uuid-macro",
  "serde",
+ "serde-wasm-bindgen",
  "serde_json",
  "uuid",
+ "wasm-bindgen-test",
 ]
 
 [[package]]
 name = "bitwarden-uuid-macro"
 version = "1.0.0"
 dependencies = [
- "proc-macro2",
  "quote",
  "syn",
 ]
@@ -652,7 +651,6 @@ dependencies = [
  "data-encoding",
  "hmac",
  "percent-encoding",
- "rand 0.8.5",
  "reqwest",
  "serde",
  "serde_json",
@@ -679,12 +677,9 @@ dependencies = [
  "bitwarden-ipc",
  "bitwarden-ssh",
  "bitwarden-vault",
- "chrono",
  "console_error_panic_hook",
  "console_log",
- "js-sys",
  "log",
- "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
@@ -738,7 +733,6 @@ version = "0.0.2"
 dependencies = [
  "bitwarden-cli",
  "bitwarden-core",
- "bitwarden-crypto",
  "bitwarden-generators",
  "bitwarden-vault",
  "clap",
@@ -1082,25 +1076,22 @@ dependencies = [
 
 [[package]]
 name = "criterion"
-version = "0.5.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2b12d017a929603d80db1831cd3a24082f8137ce19c69e6447f54f5fc8d692f"
+checksum = "3bf7af66b0989381bd0be551bd7cc91912a655a58c6918420c9527b1fd8b4679"
 dependencies = [
  "anes",
  "cast",
  "ciborium",
  "clap",
  "criterion-plot",
- "is-terminal",
- "itertools 0.10.5",
+ "itertools 0.13.0",
  "num-traits",
- "once_cell",
  "oorandom",
  "plotters",
  "rayon",
  "regex",
  "serde",
- "serde_derive",
  "serde_json",
  "tinytemplate",
  "walkdir",
@@ -1750,6 +1741,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8d1add55171497b4705a648c6b583acafb01d58050a51727785f0b2c8e0a2b2"
 
 [[package]]
+name = "gloo-timers"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbb143cf96099802033e0d4f4963b19fd2e0b728bcf076cd9cf7f6634f092994"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "js-sys",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "goblin"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1835,12 +1838,6 @@ name = "hermit-abi"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d231dfb89cfffdbc30e7fc41579ed6066ad03abda9e567ccafae602b97ec5024"
-
-[[package]]
-name = "hermit-abi"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbd780fe5cc30f81464441920d82ac8740e2e46b29a6fad543ddd075229ce37e"
 
 [[package]]
 name = "hex"
@@ -2211,17 +2208,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "469fb0b9cefa57e3ef31275ee7cacb78f2fdca44e4765491884a2b119d4eb130"
 
 [[package]]
-name = "is-terminal"
-version = "0.4.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e04d7f318608d35d4b61ddd75cbdaee86b023ebe2bd5a66ee0915f0bf93095a9"
-dependencies = [
- "hermit-abi 0.5.0",
- "libc",
- "windows-sys 0.59.0",
-]
-
-[[package]]
 name = "is_ci"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2551,7 +2537,7 @@ version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4161fcb6d602d4d2081af7c3a45852d875a03dd337a6bfdd6e06407b61342a43"
 dependencies = [
- "hermit-abi 0.3.9",
+ "hermit-abi",
  "libc",
 ]
 
@@ -4490,9 +4476,9 @@ dependencies = [
 
 [[package]]
 name = "validator"
-version = "0.19.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0b4a29d8709210980a09379f27ee31549b73292c87ab9899beee1c0d3be6303"
+checksum = "43fb22e1a008ece370ce08a3e9e4447a910e92621bb49b85d6e48a45397e7cfa"
 dependencies = [
  "idna 1.0.3",
  "once_cell",
@@ -4506,9 +4492,9 @@ dependencies = [
 
 [[package]]
 name = "validator_derive"
-version = "0.19.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bac855a2ce6f843beb229757e6e570a42e837bcb15e5f449dd48d5747d41bf77"
+checksum = "b7df16e474ef958526d1205f6dda359fdfab79d9aa6d54bafcb92dcd07673dca"
 dependencies = [
  "darling",
  "once_cell",

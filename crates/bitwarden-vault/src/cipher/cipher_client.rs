@@ -4,9 +4,7 @@ use bitwarden_crypto::IdentifyKey;
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
-use crate::{
-    Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError, VaultClient,
-};
+use crate::{Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError};
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CiphersClient {
@@ -82,14 +80,6 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
         Ok(decrypted_key)
-    }
-}
-
-impl VaultClient {
-    pub fn ciphers(&self) -> CiphersClient {
-        CiphersClient {
-            client: self.client.clone(),
-        }
     }
 }
 
