@@ -25,6 +25,7 @@ impl AsRef<[u8]> for SerializedMessage {
 }
 
 impl SerializedMessage {
+    /// Creates a new `SerializedMessage` from a byte array and content type.
     pub fn from_bytes(bytes: Vec<u8>, content_type: CoapContentFormat) -> Self {
         SerializedMessage {
             serialized_message_bytes: bytes,
@@ -32,6 +33,8 @@ impl SerializedMessage {
         }
     }
 
+    /// Returns the serialized message bytes as a slice. This representation needs to be used
+    /// together with a content type to deserialize the message correctly.
     pub fn as_bytes(&self) -> &[u8] {
         &self.serialized_message_bytes
     }
