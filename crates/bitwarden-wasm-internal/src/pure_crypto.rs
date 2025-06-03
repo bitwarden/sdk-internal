@@ -596,7 +596,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
     }
 
     #[test]
-    fn test_verify_aend_unwrap_signed_public_key() {
+    fn test_verify_and_unwrap_signed_public_key() {
         let public_key = PureCrypto::verify_and_unwrap_signed_public_key(
             SIGNED_PUBLIC_KEY.to_vec(),
             VERIFYING_KEY.to_vec(),
