@@ -116,21 +116,16 @@ impl CoseSerializable for SigningKey {
         let cose_key =
             CoseKey::from_slice(bytes).map_err(|_| EncodingError::InvalidCoseEncoding)?;
 
-        let Some(ref algorithm) = cose_key.alg else {
-            return Err(EncodingError::MissingValue("cose key algorithm"));
-        };
-        match (&cose_key.kty, algorithm) {
-            (kty, alg)
-                if *kty == RegisteredLabel::Assigned(KeyType::OKP)
-                    && *alg == RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA) =>
-            {
-                Ok(SigningKey {
-                    id: key_id(&cose_key)?,
-                    inner: RawSigningKey::Ed25519(Box::pin(ed25519_signing_key(&cose_key)?)),
-                })
-            }
+        match (&cose_key.alg, &cose_key.kty) {
+            (
+                Some(RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA)),
+                RegisteredLabel::Assigned(KeyType::OKP),
+            ) => Ok(SigningKey {
+                id: key_id(&cose_key)?,
+                inner: RawSigningKey::Ed25519(Box::pin(ed25519_signing_key(&cose_key)?)),
+            }),
             _ => Err(EncodingError::UnsupportedValue(
-                "cose key type or algorithm",
+                "COSE key type or algorithm",
             )),
         }
     }
