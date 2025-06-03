@@ -2,6 +2,7 @@
 //! identity, which is provided by a signature keypair. This is done by signing the public key, and
 //! requiring consumers to verify the public key before consumption by using unwrap_and_verify.
 
+use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -11,6 +12,12 @@ use crate::{
     cose::CoseSerializable, error::EncodingError, CryptoError, RawPublicKey, SignedObject,
     SigningKey, SigningNamespace, VerifyingKey,
 };
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_CUSTOM_TYPES: &'static str = r#"
+export type SignedPublicKey = string;
+"#;
 
 /// `PublicKeyEncryptionAlgorithm` defines the algorithms used for asymmetric encryption.
 /// Currently, only RSA with OAEP and SHA-1 keys are used.
@@ -72,9 +79,8 @@ impl SignedPublicKeyMessage {
 /// the Signer before they can use the public key for encryption.
 pub struct SignedPublicKey(pub(crate) SignedObject);
 
-impl TryInto<Vec<u8>> for SignedPublicKey {
-    type Error = EncodingError;
-    fn try_into(self) -> Result<Vec<u8>, EncodingError> {
+impl Into<Vec<u8>> for SignedPublicKey {
+    fn into(self) -> Vec<u8> {
         self.0.to_cose()
     }
 }
@@ -83,6 +89,23 @@ impl TryFrom<Vec<u8>> for SignedPublicKey {
     type Error = EncodingError;
     fn try_from(bytes: Vec<u8>) -> Result<Self, EncodingError> {
         Ok(SignedPublicKey(SignedObject::from_cose(&bytes)?))
+    }
+}
+
+impl Into<String> for SignedPublicKey {
+    fn into(self) -> String {
+        let bytes: Vec<u8> = self.into();
+        STANDARD.encode(&bytes)
+    }
+}
+
+impl TryFrom<String> for SignedPublicKey {
+    type Error = EncodingError;
+    fn try_from(encoded: String) -> Result<Self, EncodingError> {
+        let bytes = STANDARD
+            .decode(encoded)
+            .map_err(|_| EncodingError::InvalidCborSerialization)?;
+        Self::try_from(bytes)
     }
 }
 

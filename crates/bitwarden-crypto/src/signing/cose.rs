@@ -94,11 +94,11 @@ pub(super) fn ed25519_verifying_key(
     let x = okp_x(cose_key)?;
     let crv = okp_curve(cose_key)?;
     if crv == EllipticCurve::Ed25519.to_i64().into() {
-        Ok(ed25519_dalek::VerifyingKey::from_bytes(
+        ed25519_dalek::VerifyingKey::from_bytes(
             x.try_into()
                 .map_err(|_| EncodingError::InvalidValue("ed25519 OKP verifying key"))?,
         )
-        .map_err(|_| EncodingError::InvalidValue("ed25519 verifying key"))?)
+        .map_err(|_| EncodingError::InvalidValue("ed25519 OKP verifying key"))
     } else {
         Err(EncodingError::UnsupportedValue("OKP curve"))
     }
@@ -107,58 +107,44 @@ pub(super) fn ed25519_verifying_key(
 /// Helper function to parse the private key `d` from a `CoseKey`.
 fn okp_d(cose_key: &CoseKey) -> Result<&[u8], EncodingError> {
     // https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
-    let mut d = None;
-    for (key, value) in &cose_key.params {
-        if let Label::Int(i) = key {
-            let key = OkpKeyParameter::from_i64(*i)
-                .ok_or(EncodingError::MissingValue("OKP private key"))?;
-            if key == OkpKeyParameter::D {
-                d.replace(value);
+    cose_key
+        .params
+        .iter()
+        .find_map(|(key, value)| match key {
+            Label::Int(i) if OkpKeyParameter::from_i64(*i) == Some(OkpKeyParameter::D) => {
+                value.as_bytes().map(|v| v.as_slice())
             }
-        }
-    }
-    let d = d.ok_or(EncodingError::MissingValue("OKP private key"))?;
-    Ok(d.as_bytes()
-        .ok_or(EncodingError::InvalidValue("OKP private key"))?
-        .as_slice())
+            _ => None,
+        })
+        .ok_or(EncodingError::MissingValue("OKP private key"))
 }
 
 /// Helper function to parse the public key `x` from a `CoseKey`.
 fn okp_x(cose_key: &CoseKey) -> Result<&[u8], EncodingError> {
     // https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
-    let mut x = None;
-    for (key, value) in &cose_key.params {
-        if let Label::Int(i) = key {
-            let key = OkpKeyParameter::from_i64(*i)
-                .ok_or(EncodingError::MissingValue("OKP public key"))?;
-            if key == OkpKeyParameter::X {
-                x.replace(value);
+    cose_key
+        .params
+        .iter()
+        .find_map(|(key, value)| match key {
+            Label::Int(i) if OkpKeyParameter::from_i64(*i) == Some(OkpKeyParameter::X) => {
+                value.as_bytes().map(|v| v.as_slice())
             }
-        }
-    }
-    let x = x.ok_or(EncodingError::MissingValue("OKP public key"))?;
-    Ok(x.as_bytes()
-        .ok_or(EncodingError::InvalidValue("OKP public key"))?
-        .as_slice())
+            _ => None,
+        })
+        .ok_or(EncodingError::MissingValue("OKP public key"))
 }
 
 /// Helper function to parse the OKP curve from a `CoseKey`.
 fn okp_curve(cose_key: &CoseKey) -> Result<i128, EncodingError> {
     // https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
-    let mut crv = None;
-    for (key, value) in &cose_key.params {
-        if let Label::Int(i) = key {
-            let key =
-                OkpKeyParameter::from_i64(*i).ok_or(EncodingError::InvalidValue("OKP curve"))?;
-            if key == OkpKeyParameter::Crv {
-                crv.replace(value);
+    cose_key
+        .params
+        .iter()
+        .find_map(|(key, value)| match key {
+            Label::Int(i) if OkpKeyParameter::from_i64(*i) == Some(OkpKeyParameter::Crv) => {
+                value.as_integer().map(|v| i128::from(v))
             }
-        }
-    }
-
-    let crv = crv.ok_or(EncodingError::MissingValue("OKP curve"))?;
-    Ok(crv
-        .as_integer()
-        .ok_or(EncodingError::InvalidValue("OKP curve"))?
-        .into())
+            _ => None,
+        })
+        .ok_or(EncodingError::MissingValue("OKP curve"))
 }

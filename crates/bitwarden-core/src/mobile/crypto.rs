@@ -595,12 +595,10 @@ pub fn make_user_signing_keys(client: &Client) -> Result<MakeUserSigningKeysResp
         .try_into()?;
 
     Ok(MakeUserSigningKeysResponse {
-        verifying_key: STANDARD.encode(signature_keypair.to_verifying_key().to_cose()?),
+        verifying_key: STANDARD.encode(signature_keypair.to_verifying_key().to_cose()),
         // This needs to be changed to use the correct COSE content format before rolling out to
         // users: https://bitwarden.atlassian.net/browse/PM-22189
-        signing_key: signature_keypair
-            .to_cose()?
-            .encrypt_with_key(wrapping_key)?,
+        signing_key: signature_keypair.to_cose().encrypt_with_key(wrapping_key)?,
         signed_public_key: STANDARD.encode(&signed_public_key),
     })
 }

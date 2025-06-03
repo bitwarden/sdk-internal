@@ -31,12 +31,7 @@ fn main() {
         .expect("Failed to sign message");
 
     // Alice sends the signed object to Bob
-    mock_server.upload(
-        "signed_object",
-        signed_object
-            .to_cose()
-            .expect("Failed to serialize signed object"),
-    );
+    mock_server.upload("signed_object", signed_object.to_cose());
 
     // Bob retrieves the signed object from the server
     let retrieved_signed_object = SignedObject::from_cose(

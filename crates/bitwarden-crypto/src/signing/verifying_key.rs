@@ -58,7 +58,7 @@ impl VerifyingKey {
 }
 
 impl CoseSerializable for VerifyingKey {
-    fn to_cose(&self) -> Result<Vec<u8>, EncodingError> {
+    fn to_cose(&self) -> Vec<u8> {
         match &self.inner {
             RawVerifyingKey::Ed25519(key) => coset::CoseKeyBuilder::new_okp_key()
                 .key_id((&self.id).into())
@@ -78,7 +78,7 @@ impl CoseSerializable for VerifyingKey {
                 .add_key_op(KeyOperation::Verify)
                 .build()
                 .to_vec()
-                .map_err(|_| EncodingError::InvalidCoseEncoding),
+                .expect("Verifying key is always serializable"),
         }
     }
 
@@ -128,13 +128,10 @@ mod tests {
     #[test]
     fn test_cose_roundtrip_encode_verifying() {
         let verifying_key = VerifyingKey::from_cose(VERIFYING_KEY).unwrap();
-        let cose = verifying_key.to_cose().unwrap();
+        let cose = verifying_key.to_cose();
         let parsed_key = VerifyingKey::from_cose(&cose).unwrap();
 
-        assert_eq!(
-            verifying_key.to_cose().unwrap(),
-            parsed_key.to_cose().unwrap()
-        );
+        assert_eq!(verifying_key.to_cose(), parsed_key.to_cose());
     }
 
     #[test]

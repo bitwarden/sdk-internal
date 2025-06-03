@@ -153,11 +153,11 @@ impl CoseSerializable for SignedObject {
         ))
     }
 
-    fn to_cose(&self) -> Result<Vec<u8>, EncodingError> {
+    fn to_cose(&self) -> Vec<u8> {
         self.0
             .clone()
             .to_vec()
-            .map_err(|_| EncodingError::InvalidCoseEncoding)
+            .expect("SignedObject is always serializable")
     }
 }
 
@@ -197,7 +197,7 @@ mod tests {
             signed_object.content_type().unwrap(),
             coset::iana::CoapContentFormat::Cbor
         );
-        let cose_bytes = signed_object.to_cose().unwrap();
+        let cose_bytes = signed_object.to_cose();
         assert_eq!(cose_bytes, SIGNED_OBJECT);
     }
 

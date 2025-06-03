@@ -179,11 +179,11 @@ impl CoseSerializable for Signature {
         Ok(Signature(cose_sign1))
     }
 
-    fn to_cose(&self) -> Result<Vec<u8>, EncodingError> {
+    fn to_cose(&self) -> Vec<u8> {
         self.0
             .clone()
             .to_vec()
-            .map_err(|_| EncodingError::InvalidCoseEncoding)
+            .expect("Signature is always serializable")
     }
 }
 
@@ -213,7 +213,7 @@ mod tests {
     #[test]
     fn test_cose_roundtrip_encode_signature() {
         let signature = Signature::from_cose(SIGNATURE).unwrap();
-        let cose_bytes = signature.to_cose().unwrap();
+        let cose_bytes = signature.to_cose();
         let decoded_signature = Signature::from_cose(&cose_bytes).unwrap();
         assert_eq!(signature.inner(), decoded_signature.inner());
     }

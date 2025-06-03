@@ -119,7 +119,7 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
 }
 
 pub trait CoseSerializable {
-    fn to_cose(&self) -> Result<Vec<u8>, EncodingError>;
+    fn to_cose(&self) -> Vec<u8>;
     fn from_cose(bytes: &[u8]) -> Result<Self, EncodingError>
     where
         Self: Sized;

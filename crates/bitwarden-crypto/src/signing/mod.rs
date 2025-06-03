@@ -89,25 +89,19 @@ mod tests {
             .sign(&test_message, &SigningNamespace::ExampleNamespace)
             .unwrap();
         let raw_signed_array = signing_key.sign_raw("Test message".as_bytes());
-        println!(
-            "const SIGNING_KEY: &[u8] = &{:?};",
-            signing_key.to_cose().unwrap()
-        );
+        println!("const SIGNING_KEY: &[u8] = &{:?};", signing_key.to_cose());
         println!(
             "const VERIFYING_KEY: &[u8] = &{:?};",
-            verifying_key.to_cose().unwrap()
+            verifying_key.to_cose()
         );
-        println!(
-            "const SIGNATURE: &[u8] = &{:?};",
-            signature.to_cose().unwrap()
-        );
+        println!("const SIGNATURE: &[u8] = &{:?};", signature.to_cose());
         println!(
             "const SERIALIZED_MESSAGE: &[u8] = &{:?};",
             serialized_message.as_bytes()
         );
         println!(
             "const SIGNED_OBJECT: &[u8] = &{:?};",
-            signed_object.to_cose().unwrap()
+            signed_object.to_cose()
         );
         println!(
             "const SIGNED_OBJECT_RAW: &[u8] = &{:?};",

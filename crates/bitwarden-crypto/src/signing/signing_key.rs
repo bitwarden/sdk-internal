@@ -88,7 +88,7 @@ impl SigningKey {
 
 impl CoseSerializable for SigningKey {
     /// Serializes the signing key to a COSE-formatted byte array.
-    fn to_cose(&self) -> Result<Vec<u8>, EncodingError> {
+    fn to_cose(&self) -> Vec<u8> {
         match &self.inner {
             RawSigningKey::Ed25519(key) => {
                 coset::CoseKeyBuilder::new_okp_key()
@@ -106,7 +106,7 @@ impl CoseSerializable for SigningKey {
                     .add_key_op(KeyOperation::Verify)
                     .build()
                     .to_vec()
-                    .map_err(|_| EncodingError::InvalidCoseEncoding)
+                    .expect("Signing key is always serializable")
             }
         }
     }
@@ -138,13 +138,10 @@ mod tests {
     #[test]
     fn test_cose_roundtrip_encode_signing() {
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
-        let cose = signing_key.to_cose().unwrap();
+        let cose = signing_key.to_cose();
         let parsed_key = SigningKey::from_cose(&cose).unwrap();
 
-        assert_eq!(
-            signing_key.to_cose().unwrap(),
-            parsed_key.to_cose().unwrap()
-        );
+        assert_eq!(signing_key.to_cose(), parsed_key.to_cose());
     }
 
     #[test]
