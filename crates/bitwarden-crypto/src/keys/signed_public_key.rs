@@ -46,6 +46,8 @@ pub struct SignedPublicKeyMessage {
 }
 
 impl SignedPublicKeyMessage {
+    /// Creates a new `SignedPublicKeyMessage` from an `AsymmetricPublicCryptoKey`. This message
+    /// can then be signed using a `SigningKey` to create a `SignedPublicKey`.
     pub fn from_public_key(public_key: &AsymmetricPublicCryptoKey) -> Result<Self, CryptoError> {
         match public_key.inner() {
             RawPublicKey::RsaOaepSha1(_) => Ok(SignedPublicKeyMessage {
@@ -56,6 +58,8 @@ impl SignedPublicKeyMessage {
         }
     }
 
+    /// Signs the `SignedPublicKeyMessage` using the provided `SigningKey`, and returns a
+    /// `SignedPublicKey`.
     pub fn sign(&self, signing_key: &SigningKey) -> Result<SignedPublicKey, CryptoError> {
         Ok(SignedPublicKey(
             signing_key.sign(self, &SigningNamespace::SignedPublicKey)?,
