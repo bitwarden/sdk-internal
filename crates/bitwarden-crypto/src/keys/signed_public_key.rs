@@ -4,6 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::AsymmetricPublicCryptoKey;
 use crate::{
@@ -22,9 +23,9 @@ enum PublicKeyEncryptionAlgorithms {
 /// `PublicKeyFormat` defines the format of the public key in a `SignedAsymmetricPublicKeyMessage`.
 /// Currently, only ASN.1 Subject Public Key Info (SPKI) is used, but CoseKey may become another
 /// option in the future.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
 enum PublicKeyFormat {
-    #[serde(rename = "0")]
     Spki = 0,
 }
 

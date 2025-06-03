@@ -158,8 +158,10 @@ impl CoseSerializable for SignedObject {
 
 #[cfg(test)]
 mod tests {
+    use serde::{Deserialize, Serialize};
+
     use crate::{
-        CoseSerializable, CryptoError, SignedObject, SigningKey, SigningNamespace, TestMessage,
+        CoseSerializable, CryptoError, SignedObject, SigningKey, SigningNamespace,
         VerifyingKey,
     };
 
