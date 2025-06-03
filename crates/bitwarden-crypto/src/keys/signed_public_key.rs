@@ -82,9 +82,9 @@ impl SignedPublicKeyMessage {
 #[derive(Clone, Debug)]
 pub struct SignedPublicKey(pub(crate) SignedObject);
 
-impl Into<Vec<u8>> for SignedPublicKey {
-    fn into(self) -> Vec<u8> {
-        self.0.to_cose()
+impl From<SignedPublicKey> for Vec<u8> {
+    fn from(val: SignedPublicKey) -> Self {
+        val.0.to_cose()
     }
 }
 
@@ -95,9 +95,9 @@ impl TryFrom<Vec<u8>> for SignedPublicKey {
     }
 }
 
-impl Into<String> for SignedPublicKey {
-    fn into(self) -> String {
-        let bytes: Vec<u8> = self.into();
+impl From<SignedPublicKey> for String {
+    fn from(val: SignedPublicKey) -> Self {
+        let bytes: Vec<u8> = val.into();
         STANDARD.encode(&bytes)
     }
 }

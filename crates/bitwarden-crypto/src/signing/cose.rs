@@ -141,7 +141,7 @@ fn okp_curve(cose_key: &CoseKey) -> Result<i128, EncodingError> {
         .iter()
         .find_map(|(key, value)| match key {
             Label::Int(i) if OkpKeyParameter::from_i64(*i) == Some(OkpKeyParameter::Crv) => {
-                value.as_integer().map(|v| i128::from(v))
+                value.as_integer().map(i128::from)
             }
             _ => None,
         })
