@@ -13,9 +13,9 @@ use crate::{
 
 /// `PublicKeyEncryptionAlgorithm` defines the algorithms used for asymmetric encryption.
 /// Currently, only RSA with OAEP and SHA-1 keys are used.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
 enum PublicKeyEncryptionAlgorithms {
-    #[serde(rename = "0")]
     RsaOaepSha1 = 0,
 }
 
