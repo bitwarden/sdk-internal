@@ -15,6 +15,8 @@ pub(crate) enum RawPublicKey {
     RsaOaepSha1(RsaPublicKey),
 }
 
+/// Public key of a key pair used in a public key encryption scheme. It is used for
+/// encrypting data.
 #[derive(Clone)]
 pub struct AsymmetricPublicCryptoKey {
     inner: RawPublicKey,
@@ -34,6 +36,7 @@ impl AsymmetricPublicCryptoKey {
         })
     }
 
+    /// Makes a SubjectPublicKeyInfo DER serialized version of the public key.
     pub fn to_der(&self) -> Result<Vec<u8>> {
         use rsa::pkcs8::EncodePublicKey;
         match &self.inner {
@@ -55,6 +58,8 @@ pub(crate) enum RawPrivateKey {
     RsaOaepSha1(Pin<Box<RsaPrivateKey>>),
 }
 
+/// Private key of a key pair used in a public key encryption scheme. It is used for
+/// decrypting data that was encrypted with the corresponding public key.
 #[derive(Clone)]
 pub struct AsymmetricCryptoKey {
     inner: RawPrivateKey,
