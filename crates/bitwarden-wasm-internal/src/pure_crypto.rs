@@ -589,10 +589,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         .unwrap();
         let verifying_key_derived =
             VerifyingKey::from_cose(verifying_key_derived.as_slice()).unwrap();
-        assert_eq!(
-            verifying_key.to_cose(),
-            verifying_key_derived.to_cose()
-        );
+        assert_eq!(verifying_key.to_cose(), verifying_key_derived.to_cose());
     }
 
     #[test]

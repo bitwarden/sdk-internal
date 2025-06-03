@@ -16,6 +16,7 @@ use crate::{
 /// integrity and authenticity for a specific namespace and signature key. In order to gain access
 /// to the payload, the caller must provide the correct namespace and verifying key, ensuring that
 /// the caller cannot forget to validate the signature before using the payload.
+#[derive(Clone, Debug)]
 pub struct SignedObject(pub(crate) CoseSign1);
 
 impl From<CoseSign1> for SignedObject {

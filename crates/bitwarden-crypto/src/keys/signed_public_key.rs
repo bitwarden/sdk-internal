@@ -2,6 +2,8 @@
 //! identity, which is provided by a signature keypair. This is done by signing the public key, and
 //! requiring consumers to verify the public key before consumption by using unwrap_and_verify.
 
+use std::str::FromStr;
+
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
@@ -9,8 +11,8 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::AsymmetricPublicCryptoKey;
 use crate::{
-    cose::CoseSerializable, error::EncodingError, CryptoError, RawPublicKey, SignedObject,
-    SigningKey, SigningNamespace, VerifyingKey,
+    cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CryptoError, RawPublicKey,
+    SignedObject, SigningKey, SigningNamespace, VerifyingKey,
 };
 
 #[cfg(feature = "wasm")]
@@ -77,6 +79,7 @@ impl SignedPublicKeyMessage {
 /// `SignedAsymmetricPublicKey` is a public encryption key, signed by the owner of the encryption
 /// keypair. This wrapping ensures that the consumer of the public key MUST verify the identity of
 /// the Signer before they can use the public key for encryption.
+#[derive(Clone, Debug)]
 pub struct SignedPublicKey(pub(crate) SignedObject);
 
 impl Into<Vec<u8>> for SignedPublicKey {
@@ -128,6 +131,43 @@ impl SignedPublicKey {
                     .map_err(|_| EncodingError::InvalidValue("public key"))?,
             ),
         }
+    }
+}
+
+impl FromStr for SignedPublicKey {
+    type Err = EncodingError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::try_from(s.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for SignedPublicKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(FromStrVisitor::new())
+    }
+}
+
+impl serde::Serialize for SignedPublicKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let b64_serialized_signed_public_key: String = self.clone().into();
+        serializer.serialize_str(&b64_serialized_signed_public_key)
+    }
+}
+
+impl schemars::JsonSchema for SignedPublicKey {
+    fn schema_name() -> String {
+        "SignedPublicKey".to_string()
+    }
+
+    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+        generator.subschema_for::<String>()
     }
 }
 

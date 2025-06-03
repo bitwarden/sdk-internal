@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, SignatureAlgorithm, SigningKey, SymmetricCryptoKey,
+    KeyEncryptable, MasterKey, SignatureAlgorithm, SignedPublicKey, SigningKey, SymmetricCryptoKey,
     UnsignedSharedKey, UserKey,
 };
 use schemars::JsonSchema;
@@ -570,7 +570,7 @@ pub struct MakeUserSigningKeysResponse {
     /// Signing key, encrypted with a symmetric key (user key, org key)
     signing_key: EncString,
     /// The user's public key, signed by the signing key
-    signed_public_key: String,
+    signed_public_key: SignedPublicKey,
 }
 
 /// Makes a new set of signing keys for a user. This also signs the public key with the signing key
@@ -587,19 +587,17 @@ pub fn make_user_signing_keys(client: &Client) -> Result<MakeUserSigningKeysResp
     // Make new keypair and sign the public key with it
     let signature_keypair =
         SigningKey::make(SignatureAlgorithm::Ed25519).map_err(|_| CryptoError::InvalidKey)?;
-    let signed_public_key: Vec<u8> = ctx
-        .make_signed_public_key(
-            AsymmetricKeyId::UserPrivateKey,
-            SigningKeyId::UserSigningKey,
-        )?
-        .into();
+    let signed_public_key = ctx.make_signed_public_key(
+        AsymmetricKeyId::UserPrivateKey,
+        SigningKeyId::UserSigningKey,
+    )?;
 
     Ok(MakeUserSigningKeysResponse {
         verifying_key: STANDARD.encode(signature_keypair.to_verifying_key().to_cose()),
         // This needs to be changed to use the correct COSE content format before rolling out to
         // users: https://bitwarden.atlassian.net/browse/PM-22189
         signing_key: signature_keypair.to_cose().encrypt_with_key(wrapping_key)?,
-        signed_public_key: STANDARD.encode(&signed_public_key),
+        signed_public_key,
     })
 }
 

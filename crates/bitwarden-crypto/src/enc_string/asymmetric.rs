@@ -9,6 +9,7 @@ use super::{from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result},
     rsa::encrypt_rsa2048_oaep_sha1,
+    util::FromStrVisitor,
     AsymmetricCryptoKey, AsymmetricPublicCryptoKey, RawPrivateKey, RawPublicKey,
     SymmetricCryptoKey,
 };
@@ -141,7 +142,7 @@ impl<'de> Deserialize<'de> for UnsignedSharedKey {
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_str(super::FromStrVisitor::new())
+        deserializer.deserialize_str(FromStrVisitor::new())
     }
 }
 
