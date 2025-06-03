@@ -569,7 +569,7 @@ pub(super) fn verify_asymmetric_keys(
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct MakeUserSigningKeysResponse {
-    /// The verifying key
+    /// Base64 encoded verifying key
     verifying_key: String,
     /// Signing key, encrypted with a symmetric key (user key, org key)
     signing_key: EncString,

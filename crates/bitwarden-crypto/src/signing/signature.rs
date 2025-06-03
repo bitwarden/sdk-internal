@@ -52,10 +52,7 @@ impl Signature {
             return false;
         };
 
-        let Ok(signature_namespace) = self.namespace() else {
-            return false;
-        };
-        if signature_namespace != *namespace {
+        if self.namespace().ok().as_ref() != Some(namespace) {
             return false;
         }
 
