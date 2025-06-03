@@ -72,7 +72,7 @@ impl CoseSerializable for VerifyingKey {
                 // the case of Ed25519, this is the compressed Y coordinate. This
                 // was ill-defined in earlier drafts of the standard. https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
                 .param(
-                    OkpKeyParameter::X.to_i64(),
+                    OkpKeyParameter::X.to_i64(), // Verifying key (digital signature public key)
                     Value::Bytes(key.to_bytes().to_vec()),
                 )
                 .add_key_op(KeyOperation::Verify)
