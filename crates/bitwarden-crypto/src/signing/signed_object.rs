@@ -67,8 +67,7 @@ impl SignedObject {
             return Err(SignatureError::InvalidSignature.into());
         };
 
-        let signature_namespace = self.namespace()?;
-        if signature_namespace != *namespace {
+        if self.namespace()? != *namespace {
             return Err(SignatureError::InvalidNamespace.into());
         }
 
