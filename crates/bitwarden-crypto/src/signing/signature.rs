@@ -48,9 +48,9 @@ impl Signature {
         verifying_key: &VerifyingKey,
         namespace: &SigningNamespace,
     ) -> bool {
-        let Some(_alg) = &self.inner().protected.header.alg else {
+        if self.inner().protected.header.alg.is_none() {
             return false;
-        };
+        }
 
         if self.namespace().ok().as_ref() != Some(namespace) {
             return false;
