@@ -308,7 +308,7 @@ impl PureCrypto {
 mod tests {
     use std::{num::NonZero, str::FromStr};
 
-    use bitwarden_crypto::{EncString, SignedPublicKeyMessage};
+    use bitwarden_crypto::EncString;
 
     use super::*;
 
