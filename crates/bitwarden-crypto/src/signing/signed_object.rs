@@ -161,8 +161,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        CoseSerializable, CryptoError, SignedObject, SigningKey, SigningNamespace,
-        VerifyingKey,
+        CoseSerializable, CryptoError, SignedObject, SigningKey, SigningNamespace, VerifyingKey,
     };
 
     const VERIFYING_KEY: &[u8] = &[
