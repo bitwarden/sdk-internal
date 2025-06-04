@@ -12,7 +12,7 @@ use crate::{
         auth_request::new_auth_request,
     },
     client::{LoginMethod, UserLoginMethod},
-    mobile::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
+    key_management::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
     require, ApiError, Client,
 };
 

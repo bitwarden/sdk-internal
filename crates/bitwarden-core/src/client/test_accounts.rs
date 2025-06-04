@@ -4,10 +4,7 @@ use std::collections::HashMap;
 use bitwarden_crypto::{EncString, Kdf};
 
 use crate::{
-    mobile::crypto::{
-        initialize_org_crypto, initialize_user_crypto, InitOrgCryptoRequest, InitUserCryptoMethod,
-        InitUserCryptoRequest,
-    },
+    key_management::crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
     Client,
 };
 
@@ -20,10 +17,14 @@ impl Client {
             true,
         )]));
 
-        initialize_user_crypto(&client, account.user).await.unwrap();
+        client
+            .crypto()
+            .initialize_user_crypto(account.user)
+            .await
+            .unwrap();
 
         if let Some(org) = account.org {
-            initialize_org_crypto(&client, org).await.unwrap();
+            client.crypto().initialize_org_crypto(org).await.unwrap();
         }
 
         client

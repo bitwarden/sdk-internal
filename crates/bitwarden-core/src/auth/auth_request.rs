@@ -140,9 +140,9 @@ mod tests {
     use bitwarden_crypto::{Kdf, MasterKey};
 
     use super::*;
-    use crate::{
-        key_management::SymmetricKeyId,
-        mobile::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
+    use crate::key_management::{
+        crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
+        SymmetricKeyId,
     };
 
     #[test]
