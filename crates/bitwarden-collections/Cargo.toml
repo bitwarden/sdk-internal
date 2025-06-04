@@ -22,8 +22,5 @@ thiserror = { workspace = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 
-[dev-dependencies]
-tokio = { workspace = true, features = ["rt"] }
-
 [lints]
 workspace = true

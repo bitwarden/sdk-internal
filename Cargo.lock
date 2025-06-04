@@ -343,7 +343,6 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "thiserror 1.0.69",
- "tokio",
  "uniffi",
  "uuid",
 ]

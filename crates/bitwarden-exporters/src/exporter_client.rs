@@ -1,5 +1,6 @@
+use credential_exchange_format::Collection;
 use bitwarden_core::Client;
-use bitwarden_vault::{Cipher, Collection, Folder};
+use bitwarden_vault::{Cipher, Folder};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -42,7 +43,7 @@ impl ExporterClient {
     /// *Warning:* Expect this API to be unstable, and it will change in the future.
     ///
     /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
-    /// Ideally the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
+    /// Ideally, the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
     pub fn export_cxf(
         &self,
         account: Account,
@@ -56,7 +57,7 @@ impl ExporterClient {
     /// *Warning:* Expect this API to be unstable, and it will change in the future.
     ///
     /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
-    /// Ideally the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
+    /// Ideally, the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
     pub fn import_cxf(&self, payload: String) -> Result<Vec<Cipher>, ExportError> {
         import_cxf(&self.client, payload)
     }

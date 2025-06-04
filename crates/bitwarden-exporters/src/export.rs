@@ -1,6 +1,7 @@
+use credential_exchange_format::Collection;
 use bitwarden_core::{key_management::KeyIds, Client};
 use bitwarden_crypto::{Encryptable, IdentifyKey, KeyStoreContext};
-use bitwarden_vault::{Cipher, CipherView, Collection, Folder, FolderView};
+use bitwarden_vault::{Cipher, CipherView, Folder, FolderView};
 
 use crate::{
     csv::export_csv,
