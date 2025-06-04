@@ -1,4 +1,4 @@
-use credential_exchange_format::Collection;
+use bitwarden_collections::collection::Collection;
 use bitwarden_core::Client;
 use bitwarden_vault::{Cipher, Folder};
 #[cfg(feature = "wasm")]

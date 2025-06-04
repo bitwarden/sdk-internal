@@ -453,6 +453,7 @@ name = "bitwarden-exporters"
 version = "1.0.0"
 dependencies = [
  "base64",
+ "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
