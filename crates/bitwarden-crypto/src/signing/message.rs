@@ -1,10 +1,18 @@
+//! This file contains message serialization for messages intended to be signed.
+//!
 //! Consumers of the signing API should not care about or implement individual ways to represent
 //! structs. Thus, the only publicly exposed api takes a struct, and the signing module takes care
 //! of the serialization under the hood. This requires converting the struct to a byte array
 //! using some serialization format. Further, the serialization format must be written to the
 //! signature object so that it can be used upon deserialization to use the correct deserializer.
 //!
-//! Currently, only CBOR is implemented, since it is compact and is what COSE already uses.
+//! To provide this interface, the SerializedMessage struct is introduced. SerializedMessage
+//! represents the serialized bytes along with the content format used for serialization. The latter
+//! is stored on the signed object, in e.g. a COSE header, so that upon deserialization the correct
+//! deserializer can be used.
+//!
+//! Currently, only CBOR serialization / deserialization is implemented, since it is compact and is
+//! what COSE already uses.
 
 use coset::iana::CoapContentFormat;
 use serde::{de::DeserializeOwned, Serialize};
