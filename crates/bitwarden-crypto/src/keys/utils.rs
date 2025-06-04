@@ -17,7 +17,7 @@ pub(super) fn stretch_key(key: &Pin<Box<GenericArray<u8, U32>>>) -> Result<Aes25
 }
 
 /// Pads bytes to a minimum length using PKCS7-like padding.
-/// The last N bytes of the padded bytes all have the value N.
+/// The last N bytes of the padded bytes all have the value N. Minimum of 1 padding byte.
 /// For example, padded to size 4, the value 0,0 becomes 0,0,2,2.
 pub(crate) fn pad_bytes(bytes: &mut Vec<u8>, min_length: usize) {
     // at least 1 byte of padding is required
