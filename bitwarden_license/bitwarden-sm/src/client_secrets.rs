@@ -3,12 +3,12 @@ use bitwarden_core::Client;
 use crate::{
     error::SecretsManagerError,
     secrets::{
-        create_secret, delete_secrets, get_secret, get_secrets_by_ids, list_secrets,
-        list_secrets_by_project, sync_secrets, update_secret, SecretCreateRequest,
+        create_secret, delete_secrets, get_secret, get_secrets_by_ids, get_secrets_by_project,
+        list_secrets, list_secrets_by_project, sync_secrets, update_secret, SecretCreateRequest,
         SecretGetRequest, SecretIdentifiersByProjectRequest, SecretIdentifiersRequest,
-        SecretIdentifiersResponse, SecretPutRequest, SecretResponse, SecretsDeleteRequest,
-        SecretsDeleteResponse, SecretsGetRequest, SecretsResponse, SecretsSyncRequest,
-        SecretsSyncResponse,
+        SecretIdentifiersResponse, SecretPutRequest, SecretResponse, SecretsByProjectGetRequest,
+        SecretsDeleteRequest, SecretsDeleteResponse, SecretsGetRequest, SecretsResponse,
+        SecretsSyncRequest, SecretsSyncResponse,
     },
 };
 
@@ -78,6 +78,13 @@ impl SecretsClient {
         input: &SecretsSyncRequest,
     ) -> Result<SecretsSyncResponse, SecretsManagerError> {
         sync_secrets(&self.client, input).await
+    }
+
+    pub async fn get_by_project(
+        &self,
+        input: &SecretsByProjectGetRequest,
+    ) -> Result<SecretsResponse, SecretsManagerError> {
+        get_secrets_by_project(&self.client, input).await
     }
 }
 
