@@ -34,7 +34,7 @@ pub(crate) fn unpad_bytes(padded_bytes: &[u8]) -> Result<&[u8], CryptoError> {
     if pad_len >= padded_bytes.len() {
         return Err(CryptoError::InvalidPadding);
     }
-    Ok(padded_bytes[..padded_bytes.len() - pad_len].as_ref())
+    Ok(padded_bytes[..(padded_bytes.len() - pad_len)].as_ref())
 }
 
 #[cfg(test)]
