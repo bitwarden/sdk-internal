@@ -2,12 +2,12 @@ use bitwarden_api_api::models::CollectionDetailsResponseModel;
 
 use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
 
-use uuid::Uuid;
-use serde::{Deserialize, Serialize};
-use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-use bitwarden_core::require;
 use crate::error::CollectionsParseError;
 use crate::tree::TreeItem;
+use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+use bitwarden_core::require;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

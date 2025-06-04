@@ -1,3 +1,8 @@
-pub mod tree;
+#[cfg(feature = "uniffi")]
+uniffi::setup_scaffolding!();
+#[cfg(feature = "uniffi")]
+mod uniffi_support;
+
 pub mod collection;
-mod error;
+pub mod error;
+pub mod tree;
