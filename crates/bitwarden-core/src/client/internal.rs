@@ -6,7 +6,6 @@ use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
 use chrono::Utc;
-use uuid::Uuid;
 
 #[cfg(feature = "secrets")]
 use super::login_method::ServiceAccountLoginMethod;
@@ -14,13 +13,14 @@ use super::login_method::ServiceAccountLoginMethod;
 use crate::client::encryption_settings::EncryptionSettings;
 use crate::{
     auth::renew::renew_token, client::login_method::LoginMethod, error::UserIdAlreadySetError,
-    key_management::KeyIds, DeviceType,
+    key_management::KeyIds, DeviceType, UserId,
 };
 #[cfg(feature = "internal")]
 use crate::{
     client::encryption_settings::EncryptionSettingsError,
     client::{flags::Flags, login_method::UserLoginMethod},
     error::NotAuthenticatedError,
+    OrganizationId,
 };
 
 #[derive(Debug, Clone)]
@@ -44,7 +44,7 @@ pub(crate) struct Tokens {
 
 #[derive(Debug)]
 pub struct InternalClient {
-    pub(crate) user_id: OnceLock<Uuid>,
+    pub(crate) user_id: OnceLock<UserId>,
     pub(crate) tokens: RwLock<Tokens>,
     pub(crate) login_method: RwLock<Option<Arc<LoginMethod>>>,
 
@@ -82,7 +82,7 @@ impl InternalClient {
             .clone()
     }
 
-    pub fn get_access_token_organization(&self) -> Option<Uuid> {
+    pub fn get_access_token_organization(&self) -> Option<OrganizationId> {
         match self
             .login_method
             .read()
@@ -173,11 +173,11 @@ impl InternalClient {
         &self.key_store
     }
 
-    pub fn init_user_id(&self, user_id: Uuid) -> Result<(), UserIdAlreadySetError> {
+    pub fn init_user_id(&self, user_id: UserId) -> Result<(), UserIdAlreadySetError> {
         self.user_id.set(user_id).map_err(|_| UserIdAlreadySetError)
     }
 
-    pub fn get_user_id(&self) -> Option<Uuid> {
+    pub fn get_user_id(&self) -> Option<UserId> {
         self.user_id.get().copied()
     }
 
@@ -219,7 +219,7 @@ impl InternalClient {
     #[cfg(feature = "secrets")]
     pub(crate) fn initialize_crypto_single_org_key(
         &self,
-        organization_id: Uuid,
+        organization_id: OrganizationId,
         key: SymmetricCryptoKey,
     ) {
         EncryptionSettings::new_single_org_key(organization_id, key, &self.key_store);
@@ -228,7 +228,7 @@ impl InternalClient {
     #[cfg(feature = "internal")]
     pub fn initialize_org_crypto(
         &self,
-        org_keys: Vec<(Uuid, UnsignedSharedKey)>,
+        org_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
     ) -> Result<(), EncryptionSettingsError> {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
     }
