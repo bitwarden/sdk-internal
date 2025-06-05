@@ -10,6 +10,9 @@ license-file.workspace = true
 readme.workspace = true
 keywords.workspace = true
 
+[features]
+wasm = ["dep:tsify-next", "dep:wasm-bindgen"] # WASM support
+
 [dependencies]
 bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
@@ -21,6 +24,8 @@ serde_repr = { workspace = true }
 thiserror = { workspace = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
+
 
 [lints]
 workspace = true

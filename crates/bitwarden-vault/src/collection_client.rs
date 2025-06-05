@@ -1,4 +1,5 @@
 use bitwarden_collections::collection::{CollectionView, Collection};
+use bitwarden_collections::tree::Tree;
 use bitwarden_core::Client;
 use crate::DecryptError;
 
@@ -20,6 +21,10 @@ impl CollectionsClient {
         let key_store = self.client.internal.get_key_store();
         let views = key_store.decrypt_list(&collections)?;
         Ok(views)
+    }
+
+    pub fn get_collections_tree(&self, collections: Vec<CollectionView>) -> Tree<CollectionView> {
+        Tree::from_items(collections)
     }
 }
 

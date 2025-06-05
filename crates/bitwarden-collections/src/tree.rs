@@ -110,7 +110,7 @@ impl<T: TreeItem> Tree<T> {
         self.nodes.push(node);
     }
 
-    fn get_item_by_id(&self, tree_item_id: Uuid) -> Option<NodeItem<T>> {
+    pub fn get_item_by_id(&self, tree_item_id: Uuid) -> Option<NodeItem<T>> {
         let item = self.items.iter().find(|i| i.data.id() == tree_item_id);
 
         if let Some(item) = item {
