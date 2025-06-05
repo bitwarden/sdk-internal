@@ -16,7 +16,7 @@ keywords.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
-async-trait = ">=0.1.80, <0.2"
+async-trait = { workspace = true }
 bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
 bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }
@@ -24,6 +24,7 @@ bitwarden-exporters = { workspace = true, features = ["wasm"] }
 bitwarden-generators = { workspace = true, features = ["wasm"] }
 bitwarden-ipc = { workspace = true, features = ["wasm"] }
 bitwarden-ssh = { workspace = true, features = ["wasm"] }
+bitwarden-state = { workspace = true, features = ["wasm"] }
 bitwarden-threading = { workspace = true }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
 console_error_panic_hook = "0.1.7"

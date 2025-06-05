@@ -44,21 +44,24 @@ impl PlatformClient {
         fido2::ClientFido2(self.0.fido2())
     }
 
-    pub fn repository(&self) -> RepositoryClient {
-        RepositoryClient(self.0.clone())
+    pub fn state(&self) -> StateClient {
+        StateClient(self.0.clone())
     }
 }
 
 #[derive(uniffi::Object)]
-pub struct RepositoryClient(Client);
+pub struct StateClient(Client);
 
 repository::create_uniffi_repository!(CipherRepository, Cipher);
 
 #[uniffi::export]
-impl RepositoryClient {
+impl StateClient {
     pub fn register_cipher_repository(&self, store: Arc<dyn CipherRepository>) -> Result<()> {
         let store_internal = UniffiRepositoryBridge::new(store);
-        self.0.internal.register_repository(store_internal);
+        self.0
+            .platform()
+            .state()
+            .register_repository(store_internal);
         Ok(())
     }
 }

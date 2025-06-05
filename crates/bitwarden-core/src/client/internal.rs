@@ -5,6 +5,8 @@ use bitwarden_crypto::KeyStore;
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
+#[cfg(feature = "internal")]
+use bitwarden_state::repository::RepositoryMap;
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -19,7 +21,6 @@ use crate::{
 #[cfg(feature = "internal")]
 use crate::{
     client::encryption_settings::EncryptionSettingsError,
-    client::repository::{Repository, RepositoryMap},
     client::{flags::Flags, login_method::UserLoginMethod},
     error::NotAuthenticatedError,
 };
@@ -66,7 +67,7 @@ pub struct InternalClient {
     pub(super) key_store: KeyStore<KeyIds>,
 
     #[cfg(feature = "internal")]
-    pub(super) repository_map: RwLock<RepositoryMap>,
+    pub(crate) repository_map: RwLock<RepositoryMap>,
 }
 
 impl InternalClient {
@@ -248,21 +249,5 @@ impl InternalClient {
         org_keys: Vec<(Uuid, UnsignedSharedKey)>,
     ) -> Result<(), EncryptionSettingsError> {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
-    }
-
-    #[cfg(feature = "internal")]
-    pub fn register_repository<T: 'static + Repository<V>, V: 'static>(&self, store: Arc<T>) {
-        self.repository_map
-            .write()
-            .expect("RwLock is not poisoned")
-            .insert(store);
-    }
-
-    #[cfg(feature = "internal")]
-    pub fn get_repository<T: 'static>(&self) -> Option<Arc<dyn Repository<T>>> {
-        self.repository_map
-            .read()
-            .expect("RwLock is not poisoned")
-            .get()
     }
 }

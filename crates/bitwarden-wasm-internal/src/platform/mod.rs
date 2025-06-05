@@ -15,15 +15,15 @@ impl PlatformClient {
 
 #[wasm_bindgen]
 impl PlatformClient {
-    pub fn repository(&self) -> RepositoryClient {
-        RepositoryClient::new(self.0.clone())
+    pub fn state(&self) -> StateClient {
+        StateClient::new(self.0.clone())
     }
 }
 
 #[wasm_bindgen]
-pub struct RepositoryClient(Client);
+pub struct StateClient(Client);
 
-impl RepositoryClient {
+impl StateClient {
     pub fn new(client: Client) -> Self {
         Self(client)
     }
@@ -32,9 +32,9 @@ impl RepositoryClient {
 repository::create_wasm_repository!(CipherRepository, Cipher, "Repository<Cipher>");
 
 #[wasm_bindgen]
-impl RepositoryClient {
+impl StateClient {
     pub fn register_cipher_repository(&self, store: CipherRepository) {
         let store = store.into_channel_impl();
-        self.0.internal.register_repository(store);
+        self.0.platform().state().register_repository(store);
     }
 }

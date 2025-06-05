@@ -4,20 +4,45 @@ use std::{
     sync::Arc,
 };
 
+/// An error resulting from operations on a repository.
 #[derive(thiserror::Error, Debug)]
 pub enum RepositoryError {
+    /// An internal unspecified error.
     #[error("Internal error: {0}")]
     Internal(String),
 }
 
+/// This trait is used to mark types that can be stored in a repository.
+/// It provides a method to retrieve the `TypeId` of the type, which is used to
+/// differentiate between different types of entries in the repository.
+pub trait RepositoryItem: 'static {
+    /// Returns the `TypeId` of the type implementing this trait.
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<Self>()
+    }
+
+    /// Returns the name of the type implementing this trait.
+    fn name(&self) -> &'static str {
+        std::any::type_name::<Self>()
+    }
+}
+
+/// This trait represents a generic repository interface, capable of storing and retrieving
+/// items using a key-value API.
 #[async_trait::async_trait]
 pub trait Repository<T>: Send + Sync {
+    /// Retrieves an item from the repository by its key.
     async fn get(&self, key: String) -> Result<Option<T>, RepositoryError>;
+    /// Lists all items in the repository.
     async fn list(&self) -> Result<Vec<T>, RepositoryError>;
+    /// Sets an item in the repository with the specified key.
     async fn set(&self, key: String, value: T) -> Result<(), RepositoryError>;
+    /// Removes an item from the repository by its key.
     async fn remove(&self, key: String) -> Result<(), RepositoryError>;
 }
 
+/// A map that holds repositories for different types, allowing for dynamic retrieval
+/// based on type identifiers.
 #[derive(Default)]
 pub struct RepositoryMap {
     stores: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
@@ -32,16 +57,19 @@ impl std::fmt::Debug for RepositoryMap {
 }
 
 impl RepositoryMap {
+    /// Creates a new empty `RepositoryMap`.
     pub fn new() -> Self {
         RepositoryMap {
             stores: HashMap::new(),
         }
     }
 
+    /// Inserts a repository into the map, associating it with its type.
     pub fn insert<T: 'static>(&mut self, value: Arc<dyn Repository<T>>) {
         self.stores.insert(TypeId::of::<T>(), Box::new(value));
     }
 
+    /// Retrieves a repository from the map given its type.
     pub fn get<T: 'static>(&self) -> Option<Arc<dyn Repository<T>>> {
         self.stores
             .get(&TypeId::of::<T>())

@@ -30,7 +30,7 @@ impl From<uniffi::UnexpectedUniFFICallbackError> for RepositoryError {
     }
 }
 
-impl From<RepositoryError> for bitwarden_core::client::repository::RepositoryError {
+impl From<RepositoryError> for bitwarden_state::repository::RepositoryError {
     fn from(e: RepositoryError) -> Self {
         match e {
             RepositoryError::Internal(msg) => Self::Internal(msg),
@@ -71,31 +71,29 @@ macro_rules! create_uniffi_repository {
         }
 
         #[async_trait::async_trait]
-        impl bitwarden_core::client::repository::Repository<$ty>
+        impl bitwarden_state::repository::Repository<$ty>
             for $crate::platform::repository::UniffiRepositoryBridge<Arc<dyn $name>>
         {
             async fn get(
                 &self,
                 key: String,
-            ) -> Result<Option<$ty>, bitwarden_core::client::repository::RepositoryError> {
+            ) -> Result<Option<$ty>, bitwarden_state::repository::RepositoryError> {
                 self.0.get(key).await.map_err(Into::into)
             }
-            async fn list(
-                &self,
-            ) -> Result<Vec<$ty>, bitwarden_core::client::repository::RepositoryError> {
+            async fn list(&self) -> Result<Vec<$ty>, bitwarden_state::repository::RepositoryError> {
                 self.0.list().await.map_err(Into::into)
             }
             async fn set(
                 &self,
                 key: String,
                 value: $ty,
-            ) -> Result<(), bitwarden_core::client::repository::RepositoryError> {
+            ) -> Result<(), bitwarden_state::repository::RepositoryError> {
                 self.0.set(key, value).await.map_err(Into::into)
             }
             async fn remove(
                 &self,
                 key: String,
-            ) -> Result<(), bitwarden_core::client::repository::RepositoryError> {
+            ) -> Result<(), bitwarden_state::repository::RepositoryError> {
                 self.0.remove(key).await.map_err(Into::into)
             }
         }

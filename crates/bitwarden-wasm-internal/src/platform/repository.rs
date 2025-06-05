@@ -41,8 +41,8 @@ macro_rules! create_wasm_repository {
         impl $name {
             pub fn into_channel_impl(
                 self,
-            ) -> ::std::sync::Arc<impl bitwarden_core::client::repository::Repository<$ty>> {
-                use ::bitwarden_core::client::repository::*;
+            ) -> ::std::sync::Arc<impl bitwarden_state::repository::Repository<$ty>> {
+                use ::bitwarden_state::repository::*;
                 use $crate::platform::repository::__macro_internal::*;
 
                 struct Store(::bitwarden_threading::ThreadBoundRunner<$name>);
@@ -78,7 +78,7 @@ pub(super) use create_wasm_repository;
 pub mod __macro_internal {
     use std::{future::Future, rc::Rc};
 
-    use bitwarden_core::client::repository::RepositoryError;
+    use bitwarden_state::repository::RepositoryError;
     use wasm_bindgen::JsValue;
 
     pub const UNIT: Result<JsValue, JsValue> = Ok(JsValue::UNDEFINED);

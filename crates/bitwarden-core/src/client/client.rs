@@ -1,6 +1,8 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
+#[cfg(feature = "internal")]
+use bitwarden_state::repository::RepositoryMap;
 use reqwest::header::{self, HeaderValue};
 
 use super::internal::InternalClient;
@@ -9,7 +11,6 @@ use crate::client::flags::Flags;
 use crate::client::{
     client_settings::ClientSettings,
     internal::{ApiConfigurations, Tokens},
-    repository::RepositoryMap,
 };
 
 /// The main struct to interact with the Bitwarden SDK.

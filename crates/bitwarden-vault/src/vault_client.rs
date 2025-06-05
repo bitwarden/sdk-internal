@@ -39,10 +39,12 @@ impl VaultClient {
         }
     }
 
+    /// Test method, prints all ciphers in the vault
     pub async fn print_the_ciphers(&self) -> String {
         let store = self
             .client
-            .internal
+            .platform()
+            .state()
             .get_repository::<Cipher>()
             .expect("msg");
         let mut result = String::new();

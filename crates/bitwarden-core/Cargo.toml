@@ -28,12 +28,12 @@ wasm = [
 ] # WASM support
 
 [dependencies]
-async-trait = ">=0.1.80, <0.2"
 base64 = ">=0.22.1, <0.23"
 bitwarden-api-api = { workspace = true }
 bitwarden-api-identity = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-state = { workspace = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
 # We don't use this directly (it's used by rand), but we need it here to enable WASM support

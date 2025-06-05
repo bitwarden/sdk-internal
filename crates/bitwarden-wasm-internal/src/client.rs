@@ -55,6 +55,7 @@ impl BitwardenClient {
         self.0.vault()
     }
 
+    /// Constructs a specific client for platform-specific functionality
     pub fn platform(&self) -> PlatformClient {
         PlatformClient::new(self.0.clone())
     }

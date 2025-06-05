@@ -1,5 +1,5 @@
 [package]
-name = "bitwarden-threading"
+name = "bitwarden-state"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -9,7 +9,12 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
+[features]
+uniffi = []
+wasm = []
+
 [dependencies]
+async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
@@ -23,15 +28,6 @@ js-sys = { workspace = true }
 tsify-next = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
-
-[dev-dependencies]
-async-trait = { workspace = true }
-console_error_panic_hook = "0.1.7"
-js-sys = { workspace = true }
-tsify-next = { workspace = true }
-wasm-bindgen = { workspace = true }
-wasm-bindgen-futures = { workspace = true }
-wasm-bindgen-test = { workspace = true }
 
 [lints]
 workspace = true
