@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum TwoFactorProviderType {
     Authenticator = 0,
@@ -39,21 +30,24 @@ pub enum TwoFactorProviderType {
 }
 
 impl std::fmt::Display for TwoFactorProviderType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Authenticator => write!(f, "0"),
-            Self::Email => write!(f, "1"),
-            Self::Duo => write!(f, "2"),
-            Self::YubiKey => write!(f, "3"),
-            Self::U2f => write!(f, "4"),
-            Self::Remember => write!(f, "5"),
-            Self::OrganizationDuo => write!(f, "6"),
-            Self::WebAuthn => write!(f, "7"),
-            Self::RecoveryCode => write!(f, "8"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Authenticator => "0",
+                Self::Email => "1",
+                Self::Duo => "2",
+                Self::YubiKey => "3",
+                Self::U2f => "4",
+                Self::Remember => "5",
+                Self::OrganizationDuo => "6",
+                Self::WebAuthn => "7",
+                Self::RecoveryCode => "8",
+            }
+        )
     }
 }
-
 impl Default for TwoFactorProviderType {
     fn default() -> TwoFactorProviderType {
         Self::Authenticator

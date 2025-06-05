@@ -9,9 +9,9 @@
  */
 
 use reqwest;
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as _, Deserialize, Serialize};
 
-use super::{configuration, Error};
+use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
 /// struct for typed errors of method [`ciphers_id_events_get`]
@@ -63,54 +63,61 @@ pub async fn ciphers_id_events_get(
     end: Option<String>,
     continuation_token: Option<&str>,
 ) -> Result<models::EventResponseModelListResponseModel, Error<CiphersIdEventsGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_start = start;
+    let p_end = end;
+    let p_continuation_token = continuation_token;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/ciphers/{id}/events",
-        local_var_configuration.base_path,
-        id = crate::apis::urlencode(id)
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_str) = start {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("start", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_start {
+        req_builder = req_builder.query(&[("start", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = end {
-        local_var_req_builder = local_var_req_builder.query(&[("end", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_end {
+        req_builder = req_builder.query(&[("end", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = continuation_token {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("continuationToken", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_continuation_token {
+        req_builder = req_builder.query(&[("continuationToken", &param_value.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<CiphersIdEventsGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<CiphersIdEventsGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -120,50 +127,56 @@ pub async fn events_get(
     end: Option<String>,
     continuation_token: Option<&str>,
 ) -> Result<models::EventResponseModelListResponseModel, Error<EventsGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_start = start;
+    let p_end = end;
+    let p_continuation_token = continuation_token;
 
-    let local_var_client = &local_var_configuration.client;
+    let uri_str = format!("{}/events", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    let local_var_uri_str = format!("{}/events", local_var_configuration.base_path);
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-    if let Some(ref local_var_str) = start {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("start", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_start {
+        req_builder = req_builder.query(&[("start", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = end {
-        local_var_req_builder = local_var_req_builder.query(&[("end", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_end {
+        req_builder = req_builder.query(&[("end", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = continuation_token {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("continuationToken", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_continuation_token {
+        req_builder = req_builder.query(&[("continuationToken", &param_value.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<EventsGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<EventsGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -174,54 +187,61 @@ pub async fn organizations_id_events_get(
     end: Option<String>,
     continuation_token: Option<&str>,
 ) -> Result<models::EventResponseModelListResponseModel, Error<OrganizationsIdEventsGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_start = start;
+    let p_end = end;
+    let p_continuation_token = continuation_token;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{id}/events",
-        local_var_configuration.base_path,
-        id = crate::apis::urlencode(id)
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_str) = start {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("start", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_start {
+        req_builder = req_builder.query(&[("start", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = end {
-        local_var_req_builder = local_var_req_builder.query(&[("end", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_end {
+        req_builder = req_builder.query(&[("end", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = continuation_token {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("continuationToken", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_continuation_token {
+        req_builder = req_builder.query(&[("continuationToken", &param_value.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsIdEventsGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsIdEventsGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -236,55 +256,64 @@ pub async fn organizations_org_id_users_id_events_get(
     models::EventResponseModelListResponseModel,
     Error<OrganizationsOrgIdUsersIdEventsGetError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+    let p_start = start;
+    let p_end = end;
+    let p_continuation_token = continuation_token;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/events",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id),
-        id = crate::apis::urlencode(id)
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id),
+        id = crate::apis::urlencode(p_id)
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_str) = start {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("start", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_start {
+        req_builder = req_builder.query(&[("start", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = end {
-        local_var_req_builder = local_var_req_builder.query(&[("end", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_end {
+        req_builder = req_builder.query(&[("end", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = continuation_token {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("continuationToken", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_continuation_token {
+        req_builder = req_builder.query(&[("continuationToken", &param_value.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdEventsGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdEventsGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -295,54 +324,61 @@ pub async fn providers_provider_id_events_get(
     end: Option<String>,
     continuation_token: Option<&str>,
 ) -> Result<models::EventResponseModelListResponseModel, Error<ProvidersProviderIdEventsGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_start = start;
+    let p_end = end;
+    let p_continuation_token = continuation_token;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/providers/{providerId}/events",
-        local_var_configuration.base_path,
-        providerId = crate::apis::urlencode(provider_id.to_string())
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_str) = start {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("start", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_start {
+        req_builder = req_builder.query(&[("start", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = end {
-        local_var_req_builder = local_var_req_builder.query(&[("end", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_end {
+        req_builder = req_builder.query(&[("end", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = continuation_token {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("continuationToken", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_continuation_token {
+        req_builder = req_builder.query(&[("continuationToken", &param_value.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<ProvidersProviderIdEventsGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<ProvidersProviderIdEventsGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -357,54 +393,63 @@ pub async fn providers_provider_id_users_id_events_get(
     models::EventResponseModelListResponseModel,
     Error<ProvidersProviderIdUsersIdEventsGetError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_id = id;
+    let p_start = start;
+    let p_end = end;
+    let p_continuation_token = continuation_token;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/providers/{providerId}/users/{id}/events",
-        local_var_configuration.base_path,
-        providerId = crate::apis::urlencode(provider_id.to_string()),
-        id = crate::apis::urlencode(id.to_string())
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_str) = start {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("start", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_start {
+        req_builder = req_builder.query(&[("start", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = end {
-        local_var_req_builder = local_var_req_builder.query(&[("end", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_end {
+        req_builder = req_builder.query(&[("end", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = continuation_token {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("continuationToken", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_continuation_token {
+        req_builder = req_builder.query(&[("continuationToken", &param_value.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<ProvidersProviderIdUsersIdEventsGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<ProvidersProviderIdUsersIdEventsGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }

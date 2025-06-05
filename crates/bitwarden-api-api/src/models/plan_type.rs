@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum PlanType {
     Free = 0,
@@ -52,34 +43,37 @@ pub enum PlanType {
 }
 
 impl std::fmt::Display for PlanType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Free => write!(f, "0"),
-            Self::FamiliesAnnually2019 => write!(f, "1"),
-            Self::TeamsMonthly2019 => write!(f, "2"),
-            Self::TeamsAnnually2019 => write!(f, "3"),
-            Self::EnterpriseMonthly2019 => write!(f, "4"),
-            Self::EnterpriseAnnually2019 => write!(f, "5"),
-            Self::Custom => write!(f, "6"),
-            Self::FamiliesAnnually => write!(f, "7"),
-            Self::TeamsMonthly2020 => write!(f, "8"),
-            Self::TeamsAnnually2020 => write!(f, "9"),
-            Self::EnterpriseMonthly2020 => write!(f, "10"),
-            Self::EnterpriseAnnually2020 => write!(f, "11"),
-            Self::TeamsMonthly2023 => write!(f, "12"),
-            Self::TeamsAnnually2023 => write!(f, "13"),
-            Self::EnterpriseMonthly2023 => write!(f, "14"),
-            Self::EnterpriseAnnually2023 => write!(f, "15"),
-            Self::TeamsStarter2023 => write!(f, "16"),
-            Self::TeamsMonthly => write!(f, "17"),
-            Self::TeamsAnnually => write!(f, "18"),
-            Self::EnterpriseMonthly => write!(f, "19"),
-            Self::EnterpriseAnnually => write!(f, "20"),
-            Self::TeamsStarter => write!(f, "21"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Free => "0",
+                Self::FamiliesAnnually2019 => "1",
+                Self::TeamsMonthly2019 => "2",
+                Self::TeamsAnnually2019 => "3",
+                Self::EnterpriseMonthly2019 => "4",
+                Self::EnterpriseAnnually2019 => "5",
+                Self::Custom => "6",
+                Self::FamiliesAnnually => "7",
+                Self::TeamsMonthly2020 => "8",
+                Self::TeamsAnnually2020 => "9",
+                Self::EnterpriseMonthly2020 => "10",
+                Self::EnterpriseAnnually2020 => "11",
+                Self::TeamsMonthly2023 => "12",
+                Self::TeamsAnnually2023 => "13",
+                Self::EnterpriseMonthly2023 => "14",
+                Self::EnterpriseAnnually2023 => "15",
+                Self::TeamsStarter2023 => "16",
+                Self::TeamsMonthly => "17",
+                Self::TeamsAnnually => "18",
+                Self::EnterpriseMonthly => "19",
+                Self::EnterpriseAnnually => "20",
+                Self::TeamsStarter => "21",
+            }
+        )
     }
 }
-
 impl Default for PlanType {
     fn default() -> PlanType {
         Self::Free

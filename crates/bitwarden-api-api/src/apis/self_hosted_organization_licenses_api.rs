@@ -9,9 +9,9 @@
  */
 
 use reqwest;
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as _, Deserialize, Serialize};
 
-use super::{configuration, Error};
+use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
 /// struct for typed errors of method [`organizations_licenses_self_hosted_id_post`]
@@ -40,46 +40,45 @@ pub async fn organizations_licenses_self_hosted_id_post(
     id: &str,
     license: std::path::PathBuf,
 ) -> Result<(), Error<OrganizationsLicensesSelfHostedIdPostError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_license = license;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/licenses/self-hosted/{id}",
-        local_var_configuration.base_path,
-        id = crate::apis::urlencode(id)
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    let mut local_var_form = reqwest::multipart::Form::new();
+    let mut multipart_form = reqwest::multipart::Form::new();
     // TODO: support file upload for 'license' parameter
-    local_var_req_builder = local_var_req_builder.multipart(local_var_form);
+    req_builder = req_builder.multipart(multipart_form);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsLicensesSelfHostedIdPostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsLicensesSelfHostedIdPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -87,43 +86,41 @@ pub async fn organizations_licenses_self_hosted_id_sync_post(
     configuration: &configuration::Configuration,
     id: &str,
 ) -> Result<(), Error<OrganizationsLicensesSelfHostedIdSyncPostError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/licenses/self-hosted/{id}/sync",
-        local_var_configuration.base_path,
-        id = crate::apis::urlencode(id)
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsLicensesSelfHostedIdSyncPostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsLicensesSelfHostedIdSyncPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -135,55 +132,66 @@ pub async fn organizations_licenses_self_hosted_post(
     license: std::path::PathBuf,
     collection_name: Option<&str>,
 ) -> Result<models::OrganizationResponseModel, Error<OrganizationsLicensesSelfHostedPostError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_key = key;
+    let p_keys_period_public_key = keys_period_public_key;
+    let p_keys_period_encrypted_private_key = keys_period_encrypted_private_key;
+    let p_license = license;
+    let p_collection_name = collection_name;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/licenses/self-hosted",
-        local_var_configuration.base_path
+        configuration.base_path
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    local_var_req_builder = local_var_req_builder.query(&[("key", &key.to_string())]);
-    if let Some(ref local_var_str) = collection_name {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("collectionName", &local_var_str.to_string())]);
+    req_builder = req_builder.query(&[("key", &p_key.to_string())]);
+    if let Some(ref param_value) = p_collection_name {
+        req_builder = req_builder.query(&[("collectionName", &param_value.to_string())]);
     }
-    local_var_req_builder =
-        local_var_req_builder.query(&[("keys.publicKey", &keys_period_public_key.to_string())]);
-    local_var_req_builder = local_var_req_builder.query(&[(
+    req_builder = req_builder.query(&[("keys.publicKey", &p_keys_period_public_key.to_string())]);
+    req_builder = req_builder.query(&[(
         "keys.encryptedPrivateKey",
-        &keys_period_encrypted_private_key.to_string(),
+        &p_keys_period_encrypted_private_key.to_string(),
     )]);
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    let mut local_var_form = reqwest::multipart::Form::new();
+    let mut multipart_form = reqwest::multipart::Form::new();
     // TODO: support file upload for 'license' parameter
-    local_var_req_builder = local_var_req_builder.multipart(local_var_form);
+    req_builder = req_builder.multipart(multipart_form);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsLicensesSelfHostedPostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsLicensesSelfHostedPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }

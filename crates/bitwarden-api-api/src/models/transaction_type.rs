@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum TransactionType {
     Charge = 0,
@@ -35,17 +26,20 @@ pub enum TransactionType {
 }
 
 impl std::fmt::Display for TransactionType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Charge => write!(f, "0"),
-            Self::Credit => write!(f, "1"),
-            Self::PromotionalCredit => write!(f, "2"),
-            Self::ReferralCredit => write!(f, "3"),
-            Self::Refund => write!(f, "4"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Charge => "0",
+                Self::Credit => "1",
+                Self::PromotionalCredit => "2",
+                Self::ReferralCredit => "3",
+                Self::Refund => "4",
+            }
+        )
     }
 }
-
 impl Default for TransactionType {
     fn default() -> TransactionType {
         Self::Charge

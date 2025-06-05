@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum UriMatchType {
     Domain = 0,
@@ -36,18 +27,21 @@ pub enum UriMatchType {
 }
 
 impl std::fmt::Display for UriMatchType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Domain => write!(f, "0"),
-            Self::Host => write!(f, "1"),
-            Self::StartsWith => write!(f, "2"),
-            Self::Exact => write!(f, "3"),
-            Self::RegularExpression => write!(f, "4"),
-            Self::Never => write!(f, "5"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Domain => "0",
+                Self::Host => "1",
+                Self::StartsWith => "2",
+                Self::Exact => "3",
+                Self::RegularExpression => "4",
+                Self::Never => "5",
+            }
+        )
     }
 }
-
 impl Default for UriMatchType {
     fn default() -> UriMatchType {
         Self::Domain
