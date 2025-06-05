@@ -22,6 +22,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_repr = { workspace = true }
 thiserror = { workspace = true }
+tsify-next = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
