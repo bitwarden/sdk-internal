@@ -15,6 +15,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::VaultParseError;
 
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -39,6 +40,7 @@ pub struct LoginUri {
     pub uri_checksum: Option<EncString>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -77,6 +79,7 @@ impl LoginUriView {
     }
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -109,6 +112,7 @@ pub struct Fido2CredentialListView {
     pub user_display_name: Option<String>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -133,6 +137,7 @@ pub struct Fido2CredentialView {
 
 // This is mostly a copy of the Fido2CredentialView, but with the key exposed
 // Only meant to be used internally and not exposed to the outside world
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Fido2CredentialFullView {
@@ -154,6 +159,7 @@ pub struct Fido2CredentialFullView {
 // This is mostly a copy of the Fido2CredentialView, meant to be exposed to the clients
 // to let them select where to store the new credential. Note that it doesn't contain
 // the encrypted key as that is only filled when the cipher is selected
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -266,6 +272,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialFullView> for Fido2Crede
     }
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -282,6 +289,7 @@ pub struct Login {
     pub fido2_credentials: Option<Vec<Fido2Credential>>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -299,6 +307,7 @@ pub struct LoginView {
     pub fido2_credentials: Option<Vec<Fido2Credential>>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
