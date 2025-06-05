@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
 use reqwest::header::{self, HeaderValue};
@@ -24,6 +24,7 @@ pub struct Client {
 }
 
 impl Client {
+    #[allow(missing_docs)]
     pub fn new(settings_input: Option<ClientSettings>) -> Self {
         let settings = settings_input.unwrap_or_default();
 
@@ -76,6 +77,7 @@ impl Client {
 
         Self {
             internal: Arc::new(InternalClient {
+                user_id: OnceLock::new(),
                 tokens: RwLock::new(Tokens::default()),
                 login_method: RwLock::new(None),
                 #[cfg(feature = "internal")]

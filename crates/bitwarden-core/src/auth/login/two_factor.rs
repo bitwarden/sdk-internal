@@ -10,6 +10,7 @@ use crate::{
     ApiError, Client,
 };
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TwoFactorEmailRequest {
@@ -19,6 +20,7 @@ pub struct TwoFactorEmailRequest {
     pub email: String,
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum TwoFactorEmailError {
     #[error(transparent)]
@@ -62,6 +64,7 @@ pub(crate) async fn send_two_factor_email(
     Ok(())
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, JsonSchema, Clone)]
 #[repr(u8)]
 pub enum TwoFactorProvider {
@@ -75,6 +78,7 @@ pub enum TwoFactorProvider {
     WebAuthn = 7,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TwoFactorRequest {

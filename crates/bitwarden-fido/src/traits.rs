@@ -1,7 +1,8 @@
-use bitwarden_vault::{Cipher, CipherListView, CipherView, Fido2CredentialNewView};
+use bitwarden_vault::{CipherListView, CipherView, EncryptionContext, Fido2CredentialNewView};
 use passkey::authenticator::UIHint;
 use thiserror::Error;
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum Fido2CallbackError {
     #[error("The operation requires user interaction")]
@@ -14,6 +15,7 @@ pub enum Fido2CallbackError {
     Unknown(String),
 }
 
+#[allow(missing_docs)]
 #[async_trait::async_trait]
 pub trait Fido2UserInterface: Send + Sync {
     async fn check_user<'a>(
@@ -33,6 +35,7 @@ pub trait Fido2UserInterface: Send + Sync {
     async fn is_verification_enabled(&self) -> bool;
 }
 
+#[allow(missing_docs)]
 #[async_trait::async_trait]
 pub trait Fido2CredentialStore: Send + Sync {
     async fn find_credentials(
@@ -43,9 +46,10 @@ pub trait Fido2CredentialStore: Send + Sync {
 
     async fn all_credentials(&self) -> Result<Vec<CipherListView>, Fido2CallbackError>;
 
-    async fn save_credential(&self, cred: Cipher) -> Result<(), Fido2CallbackError>;
+    async fn save_credential(&self, cred: EncryptionContext) -> Result<(), Fido2CallbackError>;
 }
 
+#[allow(missing_docs)]
 #[derive(Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CheckUserOptions {
@@ -53,6 +57,7 @@ pub struct CheckUserOptions {
     pub require_verification: Verification,
 }
 
+#[allow(missing_docs)]
 #[derive(Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum Verification {
@@ -61,6 +66,7 @@ pub enum Verification {
     Required,
 }
 
+#[allow(missing_docs)]
 pub struct CheckUserResult {
     pub user_present: bool,
     pub user_verified: bool,

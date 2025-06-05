@@ -15,6 +15,7 @@ use crate::{
     CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey,
 };
 
+#[allow(missing_docs)]
 #[derive(Copy, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum HashPurpose {
@@ -26,6 +27,7 @@ pub enum HashPurpose {
 ///
 /// Derived from the users master password, used to protect the [UserKey].
 /// TODO: <https://bitwarden.atlassian.net/browse/PM-18366> split KeyConnectorKey into a separate file
+#[allow(missing_docs)]
 pub enum MasterKey {
     KdfKey(KdfDerivedKeyMaterial),
     KeyConnectorKey(Pin<Box<GenericArray<u8, U32>>>),
@@ -80,6 +82,7 @@ impl MasterKey {
         decrypt_user_key(self.inner_bytes(), user_key)
     }
 
+    #[allow(missing_docs)]
     pub fn to_base64(&self) -> String {
         STANDARD.encode(self.inner_bytes().as_slice())
     }
