@@ -72,7 +72,7 @@ impl TreeNode {
 #[allow(missing_docs)]
 pub struct Tree<T: TreeItem> {
     pub nodes: Vec<TreeNode>,
-    pub items: Vec<TreeIndex<T>>,
+    pub items: HashMap<Uuid, TreeIndex<T>>,
     path_to_node: HashMap<Vec<String>, usize>,
 }
 
@@ -81,7 +81,7 @@ impl<T: TreeItem> Tree<T> {
     pub fn from_items(items: Vec<T>) -> Self {
         let mut tree = Tree {
             nodes: Vec::new(),
-            items: Vec::new(),
+            items: HashMap::new(),
             path_to_node: HashMap::new(),
         };
 
@@ -95,8 +95,7 @@ impl<T: TreeItem> Tree<T> {
         // add items
         for (index, item) in sorted_items.iter().enumerate() {
             let tree_index = TreeIndex::new(index, item);
-            tree.items.push(tree_index.clone());
-
+            tree.items.insert(item.id(), tree_index.clone());
             tree.add_item(tree_index);
         }
 
@@ -118,38 +117,50 @@ impl<T: TreeItem> Tree<T> {
         self.nodes.push(node);
     }
 
-    #[allow(missing_docs)]
+    ///
+    /// Returns an optional node item for a given tree item id.
+    ///
+    /// This contains the item, its children (or an empty vector), and its parent (if it has one)
     pub fn get_item_by_id(&self, tree_item_id: Uuid) -> Option<NodeItem<T>> {
-        let item = self.items.iter().find(|i| i.data.id() == tree_item_id);
+        let item = self.items.get(&tree_item_id);
 
         if let Some(item) = item {
             let node = self.nodes.get(item.id)?;
 
             // Get the parent if it exists
-            let parent = node.parent_idx.and_then(|pid| self.nodes.get(pid));
+            let parent = node
+                .parent_idx
+                .and_then(|pid| self.nodes.get(pid))
+                .and_then(|p| self.items.get(&p.item_id))
+                .map(|p| p.data.clone());
 
-            // Get all children nodes
-            let children: Vec<&TreeNode> = node
+            // Get any children
+            let children: Vec<T> = node
                 .children_idx
                 .iter()
                 .filter_map(|&child_id| self.nodes.get(child_id))
-                .collect();
-
-            // Get corresponding items
-            let parent_item = parent.and_then(|p| self.items.get(p.id));
-            let children_items: Vec<&TreeIndex<T>> = children
-                .iter()
-                .filter_map(|child| self.items.get(child.id))
+                .filter_map(|child| self.items.get(&child.item_id))
+                .map(|i| i.data.clone())
                 .collect();
 
             return Some(NodeItem {
                 item: item.data.clone(),
-                parent: parent_item.map(|p| p.data.clone()),
-                children: children_items.iter().map(|i| i.data.clone()).collect(),
+                parent,
+                children,
             });
         }
 
         None
+    }
+
+    ///
+    /// Returns the list of root nodes with their children
+    pub fn get_root_items(&self) -> Vec<NodeItem<T>> {
+        self.nodes
+            .iter()
+            .filter(|n| n.parent_idx.is_none())
+            .filter_map(|n| self.get_item_by_id(n.item_id))
+            .collect()
     }
 }
 
