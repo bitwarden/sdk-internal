@@ -23,6 +23,7 @@ pub struct Client {
 }
 
 impl Client {
+    #[allow(missing_docs)]
     pub fn new(settings_input: Option<ClientSettings>) -> Self {
         let settings = settings_input.unwrap_or_default();
 
