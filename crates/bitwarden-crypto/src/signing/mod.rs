@@ -52,6 +52,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum SignatureAlgorithm {
+    /// Ed25519 is the modern, secure recommended option for digital signatures on eliptic curves.
     Ed25519,
 }
 

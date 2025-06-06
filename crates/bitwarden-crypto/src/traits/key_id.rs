@@ -33,6 +33,7 @@ pub trait KeyIds {
     type Symmetric: KeyId<KeyValue = SymmetricCryptoKey>;
     #[allow(missing_docs)]
     type Asymmetric: KeyId<KeyValue = AsymmetricCryptoKey>;
+    /// Signing keys are used to create detached signatures and to sign objects.
     type Signing: KeyId<KeyValue = SigningKey>;
 }
 

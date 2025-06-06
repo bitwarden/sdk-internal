@@ -252,7 +252,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         self.get_asymmetric_key(key_id).is_ok()
     }
 
-    // Returns `true` if the context has a signing key with the given identifier
+    /// Returns `true` if the context has a signing key with the given identifier
     pub fn has_signing_key(&self, key_id: Ids::Signing) -> bool {
         self.get_signing_key(key_id).is_ok()
     }
@@ -326,6 +326,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(signed_public_key)
     }
 
+    /// Returns a signing key from the context
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn dangerous_get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
         self.get_signing_key(key_id)
@@ -394,6 +395,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(())
     }
 
+    /// Sets a signing key in the context
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn set_signing_key(&mut self, key_id: Ids::Signing, key: SigningKey) -> Result<()> {
         if key_id.is_local() {
