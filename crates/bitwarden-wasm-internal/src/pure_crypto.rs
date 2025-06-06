@@ -2,9 +2,9 @@ use std::str::FromStr;
 
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CryptoError, Decryptable, EncString,
-    Encryptable, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey, SymmetricCryptoKey,
-    UnsignedSharedKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, ContentFormat, CryptoError, Decryptable,
+    EncString, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey, PrimitiveEncryptable,
+    SymmetricCryptoKey, UnsignedSharedKey,
 };
 use wasm_bindgen::prelude::*;
 
@@ -56,13 +56,16 @@ impl PureCrypto {
 
     pub fn symmetric_encrypt_string(plain: String, key: Vec<u8>) -> Result<String, CryptoError> {
         plain
-            .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
+            .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?, ContentFormat::Utf8)
             .map(|enc| enc.to_string())
     }
 
     pub fn symmetric_encrypt_bytes(plain: Vec<u8>, key: Vec<u8>) -> Result<String, CryptoError> {
         plain
-            .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
+            .encrypt_with_key(
+                &SymmetricCryptoKey::try_from(key)?,
+                ContentFormat::OctetStream,
+            )
             .map(|enc| enc.to_string())
     }
 
@@ -71,7 +74,10 @@ impl PureCrypto {
         key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         plain
-            .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)?
+            .encrypt_with_key(
+                &SymmetricCryptoKey::try_from(key)?,
+                ContentFormat::OctetStream,
+            )?
             .to_buffer()
     }
 
@@ -178,7 +184,11 @@ impl PureCrypto {
         )?;
         // Note: The order of arguments is different here, and should probably be refactored
         Ok(encapsulation_key
-            .encrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))?
+            .encrypt(
+                &mut context,
+                SymmetricKeyId::Local("wrapping_key"),
+                ContentFormat::Pkcs8,
+            )?
             .to_string())
     }
 
@@ -215,7 +225,11 @@ impl PureCrypto {
         )?;
         // Note: The order of arguments is different here, and should probably be refactored
         Ok(decapsulation_key
-            .encrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))?
+            .encrypt(
+                &mut context,
+                SymmetricKeyId::Local("wrapping_key"),
+                ContentFormat::Pkcs8,
+            )?
             .to_string())
     }
 
