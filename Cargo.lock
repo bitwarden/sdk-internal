@@ -340,8 +340,6 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "serde",
- "serde_json",
- "serde_repr",
  "thiserror 1.0.69",
  "tsify-next",
  "uniffi",
