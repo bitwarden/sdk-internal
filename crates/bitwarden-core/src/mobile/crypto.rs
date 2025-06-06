@@ -573,9 +573,12 @@ pub struct MakeUserSigningKeysResponse {
     signed_public_key: SignedPublicKey,
 }
 
-/// Makes a new set of signing keys for a user. This also signs the public key with the signing key
+/// Makes a new set of signing keys for a user, which should only be done during
+/// once. This also signs the public key with the signing key
 /// and returns the signed public key.
-pub fn make_user_signing_keys(client: &Client) -> Result<MakeUserSigningKeysResponse, CryptoError> {
+pub fn make_user_signing_keys_for_enrollment(
+    client: &Client,
+) -> Result<MakeUserSigningKeysResponse, CryptoError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
 
