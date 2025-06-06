@@ -20,6 +20,7 @@ bench = false
 
 [dependencies]
 async-trait = "0.1.80"
+bitwarden-collections = { workspace = true, features = ["uniffi"]}
 bitwarden-core = { workspace = true, features = ["uniffi"] }
 bitwarden-crypto = { workspace = true, features = ["uniffi"] }
 bitwarden-exporters = { workspace = true, features = ["uniffi"] }

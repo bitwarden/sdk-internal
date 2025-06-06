@@ -29,8 +29,8 @@ pub use vault_client::{VaultClient, VaultClientExt};
 mod sync;
 pub use sync::{SyncRequest, SyncResponse};
 
-mod totp_client;
+#[allow(missing_docs)]
 pub mod collection_client;
+mod totp_client;
 
 pub use totp_client::TotpClient;
-

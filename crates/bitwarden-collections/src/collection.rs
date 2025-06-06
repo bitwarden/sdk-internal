@@ -1,13 +1,13 @@
 use bitwarden_api_api::models::CollectionDetailsResponseModel;
-
+use bitwarden_core::{
+    key_management::{KeyIds, SymmetricKeyId},
+    require,
+};
 use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
-
-use crate::error::CollectionsParseError;
-use crate::tree::TreeItem;
-use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-use bitwarden_core::require;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+use crate::{error::CollectionsParseError, tree::TreeItem};
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
@@ -46,6 +46,7 @@ pub struct CollectionView {
     pub manage: bool,
 }
 
+#[allow(missing_docs)]
 impl Decryptable<KeyIds, SymmetricKeyId, CollectionView> for Collection {
     fn decrypt(
         &self,
@@ -66,6 +67,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CollectionView> for Collection {
     }
 }
 
+#[allow(missing_docs)]
 impl TryFrom<CollectionDetailsResponseModel> for Collection {
     type Error = CollectionsParseError;
 
@@ -82,12 +84,14 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
     }
 }
 
+#[allow(missing_docs)]
 impl IdentifyKey<SymmetricKeyId> for Collection {
     fn key_identifier(&self) -> SymmetricKeyId {
         SymmetricKeyId::Organization(self.organization_id)
     }
 }
 
+#[allow(missing_docs)]
 impl TreeItem for CollectionView {
     fn id(&self) -> Uuid {
         self.id.unwrap_or_default()

@@ -1,11 +1,12 @@
 use bitwarden_core::Client;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
-use crate::collection_client::CollectionsClient;
+
 use crate::{
+    collection_client::CollectionsClient,
     sync::{sync, SyncError},
-    AttachmentsClient, CiphersClient, FoldersClient, PasswordHistoryClient,
-    SyncRequest, SyncResponse, TotpClient,
+    AttachmentsClient, CiphersClient, FoldersClient, PasswordHistoryClient, SyncRequest,
+    SyncResponse, TotpClient,
 };
 
 #[allow(missing_docs)]

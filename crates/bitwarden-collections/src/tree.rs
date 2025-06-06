@@ -2,6 +2,7 @@ use std::{collections::HashMap, fmt::Debug};
 
 use uuid::Uuid;
 
+#[allow(missing_docs)]
 pub trait TreeItem: Clone + Debug {
     fn id(&self) -> Uuid;
     /*
@@ -15,6 +16,7 @@ pub trait TreeItem: Clone + Debug {
     const DELIMITER: char;
 }
 
+#[allow(missing_docs)]
 #[derive(Clone, Debug)]
 pub struct TreeIndex<T: TreeItem> {
     pub id: usize, // location in the tree
@@ -23,6 +25,7 @@ pub struct TreeIndex<T: TreeItem> {
 }
 
 impl<T: TreeItem> TreeIndex<T> {
+    #[allow(missing_docs)]
     pub fn new(id: usize, data: &T) -> Self {
         TreeIndex {
             id,
@@ -32,12 +35,14 @@ impl<T: TreeItem> TreeIndex<T> {
     }
 }
 
+#[allow(missing_docs)]
 pub struct NodeItem<T: TreeItem> {
     pub item: T,
     pub parent: Option<T>,
     pub children: Vec<T>,
 }
 
+#[allow(missing_docs)]
 pub struct TreeNode {
     pub id: usize,
     pub item_id: Uuid,
@@ -47,6 +52,7 @@ pub struct TreeNode {
 }
 
 impl TreeNode {
+    #[allow(missing_docs)]
     pub fn new<T: TreeItem>(
         id: usize,
         parent_idx: Option<usize>,
@@ -63,6 +69,7 @@ impl TreeNode {
     }
 }
 
+#[allow(missing_docs)]
 pub struct Tree<T: TreeItem> {
     pub nodes: Vec<TreeNode>,
     pub items: Vec<TreeIndex<T>>,
@@ -70,6 +77,7 @@ pub struct Tree<T: TreeItem> {
 }
 
 impl<T: TreeItem> Tree<T> {
+    #[allow(missing_docs)]
     pub fn from_items(items: Vec<T>) -> Self {
         let mut tree = Tree {
             nodes: Vec::new(),
@@ -110,6 +118,7 @@ impl<T: TreeItem> Tree<T> {
         self.nodes.push(node);
     }
 
+    #[allow(missing_docs)]
     pub fn get_item_by_id(&self, tree_item_id: Uuid) -> Option<NodeItem<T>> {
         let item = self.items.iter().find(|i| i.data.id() == tree_item_id);
 

@@ -616,6 +616,7 @@ version = "0.1.0"
 dependencies = [
  "android_logger",
  "async-trait",
+ "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-exporters",
