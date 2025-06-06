@@ -10,12 +10,11 @@ use uuid::Uuid;
 
 #[cfg(feature = "secrets")]
 use super::login_method::ServiceAccountLoginMethod;
+#[cfg(any(feature = "internal", feature = "secrets"))]
+use crate::client::encryption_settings::EncryptionSettings;
 use crate::{
-    auth::renew::renew_token,
-    client::{encryption_settings::EncryptionSettings, login_method::LoginMethod},
-    error::UserIdAlreadySetError,
-    key_management::KeyIds,
-    DeviceType,
+    auth::renew::renew_token, client::login_method::LoginMethod, error::UserIdAlreadySetError,
+    key_management::KeyIds, DeviceType,
 };
 #[cfg(feature = "internal")]
 use crate::{
@@ -24,6 +23,7 @@ use crate::{
     error::NotAuthenticatedError,
 };
 
+#[allow(missing_docs)]
 #[derive(Debug, Clone)]
 pub struct ApiConfigurations {
     pub identity: bitwarden_api_identity::apis::configuration::Configuration,
@@ -43,6 +43,7 @@ pub(crate) struct Tokens {
     pub(crate) refresh_token: Option<String>,
 }
 
+#[allow(missing_docs)]
 #[derive(Debug)]
 pub struct InternalClient {
     pub(crate) user_id: OnceLock<Uuid>,
@@ -65,11 +66,13 @@ pub struct InternalClient {
 }
 
 impl InternalClient {
+    #[allow(missing_docs)]
     #[cfg(feature = "internal")]
     pub fn load_flags(&self, flags: std::collections::HashMap<String, bool>) {
         *self.flags.write().expect("RwLock is not poisoned") = Flags::load_from_map(flags);
     }
 
+    #[allow(missing_docs)]
     #[cfg(feature = "internal")]
     pub fn get_flags(&self) -> Flags {
         self.flags.read().expect("RwLock is not poisoned").clone()
@@ -83,6 +86,7 @@ impl InternalClient {
             .clone()
     }
 
+    #[allow(missing_docs)]
     pub fn get_access_token_organization(&self) -> Option<Uuid> {
         match self
             .login_method
@@ -123,6 +127,7 @@ impl InternalClient {
         inner.api.oauth_access_token = Some(token);
     }
 
+    #[allow(missing_docs)]
     #[cfg(feature = "internal")]
     pub fn is_authed(&self) -> bool {
         let is_token_set = self
@@ -140,6 +145,7 @@ impl InternalClient {
         is_token_set || is_login_method_set
     }
 
+    #[allow(missing_docs)]
     #[cfg(feature = "internal")]
     pub fn get_kdf(&self) -> Result<Kdf, NotAuthenticatedError> {
         match self
@@ -155,6 +161,7 @@ impl InternalClient {
         }
     }
 
+    #[allow(missing_docs)]
     pub async fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
         // At the moment we ignore the error result from the token renewal, if it fails,
         // the token will end up expiring and the next operation is going to fail anyway.
@@ -165,19 +172,23 @@ impl InternalClient {
             .clone()
     }
 
+    #[allow(missing_docs)]
     #[cfg(feature = "internal")]
     pub fn get_http_client(&self) -> &reqwest::Client {
         &self.external_client
     }
 
+    #[allow(missing_docs)]
     pub fn get_key_store(&self) -> &KeyStore<KeyIds> {
         &self.key_store
     }
 
+    #[allow(missing_docs)]
     pub fn init_user_id(&self, user_id: Uuid) -> Result<(), UserIdAlreadySetError> {
         self.user_id.set(user_id).map_err(|_| UserIdAlreadySetError)
     }
 
+    #[allow(missing_docs)]
     pub fn get_user_id(&self) -> Option<Uuid> {
         self.user_id.get().copied()
     }
@@ -226,6 +237,7 @@ impl InternalClient {
         EncryptionSettings::new_single_org_key(organization_id, key, &self.key_store);
     }
 
+    #[allow(missing_docs)]
     #[cfg(feature = "internal")]
     pub fn initialize_org_crypto(
         &self,

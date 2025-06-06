@@ -10,6 +10,7 @@ use crate::{
 #[derive(Debug)]
 pub struct DeviceKey(SymmetricCryptoKey);
 
+#[allow(missing_docs)]
 #[derive(Debug)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct TrustDeviceResponse {

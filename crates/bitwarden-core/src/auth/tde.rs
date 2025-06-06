@@ -50,6 +50,7 @@ pub(super) fn make_register_tde_keys(
     })
 }
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct RegisterTdeKeyResponse {
     pub private_key: EncString,

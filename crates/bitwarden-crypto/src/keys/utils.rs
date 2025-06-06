@@ -17,7 +17,7 @@ pub(super) fn stretch_key(key: &Pin<Box<GenericArray<u8, U32>>>) -> Result<Aes25
 }
 
 /// Pads bytes to a minimum length using PKCS7-like padding.
-/// The last N bytes of the padded bytes all have the value N.
+/// The last N bytes of the padded bytes all have the value N. Minimum of 1 padding byte.
 /// For example, padded to size 4, the value 0,0 becomes 0,0,2,2.
 pub(crate) fn pad_bytes(bytes: &mut Vec<u8>, min_length: usize) {
     // at least 1 byte of padding is required
@@ -27,14 +27,14 @@ pub(crate) fn pad_bytes(bytes: &mut Vec<u8>, min_length: usize) {
 }
 
 /// Unpads bytes that is padded using the PKCS7-like padding defined by [pad_bytes].
-/// The last N bytes of the padded bytes all have the value N.
+/// The last N bytes of the padded bytes all have the value N. Minimum of 1 padding byte.
 /// For example, padded to size 4, the value 0,0 becomes 0,0,2,2.
 pub(crate) fn unpad_bytes(padded_bytes: &[u8]) -> Result<&[u8], CryptoError> {
     let pad_len = *padded_bytes.last().ok_or(CryptoError::InvalidPadding)? as usize;
     if pad_len >= padded_bytes.len() {
         return Err(CryptoError::InvalidPadding);
     }
-    Ok(padded_bytes[..padded_bytes.len() - pad_len].as_ref())
+    Ok(padded_bytes[..(padded_bytes.len() - pad_len)].as_ref())
 }
 
 #[cfg(test)]

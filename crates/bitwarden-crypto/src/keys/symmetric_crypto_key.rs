@@ -88,7 +88,9 @@ impl PartialEq for XChaCha20Poly1305Key {
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
 #[derive(ZeroizeOnDrop, Clone)]
 pub enum SymmetricCryptoKey {
+    #[allow(missing_docs)]
     Aes256CbcKey(Aes256CbcKey),
+    #[allow(missing_docs)]
     Aes256CbcHmacKey(Aes256CbcHmacKey),
     /// Data encrypted by XChaCha20Poly1305Key keys has type
     /// [`Cose_Encrypt0_B64`](crate::EncString::Cose_Encrypt0_B64)
@@ -215,6 +217,7 @@ impl SymmetricCryptoKey {
         Ok(key)
     }
 
+    #[allow(missing_docs)]
     pub fn to_base64(&self) -> String {
         STANDARD.encode(self.to_encoded())
     }
@@ -369,6 +372,7 @@ fn unpad_key(key_bytes: &[u8]) -> Result<&[u8], CryptoError> {
     crate::keys::utils::unpad_bytes(key_bytes).map_err(|_| CryptoError::InvalidKey)
 }
 
+/// Test only helper for deriving a symmetric key.
 #[cfg(test)]
 pub fn derive_symmetric_key(name: &str) -> Aes256CbcHmacKey {
     use zeroize::Zeroizing;

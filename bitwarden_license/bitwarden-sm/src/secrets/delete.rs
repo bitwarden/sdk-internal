@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use crate::error::SecretsManagerError;
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SecretsDeleteRequest {
@@ -27,6 +28,7 @@ pub(crate) async fn delete_secrets(
     SecretsDeleteResponse::process_response(res)
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SecretsDeleteResponse {
