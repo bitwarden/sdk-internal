@@ -32,11 +32,7 @@ pub(super) fn namespace(
         })
         .ok_or(SignatureError::InvalidNamespace)?;
 
-    SigningNamespace::try_from_i64(
-        i128::from(namespace)
-            .try_into()
-            .map_err(|_| SignatureError::InvalidNamespace)?,
-    )
+    SigningNamespace::try_from(i128::from(namespace))
 }
 
 /// Helper function to extract the content type from a `ProtectedHeader`. The content type is a
