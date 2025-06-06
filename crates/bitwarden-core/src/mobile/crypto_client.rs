@@ -104,7 +104,9 @@ impl CryptoClient {
     }
 
     /// Makes a new signing key pair and signs the public key for the user
-    pub fn make_user_signing_keys_for_enrollment(&self) -> Result<MakeUserSigningKeysResponse, CryptoError> {
+    pub fn make_user_signing_keys_for_enrollment(
+        &self,
+    ) -> Result<MakeUserSigningKeysResponse, CryptoError> {
         make_user_signing_keys_for_enrollment(&self.client)
     }
 }

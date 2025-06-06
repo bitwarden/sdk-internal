@@ -57,7 +57,9 @@ impl CryptoClient {
 
     /// Generates a new signing key pair and encrypts the signing key with the provided symmetric
     /// key. Crypto initialization not required.
-    pub fn make_signing_keys_for_enrollment(&self) -> Result<MakeUserSigningKeysResponse, CryptoError> {
+    pub fn make_signing_keys_for_enrollment(
+        &self,
+    ) -> Result<MakeUserSigningKeysResponse, CryptoError> {
         self.0.make_user_signing_keys_for_enrollment()
     }
 }
