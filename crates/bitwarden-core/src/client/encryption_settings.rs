@@ -13,6 +13,7 @@ use crate::key_management::AsymmetricKeyId;
 use crate::key_management::{KeyIds, SymmetricKeyId};
 use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError, VaultLockedError};
 
+#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum EncryptionSettingsError {
@@ -35,6 +36,7 @@ pub enum EncryptionSettingsError {
     UserIdAlreadySetError(#[from] UserIdAlreadySetError),
 }
 
+#[allow(missing_docs)]
 pub struct EncryptionSettings {}
 
 impl EncryptionSettings {

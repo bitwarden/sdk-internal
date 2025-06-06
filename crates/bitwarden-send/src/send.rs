@@ -68,6 +68,7 @@ pub enum SendType {
     File = 1,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -94,6 +95,7 @@ pub struct Send {
     pub expiration_date: Option<DateTime<Utc>>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -127,6 +129,7 @@ pub struct SendView {
     pub expiration_date: Option<DateTime<Utc>>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -147,6 +150,7 @@ pub struct SendListView {
 const SEND_KEY: SymmetricKeyId = SymmetricKeyId::Local("send_key");
 
 impl Send {
+    #[allow(missing_docs)]
     pub fn get_key(
         ctx: &mut KeyStoreContext<KeyIds>,
         send_key: &EncString,

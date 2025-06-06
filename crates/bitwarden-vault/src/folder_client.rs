@@ -7,6 +7,7 @@ use crate::{
     Folder, FolderView,
 };
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct FoldersClient {
     pub(crate) client: Client,
@@ -14,18 +15,21 @@ pub struct FoldersClient {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl FoldersClient {
+    #[allow(missing_docs)]
     pub fn encrypt(&self, folder_view: FolderView) -> Result<Folder, EncryptError> {
         let key_store = self.client.internal.get_key_store();
         let folder = key_store.encrypt(folder_view)?;
         Ok(folder)
     }
 
+    #[allow(missing_docs)]
     pub fn decrypt(&self, folder: Folder) -> Result<FolderView, DecryptError> {
         let key_store = self.client.internal.get_key_store();
         let folder_view = key_store.decrypt(&folder)?;
         Ok(folder_view)
     }
 
+    #[allow(missing_docs)]
     pub fn decrypt_list(&self, folders: Vec<Folder>) -> Result<Vec<FolderView>, DecryptError> {
         let key_store = self.client.internal.get_key_store();
         let views = key_store.decrypt_list(&folders)?;

@@ -5,6 +5,7 @@ use crate::error::{ReceiveError, SendError};
 // We're not using bitwarden_error here because we want to return the raw JsValue error
 // (bitwarden_error would try to serialize it with tsify and serde)
 
+#[allow(missing_docs)]
 #[wasm_bindgen(js_name = SendError)]
 pub struct JsSendError {
     #[wasm_bindgen(getter_with_clone)]
@@ -13,6 +14,7 @@ pub struct JsSendError {
     pub communication: JsValue,
 }
 
+#[allow(missing_docs)]
 #[wasm_bindgen(js_name = ReceiveError)]
 pub struct JsReceiveError {
     pub timeout: bool,

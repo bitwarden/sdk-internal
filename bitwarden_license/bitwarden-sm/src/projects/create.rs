@@ -11,6 +11,7 @@ use crate::{
     projects::ProjectResponse,
 };
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Validate)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProjectCreateRequest {

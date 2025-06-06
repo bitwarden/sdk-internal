@@ -18,6 +18,7 @@ use crate::{AsymmetricCryptoKey, CryptoKey, SymmetricCryptoKey};
 pub trait KeyId:
     Debug + Clone + Copy + Hash + Eq + PartialEq + Ord + PartialOrd + Send + Sync + 'static
 {
+    #[allow(missing_docs)]
     type KeyValue: CryptoKey + Send + Sync + ZeroizeOnDrop;
 
     /// Returns whether the key is local to the current context or shared globally by the
@@ -28,7 +29,9 @@ pub trait KeyId:
 /// Represents a set of all the key identifiers that need to be defined to use a key store.
 /// At the moment it's just symmetric and asymmetric keys.
 pub trait KeyIds {
+    #[allow(missing_docs)]
     type Symmetric: KeyId<KeyValue = SymmetricCryptoKey>;
+    #[allow(missing_docs)]
     type Asymmetric: KeyId<KeyValue = AsymmetricCryptoKey>;
 }
 
@@ -67,6 +70,7 @@ macro_rules! key_ids {
     ) => {
         $(
             #[derive(std::fmt::Debug, Clone, Copy, std::hash::Hash, Eq, PartialEq, Ord, PartialOrd)]
+            #[allow(missing_docs)]
             $vis enum $name { $(
                 $variant  $( ($inner) )?,
             )* }
@@ -84,6 +88,7 @@ macro_rules! key_ids {
             }
         )+
 
+        #[allow(missing_docs)]
         $ids_vis struct $ids_name;
         impl $crate::KeyIds for $ids_name {
             type Symmetric = $symm_name;

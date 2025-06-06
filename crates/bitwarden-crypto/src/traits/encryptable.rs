@@ -59,6 +59,7 @@ impl<Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output>
 /// An encryption operation that takes the input value - a primitive such as `String` and encrypts
 /// it into the output value. The implementation decides the content format.
 pub trait PrimitiveEncryptableWithContentType<Ids: KeyIds, Key: KeyId, Output> {
+    /// Encrypts a primitive without requiring an externally provided content type
     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: Key) -> Result<Output, CryptoError>;
 }
 
@@ -99,6 +100,7 @@ impl<Ids: KeyIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncSt
 /// An encryption operation that takes the input value - a primitive such as `Vec<u8>` - and
 /// encrypts it into the output value. The caller must specify the content format.
 pub trait PrimitiveEncryptable<Ids: KeyIds, Key: KeyId, Output> {
+    /// Encrypts a primitive, given an externally provided content type
     fn encrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,

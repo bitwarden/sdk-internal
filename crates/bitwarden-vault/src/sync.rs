@@ -22,6 +22,7 @@ pub enum SyncError {
     EncryptionSettings(#[from] EncryptionSettingsError),
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SyncRequest {
@@ -73,6 +74,7 @@ pub struct DomainResponse {
     pub global_equivalent_domains: Vec<GlobalDomains>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SyncResponse {

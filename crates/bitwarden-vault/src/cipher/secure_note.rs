@@ -13,6 +13,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::VaultParseError;
 
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
@@ -29,6 +30,7 @@ pub struct SecureNote {
     r#type: SecureNoteType,
 }
 
+#[allow(missing_docs)]
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]

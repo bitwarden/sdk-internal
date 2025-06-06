@@ -2,6 +2,7 @@ use bitwarden_vault::{Folder, FolderView};
 
 use crate::{error::Error, Result};
 
+#[allow(missing_docs)]
 #[derive(uniffi::Object)]
 pub struct FoldersClient(pub(crate) bitwarden_vault::FoldersClient);
 
