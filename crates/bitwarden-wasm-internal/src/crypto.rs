@@ -2,7 +2,7 @@ use bitwarden_core::{
     client::encryption_settings::EncryptionSettingsError,
     mobile::crypto::{
         InitOrgCryptoRequest, InitUserCryptoRequest, MakeKeyPairResponse,
-        VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
+        MakeUserSigningKeysResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
     },
 };
 use bitwarden_crypto::CryptoError;
@@ -53,5 +53,13 @@ impl CryptoClient {
         request: VerifyAsymmetricKeysRequest,
     ) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
         self.0.verify_asymmetric_keys(request)
+    }
+
+    /// Generates a new signing key pair and encrypts the signing key with the provided symmetric
+    /// key. Crypto initialization not required.
+    pub fn make_signing_keys_for_enrollment(
+        &self,
+    ) -> Result<MakeUserSigningKeysResponse, CryptoError> {
+        self.0.make_user_signing_keys_for_enrollment()
     }
 }

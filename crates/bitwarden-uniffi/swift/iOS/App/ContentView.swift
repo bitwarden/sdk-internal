@@ -193,6 +193,7 @@ struct ContentView: View {
                 kdfParams: kdf,
                 email: EMAIL,
                 privateKey: loginData.PrivateKey,
+                signingKey: nil,
                 method: InitUserCryptoMethod.password(
                     password: PASSWORD,
                     userKey: loginData.Key
@@ -251,6 +252,7 @@ struct ContentView: View {
             kdfParams: kdf,
             email: EMAIL,
             privateKey: privateKey,
+            signingKey: nil,
             method: InitUserCryptoMethod.decryptedKey(
                 decryptedUserKey: key
             )
@@ -278,6 +280,7 @@ struct ContentView: View {
             kdfParams: kdf,
             email: EMAIL,
             privateKey: privateKey,
+            signingKey: nil,
             method: InitUserCryptoMethod.pin(pin: PIN, pinProtectedUserKey: pinProtectedUserKey)
         ))
     }

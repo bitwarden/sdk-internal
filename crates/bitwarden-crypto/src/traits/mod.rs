@@ -37,6 +37,14 @@ pub(crate) mod tests {
             C(&'static str),
         }
 
-       pub TestIds => TestSymmKey, TestAsymmKey;
+        #[signing]
+        pub enum TestSigningKey {
+            A(u8),
+            B,
+            #[local]
+            C(&'static str),
+        }
+
+       pub TestIds => TestSymmKey, TestAsymmKey, TestSigningKey;
     }
 }

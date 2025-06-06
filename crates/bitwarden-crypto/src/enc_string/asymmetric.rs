@@ -9,7 +9,9 @@ use super::{from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result},
     rsa::encrypt_rsa2048_oaep_sha1,
-    AsymmetricCryptoKey, AsymmetricEncryptable, SymmetricCryptoKey,
+    util::FromStrVisitor,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, RawPrivateKey, RawPublicKey,
+    SymmetricCryptoKey,
 };
 // This module is a workaround to avoid deprecated warnings that come from the ZeroizeOnDrop
 // macro expansion
@@ -141,7 +143,7 @@ impl<'de> Deserialize<'de> for UnsignedSharedKey {
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_str(super::FromStrVisitor::new())
+        deserializer.deserialize_str(FromStrVisitor::new())
     }
 }
 
@@ -160,13 +162,18 @@ impl UnsignedSharedKey {
     /// and thus does not guarantee sender authenticity.
     pub fn encapsulate_key_unsigned(
         encapsulated_key: &SymmetricCryptoKey,
-        encapsulation_key: &dyn AsymmetricEncryptable,
+        encapsulation_key: &AsymmetricPublicCryptoKey,
     ) -> Result<UnsignedSharedKey> {
-        let enc = encrypt_rsa2048_oaep_sha1(
-            encapsulation_key.to_public_key(),
-            &encapsulated_key.to_encoded(),
-        )?;
-        Ok(UnsignedSharedKey::Rsa2048_OaepSha1_B64 { data: enc })
+        match encapsulation_key.inner() {
+            RawPublicKey::RsaOaepSha1(rsa_public_key) => {
+                Ok(UnsignedSharedKey::Rsa2048_OaepSha1_B64 {
+                    data: encrypt_rsa2048_oaep_sha1(
+                        rsa_public_key,
+                        &encapsulated_key.to_encoded(),
+                    )?,
+                })
+            }
+        }
     }
 
     /// The numerical representation of the encryption type of the [UnsignedSharedKey].
@@ -190,25 +197,29 @@ impl UnsignedSharedKey {
         &self,
         decapsulation_key: &AsymmetricCryptoKey,
     ) -> Result<SymmetricCryptoKey> {
-        use UnsignedSharedKey::*;
-        let mut key_data = match self {
-            Rsa2048_OaepSha256_B64 { data } => decapsulation_key
-                .key
-                .decrypt(Oaep::new::<sha2::Sha256>(), data),
-            Rsa2048_OaepSha1_B64 { data } => decapsulation_key
-                .key
-                .decrypt(Oaep::new::<sha1::Sha1>(), data),
-            #[allow(deprecated)]
-            Rsa2048_OaepSha256_HmacSha256_B64 { data, .. } => decapsulation_key
-                .key
-                .decrypt(Oaep::new::<sha2::Sha256>(), data),
-            #[allow(deprecated)]
-            Rsa2048_OaepSha1_HmacSha256_B64 { data, .. } => decapsulation_key
-                .key
-                .decrypt(Oaep::new::<sha1::Sha1>(), data),
+        match decapsulation_key.inner() {
+            RawPrivateKey::RsaOaepSha1(rsa_private_key) => {
+                use UnsignedSharedKey::*;
+                let mut key_data = match self {
+                    Rsa2048_OaepSha256_B64 { data } => {
+                        rsa_private_key.decrypt(Oaep::new::<sha2::Sha256>(), data)
+                    }
+                    Rsa2048_OaepSha1_B64 { data } => {
+                        rsa_private_key.decrypt(Oaep::new::<sha1::Sha1>(), data)
+                    }
+                    #[allow(deprecated)]
+                    Rsa2048_OaepSha256_HmacSha256_B64 { data, .. } => {
+                        rsa_private_key.decrypt(Oaep::new::<sha2::Sha256>(), data)
+                    }
+                    #[allow(deprecated)]
+                    Rsa2048_OaepSha1_HmacSha256_B64 { data, .. } => {
+                        rsa_private_key.decrypt(Oaep::new::<sha1::Sha1>(), data)
+                    }
+                }
+                .map_err(|_| CryptoError::KeyDecrypt)?;
+                SymmetricCryptoKey::try_from(key_data.as_mut_slice())
+            }
         }
-        .map_err(|_| CryptoError::KeyDecrypt)?;
-        SymmetricCryptoKey::try_from(key_data.as_mut_slice())
     }
 }
 
@@ -229,8 +240,8 @@ impl schemars::JsonSchema for UnsignedSharedKey {
 mod tests {
     use schemars::schema_for;
 
-    use super::{AsymmetricCryptoKey, UnsignedSharedKey};
-    use crate::SymmetricCryptoKey;
+    use super::UnsignedSharedKey;
+    use crate::{AsymmetricCryptoKey, SymmetricCryptoKey};
 
     const RSA_PRIVATE_KEY: &str = "-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCXRVrCX+2hfOQS
