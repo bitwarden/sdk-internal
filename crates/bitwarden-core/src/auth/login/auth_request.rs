@@ -16,6 +16,7 @@ use crate::{
     require, ApiError, Client,
 };
 
+#[allow(missing_docs)]
 pub struct NewAuthRequestResponse {
     pub fingerprint: String,
     email: String,

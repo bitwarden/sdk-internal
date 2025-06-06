@@ -152,9 +152,11 @@ fn load_tokens_from_state(
 pub struct AccessTokenLoginRequest {
     /// Bitwarden service API access token
     pub access_token: String,
+    /// Path to the state file
     pub state_file: Option<PathBuf>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AccessTokenLoginResponse {

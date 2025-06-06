@@ -8,13 +8,18 @@ use crate::{NotAuthenticatedError, VaultLockedError, WrongPasswordError};
 
 mod access_token;
 pub(super) mod api;
+#[allow(missing_docs)]
 pub mod auth_client;
 mod jwt_token;
+#[allow(missing_docs)]
 pub mod login;
+#[allow(missing_docs)]
 #[cfg(feature = "internal")]
 pub mod password;
+#[allow(missing_docs)]
 #[cfg(feature = "internal")]
 pub mod pin;
+#[allow(missing_docs)]
 pub mod renew;
 pub use access_token::{AccessToken, AccessTokenInvalidError};
 pub use jwt_token::*;

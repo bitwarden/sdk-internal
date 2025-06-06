@@ -95,6 +95,7 @@ impl AsymmetricCryptoKey {
         }
     }
 
+    #[allow(missing_docs)]
     pub fn from_pem(pem: &str) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -104,6 +105,7 @@ impl AsymmetricCryptoKey {
         })
     }
 
+    #[allow(missing_docs)]
     pub fn from_der(der: &[u8]) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -113,6 +115,7 @@ impl AsymmetricCryptoKey {
         })
     }
 
+    #[allow(missing_docs)]
     pub fn to_der(&self) -> Result<Vec<u8>> {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => {
