@@ -33,9 +33,13 @@ const CONTENT_TYPE_PADDED_UTF8: &str = "application/utf8-padded";
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum ContentFormat {
+    /// UTF-8 encoded text
     Utf8,
+    /// Pkcs8 private key DER
     Pkcs8,
+    /// COSE serialized CoseKey
     CoseKey,
+    /// Stream of bytes
     OctetStream,
 }
 
