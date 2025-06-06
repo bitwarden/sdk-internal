@@ -7,7 +7,7 @@ use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStor
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::VaultParseError;
+use crate::{error::CollectionsParseError, tree::TreeItem};
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
@@ -31,7 +31,7 @@ pub struct Collection {
 }
 
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CollectionView {
@@ -46,12 +46,7 @@ pub struct CollectionView {
     pub manage: bool,
 }
 
-impl IdentifyKey<SymmetricKeyId> for Collection {
-    fn key_identifier(&self) -> SymmetricKeyId {
-        SymmetricKeyId::Organization(self.organization_id)
-    }
-}
-
+#[allow(missing_docs)]
 impl Decryptable<KeyIds, SymmetricKeyId, CollectionView> for Collection {
     fn decrypt(
         &self,
@@ -72,8 +67,9 @@ impl Decryptable<KeyIds, SymmetricKeyId, CollectionView> for Collection {
     }
 }
 
+#[allow(missing_docs)]
 impl TryFrom<CollectionDetailsResponseModel> for Collection {
-    type Error = VaultParseError;
+    type Error = CollectionsParseError;
 
     fn try_from(collection: CollectionDetailsResponseModel) -> Result<Self, Self::Error> {
         Ok(Collection {
@@ -86,4 +82,31 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
             manage: collection.manage.unwrap_or(false),
         })
     }
+}
+
+#[allow(missing_docs)]
+impl IdentifyKey<SymmetricKeyId> for Collection {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::Organization(self.organization_id)
+    }
+}
+
+#[allow(missing_docs)]
+impl TreeItem for CollectionView {
+    fn id(&self) -> Uuid {
+        self.id.unwrap_or_default()
+    }
+
+    fn short_name(&self) -> &str {
+        self.path().last().unwrap_or(&"")
+    }
+
+    fn path(&self) -> Vec<&str> {
+        self.name
+            .split(Self::DELIMITER)
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<&str>>()
+    }
+
+    const DELIMITER: char = '/';
 }

@@ -1,10 +1,10 @@
-use bitwarden_vault::{Collection, CollectionView};
+use bitwarden_collections::collection::{Collection, CollectionView};
 
 use crate::{error::Error, Result};
 
 #[allow(missing_docs)]
 #[derive(uniffi::Object)]
-pub struct CollectionsClient(pub(crate) bitwarden_vault::CollectionsClient);
+pub struct CollectionsClient(pub(crate) bitwarden_vault::collection_client::CollectionsClient);
 
 #[uniffi::export]
 impl CollectionsClient {
