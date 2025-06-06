@@ -11,7 +11,11 @@ readme.workspace = true
 keywords.workspace = true
 
 [features]
-uniffi = ["bitwarden-core/uniffi", "bitwarden-crypto/uniffi", "dep:uniffi"] # Uniffi bindings
+uniffi = [
+    "bitwarden-core/uniffi",
+    "bitwarden-crypto/uniffi",
+    "dep:uniffi",
+] # Uniffi bindings
 wasm = ["dep:tsify-next", "dep:wasm-bindgen"] # WASM support
 
 [dependencies]
@@ -27,7 +31,6 @@ tsify-next = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
-
 
 [lints]
 workspace = true
