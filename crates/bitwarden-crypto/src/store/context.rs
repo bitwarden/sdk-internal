@@ -265,7 +265,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(key_id)
     }
 
-    // Generate a new signature key using the current default algorithm, and store it in the context
+    /// Generate a new signature key using the current default algorithm, and store it in the context
     pub fn make_signing_key(&mut self, key_id: Ids::Signing) -> Result<Ids::Signing> {
         let key = SigningKey::make(SignatureAlgorithm::default_algorithm())?;
         #[allow(deprecated)]

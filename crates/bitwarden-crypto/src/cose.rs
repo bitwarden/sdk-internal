@@ -118,8 +118,11 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
     }
 }
 
+/// Trait for structs that are serializable to COSE objects.
 pub trait CoseSerializable {
+    /// Serializes the struct to COSE serialization
     fn to_cose(&self) -> Vec<u8>;
+    /// Deserializes a serialized COSE object to a struct
     fn from_cose(bytes: &[u8]) -> Result<Self, EncodingError>
     where
         Self: Sized;

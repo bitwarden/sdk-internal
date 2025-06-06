@@ -103,7 +103,8 @@ impl CryptoClient {
         verify_asymmetric_keys(request)
     }
 
-    pub fn make_signing_keys(&self) -> Result<MakeUserSigningKeysResponse, CryptoError> {
+    /// Makes a new signing key pair and signs the public key for the user
+    pub fn make_user_signing_keys_for_enrollment(&self) -> Result<MakeUserSigningKeysResponse, CryptoError> {
         make_user_signing_keys_for_enrollment(&self.client)
     }
 }

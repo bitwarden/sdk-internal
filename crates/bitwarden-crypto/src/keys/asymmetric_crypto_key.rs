@@ -7,6 +7,7 @@ use crate::error::{CryptoError, Result};
 
 /// Algorithm / public key encryption scheme used for encryption/decryption.
 pub enum PublicKeyEncryptionAlgorithm {
+    /// RSA with OAEP padding and SHA-1 hashing.
     RsaOaepSha1,
 }
 

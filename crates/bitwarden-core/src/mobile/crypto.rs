@@ -561,6 +561,7 @@ pub(super) fn verify_asymmetric_keys(
     })
 }
 
+/// A new signing key pair along with the signed public key
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
