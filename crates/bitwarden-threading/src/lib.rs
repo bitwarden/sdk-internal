@@ -6,4 +6,4 @@ mod thread_bound_runner;
 #[allow(missing_docs)]
 pub mod time;
 
-pub use thread_bound_runner::ThreadBoundRunner;
+pub use thread_bound_runner::{CallError, ThreadBoundRunner};

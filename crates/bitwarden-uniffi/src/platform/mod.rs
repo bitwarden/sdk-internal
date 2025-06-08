@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use bitwarden_core::{platform::FingerprintRequest, Client};
 use bitwarden_fido::ClientFido2Ext;
+use bitwarden_state::repository::RepositoryItem;
 use bitwarden_vault::Cipher;
 use repository::UniffiRepositoryBridge;
 
@@ -56,11 +57,24 @@ repository::create_uniffi_repository!(CipherRepository, Cipher);
 
 #[uniffi::export]
 impl StateClient {
-    pub fn register_cipher_repository(&self, store: Arc<dyn CipherRepository>) {
-        let store_internal = UniffiRepositoryBridge::new(store);
+    pub async fn initialize_state(
+        &self,
+        cipher_repository: Arc<dyn CipherRepository>,
+    ) -> Result<()> {
+        let cipher = UniffiRepositoryBridge::new(cipher_repository);
+        self.0.platform().state().register_client_managed(cipher);
+
+        let sdk_managed_repositories = vec![
+            // This should list all the SDK-managed repositories
+            <Cipher as RepositoryItem>::data(),
+        ];
+
         self.0
             .platform()
             .state()
-            .register_client_managed(store_internal)
+            .initialize_database(sdk_managed_repositories)
+            .await
+            .map_err(Error::StateRegistry)?;
+        Ok(())
     }
 }
