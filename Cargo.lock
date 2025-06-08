@@ -578,17 +578,10 @@ version = "1.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
- "gloo-timers",
  "inventory",
- "js-sys",
  "log",
- "serde",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
- "tokio-util",
- "tsify-next",
- "wasm-bindgen",
- "wasm-bindgen-futures",
 ]
 
 [[package]]
