@@ -21,18 +21,11 @@ impl StateClient {
         self.client
             .internal
             .repository_map
-            .write()
-            .expect("RwLock is not poisoned")
             .register_client_managed(store)
     }
 
     /// Get a client managed state repository for a specific type, if it exists.
     pub fn get_client_managed<T: RepositoryItem>(&self) -> Option<Arc<dyn Repository<T>>> {
-        self.client
-            .internal
-            .repository_map
-            .read()
-            .expect("RwLock is not poisoned")
-            .get_client_managed()
+        self.client.internal.repository_map.get_client_managed()
     }
 }

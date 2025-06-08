@@ -67,7 +67,7 @@ pub struct InternalClient {
     pub(super) key_store: KeyStore<KeyIds>,
 
     #[cfg(feature = "internal")]
-    pub(crate) repository_map: RwLock<StateRegistry>,
+    pub(crate) repository_map: StateRegistry,
 }
 
 impl InternalClient {

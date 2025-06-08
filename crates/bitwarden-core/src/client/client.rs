@@ -91,7 +91,7 @@ impl Client {
                 external_client,
                 key_store: KeyStore::default(),
                 #[cfg(feature = "internal")]
-                repository_map: RwLock::new(StateRegistry::new()),
+                repository_map: StateRegistry::new(),
             }),
         }
     }

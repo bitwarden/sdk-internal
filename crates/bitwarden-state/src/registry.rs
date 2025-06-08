@@ -1,7 +1,7 @@
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
-    sync::Arc,
+    sync::{Arc, RwLock},
 };
 
 use bitwarden_error::bitwarden_error;
@@ -13,14 +13,12 @@ use crate::repository::{Repository, RepositoryItem};
 /// A registry that contains repositories for different types of items.
 /// These repositories can be either managed by the client or by the SDK itself.
 pub struct StateRegistry {
-    client_managed: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
+    client_managed: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
 }
 
 impl std::fmt::Debug for StateRegistry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("StateRegistry")
-            .field("client_managed", &self.client_managed.keys())
-            .finish()
+        f.debug_struct("StateRegistry").finish()
     }
 }
 
@@ -40,13 +38,13 @@ impl StateRegistry {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         StateRegistry {
-            client_managed: HashMap::new(),
+            client_managed: RwLock::new(HashMap::new()),
         }
     }
 
     /// Registers a client-managed repository into the map, associating it with its type.
     pub fn register_client_managed<T: RepositoryItem>(
-        &mut self,
+        &self,
         value: Arc<dyn Repository<T>>,
     ) -> Result<(), StateRegistryError> {
         let mut possible_registrations = RepositoryItemRegistration::iter();
@@ -63,6 +61,8 @@ impl StateRegistry {
         }
 
         self.client_managed
+            .write()
+            .expect("RwLock should not be poisoned")
             .insert(TypeId::of::<T>(), Box::new(value));
 
         Ok(())
@@ -71,6 +71,8 @@ impl StateRegistry {
     /// Retrieves a client-managed repository from the map given its type.
     pub fn get_client_managed<T: RepositoryItem>(&self) -> Option<Arc<dyn Repository<T>>> {
         self.client_managed
+            .read()
+            .expect("RwLock should not be poisoned")
             .get(&TypeId::of::<T>())
             .and_then(|boxed| boxed.downcast_ref::<Arc<dyn Repository<T>>>())
             .map(Arc::clone)
@@ -82,8 +84,13 @@ impl StateRegistry {
         let possible_registrations = RepositoryItemRegistration::iter();
         let mut missing_repository = false;
 
+        let client_managed = self
+            .client_managed
+            .read()
+            .expect("RwLock should not be poisoned");
+
         for reg in possible_registrations {
-            if reg.rtype.is_client_managed() && !self.client_managed.contains_key(&reg.type_id()) {
+            if reg.rtype.is_client_managed() && !client_managed.contains_key(&reg.type_id()) {
                 log::error!(
                     "Repository for type {} is not registered in the client-managed state registry",
                     reg.name
@@ -151,7 +158,7 @@ mod tests {
         let b = Arc::new(TestB("test".to_string()));
         let c = Arc::new(TestC(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]));
 
-        let mut map = StateRegistry::new();
+        let map = StateRegistry::new();
 
         async fn get<T: RepositoryItem>(map: &StateRegistry) -> Option<T> {
             map.get_client_managed::<T>()
