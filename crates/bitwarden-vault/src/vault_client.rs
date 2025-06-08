@@ -4,8 +4,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     sync::{sync, SyncError},
-    AttachmentsClient, Cipher, CiphersClient, CollectionsClient, FoldersClient,
-    PasswordHistoryClient, SyncRequest, SyncResponse, TotpClient,
+    AttachmentsClient, CiphersClient, CollectionsClient, FoldersClient, PasswordHistoryClient,
+    SyncRequest, SyncResponse, TotpClient,
 };
 
 #[allow(missing_docs)]
@@ -68,22 +68,6 @@ impl VaultClient {
         TotpClient {
             client: self.client.clone(),
         }
-    }
-
-    /// Test method, prints all ciphers in the vault
-    pub async fn print_the_ciphers(&self) -> String {
-        let store = self
-            .client
-            .platform()
-            .state()
-            .get_client_managed::<Cipher>()
-            .expect("msg");
-        let mut result = String::new();
-        let ciphers = store.list().await.expect("msg");
-        for cipher in ciphers {
-            result.push_str(format!("{cipher:?}\n").as_str());
-        }
-        result
     }
 }
 
