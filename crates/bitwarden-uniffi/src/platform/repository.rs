@@ -100,3 +100,11 @@ macro_rules! create_uniffi_repository {
     };
 }
 pub(super) use create_uniffi_repository;
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    pub fn verify_no_duplicate_registrations() {
+        bitwarden_state::repository::test_utils::verify_no_duplicate_registrations();
+    }
+}

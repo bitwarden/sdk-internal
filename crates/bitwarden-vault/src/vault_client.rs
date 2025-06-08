@@ -38,22 +38,6 @@ impl VaultClient {
             client: self.client.clone(),
         }
     }
-
-    /// Test method, prints all ciphers in the vault
-    pub async fn print_the_ciphers(&self) -> String {
-        let store = self
-            .client
-            .platform()
-            .state()
-            .get_repository::<Cipher>()
-            .expect("msg");
-        let mut result = String::new();
-        let ciphers = store.list().await.expect("msg");
-        for cipher in ciphers {
-            result.push_str(format!("{cipher:?}\n").as_str());
-        }
-        result
-    }
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -84,6 +68,22 @@ impl VaultClient {
         TotpClient {
             client: self.client.clone(),
         }
+    }
+
+    /// Test method, prints all ciphers in the vault
+    pub async fn print_the_ciphers(&self) -> String {
+        let store = self
+            .client
+            .platform()
+            .state()
+            .get_client_managed::<Cipher>()
+            .expect("msg");
+        let mut result = String::new();
+        let ciphers = store.list().await.expect("msg");
+        for cipher in ciphers {
+            result.push_str(format!("{cipher:?}\n").as_str());
+        }
+        result
     }
 }
 

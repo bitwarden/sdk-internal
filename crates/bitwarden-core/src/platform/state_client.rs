@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use bitwarden_state::repository::Repository;
+use bitwarden_state::{
+    registry::StateRegistryError,
+    repository::{Repository, RepositoryItem},
+};
 
 use crate::Client;
 
@@ -11,22 +14,25 @@ pub struct StateClient {
 
 impl StateClient {
     /// Register a client managed state repository for a specific type.
-    pub fn register_repository<T: 'static + Repository<V>, V: 'static>(&self, store: Arc<T>) {
+    pub fn register_client_managed<T: 'static + Repository<V>, V: RepositoryItem>(
+        &self,
+        store: Arc<T>,
+    ) -> Result<(), StateRegistryError> {
         self.client
             .internal
             .repository_map
             .write()
             .expect("RwLock is not poisoned")
-            .insert(store);
+            .register_client_managed(store)
     }
 
     /// Get a client managed state repository for a specific type, if it exists.
-    pub fn get_repository<T: 'static>(&self) -> Option<Arc<dyn Repository<T>>> {
+    pub fn get_client_managed<T: RepositoryItem>(&self) -> Option<Arc<dyn Repository<T>>> {
         self.client
             .internal
             .repository_map
             .read()
             .expect("RwLock is not poisoned")
-            .get()
+            .get_client_managed()
     }
 }

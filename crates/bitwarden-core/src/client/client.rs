@@ -2,7 +2,7 @@ use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
 #[cfg(feature = "internal")]
-use bitwarden_state::repository::RepositoryMap;
+use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
 
 use super::internal::InternalClient;
@@ -91,7 +91,7 @@ impl Client {
                 external_client,
                 key_store: KeyStore::default(),
                 #[cfg(feature = "internal")]
-                repository_map: RwLock::new(RepositoryMap::default()),
+                repository_map: RwLock::new(StateRegistry::new()),
             }),
         }
     }

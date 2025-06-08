@@ -109,3 +109,11 @@ pub mod __macro_internal {
             })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    pub fn verify_no_duplicate_registrations() {
+        bitwarden_state::repository::test_utils::verify_no_duplicate_registrations();
+    }
+}

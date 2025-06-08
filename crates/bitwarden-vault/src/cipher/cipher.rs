@@ -121,6 +121,8 @@ pub struct Cipher {
     pub revision_date: DateTime<Utc>,
 }
 
+bitwarden_state::register_repository_item!(Cipher, "Cipher", ClientManaged);
+
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

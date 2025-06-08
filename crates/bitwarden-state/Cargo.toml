@@ -16,6 +16,7 @@ wasm = []
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
+inventory = "0.3.20"
 log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }

@@ -61,7 +61,8 @@ impl StateClient {
         self.0
             .platform()
             .state()
-            .register_repository(store_internal);
+            .register_client_managed(store_internal)
+            .map_err(Error::StateRegistry)?;
         Ok(())
     }
 }
