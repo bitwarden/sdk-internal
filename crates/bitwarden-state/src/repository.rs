@@ -24,7 +24,7 @@ pub trait Repository<V: RepositoryItem>: Send + Sync {
 
 /// This trait is used to mark types that can be stored in a repository.
 /// It should not be implemented manually; instead, users should
-/// use the [register_repository_item] macro to register their item types.
+/// use the [crate::register_repository_item] macro to register their item types.
 pub trait RepositoryItem: Internal + Send + Sync + 'static {
     /// The name of the type implementing this trait.
     const NAME: &'static str;
@@ -49,7 +49,7 @@ macro_rules! register_repository_item {
 }
 
 /// This code is not meant to be used directly, users of this crate should use the
-/// [register_repository_item] macro to register their types.
+/// [crate::register_repository_item] macro to register their types.
 #[doc(hidden)]
 pub mod ___internal {
 
