@@ -1,15 +1,25 @@
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
-    sync::{Arc, RwLock},
+    sync::{Arc, OnceLock, RwLock},
 };
 
-use crate::repository::{Repository, RepositoryItem};
+use bitwarden_error::bitwarden_error;
+use serde::{de::DeserializeOwned, Serialize};
+use thiserror::Error;
+
+use crate::{
+    repository::{Repository, RepositoryItem, RepositoryItemData},
+    sdk_managed::{Database, SystemDatabase},
+};
 
 /// A registry that contains repositories for different types of items.
 /// These repositories can be either managed by the client or by the SDK itself.
 pub struct StateRegistry {
+    sdk_managed: RwLock<Vec<RepositoryItemData>>,
     client_managed: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
+
+    database: OnceLock<SystemDatabase>,
 }
 
 impl std::fmt::Debug for StateRegistry {
@@ -18,13 +28,58 @@ impl std::fmt::Debug for StateRegistry {
     }
 }
 
+#[allow(missing_docs)]
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum StateRegistryError {
+    #[error("Database is already initialized")]
+    DatabaseAlreadyInitialized,
+    #[error("Database is not initialized")]
+    DatabaseNotInitialized,
+
+    #[error(transparent)]
+    Database(#[from] crate::sdk_managed::DatabaseError),
+}
+
 impl StateRegistry {
     /// Creates a new empty `StateRegistry`.
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         StateRegistry {
             client_managed: RwLock::new(HashMap::new()),
+            database: OnceLock::new(),
+            sdk_managed: RwLock::new(Vec::new()),
         }
+    }
+
+    // TODO: Ideally we'd do this in new, but that would mean making the client initialization
+    // async.
+    // TODO: This function needs to be provided some configuration to know where to open the
+    // database. For Sqlite:
+    // - A folder path where the files will be stored.
+    // - A user ID to create a unique database file per user?
+    //
+    // For WASM indexedDB:
+    // - A database name to use for the indexedDB (Some prefix to avoid conflicts + user ID?)
+
+    /// Initializes the database used for sdk-managed repositories.
+    pub async fn initialize_database(
+        &self,
+        repositories: Vec<RepositoryItemData>,
+    ) -> Result<(), StateRegistryError> {
+        if self.database.get().is_some() {
+            return Err(StateRegistryError::DatabaseAlreadyInitialized);
+        }
+        let _ = self
+            .database
+            .set(SystemDatabase::initialize(&repositories).await?);
+
+        *self
+            .sdk_managed
+            .write()
+            .expect("RwLock should not be poisoned") = repositories.clone();
+
+        Ok(())
     }
 
     /// Registers a client-managed repository into the map, associating it with its type.
@@ -43,6 +98,17 @@ impl StateRegistry {
             .get(&TypeId::of::<T>())
             .and_then(|boxed| boxed.downcast_ref::<Arc<dyn Repository<T>>>())
             .map(Arc::clone)
+    }
+
+    /// Retrieves a SDK-managed repository from the database.
+    pub fn get_sdk_managed<T: RepositoryItem + Serialize + DeserializeOwned>(
+        &self,
+    ) -> Result<impl Repository<T>, StateRegistryError> {
+        if let Some(db) = self.database.get() {
+            Ok(db.get_repository::<T>()?)
+        } else {
+            Err(StateRegistryError::DatabaseNotInitialized)
+        }
     }
 }
 
@@ -83,9 +149,9 @@ mod tests {
     #[derive(PartialEq, Eq, Debug)]
     struct TestItem<T>(T);
 
-    register_repository_item!(TestItem<usize>, "TestItem<usize>");
-    register_repository_item!(TestItem<String>, "TestItem<String>");
-    register_repository_item!(TestItem<Vec<u8>>, "TestItem<Vec<u8>>");
+    register_repository_item!(TestItem<usize>, "TestItem<usize>", version: 1);
+    register_repository_item!(TestItem<String>, "TestItem<String>", version: 1);
+    register_repository_item!(TestItem<Vec<u8>>, "TestItem<Vec<u8>>", version: 1);
 
     impl_repository!(TestA, TestItem<usize>);
     impl_repository!(TestB, TestItem<String>);

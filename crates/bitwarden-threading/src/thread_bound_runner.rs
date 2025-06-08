@@ -80,9 +80,17 @@ pub struct CallError(String);
 /// This pattern is useful for interacting with APIs or data structures that must remain
 /// on the same thread, such as GUI toolkits, WebAssembly contexts, or other thread-bound
 /// environments.
-#[derive(Clone)]
 pub struct ThreadBoundRunner<ThreadState> {
     call_channel_tx: tokio::sync::mpsc::Sender<CallRequest<ThreadState>>,
+}
+
+// This is not implemented using derive to remove the implicit bound on `ThreadState: Clone`
+impl<ThreadState> Clone for ThreadBoundRunner<ThreadState> {
+    fn clone(&self) -> Self {
+        ThreadBoundRunner {
+            call_channel_tx: self.call_channel_tx.clone(),
+        }
+    }
 }
 
 impl<ThreadState> ThreadBoundRunner<ThreadState>
