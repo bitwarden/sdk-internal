@@ -64,9 +64,6 @@ pub enum Error {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
 
-    #[error(transparent)]
-    StateRegistry(#[from] bitwarden_state::registry::StateRegistryError),
-
     // Generators
     #[error(transparent)]
     Username(#[from] UsernameError),

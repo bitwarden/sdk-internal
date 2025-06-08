@@ -56,13 +56,11 @@ repository::create_uniffi_repository!(CipherRepository, Cipher);
 
 #[uniffi::export]
 impl StateClient {
-    pub fn register_cipher_repository(&self, store: Arc<dyn CipherRepository>) -> Result<()> {
+    pub fn register_cipher_repository(&self, store: Arc<dyn CipherRepository>) {
         let store_internal = UniffiRepositoryBridge::new(store);
         self.0
             .platform()
             .state()
             .register_client_managed(store_internal)
-            .map_err(Error::StateRegistry)?;
-        Ok(())
     }
 }

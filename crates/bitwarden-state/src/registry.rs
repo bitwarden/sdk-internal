@@ -4,10 +4,6 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use bitwarden_error::bitwarden_error;
-use thiserror::Error;
-
-use super::repository::RepositoryItemRegistration;
 use crate::repository::{Repository, RepositoryItem};
 
 /// A registry that contains repositories for different types of items.
@@ -22,17 +18,6 @@ impl std::fmt::Debug for StateRegistry {
     }
 }
 
-#[allow(missing_docs)]
-#[bitwarden_error(flat)]
-#[derive(Debug, Error)]
-pub enum StateRegistryError {
-    #[error("Repository for type {0} is not registered as client-managed")]
-    RepositoryNotClientManaged(&'static str),
-
-    #[error("Not all client-managed repositories are registered")]
-    NotAllRepositoriesRegistered,
-}
-
 impl StateRegistry {
     /// Creates a new empty `StateRegistry`.
     #[allow(clippy::new_without_default)]
@@ -43,29 +28,11 @@ impl StateRegistry {
     }
 
     /// Registers a client-managed repository into the map, associating it with its type.
-    pub fn register_client_managed<T: RepositoryItem>(
-        &self,
-        value: Arc<dyn Repository<T>>,
-    ) -> Result<(), StateRegistryError> {
-        let mut possible_registrations = RepositoryItemRegistration::iter();
-        match possible_registrations.find(|reg| reg.type_id() == TypeId::of::<T>()) {
-            Some(reg) => {
-                if !reg.rtype.is_client_managed() {
-                    return Err(StateRegistryError::RepositoryNotClientManaged(reg.name));
-                }
-            }
-            // This should never happen, as we have tests to ensure all repositories are registered.
-            _ => {
-                return Err(StateRegistryError::NotAllRepositoriesRegistered);
-            }
-        }
-
+    pub fn register_client_managed<T: RepositoryItem>(&self, value: Arc<dyn Repository<T>>) {
         self.client_managed
             .write()
             .expect("RwLock should not be poisoned")
             .insert(TypeId::of::<T>(), Box::new(value));
-
-        Ok(())
     }
 
     /// Retrieves a client-managed repository from the map given its type.
@@ -76,34 +43,6 @@ impl StateRegistry {
             .get(&TypeId::of::<T>())
             .and_then(|boxed| boxed.downcast_ref::<Arc<dyn Repository<T>>>())
             .map(Arc::clone)
-    }
-
-    /// Validates that all repositories registered in the client-managed state registry.
-    /// This should only be called after all the repositories have been registered by the clients.
-    pub fn validate_repositories(&self) -> Result<(), StateRegistryError> {
-        let possible_registrations = RepositoryItemRegistration::iter();
-        let mut missing_repository = false;
-
-        let client_managed = self
-            .client_managed
-            .read()
-            .expect("RwLock should not be poisoned");
-
-        for reg in possible_registrations {
-            if reg.rtype.is_client_managed() && !client_managed.contains_key(&reg.type_id()) {
-                log::error!(
-                    "Repository for type {} is not registered in the client-managed state registry",
-                    reg.name
-                );
-                missing_repository = true;
-            }
-        }
-
-        if missing_repository {
-            return Err(StateRegistryError::NotAllRepositoriesRegistered);
-        }
-
-        Ok(())
     }
 }
 
@@ -144,9 +83,9 @@ mod tests {
     #[derive(PartialEq, Eq, Debug)]
     struct TestItem<T>(T);
 
-    register_repository_item!(TestItem<usize>, "TestItem<usize>", ClientManaged);
-    register_repository_item!(TestItem<String>, "TestItem<String>", ClientManaged);
-    register_repository_item!(TestItem<Vec<u8>>, "TestItem<Vec<u8>>", ClientManaged);
+    register_repository_item!(TestItem<usize>, "TestItem<usize>");
+    register_repository_item!(TestItem<String>, "TestItem<String>");
+    register_repository_item!(TestItem<Vec<u8>>, "TestItem<Vec<u8>>");
 
     impl_repository!(TestA, TestItem<usize>);
     impl_repository!(TestB, TestItem<String>);
@@ -172,17 +111,17 @@ mod tests {
         assert!(map.get_client_managed::<TestItem<String>>().is_none());
         assert!(map.get_client_managed::<TestItem<Vec<u8>>>().is_none());
 
-        map.register_client_managed(a.clone()).unwrap();
+        map.register_client_managed(a.clone());
         assert_eq!(get(&map).await, Some(TestItem(a.0)));
         assert!(map.get_client_managed::<TestItem<String>>().is_none());
         assert!(map.get_client_managed::<TestItem<Vec<u8>>>().is_none());
 
-        map.register_client_managed(b.clone()).unwrap();
+        map.register_client_managed(b.clone());
         assert_eq!(get(&map).await, Some(TestItem(a.0)));
         assert_eq!(get(&map).await, Some(TestItem(b.0.clone())));
         assert!(map.get_client_managed::<TestItem<Vec<u8>>>().is_none());
 
-        map.register_client_managed(c.clone()).unwrap();
+        map.register_client_managed(c.clone());
         assert_eq!(get(&map).await, Some(TestItem(a.0)));
         assert_eq!(get(&map).await, Some(TestItem(b.0.clone())));
         assert_eq!(get(&map).await, Some(TestItem(c.0.clone())));

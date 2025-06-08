@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use bitwarden_state::{
-    registry::StateRegistryError,
-    repository::{Repository, RepositoryItem},
-};
+use bitwarden_state::repository::{Repository, RepositoryItem};
 
 use crate::Client;
 
@@ -17,7 +14,7 @@ impl StateClient {
     pub fn register_client_managed<T: 'static + Repository<V>, V: RepositoryItem>(
         &self,
         store: Arc<T>,
-    ) -> Result<(), StateRegistryError> {
+    ) {
         self.client
             .internal
             .repository_map

@@ -26,19 +26,6 @@ pub fn set_log_level(level: LogLevel) {
     set_max_level(log_level.to_level_filter());
 }
 
-// This is needed to ensure the linker doesn't optimize away the constructors used by the inventory
-// crate. https://docs.rs/inventory/0.3.20/inventory/index.html#webassembly-and-constructors
-unsafe extern "C" {
-    fn __wasm_call_ctors();
-}
-
-#[wasm_bindgen(start)]
-fn start() {
-    unsafe {
-        __wasm_call_ctors();
-    }
-}
-
 #[allow(missing_docs)]
 #[wasm_bindgen]
 pub fn init_sdk(log_level: Option<LogLevel>) {
