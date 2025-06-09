@@ -577,8 +577,6 @@ name = "bitwarden-state"
 version = "1.0.0"
 dependencies = [
  "async-trait",
- "bitwarden-error",
- "log",
  "thiserror 1.0.69",
  "tokio",
 ]
