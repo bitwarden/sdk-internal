@@ -34,6 +34,16 @@ pub struct CardView {
     pub number: Option<String>,
 }
 
+/// Minimal CardView only including the needed details for list views
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct CardListView {
+    /// The brand of the card, e.g. Visa, Mastercard, etc.
+    pub brand: Option<String>,
+}
+
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize)]
 pub enum CardBrand {
@@ -65,6 +75,18 @@ impl Encryptable<KeyIds, SymmetricKeyId, Card> for CardView {
             code: self.code.encrypt(ctx, key)?,
             brand: self.brand.encrypt(ctx, key)?,
             number: self.number.encrypt(ctx, key)?,
+        })
+    }
+}
+
+impl Decryptable<KeyIds, SymmetricKeyId, CardListView> for Card {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<CardListView, CryptoError> {
+        Ok(CardListView {
+            brand: self.brand.decrypt(ctx, key).ok().flatten(),
         })
     }
 }
