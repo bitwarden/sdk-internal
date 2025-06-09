@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::repository::{Repository, RepositoryError, RepositoryItem, RepositoryItemData};
 
-//#[cfg(target_arch = "wasm32")]
+#[cfg(target_arch = "wasm32")]
 mod indexed_db;
 #[cfg(target_arch = "wasm32")]
 pub(super) type SystemDatabase = indexed_db::IndexedDbDatabase;
