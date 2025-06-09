@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::VaultParseError;
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GlobalDomains {
     pub r#type: i32,

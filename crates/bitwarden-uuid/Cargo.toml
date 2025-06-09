@@ -22,5 +22,7 @@ workspace = true
 
 [dev-dependencies]
 serde = { workspace = true }
+serde-wasm-bindgen = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
+wasm-bindgen-test = { workspace = true }

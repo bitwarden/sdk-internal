@@ -26,6 +26,7 @@ pub fn set_log_level(level: LogLevel) {
     set_max_level(log_level.to_level_filter());
 }
 
+#[allow(missing_docs)]
 #[wasm_bindgen]
 pub fn init_sdk(log_level: Option<LogLevel>) {
     console_error_panic_hook::set_once();

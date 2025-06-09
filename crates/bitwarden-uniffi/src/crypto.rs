@@ -6,6 +6,7 @@ use bitwarden_crypto::{EncString, UnsignedSharedKey};
 
 use crate::error::{Error, Result};
 
+#[allow(missing_docs)]
 #[derive(uniffi::Object)]
 pub struct CryptoClient(pub(crate) bitwarden_core::mobile::CryptoClient);
 
