@@ -7,6 +7,8 @@
 # Platform is the default owner for all files
 * @bitwarden/team-platform-dev
 
+crates/bitwarden-vault/** @bitwarden/team-vault-dev @bitwarden/team-platform-dev
+
 # BRE for publish workflow changes
 .github/workflows/publish-*.yml @bitwarden/dept-bre
 .github/workflows/release-rust-crates.yml @bitwarden/dept-bre
