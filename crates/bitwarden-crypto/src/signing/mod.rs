@@ -52,6 +52,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum SignatureAlgorithm {
+    /// Ed25519 is the modern, secure recommended option for digital signatures on eliptic curves.
     Ed25519,
 }
 
@@ -63,15 +64,14 @@ impl SignatureAlgorithm {
 }
 
 #[cfg(test)]
-#[derive(Deserialize, Debug, PartialEq, Serialize)]
-pub(super) struct TestMessage {
-    field1: String,
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
     use crate::CoseSerializable;
+
+    #[derive(Deserialize, Debug, PartialEq, Serialize)]
+    struct TestMessage {
+        field1: String,
+    }
 
     /// The function used to create the test vectors below, and can be used to re-generate them.
     /// Once rolled out to user accounts, this function can be removed, because at that point we
@@ -90,25 +90,19 @@ mod tests {
             .sign(&test_message, &SigningNamespace::ExampleNamespace)
             .unwrap();
         let raw_signed_array = signing_key.sign_raw("Test message".as_bytes());
-        println!(
-            "const SIGNING_KEY: &[u8] = &{:?};",
-            signing_key.to_cose().unwrap()
-        );
+        println!("const SIGNING_KEY: &[u8] = &{:?};", signing_key.to_cose());
         println!(
             "const VERIFYING_KEY: &[u8] = &{:?};",
-            verifying_key.to_cose().unwrap()
+            verifying_key.to_cose()
         );
-        println!(
-            "const SIGNATURE: &[u8] = &{:?};",
-            signature.to_cose().unwrap()
-        );
+        println!("const SIGNATURE: &[u8] = &{:?};", signature.to_cose());
         println!(
             "const SERIALIZED_MESSAGE: &[u8] = &{:?};",
             serialized_message.as_bytes()
         );
         println!(
             "const SIGNED_OBJECT: &[u8] = &{:?};",
-            signed_object.to_cose().unwrap()
+            signed_object.to_cose()
         );
         println!(
             "const SIGNED_OBJECT_RAW: &[u8] = &{:?};",

@@ -5,7 +5,9 @@ use rsa::{pkcs8::DecodePublicKey, RsaPrivateKey, RsaPublicKey};
 use super::key_encryptable::CryptoKey;
 use crate::error::{CryptoError, Result};
 
+/// Algorithm / public key encryption scheme used for encryption/decryption.
 pub enum PublicKeyEncryptionAlgorithm {
+    /// RSA with OAEP padding and SHA-1 hashing.
     RsaOaepSha1,
 }
 
@@ -14,6 +16,8 @@ pub(crate) enum RawPublicKey {
     RsaOaepSha1(RsaPublicKey),
 }
 
+/// Public key of a key pair used in a public key encryption scheme. It is used for
+/// encrypting data.
 #[derive(Clone)]
 pub struct AsymmetricPublicCryptoKey {
     inner: RawPublicKey,
@@ -33,6 +37,7 @@ impl AsymmetricPublicCryptoKey {
         })
     }
 
+    /// Makes a SubjectPublicKeyInfo DER serialized version of the public key.
     pub fn to_der(&self) -> Result<Vec<u8>> {
         use rsa::pkcs8::EncodePublicKey;
         match &self.inner {
@@ -54,6 +59,8 @@ pub(crate) enum RawPrivateKey {
     RsaOaepSha1(Pin<Box<RsaPrivateKey>>),
 }
 
+/// Private key of a key pair used in a public key encryption scheme. It is used for
+/// decrypting data that was encrypted with the corresponding public key.
 #[derive(Clone)]
 pub struct AsymmetricCryptoKey {
     inner: RawPrivateKey,
@@ -73,8 +80,7 @@ impl CryptoKey for AsymmetricCryptoKey {}
 impl AsymmetricCryptoKey {
     /// Generate a random AsymmetricCryptoKey (RSA-2048).
     pub fn make(algorithm: PublicKeyEncryptionAlgorithm) -> Self {
-        use rand::rngs::OsRng;
-        Self::make_internal(algorithm, &mut OsRng)
+        Self::make_internal(algorithm, &mut rand::thread_rng())
     }
 
     fn make_internal<R: rand::CryptoRng + rand::RngCore>(
@@ -90,6 +96,7 @@ impl AsymmetricCryptoKey {
         }
     }
 
+    #[allow(missing_docs)]
     pub fn from_pem(pem: &str) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -99,6 +106,7 @@ impl AsymmetricCryptoKey {
         })
     }
 
+    #[allow(missing_docs)]
     pub fn from_der(der: &[u8]) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -108,6 +116,7 @@ impl AsymmetricCryptoKey {
         })
     }
 
+    #[allow(missing_docs)]
     pub fn to_der(&self) -> Result<Vec<u8>> {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => {
@@ -121,6 +130,8 @@ impl AsymmetricCryptoKey {
         }
     }
 
+    /// Derives the public key corresponding to this private key. This is deterministic
+    /// and always derives the same public key.
     pub fn to_public_key(&self) -> AsymmetricPublicCryptoKey {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => AsymmetricPublicCryptoKey {

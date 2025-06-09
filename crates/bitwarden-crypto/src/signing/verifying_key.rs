@@ -10,7 +10,12 @@ use coset::{
 };
 
 use super::{ed25519_verifying_key, key_id, SignatureAlgorithm};
-use crate::{cose::CoseSerializable, error::SignatureError, keys::KeyId, CryptoError};
+use crate::{
+    cose::CoseSerializable,
+    error::{EncodingError, SignatureError},
+    keys::KeyId,
+    CryptoError,
+};
 
 /// A `VerifyingKey` without the key id. This enum contains a variant for each supported signature
 /// scheme.
@@ -53,13 +58,13 @@ impl VerifyingKey {
 }
 
 impl CoseSerializable for VerifyingKey {
-    fn to_cose(&self) -> Result<Vec<u8>, CryptoError> {
+    fn to_cose(&self) -> Vec<u8> {
         match &self.inner {
             RawVerifyingKey::Ed25519(key) => coset::CoseKeyBuilder::new_okp_key()
                 .key_id((&self.id).into())
                 .algorithm(Algorithm::EdDSA)
                 .param(
-                    OkpKeyParameter::Crv.to_i64(),
+                    OkpKeyParameter::Crv.to_i64(), // Elliptic curve identifier
                     Value::Integer(Integer::from(EllipticCurve::Ed25519.to_i64())),
                 )
                 // Note: X does not refer to the X coordinate of the public key curve point, but
@@ -67,36 +72,38 @@ impl CoseSerializable for VerifyingKey {
                 // the case of Ed25519, this is the compressed Y coordinate. This
                 // was ill-defined in earlier drafts of the standard. https://www.rfc-editor.org/rfc/rfc9053.html#name-octet-key-pair
                 .param(
-                    OkpKeyParameter::X.to_i64(),
+                    OkpKeyParameter::X.to_i64(), // Verifying key (digital signature public key)
                     Value::Bytes(key.to_bytes().to_vec()),
                 )
                 .add_key_op(KeyOperation::Verify)
                 .build()
                 .to_vec()
-                .map_err(|_| CryptoError::InvalidKey),
+                .expect("Verifying key is always serializable"),
         }
     }
 
-    fn from_cose(bytes: &[u8]) -> Result<Self, CryptoError>
+    fn from_cose(bytes: &[u8]) -> Result<Self, EncodingError>
     where
         Self: Sized,
     {
-        let cose_key = coset::CoseKey::from_slice(bytes).map_err(|_| CryptoError::InvalidKey)?;
+        let cose_key =
+            coset::CoseKey::from_slice(bytes).map_err(|_| EncodingError::InvalidCoseEncoding)?;
 
-        let Some(ref algorithm) = cose_key.alg else {
-            return Err(CryptoError::InvalidKey);
-        };
+        let algorithm = cose_key
+            .alg
+            .as_ref()
+            .ok_or(EncodingError::MissingValue("COSE key algorithm"))?;
         match (&cose_key.kty, algorithm) {
-            (kty, alg)
-                if *kty == RegisteredLabel::Assigned(KeyType::OKP)
-                    && *alg == RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA) =>
-            {
-                Ok(VerifyingKey {
-                    id: key_id(&cose_key)?,
-                    inner: RawVerifyingKey::Ed25519(ed25519_verifying_key(&cose_key)?),
-                })
-            }
-            _ => Err(CryptoError::InvalidKey),
+            (
+                RegisteredLabel::Assigned(KeyType::OKP),
+                RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA),
+            ) => Ok(VerifyingKey {
+                id: key_id(&cose_key)?,
+                inner: RawVerifyingKey::Ed25519(ed25519_verifying_key(&cose_key)?),
+            }),
+            _ => Err(EncodingError::UnsupportedValue(
+                "COSE key type or algorithm",
+            )),
         }
     }
 }
@@ -121,13 +128,10 @@ mod tests {
     #[test]
     fn test_cose_roundtrip_encode_verifying() {
         let verifying_key = VerifyingKey::from_cose(VERIFYING_KEY).unwrap();
-        let cose = verifying_key.to_cose().unwrap();
+        let cose = verifying_key.to_cose();
         let parsed_key = VerifyingKey::from_cose(&cose).unwrap();
 
-        assert_eq!(
-            verifying_key.to_cose().unwrap(),
-            parsed_key.to_cose().unwrap()
-        );
+        assert_eq!(verifying_key.to_cose(), parsed_key.to_cose());
     }
 
     #[test]

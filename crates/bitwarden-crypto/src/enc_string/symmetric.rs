@@ -7,6 +7,7 @@ use serde::Deserialize;
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
+    util::FromStrVisitor,
     Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key,
 };
 
@@ -52,6 +53,7 @@ export type EncString = string;
 /// - `[data]`: is the encrypted data.
 /// - `[mac]`: (optional) is the MAC used to validate the integrity of the data.
 /// - `[cose_encrypt0_bytes]`: is the COSE Encrypt0 message, serialized to bytes
+#[allow(missing_docs)]
 #[derive(Clone, zeroize::ZeroizeOnDrop, PartialEq)]
 #[allow(unused, non_camel_case_types)]
 pub enum EncString {
@@ -113,6 +115,7 @@ impl EncString {
         s.map(|s| s.parse()).transpose()
     }
 
+    #[allow(missing_docs)]
     pub fn from_buffer(buf: &[u8]) -> Result<Self> {
         if buf.is_empty() {
             return Err(EncStringParseError::NoType.into());
@@ -146,6 +149,7 @@ impl EncString {
         }
     }
 
+    #[allow(missing_docs)]
     pub fn to_buffer(&self) -> Result<Vec<u8>> {
         let mut buf;
 
@@ -232,7 +236,7 @@ impl<'de> Deserialize<'de> for EncString {
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_str(super::FromStrVisitor::new())
+        deserializer.deserialize_str(FromStrVisitor::new())
     }
 }
 

@@ -8,7 +8,8 @@ use generic_array::GenericArray;
 use typenum::U32;
 
 use crate::{
-    error::EncStringParseError, xchacha20, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    error::{EncStringParseError, EncodingError},
+    xchacha20, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
 };
 
 /// XChaCha20 <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03> is used over ChaCha20
@@ -117,9 +118,12 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
     }
 }
 
+/// Trait for structs that are serializable to COSE objects.
 pub trait CoseSerializable {
-    fn to_cose(&self) -> Result<Vec<u8>, CryptoError>;
-    fn from_cose(bytes: &[u8]) -> Result<Self, CryptoError>
+    /// Serializes the struct to COSE serialization
+    fn to_cose(&self) -> Vec<u8>;
+    /// Deserializes a serialized COSE object to a struct
+    fn from_cose(bytes: &[u8]) -> Result<Self, EncodingError>
     where
         Self: Sized;
 }

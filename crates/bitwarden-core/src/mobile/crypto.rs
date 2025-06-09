@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, SignatureAlgorithm, SigningKey, SymmetricCryptoKey,
+    KeyEncryptable, MasterKey, SignatureAlgorithm, SignedPublicKey, SigningKey, SymmetricCryptoKey,
     UnsignedSharedKey, UserKey,
 };
 use schemars::JsonSchema;
@@ -41,17 +41,16 @@ pub enum MobileCryptoError {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct InitUserCryptoRequest {
+    /// The user's ID.
     pub user_id: Option<uuid::Uuid>,
     /// The user's KDF parameters, as received from the prelogin request
     pub kdf_params: Kdf,
     /// The user's email address
     pub email: String,
     /// The user's encrypted private key
-    pub private_key: String,
-
+    pub private_key: EncString,
     /// The user's signing key
-    pub signing_key: Option<String>,
-
+    pub signing_key: Option<EncString>,
     /// The initialization method to use
     pub method: InitUserCryptoMethod,
 }
@@ -67,7 +66,7 @@ pub enum InitUserCryptoMethod {
         /// The user's master password
         password: String,
         /// The user's encrypted symmetric crypto key
-        user_key: String,
+        user_key: EncString,
     },
     /// Never lock and/or biometric unlock
     DecryptedKey {
@@ -103,7 +102,7 @@ pub enum InitUserCryptoMethod {
         /// Base64 encoded master key, retrieved from the key connector.
         master_key: String,
         /// The user's encrypted symmetric crypto key
-        user_key: String,
+        user_key: EncString,
     },
 }
 
@@ -136,30 +135,27 @@ pub async fn initialize_user_crypto(
 
     use crate::auth::{auth_request_decrypt_master_key, auth_request_decrypt_user_key};
 
-    let private_key: EncString = req.private_key.parse()?;
-    let signing_key: Option<EncString> = req.signing_key.map(|s| s.parse()).transpose()?;
-
     if let Some(user_id) = req.user_id {
         client.internal.init_user_id(user_id)?;
     }
 
     match req.method {
         InitUserCryptoMethod::Password { password, user_key } => {
-            let user_key: EncString = user_key.parse()?;
-
             let master_key = MasterKey::derive(&password, &req.email, &req.kdf_params)?;
             client.internal.initialize_user_crypto_master_key(
                 master_key,
                 user_key,
-                private_key,
-                signing_key,
+                req.private_key,
+                req.signing_key,
             )?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
-            client
-                .internal
-                .initialize_user_crypto_decrypted_key(user_key, private_key, None)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                req.private_key,
+                req.signing_key,
+            )?;
         }
         InitUserCryptoMethod::Pin {
             pin,
@@ -169,8 +165,8 @@ pub async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_pin(
                 pin_key,
                 pin_protected_user_key,
-                private_key,
-                signing_key,
+                req.private_key,
+                req.signing_key,
             )?;
         }
         InitUserCryptoMethod::AuthRequest {
@@ -192,8 +188,8 @@ pub async fn initialize_user_crypto(
             };
             client.internal.initialize_user_crypto_decrypted_key(
                 user_key,
-                private_key,
-                signing_key,
+                req.private_key,
+                req.signing_key,
             )?;
         }
         InitUserCryptoMethod::DeviceKey {
@@ -207,8 +203,8 @@ pub async fn initialize_user_crypto(
 
             client.internal.initialize_user_crypto_decrypted_key(
                 user_key,
-                private_key,
-                signing_key,
+                req.private_key,
+                req.signing_key,
             )?;
         }
         InitUserCryptoMethod::KeyConnector {
@@ -219,13 +215,12 @@ pub async fn initialize_user_crypto(
                 .decode(master_key)
                 .map_err(|_| CryptoError::InvalidKey)?;
             let master_key = MasterKey::try_from(master_key_bytes.as_mut_slice())?;
-            let user_key: EncString = user_key.parse()?;
 
             client.internal.initialize_user_crypto_master_key(
                 master_key,
                 user_key,
-                private_key,
-                signing_key,
+                req.private_key,
+                req.signing_key,
             )?;
         }
     }
@@ -566,22 +561,26 @@ pub(super) fn verify_asymmetric_keys(
     })
 }
 
+/// A new signing key pair along with the signed public key
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct MakeUserSigningKeysResponse {
-    /// The verifying key
+    /// Base64 encoded verifying key
     verifying_key: String,
     /// Signing key, encrypted with a symmetric key (user key, org key)
     signing_key: EncString,
     /// The user's public key, signed by the signing key
-    signed_public_key: String,
+    signed_public_key: SignedPublicKey,
 }
 
-/// Makes a new set of signing keys for a user. This also signs the public key with the signing key
+/// Makes a new set of signing keys for a user, which should only be done during
+/// once. This also signs the public key with the signing key
 /// and returns the signed public key.
-pub fn make_user_signing_keys(client: &Client) -> Result<MakeUserSigningKeysResponse, CryptoError> {
+pub fn make_user_signing_keys_for_enrollment(
+    client: &Client,
+) -> Result<MakeUserSigningKeysResponse, CryptoError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
 
@@ -593,24 +592,21 @@ pub fn make_user_signing_keys(client: &Client) -> Result<MakeUserSigningKeysResp
     // Make new keypair and sign the public key with it
     let signature_keypair =
         SigningKey::make(SignatureAlgorithm::Ed25519).map_err(|_| CryptoError::InvalidKey)?;
-    let signed_public_key: Vec<u8> = ctx
-        .make_signed_public_key(
-            AsymmetricKeyId::UserPrivateKey,
-            SigningKeyId::UserSigningKey,
-        )?
-        .try_into()?;
+    let signed_public_key = ctx.make_signed_public_key(
+        AsymmetricKeyId::UserPrivateKey,
+        SigningKeyId::UserSigningKey,
+    )?;
 
     Ok(MakeUserSigningKeysResponse {
-        verifying_key: STANDARD.encode(signature_keypair.to_verifying_key().to_cose()?),
+        verifying_key: STANDARD.encode(signature_keypair.to_verifying_key().to_cose()),
         // This needs to be changed to use the correct COSE content format before rolling out to
         // users: https://bitwarden.atlassian.net/browse/PM-22189
-        signing_key: signature_keypair
-            .to_cose()?
-            .encrypt_with_key(wrapping_key)?,
-        signed_public_key: STANDARD.encode(&signed_public_key),
+        signing_key: signature_keypair.to_cose().encrypt_with_key(wrapping_key)?,
+        signed_public_key,
     })
 }
 
+/// Rotated set of account keys
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -640,26 +636,22 @@ pub fn rotate_account_keys(
     // before rolling out to users: https://bitwarden.atlassian.net/browse/PM-22189
     let new_user_key = SymmetricCryptoKey::try_from(new_user_key)?;
     #[allow(deprecated)]
-    let signing_key = ctx
-        .dangerous_get_signing_key(SigningKeyId::UserSigningKey)?;
+    let signing_key = ctx.dangerous_get_signing_key(SigningKeyId::UserSigningKey)?;
     #[allow(deprecated)]
-    let private_key = ctx
-        .dangerous_get_asymmetric_key(AsymmetricKeyId::UserPrivateKey)?;
+    let private_key = ctx.dangerous_get_asymmetric_key(AsymmetricKeyId::UserPrivateKey)?;
     let signed_public_key: Vec<u8> = ctx
         .make_signed_public_key(
             AsymmetricKeyId::UserPrivateKey,
             SigningKeyId::UserSigningKey,
         )?
-        .try_into()?;
+        .into();
 
     Ok(RotateUserKeysResponse {
-        verifying_key: STANDARD.encode(signing_key.to_verifying_key().to_cose()?),
-        signing_key:  signing_key
-            .to_cose()?
-            .encrypt_with_key(&new_user_key)?,
+        verifying_key: STANDARD.encode(signing_key.to_verifying_key().to_cose()),
+        signing_key: signing_key.to_cose().encrypt_with_key(&new_user_key)?,
         signed_public_key: STANDARD.encode(&signed_public_key),
-        public_key:  STANDARD.encode(private_key.to_public_key().to_der()?),
-        private_key: private_key.to_der()?.encrypt_with_key(&new_user_key)?
+        public_key: STANDARD.encode(private_key.to_public_key().to_der()?),
+        private_key: private_key.to_der()?.encrypt_with_key(&new_user_key)?,
     })
 }
 
@@ -676,7 +668,7 @@ mod tests {
     async fn test_update_password() {
         let client = Client::new(None);
 
-        let priv_key = "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=";
+        let priv_key: EncString = "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=".parse().unwrap();
 
         let kdf = Kdf::PBKDF2 {
             iterations: 100_000.try_into().unwrap(),
@@ -692,7 +684,7 @@ mod tests {
                 signing_key: None,
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
-                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".into(),
+                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
                 },
             },
         )
@@ -713,7 +705,7 @@ mod tests {
                 signing_key: None,
                 method: InitUserCryptoMethod::Password {
                     password: "123412341234".into(),
-                    user_key: new_password_response.new_key.to_string(),
+                    user_key: new_password_response.new_key,
                 },
             },
         )
@@ -758,7 +750,7 @@ mod tests {
     async fn test_initialize_user_crypto_pin() {
         let client = Client::new(None);
 
-        let priv_key = "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=";
+        let priv_key: EncString = "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=".parse().unwrap();
 
         initialize_user_crypto(
             & client,
@@ -772,7 +764,7 @@ mod tests {
                 signing_key: None,
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
-                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".into(),
+                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
                 },
             },
         )

@@ -8,10 +8,15 @@ use super::{
 };
 use crate::{
     cose::{CoseSerializable, SIGNING_NAMESPACE},
-    error::SignatureError,
+    error::{EncodingError, SignatureError},
     CryptoError,
 };
 
+/// A signed object is a message containing a payload and signature that attests the payload's
+/// integrity and authenticity for a specific namespace and signature key. In order to gain access
+/// to the payload, the caller must provide the correct namespace and verifying key, ensuring that
+/// the caller cannot forget to validate the signature before using the payload.
+#[derive(Clone, Debug)]
 pub struct SignedObject(pub(crate) CoseSign1);
 
 impl From<CoseSign1> for SignedObject {
@@ -21,6 +26,8 @@ impl From<CoseSign1> for SignedObject {
 }
 
 impl SignedObject {
+    /// Parses the signature headers and returns the content type of the signed data. The content
+    /// type indicates how the serialized message that was signed was encoded.
     pub fn content_type(&self) -> Result<CoapContentFormat, CryptoError> {
         content_type(&self.0.protected)
     }
@@ -53,6 +60,7 @@ impl SignedObject {
             self.content_type()?,
         )
         .decode()
+        .map_err(Into::into)
     }
 
     /// Verifies the signature of the signed object and returns the payload as raw bytes, if the
@@ -62,12 +70,11 @@ impl SignedObject {
         verifying_key: &VerifyingKey,
         namespace: &SigningNamespace,
     ) -> Result<Vec<u8>, CryptoError> {
-        let Some(_alg) = &self.inner().protected.header.alg else {
+        if self.inner().protected.header.alg.is_none() {
             return Err(SignatureError::InvalidSignature.into());
-        };
+        }
 
-        let signature_namespace = self.namespace()?;
-        if signature_namespace != *namespace {
+        if self.namespace()? != *namespace {
             return Err(SignatureError::InvalidNamespace.into());
         }
 
@@ -141,25 +148,26 @@ impl SigningKey {
 }
 
 impl CoseSerializable for SignedObject {
-    fn from_cose(bytes: &[u8]) -> Result<Self, CryptoError> {
+    fn from_cose(bytes: &[u8]) -> Result<Self, EncodingError> {
         Ok(SignedObject(
-            CoseSign1::from_slice(bytes).map_err(|_| SignatureError::InvalidSignature)?,
+            CoseSign1::from_slice(bytes).map_err(|_| EncodingError::InvalidCoseEncoding)?,
         ))
     }
 
-    fn to_cose(&self) -> Result<Vec<u8>, CryptoError> {
+    fn to_cose(&self) -> Vec<u8> {
         self.0
             .clone()
             .to_vec()
-            .map_err(|_| SignatureError::InvalidSignature.into())
+            .expect("SignedObject is always serializable")
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use serde::{Deserialize, Serialize};
+
     use crate::{
-        CoseSerializable, CryptoError, SignedObject, SigningKey, SigningNamespace, TestMessage,
-        VerifyingKey,
+        CoseSerializable, CryptoError, SignedObject, SigningKey, SigningNamespace, VerifyingKey,
     };
 
     const VERIFYING_KEY: &[u8] = &[
@@ -178,6 +186,11 @@ mod tests {
         6,
     ];
 
+    #[derive(Deserialize, Debug, PartialEq, Serialize)]
+    struct TestMessage {
+        field1: String,
+    }
+
     #[test]
     fn test_roundtrip_cose() {
         let signed_object = SignedObject::from_cose(SIGNED_OBJECT).unwrap();
@@ -185,7 +198,7 @@ mod tests {
             signed_object.content_type().unwrap(),
             coset::iana::CoapContentFormat::Cbor
         );
-        let cose_bytes = signed_object.to_cose().unwrap();
+        let cose_bytes = signed_object.to_cose();
         assert_eq!(cose_bytes, SIGNED_OBJECT);
     }
 

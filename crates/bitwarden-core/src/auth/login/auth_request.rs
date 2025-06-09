@@ -16,6 +16,7 @@ use crate::{
     require, ApiError, Client,
 };
 
+#[allow(missing_docs)]
 pub struct NewAuthRequestResponse {
     pub fingerprint: String,
     email: String,
@@ -118,7 +119,7 @@ pub(crate) async fn complete_auth_request(
                 user_id: None,
                 kdf_params: kdf,
                 email: auth_req.email,
-                private_key: require!(r.private_key),
+                private_key: require!(r.private_key).parse()?,
                 signing_key: None,
                 method: InitUserCryptoMethod::AuthRequest {
                     request_private_key: auth_req.private_key,

@@ -2,11 +2,13 @@ use bitwarden_core::Client;
 
 use crate::{DecryptError, EncryptError, PasswordHistory, PasswordHistoryView};
 
+#[allow(missing_docs)]
 pub struct PasswordHistoryClient {
     pub(crate) client: Client,
 }
 
 impl PasswordHistoryClient {
+    #[allow(missing_docs)]
     pub fn encrypt(
         &self,
         history_view: PasswordHistoryView,
@@ -16,6 +18,7 @@ impl PasswordHistoryClient {
         Ok(history)
     }
 
+    #[allow(missing_docs)]
     pub fn decrypt_list(
         &self,
         history: Vec<PasswordHistory>,

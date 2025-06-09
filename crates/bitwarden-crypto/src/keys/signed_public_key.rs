@@ -2,28 +2,39 @@
 //! identity, which is provided by a signature keypair. This is done by signing the public key, and
 //! requiring consumers to verify the public key before consumption by using unwrap_and_verify.
 
+use std::str::FromStr;
+
+use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::AsymmetricPublicCryptoKey;
 use crate::{
-    cose::CoseSerializable, CryptoError, SignedObject, SigningKey, SigningNamespace, VerifyingKey,
+    cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CryptoError, RawPublicKey,
+    SignedObject, SigningKey, SigningNamespace, VerifyingKey,
 };
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_CUSTOM_TYPES: &'static str = r#"
+export type SignedPublicKey = string;
+"#;
 
 /// `PublicKeyEncryptionAlgorithm` defines the algorithms used for asymmetric encryption.
 /// Currently, only RSA with OAEP and SHA-1 keys are used.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
 enum PublicKeyEncryptionAlgorithms {
-    #[serde(rename = "0")]
     RsaOaepSha1 = 0,
 }
 
 /// `PublicKeyFormat` defines the format of the public key in a `SignedAsymmetricPublicKeyMessage`.
 /// Currently, only ASN.1 Subject Public Key Info (SPKI) is used, but CoseKey may become another
 /// option in the future.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
 enum PublicKeyFormat {
-    #[serde(rename = "0")]
     Spki = 0,
 }
 
@@ -44,14 +55,20 @@ pub struct SignedPublicKeyMessage {
 }
 
 impl SignedPublicKeyMessage {
+    /// Creates a new `SignedPublicKeyMessage` from an `AsymmetricPublicCryptoKey`. This message
+    /// can then be signed using a `SigningKey` to create a `SignedPublicKey`.
     pub fn from_public_key(public_key: &AsymmetricPublicCryptoKey) -> Result<Self, CryptoError> {
-        Ok(SignedPublicKeyMessage {
-            algorithm: PublicKeyEncryptionAlgorithms::RsaOaepSha1,
-            content_format: PublicKeyFormat::Spki,
-            public_key: ByteBuf::from(public_key.to_der()?),
-        })
+        match public_key.inner() {
+            RawPublicKey::RsaOaepSha1(_) => Ok(SignedPublicKeyMessage {
+                algorithm: PublicKeyEncryptionAlgorithms::RsaOaepSha1,
+                content_format: PublicKeyFormat::Spki,
+                public_key: ByteBuf::from(public_key.to_der()?),
+            }),
+        }
     }
 
+    /// Signs the `SignedPublicKeyMessage` using the provided `SigningKey`, and returns a
+    /// `SignedPublicKey`.
     pub fn sign(&self, signing_key: &SigningKey) -> Result<SignedPublicKey, CryptoError> {
         Ok(SignedPublicKey(
             signing_key.sign(self, &SigningNamespace::SignedPublicKey)?,
@@ -62,19 +79,36 @@ impl SignedPublicKeyMessage {
 /// `SignedAsymmetricPublicKey` is a public encryption key, signed by the owner of the encryption
 /// keypair. This wrapping ensures that the consumer of the public key MUST verify the identity of
 /// the Signer before they can use the public key for encryption.
+#[derive(Clone, Debug)]
 pub struct SignedPublicKey(pub(crate) SignedObject);
 
-impl TryInto<Vec<u8>> for SignedPublicKey {
-    type Error = CryptoError;
-    fn try_into(self) -> Result<Vec<u8>, CryptoError> {
-        self.0.to_cose()
+impl From<SignedPublicKey> for Vec<u8> {
+    fn from(val: SignedPublicKey) -> Self {
+        val.0.to_cose()
     }
 }
 
 impl TryFrom<Vec<u8>> for SignedPublicKey {
-    type Error = CryptoError;
-    fn try_from(bytes: Vec<u8>) -> Result<Self, CryptoError> {
+    type Error = EncodingError;
+    fn try_from(bytes: Vec<u8>) -> Result<Self, EncodingError> {
         Ok(SignedPublicKey(SignedObject::from_cose(&bytes)?))
+    }
+}
+
+impl From<SignedPublicKey> for String {
+    fn from(val: SignedPublicKey) -> Self {
+        let bytes: Vec<u8> = val.into();
+        STANDARD.encode(&bytes)
+    }
+}
+
+impl TryFrom<String> for SignedPublicKey {
+    type Error = EncodingError;
+    fn try_from(encoded: String) -> Result<Self, EncodingError> {
+        let bytes = STANDARD
+            .decode(encoded)
+            .map_err(|_| EncodingError::InvalidCborSerialization)?;
+        Self::try_from(bytes)
     }
 }
 
@@ -94,9 +128,46 @@ impl SignedPublicKey {
         ) {
             (PublicKeyEncryptionAlgorithms::RsaOaepSha1, PublicKeyFormat::Spki) => Ok(
                 AsymmetricPublicCryptoKey::from_der(&public_key_message.public_key.into_vec())
-                    .map_err(|_| CryptoError::InvalidKey)?,
+                    .map_err(|_| EncodingError::InvalidValue("public key"))?,
             ),
         }
+    }
+}
+
+impl FromStr for SignedPublicKey {
+    type Err = EncodingError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::try_from(s.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for SignedPublicKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(FromStrVisitor::new())
+    }
+}
+
+impl serde::Serialize for SignedPublicKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let b64_serialized_signed_public_key: String = self.clone().into();
+        serializer.serialize_str(&b64_serialized_signed_public_key)
+    }
+}
+
+impl schemars::JsonSchema for SignedPublicKey {
+    fn schema_name() -> String {
+        "SignedPublicKey".to_string()
+    }
+
+    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+        generator.subschema_for::<String>()
     }
 }
 

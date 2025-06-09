@@ -252,7 +252,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         self.get_asymmetric_key(key_id).is_ok()
     }
 
-    // Returns `true` if the context has a signing key with the given identifier
+    /// Returns `true` if the context has a signing key with the given identifier
     pub fn has_signing_key(&self, key_id: Ids::Signing) -> bool {
         self.get_signing_key(key_id).is_ok()
     }
@@ -265,7 +265,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(key_id)
     }
 
-    // Generate a new signature key using the current default algorithm, and store it in the context
+    /// Generate a new signature key using the current default algorithm, and store it in the
+    /// context
     pub fn make_signing_key(&mut self, key_id: Ids::Signing) -> Result<Ids::Signing> {
         let key = SigningKey::make(SignatureAlgorithm::default_algorithm())?;
         #[allow(deprecated)]
@@ -293,6 +294,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
+    #[allow(missing_docs)]
     pub fn dangerous_get_symmetric_key(
         &self,
         key_id: Ids::Symmetric,
@@ -301,6 +303,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
+    #[allow(missing_docs)]
     pub fn dangerous_get_asymmetric_key(
         &self,
         key_id: Ids::Asymmetric,
@@ -323,6 +326,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(signed_public_key)
     }
 
+    /// Returns a signing key from the context
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn dangerous_get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
         self.get_signing_key(key_id)
@@ -356,6 +360,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
+    #[allow(missing_docs)]
     pub fn set_symmetric_key(
         &mut self,
         key_id: Ids::Symmetric,
@@ -373,6 +378,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
+    #[allow(missing_docs)]
     pub fn set_asymmetric_key(
         &mut self,
         key_id: Ids::Asymmetric,
@@ -389,6 +395,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(())
     }
 
+    /// Sets a signing key in the context
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn set_signing_key(&mut self, key_id: Ids::Signing, key: SigningKey) -> Result<()> {
         if key_id.is_local() {

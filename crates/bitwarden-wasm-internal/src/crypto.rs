@@ -1,16 +1,20 @@
 use bitwarden_core::{
     client::encryption_settings::EncryptionSettingsError,
     mobile::crypto::{
-        InitOrgCryptoRequest, InitUserCryptoRequest, MakeKeyPairResponse, MakeUserSigningKeysResponse, RotateUserKeysResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse
+        InitOrgCryptoRequest, InitUserCryptoRequest, MakeKeyPairResponse,
+        MakeUserSigningKeysResponse, RotateUserKeysResponse, VerifyAsymmetricKeysRequest,
+        VerifyAsymmetricKeysResponse,
     },
 };
 use bitwarden_crypto::CryptoError;
 use wasm_bindgen::prelude::*;
 
+#[allow(missing_docs)]
 #[wasm_bindgen]
 pub struct CryptoClient(bitwarden_core::mobile::CryptoClient);
 
 impl CryptoClient {
+    #[allow(missing_docs)]
     pub fn new(client: bitwarden_core::mobile::CryptoClient) -> Self {
         Self(client)
     }
@@ -54,8 +58,10 @@ impl CryptoClient {
 
     /// Generates a new signing key pair and encrypts the signing key with the provided symmetric
     /// key. Crypto initialization not required.
-    pub fn make_signing_keys(&self) -> Result<MakeUserSigningKeysResponse, CryptoError> {
-        self.0.make_signing_keys()
+    pub fn make_signing_keys_for_enrollment(
+        &self,
+    ) -> Result<MakeUserSigningKeysResponse, CryptoError> {
+        self.0.make_user_signing_keys_for_enrollment()
     }
 
     pub fn rotate_account_keys(

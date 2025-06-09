@@ -1,15 +1,17 @@
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{EncString, KeyStore, SymmetricCryptoKey, UnsignedSharedKey};
+use bitwarden_crypto::{EncString, UnsignedSharedKey};
+#[cfg(any(feature = "internal", feature = "secrets"))]
+use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
+#[cfg(any(feature = "internal", feature = "secrets"))]
 use uuid::Uuid;
 
-use crate::{
-    error::UserIdAlreadySetError,
-    key_management::{KeyIds, SymmetricKeyId},
-    MissingPrivateKeyError, VaultLockedError,
-};
+#[cfg(any(feature = "internal", feature = "secrets"))]
+use crate::key_management::{KeyIds, SymmetricKeyId};
+use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError, VaultLockedError};
 
+#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum EncryptionSettingsError {
@@ -32,6 +34,7 @@ pub enum EncryptionSettingsError {
     UserIdAlreadySetError(#[from] UserIdAlreadySetError),
 }
 
+#[allow(missing_docs)]
 pub struct EncryptionSettings {}
 
 impl EncryptionSettings {
@@ -46,7 +49,9 @@ impl EncryptionSettings {
         signing_key: Option<EncString>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
-        use bitwarden_crypto::{AsymmetricCryptoKey, CoseSerializable, KeyDecryptable, SigningKey};
+        use bitwarden_crypto::{
+            AsymmetricCryptoKey, CoseSerializable, CryptoError, KeyDecryptable, SigningKey,
+        };
         use log::warn;
 
         use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
@@ -70,7 +75,7 @@ impl EncryptionSettings {
         let signing_key = signing_key
             .map(|key| {
                 let dec: Vec<u8> = key.decrypt_with_key(&user_key)?;
-                SigningKey::from_cose(dec.as_slice())
+                SigningKey::from_cose(dec.as_slice()).map_err(Into::<CryptoError>::into)
             })
             .transpose()?;
 

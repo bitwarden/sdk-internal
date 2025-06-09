@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{
     cose::{CoseSerializable, SIGNING_NAMESPACE},
-    error::SignatureError,
+    error::{EncodingError, SignatureError},
     CryptoError,
 };
 
@@ -32,6 +32,8 @@ impl Signature {
         namespace(&self.0.protected)
     }
 
+    /// Parses the signature headers and returns the content type of the signed data. The content
+    /// type indicates how the serialized message that was signed was encoded.
     pub fn content_type(&self) -> Result<CoapContentFormat, CryptoError> {
         content_type(&self.0.protected)
     }
@@ -39,6 +41,9 @@ impl Signature {
     /// Verifies the signature of the given serialized message bytes, created by
     /// [`SigningKey::sign_detached`], for the given namespace. The namespace must match the one
     /// used to create the signature.
+    ///
+    /// The first anticipated consumer will be signed org memberships / emergency access:
+    /// <https://bitwarden.atlassian.net/browse/PM-17458>
     #[allow(unused)]
     pub fn verify(
         &self,
@@ -46,14 +51,11 @@ impl Signature {
         verifying_key: &VerifyingKey,
         namespace: &SigningNamespace,
     ) -> bool {
-        let Some(_alg) = &self.inner().protected.header.alg else {
+        if self.inner().protected.header.alg.is_none() {
             return false;
-        };
+        }
 
-        let Ok(signature_namespace) = self.namespace() else {
-            return false;
-        };
-        if signature_namespace != *namespace {
+        if self.namespace().ok().as_ref() != Some(namespace) {
             return false;
         }
 
@@ -171,17 +173,17 @@ impl SigningKey {
 }
 
 impl CoseSerializable for Signature {
-    fn from_cose(bytes: &[u8]) -> Result<Self, CryptoError> {
+    fn from_cose(bytes: &[u8]) -> Result<Self, EncodingError> {
         let cose_sign1 =
-            CoseSign1::from_slice(bytes).map_err(|_| SignatureError::InvalidSignature)?;
+            CoseSign1::from_slice(bytes).map_err(|_| EncodingError::InvalidCoseEncoding)?;
         Ok(Signature(cose_sign1))
     }
 
-    fn to_cose(&self) -> Result<Vec<u8>, CryptoError> {
+    fn to_cose(&self) -> Vec<u8> {
         self.0
             .clone()
             .to_vec()
-            .map_err(|_| SignatureError::InvalidSignature.into())
+            .expect("Signature is always serializable")
     }
 }
 
@@ -211,7 +213,7 @@ mod tests {
     #[test]
     fn test_cose_roundtrip_encode_signature() {
         let signature = Signature::from_cose(SIGNATURE).unwrap();
-        let cose_bytes = signature.to_cose().unwrap();
+        let cose_bytes = signature.to_cose();
         let decoded_signature = Signature::from_cose(&cose_bytes).unwrap();
         assert_eq!(signature.inner(), decoded_signature.inner());
     }
