@@ -7,6 +7,7 @@ use syn::{
     parse_macro_input, Ident, Visibility,
 };
 
+#[allow(missing_docs)]
 #[proc_macro]
 pub fn uuid_newtype(input: TokenStream) -> TokenStream {
     // Parse input as: vis ident
@@ -37,6 +38,7 @@ pub fn uuid_newtype(input: TokenStream) -> TokenStream {
         uniffi::custom_newtype!(#ident, uuid::Uuid);
 
         impl #ident {
+            #[allow(missing_docs)]
             pub fn new(value: uuid::Uuid) -> Self {
                 Self(value)
             }

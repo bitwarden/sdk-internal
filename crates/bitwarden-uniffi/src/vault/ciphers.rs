@@ -3,6 +3,7 @@ use bitwarden_vault::{Cipher, CipherListView, CipherView, EncryptionContext, Fid
 
 use crate::{error::Error, Result};
 
+#[allow(missing_docs)]
 #[derive(uniffi::Object)]
 pub struct CiphersClient(pub(crate) bitwarden_vault::CiphersClient);
 

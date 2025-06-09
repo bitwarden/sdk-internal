@@ -14,6 +14,7 @@ use super::{
     Verification,
 };
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -45,6 +46,7 @@ impl NoneWhitespace for Option<String> {
     }
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum Fido2CredentialAutofillViewError {
     #[error(
@@ -63,6 +65,7 @@ pub enum Fido2CredentialAutofillViewError {
 }
 
 impl Fido2CredentialAutofillView {
+    #[allow(missing_docs)]
     pub fn from_cipher_view(
         cipher: &CipherView,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -99,6 +102,7 @@ impl Fido2CredentialAutofillView {
             .collect()
     }
 
+    #[allow(missing_docs)]
     pub fn from_cipher_list_view(
         cipher: &CipherListView,
     ) -> Result<Vec<Fido2CredentialAutofillView>, Fido2CredentialAutofillViewError> {
@@ -137,12 +141,14 @@ impl Fido2CredentialAutofillView {
     }
 }
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct PublicKeyCredentialRpEntity {
     pub id: String,
     pub name: Option<String>,
 }
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct PublicKeyCredentialUserEntity {
     pub id: Vec<u8>,
@@ -210,6 +216,7 @@ impl TryFrom<PublicKeyCredentialDescriptor>
 
 pub type Extensions = Option<String>;
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct MakeCredentialRequest {
     pub client_data_hash: Vec<u8>,
@@ -221,6 +228,7 @@ pub struct MakeCredentialRequest {
     pub extensions: Extensions,
 }
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct MakeCredentialResult {
     pub authenticator_data: Vec<u8>,
@@ -228,6 +236,7 @@ pub struct MakeCredentialResult {
     pub credential_id: Vec<u8>,
 }
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct GetAssertionRequest {
     pub rp_id: String,
@@ -237,6 +246,7 @@ pub struct GetAssertionRequest {
     pub extensions: Extensions,
 }
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct Options {
     pub rk: bool,
@@ -299,6 +309,7 @@ impl From<UserVerificationRequirement> for UV {
     }
 }
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct GetAssertionResult {
     pub credential_id: Vec<u8>,
@@ -309,6 +320,7 @@ pub struct GetAssertionResult {
     pub selected_credential: SelectedCredential,
 }
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum ClientData {
     DefaultWithExtraData { android_package_name: String },
@@ -361,6 +373,7 @@ impl From<passkey::types::webauthn::CredentialPropertiesOutput> for CredPropsRes
     }
 }
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct PublicKeyCredentialAuthenticatorAttestationResponse {
     pub id: String,
@@ -372,6 +385,7 @@ pub struct PublicKeyCredentialAuthenticatorAttestationResponse {
     pub selected_credential: SelectedCredential,
 }
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AuthenticatorAttestationResponse {
     pub client_data_json: Vec<u8>,
@@ -382,6 +396,7 @@ pub struct AuthenticatorAttestationResponse {
     pub transports: Option<Vec<String>>,
 }
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct PublicKeyCredentialAuthenticatorAssertionResponse {
     pub id: String,
@@ -393,6 +408,7 @@ pub struct PublicKeyCredentialAuthenticatorAssertionResponse {
     pub selected_credential: SelectedCredential,
 }
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AuthenticatorAssertionResponse {
     pub client_data_json: Vec<u8>,

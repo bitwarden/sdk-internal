@@ -16,6 +16,7 @@ use crate::VaultParseError;
 
 uuid_newtype!(pub FolderId);
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -26,6 +27,7 @@ pub struct Folder {
     revision_date: DateTime<Utc>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]

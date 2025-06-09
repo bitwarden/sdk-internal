@@ -1,7 +1,10 @@
 #![doc = include_str!("../README.md")]
 
+#[allow(missing_docs)]
 pub mod error;
+#[allow(missing_docs)]
 pub mod generator;
+#[allow(missing_docs)]
 pub mod import;
 
 use bitwarden_vault::SshKeyView;
