@@ -1,19 +1,27 @@
-use std::convert::Infallible;
-
 use js_sys::JsString;
+use serde::{de::DeserializeOwned, ser::Serialize};
 
 use crate::{
-    repository::RepositoryItemData,
+    repository::{RepositoryItem, RepositoryItemData},
     sdk_managed::{Database, DatabaseError},
 };
 
+#[derive(Debug, thiserror::Error)]
+#[error("IndexedDB internal error: {0}")]
+pub struct IndexedDbInternalError(String);
+impl From<tsify_next::serde_wasm_bindgen::Error> for IndexedDbInternalError {
+    fn from(err: tsify_next::serde_wasm_bindgen::Error) -> Self {
+        IndexedDbInternalError(err.to_string())
+    }
+}
+
 #[derive(Clone)]
 pub struct IndexedDbDatabase(
-    bitwarden_threading::ThreadBoundRunner<indexed_db::Database<Infallible>>,
+    bitwarden_threading::ThreadBoundRunner<indexed_db::Database<IndexedDbInternalError>>,
 );
 impl Database for IndexedDbDatabase {
     async fn initialize(registrations: &[RepositoryItemData]) -> Result<Self, DatabaseError> {
-        let factory = indexed_db::Factory::<Infallible>::get()?;
+        let factory = indexed_db::Factory::get()?;
 
         let registrations = registrations.to_vec();
 
@@ -39,7 +47,11 @@ impl Database for IndexedDbDatabase {
         Ok(IndexedDbDatabase(runner))
     }
 
-    async fn get(&self, namespace: &str, key: &str) -> Result<Option<String>, DatabaseError> {
+    async fn get<T: Serialize + DeserializeOwned + RepositoryItem>(
+        &self,
+        namespace: &str,
+        key: &str,
+    ) -> Result<Option<T>, DatabaseError> {
         let namespace = namespace.to_string();
         let key = key.to_string();
 
@@ -52,7 +64,8 @@ impl Database for IndexedDbDatabase {
                         let response = store.get(&JsString::from(key)).await?;
 
                         if let Some(value) = response {
-                            Ok(value.as_string())
+                            Ok(::tsify_next::serde_wasm_bindgen::from_value(value)
+                                .map_err(IndexedDbInternalError::from)?)
                         } else {
                             Ok(None)
                         }
@@ -64,7 +77,10 @@ impl Database for IndexedDbDatabase {
         Ok(result)
     }
 
-    async fn list(&self, namespace: &str) -> Result<Vec<String>, DatabaseError> {
+    async fn list<T: Serialize + DeserializeOwned + RepositoryItem>(
+        &self,
+        namespace: &str,
+    ) -> Result<Vec<T>, DatabaseError> {
         let namespace = namespace.to_string();
 
         let results = self
@@ -75,10 +91,13 @@ impl Database for IndexedDbDatabase {
                         let store = t.object_store(&namespace)?;
                         let results = store.get_all(None).await?;
 
-                        let items: Vec<String> = results
-                            .into_iter()
-                            .filter_map(|item| item.as_string())
-                            .collect();
+                        let mut items: Vec<T> = Vec::new();
+
+                        for value in results {
+                            let item: T = ::tsify_next::serde_wasm_bindgen::from_value(value)
+                                .map_err(IndexedDbInternalError::from)?;
+                            items.push(item);
+                        }
 
                         Ok(items)
                     })
@@ -89,10 +108,14 @@ impl Database for IndexedDbDatabase {
         Ok(results)
     }
 
-    async fn set(&self, namespace: &str, key: &str, value: String) -> Result<(), DatabaseError> {
+    async fn set<T: Serialize + DeserializeOwned + RepositoryItem>(
+        &self,
+        namespace: &str,
+        key: &str,
+        value: T,
+    ) -> Result<(), DatabaseError> {
         let namespace = namespace.to_string();
         let key = key.to_string();
-        let value = value.to_string();
 
         self.0
             .run_in_thread(move |db| async move {
@@ -100,9 +123,11 @@ impl Database for IndexedDbDatabase {
                     .rw()
                     .run(|t| async move {
                         let store = t.object_store(&namespace)?;
-                        store
-                            .put_kv(&JsString::from(key), &JsString::from(value))
-                            .await?;
+
+                        let value = ::tsify_next::serde_wasm_bindgen::to_value(&value)
+                            .map_err(IndexedDbInternalError::from)?;
+
+                        store.put_kv(&JsString::from(key), &value).await?;
                         Ok(())
                     })
                     .await
