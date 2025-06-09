@@ -29,6 +29,8 @@
 *     the existing [Repository] trait.
 *   - It runs the calls in a thread-bound manner, so we can safely call the [WasmRepository]
 *     methods from any thread.
+* - The [create_wasm_repository] macro, defines the [wasm_bindgen] interface and implements the
+    [WasmRepository] trait for you.
 */
 
 use std::{future::Future, marker::PhantomData, rc::Rc};
