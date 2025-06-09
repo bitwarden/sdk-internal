@@ -38,6 +38,8 @@ impl From<RepositoryError> for bitwarden_state::repository::RepositoryError {
     }
 }
 
+/// This macro creates a Uniffi repository trait and its implementation for the
+/// [bitwarden_state::repository::Repository] trait
 macro_rules! create_uniffi_repository {
     ($name:ident, $ty:ty) => {
         #[uniffi::export(with_foreign)]
