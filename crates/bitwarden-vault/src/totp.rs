@@ -30,6 +30,7 @@ const DEFAULT_ALGORITHM: TotpAlgorithm = TotpAlgorithm::Sha1;
 const DEFAULT_DIGITS: u32 = 6;
 const DEFAULT_PERIOD: u32 = 30;
 
+#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum TotpError {
@@ -44,6 +45,7 @@ pub enum TotpError {
     VaultLocked(#[from] VaultLockedError),
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -95,6 +97,7 @@ pub fn generate_totp_cipher_view(
     generate_totp(key, time)
 }
 
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TotpAlgorithm {
     Sha1,
@@ -148,6 +151,7 @@ impl fmt::Display for TotpAlgorithm {
 /// Should generally be considered internal to the bitwarden-vault crate. Consumers should use one
 /// of the generate functions if they want to generate a TOTP code. Credential Exchange requires
 /// access to the individual components.
+#[allow(missing_docs)]
 #[derive(Debug)]
 pub struct Totp {
     pub account: Option<String>,

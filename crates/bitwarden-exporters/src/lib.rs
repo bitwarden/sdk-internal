@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use std::fmt;
 
 use bitwarden_vault::{
@@ -23,6 +25,7 @@ mod error;
 mod export;
 pub use error::ExportError;
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(
     feature = "wasm",
@@ -39,6 +42,7 @@ pub enum ExportFormat {
 ///
 /// These are mostly duplicated from the `bitwarden` vault models to facilitate a stable export API
 /// that is not tied to the internal vault models. We may revisit this in the future.
+#[allow(missing_docs)]
 pub struct Folder {
     pub id: Uuid,
     pub name: String,
@@ -48,6 +52,7 @@ pub struct Folder {
 ///
 /// These are mostly duplicated from the `bitwarden` vault models to facilitate a stable export API
 /// that is not tied to the internal vault models. We may revisit this in the future.
+#[allow(missing_docs)]
 #[derive(Clone)]
 pub struct Cipher {
     pub id: Uuid,
@@ -72,6 +77,7 @@ pub struct Cipher {
 ///
 /// These are mostly duplicated from the `bitwarden` vault models to facilitate a stable export API
 /// that is not tied to the internal vault models. We may revisit this in the future.
+#[allow(missing_docs)]
 #[derive(Clone)]
 pub struct ImportingCipher {
     pub folder_id: Option<Uuid>,
@@ -163,6 +169,7 @@ impl From<LoginUri> for bitwarden_vault::LoginUriView {
     }
 }
 
+#[allow(missing_docs)]
 #[derive(Clone)]
 pub struct Field {
     pub name: Option<String>,
@@ -171,6 +178,7 @@ pub struct Field {
     pub linked_id: Option<u32>,
 }
 
+#[allow(missing_docs)]
 #[derive(Clone)]
 pub enum CipherType {
     Login(Box<Login>),
@@ -192,6 +200,7 @@ impl fmt::Display for CipherType {
     }
 }
 
+#[allow(missing_docs)]
 #[derive(Clone)]
 pub struct Login {
     pub username: Option<String>,
@@ -202,12 +211,14 @@ pub struct Login {
     pub fido2_credentials: Option<Vec<Fido2Credential>>,
 }
 
+#[allow(missing_docs)]
 #[derive(Clone)]
 pub struct LoginUri {
     pub uri: Option<String>,
     pub r#match: Option<u8>,
 }
 
+#[allow(missing_docs)]
 #[derive(Clone)]
 pub struct Fido2Credential {
     pub credential_id: String,
@@ -245,6 +256,7 @@ impl From<Fido2Credential> for Fido2CredentialFullView {
     }
 }
 
+#[allow(missing_docs)]
 #[derive(Clone)]
 pub struct Card {
     pub cardholder_name: Option<String>,
@@ -255,16 +267,19 @@ pub struct Card {
     pub number: Option<String>,
 }
 
+#[allow(missing_docs)]
 #[derive(Clone)]
 pub struct SecureNote {
     pub r#type: SecureNoteType,
 }
 
+#[allow(missing_docs)]
 #[derive(Clone)]
 pub enum SecureNoteType {
     Generic = 0,
 }
 
+#[allow(missing_docs)]
 #[derive(Clone)]
 pub struct Identity {
     pub title: Option<String>,
@@ -287,6 +302,7 @@ pub struct Identity {
     pub license_number: Option<String>,
 }
 
+#[allow(missing_docs)]
 #[derive(Clone)]
 pub struct SshKey {
     /// [OpenSSH private key](https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key), in PEM encoding.

@@ -272,6 +272,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
+    #[allow(missing_docs)]
     pub fn dangerous_get_symmetric_key(
         &self,
         key_id: Ids::Symmetric,
@@ -280,6 +281,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
+    #[allow(missing_docs)]
     pub fn dangerous_get_asymmetric_key(
         &self,
         key_id: Ids::Asymmetric,
@@ -306,6 +308,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
+    #[allow(missing_docs)]
     pub fn set_symmetric_key(
         &mut self,
         key_id: Ids::Symmetric,
@@ -323,6 +326,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
+    #[allow(missing_docs)]
     pub fn set_asymmetric_key(
         &mut self,
         key_id: Ids::Asymmetric,
