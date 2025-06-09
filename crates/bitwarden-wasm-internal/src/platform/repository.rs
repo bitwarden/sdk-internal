@@ -1,37 +1,37 @@
 /*!
-* To support clients implementing the [Repository] trait in a [wasm_bindgen] environment,
-* we need to deal with an `extern "C"` interface, as that is what [wasm_bindgen] supports:
-*
-* This looks something like this:
-*
-* ```rust,ignore
-  #[wasm_bindgen]
-  extern "C" {
-       pub type CipherRepository;
-
-       #[wasm_bindgen(method, catch)]
-       async fn get(this: &CipherRepository, id: String) -> Result<JsValue, JsValue>;
-  }
-* ```
-*
-* As you can see, this has a few limitations:
-* - The type must be known at compile time, so we cannot use generics directly, which means we
-*   can't use the existing [Repository] trait directly.
-* - The return type must be [JsValue], so we need to convert our types to and from [JsValue].
-*
-* To facilitate this, we provide some utilities:
-* - [WasmRepository] trait, which defines the methods as we expect them to come from
-*   [wasm_bindgen], using [JsValue]. This is generic and should be implemented for each
-*   concrete repository we define, but the implementation should be very straightforward.
-* - [WasmRepositoryChannel] struct, which wraps a [WasmRepository] in a [ThreadBoundRunner] and
-*   implements the [Repository] trait. This has a few special considerations:
-*   - It uses [tsify_next::serde_wasm_bindgen] to convert between [JsValue] and our types, so we can use
-*     the existing [Repository] trait.
-*   - It runs the calls in a thread-bound manner, so we can safely call the [WasmRepository]
-*     methods from any thread.
-* - The [create_wasm_repository] macro, defines the [wasm_bindgen] interface and implements the
-    [WasmRepository] trait for you.
-*/
+ * To support clients implementing the [Repository] trait in a [::wasm_bindgen] environment,
+ * we need to deal with an `extern "C"` interface, as that is what [::wasm_bindgen] supports:
+ *
+ * This looks something like this:
+ *
+ * ```rust,ignore
+ * #[wasm_bindgen]
+ * extern "C" {
+ *     pub type CipherRepository;
+ *
+ *     #[wasm_bindgen(method, catch)]
+ *     async fn get(this: &CipherRepository, id: String) -> Result<JsValue, JsValue>;
+ * }
+ * ```
+ *
+ * As you can see, this has a few limitations:
+ * - The type must be known at compile time, so we cannot use generics directly, which means we
+ *   can't use the existing [Repository] trait directly.
+ * - The return type must be [JsValue], so we need to convert our types to and from [JsValue].
+ *
+ * To facilitate this, we provide some utilities:
+ * - [WasmRepository] trait, which defines the methods as we expect them to come from
+ *   [::wasm_bindgen], using [JsValue]. This is generic and should be implemented for each
+ *   concrete repository we define, but the implementation should be very straightforward.
+ * - [WasmRepositoryChannel] struct, which wraps a [WasmRepository] in a [ThreadBoundRunner] and
+ *   implements the [Repository] trait. This has a few special considerations:
+ *   - It uses [tsify_next::serde_wasm_bindgen] to convert between [JsValue] and our types, so
+ *     we can use the existing [Repository] trait.
+ *   - It runs the calls in a thread-bound manner, so we can safely call the [WasmRepository]
+ *     methods from any thread.
+ * - The [create_wasm_repository] macro, defines the [::wasm_bindgen] interface and implements
+ *   the [WasmRepository] trait for you.
+ */
 
 use std::{future::Future, marker::PhantomData, rc::Rc};
 
@@ -40,9 +40,9 @@ use bitwarden_threading::ThreadBoundRunner;
 use serde::{de::DeserializeOwned, Serialize};
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 
-/// This trait defines the methods that a [wasm_bindgen] repository must implement.
-/// The trait itself exists to provide a generic way of handling the [wasm_bindgen] interface, which
-/// is !Send + !Sync, and only deals with [JsValue].
+/// This trait defines the methods that a [::wasm_bindgen] repository must implement.
+/// The trait itself exists to provide a generic way of handling the [::wasm_bindgen] interface,
+/// which is !Send + !Sync, and only deals with [JsValue].
 pub(crate) trait WasmRepository<T> {
     async fn get(&self, id: String) -> Result<JsValue, JsValue>;
     async fn list(&self) -> Result<JsValue, JsValue>;
@@ -92,7 +92,7 @@ export interface Repository<T> {
 }
 "#;
 
-/// This macro generates a [wasm_bindgen] interface for a repository type, and provides the
+/// This macro generates a [::wasm_bindgen] interface for a repository type, and provides the
 /// implementation of [WasmRepository] and a way to convert it into something that implements
 /// the [Repository] trait.
 macro_rules! create_wasm_repository {
