@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use crate::{error::SecretsManagerError, secrets::SecretResponse};
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SecretsSyncRequest {
@@ -36,6 +37,7 @@ pub(crate) async fn sync_secrets(
     SecretsSyncResponse::process_response(res, &mut key_store.context())
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SecretsSyncResponse {
