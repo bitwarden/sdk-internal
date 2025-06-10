@@ -77,7 +77,7 @@ pub struct Tree<T: TreeItem> {
 }
 
 impl<T: TreeItem> Tree<T> {
-    #[allow(missing_docs)]
+    /// Takes vector of TreeItem and stores them into a tree structure.
     pub fn from_items(items: Vec<T>) -> Self {
         let mut tree = Tree {
             nodes: Vec::new(),
@@ -102,6 +102,7 @@ impl<T: TreeItem> Tree<T> {
         tree
     }
 
+    /// This inserts an item into the tree and sets any look-up information that may be needed.
     fn add_item(&mut self, index: TreeIndex<T>) {
         let parent_path = index.path[0..index.path.len() - 1].to_vec();
 
@@ -117,7 +118,6 @@ impl<T: TreeItem> Tree<T> {
         self.nodes.push(node);
     }
 
-    ///
     /// Returns an optional node item for a given tree item id.
     ///
     /// This contains the item, its children (or an empty vector), and its parent (if it has one)
@@ -153,7 +153,6 @@ impl<T: TreeItem> Tree<T> {
         None
     }
 
-    ///
     /// Returns the list of root nodes with their children
     pub fn get_root_items(&self) -> Vec<NodeItem<T>> {
         self.nodes

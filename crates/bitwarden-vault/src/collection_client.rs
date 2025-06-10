@@ -29,7 +29,8 @@ impl CollectionsClient {
         Ok(views)
     }
 
-    #[allow(missing_docs)]
+    /// Returns the vector of CollectionView objects in a tree structure based on its implemented
+    /// path().
     pub fn get_collections_tree(&self, collections: Vec<CollectionView>) -> Tree<CollectionView> {
         Tree::from_items(collections)
     }
