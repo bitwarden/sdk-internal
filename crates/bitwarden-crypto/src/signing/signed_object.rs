@@ -36,7 +36,7 @@ impl SignedObject {
         &self.0
     }
 
-    pub(crate) fn namespace(&self) -> Result<SigningNamespace, CryptoError> {
+    fn namespace(&self) -> Result<SigningNamespace, CryptoError> {
         namespace(&self.0.protected)
     }
 
