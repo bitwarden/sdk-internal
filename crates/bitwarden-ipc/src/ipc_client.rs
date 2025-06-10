@@ -98,7 +98,8 @@ where
     Com: CommunicationBackend,
     Ses: SessionRepository<Crypto::Session>,
 {
-    /// Create a new IPC client with the provided crypto provider, communication backend, and session repository.
+    /// Create a new IPC client with the provided crypto provider, communication backend, and
+    /// session repository.
     pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Arc<Self> {
         Arc::new(Self {
             crypto,
@@ -111,10 +112,12 @@ where
     }
 
     /// Start the IPC client, which will begin listening for incoming messages and processing them.
-    /// This will be done in a separate task, allowing the client to receive messages asynchronously.
-    /// The client will stop automatically if an error occurs during message processing or if the cancellation token is triggered.
+    /// This will be done in a separate task, allowing the client to receive messages
+    /// asynchronously. The client will stop automatically if an error occurs during message
+    /// processing or if the cancellation token is triggered.
     ///
-    /// Note: The client can and will send messages in the background while it is running, even if no active subscriptions are present.
+    /// Note: The client can and will send messages in the background while it is running, even if
+    /// no active subscriptions are present.
     pub async fn start(self: &Arc<Self>) {
         let cancellation_token = CancellationToken::new();
         self.cancellation_token
