@@ -11,7 +11,8 @@ use crate::{
     IpcClient,
 };
 
-#[allow(missing_docs)]
+/// JavaScript wrapper around the IPC client. For more information, see the
+/// [IpcClient] documentation.
 #[wasm_bindgen(js_name = IpcClient)]
 pub struct JsIpcClient {
     // TODO: Change session provider to a JS-implemented one
@@ -24,15 +25,16 @@ pub struct JsIpcClient {
     >,
 }
 
-#[allow(missing_docs)]
+/// JavaScript wrapper around the IPC client subscription. For more information, see the
+/// [IpcClientSubscription] documentation.
 #[wasm_bindgen(js_name = IpcClientSubscription)]
 pub struct JsIpcClientSubscription {
     subscription: IpcClientSubscription,
 }
 
-#[allow(missing_docs)]
 #[wasm_bindgen(js_class = IpcClientSubscription)]
 impl JsIpcClientSubscription {
+    #[allow(missing_docs)]
     pub async fn receive(
         &mut self,
         abort_signal: Option<AbortSignal>,

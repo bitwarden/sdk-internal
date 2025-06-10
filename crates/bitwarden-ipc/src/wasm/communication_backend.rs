@@ -32,23 +32,23 @@ export interface IpcCommunicationBackendSender {
 
 #[wasm_bindgen]
 extern "C" {
-    #[allow(missing_docs)]
+    /// JavaScript interface for handling outgoing messages from the IPC framework.
     #[wasm_bindgen(js_name = IpcCommunicationBackendSender, typescript_type = "IpcCommunicationBackendSender")]
     pub type JsCommunicationBackendSender;
 
-    #[allow(missing_docs)]
+    /// Used by the IPC framework to send an outgoing message.
     #[wasm_bindgen(catch, method, structural)]
     pub async fn send(
         this: &JsCommunicationBackendSender,
         message: OutgoingMessage,
     ) -> Result<(), JsValue>;
 
-    #[allow(missing_docs)]
+    /// Used by JavaScript to provide an incoming message to the IPC framework.
     #[wasm_bindgen(catch, method, structural)]
     pub async fn receive(this: &JsCommunicationBackendSender) -> Result<JsValue, JsValue>;
 }
 
-#[allow(missing_docs)]
+/// JavaScript implementation of the `CommunicationBackend` trait for IPC communication.
 #[wasm_bindgen(js_name = IpcCommunicationBackend)]
 pub struct JsCommunicationBackend {
     sender: Arc<ThreadBoundRunner<JsCommunicationBackendSender>>,
@@ -68,7 +68,7 @@ impl Clone for JsCommunicationBackend {
 
 #[wasm_bindgen(js_class = IpcCommunicationBackend)]
 impl JsCommunicationBackend {
-    #[allow(missing_docs)]
+    /// Creates a new instance of the JavaScript communication backend.
     #[wasm_bindgen(constructor)]
     pub fn new(sender: JsCommunicationBackendSender) -> Self {
         let (receive_tx, receive_rx) = tokio::sync::broadcast::channel(20);
@@ -79,8 +79,8 @@ impl JsCommunicationBackend {
         }
     }
 
-    /// JavaScript function to provide a received message to the backend/IPC framework.
-    pub fn deliver_message(&self, message: IncomingMessage) -> Result<(), JsValue> {
+    /// Used by JavaScript to provide an incoming message to the IPC framework.
+    pub fn receive(&self, message: IncomingMessage) -> Result<(), JsValue> {
         self.receive_tx
             .send(message)
             .map_err(|e| ChannelError(e.to_string()))?;

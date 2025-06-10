@@ -11,7 +11,9 @@ use crate::{
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
 };
 
-#[allow(missing_docs)]
+/// An IPC client that handles communication between different components and clients.
+/// It uses a crypto provider to encrypt and decrypt messages, a communication backend to send and
+/// receive messages, and a session repository to persist sessions.
 pub struct IpcClient<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
@@ -96,7 +98,7 @@ where
     Com: CommunicationBackend,
     Ses: SessionRepository<Crypto::Session>,
 {
-    #[allow(missing_docs)]
+    /// Create a new IPC client with the provided crypto provider, communication backend, and session repository.
     pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Arc<Self> {
         Arc::new(Self {
             crypto,
@@ -108,7 +110,11 @@ where
         })
     }
 
-    #[allow(missing_docs)]
+    /// Start the IPC client, which will begin listening for incoming messages and processing them.
+    /// This will be done in a separate task, allowing the client to receive messages asynchronously.
+    /// The client will stop automatically if an error occurs during message processing or if the cancellation token is triggered.
+    ///
+    /// Note: The client can and will send messages in the background while it is running, even if no active subscriptions are present.
     pub async fn start(self: &Arc<Self>) {
         let cancellation_token = CancellationToken::new();
         self.cancellation_token
@@ -156,14 +162,14 @@ where
         wasm_bindgen_futures::spawn_local(future);
     }
 
-    #[allow(missing_docs)]
+    /// Check if the IPC client task is currently running.
     pub async fn is_running(self: &Arc<Self>) -> bool {
         let has_incoming = self.incoming.read().await.is_some();
         let has_cancellation_token = self.cancellation_token.read().await.is_some();
         has_incoming && has_cancellation_token
     }
 
-    #[allow(missing_docs)]
+    /// Stop the IPC client task. This will stop listening for incoming messages.
     pub async fn stop(self: &Arc<Self>) {
         let mut incoming = self.incoming.write().await;
         let _ = incoming.take();
