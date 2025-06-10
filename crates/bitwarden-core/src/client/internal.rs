@@ -184,7 +184,7 @@ impl InternalClient {
     }
 
     #[allow(missing_docs)]
-    pub fn init_user_id(&self, user_id: Uuid) -> Result<(), UserIdAlreadySetError> {
+    pub fn init_user_id(&self, user_id: UserId) -> Result<(), UserIdAlreadySetError> {
         self.user_id.set(user_id).map_err(|_| UserIdAlreadySetError)
     }
 
