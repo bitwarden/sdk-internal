@@ -10,6 +10,7 @@ use tsify_next::Tsify;
 
 use crate::util::capitalize_first_letter;
 
+#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum UsernameError {
@@ -47,6 +48,7 @@ pub enum AppendType {
 /// Configures the email forwarding service to use.
 /// For instructions on how to configure each service, see the documentation:
 /// <https://bitwarden.com/help/generator/#username-types>
+#[allow(missing_docs)]
 pub enum ForwarderServiceType {
     /// Previously known as "AnonAddy"
     AddyIo {
@@ -73,6 +75,7 @@ pub enum ForwarderServiceType {
     },
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
@@ -115,8 +118,8 @@ pub enum UsernameGeneratorRequest {
 }
 
 impl ForwarderServiceType {
-    // Generate a username using the specified email forwarding service
-    // This requires an HTTP client to be passed in, as the service will need to make API calls
+    /// Generate a username using the specified email forwarding service
+    /// This requires an HTTP client to be passed in, as the service will need to make API calls
     pub async fn generate(
         self,
         http: &reqwest::Client,

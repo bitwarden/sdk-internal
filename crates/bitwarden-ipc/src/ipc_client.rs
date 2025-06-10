@@ -11,6 +11,7 @@ use crate::{
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
 };
 
+#[allow(missing_docs)]
 pub struct IpcClient<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
@@ -95,6 +96,7 @@ where
     Com: CommunicationBackend,
     Ses: SessionRepository<Crypto::Session>,
 {
+    #[allow(missing_docs)]
     pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Arc<Self> {
         Arc::new(Self {
             crypto,
@@ -106,6 +108,7 @@ where
         })
     }
 
+    #[allow(missing_docs)]
     pub async fn start(self: &Arc<Self>) {
         let cancellation_token = CancellationToken::new();
         self.cancellation_token
@@ -153,12 +156,14 @@ where
         wasm_bindgen_futures::spawn_local(future);
     }
 
+    #[allow(missing_docs)]
     pub async fn is_running(self: &Arc<Self>) -> bool {
         let has_incoming = self.incoming.read().await.is_some();
         let has_cancellation_token = self.cancellation_token.read().await.is_some();
         has_incoming && has_cancellation_token
     }
 
+    #[allow(missing_docs)]
     pub async fn stop(self: &Arc<Self>) {
         let mut incoming = self.incoming.write().await;
         let _ = incoming.take();

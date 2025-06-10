@@ -31,7 +31,6 @@ bitwarden-vault = { workspace = true, features = ["uniffi"] }
 chrono = { workspace = true, features = ["std"] }
 env_logger = "0.11.1"
 log = { workspace = true }
-schemars = { workspace = true, optional = true }
 thiserror = { workspace = true }
 uniffi = { workspace = true }
 uuid = { workspace = true }
