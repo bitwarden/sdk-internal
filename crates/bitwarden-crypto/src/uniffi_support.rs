@@ -26,7 +26,7 @@ uniffi::custom_type!(UnsignedSharedKey, String, {
 
 uniffi::custom_type!(SignedPublicKey, String, {
     try_lift: |val| {
-        SignedPublicKey::try_from(val).map_err(|e| {
+        val.parse().map_err(|e| {
             CryptoError::EncodingError(e).into()
         })
     },
