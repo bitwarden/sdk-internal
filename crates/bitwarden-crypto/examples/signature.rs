@@ -1,5 +1,7 @@
-use bitwarden_crypto::CoseSerializable;
+use bitwarden_crypto::{CoseSerializable, SigningNamespace};
 use serde::{Deserialize, Serialize};
+
+const EXAMPLE_NAMESPACE: &SigningNamespace = &SigningNamespace::SignedPublicKey;
 
 fn main() {
     // Alice wants to create a message, sign it, and send it to Bob. Bob should sign it too, and
@@ -30,7 +32,7 @@ fn main() {
             },
             // The namespace should be unique per message type. It ensures no cross protocol
             // attacks can happen.
-            &bitwarden_crypto::SigningNamespace::ExampleNamespace,
+            EXAMPLE_NAMESPACE,
         )
         .expect("Failed to sign message");
 
@@ -59,7 +61,7 @@ fn main() {
     if !retrieved_signature.verify(
         &retrieved_serialized_message.as_bytes().to_vec(),
         &alice_verifying_key,
-        &bitwarden_crypto::SigningNamespace::ExampleNamespace,
+        EXAMPLE_NAMESPACE,
     ) {
         panic!("Alice's signature verification failed");
     }
@@ -69,7 +71,7 @@ fn main() {
         .counter_sign_detached(
             retrieved_serialized_message.as_bytes().to_vec(),
             &retrieved_signature,
-            &bitwarden_crypto::SigningNamespace::ExampleNamespace,
+            EXAMPLE_NAMESPACE,
         )
         .expect("Failed to counter sign message");
     // Bob sends the counter signature to Charlie
@@ -102,7 +104,7 @@ fn main() {
     if !retrieved_alice_signature.verify(
         &retrieved_serialized_message.as_bytes().to_vec(),
         &alice_verifying_key,
-        &bitwarden_crypto::SigningNamespace::ExampleNamespace,
+        EXAMPLE_NAMESPACE,
     ) {
         panic!("Alice's signature verification failed");
     }
@@ -110,7 +112,7 @@ fn main() {
     if !retrieved_bobs_signature.verify(
         &retrieved_serialized_message.as_bytes().to_vec(),
         &bob_verifying_key,
-        &bitwarden_crypto::SigningNamespace::ExampleNamespace,
+        EXAMPLE_NAMESPACE,
     ) {
         panic!("Bob's signature verification failed");
     }

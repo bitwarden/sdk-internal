@@ -186,6 +186,9 @@ mod tests {
         6,
     ];
 
+    const EXAMPLE_NAMESPACE: SigningNamespace = SigningNamespace::SignedPublicKey;
+    const OTHER_EXAMPLE_NAMESPACE: SigningNamespace = SigningNamespace::SignedPublicKey;
+
     #[derive(Deserialize, Debug, PartialEq, Serialize)]
     struct TestMessage {
         field1: String,
@@ -209,7 +212,7 @@ mod tests {
         };
         let signed_object = SignedObject::from_cose(SIGNED_OBJECT).unwrap();
         let verifying_key = VerifyingKey::from_cose(VERIFYING_KEY).unwrap();
-        let namespace = SigningNamespace::ExampleNamespace;
+        let namespace = EXAMPLE_NAMESPACE;
         let payload: TestMessage = signed_object
             .verify_and_unwrap(&verifying_key, &namespace)
             .unwrap();
@@ -222,7 +225,7 @@ mod tests {
         let test_message = TestMessage {
             field1: "Test message".to_string(),
         };
-        let namespace = SigningNamespace::ExampleNamespace;
+        let namespace = EXAMPLE_NAMESPACE;
         let signed_object = signing_key.sign(&test_message, &namespace).unwrap();
         let verifying_key = signing_key.to_verifying_key();
         let payload: TestMessage = signed_object
@@ -237,11 +240,11 @@ mod tests {
         let test_message = TestMessage {
             field1: "Test message".to_string(),
         };
-        let namespace = SigningNamespace::ExampleNamespace;
+        let namespace = EXAMPLE_NAMESPACE;
         let signed_object = signing_key.sign(&test_message, &namespace).unwrap();
         let verifying_key = signing_key.to_verifying_key();
 
-        let different_namespace = SigningNamespace::ExampleNamespace2;
+        let different_namespace = OTHER_EXAMPLE_NAMESPACE;
         let result: Result<TestMessage, CryptoError> =
             signed_object.verify_and_unwrap(&verifying_key, &different_namespace);
         assert!(result.is_err());

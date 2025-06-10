@@ -475,6 +475,8 @@ mod tests {
         SymmetricCryptoKey,
     };
 
+    const EXAMPLE_NAMESPACE: &SigningNamespace = &SigningNamespace::SignedPublicKey;
+
     #[test]
     fn test_set_signing_key() {
         let store: KeyStore<TestIds> = KeyStore::default();
@@ -579,11 +581,11 @@ mod tests {
                 &TestData {
                     data: "Hello".to_string(),
                 },
-                &SigningNamespace::ExampleNamespace,
+                EXAMPLE_NAMESPACE,
             )
             .unwrap();
         let payload: Result<TestData, CryptoError> =
-            signed_object.verify_and_unwrap(&verifying_key, &SigningNamespace::ExampleNamespace);
+            signed_object.verify_and_unwrap(&verifying_key, EXAMPLE_NAMESPACE);
         assert!(payload.is_ok());
 
         let (signature, serialized_message) = store
@@ -593,13 +595,13 @@ mod tests {
                 &TestData {
                     data: "Hello".to_string(),
                 },
-                &SigningNamespace::ExampleNamespace,
+                EXAMPLE_NAMESPACE,
             )
             .unwrap();
         assert!(signature.verify(
             serialized_message.as_bytes(),
             &verifying_key,
-            &SigningNamespace::ExampleNamespace
+            EXAMPLE_NAMESPACE
         ))
     }
 }
