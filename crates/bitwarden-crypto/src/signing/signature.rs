@@ -44,7 +44,6 @@ impl Signature {
     ///
     /// The first anticipated consumer will be signed org memberships / emergency access:
     /// <https://bitwarden.atlassian.net/browse/PM-17458>
-    #[allow(unused)]
     pub fn verify(
         &self,
         serialized_message_bytes: &[u8],
@@ -95,7 +94,6 @@ impl SigningKey {
     /// let verifying_key = signing_key.to_verifying_key();
     /// assert!(signature.verify(&serialized_message.as_bytes(), &verifying_key, &namespace));
     /// ```
-    #[allow(unused)]
     pub fn sign_detached<Message: Serialize>(
         &self,
         message: &Message,
