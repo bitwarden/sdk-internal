@@ -78,7 +78,7 @@ impl SigningKey {
     /// ```
     /// use bitwarden_crypto::{SigningNamespace, SignatureAlgorithm, SigningKey};
     /// use serde::{Serialize, Deserialize};
-    /// 
+    ///
     /// const EXAMPLE_NAMESPACE: SigningNamespace = SigningNamespace::SignedPublicKey;
     ///
     /// #[derive(Serialize, Deserialize, Debug, PartialEq)]

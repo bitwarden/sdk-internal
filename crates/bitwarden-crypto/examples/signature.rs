@@ -1,4 +1,5 @@
-//! This example demonstrates how to create signatures and countersignatures for a message, and how to verify them.
+//! This example demonstrates how to create signatures and countersignatures for a message, and how
+//! to verify them.
 
 use bitwarden_crypto::{CoseSerializable, SigningNamespace};
 use serde::{Deserialize, Serialize};
