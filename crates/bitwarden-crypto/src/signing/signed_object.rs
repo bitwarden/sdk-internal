@@ -32,7 +32,7 @@ impl SignedObject {
         content_type(&self.0.protected)
     }
 
-    pub(crate) fn inner(&self) -> &CoseSign1 {
+    fn inner(&self) -> &CoseSign1 {
         &self.0
     }
 
