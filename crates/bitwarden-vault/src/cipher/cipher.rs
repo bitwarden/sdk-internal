@@ -209,6 +209,11 @@ pub struct CipherListView {
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
+
+    /// Fields on the cipher that are able to be copied. The fields
+    /// are not included on the CipherListView, but are available on the full
+    /// CipherView.
+    pub copiable_fields: Vec<String>,
 }
 
 impl CipherListView {
@@ -408,6 +413,65 @@ impl Cipher {
                     .unwrap_or_default()
             }
         })
+    }
+
+    /// Adds the `field_name` to the `fields` vector if the value is populated.
+    fn push_if_populated(encs: &[&Option<EncString>], field_name: &str, fields: &mut Vec<String>) {
+        let any_populated = encs.iter().any(|enc| enc.is_some());
+        if any_populated {
+            fields.push(field_name.to_string());
+        }
+    }
+
+    /// Returns a list of copiable field names for this cipher, based on the type and populated content.
+    fn get_copiable_fields(&self) -> Vec<String> {
+        let mut fields = Vec::new();
+        match self.r#type {
+            CipherType::Login => {
+                if let Some(login) = &self.login {
+                    Self::push_if_populated(&[&login.username], "login_username", &mut fields);
+                    Self::push_if_populated(&[&login.password], "login_password", &mut fields);
+                    Self::push_if_populated(&[&login.totp], "login_totp", &mut fields);
+                }
+            }
+            CipherType::Card => {
+                if let Some(card) = &self.card {
+                    Self::push_if_populated(&[&card.number], "card_number", &mut fields);
+                    Self::push_if_populated(&[&card.number], "card_security_code", &mut fields);
+                }
+            }
+            CipherType::Identity => {
+                if let Some(identity) = &self.identity {
+                    Self::push_if_populated(
+                        &[&identity.username],
+                        "identity_username",
+                        &mut fields,
+                    );
+                    Self::push_if_populated(&[&identity.email], "identity_email", &mut fields);
+                    Self::push_if_populated(&[&identity.phone], "identity_phone", &mut fields);
+                    Self::push_if_populated(
+                        &[
+                            &identity.address1,
+                            &identity.address2,
+                            &identity.address3,
+                            &identity.city,
+                            &identity.state,
+                            &identity.postal_code,
+                        ],
+                        "identity_address",
+                        &mut fields,
+                    );
+                }
+            }
+            CipherType::SshKey => {
+                // All properties SSH Keys are required
+                fields.push("ssh_key".to_string());
+            }
+            CipherType::SecureNote => {
+                Self::push_if_populated(&[&self.notes], "secure_note_notes", &mut fields);
+            }
+        }
+        fields
     }
 }
 
@@ -674,6 +738,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
+            copiable_fields: self.get_copiable_fields(),
         })
     }
 }
@@ -925,7 +990,8 @@ mod tests {
                 attachments: 0,
                 creation_date: cipher.creation_date,
                 deleted_date: cipher.deleted_date,
-                revision_date: cipher.revision_date
+                revision_date: cipher.revision_date,
+                copiable_fields: vec!["login_username".to_string(), "login_totp".to_string()],
             }
         )
     }
