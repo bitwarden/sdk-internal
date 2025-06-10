@@ -121,6 +121,8 @@ impl SigningKey {
     /// ```
     /// use bitwarden_crypto::{SigningNamespace, SignatureAlgorithm, SigningKey};
     /// use serde::{Serialize, Deserialize};
+    /// 
+    /// const EXAMPLE_NAMESPACE: SigningNamespace = SigningNamespace::SignedPublicKey;
     ///
     /// #[derive(Serialize, Deserialize, Debug, PartialEq)]
     /// struct TestMessage {
@@ -131,7 +133,7 @@ impl SigningKey {
     /// let message = TestMessage {
     ///   field1: "Test message".to_string(),
     /// };
-    /// let namespace = SigningNamespace::ExampleNamespace;
+    /// let namespace = EXAMPLE_NAMESPACE;
     /// let signed_object = signing_key.sign(&message, &namespace).unwrap();
     /// // The signed object can be verified using the verifying key:
     /// let verifying_key = signing_key.to_verifying_key();

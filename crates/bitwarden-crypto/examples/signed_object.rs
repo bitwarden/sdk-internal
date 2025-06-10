@@ -1,3 +1,5 @@
+//! This example demonstrates how to sign and verify structs.
+
 use bitwarden_crypto::{CoseSerializable, SignedObject, SigningNamespace};
 use serde::{Deserialize, Serialize};
 
