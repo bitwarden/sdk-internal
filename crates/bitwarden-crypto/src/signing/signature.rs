@@ -189,8 +189,6 @@ impl CoseSerializable for Signature {
 mod tests {
     use super::*;
     use crate::SignatureAlgorithm;
-    const EXAMPLE_NAMESPACE: SigningNamespace = SigningNamespace::SignedPublicKey;
-    const OTHER_EXAMPLE_NAMESPACE: SigningNamespace = SigningNamespace::AccountCryptographyVersion;
 
     const VERIFYING_KEY: &[u8] = &[
         166, 1, 1, 2, 80, 55, 131, 40, 191, 230, 137, 76, 182, 184, 139, 94, 152, 45, 63, 13, 71,
@@ -225,7 +223,7 @@ mod tests {
         let serialized_message =
             SerializedMessage::from_bytes(SERIALIZED_MESSAGE.to_vec(), CoapContentFormat::Cbor);
 
-        let namespace = EXAMPLE_NAMESPACE;
+        let namespace = SigningNamespace::ExampleNamespace;
 
         assert!(signature.verify(serialized_message.as_ref(), &verifying_key, &namespace));
     }
@@ -234,7 +232,7 @@ mod tests {
     fn test_sign_detached_roundtrip() {
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
         let message = "Test message";
-        let namespace = EXAMPLE_NAMESPACE;
+        let namespace = SigningNamespace::ExampleNamespace;
 
         let (signature, serialized_message) =
             signing_key.sign_detached(&message, &namespace).unwrap();
@@ -247,7 +245,7 @@ mod tests {
     fn test_countersign_detatched() {
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
         let message = "Test message";
-        let namespace = EXAMPLE_NAMESPACE;
+        let namespace = SigningNamespace::ExampleNamespace;
 
         let (signature, serialized_message) =
             signing_key.sign_detached(&message, &namespace).unwrap();
@@ -268,12 +266,12 @@ mod tests {
     fn test_fail_namespace_changed() {
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
         let message = "Test message";
-        let namespace = EXAMPLE_NAMESPACE;
+        let namespace = SigningNamespace::ExampleNamespace;
 
         let (signature, serialized_message) =
             signing_key.sign_detached(&message, &namespace).unwrap();
 
-        let different_namespace = OTHER_EXAMPLE_NAMESPACE;
+        let different_namespace = SigningNamespace::ExampleNamespace2;
         let verifying_key = signing_key.to_verifying_key();
 
         assert!(!signature.verify(

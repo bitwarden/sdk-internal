@@ -68,8 +68,6 @@ mod tests {
     use super::*;
     use crate::CoseSerializable;
 
-    const EXAMPLE_NAMESPACE: &SigningNamespace = &SigningNamespace::SignedPublicKey;
-
     #[derive(Deserialize, Debug, PartialEq, Serialize)]
     struct TestMessage {
         field1: String,
@@ -86,9 +84,11 @@ mod tests {
             field1: "Test message".to_string(),
         };
         let (signature, serialized_message) = signing_key
-            .sign_detached(&test_message, EXAMPLE_NAMESPACE)
+            .sign_detached(&test_message, &SigningNamespace::ExampleNamespace)
             .unwrap();
-        let signed_object = signing_key.sign(&test_message, EXAMPLE_NAMESPACE).unwrap();
+        let signed_object = signing_key
+            .sign(&test_message, &SigningNamespace::ExampleNamespace)
+            .unwrap();
         let raw_signed_array = signing_key.sign_raw("Test message".as_bytes());
         println!("const SIGNING_KEY: &[u8] = &{:?};", signing_key.to_cose());
         println!(

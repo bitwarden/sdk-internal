@@ -12,10 +12,12 @@ pub enum SigningNamespace {
     /// The namespace for
     /// [`SignedPublicKey`](crate::keys::SignedPublicKey).
     SignedPublicKey = 1,
-    /// The namespace for a struct, attesting to the version of the account's cryptographic
-    /// state/format. This is currently unused but will be implemented in `https://bitwarden.atlassian.net/browse/PM-17899` as a direct follow-up
-    #[allow(unused)]
-    AccountCryptographyVersion = 2,
+    /// This namespace is only used in tests and documentation.
+    #[cfg(test)]
+    ExampleNamespace = -1,
+    /// This namespace is only used in tests and documentation.
+    #[cfg(test)]
+    ExampleNamespace2 = -2,
 }
 
 impl SigningNamespace {
@@ -31,7 +33,8 @@ impl TryFrom<i64> for SigningNamespace {
     fn try_from(value: i64) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(SigningNamespace::SignedPublicKey),
-            2 => Ok(SigningNamespace::AccountCryptographyVersion),
+            -1 => Ok(SigningNamespace::ExampleNamespace),
+            -2 => Ok(SigningNamespace::ExampleNamespace2),
             _ => Err(SignatureError::InvalidNamespace.into()),
         }
     }
