@@ -12,10 +12,10 @@ pub enum SigningNamespace {
     /// The namespace for
     /// [`SignedPublicKey`](crate::keys::SignedPublicKey).
     SignedPublicKey = 1,
-    /// This namespace is only used in tests and documentation.
+    /// This namespace is only used in tests
     #[cfg(test)]
     ExampleNamespace = -1,
-    /// This namespace is only used in tests and documentation.
+    /// This namespace is only used in tests
     #[cfg(test)]
     ExampleNamespace2 = -2,
 }
@@ -33,7 +33,9 @@ impl TryFrom<i64> for SigningNamespace {
     fn try_from(value: i64) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(SigningNamespace::SignedPublicKey),
+            #[cfg(test)]
             -1 => Ok(SigningNamespace::ExampleNamespace),
+            #[cfg(test)]
             -2 => Ok(SigningNamespace::ExampleNamespace2),
             _ => Err(SignatureError::InvalidNamespace.into()),
         }
