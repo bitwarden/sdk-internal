@@ -40,6 +40,7 @@ pub struct CollectionViewTree {
 }
 
 #[derive(uniffi::Object)]
+#[allow(unused)]
 pub struct CollectionViewNodeItem {
     node_item: NodeItem<CollectionView>,
 }
