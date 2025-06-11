@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum Saml2NameIdFormat {
     NotConfigured = 0,
@@ -39,21 +30,24 @@ pub enum Saml2NameIdFormat {
 }
 
 impl std::fmt::Display for Saml2NameIdFormat {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::NotConfigured => write!(f, "0"),
-            Self::Unspecified => write!(f, "1"),
-            Self::EmailAddress => write!(f, "2"),
-            Self::X509SubjectName => write!(f, "3"),
-            Self::WindowsDomainQualifiedName => write!(f, "4"),
-            Self::KerberosPrincipalName => write!(f, "5"),
-            Self::EntityIdentifier => write!(f, "6"),
-            Self::Persistent => write!(f, "7"),
-            Self::Transient => write!(f, "8"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::NotConfigured => "0",
+                Self::Unspecified => "1",
+                Self::EmailAddress => "2",
+                Self::X509SubjectName => "3",
+                Self::WindowsDomainQualifiedName => "4",
+                Self::KerberosPrincipalName => "5",
+                Self::EntityIdentifier => "6",
+                Self::Persistent => "7",
+                Self::Transient => "8",
+            }
+        )
     }
 }
-
 impl Default for Saml2NameIdFormat {
     fn default() -> Saml2NameIdFormat {
         Self::NotConfigured

@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum WebAuthnPrfStatus {
     Enabled = 0,
@@ -33,15 +24,18 @@ pub enum WebAuthnPrfStatus {
 }
 
 impl std::fmt::Display for WebAuthnPrfStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Enabled => write!(f, "0"),
-            Self::Supported => write!(f, "1"),
-            Self::Unsupported => write!(f, "2"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Enabled => "0",
+                Self::Supported => "1",
+                Self::Unsupported => "2",
+            }
+        )
     }
 }
-
 impl Default for WebAuthnPrfStatus {
     fn default() -> WebAuthnPrfStatus {
         Self::Enabled

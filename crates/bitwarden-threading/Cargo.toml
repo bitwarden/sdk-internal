@@ -9,25 +9,36 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
+[package.metadata.cargo-udeps.ignore]
+development = ["tokio-test"] # only used in doc-tests
+
+[features]
+wasm = [
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+    "dep:js-sys",
+    "dep:gloo-timers"
+]
+
 [dependencies]
 bitwarden-error = { workspace = true }
+js-sys = { workspace = true, optional = true }
 log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 tokio = { features = ["sync", "time", "rt"], workspace = true }
 tokio-util = { version = "0.7.15" }
+wasm-bindgen = { workspace = true, optional = true }
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
-gloo-timers = { version = "0.3.0", features = ["futures"] }
-js-sys = { workspace = true }
-tsify-next = { workspace = true }
-wasm-bindgen = { workspace = true }
-wasm-bindgen-futures = { workspace = true }
+gloo-timers = { version = "0.3.0", features = ["futures"], optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
 async-trait = "0.1.88"
 console_error_panic_hook = "0.1.7"
 js-sys = { workspace = true }
+tokio-test = "0.4.4"
 tsify-next = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }

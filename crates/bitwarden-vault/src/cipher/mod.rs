@@ -17,7 +17,7 @@ pub use attachment::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
 };
 pub use attachment_client::{AttachmentsClient, DecryptFileError, EncryptFileError};
-pub use card::{CardBrand, CardView};
+pub use card::{CardBrand, CardListView, CardView};
 pub use cipher::{
     Cipher, CipherError, CipherListView, CipherListViewType, CipherRepromptType, CipherType,
     CipherView, EncryptionContext,
