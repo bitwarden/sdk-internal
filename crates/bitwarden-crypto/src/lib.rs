@@ -32,8 +32,12 @@ mod store;
 pub use store::{KeyStore, KeyStoreContext};
 mod cose;
 mod traits;
+pub use cose::ContentFormat;
 mod xchacha20;
-pub use traits::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
+pub use traits::{
+    CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds, PrimitiveEncryptable,
+    PrimitiveEncryptableWithContentType,
+};
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
 
 #[cfg(feature = "uniffi")]
