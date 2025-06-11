@@ -11,7 +11,7 @@ client.
 
 - API version: latest
 - Package version: 1.0.0
-- Generator version: 7.10.0
+- Generator version: 7.13.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
 ## Installation
