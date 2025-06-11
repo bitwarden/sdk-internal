@@ -5,6 +5,8 @@ use bitwarden_crypto::KeyStore;
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
+#[cfg(feature = "internal")]
+use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -63,6 +65,9 @@ pub struct InternalClient {
     pub(crate) external_client: reqwest::Client,
 
     pub(super) key_store: KeyStore<KeyIds>,
+
+    #[cfg(feature = "internal")]
+    pub(crate) repository_map: StateRegistry,
 }
 
 impl InternalClient {

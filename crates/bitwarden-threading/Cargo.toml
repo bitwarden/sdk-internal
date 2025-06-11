@@ -35,7 +35,7 @@ gloo-timers = { version = "0.3.0", features = ["futures"], optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
-async-trait = "0.1.88"
+async-trait = { workspace = true }
 console_error_panic_hook = "0.1.7"
 js-sys = { workspace = true }
 tokio-test = "0.4.4"

@@ -362,6 +362,7 @@ dependencies = [
  "bitwarden-api-identity",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-state",
  "bitwarden-uuid",
  "chrono",
  "getrandom 0.2.16",
@@ -596,6 +597,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-state"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
 name = "bitwarden-threading"
 version = "1.0.0"
 dependencies = [
@@ -629,6 +639,7 @@ dependencies = [
  "bitwarden-generators",
  "bitwarden-send",
  "bitwarden-ssh",
+ "bitwarden-state",
  "bitwarden-vault",
  "chrono",
  "env_logger",
@@ -671,6 +682,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-state",
  "chrono",
  "data-encoding",
  "hmac",
@@ -693,6 +705,7 @@ dependencies = [
 name = "bitwarden-wasm-internal"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
@@ -700,10 +713,14 @@ dependencies = [
  "bitwarden-generators",
  "bitwarden-ipc",
  "bitwarden-ssh",
+ "bitwarden-state",
+ "bitwarden-threading",
  "bitwarden-vault",
  "console_error_panic_hook",
  "console_log",
  "log",
+ "serde",
+ "tsify-next",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
