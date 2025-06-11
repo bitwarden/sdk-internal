@@ -48,6 +48,7 @@ pub struct IpcClientTypedSubscription<Payload: TryFrom<Vec<u8>> + PayloadTypeNam
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 #[bitwarden_error(flat)]
+#[allow(missing_docs)]
 pub enum SubscribeError {
     #[error("The IPC processing thread is not running")]
     NotStarted,
@@ -55,6 +56,7 @@ pub enum SubscribeError {
 
 #[derive(Debug, Error, PartialEq, Eq)]
 #[bitwarden_error(flat)]
+#[allow(missing_docs)]
 pub enum ReceiveError {
     #[error("Failed to subscribe to the IPC channel: {0}")]
     Channel(#[from] tokio::sync::broadcast::error::RecvError),
@@ -68,6 +70,7 @@ pub enum ReceiveError {
 
 #[derive(Debug, Error, PartialEq, Eq)]
 #[bitwarden_error(flat)]
+#[allow(missing_docs)]
 pub enum TypedReceiveError {
     #[error("Failed to subscribe to the IPC channel: {0}")]
     Channel(#[from] tokio::sync::broadcast::error::RecvError),
