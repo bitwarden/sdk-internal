@@ -36,6 +36,7 @@ pub enum GetSelectedCredentialError {
     CryptoError(#[from] CryptoError),
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum MakeCredentialError {
     #[error(transparent)]
@@ -50,6 +51,7 @@ pub enum MakeCredentialError {
     Other(String),
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum GetAssertionError {
     #[error(transparent)]
@@ -66,6 +68,7 @@ pub enum GetAssertionError {
     Other(String),
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum SilentlyDiscoverCredentialsError {
     #[error(transparent)]
@@ -80,6 +83,7 @@ pub enum SilentlyDiscoverCredentialsError {
     FromCipherViewError(#[from] Fido2CredentialAutofillViewError),
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum CredentialsForAutofillError {
     #[error(transparent)]
@@ -94,6 +98,7 @@ pub enum CredentialsForAutofillError {
     FromCipherViewError(#[from] Fido2CredentialAutofillViewError),
 }
 
+#[allow(missing_docs)]
 pub struct Fido2Authenticator<'a> {
     pub client: &'a Client,
     pub user_interface: &'a dyn Fido2UserInterface,
@@ -104,6 +109,7 @@ pub struct Fido2Authenticator<'a> {
 }
 
 impl<'a> Fido2Authenticator<'a> {
+    #[allow(missing_docs)]
     pub fn new(
         client: &'a Client,
         user_interface: &'a dyn Fido2UserInterface,
@@ -118,6 +124,7 @@ impl<'a> Fido2Authenticator<'a> {
         }
     }
 
+    #[allow(missing_docs)]
     pub async fn make_credential(
         &mut self,
         request: MakeCredentialRequest,
@@ -185,6 +192,7 @@ impl<'a> Fido2Authenticator<'a> {
         })
     }
 
+    #[allow(missing_docs)]
     pub async fn get_assertion(
         &mut self,
         request: GetAssertionRequest,
@@ -245,6 +253,7 @@ impl<'a> Fido2Authenticator<'a> {
         })
     }
 
+    #[allow(missing_docs)]
     pub async fn silently_discover_credentials(
         &mut self,
         rp_id: String,

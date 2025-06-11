@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum Algorithm {
     RS1 = -65535,
@@ -42,24 +33,27 @@ pub enum Algorithm {
 }
 
 impl std::fmt::Display for Algorithm {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::RS1 => write!(f, "-65535"),
-            Self::RS512 => write!(f, "-259"),
-            Self::RS384 => write!(f, "-258"),
-            Self::RS256 => write!(f, "-257"),
-            Self::ES256K => write!(f, "-47"),
-            Self::PS512 => write!(f, "-39"),
-            Self::PS384 => write!(f, "-38"),
-            Self::PS256 => write!(f, "-37"),
-            Self::ES512 => write!(f, "-36"),
-            Self::ES384 => write!(f, "-35"),
-            Self::EdDSA => write!(f, "-8"),
-            Self::ES256 => write!(f, "-7"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::RS1 => "-65535",
+                Self::RS512 => "-259",
+                Self::RS384 => "-258",
+                Self::RS256 => "-257",
+                Self::ES256K => "-47",
+                Self::PS512 => "-39",
+                Self::PS384 => "-38",
+                Self::PS256 => "-37",
+                Self::ES512 => "-36",
+                Self::ES384 => "-35",
+                Self::EdDSA => "-8",
+                Self::ES256 => "-7",
+            }
+        )
     }
 }
-
 impl Default for Algorithm {
     fn default() -> Algorithm {
         Self::RS1
