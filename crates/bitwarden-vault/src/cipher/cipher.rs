@@ -19,6 +19,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     attachment, card,
+    card::CardListView,
     cipher_permissions::CipherPermissions,
     field, identity,
     local_data::{LocalData, LocalDataView},
@@ -170,7 +171,7 @@ pub struct CipherView {
 pub enum CipherListViewType {
     Login(LoginListView),
     SecureNote,
-    Card,
+    Card(CardListView),
     Identity,
     SshKey,
 }
@@ -649,7 +650,13 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
                     CipherListViewType::Login(login.decrypt(ctx, ciphers_key)?)
                 }
                 CipherType::SecureNote => CipherListViewType::SecureNote,
-                CipherType::Card => CipherListViewType::Card,
+                CipherType::Card => {
+                    let card = self
+                        .card
+                        .as_ref()
+                        .ok_or(CryptoError::MissingField("card"))?;
+                    CipherListViewType::Card(card.decrypt(ctx, ciphers_key)?)
+                }
                 CipherType::Identity => CipherListViewType::Identity,
                 CipherType::SshKey => CipherListViewType::SshKey,
             },

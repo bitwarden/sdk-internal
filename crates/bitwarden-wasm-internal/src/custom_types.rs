@@ -10,7 +10,10 @@ import { Tagged } from "type-fest";
  *
  * Never create or cast to this type directly, use the `uuid<T>()` function instead.
  */
-export type Uuid = unknown;
+// TODO: Uncomment this when the `uuid` crate is used.
+// export type Uuid = unknown;
+
+export type Uuid = string;
 
 /**
  * RFC3339 compliant date-time string.
