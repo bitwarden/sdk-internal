@@ -1,11 +1,15 @@
 use std::future::Future;
 
-use super::error::RpcError;
-use super::request::RpcRequest;
+use super::{error::RpcError, request::RpcRequest};
 
+/// Trait defining a handler for RPC requests.
+/// These can registered with the IPC client and will be used to handle incoming RPC requests.
 pub trait RpcHandler {
+    /// The request type that this handler can process.
     type Request: RpcRequest;
 
+    /// Handle the request. Any errors that occur should be defined as part of the `RpcRequest`
+    /// type.
     fn handle(
         &self,
         request: Self::Request,

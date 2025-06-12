@@ -219,6 +219,9 @@ where
         }
     }
 
+    /// Register a new RPC handler for processing incoming RPC requests.
+    /// The handler will be executed by the IPC client when an RPC request is received and
+    /// the response will be sent back over IPC.
     pub async fn register_rpc_handler<H>(self: &Arc<Self>, handler: H)
     where
         H: RpcHandler + Send + Sync + 'static,
@@ -280,6 +283,9 @@ where
         ))
     }
 
+    /// Send a request to the specified destination and wait for a response.
+    /// The destination must have a registered RPC handler for the request type, otherwise
+    /// an error will be returned by the remote endpoint.
     pub async fn request<Request>(
         self: &Arc<Self>,
         request: Request,
@@ -319,13 +325,13 @@ where
 
         self.send(message)
             .await
-            .map_err(|e| RequestError::<Crypto::SendError>::Send(e))?;
+            .map_err(RequestError::<Crypto::SendError>::Send)?;
 
         let response = loop {
             let received = response_subscription
                 .receive(cancellation_token.clone())
                 .await
-                .map_err(|e| RequestError::<Crypto::SendError>::Receive(e.into()))?;
+                .map_err(RequestError::<Crypto::SendError>::Receive)?;
 
             if received.payload.request_id == request_id {
                 break received;
@@ -904,11 +910,7 @@ mod tests {
                 destination: Endpoint::Web { id: 9001 },
                 topic: Some(RpcResponseMessage::name()),
             };
-            communication_provider.push_incoming(
-                simulated_response
-                    .try_into()
-                    .expect("Serialization should not fail"),
-            );
+            communication_provider.push_incoming(simulated_response);
 
             // Wait for the response
             let result = result_handle.await.unwrap();
@@ -944,11 +946,7 @@ mod tests {
                 destination: Endpoint::BrowserBackground,
                 topic: Some(RpcRequestMessage::name()),
             };
-            communication_provider.push_incoming(
-                simulated_request_message
-                    .try_into()
-                    .expect("Serialization should not fail"),
-            );
+            communication_provider.push_incoming(simulated_request_message);
 
             // Give the client some time to process the request
             tokio::time::sleep(Duration::from_millis(100)).await;

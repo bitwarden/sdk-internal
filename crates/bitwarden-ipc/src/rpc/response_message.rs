@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::message::PayloadTypeName;
-
 use super::error::RpcError;
+use crate::message::PayloadTypeName;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RpcResponseMessage {

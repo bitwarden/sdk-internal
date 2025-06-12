@@ -1,11 +1,10 @@
 use wasm_bindgen::prelude::wasm_bindgen;
 
+use super::{error::JsRequestError, JsIpcClient};
 use crate::{
     discover::{DiscoverHandler, DiscoverRequest, DiscoverResponse},
     endpoint::Endpoint,
 };
-
-use super::{error::JsRequestError, JsIpcClient};
 
 #[wasm_bindgen(js_name = ipcRegisterDiscoverHandler)]
 /// Registers a DiscoverHandler so that the client can respond to DiscoverRequests.
