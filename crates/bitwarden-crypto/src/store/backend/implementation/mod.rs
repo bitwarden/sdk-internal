@@ -91,7 +91,7 @@ mod tests {
                 match rng.gen_range(0..=4) {
                     0 => Operation::Upsert(
                         TestSymmKey::A(rng.gen_range(0..=1000)),
-                        SymmetricCryptoKey::generate(rng),
+                        SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
                     ),
                     1 => Operation::Get(TestSymmKey::A(rng.gen_range(0..=1000))),
                     2 => Operation::Remove(TestSymmKey::A(rng.gen_range(0..=1000))),
