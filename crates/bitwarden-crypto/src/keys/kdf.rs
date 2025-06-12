@@ -1,11 +1,12 @@
 use std::{num::NonZeroU32, pin::Pin};
 
-use generic_array::{typenum::U32, GenericArray};
+use generic_array::GenericArray;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
+use typenum::U32;
 use zeroize::Zeroize;
 
 use crate::CryptoError;
@@ -101,6 +102,7 @@ impl KdfDerivedKeyMaterial {
 ///
 /// In Bitwarden accounts can use multiple KDFs to derive their master key from their password. This
 /// Enum represents all the possible KDFs.
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]

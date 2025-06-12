@@ -34,4 +34,4 @@ workspace = true
 [dev-dependencies]
 serde.workspace = true
 trybuild = "1.0.101"
-wasm-bindgen-test = "0.3.45"
+wasm-bindgen-test = { workspace = true }

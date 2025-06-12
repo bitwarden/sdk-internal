@@ -41,6 +41,9 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
         SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
             EncString::encrypt_aes256_hmac(pkcs.as_bytes(), key)
         }
+        SymmetricCryptoKey::XChaCha20Poly1305Key(_) => Err(CryptoError::OperationNotSupported(
+            UnsupportedOperation::EncryptionNotImplementedForKey,
+        )),
         SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
             UnsupportedOperation::EncryptionNotImplementedForKey,
         )),

@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::fingerprint::FingerprintError;
 
+#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CryptoError {
@@ -53,6 +54,9 @@ pub enum CryptoError {
 
     #[error("Key algorithm does not match encrypted data type")]
     WrongKeyType,
+
+    #[error("Invalid nonce length")]
+    InvalidNonceLength,
 }
 
 #[derive(Debug, Error)]
@@ -73,6 +77,10 @@ pub enum EncStringParseError {
     InvalidBase64(#[from] base64::DecodeError),
     #[error("Invalid length: expected {expected}, got {got}")]
     InvalidLength { expected: usize, got: usize },
+    #[error("Invalid encoding {0}")]
+    InvalidCoseEncoding(coset::CoseError),
+    #[error("Algorithm missing in COSE header")]
+    CoseMissingAlgorithm,
 }
 
 #[derive(Debug, Error)]

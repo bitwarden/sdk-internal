@@ -9,6 +9,7 @@ use tsify_next::Tsify;
 use super::Cipher;
 use crate::VaultParseError;
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -23,6 +24,7 @@ pub struct Attachment {
     pub key: Option<EncString>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -36,6 +38,7 @@ pub struct AttachmentView {
     pub key: Option<EncString>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -44,6 +47,7 @@ pub struct AttachmentEncryptResult {
     pub contents: Vec<u8>,
 }
 
+#[allow(missing_docs)]
 pub struct AttachmentFile {
     pub cipher: Cipher,
     pub attachment: AttachmentView,
@@ -55,6 +59,7 @@ pub struct AttachmentFile {
     pub contents: EncString,
 }
 
+#[allow(missing_docs)]
 pub struct AttachmentFileView<'a> {
     pub cipher: Cipher,
     pub attachment: AttachmentView,
@@ -87,8 +92,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         // with it, and then encrypt the key with the cipher key
         let attachment_key = ctx.generate_symmetric_key(ATTACHMENT_KEY)?;
         let encrypted_contents = self.contents.encrypt(ctx, attachment_key)?;
-        attachment.key =
-            Some(ctx.encrypt_symmetric_key_with_symmetric_key(ciphers_key, attachment_key)?);
+        attachment.key = Some(ctx.wrap_symmetric_key(ciphers_key, attachment_key)?);
 
         let contents = encrypted_contents.to_buffer()?;
 
@@ -123,11 +127,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, Vec<u8>> for AttachmentFile {
 
         // Version 2 or 3, `AttachmentKey` or `CipherKey(AttachmentKey)`
         if let Some(attachment_key) = &self.attachment.key {
-            let content_key = ctx.decrypt_symmetric_key_with_symmetric_key(
-                ciphers_key,
-                ATTACHMENT_KEY,
-                attachment_key,
-            )?;
+            let content_key =
+                ctx.unwrap_symmetric_key(ciphers_key, ATTACHMENT_KEY, attachment_key)?;
             self.contents.decrypt(ctx, content_key)
         } else {
             // Legacy attachment version 1, use user/org key

@@ -16,7 +16,11 @@ keywords.workspace = true
 
 [features]
 uniffi = ["dep:uniffi"] # Uniffi bindings
-wasm = ["dep:tsify-next", "dep:wasm-bindgen"]
+wasm = [
+    "bitwarden-core/wasm",
+    "dep:tsify-next",
+    "dep:wasm-bindgen"
+] # WebAssembly bindings
 
 [dependencies]
 bitwarden-core = { workspace = true, features = ["internal"] }

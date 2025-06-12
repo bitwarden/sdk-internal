@@ -8,6 +8,7 @@ use crate::error::{CryptoError, Result};
 /// Trait to allow both [`AsymmetricCryptoKey`] and [`AsymmetricPublicCryptoKey`] to be used to
 /// encrypt [UnsignedSharedKey](crate::UnsignedSharedKey).
 pub trait AsymmetricEncryptable {
+    #[allow(missing_docs)]
     fn to_public_key(&self) -> &RsaPublicKey;
 }
 
@@ -66,6 +67,7 @@ impl AsymmetricCryptoKey {
         }
     }
 
+    #[allow(missing_docs)]
     pub fn from_pem(pem: &str) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -73,6 +75,7 @@ impl AsymmetricCryptoKey {
         })
     }
 
+    #[allow(missing_docs)]
     pub fn from_der(der: &[u8]) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -80,6 +83,7 @@ impl AsymmetricCryptoKey {
         })
     }
 
+    #[allow(missing_docs)]
     pub fn to_der(&self) -> Result<Vec<u8>> {
         use rsa::pkcs8::EncodePrivateKey;
         Ok(self
@@ -90,6 +94,7 @@ impl AsymmetricCryptoKey {
             .to_owned())
     }
 
+    #[allow(missing_docs)]
     pub fn to_public_der(&self) -> Result<Vec<u8>> {
         use rsa::pkcs8::EncodePublicKey;
         Ok(self
@@ -215,7 +220,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
         let public_key = AsymmetricPublicCryptoKey::from_der(&public_key).unwrap();
 
-        let raw_key = SymmetricCryptoKey::generate(&mut rand::thread_rng());
+        let raw_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(&raw_key, &public_key).unwrap();
         let decrypted = encrypted.decapsulate_key_unsigned(&private_key).unwrap();
 

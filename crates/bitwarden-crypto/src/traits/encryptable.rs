@@ -4,6 +4,7 @@ use crate::{store::KeyStoreContext, CryptoError, EncString, KeyId, KeyIds};
 /// Implementations should generally consist of calling [Encryptable::encrypt] for all the fields of
 /// the type.
 pub trait Encryptable<Ids: KeyIds, Key: KeyId, Output> {
+    #[allow(missing_docs)]
     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: Key) -> Result<Output, CryptoError>;
 }
 
@@ -83,7 +84,7 @@ mod tests {
     fn test_store() -> KeyStore<TestIds> {
         let store = KeyStore::<TestIds>::default();
 
-        let symm_key = SymmetricCryptoKey::generate(rand::thread_rng());
+        let symm_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let asymm_key = AsymmetricCryptoKey::generate(&mut rand::thread_rng());
 
         #[allow(deprecated)]
