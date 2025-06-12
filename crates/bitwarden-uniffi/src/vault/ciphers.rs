@@ -1,15 +1,17 @@
-use bitwarden_vault::{Cipher, CipherListView, CipherView, Fido2CredentialView};
+use bitwarden_core::OrganizationId;
+use bitwarden_vault::{Cipher, CipherListView, CipherView, EncryptionContext, Fido2CredentialView};
 use uuid::Uuid;
 
 use crate::{error::Error, Result};
 
+#[allow(missing_docs)]
 #[derive(uniffi::Object)]
 pub struct CiphersClient(pub(crate) bitwarden_vault::CiphersClient);
 
 #[uniffi::export]
 impl CiphersClient {
     /// Encrypt cipher
-    pub fn encrypt(&self, cipher_view: CipherView) -> Result<Cipher> {
+    pub fn encrypt(&self, cipher_view: CipherView) -> Result<EncryptionContext> {
         Ok(self.0.encrypt(cipher_view).map_err(Error::Encrypt)?)
     }
 
@@ -41,7 +43,7 @@ impl CiphersClient {
     ) -> Result<CipherView> {
         Ok(self
             .0
-            .move_to_organization(cipher, organization_id)
+            .move_to_organization(cipher, OrganizationId::new(organization_id))
             .map_err(Error::Cipher)?)
     }
 }

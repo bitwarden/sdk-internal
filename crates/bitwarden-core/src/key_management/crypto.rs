@@ -11,6 +11,8 @@ use bitwarden_crypto::{
     AsymmetricCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
     SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
+use bitwarden_error::bitwarden_error;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
@@ -23,8 +25,9 @@ use crate::{
 
 /// Catch all error for mobile crypto operations.
 #[allow(missing_docs)]
+#[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
-pub enum MobileCryptoError {
+pub enum CryptoClientError {
     #[error(transparent)]
     NotAuthenticated(#[from] NotAuthenticatedError),
     #[error(transparent)]
@@ -39,12 +42,14 @@ pub enum MobileCryptoError {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct InitUserCryptoRequest {
+    /// The user's ID.
+    pub user_id: Option<uuid::Uuid>,
     /// The user's KDF parameters, as received from the prelogin request
     pub kdf_params: Kdf,
     /// The user's email address
     pub email: String,
     /// The user's encrypted private key
-    pub private_key: String,
+    pub private_key: EncString,
     /// The initialization method to use
     pub method: InitUserCryptoMethod,
 }
@@ -60,7 +65,7 @@ pub enum InitUserCryptoMethod {
         /// The user's master password
         password: String,
         /// The user's encrypted symmetric crypto key
-        user_key: String,
+        user_key: EncString,
     },
     /// Never lock and/or biometric unlock
     DecryptedKey {
@@ -96,7 +101,7 @@ pub enum InitUserCryptoMethod {
         /// Base64 encoded master key, retrieved from the key connector.
         master_key: String,
         /// The user's encrypted symmetric crypto key
-        user_key: String,
+        user_key: EncString,
     },
 }
 
@@ -121,7 +126,7 @@ pub enum AuthRequestMethod {
 }
 
 /// Initialize the user's cryptographic state.
-pub async fn initialize_user_crypto(
+pub(super) async fn initialize_user_crypto(
     client: &Client,
     req: InitUserCryptoRequest,
 ) -> Result<(), EncryptionSettingsError> {
@@ -129,22 +134,24 @@ pub async fn initialize_user_crypto(
 
     use crate::auth::{auth_request_decrypt_master_key, auth_request_decrypt_user_key};
 
-    let private_key: EncString = req.private_key.parse()?;
+    if let Some(user_id) = req.user_id {
+        client.internal.init_user_id(user_id)?;
+    }
 
     match req.method {
         InitUserCryptoMethod::Password { password, user_key } => {
-            let user_key: EncString = user_key.parse()?;
-
             let master_key = MasterKey::derive(&password, &req.email, &req.kdf_params)?;
-            client
-                .internal
-                .initialize_user_crypto_master_key(master_key, user_key, private_key)?;
+            client.internal.initialize_user_crypto_master_key(
+                master_key,
+                user_key,
+                req.private_key,
+            )?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
             client
                 .internal
-                .initialize_user_crypto_decrypted_key(user_key, private_key)?;
+                .initialize_user_crypto_decrypted_key(user_key, req.private_key)?;
         }
         InitUserCryptoMethod::Pin {
             pin,
@@ -154,7 +161,7 @@ pub async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_pin(
                 pin_key,
                 pin_protected_user_key,
-                private_key,
+                req.private_key,
             )?;
         }
         InitUserCryptoMethod::AuthRequest {
@@ -176,7 +183,7 @@ pub async fn initialize_user_crypto(
             };
             client
                 .internal
-                .initialize_user_crypto_decrypted_key(user_key, private_key)?;
+                .initialize_user_crypto_decrypted_key(user_key, req.private_key)?;
         }
         InitUserCryptoMethod::DeviceKey {
             device_key,
@@ -189,7 +196,7 @@ pub async fn initialize_user_crypto(
 
             client
                 .internal
-                .initialize_user_crypto_decrypted_key(user_key, private_key)?;
+                .initialize_user_crypto_decrypted_key(user_key, req.private_key)?;
         }
         InitUserCryptoMethod::KeyConnector {
             master_key,
@@ -199,11 +206,12 @@ pub async fn initialize_user_crypto(
                 .decode(master_key)
                 .map_err(|_| CryptoError::InvalidKey)?;
             let master_key = MasterKey::try_from(master_key_bytes.as_mut_slice())?;
-            let user_key: EncString = user_key.parse()?;
 
-            client
-                .internal
-                .initialize_user_crypto_master_key(master_key, user_key, private_key)?;
+            client.internal.initialize_user_crypto_master_key(
+                master_key,
+                user_key,
+                req.private_key,
+            )?;
         }
     }
 
@@ -231,7 +239,7 @@ pub struct InitOrgCryptoRequest {
 }
 
 /// Initialize the user's organizational cryptographic state.
-pub(crate) async fn initialize_org_crypto(
+pub(super) async fn initialize_org_crypto(
     client: &Client,
     req: InitOrgCryptoRequest,
 ) -> Result<(), EncryptionSettingsError> {
@@ -240,7 +248,7 @@ pub(crate) async fn initialize_org_crypto(
     Ok(())
 }
 
-pub(super) async fn get_user_encryption_key(client: &Client) -> Result<String, MobileCryptoError> {
+pub(super) async fn get_user_encryption_key(client: &Client) -> Result<String, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // This is needed because the mobile clients need access to the user encryption key
@@ -254,6 +262,7 @@ pub(super) async fn get_user_encryption_key(client: &Client) -> Result<String, M
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct UpdatePasswordResponse {
     /// Hash of the new password
     password_hash: String,
@@ -264,7 +273,7 @@ pub struct UpdatePasswordResponse {
 pub(super) fn update_password(
     client: &Client,
     new_password: String,
-) -> Result<UpdatePasswordResponse, MobileCryptoError> {
+) -> Result<UpdatePasswordResponse, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
@@ -303,6 +312,7 @@ pub(super) fn update_password(
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct DerivePinKeyResponse {
     /// [UserKey] protected by PIN
     pin_protected_user_key: EncString,
@@ -313,7 +323,7 @@ pub struct DerivePinKeyResponse {
 pub(super) fn derive_pin_key(
     client: &Client,
     pin: String,
-) -> Result<DerivePinKeyResponse, MobileCryptoError> {
+) -> Result<DerivePinKeyResponse, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
@@ -336,7 +346,7 @@ pub(super) fn derive_pin_key(
 pub(super) fn derive_pin_user_key(
     client: &Client,
     encrypted_pin: EncString,
-) -> Result<EncString, MobileCryptoError> {
+) -> Result<EncString, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
@@ -356,7 +366,7 @@ fn derive_pin_protected_user_key(
     pin: &str,
     login_method: &LoginMethod,
     user_key: &SymmetricCryptoKey,
-) -> Result<EncString, MobileCryptoError> {
+) -> Result<EncString, CryptoClientError> {
     use bitwarden_crypto::PinKey;
 
     let derived_key = match login_method {
@@ -372,6 +382,7 @@ fn derive_pin_protected_user_key(
 }
 
 #[allow(missing_docs)]
+#[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub enum EnrollAdminPasswordResetError {
     #[error(transparent)]
@@ -403,7 +414,10 @@ pub(super) fn enroll_admin_password_reset(
 }
 
 /// Request for migrating an account from password to key connector.
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct DeriveKeyConnectorRequest {
     /// Encrypted user key, used to validate the master key
     pub user_key_encrypted: EncString,
@@ -416,6 +430,7 @@ pub struct DeriveKeyConnectorRequest {
 }
 
 #[allow(missing_docs)]
+#[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub enum DeriveKeyConnectorError {
     #[error(transparent)]
@@ -555,7 +570,7 @@ mod tests {
     async fn test_update_password() {
         let client = Client::new(None);
 
-        let priv_key = "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=";
+        let priv_key: EncString = "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=".parse().unwrap();
 
         let kdf = Kdf::PBKDF2 {
             iterations: 100_000.try_into().unwrap(),
@@ -564,12 +579,13 @@ mod tests {
         initialize_user_crypto(
             & client,
             InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
-                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".into(),
+                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
                 },
             },
         )
@@ -583,12 +599,13 @@ mod tests {
         initialize_user_crypto(
             &client2,
             InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
                 method: InitUserCryptoMethod::Password {
                     password: "123412341234".into(),
-                    user_key: new_password_response.new_key.to_string(),
+                    user_key: new_password_response.new_key,
                 },
             },
         )
@@ -633,11 +650,12 @@ mod tests {
     async fn test_initialize_user_crypto_pin() {
         let client = Client::new(None);
 
-        let priv_key = "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=";
+        let priv_key: EncString = "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=".parse().unwrap();
 
         initialize_user_crypto(
             & client,
             InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: Kdf::PBKDF2 {
                     iterations: 100_000.try_into().unwrap(),
                 },
@@ -645,7 +663,7 @@ mod tests {
                 private_key: priv_key.to_owned(),
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
-                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".into(),
+                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
                 },
             },
         )
@@ -659,6 +677,7 @@ mod tests {
         initialize_user_crypto(
             &client2,
             InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: Kdf::PBKDF2 {
                     iterations: 100_000.try_into().unwrap(),
                 },
@@ -701,6 +720,7 @@ mod tests {
         initialize_user_crypto(
             &client3,
             InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: Kdf::PBKDF2 {
                     iterations: 100_000.try_into().unwrap(),
                 },

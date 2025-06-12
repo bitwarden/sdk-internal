@@ -1,20 +1,20 @@
 extern crate console_error_panic_hook;
 use std::fmt::Display;
 
-use bitwarden_core::{Client, ClientSettings};
+use bitwarden_core::{key_management::CryptoClient, Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
 use bitwarden_exporters::ExporterClientExt;
 use bitwarden_generators::GeneratorClientsExt;
-use bitwarden_vault::VaultClientExt;
+use bitwarden_vault::{VaultClient, VaultClientExt};
 use wasm_bindgen::prelude::*;
 
-use crate::{CryptoClient, VaultClient};
-
+#[allow(missing_docs)]
 #[wasm_bindgen]
 pub struct BitwardenClient(pub(crate) Client);
 
 #[wasm_bindgen]
 impl BitwardenClient {
+    #[allow(missing_docs)]
     #[wasm_bindgen(constructor)]
     pub fn new(settings: Option<ClientSettings>) -> Self {
         Self(Client::new(settings))
@@ -25,10 +25,12 @@ impl BitwardenClient {
         msg
     }
 
+    #[allow(missing_docs)]
     pub fn version(&self) -> String {
         env!("SDK_VERSION").to_owned()
     }
 
+    #[allow(missing_docs)]
     pub fn throw(&self, msg: String) -> Result<(), TestError> {
         Err(TestError(msg))
     }
@@ -41,12 +43,14 @@ impl BitwardenClient {
         res.text().await.map_err(|e| e.to_string())
     }
 
+    #[allow(missing_docs)]
     pub fn crypto(&self) -> CryptoClient {
-        CryptoClient::new(self.0.crypto())
+        self.0.crypto()
     }
 
+    #[allow(missing_docs)]
     pub fn vault(&self) -> VaultClient {
-        VaultClient::new(self.0.vault())
+        self.0.vault()
     }
 
     /// Constructs a specific client for generating passwords and passphrases
@@ -54,6 +58,7 @@ impl BitwardenClient {
         self.0.generator()
     }
 
+    #[allow(missing_docs)]
     pub fn exporters(&self) -> bitwarden_exporters::ExporterClient {
         self.0.exporters()
     }

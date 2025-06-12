@@ -1,4 +1,8 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+#![allow(missing_docs)]
+
+use std::hint::black_box;
+
+use criterion::{criterion_group, criterion_main, Criterion};
 
 fn allocate_string(s: &str) -> String {
     s.to_owned()

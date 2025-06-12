@@ -31,6 +31,7 @@ pub(crate) fn satisfies_policy(
     true
 }
 
+#[allow(missing_docs)]
 #[derive(Debug)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[allow(dead_code)]
