@@ -153,7 +153,7 @@ mod test {
     #[test]
     fn test_decrypt_test_vector() {
         let key = XChaCha20Poly1305Key {
-            key_id: KEY_ID.into(),
+            key_id: KEY_ID,
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
         };
         let decrypted = decrypt_xchacha20_poly1305(TEST_VECTOR_COSE_ENCRYPT0, &key).unwrap();
@@ -163,7 +163,7 @@ mod test {
     #[test]
     fn test_fail_wrong_key_id() {
         let key = XChaCha20Poly1305Key {
-            key_id: [1; 16].into(), // Different key ID
+            key_id: [1; 16], // Different key ID
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
         };
         assert!(matches!(
@@ -187,7 +187,7 @@ mod test {
         let serialized_message = cose_encrypt0.to_vec().unwrap();
 
         let key = XChaCha20Poly1305Key {
-            key_id: KEY_ID.into(),
+            key_id: KEY_ID,
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
         };
         assert!(matches!(
