@@ -21,12 +21,13 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext: &[u8],
     key: &crate::XChaCha20Poly1305Key,
 ) -> Result<Vec<u8>, CryptoError> {
-    let mut protected_header = coset::HeaderBuilder::new().build();
+    let mut protected_header = coset::HeaderBuilder::new()
+        .key_id(key.key_id.to_vec())
+        .build();
     // This should be adjusted to use the builder pattern once implemented in coset.
     // The related coset upstream issue is:
     // https://github.com/google/coset/issues/105
     protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
-    protected_header.key_id = key.key_id.to_vec();
 
     let mut nonce = [0u8; xchacha20::NONCE_SIZE];
     let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
