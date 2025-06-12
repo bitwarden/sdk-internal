@@ -48,12 +48,14 @@ pub trait KeyIds {
 ///         User,
 ///         Org(uuid::Uuid),
 ///         #[local]
-///         Local(&'static str),
+///         Local(uuid::Uuid),
 ///     }
 ///
 ///     #[asymmetric]
 ///     pub enum AsymmKeyId {
 ///         PrivateKey,
+///         #[local]
+///         Local(uuid::Uuid),
 ///     }
 ///     pub Ids => SymmKeyId, AsymmKeyId;
 /// }

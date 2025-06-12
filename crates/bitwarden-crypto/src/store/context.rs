@@ -33,11 +33,14 @@ use crate::{
 /// #     #[symmetric]
 /// #     pub enum SymmKeyId {
 /// #         User,
-/// #         Local(&'static str),
+/// #         #[local]
+/// #         Local(uuid::Uuid),
 /// #     }
 /// #     #[asymmetric]
 /// #     pub enum AsymmKeyId {
 /// #         UserPrivate,
+/// #         #[local]
+/// #         Local(uuid::Uuid),
 /// #     }
 /// #     pub Ids => SymmKeyId, AsymmKeyId;
 /// # }
