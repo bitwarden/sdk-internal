@@ -34,5 +34,5 @@ bitwarden-error = { workspace = true, features = ["wasm"] }
 js-sys.workspace = true
 serde.workspace = true
 thiserror.workspace = true
-tsify-next.workspace = true
+tsify.workspace = true
 wasm-bindgen.workspace = true

@@ -15,7 +15,7 @@ use crate::VaultParseError;
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
     feature = "wasm",
-    derive(tsify_next::Tsify),
+    derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
 pub struct Collection {
