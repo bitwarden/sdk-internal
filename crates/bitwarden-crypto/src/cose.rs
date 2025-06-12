@@ -166,7 +166,10 @@ mod test {
             key_id: [1; 16].into(), // Different key ID
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
         };
-        assert!(decrypt_xchacha20_poly1305(TEST_VECTOR_COSE_ENCRYPT0, &key).is_err());
+        assert!(matches!(
+            decrypt_xchacha20_poly1305(TEST_VECTOR_COSE_ENCRYPT0, &key),
+            Err(CryptoError::WrongCoseKeyId)
+        ));
     }
 
     #[test]
@@ -187,7 +190,9 @@ mod test {
             key_id: KEY_ID.into(),
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
         };
-        let result = decrypt_xchacha20_poly1305(&serialized_message, &key);
-        assert!(result.is_err());
+        assert!(matches!(
+            decrypt_xchacha20_poly1305(&serialized_message, &key),
+            Err(CryptoError::WrongKeyType)
+        ));
     }
 }
