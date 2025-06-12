@@ -419,7 +419,8 @@ impl Cipher {
         }
     }
 
-    /// Returns a list of copiable field names for this cipher, based on the type and populated content.
+    /// Returns a list of copiable field names for this cipher,
+    /// based on the cipher type and populated properties.
     fn get_copiable_fields(&self) -> Vec<CopiableCipherFields> {
         let mut fields = Vec::new();
         match self.r#type {
