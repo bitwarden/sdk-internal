@@ -232,6 +232,9 @@ pub struct CipherListView {
     /// UI to determine the visibility of copy actions without needing
     /// the full cipher details.
     pub copiable_fields: Vec<CopiableCipherFields>,
+
+    // Only added to the list view for typing purposes, it won't be retrieved from the server
+    pub local_data: Option<LocalDataView>,
 }
 
 impl CipherListView {
@@ -793,6 +796,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
             copiable_fields: self.get_copiable_fields(),
+            local_data: None, // Not sent from server
         })
     }
 }
@@ -1049,6 +1053,7 @@ mod tests {
                     CopiableCipherFields::LoginUsername,
                     CopiableCipherFields::LoginTotp
                 ],
+                local_data: None,
             }
         )
     }
