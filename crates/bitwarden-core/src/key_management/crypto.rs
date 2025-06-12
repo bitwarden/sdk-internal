@@ -11,6 +11,8 @@ use bitwarden_crypto::{
     AsymmetricCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
     SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
+use bitwarden_error::bitwarden_error;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
@@ -23,8 +25,9 @@ use crate::{
 
 /// Catch all error for mobile crypto operations.
 #[allow(missing_docs)]
+#[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
-pub enum MobileCryptoError {
+pub enum CryptoClientError {
     #[error(transparent)]
     NotAuthenticated(#[from] NotAuthenticatedError),
     #[error(transparent)]
@@ -123,7 +126,7 @@ pub enum AuthRequestMethod {
 }
 
 /// Initialize the user's cryptographic state.
-pub async fn initialize_user_crypto(
+pub(super) async fn initialize_user_crypto(
     client: &Client,
     req: InitUserCryptoRequest,
 ) -> Result<(), EncryptionSettingsError> {
@@ -236,7 +239,7 @@ pub struct InitOrgCryptoRequest {
 }
 
 /// Initialize the user's organizational cryptographic state.
-pub(crate) async fn initialize_org_crypto(
+pub(super) async fn initialize_org_crypto(
     client: &Client,
     req: InitOrgCryptoRequest,
 ) -> Result<(), EncryptionSettingsError> {
@@ -245,7 +248,7 @@ pub(crate) async fn initialize_org_crypto(
     Ok(())
 }
 
-pub(super) async fn get_user_encryption_key(client: &Client) -> Result<String, MobileCryptoError> {
+pub(super) async fn get_user_encryption_key(client: &Client) -> Result<String, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // This is needed because the mobile clients need access to the user encryption key
@@ -259,6 +262,7 @@ pub(super) async fn get_user_encryption_key(client: &Client) -> Result<String, M
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct UpdatePasswordResponse {
     /// Hash of the new password
     password_hash: String,
@@ -269,7 +273,7 @@ pub struct UpdatePasswordResponse {
 pub(super) fn update_password(
     client: &Client,
     new_password: String,
-) -> Result<UpdatePasswordResponse, MobileCryptoError> {
+) -> Result<UpdatePasswordResponse, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
@@ -308,6 +312,7 @@ pub(super) fn update_password(
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct DerivePinKeyResponse {
     /// [UserKey] protected by PIN
     pin_protected_user_key: EncString,
@@ -318,7 +323,7 @@ pub struct DerivePinKeyResponse {
 pub(super) fn derive_pin_key(
     client: &Client,
     pin: String,
-) -> Result<DerivePinKeyResponse, MobileCryptoError> {
+) -> Result<DerivePinKeyResponse, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
@@ -341,7 +346,7 @@ pub(super) fn derive_pin_key(
 pub(super) fn derive_pin_user_key(
     client: &Client,
     encrypted_pin: EncString,
-) -> Result<EncString, MobileCryptoError> {
+) -> Result<EncString, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
@@ -361,7 +366,7 @@ fn derive_pin_protected_user_key(
     pin: &str,
     login_method: &LoginMethod,
     user_key: &SymmetricCryptoKey,
-) -> Result<EncString, MobileCryptoError> {
+) -> Result<EncString, CryptoClientError> {
     use bitwarden_crypto::PinKey;
 
     let derived_key = match login_method {
@@ -377,6 +382,7 @@ fn derive_pin_protected_user_key(
 }
 
 #[allow(missing_docs)]
+#[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub enum EnrollAdminPasswordResetError {
     #[error(transparent)]
@@ -408,7 +414,10 @@ pub(super) fn enroll_admin_password_reset(
 }
 
 /// Request for migrating an account from password to key connector.
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct DeriveKeyConnectorRequest {
     /// Encrypted user key, used to validate the master key
     pub user_key_encrypted: EncString,
@@ -421,6 +430,7 @@ pub struct DeriveKeyConnectorRequest {
 }
 
 #[allow(missing_docs)]
+#[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub enum DeriveKeyConnectorError {
     #[error(transparent)]

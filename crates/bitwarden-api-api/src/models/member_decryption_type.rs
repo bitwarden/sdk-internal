@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum MemberDecryptionType {
     MasterPassword = 0,
@@ -33,15 +24,18 @@ pub enum MemberDecryptionType {
 }
 
 impl std::fmt::Display for MemberDecryptionType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::MasterPassword => write!(f, "0"),
-            Self::KeyConnector => write!(f, "1"),
-            Self::TrustedDeviceEncryption => write!(f, "2"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::MasterPassword => "0",
+                Self::KeyConnector => "1",
+                Self::TrustedDeviceEncryption => "2",
+            }
+        )
     }
 }
-
 impl Default for MemberDecryptionType {
     fn default() -> MemberDecryptionType {
         Self::MasterPassword

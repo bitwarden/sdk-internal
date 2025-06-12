@@ -11,6 +11,11 @@ use bitwarden_crypto::{key_ids, KeyStore, SymmetricCryptoKey};
 
 use crate::OrganizationId;
 
+pub mod crypto;
+mod crypto_client;
+
+pub use crypto_client::CryptoClient;
+
 key_ids! {
     #[symmetric]
     pub enum SymmetricKeyId {

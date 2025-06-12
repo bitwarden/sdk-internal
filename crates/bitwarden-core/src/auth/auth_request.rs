@@ -141,8 +141,10 @@ mod tests {
 
     use super::*;
     use crate::{
-        key_management::SymmetricKeyId,
-        mobile::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
+        key_management::{
+            crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
+            SymmetricKeyId,
+        },
         UserId,
     };
 

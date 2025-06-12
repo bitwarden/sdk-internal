@@ -9,9 +9,9 @@
  */
 
 use reqwest;
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as _, Deserialize, Serialize};
 
-use super::{configuration, Error};
+use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
 /// struct for typed errors of method [`organizations_org_id_policies_get`]
@@ -61,43 +61,50 @@ pub async fn organizations_org_id_policies_get(
     org_id: &str,
 ) -> Result<models::PolicyResponseModelListResponseModel, Error<OrganizationsOrgIdPoliciesGetError>>
 {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/policies",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id)
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id)
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PolicyResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PolicyResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdPoliciesGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdPoliciesGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -109,47 +116,54 @@ pub async fn organizations_org_id_policies_invited_user_get(
     models::PolicyResponseModelListResponseModel,
     Error<OrganizationsOrgIdPoliciesInvitedUserGetError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_user_id = user_id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/policies/invited-user",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_str) = user_id {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("userId", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_user_id {
+        req_builder = req_builder.query(&[("userId", &param_value.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PolicyResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PolicyResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdPoliciesInvitedUserGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdPoliciesInvitedUserGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -157,43 +171,50 @@ pub async fn organizations_org_id_policies_master_password_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
 ) -> Result<models::PolicyResponseModel, Error<OrganizationsOrgIdPoliciesMasterPasswordGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/policies/master-password",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PolicyResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PolicyResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdPoliciesMasterPasswordGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdPoliciesMasterPasswordGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -207,55 +228,62 @@ pub async fn organizations_org_id_policies_token_get(
     models::PolicyResponseModelListResponseModel,
     Error<OrganizationsOrgIdPoliciesTokenGetError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_email = email;
+    let p_token = token;
+    let p_organization_user_id = organization_user_id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/policies/token",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_str) = email {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("email", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_email {
+        req_builder = req_builder.query(&[("email", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = token {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("token", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_token {
+        req_builder = req_builder.query(&[("token", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = organization_user_id {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("organizationUserId", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_organization_user_id {
+        req_builder = req_builder.query(&[("organizationUserId", &param_value.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PolicyResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PolicyResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdPoliciesTokenGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdPoliciesTokenGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -264,39 +292,47 @@ pub async fn organizations_org_id_policies_type_get(
     org_id: uuid::Uuid,
     r#type: i32,
 ) -> Result<models::PolicyDetailResponseModel, Error<OrganizationsOrgIdPoliciesTypeGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_type = r#type;
 
-    let local_var_client = &local_var_configuration.client;
+    let uri_str = format!("{}/organizations/{orgId}/policies/{type}", configuration.base_path, orgId=crate::apis::urlencode(p_org_id.to_string()), type=p_type);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    let local_var_uri_str = format!("{}/organizations/{orgId}/policies/{type}", local_var_configuration.base_path, orgId=crate::apis::urlencode(org_id.to_string()), type=r#type);
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PolicyDetailResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PolicyDetailResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdPoliciesTypeGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdPoliciesTypeGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -306,39 +342,48 @@ pub async fn organizations_org_id_policies_type_put(
     r#type: models::PolicyType,
     policy_request_model: Option<models::PolicyRequestModel>,
 ) -> Result<models::PolicyResponseModel, Error<OrganizationsOrgIdPoliciesTypePutError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_type = r#type;
+    let p_policy_request_model = policy_request_model;
 
-    let local_var_client = &local_var_configuration.client;
+    let uri_str = format!("{}/organizations/{orgId}/policies/{type}", configuration.base_path, orgId=crate::apis::urlencode(p_org_id.to_string()), type=p_type.to_string());
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
-    let local_var_uri_str = format!("{}/organizations/{orgId}/policies/{type}", local_var_configuration.base_path, orgId=crate::apis::urlencode(org_id.to_string()), type=r#type.to_string());
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
-
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&policy_request_model);
+    req_builder = req_builder.json(&p_policy_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PolicyResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PolicyResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdPoliciesTypePutError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdPoliciesTypePutError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }

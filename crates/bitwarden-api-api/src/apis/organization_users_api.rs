@@ -9,9 +9,9 @@
  */
 
 use reqwest;
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as _, Deserialize, Serialize};
 
-use super::{configuration, Error};
+use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
 /// struct for typed errors of method [`organizations_org_id_users_account_recovery_details_post`]
@@ -277,44 +277,54 @@ pub async fn organizations_org_id_users_account_recovery_details_post(
     models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel,
     Error<OrganizationsOrgIdUsersAccountRecoveryDetailsPostError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/account-recovery-details",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersAccountRecoveryDetailsPostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersAccountRecoveryDetailsPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -328,45 +338,55 @@ pub async fn organizations_org_id_users_confirm_post(
     models::OrganizationUserBulkResponseModelListResponseModel,
     Error<OrganizationsOrgIdUsersConfirmPostError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_confirm_request_model =
+        organization_user_bulk_confirm_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/confirm",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id)
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id)
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder =
-        local_var_req_builder.json(&organization_user_bulk_confirm_request_model);
+    req_builder = req_builder.json(&p_organization_user_bulk_confirm_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersConfirmPostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersConfirmPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -378,44 +398,54 @@ pub async fn organizations_org_id_users_delete(
     models::OrganizationUserBulkResponseModelListResponseModel,
     Error<OrganizationsOrgIdUsersDeleteError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersDeleteError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersDeleteError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -427,44 +457,54 @@ pub async fn organizations_org_id_users_delete_account_delete(
     models::OrganizationUserBulkResponseModelListResponseModel,
     Error<OrganizationsOrgIdUsersDeleteAccountDeleteError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/delete-account",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersDeleteAccountDeleteError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersDeleteAccountDeleteError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -476,44 +516,54 @@ pub async fn organizations_org_id_users_delete_account_post(
     models::OrganizationUserBulkResponseModelListResponseModel,
     Error<OrganizationsOrgIdUsersDeleteAccountPostError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/delete-account",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersDeleteAccountPostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersDeleteAccountPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -522,44 +572,43 @@ pub async fn organizations_org_id_users_enable_secrets_manager_patch(
     org_id: uuid::Uuid,
     organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
 ) -> Result<(), Error<OrganizationsOrgIdUsersEnableSecretsManagerPatchError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/enable-secrets-manager",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PATCH, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::PATCH, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersEnableSecretsManagerPatchError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersEnableSecretsManagerPatchError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -568,44 +617,41 @@ pub async fn organizations_org_id_users_enable_secrets_manager_put(
     org_id: uuid::Uuid,
     organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
 ) -> Result<(), Error<OrganizationsOrgIdUsersEnableSecretsManagerPutError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/enable-secrets-manager",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersEnableSecretsManagerPutError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersEnableSecretsManagerPutError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -618,51 +664,57 @@ pub async fn organizations_org_id_users_get(
     models::OrganizationUserUserDetailsResponseModelListResponseModel,
     Error<OrganizationsOrgIdUsersGetError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_include_groups = include_groups;
+    let p_include_collections = include_collections;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_str) = include_groups {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("includeGroups", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_include_groups {
+        req_builder = req_builder.query(&[("includeGroups", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = include_collections {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("includeCollections", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_include_collections {
+        req_builder = req_builder.query(&[("includeCollections", &param_value.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserUserDetailsResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserUserDetailsResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -672,45 +724,45 @@ pub async fn organizations_org_id_users_id_confirm_post(
     id: &str,
     organization_user_confirm_request_model: Option<models::OrganizationUserConfirmRequestModel>,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdConfirmPostError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+    let p_organization_user_confirm_request_model = organization_user_confirm_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/confirm",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id),
-        id = crate::apis::urlencode(id)
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id),
+        id = crate::apis::urlencode(p_id)
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_confirm_request_model);
+    req_builder = req_builder.json(&p_organization_user_confirm_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdConfirmPostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdConfirmPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -719,44 +771,43 @@ pub async fn organizations_org_id_users_id_delete(
     org_id: uuid::Uuid,
     id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdDeleteError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string()),
-        id = crate::apis::urlencode(id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdDeleteError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdDeleteError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -765,44 +816,43 @@ pub async fn organizations_org_id_users_id_delete_account_delete(
     org_id: uuid::Uuid,
     id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdDeleteAccountDeleteError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/delete-account",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string()),
-        id = crate::apis::urlencode(id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdDeleteAccountDeleteError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdDeleteAccountDeleteError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -811,44 +861,43 @@ pub async fn organizations_org_id_users_id_delete_account_post(
     org_id: uuid::Uuid,
     id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdDeleteAccountPostError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/delete-account",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string()),
-        id = crate::apis::urlencode(id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdDeleteAccountPostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdDeleteAccountPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -859,48 +908,55 @@ pub async fn organizations_org_id_users_id_get(
     include_groups: Option<bool>,
 ) -> Result<models::OrganizationUserDetailsResponseModel, Error<OrganizationsOrgIdUsersIdGetError>>
 {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_org_id = org_id;
+    let p_include_groups = include_groups;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}",
-        local_var_configuration.base_path,
-        id = crate::apis::urlencode(id.to_string()),
-        orgId = crate::apis::urlencode(org_id)
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string()),
+        orgId = crate::apis::urlencode(p_org_id)
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_str) = include_groups {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("includeGroups", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_include_groups {
+        req_builder = req_builder.query(&[("includeGroups", &param_value.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserDetailsResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserDetailsResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -909,44 +965,52 @@ pub async fn organizations_org_id_users_id_groups_get(
     org_id: &str,
     id: &str,
 ) -> Result<Vec<String>, Error<OrganizationsOrgIdUsersIdGroupsGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/groups",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id),
-        id = crate::apis::urlencode(id)
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id),
+        id = crate::apis::urlencode(p_id)
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `Vec&lt;String&gt;`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `Vec&lt;String&gt;`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdGroupsGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdGroupsGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -956,45 +1020,45 @@ pub async fn organizations_org_id_users_id_post(
     id: uuid::Uuid,
     organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdPostError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+    let p_organization_user_update_request_model = organization_user_update_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string()),
-        id = crate::apis::urlencode(id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_update_request_model);
+    req_builder = req_builder.json(&p_organization_user_update_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdPostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1004,45 +1068,42 @@ pub async fn organizations_org_id_users_id_put(
     id: uuid::Uuid,
     organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdPutError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+    let p_organization_user_update_request_model = organization_user_update_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string()),
-        id = crate::apis::urlencode(id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_update_request_model);
+    req_builder = req_builder.json(&p_organization_user_update_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdPutError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdPutError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1051,44 +1112,43 @@ pub async fn organizations_org_id_users_id_reinvite_post(
     org_id: &str,
     id: &str,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdReinvitePostError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/reinvite",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id),
-        id = crate::apis::urlencode(id)
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id),
+        id = crate::apis::urlencode(p_id)
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdReinvitePostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdReinvitePostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1097,44 +1157,43 @@ pub async fn organizations_org_id_users_id_remove_post(
     org_id: uuid::Uuid,
     id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdRemovePostError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/remove",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string()),
-        id = crate::apis::urlencode(id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdRemovePostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdRemovePostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1146,44 +1205,52 @@ pub async fn organizations_org_id_users_id_reset_password_details_get(
     models::OrganizationUserResetPasswordDetailsResponseModel,
     Error<OrganizationsOrgIdUsersIdResetPasswordDetailsGetError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/reset-password-details",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id),
-        id = crate::apis::urlencode(id)
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id),
+        id = crate::apis::urlencode(p_id)
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserResetPasswordDetailsResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserResetPasswordDetailsResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdResetPasswordDetailsGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdResetPasswordDetailsGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1195,46 +1262,44 @@ pub async fn organizations_org_id_users_id_reset_password_put(
         models::OrganizationUserResetPasswordRequestModel,
     >,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdResetPasswordPutError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+    let p_organization_user_reset_password_request_model =
+        organization_user_reset_password_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/reset-password",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id),
-        id = crate::apis::urlencode(id)
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id),
+        id = crate::apis::urlencode(p_id)
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder =
-        local_var_req_builder.json(&organization_user_reset_password_request_model);
+    req_builder = req_builder.json(&p_organization_user_reset_password_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdResetPasswordPutError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdResetPasswordPutError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1243,44 +1308,43 @@ pub async fn organizations_org_id_users_id_restore_patch(
     org_id: uuid::Uuid,
     id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdRestorePatchError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/restore",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string()),
-        id = crate::apis::urlencode(id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PATCH, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::PATCH, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdRestorePatchError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdRestorePatchError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1289,44 +1353,41 @@ pub async fn organizations_org_id_users_id_restore_put(
     org_id: uuid::Uuid,
     id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdRestorePutError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/restore",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string()),
-        id = crate::apis::urlencode(id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdRestorePutError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdRestorePutError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1335,44 +1396,43 @@ pub async fn organizations_org_id_users_id_revoke_patch(
     org_id: uuid::Uuid,
     id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdRevokePatchError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/revoke",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string()),
-        id = crate::apis::urlencode(id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PATCH, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::PATCH, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdRevokePatchError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdRevokePatchError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1381,44 +1441,41 @@ pub async fn organizations_org_id_users_id_revoke_put(
     org_id: uuid::Uuid,
     id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdRevokePutError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/revoke",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string()),
-        id = crate::apis::urlencode(id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersIdRevokePutError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersIdRevokePutError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1427,44 +1484,43 @@ pub async fn organizations_org_id_users_invite_post(
     org_id: uuid::Uuid,
     organization_user_invite_request_model: Option<models::OrganizationUserInviteRequestModel>,
 ) -> Result<(), Error<OrganizationsOrgIdUsersInvitePostError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_invite_request_model = organization_user_invite_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/invite",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_invite_request_model);
+    req_builder = req_builder.json(&p_organization_user_invite_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersInvitePostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersInvitePostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1475,43 +1531,50 @@ pub async fn organizations_org_id_users_mini_details_get(
     models::OrganizationUserUserMiniDetailsResponseModelListResponseModel,
     Error<OrganizationsOrgIdUsersMiniDetailsGetError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/mini-details",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserUserMiniDetailsResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserUserMiniDetailsResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersMiniDetailsGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersMiniDetailsGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1523,46 +1586,45 @@ pub async fn organizations_org_id_users_organization_user_id_accept_init_post(
         models::OrganizationUserAcceptInitRequestModel,
     >,
 ) -> Result<(), Error<OrganizationsOrgIdUsersOrganizationUserIdAcceptInitPostError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_id = organization_user_id;
+    let p_organization_user_accept_init_request_model = organization_user_accept_init_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{organizationUserId}/accept-init",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string()),
-        organizationUserId = crate::apis::urlencode(organization_user_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        organizationUserId = crate::apis::urlencode(p_organization_user_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder =
-        local_var_req_builder.json(&organization_user_accept_init_request_model);
+    req_builder = req_builder.json(&p_organization_user_accept_init_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersOrganizationUserIdAcceptInitPostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersOrganizationUserIdAcceptInitPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1572,45 +1634,45 @@ pub async fn organizations_org_id_users_organization_user_id_accept_post(
     organization_user_id: uuid::Uuid,
     organization_user_accept_request_model: Option<models::OrganizationUserAcceptRequestModel>,
 ) -> Result<(), Error<OrganizationsOrgIdUsersOrganizationUserIdAcceptPostError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_id = organization_user_id;
+    let p_organization_user_accept_request_model = organization_user_accept_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{organizationUserId}/accept",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string()),
-        organizationUserId = crate::apis::urlencode(organization_user_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        organizationUserId = crate::apis::urlencode(p_organization_user_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_accept_request_model);
+    req_builder = req_builder.json(&p_organization_user_accept_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersOrganizationUserIdAcceptPostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersOrganizationUserIdAcceptPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1622,44 +1684,54 @@ pub async fn organizations_org_id_users_public_keys_post(
     models::OrganizationUserPublicKeyResponseModelListResponseModel,
     Error<OrganizationsOrgIdUsersPublicKeysPostError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/public-keys",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id)
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id)
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserPublicKeyResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserPublicKeyResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersPublicKeysPostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersPublicKeysPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1671,44 +1743,54 @@ pub async fn organizations_org_id_users_reinvite_post(
     models::OrganizationUserBulkResponseModelListResponseModel,
     Error<OrganizationsOrgIdUsersReinvitePostError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/reinvite",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id)
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id)
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersReinvitePostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersReinvitePostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1720,44 +1802,54 @@ pub async fn organizations_org_id_users_remove_post(
     models::OrganizationUserBulkResponseModelListResponseModel,
     Error<OrganizationsOrgIdUsersRemovePostError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/remove",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersRemovePostError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersRemovePostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1769,44 +1861,54 @@ pub async fn organizations_org_id_users_restore_patch(
     models::OrganizationUserBulkResponseModelListResponseModel,
     Error<OrganizationsOrgIdUsersRestorePatchError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/restore",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PATCH, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::PATCH, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersRestorePatchError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersRestorePatchError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1818,44 +1920,52 @@ pub async fn organizations_org_id_users_restore_put(
     models::OrganizationUserBulkResponseModelListResponseModel,
     Error<OrganizationsOrgIdUsersRestorePutError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/restore",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersRestorePutError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersRestorePutError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1867,44 +1977,54 @@ pub async fn organizations_org_id_users_revoke_patch(
     models::OrganizationUserBulkResponseModelListResponseModel,
     Error<OrganizationsOrgIdUsersRevokePatchError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/revoke",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PATCH, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::PATCH, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersRevokePatchError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersRevokePatchError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1916,44 +2036,52 @@ pub async fn organizations_org_id_users_revoke_put(
     models::OrganizationUserBulkResponseModelListResponseModel,
     Error<OrganizationsOrgIdUsersRevokePutError>,
 > {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/revoke",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
+        }
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersRevokePutError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersRevokePutError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -1965,45 +2093,43 @@ pub async fn organizations_org_id_users_user_id_reset_password_enrollment_put(
         models::OrganizationUserResetPasswordEnrollmentRequestModel,
     >,
 ) -> Result<(), Error<OrganizationsOrgIdUsersUserIdResetPasswordEnrollmentPutError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_user_id = user_id;
+    let p_organization_user_reset_password_enrollment_request_model =
+        organization_user_reset_password_enrollment_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{orgId}/users/{userId}/reset-password-enrollment",
-        local_var_configuration.base_path,
-        orgId = crate::apis::urlencode(org_id.to_string()),
-        userId = crate::apis::urlencode(user_id.to_string())
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        userId = crate::apis::urlencode(p_user_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder =
-        local_var_req_builder.json(&organization_user_reset_password_enrollment_request_model);
+    req_builder = req_builder.json(&p_organization_user_reset_password_enrollment_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrgIdUsersUserIdResetPasswordEnrollmentPutError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdUsersUserIdResetPasswordEnrollmentPutError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
