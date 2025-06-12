@@ -377,7 +377,11 @@ mod tests {
     use chrono::Utc;
 
     use super::*;
-    use crate::{cipher::cipher::CipherListViewType, login::LoginListView, CipherRepromptType};
+    use crate::{
+        cipher::cipher::{CipherListViewType, CopiableCipherFields},
+        login::LoginListView,
+        CipherRepromptType,
+    };
 
     #[test]
     fn test_decode_b32() {
@@ -746,6 +750,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            copiable_fields: vec![CopiableCipherFields::LoginTotp],
         };
 
         let key = SymmetricCryptoKey::try_from("w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string()).unwrap();
