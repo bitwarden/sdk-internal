@@ -1,37 +1,39 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
+
+use bitwarden_error::bitwarden_error;
+use bitwarden_threading::cancellation_token::CancellationToken;
+use thiserror::Error;
+use tokio::{select, sync::RwLock};
 
 use crate::{
-    error::{ReceiveError, SendError, TypedReceiveError},
+    constants::CHANNEL_BUFFER_CAPACITY,
     message::{IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage},
-    traits::{
-        CommunicationBackend, CommunicationBackendReceiver, CryptoProvider, SessionRepository,
-    },
+    traits::{CommunicationBackend, CryptoProvider, SessionRepository},
 };
 
-#[allow(missing_docs)]
+/// An IPC client that handles communication between different components and clients.
+/// It uses a crypto provider to encrypt and decrypt messages, a communication backend to send and
+/// receive messages, and a session repository to persist sessions.
 pub struct IpcClient<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationBackend,
-    Ses: SessionRepository<Session = Crypto::Session>,
+    Ses: SessionRepository<Crypto::Session>,
 {
     crypto: Crypto,
     communication: Com,
     sessions: Ses,
+
+    incoming: RwLock<Option<tokio::sync::broadcast::Receiver<IncomingMessage>>>,
+    cancellation_token: RwLock<Option<CancellationToken>>,
 }
 
 /// A subscription to receive messages over IPC.
 /// The subcription will start buffering messages after its creation and return them
 /// when receive() is called. Messages received before the subscription was created will not be
 /// returned.
-pub struct IpcClientSubscription<Crypto, Com, Ses>
-where
-    Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationBackend,
-    Ses: SessionRepository<Session = Crypto::Session>,
-{
-    receiver: Com::Receiver,
-    client: Arc<IpcClient<Crypto, Com, Ses>>,
+pub struct IpcClientSubscription {
+    receiver: tokio::sync::broadcast::Receiver<IncomingMessage>,
     topic: Option<String>,
 }
 
@@ -39,41 +41,164 @@ where
 /// The subcription will start buffering messages after its creation and return them
 /// when receive() is called. Messages received before the subscription was created will not be
 /// returned.
-pub struct IpcClientTypedSubscription<Crypto, Com, Ses, Payload>
-where
-    Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationBackend,
-    Ses: SessionRepository<Session = Crypto::Session>,
-    Payload: TryFrom<Vec<u8>> + PayloadTypeName,
-{
-    receiver: Com::Receiver,
-    client: Arc<IpcClient<Crypto, Com, Ses>>,
-    _payload: std::marker::PhantomData<Payload>,
+pub struct IpcClientTypedSubscription<Payload: TryFrom<Vec<u8>> + PayloadTypeName>(
+    IpcClientSubscription,
+    std::marker::PhantomData<Payload>,
+);
+
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+#[bitwarden_error(flat)]
+#[allow(missing_docs)]
+pub enum SubscribeError {
+    #[error("The IPC processing thread is not running")]
+    NotStarted,
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+#[bitwarden_error(flat)]
+#[allow(missing_docs)]
+pub enum ReceiveError {
+    #[error("Failed to subscribe to the IPC channel: {0}")]
+    Channel(#[from] tokio::sync::broadcast::error::RecvError),
+
+    #[error("Timed out while waiting for a message: {0}")]
+    Timeout(#[from] tokio::time::error::Elapsed),
+
+    #[error("Cancelled while waiting for a message")]
+    Cancelled,
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+#[bitwarden_error(flat)]
+#[allow(missing_docs)]
+pub enum TypedReceiveError {
+    #[error("Failed to subscribe to the IPC channel: {0}")]
+    Channel(#[from] tokio::sync::broadcast::error::RecvError),
+
+    #[error("Timed out while waiting for a message: {0}")]
+    Timeout(#[from] tokio::time::error::Elapsed),
+
+    #[error("Cancelled while waiting for a message")]
+    Cancelled,
+
+    #[error("Typing error: {0}")]
+    Typing(String),
+}
+
+impl From<ReceiveError> for TypedReceiveError {
+    fn from(value: ReceiveError) -> Self {
+        match value {
+            ReceiveError::Channel(e) => TypedReceiveError::Channel(e),
+            ReceiveError::Timeout(e) => TypedReceiveError::Timeout(e),
+            ReceiveError::Cancelled => TypedReceiveError::Cancelled,
+        }
+    }
 }
 
 impl<Crypto, Com, Ses> IpcClient<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationBackend,
-    Ses: SessionRepository<Session = Crypto::Session>,
+    Ses: SessionRepository<Crypto::Session>,
 {
-    #[allow(missing_docs)]
+    /// Create a new IPC client with the provided crypto provider, communication backend, and
+    /// session repository.
     pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Arc<Self> {
         Arc::new(Self {
             crypto,
             communication,
             sessions,
+
+            incoming: RwLock::new(None),
+            cancellation_token: RwLock::new(None),
         })
     }
 
-    /// Send a message
-    pub async fn send(
-        self: &Arc<Self>,
-        message: OutgoingMessage,
-    ) -> Result<(), SendError<Crypto::SendError, Com::SendError>> {
-        self.crypto
-            .send(&self.communication, &self.sessions, message)
+    /// Start the IPC client, which will begin listening for incoming messages and processing them.
+    /// This will be done in a separate task, allowing the client to receive messages
+    /// asynchronously. The client will stop automatically if an error occurs during message
+    /// processing or if the cancellation token is triggered.
+    ///
+    /// Note: The client can and will send messages in the background while it is running, even if
+    /// no active subscriptions are present.
+    pub async fn start(self: &Arc<Self>) {
+        let cancellation_token = CancellationToken::new();
+        self.cancellation_token
+            .write()
             .await
+            .replace(cancellation_token.clone());
+
+        let com_receiver = self.communication.subscribe().await;
+        let (client_tx, client_rx) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);
+
+        self.incoming.write().await.replace(client_rx);
+
+        let client = self.clone();
+        let future = async move {
+            loop {
+                select! {
+                    _ = cancellation_token.cancelled() => {
+                        log::debug!("Cancellation signal received, stopping IPC client");
+                        break;
+                    }
+                    received = client.crypto.receive(&com_receiver, &client.communication, &client.sessions) => {
+                        match received {
+                            Ok(message) => {
+                                if client_tx.send(message).is_err() {
+                                    log::error!("Failed to save incoming message");
+                                    break;
+                                };
+                            }
+                            Err(e) => {
+                                log::error!("Error receiving message: {:?}", e);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            log::debug!("IPC client shutting down");
+            client.stop().await;
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        tokio::spawn(future);
+
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(future);
+    }
+
+    /// Check if the IPC client task is currently running.
+    pub async fn is_running(self: &Arc<Self>) -> bool {
+        let has_incoming = self.incoming.read().await.is_some();
+        let has_cancellation_token = self.cancellation_token.read().await.is_some();
+        has_incoming && has_cancellation_token
+    }
+
+    /// Stop the IPC client task. This will stop listening for incoming messages.
+    pub async fn stop(self: &Arc<Self>) {
+        let mut incoming = self.incoming.write().await;
+        let _ = incoming.take();
+
+        let mut cancellation_token = self.cancellation_token.write().await;
+        if let Some(cancellation_token) = cancellation_token.take() {
+            cancellation_token.cancel();
+        }
+    }
+
+    /// Send a message
+    pub async fn send(self: &Arc<Self>, message: OutgoingMessage) -> Result<(), Crypto::SendError> {
+        let result = self
+            .crypto
+            .send(&self.communication, &self.sessions, message)
+            .await;
+
+        if result.is_err() {
+            log::error!("Error sending message: {:?}", result);
+            self.stop().await;
+        }
+
+        result
     }
 
     /// Create a subscription to receive messages, optionally filtered by topic.
@@ -81,155 +206,97 @@ where
     pub async fn subscribe(
         self: &Arc<Self>,
         topic: Option<String>,
-    ) -> IpcClientSubscription<Crypto, Com, Ses> {
-        IpcClientSubscription {
-            receiver: self.communication.subscribe().await,
-            client: self.clone(),
+    ) -> Result<IpcClientSubscription, SubscribeError> {
+        Ok(IpcClientSubscription {
+            receiver: self
+                .incoming
+                .read()
+                .await
+                .as_ref()
+                .ok_or(SubscribeError::NotStarted)?
+                .resubscribe(),
             topic,
-        }
+        })
     }
 
     /// Create a subscription to receive messages that can be deserialized into the provided payload
     /// type.
     pub async fn subscribe_typed<Payload>(
         self: &Arc<Self>,
-    ) -> IpcClientTypedSubscription<Crypto, Com, Ses, Payload>
+    ) -> Result<IpcClientTypedSubscription<Payload>, SubscribeError>
     where
         Payload: TryFrom<Vec<u8>> + PayloadTypeName,
     {
-        IpcClientTypedSubscription {
-            receiver: self.communication.subscribe().await,
-            client: self.clone(),
-            _payload: std::marker::PhantomData,
-        }
+        Ok(IpcClientTypedSubscription(
+            self.subscribe(Some(Payload::name())).await?,
+            std::marker::PhantomData,
+        ))
     }
+}
 
+impl IpcClientSubscription {
     /// Receive a message, optionally filtering by topic.
-    /// Setting the topic to `None` will receive all messages.
-    /// Setting the timeout to `None` will wait indefinitely.
-    async fn receive(
-        &self,
-        receiver: &Com::Receiver,
-        topic: &Option<String>,
-        timeout: Option<Duration>,
-    ) -> Result<
-        IncomingMessage,
-        ReceiveError<
-            Crypto::ReceiveError,
-            <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
-        >,
-    > {
-        let receive_loop = async {
-            loop {
-                let received = self
-                    .crypto
-                    .receive(receiver, &self.communication, &self.sessions)
-                    .await?;
-                if topic.is_none() || &received.topic == topic {
-                    return Ok(received);
+    /// Setting the cancellation_token to `None` will wait indefinitely.
+    pub async fn receive(
+        &mut self,
+        cancellation_token: Option<CancellationToken>,
+    ) -> Result<IncomingMessage, ReceiveError> {
+        let cancellation_token = cancellation_token.unwrap_or_default();
+
+        loop {
+            select! {
+                _ = cancellation_token.cancelled() => {
+                    return Err(ReceiveError::Cancelled)
+                }
+                result = self.receiver.recv() => {
+                    let received = result?;
+                    if self.topic.is_none() || received.topic == self.topic {
+                        return Ok::<IncomingMessage, ReceiveError>(received);
+                    }
                 }
             }
-        };
-
-        if let Some(timeout) = timeout {
-            tokio::time::timeout(timeout, receive_loop)
-                .await
-                .map_err(|_| ReceiveError::Timeout)?
-        } else {
-            receive_loop.await
         }
     }
-
-    /// Receive a message, skipping any messages that cannot be deserialized into the expected
-    /// payload type.
-    async fn receive_typed<Payload>(
-        &self,
-        receiver: &Com::Receiver,
-        timeout: Option<Duration>,
-    ) -> Result<
-        TypedIncomingMessage<Payload>,
-        TypedReceiveError<
-            <Payload as TryFrom<Vec<u8>>>::Error,
-            Crypto::ReceiveError,
-            <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
-        >,
-    >
-    where
-        Payload: TryFrom<Vec<u8>> + PayloadTypeName,
-    {
-        let topic = Some(Payload::name());
-        let received = self.receive(receiver, &topic, timeout).await?;
-        received.try_into().map_err(TypedReceiveError::Typing)
-    }
 }
 
-impl<Crypto, Com, Ses> IpcClientSubscription<Crypto, Com, Ses>
+impl<Payload, TryFromError> IpcClientTypedSubscription<Payload>
 where
-    Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationBackend,
-    Ses: SessionRepository<Session = Crypto::Session>,
-{
-    /// Receive a message, optionally filtering by topic.
-    /// Setting the timeout to `None` will wait indefinitely.
-    pub async fn receive(
-        &self,
-        timeout: Option<Duration>,
-    ) -> Result<
-        IncomingMessage,
-        ReceiveError<
-            Crypto::ReceiveError,
-            <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
-        >,
-    > {
-        self.client
-            .receive(&self.receiver, &self.topic, timeout)
-            .await
-    }
-}
-
-impl<Crypto, Com, Ses, Payload> IpcClientTypedSubscription<Crypto, Com, Ses, Payload>
-where
-    Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationBackend,
-    Ses: SessionRepository<Session = Crypto::Session>,
-    Payload: TryFrom<Vec<u8>> + PayloadTypeName,
+    Payload: TryFrom<Vec<u8>, Error = TryFromError> + PayloadTypeName,
+    TryFromError: std::fmt::Display,
 {
     /// Receive a message.
-    /// Setting the timeout to `None` will wait indefinitely.
+    /// Setting the cancellation_token to `None` will wait indefinitely.
     pub async fn receive(
-        &self,
-        timeout: Option<Duration>,
-    ) -> Result<
-        TypedIncomingMessage<Payload>,
-        TypedReceiveError<
-            <Payload as TryFrom<Vec<u8>>>::Error,
-            Crypto::ReceiveError,
-            <Com::Receiver as CommunicationBackendReceiver>::ReceiveError,
-        >,
-    > {
-        self.client.receive_typed(&self.receiver, timeout).await
+        &mut self,
+        cancellation_token: Option<CancellationToken>,
+    ) -> Result<TypedIncomingMessage<Payload>, TypedReceiveError> {
+        let received = self.0.receive(cancellation_token).await?;
+        received
+            .try_into()
+            .map_err(|e: TryFromError| TypedReceiveError::Typing(e.to_string()))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, time::Duration};
 
+    use bitwarden_threading::time::sleep;
     use serde::{Deserialize, Serialize};
 
     use super::*;
     use crate::{
         endpoint::Endpoint,
         traits::{
-            tests::{TestCommunicationBackend, TestCommunicationBackendReceiveError},
-            InMemorySessionRepository, NoEncryptionCryptoProvider,
+            tests::TestCommunicationBackend, InMemorySessionRepository, NoEncryptionCryptoProvider,
         },
     };
 
     struct TestCryptoProvider {
-        send_result: Result<(), SendError<String, ()>>,
-        receive_result:
-            Result<IncomingMessage, ReceiveError<String, TestCommunicationBackendReceiveError>>,
+        /// Simulate a send result. Set to `None` wait indefinitely
+        send_result: Option<Result<(), String>>,
+        /// Simulate a receive result. Set to `None` wait indefinitely
+        receive_result: Option<Result<IncomingMessage, String>>,
     }
 
     type TestSessionRepository = InMemorySessionRepository<String>;
@@ -243,9 +310,15 @@ mod tests {
             _receiver: &<TestCommunicationBackend as CommunicationBackend>::Receiver,
             _communication: &TestCommunicationBackend,
             _sessions: &TestSessionRepository,
-        ) -> Result<IncomingMessage, ReceiveError<String, TestCommunicationBackendReceiveError>>
-        {
-            self.receive_result.clone()
+        ) -> Result<IncomingMessage, Self::ReceiveError> {
+            match &self.receive_result {
+                Some(result) => result.clone(),
+                None => {
+                    // Simulate waiting for a message but never returning
+                    sleep(Duration::from_secs(600)).await;
+                    Err("Simulated timeout".to_string())
+                }
+            }
         }
 
         async fn send(
@@ -253,14 +326,15 @@ mod tests {
             _communication: &TestCommunicationBackend,
             _sessions: &TestSessionRepository,
             _message: OutgoingMessage,
-        ) -> Result<
-            (),
-            SendError<
-                Self::SendError,
-                <TestCommunicationBackend as CommunicationBackend>::SendError,
-            >,
-        > {
-            self.send_result.clone()
+        ) -> Result<(), Self::SendError> {
+            match &self.send_result {
+                Some(result) => result.clone(),
+                None => {
+                    // Simulate waiting for a message to be send but never returning
+                    sleep(Duration::from_secs(600)).await;
+                    Err("Simulated timeout".to_string())
+                }
+            }
         }
     }
 
@@ -272,34 +346,17 @@ mod tests {
             topic: None,
         };
         let crypto_provider = TestCryptoProvider {
-            send_result: Err(SendError::Crypto("Crypto error".to_string())),
-            receive_result: Err(ReceiveError::Crypto(
-                "Should not have be called".to_string(),
-            )),
+            send_result: Some(Err("Crypto error".to_string())),
+            receive_result: Some(Err("Should not have be called".to_string())),
         };
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider, session_map);
+        client.start().await;
 
         let error = client.send(message).await.unwrap_err();
 
-        assert_eq!(error, SendError::Crypto("Crypto error".to_string()));
-    }
-
-    #[tokio::test]
-    async fn returns_receive_error_when_crypto_provider_returns_error() {
-        let crypto_provider = TestCryptoProvider {
-            send_result: Ok(()),
-            receive_result: Err(ReceiveError::Crypto("Crypto error".to_string())),
-        };
-        let communication_provider = TestCommunicationBackend::new();
-        let session_map = TestSessionRepository::new(HashMap::new());
-        let client = IpcClient::new(crypto_provider, communication_provider, session_map);
-
-        let subscription = client.subscribe(None).await;
-        let error = subscription.receive(None).await.unwrap_err();
-
-        assert_eq!(error, ReceiveError::Crypto("Crypto error".to_string()));
+        assert_eq!(error, "Crypto error".to_string());
     }
 
     #[tokio::test]
@@ -313,6 +370,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
+        client.start().await;
 
         client.send(message.clone()).await.unwrap();
 
@@ -332,8 +390,12 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
+        client.start().await;
 
-        let subscription = &client.subscribe(None).await;
+        let mut subscription = client
+            .subscribe(None)
+            .await
+            .expect("Subscribing should not fail");
         communication_provider.push_incoming(message.clone());
         let received_message = subscription.receive(None).await.unwrap();
 
@@ -359,7 +421,11 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        let subscription = client.subscribe(Some("matching_topic".to_owned())).await;
+        client.start().await;
+        let mut subscription = client
+            .subscribe(Some("matching_topic".to_owned()))
+            .await
+            .expect("Subscribing should not fail");
         communication_provider.push_incoming(non_matching_message.clone());
         communication_provider.push_incoming(non_matching_message.clone());
         communication_provider.push_incoming(matching_message.clone());
@@ -416,10 +482,19 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        let subscription = client.subscribe_typed::<TestPayload>().await;
+        client.start().await;
+        let mut subscription = client
+            .subscribe_typed::<TestPayload>()
+            .await
+            .expect("Subscribing should not fail");
         communication_provider.push_incoming(unrelated.clone());
         communication_provider.push_incoming(unrelated.clone());
-        communication_provider.push_incoming(typed_message.clone().try_into().unwrap());
+        communication_provider.push_incoming(
+            typed_message
+                .clone()
+                .try_into()
+                .expect("Serialization should not fail"),
+        );
 
         let received_message = subscription.receive(None).await.unwrap();
 
@@ -466,14 +541,73 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-        let subscription = client.subscribe_typed::<TestPayload>().await;
+        client.start().await;
+        let mut subscription = client
+            .subscribe_typed::<TestPayload>()
+            .await
+            .expect("Subscribing should not fail");
         communication_provider.push_incoming(non_deserializable_message.clone());
 
         let result = subscription.receive(None).await;
+        assert!(matches!(result, Err(TypedReceiveError::Typing(_))));
+    }
 
-        assert!(matches!(
-            result,
-            Err(TypedReceiveError::Typing(serde_json::Error { .. }))
-        ));
+    #[tokio::test]
+    async fn ipc_client_stops_if_crypto_returns_send_error() {
+        let message = OutgoingMessage {
+            payload: vec![],
+            destination: Endpoint::BrowserBackground,
+            topic: None,
+        };
+        let crypto_provider = TestCryptoProvider {
+            send_result: Some(Err("Crypto error".to_string())),
+            receive_result: None,
+        };
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = TestSessionRepository::new(HashMap::new());
+        let client = IpcClient::new(crypto_provider, communication_provider, session_map);
+        client.start().await;
+
+        let error = client.send(message).await.unwrap_err();
+        let is_running = client.is_running().await;
+
+        assert_eq!(error, "Crypto error".to_string());
+        assert!(!is_running);
+    }
+
+    #[tokio::test]
+    async fn ipc_client_stops_if_crypto_returns_receive_error() {
+        let crypto_provider = TestCryptoProvider {
+            send_result: None,
+            receive_result: Some(Err("Crypto error".to_string())),
+        };
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = TestSessionRepository::new(HashMap::new());
+        let client = IpcClient::new(crypto_provider, communication_provider, session_map);
+        client.start().await;
+
+        // Give the client some time to process the error
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let is_running = client.is_running().await;
+
+        assert!(!is_running);
+    }
+
+    #[tokio::test]
+    async fn ipc_client_is_running_if_no_errors_are_encountered() {
+        let crypto_provider = TestCryptoProvider {
+            send_result: None,
+            receive_result: None,
+        };
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = TestSessionRepository::new(HashMap::new());
+        let client = IpcClient::new(crypto_provider, communication_provider, session_map);
+        client.start().await;
+
+        // Give the client some time to process
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let is_running = client.is_running().await;
+
+        assert!(is_running);
     }
 }

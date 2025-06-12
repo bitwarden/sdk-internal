@@ -7,7 +7,7 @@ use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::task::spawn_local;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "wasm"))]
 use wasm_bindgen_futures::spawn_local;
 
 type CallFunction<ThreadState> =
@@ -25,22 +25,56 @@ struct CallRequest<ThreadState> {
 #[bitwarden_error(basic)]
 pub struct CallError(String);
 
-/// A runner that takes a non-`Send`, non-`Sync` state and makes it `Send + Sync` compatible.
+/// A runner that takes a non-`Send` state and makes it `Send` compatible.
 ///
-/// `ThreadBoundRunner` is designed to safely encapsulate a `!Send + !Sync` state object by
-/// pinning it to a single thread using `spawn_local`. It provides a `Send + Sync` API that
+/// `ThreadBoundRunner` is designed to safely encapsulate a `!Send` state object by
+/// pinning it to a single thread using `spawn_local`. It provides a `Send` API that
 /// allows other threads to submit tasks (function pointers or closures) that operate on the
 /// thread-bound state.
 ///
 /// Tasks are queued via an internal channel and are executed sequentially on the owning thread.
 ///
 /// # Example
-/// ```ignore
-/// let runner = ThreadBoundRunner::new(my_state);
+/// ```
+/// # tokio_test::block_on(tokio::task::LocalSet::new().run_until(async {
+/// use bitwarden_threading::ThreadBoundRunner;
+///
+/// struct State;
+///
+/// impl State {
+///     pub async fn do_something(&self, some_input: i32) -> i32 {
+///         return some_input;
+///     }
+/// }
+///
+/// let runner = ThreadBoundRunner::new(State);
+/// let input = 42;
+///
+/// let output = runner.run_in_thread(move |state| async move {
+///   return state.do_something(input).await;
+/// }).await;
+///
+/// assert_eq!(output.unwrap(), 42);
+/// # }));
+/// ```
+///
+/// If you need mutable access to the state, you can wrap the `ThreadState` in a `Mutex` or
+/// `RwLock` and use the `run_in_thread` method to lock it before accessing it.
+///
+/// # Example
+/// ```
+/// # tokio_test::block_on(tokio::task::LocalSet::new().run_until(async {
+/// use bitwarden_threading::ThreadBoundRunner;
+/// use tokio::sync::Mutex;
+///
+/// struct State(i32);
+///
+/// let runner = ThreadBoundRunner::new(Mutex::new(State(0)));
 ///
 /// runner.run_in_thread(|state| async move {
-///     // do something with `state`
-/// });
+///   state.lock().await.0 += 1;
+/// }).await;
+/// # }));
 /// ```
 ///
 /// This pattern is useful for interacting with APIs or data structures that must remain
@@ -73,7 +107,7 @@ where
     /// Submit a task to be executed on the thread-bound state.
     ///
     /// The provided function is executed on the thread that owns the internal `ThreadState`,
-    /// ensuring safe access to `!Send + !Sync` data. Tasks are dispatched in the order they are
+    /// ensuring safe access to `!Send` data. Tasks are dispatched in the order they are
     /// received, but because they are asynchronous, multiple tasks may be in-flight and running
     /// concurrently if their futures yield.
     ///

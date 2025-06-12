@@ -6,13 +6,44 @@ use serde::{Deserialize, Serialize};
 {{^isEnum}}{{#vendorExtensions.x-rust-has-byte-array}}
 use serde_with::serde_as;
 {{/vendorExtensions.x-rust-has-byte-array}}{{/isEnum}}
+{{#isEnum}}
+{{#isInteger}}
+use serde_repr::{Serialize_repr,Deserialize_repr};
+{{/isInteger}}
+{{/isEnum}}
 {{#description}}
 /// {{{classname}}} : {{{description}}}
 {{/description}}
+{{!-- for repr(int) enum schemas --}}
+{{#isEnum}}
+{{#isInteger}}
+/// {{{description}}}
+#[repr(i64)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr)]
+pub enum {{{classname}}} {
+{{#allowableValues}}
+{{#enumVars}}
+    {{{name}}} = {{{value}}},
+{{/enumVars}}{{/allowableValues}}
+}
+
+impl std::fmt::Display for {{{classname}}} {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            {{#allowableValues}}
+            {{#enumVars}}
+            Self::{{{name}}} => "{{{value}}}",
+            {{/enumVars}}
+            {{/allowableValues}}
+        })
+    }
+}
+{{/isInteger}}
+{{/isEnum}}
 {{!-- for enum schemas --}}
 {{#isEnum}}
-/// {{{description}}}
 {{^isInteger}}
+/// {{{description}}}
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum {{{classname}}} {
 {{#allowableValues}}
@@ -21,17 +52,6 @@ pub enum {{{classname}}} {
     {{{name}}},
 {{/enumVars}}{{/allowableValues}}
 }
-{{/isInteger}}
-{{#isInteger}}
-#[repr(i64)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, serde_repr::Serialize_repr, serde_repr::Deserialize_repr)]
-pub enum {{{classname}}} {
-{{#allowableValues}}
-{{#enumVars}}
-    {{{name}}} = {{{value}}},
-{{/enumVars}}{{/allowableValues}}
-}
-{{/isInteger}}
 
 impl std::fmt::Display for {{{classname}}} {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -45,6 +65,7 @@ impl std::fmt::Display for {{{classname}}} {
     }
 }
 
+{{/isInteger}}
 impl Default for {{{classname}}} {
     fn default() -> {{{classname}}} {
         {{#allowableValues}}
@@ -108,10 +129,24 @@ pub struct {{{classname}}} {
     /// {{{.}}}
     {{/description}}
     {{#isByteArray}}
-    {{#required}}#[serde_as(as = "serde_with::base64::Base64")]{{/required}}{{^required}}#[serde_as(as = "Option<serde_with::base64::Base64>")]{{/required}}
+    {{#vendorExtensions.isMandatory}}#[serde_as(as = "serde_with::base64::Base64")]{{/vendorExtensions.isMandatory}}{{^vendorExtensions.isMandatory}}#[serde_as(as = "Option<serde_with::base64::Base64>")]{{/vendorExtensions.isMandatory}}
     {{/isByteArray}}
     #[serde(rename = "{{{baseName}}}"{{^required}}, skip_serializing_if = "Option::is_none"{{/required}})]
-    pub {{{name}}}: {{#required}}{{#isNullable}}Option<{{/isNullable}}{{/required}}{{^required}}Option<{{/required}}{{#isEnum}}{{#isArray}}{{#uniqueItems}}std::collections::HashSet<{{/uniqueItems}}{{^uniqueItems}}Vec<{{/uniqueItems}}{{/isArray}}{{{enumName}}}{{#isArray}}>{{/isArray}}{{/isEnum}}{{^isEnum}}{{#isModel}}{{^avoidBoxedModels}}Box<{{/avoidBoxedModels}}{{{dataType}}}{{^avoidBoxedModels}}>{{/avoidBoxedModels}}{{/isModel}}{{^isModel}}{{#isByteArray}}Vec<u8>{{/isByteArray}}{{^isByteArray}}{{{dataType}}}{{/isByteArray}}{{/isModel}}{{/isEnum}}{{#required}}{{#isNullable}}>{{/isNullable}}{{/required}}{{^required}}>{{/required}},
+    pub {{{name}}}: {{!
+    ### Option Start
+    }}{{#isNullable}}Option<{{/isNullable}}{{^required}}{{^isNullable}}Option<{{/isNullable}}{{/required}}{{!
+    ### Enums
+    }}{{#isEnum}}{{#isArray}}{{#uniqueItems}}std::collections::HashSet<{{/uniqueItems}}{{^uniqueItems}}Vec<{{/uniqueItems}}{{/isArray}}{{{enumName}}}{{#isArray}}>{{/isArray}}{{/isEnum}}{{!
+    ### Non-Enums Start
+    }}{{^isEnum}}{{!
+    ### Models
+    }}{{#isModel}}{{^avoidBoxedModels}}Box<{{/avoidBoxedModels}}{{{dataType}}}{{^avoidBoxedModels}}>{{/avoidBoxedModels}}{{/isModel}}{{!
+    ### Primative datatypes
+    }}{{^isModel}}{{#isByteArray}}Vec<u8>{{/isByteArray}}{{^isByteArray}}{{{dataType}}}{{/isByteArray}}{{/isModel}}{{!
+    ### Non-Enums End
+    }}{{/isEnum}}{{!
+    ### Option End (and trailing comma)
+    }}{{#isNullable}}>{{/isNullable}}{{^required}}{{^isNullable}}>{{/isNullable}}{{/required}},
 {{/vars}}
 }
 
@@ -119,7 +154,17 @@ impl {{{classname}}} {
     {{#description}}
     /// {{{.}}}
     {{/description}}
-    pub fn new({{#requiredVars}}{{{name}}}: {{#isNullable}}Option<{{/isNullable}}{{#isEnum}}{{#isArray}}{{#uniqueItems}}std::collections::HashSet<{{/uniqueItems}}{{^uniqueItems}}Vec<{{/uniqueItems}}{{/isArray}}{{{enumName}}}{{#isArray}}>{{/isArray}}{{/isEnum}}{{^isEnum}}{{#isByteArray}}Vec<u8>{{/isByteArray}}{{^isByteArray}}{{{dataType}}}{{/isByteArray}}{{/isEnum}}{{#isNullable}}>{{/isNullable}}{{^-last}}, {{/-last}}{{/requiredVars}}) -> {{{classname}}} {
+    pub fn new({{#requiredVars}}{{{name}}}: {{!
+    ### Option Start
+    }}{{#isNullable}}Option<{{/isNullable}}{{!
+    ### Enums
+    }}{{#isEnum}}{{#isArray}}{{#uniqueItems}}std::collections::HashSet<{{/uniqueItems}}{{^uniqueItems}}Vec<{{/uniqueItems}}{{/isArray}}{{{enumName}}}{{#isArray}}>{{/isArray}}{{/isEnum}}{{!
+    ### Non-Enums
+    }}{{^isEnum}}{{#isByteArray}}Vec<u8>{{/isByteArray}}{{^isByteArray}}{{{dataType}}}{{/isByteArray}}{{/isEnum}}{{!
+    ### Option End
+    }}{{#isNullable}}>{{/isNullable}}{{!
+    ### Comma for next arguement
+    }}{{^-last}}, {{/-last}}{{/requiredVars}}) -> {{{classname}}} {
         {{{classname}}} {
             {{#vars}}
             {{{name}}}{{^required}}: None{{/required}}{{#required}}{{#isModel}}{{^avoidBoxedModels}}: {{^isNullable}}Box::new({{{name}}}){{/isNullable}}{{#isNullable}}if let Some(x) = {{{name}}} {Some(Box::new(x))} else {None}{{/isNullable}}{{/avoidBoxedModels}}{{/isModel}}{{/required}},
