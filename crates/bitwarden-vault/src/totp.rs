@@ -751,6 +751,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             copiable_fields: vec![CopiableCipherFields::LoginTotp],
+            local_data: None,
         };
 
         let key = SymmetricCryptoKey::try_from("w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string()).unwrap();
