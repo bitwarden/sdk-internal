@@ -922,10 +922,7 @@ mod tests {
             let session_map = InMemorySessionRepository::new(HashMap::new());
             let client =
                 IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
-            client
-                .start()
-                .await
-                .expect("Starting client should not fail");
+            client.start().await;
             let request_id = uuid::Uuid::new_v4().to_string();
             let request = TestRequest { a: 1, b: 2 };
             let response = TestResponse { result: 3 };

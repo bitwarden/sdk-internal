@@ -1,9 +1,10 @@
 use tokio::sync::RwLock;
 
+use super::{
+    handler::{ErasedRpcHandler, RpcHandler},
+    request::RpcRequest,
+};
 use crate::rpc::error::RpcError;
-
-use super::handler::{ErasedRpcHandler, RpcHandler};
-use super::request::RpcRequest;
 
 pub struct RpcHandlerRegistry {
     handlers: RwLock<std::collections::HashMap<String, Box<dyn ErasedRpcHandler>>>,
@@ -39,9 +40,8 @@ impl RpcHandlerRegistry {
 mod test {
     use serde::{Deserialize, Serialize};
 
-    use crate::rpc::request::RpcRequest;
-
     use super::*;
+    use crate::rpc::request::RpcRequest;
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     struct TestRequest {
@@ -131,8 +131,9 @@ mod test {
             .handle("TestRequest", request_bytes)
             .await
             .expect("Failed to handle request");
-        let result: i32 = serde_json::from_slice(&result).expect("Failed to deserialize response");
+        let response: TestResponse =
+            serde_json::from_slice(&result).expect("Failed to deserialize response");
 
-        assert_eq!(result, 3);
+        assert_eq!(response.result, 3);
     }
 }
