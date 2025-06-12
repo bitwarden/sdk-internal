@@ -24,6 +24,9 @@ pub trait KeyId:
     /// Returns whether the key is local to the current context or shared globally by the
     /// key store. See [crate::store::KeyStoreContext] for more information.
     fn is_local(&self) -> bool;
+
+    /// Creates a new unique local key identifier.
+    fn new_local() -> Self;
 }
 
 /// Represents a set of all the key identifiers that need to be defined to use a key store.
@@ -45,12 +48,14 @@ pub trait KeyIds {
 ///         User,
 ///         Org(uuid::Uuid),
 ///         #[local]
-///         Local(&'static str),
+///         Local(uuid::Uuid),
 ///     }
 ///
 ///     #[asymmetric]
 ///     pub enum AsymmKeyId {
 ///         PrivateKey,
+///         #[local]
+///         Local(uuid::Uuid),
 ///     }
 ///     pub Ids => SymmKeyId, AsymmKeyId;
 /// }
@@ -85,6 +90,12 @@ macro_rules! key_ids {
                             key_ids!(@variant_value $( $variant_tag )? ),
                     )* }
                 }
+
+                fn new_local() -> Self {
+                    $(
+                        { key_ids!(@new_local $variant $( $variant_tag )? ) }
+                    )*
+                }
             }
         )+
 
@@ -104,10 +115,15 @@ macro_rules! key_ids {
 
     ( @variant_value local ) => { true };
     ( @variant_value ) => { false };
+
+    ( @new_local $variant:ident local ) => { Self::$variant(uuid::Uuid::new_v4()) };
+    ( @new_local $variant:ident ) => {{}};
 }
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use uuid::Uuid;
+
     use crate::{
         traits::tests::{TestAsymmKey, TestSymmKey},
         KeyId,
@@ -117,10 +133,10 @@ pub(crate) mod tests {
     fn test_local() {
         assert!(!TestSymmKey::A(0).is_local());
         assert!(!TestSymmKey::B((4, 10)).is_local());
-        assert!(TestSymmKey::C(8).is_local());
+        assert!(TestSymmKey::C(Uuid::new_v4()).is_local());
 
         assert!(!TestAsymmKey::A(0).is_local());
         assert!(!TestAsymmKey::B.is_local());
-        assert!(TestAsymmKey::C("test").is_local());
+        assert!(TestAsymmKey::C(Uuid::new_v4()).is_local());
     }
 }

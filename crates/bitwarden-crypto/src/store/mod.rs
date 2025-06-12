@@ -52,11 +52,13 @@ pub use context::KeyStoreContext;
 ///     pub enum SymmKeyId {
 ///         User,
 ///         #[local]
-///         Local(&'static str)
+///         Local(uuid::Uuid),
 ///     }
 ///     #[asymmetric]
 ///     pub enum AsymmKeyId {
 ///         UserPrivate,
+///         #[local]
+///         Local(uuid::Uuid),
 ///     }
 ///     pub Ids => SymmKeyId, AsymmKeyId;
 /// }
