@@ -966,6 +966,7 @@ mod tests {
                 revision_date: cipher.revision_date,
                 copiable_fields: vec![
                     CopiableCipherFields::LoginUsername,
+                    CopiableCipherFields::LoginPassword,
                     CopiableCipherFields::LoginTotp
                 ],
                 local_data: None,
@@ -1415,9 +1416,9 @@ mod tests {
         assert_eq!(
             cipher.get_copiable_fields(),
             vec![
+                CopiableCipherFields::IdentityUsername,
                 CopiableCipherFields::IdentityEmail,
-                CopiableCipherFields::IdentityPhone,
-                CopiableCipherFields::IdentityUsername
+                CopiableCipherFields::IdentityPhone
             ],
         );
     }
