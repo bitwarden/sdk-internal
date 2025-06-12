@@ -323,6 +323,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(())
     }
 
+    /// Add a new symmetric key to the local context, returning a new unique identifier for it.
     pub fn add_local_symmetric_key(&mut self, key: SymmetricCryptoKey) -> Result<Ids::Symmetric> {
         let key_id = Ids::Symmetric::new_local();
         self.local_symmetric_keys.upsert(key_id, key);

@@ -25,6 +25,7 @@ pub trait KeyId:
     /// key store. See [crate::store::KeyStoreContext] for more information.
     fn is_local(&self) -> bool;
 
+    /// Creates a new unique local key identifier.
     fn new_local() -> Self;
 }
 
