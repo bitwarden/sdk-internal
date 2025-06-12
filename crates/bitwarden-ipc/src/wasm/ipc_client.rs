@@ -18,7 +18,8 @@ pub struct JsIpcClient {
     #[wasm_bindgen(skip)]
     /// The underlying IPC client instance. Use this to create WASM-compatible functions
     /// that interact with the IPC client, e.g. to register RPC handlers, trigger RPC requests,
-    /// send typed messages, etc. For examples see [wasm::discover](crate::wasm::discover).
+    /// send typed messages, etc. For examples see
+    /// [wasm::ipc_register_discover_handler](crate::wasm::ipc_register_discover_handler).
     pub client: Arc<
         IpcClient<
             NoEncryptionCryptoProvider,
