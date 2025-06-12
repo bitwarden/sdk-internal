@@ -1,8 +1,9 @@
+use bitwarden_collections::collection::Collection;
 use bitwarden_exporters::{Account, ExportFormat};
 use bitwarden_generators::{
     PassphraseGeneratorRequest, PasswordGeneratorRequest, UsernameGeneratorRequest,
 };
-use bitwarden_vault::{Cipher, Collection, Folder};
+use bitwarden_vault::{Cipher, Folder};
 
 use crate::error::{Error, Result};
 
