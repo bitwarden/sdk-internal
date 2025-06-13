@@ -1,3 +1,4 @@
+use bitwarden_threading::cancellation_token::wasm::{AbortSignal, AbortSignalExt};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{error::JsRequestError, JsIpcClient};
@@ -17,13 +18,17 @@ pub async fn ipc_register_discover_handler(ipc_client: &JsIpcClient, response: D
 
 #[wasm_bindgen(js_name = ipcRequestDiscover)]
 /// Sends a DiscoverRequest to the specified destination and returns the response.
-/// Note: Timeout is not yet supported because tokio::time does not support WASM
 pub async fn ipc_request_discover(
     ipc_client: &JsIpcClient,
     destination: Endpoint,
+    abort_signal: Option<AbortSignal>,
 ) -> Result<DiscoverResponse, JsRequestError> {
     Ok(ipc_client
         .client
-        .request(DiscoverRequest, destination, None)
+        .request(
+            DiscoverRequest,
+            destination,
+            abort_signal.map(|c| c.to_cancellation_token()),
+        )
         .await?)
 }
