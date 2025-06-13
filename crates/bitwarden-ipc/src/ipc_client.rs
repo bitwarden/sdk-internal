@@ -232,7 +232,6 @@ where
         <<H::Request as RpcRequest>::Response as TryFrom<Vec<u8>>>::Error: std::fmt::Display,
         <<H::Request as RpcRequest>::Response as TryInto<Vec<u8>>>::Error: std::fmt::Display,
     {
-        println!("Registering handler for {}", H::Request::name());
         self.handlers.register(handler).await;
     }
 
