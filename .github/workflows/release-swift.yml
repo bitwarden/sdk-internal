@@ -32,6 +32,8 @@ jobs:
   validate:
     name: Set Version and SHA
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
       sha: ${{ steps.set-sha.outputs.sha }}
@@ -230,6 +232,9 @@ jobs:
     needs:
       - validate
       - repo-sync
+    permissions:
+      actions: read
+      contents: write
     env:
       _PKG_VERSION: ${{ needs.validate.outputs.version }}
       _RELEASE_NAME: ${{ needs.validate.outputs.release_name }}

@@ -18,6 +18,8 @@ jobs:
   build:
     name: Building @bitwarden/sdk-wasm-internal
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repo

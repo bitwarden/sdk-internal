@@ -13,6 +13,8 @@ jobs:
   version:
     name: Get Version
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     outputs:
       package_version: ${{ steps.retrieve-version.outputs.package_version }}
     steps:
@@ -29,6 +31,8 @@ jobs:
     name: Build
     runs-on: macos-14
     needs: version
+    permissions:
+      contents: read
     env:
       _VERSION: ${{ needs.version.outputs.package_version }}
     steps:
