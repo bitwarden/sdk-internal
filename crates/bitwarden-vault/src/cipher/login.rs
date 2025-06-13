@@ -13,6 +13,7 @@ use tsify_next::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
+use super::cipher::CipherKind;
 use crate::VaultParseError;
 
 #[allow(missing_docs)]
@@ -552,6 +553,18 @@ impl TryFrom<bitwarden_api_api::models::CipherFido2CredentialModel> for Fido2Cre
             discoverable: require!(value.discoverable).parse()?,
             creation_date: value.creation_date.parse()?,
         })
+    }
+}
+
+impl CipherKind for Login {
+    fn decrypt_subtitle(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<String, CryptoError> {
+        let username: Option<String> = self.username.decrypt(ctx, key)?;
+
+        Ok(username.unwrap_or_default())
     }
 }
 
