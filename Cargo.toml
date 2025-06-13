@@ -39,6 +39,7 @@ bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=1.0.0
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=1.0.0" }
 
 # External crates that are expected to maintain a consistent version across all crates
+async-trait = ">=0.1.80, <0.2"
 chrono = { version = ">=0.4.26, <0.5", features = [
     "clock",
     "serde",

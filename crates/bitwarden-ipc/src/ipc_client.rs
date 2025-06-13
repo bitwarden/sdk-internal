@@ -7,8 +7,17 @@ use tokio::{select, sync::RwLock};
 
 use crate::{
     constants::CHANNEL_BUFFER_CAPACITY,
-    message::{IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage},
+    endpoint::Endpoint,
+    message::{
+        IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage,
+        TypedOutgoingMessage,
+    },
+    rpc::{
+        error::RpcError, handler_registry::RpcHandlerRegistry, request::RpcRequest,
+        request_message::RpcRequestMessage, response_message::RpcResponseMessage,
+    },
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
+    RpcHandler,
 };
 
 /// An IPC client that handles communication between different components and clients.
@@ -24,6 +33,7 @@ where
     communication: Com,
     sessions: Ses,
 
+    handlers: RpcHandlerRegistry,
     incoming: RwLock<Option<tokio::sync::broadcast::Receiver<IncomingMessage>>>,
     cancellation_token: RwLock<Option<CancellationToken>>,
 }
@@ -95,6 +105,24 @@ impl From<ReceiveError> for TypedReceiveError {
     }
 }
 
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum RequestError<SendError> {
+    #[error(transparent)]
+    Subscribe(#[from] SubscribeError),
+
+    #[error(transparent)]
+    Receive(#[from] TypedReceiveError),
+
+    #[error("Timed out while waiting for a message: {0}")]
+    Timeout(#[from] tokio::time::error::Elapsed),
+
+    #[error("Failed to send message: {0}")]
+    Send(SendError),
+
+    #[error("Error occured on the remote target: {0}")]
+    RpcError(#[from] RpcError),
+}
+
 impl<Crypto, Com, Ses> IpcClient<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
@@ -109,6 +137,7 @@ where
             communication,
             sessions,
 
+            handlers: RpcHandlerRegistry::new(),
             incoming: RwLock::new(None),
             cancellation_token: RwLock::new(None),
         })
@@ -136,6 +165,7 @@ where
         let client = self.clone();
         let future = async move {
             loop {
+                let rpc_topic = RpcRequestMessage::name();
                 select! {
                     _ = cancellation_token.cancelled() => {
                         log::debug!("Cancellation signal received, stopping IPC client");
@@ -143,6 +173,9 @@ where
                     }
                     received = client.crypto.receive(&com_receiver, &client.communication, &client.sessions) => {
                         match received {
+                            Ok(message) if message.topic == Some(rpc_topic) => {
+                                client.handle_rpc_request(message)
+                            }
                             Ok(message) => {
                                 if client_tx.send(message).is_err() {
                                     log::error!("Failed to save incoming message");
@@ -184,6 +217,22 @@ where
         if let Some(cancellation_token) = cancellation_token.take() {
             cancellation_token.cancel();
         }
+    }
+
+    /// Register a new RPC handler for processing incoming RPC requests.
+    /// The handler will be executed by the IPC client when an RPC request is received and
+    /// the response will be sent back over IPC.
+    pub async fn register_rpc_handler<H>(self: &Arc<Self>, handler: H)
+    where
+        H: RpcHandler + Send + Sync + 'static,
+        H::Request: RpcRequest + TryFrom<Vec<u8>> + TryInto<Vec<u8>>,
+        <H::Request as RpcRequest>::Response: TryFrom<Vec<u8>> + TryInto<Vec<u8>>,
+        <H::Request as TryFrom<Vec<u8>>>::Error: std::fmt::Display,
+        <H::Request as TryInto<Vec<u8>>>::Error: std::fmt::Display,
+        <<H::Request as RpcRequest>::Response as TryFrom<Vec<u8>>>::Error: std::fmt::Display,
+        <<H::Request as RpcRequest>::Response as TryInto<Vec<u8>>>::Error: std::fmt::Display,
+    {
+        self.handlers.register(handler).await;
     }
 
     /// Send a message
@@ -231,6 +280,140 @@ where
             self.subscribe(Some(Payload::name())).await?,
             std::marker::PhantomData,
         ))
+    }
+
+    /// Send a request to the specified destination and wait for a response.
+    /// The destination must have a registered RPC handler for the request type, otherwise
+    /// an error will be returned by the remote endpoint.
+    pub async fn request<Request>(
+        self: &Arc<Self>,
+        request: Request,
+        destination: Endpoint,
+        cancellation_token: Option<CancellationToken>,
+    ) -> Result<Request::Response, RequestError<Crypto::SendError>>
+    where
+        Request: RpcRequest + TryInto<Vec<u8>> + TryFrom<Vec<u8>>,
+        Request::Response: TryInto<Vec<u8>> + TryFrom<Vec<u8>>,
+        <Request as TryInto<Vec<u8>>>::Error: std::fmt::Display,
+        <Request::Response as TryFrom<Vec<u8>>>::Error: std::fmt::Display,
+    {
+        let request_id = uuid::Uuid::new_v4().to_string();
+        let mut response_subscription: IpcClientTypedSubscription<RpcResponseMessage> =
+            self.subscribe_typed().await?;
+
+        let request_payload = RpcRequestMessage {
+            request: request
+                .try_into()
+                .map_err(|e| RpcError::RequestSerializationError(e.to_string()))?,
+            request_id: request_id.clone(),
+            request_type: Request::name(),
+        };
+
+        let message = TypedOutgoingMessage {
+            payload: request_payload,
+            destination,
+        }
+        .try_into()
+        .map_err(
+            |e: <TypedOutgoingMessage<RpcRequestMessage> as TryInto<OutgoingMessage>>::Error| {
+                RequestError::<Crypto::SendError>::RpcError(RpcError::RequestSerializationError(
+                    e.to_string(),
+                ))
+            },
+        )?;
+
+        self.send(message)
+            .await
+            .map_err(RequestError::<Crypto::SendError>::Send)?;
+
+        let response = loop {
+            let received = response_subscription
+                .receive(cancellation_token.clone())
+                .await
+                .map_err(RequestError::<Crypto::SendError>::Receive)?;
+
+            if received.payload.request_id == request_id {
+                break received;
+            }
+        };
+
+        let result: Request::Response = response.payload.result?.try_into().map_err(
+            |e: <Request::Response as TryFrom<Vec<u8>>>::Error| {
+                RequestError::<Crypto::SendError>::RpcError(RpcError::ResponseDeserializationError(
+                    e.to_string(),
+                ))
+            },
+        )?;
+
+        Ok(result)
+    }
+
+    #[allow(dead_code)]
+    fn handle_rpc_request(self: &Arc<Self>, incoming_message: IncomingMessage) {
+        let client = self.clone();
+        let future = async move {
+            let client = client.clone();
+
+            #[derive(Debug, Error)]
+            enum HandleError {
+                #[error("Failed to deserialize request message: {0}")]
+                Deserialize(String),
+
+                #[error("Failed to serialize response message: {0}")]
+                Serialize(String),
+            }
+
+            async fn handle(
+                incoming_message: IncomingMessage,
+                handlers: &RpcHandlerRegistry,
+            ) -> Result<OutgoingMessage, HandleError> {
+                let request: RpcRequestMessage = incoming_message.payload.try_into().map_err(
+                    |e: <RpcRequestMessage as TryFrom<Vec<u8>>>::Error| {
+                        HandleError::Deserialize(e.to_string())
+                    },
+                )?;
+
+                let response = handlers
+                    .handle(&request.request_type, request.request)
+                    .await;
+
+                let response_message = RpcResponseMessage {
+                    request_id: request.request_id,
+                    request_type: request.request_type,
+                    result: response,
+                };
+
+                let outgoing = TypedOutgoingMessage {
+                    payload: response_message,
+                    destination: incoming_message.source,
+                }
+                .try_into()
+                .map_err(
+                    |e: <TypedOutgoingMessage<RpcResponseMessage> as TryInto<
+                        OutgoingMessage,
+                    >>::Error| { HandleError::Serialize(e.to_string()) },
+                )?;
+
+                Ok(outgoing)
+            }
+
+            match handle(incoming_message, &client.handlers).await {
+                Ok(outgoing_message) => {
+                    if client.send(outgoing_message).await.is_err() {
+                        log::error!("Failed to send response message");
+                    }
+                }
+                Err(e) => {
+                    log::error!("Error handling RPC request: {:?}", e);
+                }
+            }
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        tokio::spawn(future);
+
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(future);
     }
 }
 
@@ -609,5 +792,176 @@ mod tests {
         let is_running = client.is_running().await;
 
         assert!(is_running);
+    }
+
+    mod request {
+        use super::*;
+        use crate::rpc::{
+            request_message::RpcRequestMessage, response_message::RpcResponseMessage,
+        };
+
+        #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+        struct TestRequest {
+            a: i32,
+            b: i32,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+        struct TestResponse {
+            result: i32,
+        }
+
+        impl RpcRequest for TestRequest {
+            type Response = TestResponse;
+
+            fn name() -> String {
+                "TestRequest".to_string()
+            }
+        }
+
+        impl TryFrom<TestRequest> for Vec<u8> {
+            type Error = serde_json::Error;
+
+            fn try_from(value: TestRequest) -> Result<Self, Self::Error> {
+                serde_json::to_vec(&value)
+            }
+        }
+
+        impl TryFrom<Vec<u8>> for TestRequest {
+            type Error = serde_json::Error;
+
+            fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+                serde_json::from_slice(&value)
+            }
+        }
+
+        impl TryFrom<TestResponse> for Vec<u8> {
+            type Error = serde_json::Error;
+
+            fn try_from(value: TestResponse) -> Result<Self, Self::Error> {
+                serde_json::to_vec(&value)
+            }
+        }
+
+        impl TryFrom<Vec<u8>> for TestResponse {
+            type Error = serde_json::Error;
+
+            fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+                serde_json::from_slice(&value)
+            }
+        }
+
+        struct TestHandler;
+
+        impl RpcHandler for TestHandler {
+            type Request = TestRequest;
+
+            async fn handle(&self, request: Self::Request) -> TestResponse {
+                TestResponse {
+                    result: request.a + request.b,
+                }
+            }
+        }
+
+        #[tokio::test]
+        async fn request_sends_message_and_returns_response() {
+            let crypto_provider = NoEncryptionCryptoProvider;
+            let communication_provider = TestCommunicationBackend::new();
+            let session_map = InMemorySessionRepository::new(HashMap::new());
+            let client =
+                IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
+            client.start().await;
+            let request = TestRequest { a: 1, b: 2 };
+            let response = TestResponse { result: 3 };
+
+            // Send the request
+            let request_clone = request.clone();
+            let result_handle = tokio::spawn(async move {
+                let client = client.clone();
+                client
+                    .request::<TestRequest>(request_clone, Endpoint::BrowserBackground, None)
+                    .await
+            });
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            // Read and verify the outgoing message
+            let outgoing_messages = communication_provider.outgoing().await;
+            let outgoing_request: RpcRequestMessage = outgoing_messages[0]
+                .clone()
+                .payload
+                .try_into()
+                .expect("Deserialization should not fail");
+            assert_eq!(outgoing_request.request_type, "TestRequest");
+            let sent_request: TestRequest = outgoing_request.request.try_into().unwrap();
+            assert_eq!(sent_request, request);
+
+            // Simulate receiving a response
+            let simulated_response = RpcResponseMessage {
+                result: Ok(response.try_into().unwrap()),
+                request_id: outgoing_request.request_id.clone(),
+                request_type: outgoing_request.request_type.clone(),
+            };
+            let simulated_response = IncomingMessage {
+                payload: simulated_response
+                    .try_into()
+                    .expect("Serialization should not fail"),
+                source: Endpoint::BrowserBackground,
+                destination: Endpoint::Web { id: 9001 },
+                topic: Some(RpcResponseMessage::name()),
+            };
+            communication_provider.push_incoming(simulated_response);
+
+            // Wait for the response
+            let result = result_handle.await.unwrap();
+            assert_eq!(result.unwrap().result, 3);
+        }
+
+        #[tokio::test]
+        async fn incoming_rpc_message_handles_request_and_returns_response() {
+            let crypto_provider = NoEncryptionCryptoProvider;
+            let communication_provider = TestCommunicationBackend::new();
+            let session_map = InMemorySessionRepository::new(HashMap::new());
+            let client =
+                IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
+            client.start().await;
+            let request_id = uuid::Uuid::new_v4().to_string();
+            let request = TestRequest { a: 1, b: 2 };
+            let response = TestResponse { result: 3 };
+
+            // Register the handler
+            client.register_rpc_handler(TestHandler).await;
+
+            // Simulate receiving a request
+            let simulated_request = RpcRequestMessage {
+                request: request.try_into().unwrap(),
+                request_id: request_id.clone(),
+                request_type: "TestRequest".to_string(),
+            };
+            let simulated_request_message = IncomingMessage {
+                payload: simulated_request
+                    .try_into()
+                    .expect("Serialization should not fail"),
+                source: Endpoint::Web { id: 9001 },
+                destination: Endpoint::BrowserBackground,
+                topic: Some(RpcRequestMessage::name()),
+            };
+            communication_provider.push_incoming(simulated_request_message);
+
+            // Give the client some time to process the request
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            // Read and verify the outgoing message
+            let outgoing_messages = communication_provider.outgoing().await;
+            let outgoing_response: RpcResponseMessage = outgoing_messages[0]
+                .clone()
+                .payload
+                .try_into()
+                .expect("Deserialization should not fail");
+            let result: TestResponse = outgoing_response.result.unwrap().try_into().unwrap();
+
+            assert_eq!(outgoing_messages[0].topic, Some(RpcResponseMessage::name()));
+            assert_eq!(outgoing_response.request_type, "TestRequest");
+            assert_eq!(result, response);
+        }
     }
 }
