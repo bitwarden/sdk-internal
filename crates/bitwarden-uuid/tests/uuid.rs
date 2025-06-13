@@ -1,8 +1,8 @@
 #![allow(unexpected_cfgs, missing_docs)]
 
-use bitwarden_uuid::uuid;
+use bitwarden_uuid::uuid_newtype;
 
-uuid!(TestId);
+uuid_newtype!(TestId);
 
 #[test]
 fn test_parse_string() {

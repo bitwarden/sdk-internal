@@ -4,13 +4,13 @@ use bitwarden_crypto::{AsymmetricCryptoKey, EncString, UnsignedSharedKey};
 use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-#[cfg(any(feature = "internal", feature = "secrets"))]
-use uuid::Uuid;
 
 #[cfg(feature = "internal")]
 use crate::key_management::AsymmetricKeyId;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::key_management::{KeyIds, SymmetricKeyId};
+#[cfg(any(feature = "secrets", feature = "internal"))]
+use crate::OrganizationId;
 use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError, VaultLockedError};
 
 #[allow(missing_docs)]
@@ -89,7 +89,7 @@ impl EncryptionSettings {
     /// This is used only for logging in Secrets Manager with an access token
     #[cfg(feature = "secrets")]
     pub(crate) fn new_single_org_key(
-        organization_id: Uuid,
+        organization_id: OrganizationId,
         key: SymmetricCryptoKey,
         store: &KeyStore<KeyIds>,
     ) {
@@ -103,7 +103,7 @@ impl EncryptionSettings {
 
     #[cfg(feature = "internal")]
     pub(crate) fn set_org_keys(
-        org_enc_keys: Vec<(Uuid, UnsignedSharedKey)>,
+        org_enc_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
         let mut ctx = store.context_mut();

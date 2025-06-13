@@ -140,9 +140,12 @@ mod tests {
     use bitwarden_crypto::{Kdf, MasterKey};
 
     use super::*;
-    use crate::key_management::{
-        crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
-        SymmetricKeyId,
+    use crate::{
+        key_management::{
+            crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
+            SymmetricKeyId,
+        },
+        UserId,
     };
 
     #[test]
@@ -243,7 +246,7 @@ mod tests {
         new_device
             .crypto()
             .initialize_user_crypto(InitUserCryptoRequest {
-                user_id: Some(uuid::Uuid::new_v4()),
+                user_id: Some(UserId::new_v4()),
                 kdf_params: kdf,
                 email: email.to_owned(),
                 private_key,
