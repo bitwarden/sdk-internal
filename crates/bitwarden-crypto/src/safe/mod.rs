@@ -17,6 +17,8 @@ mod tests {
     // These are some examples of how the safe interfaces can be used to implement various features.
     //
     // As a note for DataEnvelope; The inner struct *may* need versioning, but that is up to the consumer, if they do want to provide versioning, and omitted from examples.
+    //
+    // For attachments, the entry is currently two keys, encrypted by the domain object (send/cipher)'s key. Maybe the attachment should have it's own attachment key wrapping the two keys it uses.
 
     #[test]
     fn example_vault_export() {
@@ -95,28 +97,37 @@ mod tests {
             name: String,
         }
         impl SealableData for SendMetadata {}
-
-        let send_key_id = TestSymmKey::A(1);
-        ctx.generate_symmetric_key(send_key_id).unwrap();
-
-        let url_fragment = "ABCDE"; // the URL of a send contains a fragment with the send secret. This is the password of the send.
-        let url_sealed_send_key =
-            PasswordProtectedKeyEnvelope::seal(send_key_id, url_fragment, &mut ctx);
-
-        let metadata = SendMetadata {
-            name: "Test Send".to_string(),
-        };
-        let metadata_envelope = DataEnvelope::seal(&metadata, send_key_id, &mut ctx);
-
         #[derive(serde::Serialize, serde::Deserialize)]
         struct AttachmentBytes(Vec<u8>);
         impl SealableData for AttachmentBytes {}
 
-        let attachment_key_id = TestSymmKey::A(2);
-        let attachment1 = AttachmentBytes(vec![1, 2, 3, 4, 5]);
-        let attachment1_envelope = DataEnvelope::seal(&attachment1, attachment_key_id, &mut ctx);
-        let attachment1_wrapped_key =
-            WrappedSymmetricKey::wrap(send_key_id, attachment_key_id, &ctx);
+        // Send data
+        let url_fragment = "ABCDE"; // the URL of a send contains a fragment with the send secret. This is the password of the send.
+        let metadata = SendMetadata {
+            name: "Test Send".to_string(),
+        };
+
+        // Key Hierarchy:
+        // Send Fragment -password-> Send Key -> Metadata Key -> Metadata
+        //                                    -> Attachment1 File Data Key -> Attachment1 File Data
+        //                                    -> Attachment1 Metadata Key -> Attachment Metadata [not implemented]
+
+        // Encrypt the send
+        let send_key_id = TestSymmKey::A(1);
+        ctx.generate_symmetric_key(send_key_id).unwrap();
+
+        let url_sealed_send_key =
+            PasswordProtectedKeyEnvelope::seal(send_key_id, url_fragment, &mut ctx);
+        let metadata_envelope = DataEnvelope::seal(&metadata, TestSymmKey::A(3), &mut ctx);
+
+        // Encrypt attachments
+        let attachment1_filedata_envelope = DataEnvelope::seal(
+            &AttachmentBytes(vec![1, 2, 3, 4, 5]),
+            TestSymmKey::A(3),
+            &mut ctx,
+        );
+        let wrapped_attachment1_filedata_key =
+            WrappedSymmetricKey::wrap(TestSymmKey::A(3), send_key_id, &ctx);
 
         // upload:
         // (
@@ -124,12 +135,12 @@ mod tests {
         //     metadata_envelope,
         //     attachments: [
         //        {
-        //           attachment_key: attachment1_wrapped_key,
+        //           key: wrapped_attachment1_filedata_key,
         //        }
         //     ]
         // ),
         // upload:
-        // attachment1_envelope
+        // attachment1_filedata_envelope
     }
 
     #[test]
@@ -145,6 +156,10 @@ mod tests {
         impl SealableData for CipherData {}
 
         // Create vault
+        // Key Hierarchy:
+        // Vault Key -> Cipher Key -> Cipher Data Envelope
+        //           -> Cipher Key -> Cipher Data Envelope
+        //                         -> Attachment Key
 
         // Vault key:
         let vault_key_id = TestSymmKey::A(1);
