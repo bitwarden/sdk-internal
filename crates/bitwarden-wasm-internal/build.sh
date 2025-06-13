@@ -42,4 +42,5 @@ npx terser ./crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.
 
 # Typecheck the generated TypeScript definitions
 cd crates/bitwarden-wasm-internal/npm
+npm ci
 npx tsc --noEmit --lib es2020 bitwarden_wasm_internal.d.ts
