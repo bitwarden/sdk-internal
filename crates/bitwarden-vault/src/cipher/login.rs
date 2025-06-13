@@ -14,7 +14,7 @@ use tsify_next::Tsify;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::cipher::CipherKind;
-use crate::VaultParseError;
+use crate::{cipher::cipher::CopyableCipherFields, Cipher, VaultParseError};
 
 #[allow(missing_docs)]
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
@@ -566,10 +566,73 @@ impl CipherKind for Login {
 
         Ok(username.unwrap_or_default())
     }
+
+    fn get_copyable_fields(&self, _: &Cipher) -> Vec<CopyableCipherFields> {
+        [
+            self.username
+                .as_ref()
+                .map(|_| CopyableCipherFields::LoginUsername),
+            self.password
+                .as_ref()
+                .map(|_| CopyableCipherFields::LoginPassword),
+            self.totp.as_ref().map(|_| CopyableCipherFields::LoginTotp),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_core::key_management::{create_test_crypto_with_user_key, SymmetricKeyId};
+    use bitwarden_crypto::{EncString, Encryptable, SymmetricCryptoKey};
+
+    use crate::{
+        cipher::cipher::{Cipher, CipherKind, CopyableCipherFields},
+        CipherRepromptType, CipherType, Login,
+    };
+
+    fn encrypt_test_string(string: &str) -> EncString {
+        let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
+        let key_store = create_test_crypto_with_user_key(key);
+        let key = SymmetricKeyId::User;
+        let mut ctx = key_store.context();
+
+        string.to_string().encrypt(&mut ctx, key).unwrap()
+    }
+
+    fn create_cipher_for_login(login: Login) -> Cipher {
+        Cipher {
+            id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            r#type: CipherType::Login,
+            key: None,
+            name: encrypt_test_string("My test cipher"),
+            notes: None,
+            login: Some(login),
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: true,
+            permissions: None,
+            view_password: true,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
+        }
+    }
+
     #[test]
     fn test_valid_checksum() {
         let uri = super::LoginUriView {
@@ -613,6 +676,67 @@ mod tests {
         assert_eq!(
             uri.uri_checksum.unwrap().as_str(),
             "OWk2vQvwYD1nhLZdA+ltrpBWbDa2JmHyjUEWxRZSS8w="
+        );
+    }
+
+    #[test]
+    fn test_get_copyable_fields_login_password() {
+        let login_with_password = Login {
+            username: None,
+            password: Some(encrypt_test_string("testPassword")),
+            password_revision_date: None,
+            uris: None,
+            totp: None,
+            autofill_on_page_load: None,
+            fido2_credentials: None,
+        };
+
+        let cipher = create_cipher_for_login(login_with_password.clone());
+
+        let copyable_fields = login_with_password.get_copyable_fields(&cipher);
+        assert_eq!(copyable_fields, vec![CopyableCipherFields::LoginPassword]);
+    }
+
+    #[test]
+    fn test_get_copyable_fields_login_username() {
+        let login_with_username = Login {
+            username: Some(encrypt_test_string("testUsername")),
+            password: None,
+            password_revision_date: None,
+            uris: None,
+            totp: None,
+            autofill_on_page_load: None,
+            fido2_credentials: None,
+        };
+
+        let cipher = create_cipher_for_login(login_with_username.clone());
+
+        let copyable_fields = login_with_username.get_copyable_fields(&cipher);
+        assert_eq!(copyable_fields, vec![CopyableCipherFields::LoginUsername]);
+    }
+
+    #[test]
+    fn test_get_copyable_fields_login_everything() {
+        let login = Login {
+            username: Some(encrypt_test_string("testUsername")),
+            password: Some(encrypt_test_string("testPassword")),
+            password_revision_date: None,
+            uris: None,
+            totp: Some(encrypt_test_string("totp")),
+            autofill_on_page_load: None,
+            fido2_credentials: None,
+        };
+
+        let cipher = create_cipher_for_login(login.clone());
+
+        let copyable_fields = login.get_copyable_fields(&cipher);
+        assert_eq!(
+            copyable_fields,
+            vec![
+                CopyableCipherFields::LoginUsername,
+                CopyableCipherFields::LoginPassword,
+                CopyableCipherFields::LoginTotp
+            ]
         );
     }
 }

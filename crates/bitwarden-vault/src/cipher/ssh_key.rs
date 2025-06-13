@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
+use crate::{cipher::cipher::CopyableCipherFields, Cipher};
+
 use super::cipher::CipherKind;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -69,12 +71,18 @@ impl CipherKind for SshKey {
     ) -> Result<String, CryptoError> {
         self.fingerprint.decrypt(ctx, key)
     }
+
+    fn get_copyable_fields(&self, _: &Cipher) -> Vec<CopyableCipherFields> {
+        [CopyableCipherFields::SshKey].into_iter().collect()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
     use bitwarden_crypto::SymmetricCryptoKey;
+
+    use crate::{cipher::cipher::CopyableCipherFields, Cipher, CipherRepromptType, CipherType};
 
     use super::*;
 
@@ -100,5 +108,51 @@ mod tests {
             ssh_key.decrypt_subtitle(&mut ctx, key).unwrap(),
             original_subtitle
         );
+    }
+
+    #[test]
+    fn test_get_copyable_fields_sshkey() {
+        let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
+        let key_store = create_test_crypto_with_user_key(key);
+        let key = SymmetricKeyId::User;
+        let mut ctx = key_store.context();
+
+        let ssh_key = SshKey {
+            private_key: "private_key".to_string().encrypt(&mut ctx, key).unwrap(),
+            public_key: "public_key".to_string().encrypt(&mut ctx, key).unwrap(),
+            fingerprint: "fingerprint".to_string().encrypt(&mut ctx, key).unwrap(),
+        };
+
+        let cipher = Cipher {
+            id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            r#type: CipherType::SshKey,
+            key: None,
+            name: "My test cipher".to_string().encrypt(&mut ctx, key).unwrap(),
+            notes: None,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: Some(ssh_key.clone()),
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: true,
+            permissions: None,
+            view_password: true,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
+        };
+
+        let copyable_fields = ssh_key.get_copyable_fields(&cipher);
+        assert_eq!(copyable_fields, vec![CopyableCipherFields::SshKey]);
     }
 }

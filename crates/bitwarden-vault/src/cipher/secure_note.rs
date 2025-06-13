@@ -11,7 +11,10 @@ use tsify_next::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::VaultParseError;
+use crate::{
+    cipher::cipher::{CipherKind, CopyableCipherFields},
+    Cipher, VaultParseError,
+};
 
 #[allow(missing_docs)]
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug)]
@@ -78,5 +81,104 @@ impl From<bitwarden_api_api::models::SecureNoteType> for SecureNoteType {
         match model {
             bitwarden_api_api::models::SecureNoteType::Generic => SecureNoteType::Generic,
         }
+    }
+}
+
+impl CipherKind for SecureNote {
+    fn get_copyable_fields(&self, cipher: &Cipher) -> Vec<CopyableCipherFields> {
+        [cipher
+            .notes
+            .as_ref()
+            .map(|_| CopyableCipherFields::SecureNotes)]
+        .into_iter()
+        .flatten()
+        .collect()
+    }
+
+    fn decrypt_subtitle(
+        &self,
+        _ctx: &mut KeyStoreContext<KeyIds>,
+        _key: SymmetricKeyId,
+    ) -> Result<String, CryptoError> {
+        Ok(String::new())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bitwarden_core::key_management::{create_test_crypto_with_user_key, SymmetricKeyId};
+    use bitwarden_crypto::{EncString, Encryptable, SymmetricCryptoKey};
+
+    use crate::{
+        cipher::cipher::{Cipher, CipherKind, CopyableCipherFields},
+        secure_note::SecureNote,
+        CipherRepromptType, CipherType, SecureNoteType,
+    };
+
+    fn encrypt_test_string(string: &str) -> EncString {
+        let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
+        let key_store = create_test_crypto_with_user_key(key);
+        let key = SymmetricKeyId::User;
+        let mut ctx = key_store.context();
+
+        string.to_string().encrypt(&mut ctx, key).unwrap()
+    }
+
+    fn create_cipher_for_note(note: SecureNote) -> Cipher {
+        Cipher {
+            id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            r#type: CipherType::Login,
+            key: None,
+            name: encrypt_test_string("My test cipher"),
+            notes: None,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: Some(note),
+            ssh_key: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: true,
+            permissions: None,
+            view_password: true,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
+        }
+    }
+
+    #[test]
+    fn test_get_copyable_fields_secure_note_empty() {
+        let secure_note = SecureNote {
+            r#type: SecureNoteType::Generic,
+        };
+
+        let cipher = create_cipher_for_note(secure_note.clone());
+
+        let copyable_fields = secure_note.get_copyable_fields(&cipher);
+        assert_eq!(copyable_fields, vec![]);
+    }
+
+    #[test]
+    fn test_get_copyable_fields_secure_note_has_notes() {
+        let secure_note = SecureNote {
+            r#type: SecureNoteType::Generic,
+        };
+
+        let mut cipher = create_cipher_for_note(secure_note.clone());
+        cipher.notes = Some(encrypt_test_string(
+            "This is a secure note with some content.",
+        ));
+
+        let copyable_fields = secure_note.get_copyable_fields(&cipher);
+        assert_eq!(copyable_fields, vec![CopyableCipherFields::SecureNotes]);
     }
 }

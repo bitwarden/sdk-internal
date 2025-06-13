@@ -53,6 +53,9 @@ pub(super) trait CipherKind {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<String, CryptoError>;
+
+    /// Returns a list of populated fields for the cipher.
+    fn get_copyable_fields(&self, cipher: &Cipher) -> Vec<CopyableCipherFields>;
 }
 
 #[allow(missing_docs)]
@@ -391,7 +394,7 @@ impl Cipher {
             CipherType::Card => self.card.as_ref().map(|v| v as _),
             CipherType::Identity => self.identity.as_ref().map(|v| v as _),
             CipherType::SshKey => self.ssh_key.as_ref().map(|v| v as _),
-            _ => None,
+            CipherType::SecureNote => self.secure_note.as_ref().map(|v| v as _),
         }
     }
 
@@ -406,100 +409,36 @@ impl Cipher {
             .unwrap_or_else(|| Ok(String::new()))
     }
 
-    /// Adds the `field_name` to the `fields` vector if the value is populated.
-    fn push_if_populated(
-        encs: &[&Option<EncString>],
-        field_name: CopyableCipherFields,
-        fields: &mut Vec<CopyableCipherFields>,
-    ) {
-        let any_populated = encs.iter().any(|enc| enc.is_some());
-        if any_populated {
-            fields.push(field_name);
-        }
-    }
-
     /// Returns a list of copyable field names for this cipher,
     /// based on the cipher type and populated properties.
     fn get_copyable_fields(&self) -> Vec<CopyableCipherFields> {
-        let mut fields = Vec::new();
         match self.r#type {
-            CipherType::Login => {
-                if let Some(login) = &self.login {
-                    Self::push_if_populated(
-                        &[&login.username],
-                        CopyableCipherFields::LoginUsername,
-                        &mut fields,
-                    );
-                    Self::push_if_populated(
-                        &[&login.password],
-                        CopyableCipherFields::LoginPassword,
-                        &mut fields,
-                    );
-                    Self::push_if_populated(
-                        &[&login.totp],
-                        CopyableCipherFields::LoginTotp,
-                        &mut fields,
-                    );
-                }
-            }
-            CipherType::Card => {
-                if let Some(card) = &self.card {
-                    Self::push_if_populated(
-                        &[&card.number],
-                        CopyableCipherFields::CardNumber,
-                        &mut fields,
-                    );
-                    Self::push_if_populated(
-                        &[&card.code],
-                        CopyableCipherFields::CardSecurityCode,
-                        &mut fields,
-                    );
-                }
-            }
-            CipherType::Identity => {
-                if let Some(identity) = &self.identity {
-                    Self::push_if_populated(
-                        &[&identity.username],
-                        CopyableCipherFields::IdentityUsername,
-                        &mut fields,
-                    );
-                    Self::push_if_populated(
-                        &[&identity.email],
-                        CopyableCipherFields::IdentityEmail,
-                        &mut fields,
-                    );
-                    Self::push_if_populated(
-                        &[&identity.phone],
-                        CopyableCipherFields::IdentityPhone,
-                        &mut fields,
-                    );
-                    Self::push_if_populated(
-                        &[
-                            &identity.address1,
-                            &identity.address2,
-                            &identity.address3,
-                            &identity.city,
-                            &identity.state,
-                            &identity.postal_code,
-                        ],
-                        CopyableCipherFields::IdentityAddress,
-                        &mut fields,
-                    );
-                }
-            }
-            CipherType::SshKey => {
-                // All properties SSH Keys are required
-                fields.push(CopyableCipherFields::SshKey);
-            }
-            CipherType::SecureNote => {
-                Self::push_if_populated(
-                    &[&self.notes],
-                    CopyableCipherFields::SecureNotes,
-                    &mut fields,
-                );
-            }
+            CipherType::Login => self
+                .login
+                .as_ref()
+                .map(|login| login.get_copyable_fields(self))
+                .unwrap_or_default(),
+            CipherType::Card => self
+                .card
+                .as_ref()
+                .map(|card| card.get_copyable_fields(self))
+                .unwrap_or_default(),
+            CipherType::Identity => self
+                .identity
+                .as_ref()
+                .map(|identity| identity.get_copyable_fields(self))
+                .unwrap_or_default(),
+            CipherType::SshKey => self
+                .ssh_key
+                .as_ref()
+                .map(|ssh_key| ssh_key.get_copyable_fields(self))
+                .unwrap_or_default(),
+            CipherType::SecureNote => self
+                .secure_note
+                .as_ref()
+                .map(|secure_note| secure_note.get_copyable_fields(self))
+                .unwrap_or_default(),
         }
-        fields
     }
 }
 
@@ -823,7 +762,7 @@ mod tests {
     use bitwarden_crypto::SymmetricCryptoKey;
 
     use super::*;
-    use crate::{login::Fido2CredentialListView, CardView, Fido2Credential, IdentityView};
+    use crate::{login::Fido2CredentialListView, Fido2Credential};
 
     fn generate_cipher() -> CipherView {
         let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
@@ -1289,175 +1228,5 @@ mod tests {
 
         let decrypted_key_value = cipher_view.decrypt_fido2_private_key(&mut ctx).unwrap();
         assert_eq!(decrypted_key_value, "123");
-    }
-
-    #[test]
-    fn test_copyable_fields_login() {
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
-        let mut ctx = key_store.context();
-        let mut cipher_view = generate_cipher();
-
-        cipher_view.login = Some(LoginView {
-            username: Some("test_username".to_string()),
-            password: Some("test_password".to_string()),
-            uris: None,
-            totp: None,
-            autofill_on_page_load: None,
-            fido2_credentials: None,
-            password_revision_date: None,
-        });
-
-        let cipher = cipher_view
-            .encrypt(&mut ctx, cipher_view.key_identifier())
-            .ok()
-            .unwrap();
-
-        assert_eq!(
-            cipher.get_copyable_fields(),
-            vec![
-                CopyableCipherFields::LoginUsername,
-                CopyableCipherFields::LoginPassword,
-            ]
-        );
-    }
-
-    #[test]
-    fn test_copyable_fields_secure_notes() {
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
-        let mut ctx = key_store.context();
-        let mut cipher_view = generate_cipher();
-        cipher_view.r#type = CipherType::SecureNote;
-
-        let cipher_without_notes = cipher_view
-            .encrypt(&mut ctx, cipher_view.key_identifier())
-            .ok()
-            .unwrap();
-
-        let mut cipher_view_with_notes = cipher_view.clone();
-        cipher_view_with_notes.notes = Some("This is a secure note".to_string());
-        let cipher_with_notes = cipher_view_with_notes
-            .encrypt(&mut ctx, cipher_view_with_notes.key_identifier())
-            .ok()
-            .unwrap();
-
-        assert_eq!(cipher_without_notes.get_copyable_fields(), vec![]);
-        assert_eq!(
-            cipher_with_notes.get_copyable_fields(),
-            vec![CopyableCipherFields::SecureNotes]
-        );
-    }
-
-    #[test]
-    fn test_copyable_fields_secure_card() {
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
-        let mut ctx = key_store.context();
-        let mut cipher_view = generate_cipher();
-        cipher_view.r#type = CipherType::Card;
-        cipher_view.card = Some(CardView {
-            brand: Some("Visa".to_string()),
-            number: Some("4111111111111111".to_string()),
-            code: Some("123".to_string()),
-            cardholder_name: None,
-            exp_month: None,
-            exp_year: None,
-        });
-
-        let cipher = cipher_view
-            .encrypt(&mut ctx, cipher_view.key_identifier())
-            .ok()
-            .unwrap();
-
-        assert_eq!(
-            cipher.get_copyable_fields(),
-            vec![
-                CopyableCipherFields::CardNumber,
-                CopyableCipherFields::CardSecurityCode
-            ],
-        );
-    }
-
-    #[test]
-    fn test_copyable_fields_secure_identity_no_address() {
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
-        let mut ctx = key_store.context();
-        let mut cipher_view = generate_cipher();
-        cipher_view.r#type = CipherType::Identity;
-        cipher_view.identity = Some(IdentityView {
-            title: None,
-            first_name: None,
-            middle_name: None,
-            last_name: None,
-            address1: None,
-            address2: None,
-            address3: None,
-            city: None,
-            state: None,
-            postal_code: None,
-            country: None,
-            company: None,
-            email: Some("test@example.com".to_string()),
-            phone: Some("8675309".to_string()),
-            ssn: None,
-            username: Some("username".to_string()),
-            passport_number: None,
-            license_number: None,
-        });
-
-        let cipher = cipher_view
-            .encrypt(&mut ctx, cipher_view.key_identifier())
-            .ok()
-            .unwrap();
-
-        assert_eq!(
-            cipher.get_copyable_fields(),
-            vec![
-                CopyableCipherFields::IdentityUsername,
-                CopyableCipherFields::IdentityEmail,
-                CopyableCipherFields::IdentityPhone
-            ],
-        );
-    }
-
-    #[test]
-    fn test_copyable_fields_secure_identity_with_address() {
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
-        let mut ctx = key_store.context();
-        let mut cipher_view = generate_cipher();
-        cipher_view.r#type = CipherType::Identity;
-        cipher_view.identity = Some(IdentityView {
-            title: None,
-            first_name: None,
-            middle_name: None,
-            last_name: None,
-            address1: Some("123 Main St".to_string()),
-            address2: None,
-            address3: None,
-            city: Some("Anytown".to_string()),
-            state: Some("WI".to_string()),
-            postal_code: None,
-            country: None,
-            company: None,
-            email: None,
-            phone: None,
-            ssn: None,
-            username: None,
-            passport_number: None,
-            license_number: None,
-        });
-
-        let cipher = cipher_view
-            .encrypt(&mut ctx, cipher_view.key_identifier())
-            .ok()
-            .unwrap();
-
-        assert_eq!(
-            cipher.get_copyable_fields(),
-            vec![CopyableCipherFields::IdentityAddress],
-        );
     }
 }
