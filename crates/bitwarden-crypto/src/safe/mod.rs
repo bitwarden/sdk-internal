@@ -59,6 +59,7 @@ mod tests {
         // The key hierarchy implemented here is:
         // Pin             -> Local Device Encryption Key -> ...
         // Master Password -> ^
+        // Biometrics      -> ^
 
         let local_device_key = TestSymmKey::A(1);
         ctx.generate_symmetric_key(local_device_key).unwrap();
