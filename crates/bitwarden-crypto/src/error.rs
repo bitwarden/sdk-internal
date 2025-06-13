@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::fingerprint::FingerprintError;
 
+#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CryptoError {
@@ -53,6 +54,9 @@ pub enum CryptoError {
 
     #[error("Key algorithm does not match encrypted data type")]
     WrongKeyType,
+
+    #[error("Key ID in the COSE Encrypt0 message does not match the key ID in the key")]
+    WrongCoseKeyId,
 
     #[error("Invalid nonce length")]
     InvalidNonceLength,

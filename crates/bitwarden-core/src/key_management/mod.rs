@@ -9,6 +9,11 @@
 //!   [Encryptable](bitwarden_crypto::Encryptable) and [Decryptable](bitwarden_crypto::Encryptable).
 use bitwarden_crypto::{key_ids, KeyStore, SymmetricCryptoKey};
 
+pub mod crypto;
+mod crypto_client;
+
+pub use crypto_client::CryptoClient;
+
 key_ids! {
     #[symmetric]
     pub enum SymmetricKeyId {

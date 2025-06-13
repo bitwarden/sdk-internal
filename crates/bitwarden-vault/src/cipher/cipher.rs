@@ -19,6 +19,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     attachment, card,
+    card::CardListView,
     cipher_permissions::CipherPermissions,
     field, identity,
     local_data::{LocalData, LocalDataView},
@@ -30,6 +31,7 @@ use crate::{
     VaultParseError,
 };
 
+#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CipherError {
@@ -43,6 +45,7 @@ pub enum CipherError {
     AttachmentsWithoutKeys,
 }
 
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
@@ -55,6 +58,7 @@ pub enum CipherType {
     SshKey = 5,
 }
 
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
@@ -64,6 +68,7 @@ pub enum CipherRepromptType {
     Password = 1,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -75,6 +80,7 @@ pub struct EncryptionContext {
     pub cipher: Cipher,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -116,6 +122,7 @@ pub struct Cipher {
     pub revision_date: DateTime<Utc>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -156,6 +163,7 @@ pub struct CipherView {
     pub revision_date: DateTime<Utc>,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
@@ -163,11 +171,12 @@ pub struct CipherView {
 pub enum CipherListViewType {
     Login(LoginListView),
     SecureNote,
-    Card,
+    Card(CardListView),
     Identity,
     SshKey,
 }
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -459,6 +468,7 @@ fn build_subtitle_identity(first_name: Option<String>, last_name: Option<String>
 }
 
 impl CipherView {
+    #[allow(missing_docs)]
     pub fn generate_cipher_key(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -477,6 +487,7 @@ impl CipherView {
         Ok(())
     }
 
+    #[allow(missing_docs)]
     pub fn generate_checksums(&mut self) {
         if let Some(uris) = self.login.as_mut().and_then(|l| l.uris.as_mut()) {
             for uri in uris {
@@ -485,6 +496,7 @@ impl CipherView {
         }
     }
 
+    #[allow(missing_docs)]
     pub fn remove_invalid_checksums(&mut self) {
         if let Some(uris) = self.login.as_mut().and_then(|l| l.uris.as_mut()) {
             uris.retain(|u| u.is_checksum_valid());
@@ -508,6 +520,7 @@ impl CipherView {
         Ok(())
     }
 
+    #[allow(missing_docs)]
     pub fn decrypt_fido2_credentials(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -540,6 +553,7 @@ impl CipherView {
         Ok(())
     }
 
+    #[allow(missing_docs)]
     pub fn move_to_organization(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -567,6 +581,7 @@ impl CipherView {
         Ok(())
     }
 
+    #[allow(missing_docs)]
     pub fn set_new_fido2_credentials(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -581,6 +596,7 @@ impl CipherView {
         Ok(())
     }
 
+    #[allow(missing_docs)]
     pub fn get_fido2_credentials(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -595,6 +611,7 @@ impl CipherView {
         Ok(res)
     }
 
+    #[allow(missing_docs)]
     pub fn decrypt_fido2_private_key(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -633,7 +650,13 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
                     CipherListViewType::Login(login.decrypt(ctx, ciphers_key)?)
                 }
                 CipherType::SecureNote => CipherListViewType::SecureNote,
-                CipherType::Card => CipherListViewType::Card,
+                CipherType::Card => {
+                    let card = self
+                        .card
+                        .as_ref()
+                        .ok_or(CryptoError::MissingField("card"))?;
+                    CipherListViewType::Card(card.decrypt(ctx, ciphers_key)?)
+                }
                 CipherType::Identity => CipherListViewType::Identity,
                 CipherType::SshKey => CipherListViewType::SshKey,
             },

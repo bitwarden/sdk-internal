@@ -52,6 +52,7 @@ export type EncString = string;
 /// - `[data]`: is the encrypted data.
 /// - `[mac]`: (optional) is the MAC used to validate the integrity of the data.
 /// - `[cose_encrypt0_bytes]`: is the COSE Encrypt0 message, serialized to bytes
+#[allow(missing_docs)]
 #[derive(Clone, zeroize::ZeroizeOnDrop, PartialEq)]
 #[allow(unused, non_camel_case_types)]
 pub enum EncString {
@@ -113,6 +114,7 @@ impl EncString {
         s.map(|s| s.parse()).transpose()
     }
 
+    #[allow(missing_docs)]
     pub fn from_buffer(buf: &[u8]) -> Result<Self> {
         if buf.is_empty() {
             return Err(EncStringParseError::NoType.into());
@@ -146,6 +148,7 @@ impl EncString {
         }
     }
 
+    #[allow(missing_docs)]
     pub fn to_buffer(&self) -> Result<Vec<u8>> {
         let mut buf;
 

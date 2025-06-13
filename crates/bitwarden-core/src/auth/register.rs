@@ -3,13 +3,14 @@ use bitwarden_api_identity::{
     models::{KeysRequestModel, RegisterRequestModel},
 };
 use bitwarden_crypto::{
-    default_pbkdf2_iterations, CryptoError, HashPurpose, Kdf, MasterKey, RsaKeyPair,
+    default_pbkdf2_iterations, CryptoError, EncString, HashPurpose, Kdf, MasterKey, RsaKeyPair,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{ApiError, Client};
 
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RegisterRequest {
@@ -19,6 +20,7 @@ pub struct RegisterRequest {
     pub password_hint: Option<String>,
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum RegisterError {
     #[error(transparent)]
@@ -76,14 +78,15 @@ pub(super) fn make_register_keys(
 
     Ok(RegisterKeyResponse {
         master_password_hash,
-        encrypted_user_key: encrypted_user_key.to_string(),
+        encrypted_user_key,
         keys,
     })
 }
 
+#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct RegisterKeyResponse {
     pub master_password_hash: String,
-    pub encrypted_user_key: String,
+    pub encrypted_user_key: EncString,
     pub keys: RsaKeyPair,
 }

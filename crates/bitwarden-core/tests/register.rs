@@ -7,7 +7,7 @@ async fn test_register_initialize_crypto() {
     use std::num::NonZeroU32;
 
     use bitwarden_core::{
-        mobile::crypto::{InitUserCryptoMethod, InitUserCryptoRequest},
+        key_management::crypto::{InitUserCryptoMethod, InitUserCryptoRequest},
         Client,
     };
     use bitwarden_crypto::Kdf;
@@ -32,7 +32,7 @@ async fn test_register_initialize_crypto() {
             user_id: Some(uuid::Uuid::new_v4()),
             kdf_params: kdf,
             email: email.to_owned(),
-            private_key: register_response.keys.private.to_string(),
+            private_key: register_response.keys.private,
 
             method: InitUserCryptoMethod::Password {
                 password: password.to_owned(),
