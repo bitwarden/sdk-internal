@@ -176,6 +176,29 @@ pub enum CipherListViewType {
     SshKey,
 }
 
+/// Available fields on a cipher and can be copied from a the list view in the UI.
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+pub enum CopyableCipherFields {
+    LoginUsername,
+    LoginPassword,
+    LoginTotp,
+    CardNumber,
+    CardSecurityCode,
+    IdentityUsername,
+    IdentityEmail,
+    IdentityPhone,
+    IdentityAddress,
+    SshKey,
+    SecureNotes,
+}
+
+/// Helper trait for operations on cipher types.
+pub(super) trait CipherKind {
+    fn get_copyable_fields(&self, cipher: &Cipher) -> Vec<CopyableCipherFields>;
+}
+
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -209,6 +232,13 @@ pub struct CipherListView {
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
+
+    /// Fields on the cipher that are populated. This can be used in the
+    /// UI to determine the visibility of copy actions without needing
+    /// the full cipher details.
+    pub copyable_fields: Vec<CopyableCipherFields>,
+
+    pub local_data: Option<LocalDataView>,
 }
 
 impl CipherListView {
@@ -408,6 +438,38 @@ impl Cipher {
                     .unwrap_or_default()
             }
         })
+    }
+
+    /// Returns a list of copyable field names for this cipher,
+    /// based on the cipher type and populated properties.
+    fn get_copyable_fields(&self) -> Vec<CopyableCipherFields> {
+        match self.r#type {
+            CipherType::Login => self
+                .login
+                .as_ref()
+                .map(|login| login.get_copyable_fields(self))
+                .unwrap_or_default(),
+            CipherType::Card => self
+                .card
+                .as_ref()
+                .map(|card| card.get_copyable_fields(self))
+                .unwrap_or_default(),
+            CipherType::Identity => self
+                .identity
+                .as_ref()
+                .map(|identity| identity.get_copyable_fields(self))
+                .unwrap_or_default(),
+            CipherType::SshKey => self
+                .ssh_key
+                .as_ref()
+                .map(|ssh_key| ssh_key.get_copyable_fields(self))
+                .unwrap_or_default(),
+            CipherType::SecureNote => self
+                .secure_note
+                .as_ref()
+                .map(|secure_note| secure_note.get_copyable_fields(self))
+                .unwrap_or_default(),
+        }
     }
 }
 
@@ -674,6 +736,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
+            copyable_fields: self.get_copyable_fields(),
+            local_data: self.local_data.decrypt(ctx, ciphers_key)?,
         })
     }
 }
@@ -925,7 +989,13 @@ mod tests {
                 attachments: 0,
                 creation_date: cipher.creation_date,
                 deleted_date: cipher.deleted_date,
-                revision_date: cipher.revision_date
+                revision_date: cipher.revision_date,
+                copyable_fields: vec![
+                    CopyableCipherFields::LoginUsername,
+                    CopyableCipherFields::LoginPassword,
+                    CopyableCipherFields::LoginTotp
+                ],
+                local_data: None,
             }
         )
     }
