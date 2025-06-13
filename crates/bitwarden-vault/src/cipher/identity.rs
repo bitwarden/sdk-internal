@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
+use super::cipher::CipherKind;
 use crate::VaultParseError;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -140,5 +141,92 @@ impl TryFrom<CipherIdentityModel> for Identity {
             passport_number: EncString::try_from_optional(identity.passport_number)?,
             license_number: EncString::try_from_optional(identity.license_number)?,
         })
+    }
+}
+
+impl CipherKind for Identity {
+    fn decrypt_subtitle(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<String, CryptoError> {
+        let first_name = self
+            .first_name
+            .as_ref()
+            .map(|f| f.decrypt(ctx, key))
+            .transpose()?;
+        let last_name = self
+            .last_name
+            .as_ref()
+            .map(|l| l.decrypt(ctx, key))
+            .transpose()?;
+
+        Ok(build_subtitle_identity(first_name, last_name))
+    }
+}
+
+/// Builds the subtitle for a card cipher
+fn build_subtitle_identity(first_name: Option<String>, last_name: Option<String>) -> String {
+    let len = match (first_name.as_ref(), last_name.as_ref()) {
+        (Some(first_name), Some(last_name)) => first_name.len() + last_name.len() + 1,
+        (Some(first_name), None) => first_name.len(),
+        (None, Some(last_name)) => last_name.len(),
+        (None, None) => 0,
+    };
+
+    let mut subtitle = String::with_capacity(len);
+
+    if let Some(first_name) = &first_name {
+        subtitle.push_str(first_name);
+    }
+
+    if let Some(last_name) = &last_name {
+        if !subtitle.is_empty() {
+            subtitle.push(' ');
+        }
+        subtitle.push_str(last_name);
+    }
+
+    subtitle
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_subtitle_identity() {
+        let first_name = Some("John".to_owned());
+        let last_name = Some("Doe".to_owned());
+
+        let subtitle = build_subtitle_identity(first_name, last_name);
+        assert_eq!(subtitle, "John Doe");
+    }
+
+    #[test]
+    fn test_build_subtitle_identity_only_first() {
+        let first_name = Some("John".to_owned());
+        let last_name = None;
+
+        let subtitle = build_subtitle_identity(first_name, last_name);
+        assert_eq!(subtitle, "John");
+    }
+
+    #[test]
+    fn test_build_subtitle_identity_only_last() {
+        let first_name = None;
+        let last_name = Some("Doe".to_owned());
+
+        let subtitle = build_subtitle_identity(first_name, last_name);
+        assert_eq!(subtitle, "Doe");
+    }
+
+    #[test]
+    fn test_build_subtitle_identity_none() {
+        let first_name = None;
+        let last_name = None;
+
+        let subtitle = build_subtitle_identity(first_name, last_name);
+        assert_eq!(subtitle, "");
     }
 }

@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
+use super::cipher::CipherKind;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -56,5 +58,47 @@ impl Decryptable<KeyIds, SymmetricKeyId, SshKeyView> for SshKey {
             public_key: self.public_key.decrypt(ctx, key)?,
             fingerprint: self.fingerprint.decrypt(ctx, key)?,
         })
+    }
+}
+
+impl CipherKind for SshKey {
+    fn decrypt_subtitle(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<String, CryptoError> {
+        self.fingerprint.decrypt(ctx, key)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bitwarden_core::key_management::create_test_crypto_with_user_key;
+    use bitwarden_crypto::SymmetricCryptoKey;
+
+    use super::*;
+
+    #[test]
+    fn test_subtitle_ssh_key() {
+        let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
+        let key_store = create_test_crypto_with_user_key(key);
+        let key = SymmetricKeyId::User;
+        let mut ctx = key_store.context();
+
+        let original_subtitle = "SHA256:1JjFjvPRkj1Gbf2qRP1dgHiIzEuNAEvp+92x99jw3K0".to_string();
+        let fingerprint_encrypted = original_subtitle.to_owned().encrypt(&mut ctx, key).unwrap();
+        let private_key_encrypted = "".to_string().encrypt(&mut ctx, key).unwrap();
+        let public_key_encrypted = "".to_string().encrypt(&mut ctx, key).unwrap();
+
+        let ssh_key = SshKey {
+            private_key: private_key_encrypted,
+            public_key: public_key_encrypted,
+            fingerprint: fingerprint_encrypted,
+        };
+
+        assert_eq!(
+            ssh_key.decrypt_subtitle(&mut ctx, key).unwrap(),
+            original_subtitle
+        );
     }
 }

@@ -45,6 +45,16 @@ pub enum CipherError {
     AttachmentsWithoutKeys,
 }
 
+/// Helper trait for operations on cipher types.
+pub(super) trait CipherKind {
+    /// Returns the item's subtitle.
+    fn decrypt_subtitle(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<String, CryptoError>;
+}
+
 #[allow(missing_docs)]
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
@@ -349,122 +359,27 @@ impl Cipher {
         }
     }
 
-    fn get_decrypted_subtitle(
+    /// Temporary helper to return a [CipherKind] instance based on the cipher type.
+    fn get_kind(&self) -> Option<&dyn CipherKind> {
+        match self.r#type {
+            CipherType::Login => self.login.as_ref().map(|v| v as _),
+            CipherType::Card => self.card.as_ref().map(|v| v as _),
+            CipherType::Identity => self.identity.as_ref().map(|v| v as _),
+            CipherType::SshKey => self.ssh_key.as_ref().map(|v| v as _),
+            _ => None,
+        }
+    }
+
+    /// Returns the decrypted subtitle for the cipher, if applicable.
+    fn decrypt_subtitle(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<String, CryptoError> {
-        Ok(match self.r#type {
-            CipherType::Login => {
-                let Some(login) = &self.login else {
-                    return Ok(String::new());
-                };
-                login.username.decrypt(ctx, key)?.unwrap_or_default()
-            }
-            CipherType::SecureNote => String::new(),
-            CipherType::Card => {
-                let Some(card) = &self.card else {
-                    return Ok(String::new());
-                };
-
-                build_subtitle_card(
-                    card.brand
-                        .as_ref()
-                        .map(|b| b.decrypt(ctx, key))
-                        .transpose()?,
-                    card.number
-                        .as_ref()
-                        .map(|n| n.decrypt(ctx, key))
-                        .transpose()?,
-                )
-            }
-            CipherType::Identity => {
-                let Some(identity) = &self.identity else {
-                    return Ok(String::new());
-                };
-
-                build_subtitle_identity(
-                    identity
-                        .first_name
-                        .as_ref()
-                        .map(|f| f.decrypt(ctx, key))
-                        .transpose()?,
-                    identity
-                        .last_name
-                        .as_ref()
-                        .map(|l| l.decrypt(ctx, key))
-                        .transpose()?,
-                )
-            }
-            CipherType::SshKey => {
-                let Some(ssh_key) = &self.ssh_key else {
-                    return Ok(String::new());
-                };
-
-                Some(ssh_key.fingerprint.clone())
-                    .as_ref()
-                    .map(|c| c.decrypt(ctx, key))
-                    .transpose()?
-                    .unwrap_or_default()
-            }
-        })
+        self.get_kind()
+            .map(|sub| sub.decrypt_subtitle(ctx, key))
+            .unwrap_or_else(|| Ok(String::new()))
     }
-}
-
-/// Builds the subtitle for a card cipher
-fn build_subtitle_card(brand: Option<String>, number: Option<String>) -> String {
-    // Attempt to pre-allocate the string with the expected max-size
-    let mut subtitle =
-        String::with_capacity(brand.as_ref().map(|b| b.len()).unwrap_or_default() + 8);
-
-    if let Some(brand) = brand {
-        subtitle.push_str(&brand);
-    }
-
-    if let Some(number) = number {
-        let number_len = number.len();
-        if number_len > 4 {
-            if !subtitle.is_empty() {
-                subtitle.push_str(", ");
-            }
-
-            // On AMEX cards we show 5 digits instead of 4
-            let digit_count = match &number[0..2] {
-                "34" | "37" => 5,
-                _ => 4,
-            };
-
-            subtitle.push('*');
-            subtitle.push_str(&number[(number_len - digit_count)..]);
-        }
-    }
-
-    subtitle
-}
-
-/// Builds the subtitle for a card cipher
-fn build_subtitle_identity(first_name: Option<String>, last_name: Option<String>) -> String {
-    let len = match (first_name.as_ref(), last_name.as_ref()) {
-        (Some(first_name), Some(last_name)) => first_name.len() + last_name.len() + 1,
-        (Some(first_name), None) => first_name.len(),
-        (None, Some(last_name)) => last_name.len(),
-        (None, None) => 0,
-    };
-
-    let mut subtitle = String::with_capacity(len);
-
-    if let Some(first_name) = &first_name {
-        subtitle.push_str(first_name);
-    }
-
-    if let Some(last_name) = &last_name {
-        if !subtitle.is_empty() {
-            subtitle.push(' ');
-        }
-        subtitle.push_str(last_name);
-    }
-
-    subtitle
 }
 
 impl CipherView {
@@ -638,7 +553,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             key: self.key.clone(),
             name: self.name.decrypt(ctx, ciphers_key).ok().unwrap_or_default(),
             subtitle: self
-                .get_decrypted_subtitle(ctx, ciphers_key)
+                .decrypt_subtitle(ctx, ciphers_key)
                 .ok()
                 .unwrap_or_default(),
             r#type: match self.r#type {
@@ -783,7 +698,6 @@ mod tests {
         create_test_crypto_with_user_and_org_key, create_test_crypto_with_user_key,
     };
     use bitwarden_crypto::SymmetricCryptoKey;
-    use ssh_key::SshKey;
 
     use super::*;
     use crate::{login::Fido2CredentialListView, Fido2Credential};
@@ -1223,148 +1137,6 @@ mod tests {
             cred2.credential_id.to_string(),
             cred.credential_id.to_string()
         );
-    }
-
-    #[test]
-    fn test_build_subtitle_card_visa() {
-        let brand = Some("Visa".to_owned());
-        let number = Some("4111111111111111".to_owned());
-
-        let subtitle = build_subtitle_card(brand, number);
-        assert_eq!(subtitle, "Visa, *1111");
-    }
-
-    #[test]
-    fn test_build_subtitle_card_mastercard() {
-        let brand = Some("Mastercard".to_owned());
-        let number = Some("5555555555554444".to_owned());
-
-        let subtitle = build_subtitle_card(brand, number);
-        assert_eq!(subtitle, "Mastercard, *4444");
-    }
-
-    #[test]
-    fn test_build_subtitle_card_amex() {
-        let brand = Some("Amex".to_owned());
-        let number = Some("378282246310005".to_owned());
-
-        let subtitle = build_subtitle_card(brand, number);
-        assert_eq!(subtitle, "Amex, *10005");
-    }
-
-    #[test]
-    fn test_build_subtitle_card_underflow() {
-        let brand = Some("Mastercard".to_owned());
-        let number = Some("4".to_owned());
-
-        let subtitle = build_subtitle_card(brand, number);
-        assert_eq!(subtitle, "Mastercard");
-    }
-
-    #[test]
-    fn test_build_subtitle_card_only_brand() {
-        let brand = Some("Mastercard".to_owned());
-        let number = None;
-
-        let subtitle = build_subtitle_card(brand, number);
-        assert_eq!(subtitle, "Mastercard");
-    }
-
-    #[test]
-    fn test_build_subtitle_card_only_card() {
-        let brand = None;
-        let number = Some("5555555555554444".to_owned());
-
-        let subtitle = build_subtitle_card(brand, number);
-        assert_eq!(subtitle, "*4444");
-    }
-
-    #[test]
-    fn test_build_subtitle_identity() {
-        let first_name = Some("John".to_owned());
-        let last_name = Some("Doe".to_owned());
-
-        let subtitle = build_subtitle_identity(first_name, last_name);
-        assert_eq!(subtitle, "John Doe");
-    }
-
-    #[test]
-    fn test_build_subtitle_identity_only_first() {
-        let first_name = Some("John".to_owned());
-        let last_name = None;
-
-        let subtitle = build_subtitle_identity(first_name, last_name);
-        assert_eq!(subtitle, "John");
-    }
-
-    #[test]
-    fn test_build_subtitle_identity_only_last() {
-        let first_name = None;
-        let last_name = Some("Doe".to_owned());
-
-        let subtitle = build_subtitle_identity(first_name, last_name);
-        assert_eq!(subtitle, "Doe");
-    }
-
-    #[test]
-    fn test_build_subtitle_identity_none() {
-        let first_name = None;
-        let last_name = None;
-
-        let subtitle = build_subtitle_identity(first_name, last_name);
-        assert_eq!(subtitle, "");
-    }
-
-    #[test]
-    fn test_subtitle_ssh_key() {
-        let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
-        let key_store = create_test_crypto_with_user_key(key);
-        let key = SymmetricKeyId::User;
-        let mut ctx = key_store.context();
-
-        let original_subtitle = "SHA256:1JjFjvPRkj1Gbf2qRP1dgHiIzEuNAEvp+92x99jw3K0".to_string();
-        let fingerprint_encrypted = original_subtitle.to_owned().encrypt(&mut ctx, key).unwrap();
-        let private_key_encrypted = "".to_string().encrypt(&mut ctx, key).unwrap();
-        let public_key_encrypted = "".to_string().encrypt(&mut ctx, key).unwrap();
-        let ssh_key_cipher = Cipher {
-            id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
-            organization_id: None,
-            folder_id: None,
-            collection_ids: vec![],
-            r#type: CipherType::SshKey,
-            key: None,
-            name: "My test ssh key"
-                .to_string()
-                .encrypt(&mut ctx, key)
-                .unwrap(),
-            notes: None,
-            login: None,
-            identity: None,
-            card: None,
-            secure_note: None,
-            ssh_key: Some(SshKey {
-                private_key: private_key_encrypted,
-                public_key: public_key_encrypted,
-                fingerprint: fingerprint_encrypted,
-            }),
-            favorite: false,
-            reprompt: CipherRepromptType::None,
-            organization_use_totp: false,
-            edit: true,
-            permissions: None,
-            view_password: true,
-            local_data: None,
-            attachments: None,
-            fields: None,
-            password_history: None,
-            creation_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
-            deleted_date: None,
-            revision_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
-        };
-        let subtitle = ssh_key_cipher
-            .get_decrypted_subtitle(&mut ctx, key)
-            .unwrap();
-        assert_eq!(subtitle, original_subtitle);
     }
 
     #[test]

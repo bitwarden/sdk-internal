@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
+use super::cipher::CipherKind;
 use crate::VaultParseError;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -120,5 +121,116 @@ impl TryFrom<CipherCardModel> for Card {
             brand: EncString::try_from_optional(card.brand)?,
             number: EncString::try_from_optional(card.number)?,
         })
+    }
+}
+
+impl CipherKind for Card {
+    fn decrypt_subtitle(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<String, CryptoError> {
+        let brand = self
+            .brand
+            .as_ref()
+            .map(|b| b.decrypt(ctx, key))
+            .transpose()?;
+        let number = self
+            .number
+            .as_ref()
+            .map(|n| n.decrypt(ctx, key))
+            .transpose()?;
+
+        Ok(build_subtitle_card(brand, number))
+    }
+}
+
+/// Builds the subtitle for a card cipher
+fn build_subtitle_card(brand: Option<String>, number: Option<String>) -> String {
+    // Attempt to pre-allocate the string with the expected max-size
+    let mut subtitle =
+        String::with_capacity(brand.as_ref().map(|b| b.len()).unwrap_or_default() + 8);
+
+    if let Some(brand) = brand {
+        subtitle.push_str(&brand);
+    }
+
+    if let Some(number) = number {
+        let number_len = number.len();
+        if number_len > 4 {
+            if !subtitle.is_empty() {
+                subtitle.push_str(", ");
+            }
+
+            // On AMEX cards we show 5 digits instead of 4
+            let digit_count = match &number[0..2] {
+                "34" | "37" => 5,
+                _ => 4,
+            };
+
+            subtitle.push('*');
+            subtitle.push_str(&number[(number_len - digit_count)..]);
+        }
+    }
+
+    subtitle
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_subtitle_card_visa() {
+        let brand = Some("Visa".to_owned());
+        let number = Some("4111111111111111".to_owned());
+
+        let subtitle = build_subtitle_card(brand, number);
+        assert_eq!(subtitle, "Visa, *1111");
+    }
+
+    #[test]
+    fn test_build_subtitle_card_mastercard() {
+        let brand = Some("Mastercard".to_owned());
+        let number = Some("5555555555554444".to_owned());
+
+        let subtitle = build_subtitle_card(brand, number);
+        assert_eq!(subtitle, "Mastercard, *4444");
+    }
+
+    #[test]
+    fn test_build_subtitle_card_amex() {
+        let brand = Some("Amex".to_owned());
+        let number = Some("378282246310005".to_owned());
+
+        let subtitle = build_subtitle_card(brand, number);
+        assert_eq!(subtitle, "Amex, *10005");
+    }
+
+    #[test]
+    fn test_build_subtitle_card_underflow() {
+        let brand = Some("Mastercard".to_owned());
+        let number = Some("4".to_owned());
+
+        let subtitle = build_subtitle_card(brand, number);
+        assert_eq!(subtitle, "Mastercard");
+    }
+
+    #[test]
+    fn test_build_subtitle_card_only_brand() {
+        let brand = Some("Mastercard".to_owned());
+        let number = None;
+
+        let subtitle = build_subtitle_card(brand, number);
+        assert_eq!(subtitle, "Mastercard");
+    }
+
+    #[test]
+    fn test_build_subtitle_card_only_card() {
+        let brand = None;
+        let number = Some("5555555555554444".to_owned());
+
+        let subtitle = build_subtitle_card(brand, number);
+        assert_eq!(subtitle, "*4444");
     }
 }
