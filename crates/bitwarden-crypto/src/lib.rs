@@ -34,6 +34,7 @@ mod cose;
 pub use cose::CoseSerializable;
 mod signing;
 pub use signing::*;
+mod safe;
 mod traits;
 mod xchacha20;
 pub use traits::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
