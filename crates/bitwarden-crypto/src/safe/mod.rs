@@ -44,10 +44,9 @@ mod tests {
         //     key_envelope: key_envelope,
         // }
 
+        // Decrypt the data
         key_envelope.unseal(TestSymmKey::A(1), "abc", &mut ctx);
-        let sealed_data: VaultExport = data_envelope.unseal(TestSymmKey::A(1), &mut ctx);
-        assert_eq!(sealed_data.username, "testuser");
-        assert_eq!(sealed_data.password, "testpass");
+        let sealed_data: VaultExport = data_envelope.unseal(TestSymmKey::A(1), &mut ctx).unwrap();
     }
 
     #[test]

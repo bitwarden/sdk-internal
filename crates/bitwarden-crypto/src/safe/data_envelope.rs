@@ -32,7 +32,11 @@ impl<Ids: KeyIds> DataEnvelope<Ids> {
         unimplemented!()
     }
 
-    pub(crate) fn unseal<T>(&self, cek_keyslot: Ids::Symmetric, mut ctx: &KeyStoreContext<Ids>) -> T
+    pub(crate) fn unseal<T>(
+        &self,
+        cek_keyslot: Ids::Symmetric,
+        mut ctx: &KeyStoreContext<Ids>,
+    ) -> Result<T, crate::CryptoError>
     where
         T: DeserializeOwned + SealableData,
     {

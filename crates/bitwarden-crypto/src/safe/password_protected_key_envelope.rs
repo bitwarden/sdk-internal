@@ -43,7 +43,7 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
         target_keyslot: Ids::Symmetric,
         password: &str,
         ctx: &KeyStoreContext<Ids>,
-    ) {
+    ) -> Result<(), crate::CryptoError> {
         // KDF and SALT are stored in the CoseEncrypt0 headers
         // Derive the key with the KDF and SALT, then unwrap the symmetric key from the CoseEncrypt0 payload.
         unimplemented!()
