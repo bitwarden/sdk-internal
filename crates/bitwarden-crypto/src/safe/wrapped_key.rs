@@ -11,9 +11,9 @@ pub(crate) struct WrappedSymmetricKey<Ids: KeyIds> {
 impl<Ids: KeyIds> WrappedSymmetricKey<Ids> {
     /// Wraps a symmetric key using the provided wrapping key, and sets it to the provided key store context keyslot.
     pub(crate) fn wrap(
-        ctx: &KeyStoreContext<Ids>,
-        wrapping_key: Ids::Symmetric,
         key_to_wrap: Ids::Symmetric,
+        wrapping_key: Ids::Symmetric,
+        ctx: &KeyStoreContext<Ids>,
     ) -> Self {
         unimplemented!()
     }
@@ -21,8 +21,9 @@ impl<Ids: KeyIds> WrappedSymmetricKey<Ids> {
     /// Unwraps the wrapped key using the provided wrapping key, and sets it to the provided key store context keyslot.
     pub(crate) fn unwrap(
         &self,
-        ctx: &KeyStoreContext<Ids>,
+        target_keyslot: Ids::Symmetric,
         wrapping_key: Ids::Symmetric,
+        ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Symmetric, CryptoError> {
         unimplemented!()
     }
@@ -30,9 +31,9 @@ impl<Ids: KeyIds> WrappedSymmetricKey<Ids> {
     /// Rewraps the wrapped key with a new wrapping key. This can be used for key-rotation.
     pub(crate) fn rewrap(
         &self,
-        ctx: &KeyStoreContext<Ids>,
         old_wrapping_key: Ids::Symmetric,
         new_wrapping_key: Ids::Symmetric,
+        ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Self, CryptoError> {
         unimplemented!()
     }

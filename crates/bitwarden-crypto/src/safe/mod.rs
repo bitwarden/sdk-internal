@@ -36,16 +36,16 @@ mod tests {
             username: "testuser".to_string(),
             password: "testpass".to_string(),
         };
-        let data_envelope = DataEnvelope::seal(&export, &mut ctx, TestSymmKey::A(1));
-        let key_envelope = PasswordProtectedKeyEnvelope::seal("abc", &mut ctx, TestSymmKey::A(1));
+        let data_envelope = DataEnvelope::seal(&export, TestSymmKey::A(1), &mut ctx);
+        let key_envelope = PasswordProtectedKeyEnvelope::seal(TestSymmKey::A(1), "abc", &mut ctx);
 
         // export = {
         //     data_envelope: data_envelope,
         //     key_envelope: key_envelope,
         // }
 
-        key_envelope.unseal("abc", &mut ctx, TestSymmKey::A(1));
-        let sealed_data: VaultExport = data_envelope.unseal(&mut ctx, TestSymmKey::A(1));
+        key_envelope.unseal(TestSymmKey::A(1), "abc", &mut ctx);
+        let sealed_data: VaultExport = data_envelope.unseal(TestSymmKey::A(1), &mut ctx);
         assert_eq!(sealed_data.username, "testuser");
         assert_eq!(sealed_data.password, "testpass");
     }
@@ -64,25 +64,25 @@ mod tests {
 
         // Set up unlock methods
         let pin_key_envelope =
-            PasswordProtectedKeyEnvelope::seal("1234", &mut ctx, local_device_key);
+            PasswordProtectedKeyEnvelope::seal(local_device_key, "1234", &mut ctx);
         let master_password_key_envelope =
-            PasswordProtectedKeyEnvelope::seal("masterpassword", &mut ctx, local_device_key);
+            PasswordProtectedKeyEnvelope::seal(local_device_key, "masterpassword", &mut ctx);
 
         // Biometrics
         let biometric_key = TestSymmKey::A(2);
         ctx.generate_symmetric_key(biometric_key).unwrap();
         let biometrics_wrapped_local_device_key =
-            WrappedSymmetricKey::wrap(&ctx, biometric_key, local_device_key);
+            WrappedSymmetricKey::wrap(local_device_key, biometric_key, &ctx);
 
         // Unlocking examples
         //
         // unlock with pin
-        pin_key_envelope.unseal("1234", &mut ctx, local_device_key);
+        pin_key_envelope.unseal(local_device_key, "1234", &mut ctx);
         // unlock with master password
-        master_password_key_envelope.unseal("masterpassword", &mut ctx, local_device_key);
+        master_password_key_envelope.unseal(local_device_key, "masterpassword", &mut ctx);
         // unlock with biometrics
         let _unwrapped_local_device_key = biometrics_wrapped_local_device_key
-            .unwrap(&ctx, biometric_key)
+            .unwrap(local_device_key, biometric_key, &mut ctx)
             .unwrap();
     }
 
@@ -102,12 +102,12 @@ mod tests {
 
         let url_fragment = "ABCDE"; // the URL of a send contains a fragment with the send secret. This is the password of the send.
         let url_sealed_send_key =
-            PasswordProtectedKeyEnvelope::seal(url_fragment, &mut ctx, send_key_id);
+            PasswordProtectedKeyEnvelope::seal(send_key_id, url_fragment, &mut ctx);
 
         let metadata = SendMetadata {
             name: "Test Send".to_string(),
         };
-        let metadata_envelope = DataEnvelope::seal(&metadata, &mut ctx, send_key_id);
+        let metadata_envelope = DataEnvelope::seal(&metadata, send_key_id, &mut ctx);
 
         #[derive(serde::Serialize, serde::Deserialize)]
         struct AttachmentBytes(Vec<u8>);
@@ -115,9 +115,9 @@ mod tests {
 
         let attachment_key_id = TestSymmKey::A(2);
         let attachment1 = AttachmentBytes(vec![1, 2, 3, 4, 5]);
-        let attachment1_envelope = DataEnvelope::seal(&attachment1, &mut ctx, attachment_key_id);
+        let attachment1_envelope = DataEnvelope::seal(&attachment1, attachment_key_id, &mut ctx);
         let attachment1_wrapped_key =
-            WrappedSymmetricKey::wrap(&ctx, send_key_id, attachment_key_id);
+            WrappedSymmetricKey::wrap(send_key_id, attachment_key_id, &ctx);
 
         // upload:
         // (
@@ -156,9 +156,9 @@ mod tests {
             let cipher = CipherData {
                 username: format!("user{}", i),
             };
-            let cipher_envelope = DataEnvelope::seal(&cipher, &mut ctx, TestSymmKey::A(i));
+            let cipher_envelope = DataEnvelope::seal(&cipher, TestSymmKey::A(i), &mut ctx);
             let wrapped_cipher_key =
-                WrappedSymmetricKey::wrap(&ctx, vault_key_id, TestSymmKey::A(i));
+                WrappedSymmetricKey::wrap(vault_key_id, TestSymmKey::A(i), &ctx);
             ciphers.push((cipher_envelope, wrapped_cipher_key));
         }
         // Upload ciphers + keys
@@ -169,7 +169,7 @@ mod tests {
         // Rewrap all ciphers with the new vault key
         for (_, wrapped_cipher_key) in &ciphers {
             let new_wrapped_cipher_key = wrapped_cipher_key
-                .rewrap(&ctx, vault_key_id, new_vault_key_id)
+                .rewrap(vault_key_id, new_vault_key_id, &mut ctx)
                 .unwrap();
             // Reupload the key
             // upload: new_wrapped_cipher_key

@@ -14,21 +14,21 @@ pub(crate) struct PasswordProtectedKeyEnvelope<Ids: KeyIds> {
 impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
     /// Seals a symmetric key with a password, using the current default KDF parameters and a random salt.
     pub(crate) fn seal(
+        key_to_seal: Ids::Symmetric,
         password: &str,
         ctx: &KeyStoreContext<Ids>,
-        keyslot_id: Ids::Symmetric,
     ) -> Self {
         // KDF = default kdf - hardcoded
         let kdf = Kdf::default();
-        Self::seal_with_custom_kdf(password, &kdf, ctx, keyslot_id)
+        Self::seal_with_custom_kdf(key_to_seal, password, &kdf, ctx)
     }
 
     /// Seals a symmetric key with custom KDF difficulty, and a random salt.
     pub(crate) fn seal_with_custom_kdf(
+        key_to_seal: Ids::Symmetric,
         password: &str,
-        kdf: &Kdf,
+        kdf_settings: &Kdf,
         ctx: &KeyStoreContext<Ids>,
-        keyslot_id: Ids::Symmetric,
     ) -> Self {
         // KDF = CURRENT_DEFAULT_KDF
         // SALT = RANDOM
@@ -40,9 +40,9 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
     /// Unseals a symmetric key from the password-protected envelope, and stores it in the key store context.
     pub(crate) fn unseal(
         &self,
+        target_keyslot: Ids::Symmetric,
         password: &str,
         ctx: &KeyStoreContext<Ids>,
-        keyslot_id: Ids::Symmetric,
     ) {
         // KDF and SALT are stored in the CoseEncrypt0 headers
         // Derive the key with the KDF and SALT, then unwrap the symmetric key from the CoseEncrypt0 payload.

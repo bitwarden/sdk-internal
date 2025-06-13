@@ -18,10 +18,11 @@ pub(crate) struct DataEnvelope<Ids: KeyIds> {
 }
 
 impl<Ids: KeyIds> DataEnvelope<Ids> {
+    // Seals a struct into an encrypted blob, and writes the generated content-encryption-key to the key store context.
     pub(crate) fn seal<T>(
         data: &T,
+        cek_keyslot: Ids::Symmetric,
         mut ctx: &KeyStoreContext<Ids>,
-        keyslot_id: Ids::Symmetric,
     ) -> DataEnvelope<Ids>
     where
         T: Serialize + SealableData,
@@ -31,7 +32,7 @@ impl<Ids: KeyIds> DataEnvelope<Ids> {
         unimplemented!()
     }
 
-    pub(crate) fn unseal<T>(&self, mut ctx: &KeyStoreContext<Ids>, keyslot_id: Ids::Symmetric) -> T
+    pub(crate) fn unseal<T>(&self, cek_keyslot: Ids::Symmetric, mut ctx: &KeyStoreContext<Ids>) -> T
     where
         T: DeserializeOwned + SealableData,
     {
