@@ -180,7 +180,7 @@ pub enum CipherListViewType {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-pub enum CopiableCipherFields {
+pub enum CopyableCipherFields {
     LoginUsername,
     LoginPassword,
     LoginTotp,
@@ -231,7 +231,7 @@ pub struct CipherListView {
     /// Fields on the cipher that are populated. This can be used in the
     /// UI to determine the visibility of copy actions without needing
     /// the full cipher details.
-    pub copiable_fields: Vec<CopiableCipherFields>,
+    pub copyable_fields: Vec<CopyableCipherFields>,
 
     pub local_data: Option<LocalDataView>,
 }
@@ -438,8 +438,8 @@ impl Cipher {
     /// Adds the `field_name` to the `fields` vector if the value is populated.
     fn push_if_populated(
         encs: &[&Option<EncString>],
-        field_name: CopiableCipherFields,
-        fields: &mut Vec<CopiableCipherFields>,
+        field_name: CopyableCipherFields,
+        fields: &mut Vec<CopyableCipherFields>,
     ) {
         let any_populated = encs.iter().any(|enc| enc.is_some());
         if any_populated {
@@ -447,26 +447,26 @@ impl Cipher {
         }
     }
 
-    /// Returns a list of copiable field names for this cipher,
+    /// Returns a list of copyable field names for this cipher,
     /// based on the cipher type and populated properties.
-    fn get_copiable_fields(&self) -> Vec<CopiableCipherFields> {
+    fn get_copyable_fields(&self) -> Vec<CopyableCipherFields> {
         let mut fields = Vec::new();
         match self.r#type {
             CipherType::Login => {
                 if let Some(login) = &self.login {
                     Self::push_if_populated(
                         &[&login.username],
-                        CopiableCipherFields::LoginUsername,
+                        CopyableCipherFields::LoginUsername,
                         &mut fields,
                     );
                     Self::push_if_populated(
                         &[&login.password],
-                        CopiableCipherFields::LoginPassword,
+                        CopyableCipherFields::LoginPassword,
                         &mut fields,
                     );
                     Self::push_if_populated(
                         &[&login.totp],
-                        CopiableCipherFields::LoginTotp,
+                        CopyableCipherFields::LoginTotp,
                         &mut fields,
                     );
                 }
@@ -475,12 +475,12 @@ impl Cipher {
                 if let Some(card) = &self.card {
                     Self::push_if_populated(
                         &[&card.number],
-                        CopiableCipherFields::CardNumber,
+                        CopyableCipherFields::CardNumber,
                         &mut fields,
                     );
                     Self::push_if_populated(
                         &[&card.code],
-                        CopiableCipherFields::CardSecurityCode,
+                        CopyableCipherFields::CardSecurityCode,
                         &mut fields,
                     );
                 }
@@ -489,17 +489,17 @@ impl Cipher {
                 if let Some(identity) = &self.identity {
                     Self::push_if_populated(
                         &[&identity.username],
-                        CopiableCipherFields::IdentityUsername,
+                        CopyableCipherFields::IdentityUsername,
                         &mut fields,
                     );
                     Self::push_if_populated(
                         &[&identity.email],
-                        CopiableCipherFields::IdentityEmail,
+                        CopyableCipherFields::IdentityEmail,
                         &mut fields,
                     );
                     Self::push_if_populated(
                         &[&identity.phone],
-                        CopiableCipherFields::IdentityPhone,
+                        CopyableCipherFields::IdentityPhone,
                         &mut fields,
                     );
                     Self::push_if_populated(
@@ -511,19 +511,19 @@ impl Cipher {
                             &identity.state,
                             &identity.postal_code,
                         ],
-                        CopiableCipherFields::IdentityAddress,
+                        CopyableCipherFields::IdentityAddress,
                         &mut fields,
                     );
                 }
             }
             CipherType::SshKey => {
                 // All properties SSH Keys are required
-                fields.push(CopiableCipherFields::SshKey);
+                fields.push(CopyableCipherFields::SshKey);
             }
             CipherType::SecureNote => {
                 Self::push_if_populated(
                     &[&self.notes],
-                    CopiableCipherFields::SecureNotes,
+                    CopyableCipherFields::SecureNotes,
                     &mut fields,
                 );
             }
@@ -795,7 +795,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
-            copiable_fields: self.get_copiable_fields(),
+            copyable_fields: self.get_copyable_fields(),
             local_data: self.local_data.decrypt(ctx, ciphers_key)?,
         })
     }
@@ -1049,10 +1049,10 @@ mod tests {
                 creation_date: cipher.creation_date,
                 deleted_date: cipher.deleted_date,
                 revision_date: cipher.revision_date,
-                copiable_fields: vec![
-                    CopiableCipherFields::LoginUsername,
-                    CopiableCipherFields::LoginPassword,
-                    CopiableCipherFields::LoginTotp
+                copyable_fields: vec![
+                    CopyableCipherFields::LoginUsername,
+                    CopyableCipherFields::LoginPassword,
+                    CopyableCipherFields::LoginTotp
                 ],
                 local_data: None,
             }
@@ -1520,7 +1520,7 @@ mod tests {
     }
 
     #[test]
-    fn test_copiable_fields_login() {
+    fn test_copyable_fields_login() {
         let key_store =
             create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
         let mut ctx = key_store.context();
@@ -1542,16 +1542,16 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            cipher.get_copiable_fields(),
+            cipher.get_copyable_fields(),
             vec![
-                CopiableCipherFields::LoginUsername,
-                CopiableCipherFields::LoginPassword,
+                CopyableCipherFields::LoginUsername,
+                CopyableCipherFields::LoginPassword,
             ]
         );
     }
 
     #[test]
-    fn test_copiable_fields_secure_notes() {
+    fn test_copyable_fields_secure_notes() {
         let key_store =
             create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
         let mut ctx = key_store.context();
@@ -1570,15 +1570,15 @@ mod tests {
             .ok()
             .unwrap();
 
-        assert_eq!(cipher_without_notes.get_copiable_fields(), vec![]);
+        assert_eq!(cipher_without_notes.get_copyable_fields(), vec![]);
         assert_eq!(
-            cipher_with_notes.get_copiable_fields(),
-            vec![CopiableCipherFields::SecureNotes]
+            cipher_with_notes.get_copyable_fields(),
+            vec![CopyableCipherFields::SecureNotes]
         );
     }
 
     #[test]
-    fn test_copiable_fields_secure_card() {
+    fn test_copyable_fields_secure_card() {
         let key_store =
             create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
         let mut ctx = key_store.context();
@@ -1599,16 +1599,16 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            cipher.get_copiable_fields(),
+            cipher.get_copyable_fields(),
             vec![
-                CopiableCipherFields::CardNumber,
-                CopiableCipherFields::CardSecurityCode
+                CopyableCipherFields::CardNumber,
+                CopyableCipherFields::CardSecurityCode
             ],
         );
     }
 
     #[test]
-    fn test_copiable_fields_secure_identity_no_address() {
+    fn test_copyable_fields_secure_identity_no_address() {
         let key_store =
             create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
         let mut ctx = key_store.context();
@@ -1641,17 +1641,17 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            cipher.get_copiable_fields(),
+            cipher.get_copyable_fields(),
             vec![
-                CopiableCipherFields::IdentityUsername,
-                CopiableCipherFields::IdentityEmail,
-                CopiableCipherFields::IdentityPhone
+                CopyableCipherFields::IdentityUsername,
+                CopyableCipherFields::IdentityEmail,
+                CopyableCipherFields::IdentityPhone
             ],
         );
     }
 
     #[test]
-    fn test_copiable_fields_secure_identity_with_address() {
+    fn test_copyable_fields_secure_identity_with_address() {
         let key_store =
             create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
         let mut ctx = key_store.context();
@@ -1684,8 +1684,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            cipher.get_copiable_fields(),
-            vec![CopiableCipherFields::IdentityAddress],
+            cipher.get_copyable_fields(),
+            vec![CopyableCipherFields::IdentityAddress],
         );
     }
 }
