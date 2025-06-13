@@ -378,7 +378,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        cipher::cipher::{CipherListViewType, CopiableCipherFields},
+        cipher::cipher::{CipherListViewType, CopyableCipherFields},
         login::LoginListView,
         CipherRepromptType,
     };
@@ -750,7 +750,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            copiable_fields: vec![CopiableCipherFields::LoginTotp],
+            copyable_fields: vec![CopyableCipherFields::LoginTotp],
             local_data: None,
         };
 
