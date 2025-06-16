@@ -4,9 +4,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
-use crate::{cipher::cipher::CopyableCipherFields, Cipher};
-
 use super::cipher::CipherKind;
+use crate::{cipher::cipher::CopyableCipherFields, Cipher};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -82,9 +81,8 @@ mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
     use bitwarden_crypto::SymmetricCryptoKey;
 
-    use crate::{cipher::cipher::CopyableCipherFields, Cipher, CipherRepromptType, CipherType};
-
     use super::*;
+    use crate::{cipher::cipher::CopyableCipherFields, Cipher, CipherRepromptType, CipherType};
 
     #[test]
     fn test_subtitle_ssh_key() {

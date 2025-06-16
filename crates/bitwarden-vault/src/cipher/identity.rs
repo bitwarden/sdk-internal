@@ -220,9 +220,8 @@ mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
     use bitwarden_crypto::SymmetricCryptoKey;
 
-    use crate::{cipher::cipher::CopyableCipherFields, Cipher, CipherRepromptType, CipherType};
-
     use super::*;
+    use crate::{cipher::cipher::CopyableCipherFields, Cipher, CipherRepromptType, CipherType};
 
     fn encrypt_test_string(string: &str) -> EncString {
         let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
