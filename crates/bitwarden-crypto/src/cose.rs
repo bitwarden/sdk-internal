@@ -173,7 +173,7 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
 impl From<ContentFormat> for coset::HeaderBuilder {
     fn from(format: ContentFormat) -> Self {
         let header_builder = coset::HeaderBuilder::new();
-        
+
         match format {
             ContentFormat::Utf8 => {
                 header_builder.content_type(CONTENT_TYPE_PADDED_UTF8.to_string())
@@ -303,7 +303,10 @@ mod test {
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
         };
         let decrypted = decrypt_xchacha20_poly1305(TEST_VECTOR_COSE_ENCRYPT0, &key).unwrap();
-        assert_eq!(decrypted, TEST_VECTOR_PLAINTEXT);
+        assert_eq!(
+            decrypted,
+            (TEST_VECTOR_PLAINTEXT.to_vec(), ContentFormat::OctetStream)
+        );
     }
 
     #[test]
