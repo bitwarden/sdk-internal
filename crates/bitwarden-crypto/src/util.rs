@@ -1,4 +1,4 @@
-use std::pin::Pin;
+use std::{pin::Pin, str::FromStr};
 
 use ::aes::cipher::{ArrayLength, Unsigned};
 use generic_array::GenericArray;
@@ -51,6 +51,30 @@ pub fn generate_random_alphanumeric(len: usize) -> String {
 pub fn pbkdf2(password: &[u8], salt: &[u8], rounds: u32) -> [u8; PBKDF_SHA256_HMAC_OUT_SIZE] {
     pbkdf2::pbkdf2_array::<PbkdfSha256Hmac, PBKDF_SHA256_HMAC_OUT_SIZE>(password, salt, rounds)
         .expect("hash is a valid fixed size")
+}
+
+pub(crate) struct FromStrVisitor<T>(std::marker::PhantomData<T>);
+impl<T> FromStrVisitor<T> {
+    pub(crate) fn new() -> Self {
+        Self(Default::default())
+    }
+}
+impl<T: FromStr> serde::de::Visitor<'_> for FromStrVisitor<T>
+where
+    T::Err: std::fmt::Debug,
+{
+    type Value = T;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "a valid string")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        T::from_str(v).map_err(|e| E::custom(format!("{:?}", e)))
+    }
 }
 
 #[cfg(test)]

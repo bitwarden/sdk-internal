@@ -140,7 +140,12 @@ mod tests {
 
         client
             .internal
-            .initialize_user_crypto_master_key(master_key, user_key.parse().unwrap(), private_key)
+            .initialize_user_crypto_master_key(
+                master_key,
+                user_key.parse().unwrap(),
+                private_key,
+                None,
+            )
             .unwrap();
 
         let result =
@@ -183,7 +188,12 @@ mod tests {
 
         client
             .internal
-            .initialize_user_crypto_master_key(master_key, user_key.parse().unwrap(), private_key)
+            .initialize_user_crypto_master_key(
+                master_key,
+                user_key.parse().unwrap(),
+                private_key,
+                None,
+            )
             .unwrap();
 
         let result =
