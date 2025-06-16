@@ -578,7 +578,7 @@ pub(super) fn verify_asymmetric_keys(
 pub struct MakeUserSigningKeysResponse {
     /// Base64 encoded verifying key
     verifying_key: String,
-    /// Signing key, encrypted with a symmetric key (user key, org key)
+    /// Signing key, encrypted with the user's symmetric key
     signing_key: EncString,
     /// The user's public key, signed by the signing key
     signed_public_key: SignedPublicKey,
