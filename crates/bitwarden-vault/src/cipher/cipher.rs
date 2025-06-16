@@ -246,6 +246,9 @@ pub struct CipherListView {
     /// the full cipher details.
     pub copyable_fields: Vec<CopyableCipherFields>,
 
+    /// Indicates if the cipher has old attachments that need to be re-uploaded
+    pub has_old_attachments: bool,
+
     pub local_data: Option<LocalDataView>,
 }
 
@@ -646,6 +649,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
                 .as_ref()
                 .map(|a| a.len() as u32)
                 .unwrap_or(0),
+            has_old_attachments: self
+                .attachments
+                .as_ref()
+                .map(|a| a.iter().any(|att| att.key.is_none()))
+                .unwrap_or(false),
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
@@ -899,6 +907,7 @@ mod tests {
                 permissions: cipher.permissions,
                 view_password: cipher.view_password,
                 attachments: 0,
+                has_old_attachments: false,
                 creation_date: cipher.creation_date,
                 deleted_date: cipher.deleted_date,
                 revision_date: cipher.revision_date,
