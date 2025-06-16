@@ -105,23 +105,11 @@ impl CipherKind for SecureNote {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::key_management::{create_test_crypto_with_user_key, SymmetricKeyId};
-    use bitwarden_crypto::{EncString, Encryptable, SymmetricCryptoKey};
-
     use crate::{
         cipher::cipher::{Cipher, CipherKind, CopyableCipherFields},
         secure_note::SecureNote,
         CipherRepromptType, CipherType, SecureNoteType,
     };
-
-    fn encrypt_test_string(string: &str) -> EncString {
-        let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
-        let key_store = create_test_crypto_with_user_key(key);
-        let key = SymmetricKeyId::User;
-        let mut ctx = key_store.context();
-
-        string.to_string().encrypt(&mut ctx, key).unwrap()
-    }
 
     fn create_cipher_for_note(note: SecureNote) -> Cipher {
         Cipher {
@@ -131,7 +119,7 @@ mod tests {
             collection_ids: vec![],
             r#type: CipherType::Login,
             key: None,
-            name: encrypt_test_string("My test cipher"),
+            name: "2.iovOJUb186UXu+0AlQggjw==|LeWZhrT0B7rqFtDufOJMlJsftwmMGuaoBxf/Cig4D4A9XHhUqacd8uOYP7M5bd/k|++gmrHIyt8hvvPP9dwFS/CGd+POfzmeXzKOsuyJpDDc=".parse().unwrap(),
             notes: None,
             login: None,
             identity: None,
@@ -173,9 +161,7 @@ mod tests {
         };
 
         let mut cipher = create_cipher_for_note(secure_note.clone());
-        cipher.notes = Some(encrypt_test_string(
-            "This is a secure note with some content.",
-        ));
+        cipher.notes = Some("2.iovOJUb186UXu+0AlQggjw==|LeWZhrT0B7rqFtDufOJMlJsftwmMGuaoBxf/Cig4D4A9XHhUqacd8uOYP7M5bd/k|++gmrHIyt8hvvPP9dwFS/CGd+POfzmeXzKOsuyJpDDc=".parse().unwrap());
 
         let copyable_fields = secure_note.get_copyable_fields(Some(&cipher));
         assert_eq!(copyable_fields, vec![CopyableCipherFields::SecureNotes]);

@@ -585,22 +585,10 @@ impl CipherKind for Login {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::key_management::{create_test_crypto_with_user_key, SymmetricKeyId};
-    use bitwarden_crypto::{EncString, Encryptable, SymmetricCryptoKey};
-
     use crate::{
         cipher::cipher::{CipherKind, CopyableCipherFields},
         Login,
     };
-
-    fn encrypt_test_string(string: &str) -> EncString {
-        let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
-        let key_store = create_test_crypto_with_user_key(key);
-        let key = SymmetricKeyId::User;
-        let mut ctx = key_store.context();
-
-        string.to_string().encrypt(&mut ctx, key).unwrap()
-    }
 
     #[test]
     fn test_valid_checksum() {
@@ -652,7 +640,7 @@ mod tests {
     fn test_get_copyable_fields_login_password() {
         let login_with_password = Login {
             username: None,
-            password: Some(encrypt_test_string("testPassword")),
+            password: Some("2.38t4E88QbQEkBdK+oZNHFg==|B3BiDcG3ZfEkD2BK+FMytQ==|2Dw1/f+LCfkCmCj4gKOxOu6CRnZj93qaBYUqbzy/reU=".parse().unwrap()),
             password_revision_date: None,
             uris: None,
             totp: None,
@@ -667,7 +655,7 @@ mod tests {
     #[test]
     fn test_get_copyable_fields_login_username() {
         let login_with_username = Login {
-            username: Some(encrypt_test_string("testUsername")),
+            username: Some("2.38t4E88QbQEkBdK+oZNHFg==|B3BiDcG3ZfEkD2BK+FMytQ==|2Dw1/f+LCfkCmCj4gKOxOu6CRnZj93qaBYUqbzy/reU=".parse().unwrap()),
             password: None,
             password_revision_date: None,
             uris: None,
@@ -683,11 +671,11 @@ mod tests {
     #[test]
     fn test_get_copyable_fields_login_everything() {
         let login = Login {
-            username: Some(encrypt_test_string("testUsername")),
-            password: Some(encrypt_test_string("testPassword")),
+            username: Some("2.38t4E88QbQEkBdK+oZNHFg==|B3BiDcG3ZfEkD2BK+FMytQ==|2Dw1/f+LCfkCmCj4gKOxOu6CRnZj93qaBYUqbzy/reU=".parse().unwrap()),
+            password: Some("2.38t4E88QbQEkBdK+oZNHFg==|B3BiDcG3ZfEkD2BK+FMytQ==|2Dw1/f+LCfkCmCj4gKOxOu6CRnZj93qaBYUqbzy/reU=".parse().unwrap()),
             password_revision_date: None,
             uris: None,
-            totp: Some(encrypt_test_string("totp")),
+            totp: Some("2.38t4E88QbQEkBdK+oZNHFg==|B3BiDcG3ZfEkD2BK+FMytQ==|2Dw1/f+LCfkCmCj4gKOxOu6CRnZj93qaBYUqbzy/reU=".parse().unwrap()),
             autofill_on_page_load: None,
             fido2_credentials: None,
         };

@@ -110,15 +110,10 @@ mod tests {
 
     #[test]
     fn test_get_copyable_fields_sshkey() {
-        let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
-        let key_store = create_test_crypto_with_user_key(key);
-        let key = SymmetricKeyId::User;
-        let mut ctx = key_store.context();
-
         let ssh_key = SshKey {
-            private_key: "private_key".to_string().encrypt(&mut ctx, key).unwrap(),
-            public_key: "public_key".to_string().encrypt(&mut ctx, key).unwrap(),
-            fingerprint: "fingerprint".to_string().encrypt(&mut ctx, key).unwrap(),
+            private_key: "2.tMIugb6zQOL+EuOizna1wQ==|W5dDLoNJtajN68yeOjrr6w==|qS4hwJB0B0gNLI0o+jxn+sKMBmvtVgJCRYNEXBZoGeE=".parse().unwrap(),
+            public_key: "2.tMIugb6zQOL+EuOizna1wQ==|W5dDLoNJtajN68yeOjrr6w==|qS4hwJB0B0gNLI0o+jxn+sKMBmvtVgJCRYNEXBZoGeE=".parse().unwrap(),
+            fingerprint: "2.tMIugb6zQOL+EuOizna1wQ==|W5dDLoNJtajN68yeOjrr6w==|qS4hwJB0B0gNLI0o+jxn+sKMBmvtVgJCRYNEXBZoGeE=".parse().unwrap(),
         };
 
         let copyable_fields = ssh_key.get_copyable_fields(None);

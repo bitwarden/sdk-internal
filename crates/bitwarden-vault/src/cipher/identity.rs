@@ -217,20 +217,8 @@ fn build_subtitle_identity(first_name: Option<String>, last_name: Option<String>
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::key_management::create_test_crypto_with_user_key;
-    use bitwarden_crypto::SymmetricCryptoKey;
-
     use super::*;
     use crate::cipher::cipher::CopyableCipherFields;
-
-    fn encrypt_test_string(string: &str) -> EncString {
-        let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
-        let key_store = create_test_crypto_with_user_key(key);
-        let key = SymmetricKeyId::User;
-        let mut ctx = key_store.context();
-
-        string.to_string().encrypt(&mut ctx, key).unwrap()
-    }
 
     fn create_identity() -> Identity {
         Identity {
@@ -302,7 +290,7 @@ mod tests {
     #[test]
     fn test_get_copyable_fields_identity_has_username() {
         let mut identity = create_identity();
-        identity.username = Some(encrypt_test_string("username"));
+        identity.username = Some("2.yXXpPbsf6NZhLVkNe/i4Bw==|ol/HTI++aMO1peBBBhSR7Q==|awNmmj31efIXTzaru42/Ay+bQ6V+1MrKxXh1Uo5gca8=".parse().unwrap());
 
         let copyable_fields = identity.get_copyable_fields(None);
         assert_eq!(
@@ -314,7 +302,7 @@ mod tests {
     #[test]
     fn test_get_copyable_fields_identity_has_email() {
         let mut identity = create_identity();
-        identity.email = Some(encrypt_test_string("email@example.com"));
+        identity.email = Some("2.yXXpPbsf6NZhLVkNe/i4Bw==|ol/HTI++aMO1peBBBhSR7Q==|awNmmj31efIXTzaru42/Ay+bQ6V+1MrKxXh1Uo5gca8=".parse().unwrap());
 
         let copyable_fields = identity.get_copyable_fields(None);
         assert_eq!(copyable_fields, vec![CopyableCipherFields::IdentityEmail]);
@@ -323,7 +311,7 @@ mod tests {
     #[test]
     fn test_get_copyable_fields_identity_has_phone() {
         let mut identity = create_identity();
-        identity.phone = Some(encrypt_test_string("867-5309"));
+        identity.phone = Some("2.yXXpPbsf6NZhLVkNe/i4Bw==|ol/HTI++aMO1peBBBhSR7Q==|awNmmj31efIXTzaru42/Ay+bQ6V+1MrKxXh1Uo5gca8=".parse().unwrap());
 
         let copyable_fields = identity.get_copyable_fields(None);
         assert_eq!(copyable_fields, vec![CopyableCipherFields::IdentityPhone]);
@@ -333,13 +321,13 @@ mod tests {
     fn test_get_copyable_fields_identity_has_address() {
         let mut identity = create_identity();
 
-        identity.address1 = Some(encrypt_test_string("123 Main St"));
+        identity.address1 = Some("2.yXXpPbsf6NZhLVkNe/i4Bw==|ol/HTI++aMO1peBBBhSR7Q==|awNmmj31efIXTzaru42/Ay+bQ6V+1MrKxXh1Uo5gca8=".parse().unwrap());
 
         let mut copyable_fields = identity.get_copyable_fields(None);
 
         assert_eq!(copyable_fields, vec![CopyableCipherFields::IdentityAddress]);
 
-        identity.state = Some(encrypt_test_string("CA"));
+        identity.state = Some("2.yXXpPbsf6NZhLVkNe/i4Bw==|ol/HTI++aMO1peBBBhSR7Q==|awNmmj31efIXTzaru42/Ay+bQ6V+1MrKxXh1Uo5gca8=".parse().unwrap());
         identity.address1 = None;
 
         copyable_fields = identity.get_copyable_fields(None);

@@ -192,19 +192,7 @@ fn build_subtitle_card(brand: Option<String>, number: Option<String>) -> String 
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::key_management::create_test_crypto_with_user_key;
-    use bitwarden_crypto::SymmetricCryptoKey;
-
     use super::*;
-
-    fn encrypt_test_string(string: &str) -> EncString {
-        let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
-        let key_store = create_test_crypto_with_user_key(key);
-        let key = SymmetricKeyId::User;
-        let mut ctx = key_store.context();
-
-        string.to_string().encrypt(&mut ctx, key).unwrap()
-    }
 
     #[test]
     fn test_build_subtitle_card_visa() {
@@ -265,7 +253,7 @@ mod tests {
             cardholder_name: None,
             exp_month: None,
             exp_year: None,
-            code: Some(encrypt_test_string("123")),
+            code: Some("2.6TpmzzaQHgYr+mXjdGLQlg==|vT8VhfvMlWSCN9hxGYftZ5rjKRsZ9ofjdlUCx5Gubnk=|uoD3/GEQBWKKx2O+/YhZUCzVkfhm8rFK3sUEVV84mv8=".parse().unwrap()),
             brand: None,
             number: None,
         };
@@ -286,7 +274,7 @@ mod tests {
             exp_year: None,
             code: None,
             brand: None,
-            number: Some(encrypt_test_string("4242424242424242")),
+            number: Some("2.6TpmzzaQHgYr+mXjdGLQlg==|vT8VhfvMlWSCN9hxGYftZ5rjKRsZ9ofjdlUCx5Gubnk=|uoD3/GEQBWKKx2O+/YhZUCzVkfhm8rFK3sUEVV84mv8=".parse().unwrap()),
         };
 
         let copyable_fields = card.get_copyable_fields(None);
