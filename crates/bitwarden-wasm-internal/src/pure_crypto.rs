@@ -3,7 +3,7 @@ use std::str::FromStr;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
     AsymmetricCryptoKey, AsymmetricPublicCryptoKey, ContentFormat, CoseSerializable, CryptoError,
-    Decryptable, EncString, Encryptable, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey,
+    Decryptable, EncString, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey,
     PrimitiveEncryptable, SignatureAlgorithm, SignedPublicKey, SigningKey, SymmetricCryptoKey,
     UnsignedSharedKey, VerifyingKey,
 };
