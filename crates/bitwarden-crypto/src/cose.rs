@@ -173,7 +173,8 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
 impl From<ContentFormat> for coset::HeaderBuilder {
     fn from(format: ContentFormat) -> Self {
         let header_builder = coset::HeaderBuilder::new();
-        let header_builder = match format {
+        
+        match format {
             ContentFormat::Utf8 => {
                 header_builder.content_type(CONTENT_TYPE_PADDED_UTF8.to_string())
             }
@@ -182,8 +183,7 @@ impl From<ContentFormat> for coset::HeaderBuilder {
             ContentFormat::OctetStream => {
                 header_builder.content_format(CoapContentFormat::OctetStream)
             }
-        };
-        header_builder
+        }
     }
 }
 
