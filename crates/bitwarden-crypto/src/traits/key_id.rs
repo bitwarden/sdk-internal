@@ -109,8 +109,6 @@ macro_rules! key_ids {
     ( @key_type asymmetric ) => { $crate::AsymmetricCryptoKey };
     ( @key_type signing ) => { $crate::SigningKey };
 
-    ( @variant_match $variant:ident ( $inner:ty ) ) => { $variant ( _ ) };
-
     ( @variant_match $variant:ident ( $inner:ty ) ) => { $variant (_) };
     ( @variant_match $variant:ident ) => { $variant };
 
