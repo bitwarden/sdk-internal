@@ -415,33 +415,9 @@ impl Cipher {
     /// Returns a list of copyable field names for this cipher,
     /// based on the cipher type and populated properties.
     fn get_copyable_fields(&self) -> Vec<CopyableCipherFields> {
-        match self.r#type {
-            CipherType::Login => self
-                .login
-                .as_ref()
-                .map(|login| login.get_copyable_fields(self))
-                .unwrap_or_default(),
-            CipherType::Card => self
-                .card
-                .as_ref()
-                .map(|card| card.get_copyable_fields(self))
-                .unwrap_or_default(),
-            CipherType::Identity => self
-                .identity
-                .as_ref()
-                .map(|identity| identity.get_copyable_fields(self))
-                .unwrap_or_default(),
-            CipherType::SshKey => self
-                .ssh_key
-                .as_ref()
-                .map(|ssh_key| ssh_key.get_copyable_fields(self))
-                .unwrap_or_default(),
-            CipherType::SecureNote => self
-                .secure_note
-                .as_ref()
-                .map(|secure_note| secure_note.get_copyable_fields(self))
-                .unwrap_or_default(),
-        }
+        self.get_kind()
+            .map(|kind| kind.get_copyable_fields(self))
+            .unwrap_or_default()
     }
 }
 
