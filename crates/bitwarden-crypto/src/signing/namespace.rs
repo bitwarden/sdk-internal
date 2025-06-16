@@ -46,9 +46,9 @@ impl TryFrom<i128> for SigningNamespace {
     type Error = CryptoError;
 
     fn try_from(value: i128) -> Result<Self, Self::Error> {
-        if value < i64::MIN as i128 || value > i64::MAX as i128 {
+        let Ok(value) = i64::try_from(value) else {
             return Err(SignatureError::InvalidNamespace.into());
-        }
-        Self::try_from(value as i64)
+        };
+        Self::try_from(value)
     }
 }
