@@ -8,9 +8,9 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, ContentFormat, CoseSerializable, CryptoError, EncString, Encryptable, Kdf,
-    KeyDecryptable, KeyEncryptable, MasterKey, SignatureAlgorithm, SignedPublicKey, SigningKey,
-    SymmetricCryptoKey, UnsignedSharedKey, UserKey,
+    AsymmetricCryptoKey, ContentFormat, CoseSerializable, CryptoError, EncString, Kdf,
+    KeyDecryptable, KeyEncryptable, MasterKey, PrimitiveEncryptable, SignatureAlgorithm,
+    SignedPublicKey, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
@@ -604,9 +604,11 @@ pub fn make_user_signing_keys_for_enrollment(
         verifying_key: STANDARD.encode(signature_keypair.to_verifying_key().to_cose()),
         // This needs to be changed to use the correct COSE content format before rolling out to
         // users: https://bitwarden.atlassian.net/browse/PM-22189
-        signing_key: signature_keypair
-            .to_cose()
-            .encrypt(&mut ctx, SymmetricKeyId::User)?,
+        signing_key: signature_keypair.to_cose().encrypt(
+            &mut ctx,
+            SymmetricKeyId::User,
+            ContentFormat::CoseKey,
+        )?,
         signed_public_key,
     })
 }
