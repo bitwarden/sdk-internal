@@ -241,9 +241,7 @@ pub struct CipherListView {
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
 
-    /// Fields on the cipher that are populated. This can be used in the
-    /// UI to determine the visibility of copy actions without needing
-    /// the full cipher details.
+    /// Hints for the presentation layer for which fields can be copied.
     pub copyable_fields: Vec<CopyableCipherFields>,
 
     /// Indicates if the cipher has old attachments that need to be re-uploaded
