@@ -12,6 +12,11 @@
 //!   [Decryptable](bitwarden_crypto::Decryptable).
 use bitwarden_crypto::{key_ids, KeyStore, SymmetricCryptoKey};
 
+pub mod crypto;
+mod crypto_client;
+
+pub use crypto_client::CryptoClient;
+
 key_ids! {
     #[symmetric]
     pub enum SymmetricKeyId {
@@ -29,7 +34,12 @@ key_ids! {
         Local(&'static str),
     }
 
-    pub KeyIds => SymmetricKeyId, AsymmetricKeyId;
+    #[signing]
+    pub enum SigningKeyId {
+        UserSigningKey,
+    }
+
+    pub KeyIds => SymmetricKeyId, AsymmetricKeyId, SigningKeyId;
 }
 
 /// This is a helper function to create a test KeyStore with a single user key.

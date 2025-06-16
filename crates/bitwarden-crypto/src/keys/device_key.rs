@@ -1,6 +1,8 @@
+use super::{AsymmetricCryptoKey, PublicKeyEncryptionAlgorithm};
 use crate::{
-    error::Result, AsymmetricCryptoKey, ContentFormat, CryptoError, EncString, KeyDecryptable,
-    KeyEncryptable, SymmetricCryptoKey, UnsignedSharedKey,
+    error::Result, error::Result, AsymmetricCryptoKey, ContentFormat, CryptoError, CryptoError,
+    EncString, EncString, KeyDecryptable, KeyDecryptable, KeyEncryptable, KeyEncryptable,
+    SymmetricCryptoKey, SymmetricCryptoKey, UnsignedSharedKey, UnsignedSharedKey,
 };
 
 /// Device Key
@@ -30,16 +32,19 @@ impl DeviceKey {
     /// Note: Input has to be a SymmetricCryptoKey instead of UserKey because that's what we get
     /// from EncSettings.
     pub fn trust_device(user_key: &SymmetricCryptoKey) -> Result<TrustDeviceResponse> {
-        let mut rng = rand::thread_rng();
         let device_key = DeviceKey(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
 
-        let device_private_key = AsymmetricCryptoKey::generate(&mut rng);
+        let device_private_key =
+            AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
-        let protected_user_key =
-            UnsignedSharedKey::encapsulate_key_unsigned(user_key, &device_private_key)?;
+        let protected_user_key = UnsignedSharedKey::encapsulate_key_unsigned(
+            user_key,
+            &device_private_key.to_public_key(),
+        )?;
 
         let protected_device_public_key = device_private_key
-            .to_public_der()?
+            .to_public_key()
+            .to_der()?
             .encrypt_with_key(user_key, ContentFormat::OctetStream)?;
 
         let protected_device_private_key = device_private_key

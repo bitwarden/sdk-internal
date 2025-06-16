@@ -40,15 +40,17 @@ pub enum Error {
     #[error(transparent)]
     Api(#[from] bitwarden_core::ApiError),
     #[error(transparent)]
-    DeriveKeyConnector(#[from] bitwarden_core::mobile::crypto::DeriveKeyConnectorError),
+    DeriveKeyConnector(#[from] bitwarden_core::key_management::crypto::DeriveKeyConnectorError),
     #[error(transparent)]
     EncryptionSettings(
         #[from] bitwarden_core::client::encryption_settings::EncryptionSettingsError,
     ),
     #[error(transparent)]
-    EnrollAdminPasswordReset(#[from] bitwarden_core::mobile::crypto::EnrollAdminPasswordResetError),
+    EnrollAdminPasswordReset(
+        #[from] bitwarden_core::key_management::crypto::EnrollAdminPasswordResetError,
+    ),
     #[error(transparent)]
-    MobileCrypto(#[from] bitwarden_core::mobile::crypto::MobileCryptoError),
+    MobileCrypto(#[from] bitwarden_core::key_management::crypto::CryptoClientError),
     #[error(transparent)]
     AuthValidate(#[from] bitwarden_core::auth::AuthValidateError),
     #[error(transparent)]

@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum PolicyType {
     TwoFactorAuthentication = 0,
@@ -45,27 +36,30 @@ pub enum PolicyType {
 }
 
 impl std::fmt::Display for PolicyType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::TwoFactorAuthentication => write!(f, "0"),
-            Self::MasterPassword => write!(f, "1"),
-            Self::PasswordGenerator => write!(f, "2"),
-            Self::SingleOrg => write!(f, "3"),
-            Self::RequireSso => write!(f, "4"),
-            Self::PersonalOwnership => write!(f, "5"),
-            Self::DisableSend => write!(f, "6"),
-            Self::SendOptions => write!(f, "7"),
-            Self::ResetPassword => write!(f, "8"),
-            Self::MaximumVaultTimeout => write!(f, "9"),
-            Self::DisablePersonalVaultExport => write!(f, "10"),
-            Self::ActivateAutofill => write!(f, "11"),
-            Self::AutomaticAppLogIn => write!(f, "12"),
-            Self::FreeFamiliesSponsorshipPolicy => write!(f, "13"),
-            Self::RemoveUnlockWithPin => write!(f, "14"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::TwoFactorAuthentication => "0",
+                Self::MasterPassword => "1",
+                Self::PasswordGenerator => "2",
+                Self::SingleOrg => "3",
+                Self::RequireSso => "4",
+                Self::PersonalOwnership => "5",
+                Self::DisableSend => "6",
+                Self::SendOptions => "7",
+                Self::ResetPassword => "8",
+                Self::MaximumVaultTimeout => "9",
+                Self::DisablePersonalVaultExport => "10",
+                Self::ActivateAutofill => "11",
+                Self::AutomaticAppLogIn => "12",
+                Self::FreeFamiliesSponsorshipPolicy => "13",
+                Self::RemoveUnlockWithPin => "14",
+            }
+        )
     }
 }
-
 impl Default for PolicyType {
     fn default() -> PolicyType {
         Self::TwoFactorAuthentication

@@ -7,7 +7,9 @@ use serde::Deserialize;
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
-    Aes256CbcHmacKey, ContentFormat, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+    util::FromStrVisitor,
+    Aes256CbcHmacKey, Aes256CbcHmacKey, ContentFormat, KeyDecryptable, KeyDecryptable,
+    KeyEncryptable, KeyEncryptable, SymmetricCryptoKey, SymmetricCryptoKey, XChaCha20Poly1305Key,
     XChaCha20Poly1305Key,
 };
 
@@ -236,7 +238,7 @@ impl<'de> Deserialize<'de> for EncString {
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_str(super::FromStrVisitor::new())
+        deserializer.deserialize_str(FromStrVisitor::new())
     }
 }
 

@@ -164,15 +164,17 @@ impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptable<Ids, Key, Output>, Output>
 #[cfg(test)]
 mod tests {
     use crate::{
-        cose::ContentFormat, traits::tests::*, AsymmetricCryptoKey, Decryptable, KeyStore,
-        PrimitiveEncryptable, PrimitiveEncryptableWithContentType, SymmetricCryptoKey,
+        cose::ContentFormat, traits::tests::*, traits::tests::*, AsymmetricCryptoKey,
+        AsymmetricCryptoKey, Decryptable, Decryptable, Encryptable, KeyStore, KeyStore,
+        PrimitiveEncryptable, PrimitiveEncryptableWithContentType, PublicKeyEncryptionAlgorithm,
+        SymmetricCryptoKey, SymmetricCryptoKey,
     };
 
     fn test_store() -> KeyStore<TestIds> {
         let store = KeyStore::<TestIds>::default();
 
         let symm_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let asymm_key = AsymmetricCryptoKey::generate(&mut rand::thread_rng());
+        let asymm_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
         #[allow(deprecated)]
         store
