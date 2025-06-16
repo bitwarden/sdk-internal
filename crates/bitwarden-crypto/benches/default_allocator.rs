@@ -10,7 +10,7 @@ fn allocate_string(s: &str) -> String {
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("string abc", |b| {
-        b.iter(|| allocate_string(black_box("abc")))
+        b.iter(|| allocate_string(criterion::black_box("abc")))
     });
 }
 
