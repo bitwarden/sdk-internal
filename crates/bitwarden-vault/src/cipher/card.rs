@@ -144,7 +144,7 @@ impl CipherKind for Card {
         Ok(build_subtitle_card(brand, number))
     }
 
-    fn get_copyable_fields(&self, _: &Cipher) -> Vec<CopyableCipherFields> {
+    fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
         [
             self.number
                 .as_ref()
@@ -196,7 +196,6 @@ mod tests {
     use bitwarden_crypto::SymmetricCryptoKey;
 
     use super::*;
-    use crate::{CipherRepromptType, CipherType};
 
     fn encrypt_test_string(string: &str) -> EncString {
         let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
@@ -205,37 +204,6 @@ mod tests {
         let mut ctx = key_store.context();
 
         string.to_string().encrypt(&mut ctx, key).unwrap()
-    }
-
-    fn create_cipher_for_card(card: Card) -> Cipher {
-        Cipher {
-            id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
-            organization_id: None,
-            folder_id: None,
-            collection_ids: vec![],
-            r#type: CipherType::Login,
-            key: None,
-            name: encrypt_test_string("My test cipher"),
-            notes: None,
-            login: None,
-            identity: None,
-            card: Some(card),
-            secure_note: None,
-            ssh_key: None,
-            favorite: false,
-            reprompt: CipherRepromptType::None,
-            organization_use_totp: false,
-            edit: true,
-            permissions: None,
-            view_password: true,
-            local_data: None,
-            attachments: None,
-            fields: None,
-            password_history: None,
-            creation_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
-            deleted_date: None,
-            revision_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
-        }
     }
 
     #[test]
@@ -302,8 +270,7 @@ mod tests {
             number: None,
         };
 
-        let cipher = create_cipher_for_card(card.clone());
-        let copyable_fields = card.get_copyable_fields(&cipher);
+        let copyable_fields = card.get_copyable_fields(None);
 
         assert_eq!(
             copyable_fields,
@@ -322,8 +289,7 @@ mod tests {
             number: Some(encrypt_test_string("4242424242424242")),
         };
 
-        let cipher = create_cipher_for_card(card.clone());
-        let copyable_fields = card.get_copyable_fields(&cipher);
+        let copyable_fields = card.get_copyable_fields(None);
 
         assert_eq!(copyable_fields, vec![CopyableCipherFields::CardNumber]);
     }

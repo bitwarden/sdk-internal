@@ -55,7 +55,7 @@ pub(super) trait CipherKind {
     ) -> Result<String, CryptoError>;
 
     /// Returns a list of populated fields for the cipher.
-    fn get_copyable_fields(&self, cipher: &Cipher) -> Vec<CopyableCipherFields>;
+    fn get_copyable_fields(&self, cipher: Option<&Cipher>) -> Vec<CopyableCipherFields>;
 }
 
 #[allow(missing_docs)]
@@ -416,7 +416,7 @@ impl Cipher {
     /// based on the cipher type and populated properties.
     fn get_copyable_fields(&self) -> Vec<CopyableCipherFields> {
         self.get_kind()
-            .map(|kind| kind.get_copyable_fields(self))
+            .map(|kind| kind.get_copyable_fields(Some(self)))
             .unwrap_or_default()
     }
 }

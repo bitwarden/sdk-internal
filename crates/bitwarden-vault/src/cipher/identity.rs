@@ -164,7 +164,7 @@ impl CipherKind for Identity {
         Ok(build_subtitle_identity(first_name, last_name))
     }
 
-    fn get_copyable_fields(&self, _: &Cipher) -> Vec<CopyableCipherFields> {
+    fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
         [
             self.username
                 .as_ref()
@@ -221,7 +221,7 @@ mod tests {
     use bitwarden_crypto::SymmetricCryptoKey;
 
     use super::*;
-    use crate::{cipher::cipher::CopyableCipherFields, Cipher, CipherRepromptType, CipherType};
+    use crate::cipher::cipher::CopyableCipherFields;
 
     fn encrypt_test_string(string: &str) -> EncString {
         let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
@@ -230,37 +230,6 @@ mod tests {
         let mut ctx = key_store.context();
 
         string.to_string().encrypt(&mut ctx, key).unwrap()
-    }
-
-    fn create_cipher_for_identity(identity: Identity) -> Cipher {
-        Cipher {
-            id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
-            organization_id: None,
-            folder_id: None,
-            collection_ids: vec![],
-            r#type: CipherType::Login,
-            key: None,
-            name: encrypt_test_string("My test cipher"),
-            notes: None,
-            login: None,
-            identity: Some(identity),
-            card: None,
-            secure_note: None,
-            ssh_key: None,
-            favorite: false,
-            reprompt: CipherRepromptType::None,
-            organization_use_totp: false,
-            edit: true,
-            permissions: None,
-            view_password: true,
-            local_data: None,
-            attachments: None,
-            fields: None,
-            password_history: None,
-            creation_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
-            deleted_date: None,
-            revision_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
-        }
     }
 
     fn create_identity() -> Identity {
@@ -326,9 +295,7 @@ mod tests {
     fn test_get_copyable_fields_identity_empty() {
         let identity = create_identity();
 
-        let cipher = create_cipher_for_identity(identity.clone());
-
-        let copyable_fields = identity.get_copyable_fields(&cipher);
+        let copyable_fields = identity.get_copyable_fields(None);
         assert_eq!(copyable_fields, vec![]);
     }
 
@@ -337,8 +304,7 @@ mod tests {
         let mut identity = create_identity();
         identity.username = Some(encrypt_test_string("username"));
 
-        let cipher = create_cipher_for_identity(identity.clone());
-        let copyable_fields = identity.get_copyable_fields(&cipher);
+        let copyable_fields = identity.get_copyable_fields(None);
         assert_eq!(
             copyable_fields,
             vec![CopyableCipherFields::IdentityUsername]
@@ -350,8 +316,7 @@ mod tests {
         let mut identity = create_identity();
         identity.email = Some(encrypt_test_string("email@example.com"));
 
-        let cipher = create_cipher_for_identity(identity.clone());
-        let copyable_fields = identity.get_copyable_fields(&cipher);
+        let copyable_fields = identity.get_copyable_fields(None);
         assert_eq!(copyable_fields, vec![CopyableCipherFields::IdentityEmail]);
     }
 
@@ -360,9 +325,7 @@ mod tests {
         let mut identity = create_identity();
         identity.phone = Some(encrypt_test_string("867-5309"));
 
-        let cipher = create_cipher_for_identity(identity.clone());
-
-        let copyable_fields = identity.get_copyable_fields(&cipher);
+        let copyable_fields = identity.get_copyable_fields(None);
         assert_eq!(copyable_fields, vec![CopyableCipherFields::IdentityPhone]);
     }
 
@@ -371,16 +334,15 @@ mod tests {
         let mut identity = create_identity();
 
         identity.address1 = Some(encrypt_test_string("123 Main St"));
-        let cipher = create_cipher_for_identity(identity.clone());
 
-        let mut copyable_fields = identity.get_copyable_fields(&cipher);
+        let mut copyable_fields = identity.get_copyable_fields(None);
 
         assert_eq!(copyable_fields, vec![CopyableCipherFields::IdentityAddress]);
 
         identity.state = Some(encrypt_test_string("CA"));
         identity.address1 = None;
 
-        copyable_fields = identity.get_copyable_fields(&cipher);
+        copyable_fields = identity.get_copyable_fields(None);
         assert_eq!(copyable_fields, vec![CopyableCipherFields::IdentityAddress]);
     }
 }

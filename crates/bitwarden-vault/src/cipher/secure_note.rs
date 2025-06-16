@@ -85,10 +85,9 @@ impl From<bitwarden_api_api::models::SecureNoteType> for SecureNoteType {
 }
 
 impl CipherKind for SecureNote {
-    fn get_copyable_fields(&self, cipher: &Cipher) -> Vec<CopyableCipherFields> {
+    fn get_copyable_fields(&self, cipher: Option<&Cipher>) -> Vec<CopyableCipherFields> {
         [cipher
-            .notes
-            .as_ref()
+            .and_then(|c| c.notes.as_ref())
             .map(|_| CopyableCipherFields::SecureNotes)]
         .into_iter()
         .flatten()
@@ -163,7 +162,7 @@ mod tests {
 
         let cipher = create_cipher_for_note(secure_note.clone());
 
-        let copyable_fields = secure_note.get_copyable_fields(&cipher);
+        let copyable_fields = secure_note.get_copyable_fields(Some(&cipher));
         assert_eq!(copyable_fields, vec![]);
     }
 
@@ -178,7 +177,17 @@ mod tests {
             "This is a secure note with some content.",
         ));
 
-        let copyable_fields = secure_note.get_copyable_fields(&cipher);
+        let copyable_fields = secure_note.get_copyable_fields(Some(&cipher));
         assert_eq!(copyable_fields, vec![CopyableCipherFields::SecureNotes]);
+    }
+
+    #[test]
+    fn test_get_copyable_fields_secure_no_cipher() {
+        let secure_note = SecureNote {
+            r#type: SecureNoteType::Generic,
+        };
+
+        let copyable_fields = secure_note.get_copyable_fields(None);
+        assert_eq!(copyable_fields, vec![]);
     }
 }

@@ -71,7 +71,7 @@ impl CipherKind for SshKey {
         self.fingerprint.decrypt(ctx, key)
     }
 
-    fn get_copyable_fields(&self, _: &Cipher) -> Vec<CopyableCipherFields> {
+    fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
         [CopyableCipherFields::SshKey].into_iter().collect()
     }
 }
@@ -82,7 +82,7 @@ mod tests {
     use bitwarden_crypto::SymmetricCryptoKey;
 
     use super::*;
-    use crate::{cipher::cipher::CopyableCipherFields, Cipher, CipherRepromptType, CipherType};
+    use crate::cipher::cipher::CopyableCipherFields;
 
     #[test]
     fn test_subtitle_ssh_key() {
@@ -121,36 +121,7 @@ mod tests {
             fingerprint: "fingerprint".to_string().encrypt(&mut ctx, key).unwrap(),
         };
 
-        let cipher = Cipher {
-            id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
-            organization_id: None,
-            folder_id: None,
-            collection_ids: vec![],
-            r#type: CipherType::SshKey,
-            key: None,
-            name: "My test cipher".to_string().encrypt(&mut ctx, key).unwrap(),
-            notes: None,
-            login: None,
-            identity: None,
-            card: None,
-            secure_note: None,
-            ssh_key: Some(ssh_key.clone()),
-            favorite: false,
-            reprompt: CipherRepromptType::None,
-            organization_use_totp: false,
-            edit: true,
-            permissions: None,
-            view_password: true,
-            local_data: None,
-            attachments: None,
-            fields: None,
-            password_history: None,
-            creation_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
-            deleted_date: None,
-            revision_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
-        };
-
-        let copyable_fields = ssh_key.get_copyable_fields(&cipher);
+        let copyable_fields = ssh_key.get_copyable_fields(None);
         assert_eq!(copyable_fields, vec![CopyableCipherFields::SshKey]);
     }
 }
