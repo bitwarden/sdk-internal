@@ -78,7 +78,7 @@ mod tests {
     /// cannot introduce format-breaking changes anymore.
     #[test]
     fn make_test_vectors() {
-        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let verifying_key = signing_key.to_verifying_key();
         let test_message = TestMessage {
             field1: "Test message".to_string(),

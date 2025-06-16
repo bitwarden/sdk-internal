@@ -13,12 +13,10 @@ fn main() {
     // Setup
     let mut mock_server = MockServer::new();
     let alice_signature_key =
-        bitwarden_crypto::SigningKey::make(bitwarden_crypto::SignatureAlgorithm::Ed25519)
-            .expect("Failed to create signing key for Alice");
+        bitwarden_crypto::SigningKey::make(bitwarden_crypto::SignatureAlgorithm::Ed25519);
     let alice_verifying_key = alice_signature_key.to_verifying_key();
     let bob_signature_key =
-        bitwarden_crypto::SigningKey::make(bitwarden_crypto::SignatureAlgorithm::Ed25519)
-            .expect("Failed to create signing key for Bob");
+        bitwarden_crypto::SigningKey::make(bitwarden_crypto::SignatureAlgorithm::Ed25519);
     let bob_verifying_key = bob_signature_key.to_verifying_key();
     // We assume bob knows and trusts this verifying key previously via e.g. fingerprints or
     // auditable key directory.

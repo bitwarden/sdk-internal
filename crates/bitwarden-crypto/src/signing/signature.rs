@@ -86,7 +86,7 @@ impl SigningKey {
     ///  field1: String,
     /// }
     ///
-    /// let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+    /// let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
     /// let message = TestMessage {
     ///  field1: "Test message".to_string(),
     /// };
@@ -112,8 +112,8 @@ impl SigningKey {
     /// parties want to sign the same message, one party creates the initial message, and the
     /// other parties then counter-sign it, and submit their signatures. This can be done as
     /// follows: ```
-    /// let alice_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
-    /// let bob_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+    /// let alice_key = SigningKey::make(SignatureAlgorithm::Ed25519);
+    /// let bob_key = SigningKey::make(SignatureAlgorithm::Ed25519);
     ///
     /// let message = TestMessage {
     ///    field1: "Test message".to_string(),
@@ -232,7 +232,7 @@ mod tests {
 
     #[test]
     fn test_sign_detached_roundtrip() {
-        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let message = "Test message";
         let namespace = SigningNamespace::ExampleNamespace;
 
@@ -245,7 +245,7 @@ mod tests {
 
     #[test]
     fn test_countersign_detatched() {
-        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let message = "Test message";
         let namespace = SigningNamespace::ExampleNamespace;
 
@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn test_fail_namespace_changed() {
-        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let message = "Test message";
         let namespace = SigningNamespace::ExampleNamespace;
 

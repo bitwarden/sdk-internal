@@ -129,7 +129,7 @@ impl SigningKey {
     ///   field1: String,
     /// }
     ///
-    /// let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+    /// let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
     /// let message = TestMessage {
     ///   field1: "Test message".to_string(),
     /// };
@@ -169,7 +169,8 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        CoseSerializable, CryptoError, SignedObject, SigningKey, SigningNamespace, VerifyingKey,
+        CoseSerializable, CryptoError, SignatureAlgorithm, SignedObject, SigningKey,
+        SigningNamespace, VerifyingKey,
     };
 
     const VERIFYING_KEY: &[u8] = &[
@@ -220,7 +221,7 @@ mod tests {
 
     #[test]
     fn test_sign_verify_and_unwrap_roundtrip() {
-        let signing_key = SigningKey::make(crate::SignatureAlgorithm::Ed25519).unwrap();
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let test_message = TestMessage {
             field1: "Test message".to_string(),
         };
@@ -235,7 +236,7 @@ mod tests {
 
     #[test]
     fn test_fail_namespace_changed() {
-        let signing_key = SigningKey::make(crate::SignatureAlgorithm::Ed25519).unwrap();
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let test_message = TestMessage {
             field1: "Test message".to_string(),
         };

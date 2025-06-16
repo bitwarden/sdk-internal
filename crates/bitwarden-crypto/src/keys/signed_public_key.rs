@@ -182,7 +182,7 @@ mod tests {
     fn test_signed_asymmetric_public_key() {
         let public_key =
             AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1).to_public_key();
-        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let message = SignedPublicKeyMessage::from_public_key(&public_key).unwrap();
         let signed_public_key = message.sign(&signing_key).unwrap();
         let verifying_key = signing_key.to_verifying_key();

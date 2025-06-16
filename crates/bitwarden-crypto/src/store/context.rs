@@ -268,7 +268,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Generate a new signature key using the current default algorithm, and store it in the
     /// context
     pub fn make_signing_key(&mut self, key_id: Ids::Signing) -> Result<Ids::Signing> {
-        let key = SigningKey::make(SignatureAlgorithm::default_algorithm())?;
+        let key = SigningKey::make(SignatureAlgorithm::default_algorithm());
         #[allow(deprecated)]
         self.set_signing_key(key_id, key)?;
         Ok(key_id)
@@ -481,7 +481,7 @@ mod tests {
 
         // Generate and insert a key
         let key_a0_id = TestSigningKey::A(0);
-        let key_a0 = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+        let key_a0 = SigningKey::make(SignatureAlgorithm::Ed25519);
         store
             .context_mut()
             .set_signing_key(key_a0_id, key_a0)
@@ -558,7 +558,7 @@ mod tests {
 
         // Generate and insert a key
         let key_a0_id = TestSigningKey::A(0);
-        let key_a0 = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+        let key_a0 = SigningKey::make(SignatureAlgorithm::Ed25519);
         let verifying_key = key_a0.to_verifying_key();
         store
             .context_mut()

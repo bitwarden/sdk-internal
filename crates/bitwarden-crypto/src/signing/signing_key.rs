@@ -48,14 +48,14 @@ impl CryptoKey for SigningKey {}
 
 impl SigningKey {
     /// Makes a new signing key for the given signature scheme.
-    pub fn make(algorithm: SignatureAlgorithm) -> Result<Self> {
+    pub fn make(algorithm: SignatureAlgorithm) -> Self {
         match algorithm {
-            SignatureAlgorithm::Ed25519 => Ok(SigningKey {
+            SignatureAlgorithm::Ed25519 => SigningKey {
                 id: KeyId::make(),
                 inner: RawSigningKey::Ed25519(Box::pin(ed25519_dalek::SigningKey::generate(
                     &mut rand::thread_rng(),
                 ))),
-            }),
+            },
         }
     }
 
@@ -137,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_cose_roundtrip_encode_signing() {
-        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let cose = signing_key.to_cose();
         let parsed_key = SigningKey::from_cose(&cose).unwrap();
 
@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn test_sign_rountrip() {
-        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519).unwrap();
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let signature = signing_key.sign_raw("Test message".as_bytes());
         let verifying_key = signing_key.to_verifying_key();
         assert!(verifying_key

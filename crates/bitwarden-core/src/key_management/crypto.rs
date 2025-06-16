@@ -594,8 +594,7 @@ pub fn make_user_signing_keys_for_enrollment(
     let mut ctx = key_store.context();
 
     // Make new keypair and sign the public key with it
-    let signature_keypair =
-        SigningKey::make(SignatureAlgorithm::Ed25519).map_err(|_| CryptoError::InvalidKey)?;
+    let signature_keypair = SigningKey::make(SignatureAlgorithm::Ed25519);
     let signed_public_key = ctx.make_signed_public_key(
         AsymmetricKeyId::UserPrivateKey,
         SigningKeyId::UserSigningKey,
