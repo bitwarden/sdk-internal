@@ -49,6 +49,10 @@ pub struct SignedPublicKeyMessage {
     content_format: PublicKeyFormat,
     /// The public key, serialized and formatted in the content format specified in
     /// `content_format`.
+    ///
+    /// Note: ByteBuf is used here to ensure efficient serialization. Using Vec<u8> would
+    /// lead to an incompatible encoding of individual bytes, instead of a contiguous byte
+    /// buffer.
     public_key: ByteBuf,
 }
 
