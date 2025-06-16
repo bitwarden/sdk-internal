@@ -11,8 +11,9 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::AsymmetricPublicCryptoKey;
 use crate::{
-    cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CryptoError, RawPublicKey,
-    SignedObject, SigningKey, SigningNamespace, VerifyingKey,
+    cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CryptoError,
+    PublicKeyEncryptionAlgorithm, RawPublicKey, SignedObject, SigningKey, SigningNamespace,
+    VerifyingKey,
 };
 
 #[cfg(feature = "wasm")]
@@ -20,14 +21,6 @@ use crate::{
 const TS_CUSTOM_TYPES: &'static str = r#"
 export type SignedPublicKey = string;
 "#;
-
-/// `PublicKeyEncryptionAlgorithm` defines the algorithms used for asymmetric encryption.
-/// Currently, only RSA with OAEP and SHA-1 keys are used.
-#[derive(Serialize_repr, Deserialize_repr)]
-#[repr(u8)]
-enum PublicKeyEncryptionAlgorithms {
-    RsaOaepSha1 = 0,
-}
 
 /// `PublicKeyFormat` defines the format of the public key in a `SignedAsymmetricPublicKeyMessage`.
 /// Currently, only ASN.1 Subject Public Key Info (SPKI) is used, but CoseKey may become another
@@ -44,7 +37,7 @@ enum PublicKeyFormat {
 #[serde(rename_all = "camelCase")]
 pub struct SignedPublicKeyMessage {
     /// The algorithm/crypto system used with this public key.
-    algorithm: PublicKeyEncryptionAlgorithms,
+    algorithm: PublicKeyEncryptionAlgorithm,
     /// The format of the public key.
     content_format: PublicKeyFormat,
     /// The public key, serialized and formatted in the content format specified in
@@ -62,7 +55,7 @@ impl SignedPublicKeyMessage {
     pub fn from_public_key(public_key: &AsymmetricPublicCryptoKey) -> Result<Self, CryptoError> {
         match public_key.inner() {
             RawPublicKey::RsaOaepSha1(_) => Ok(SignedPublicKeyMessage {
-                algorithm: PublicKeyEncryptionAlgorithms::RsaOaepSha1,
+                algorithm: PublicKeyEncryptionAlgorithm::RsaOaepSha1,
                 content_format: PublicKeyFormat::Spki,
                 public_key: ByteBuf::from(public_key.to_der()?),
             }),
@@ -118,7 +111,7 @@ impl SignedPublicKey {
             public_key_message.algorithm,
             public_key_message.content_format,
         ) {
-            (PublicKeyEncryptionAlgorithms::RsaOaepSha1, PublicKeyFormat::Spki) => Ok(
+            (PublicKeyEncryptionAlgorithm::RsaOaepSha1, PublicKeyFormat::Spki) => Ok(
                 AsymmetricPublicCryptoKey::from_der(&public_key_message.public_key.into_vec())
                     .map_err(|_| EncodingError::InvalidValue("public key"))?,
             ),

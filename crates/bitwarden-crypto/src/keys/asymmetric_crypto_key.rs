@@ -1,14 +1,17 @@
 use std::pin::Pin;
 
 use rsa::{pkcs8::DecodePublicKey, RsaPrivateKey, RsaPublicKey};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::key_encryptable::CryptoKey;
 use crate::error::{CryptoError, Result};
 
 /// Algorithm / public key encryption scheme used for encryption/decryption.
+#[derive(Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
 pub enum PublicKeyEncryptionAlgorithm {
     /// RSA with OAEP padding and SHA-1 hashing.
-    RsaOaepSha1,
+    RsaOaepSha1 = 0,
 }
 
 #[derive(Clone)]
