@@ -8,7 +8,8 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, CryptoError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
+    AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Encryptable, Kdf,
+    KeyDecryptable, KeyEncryptable, MasterKey, SignatureAlgorithm, SignedPublicKey, SigningKey,
     SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use bitwarden_error::bitwarden_error;
@@ -19,7 +20,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
-    key_management::SymmetricKeyId,
+    key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId},
     Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
 };
 
@@ -50,6 +51,8 @@ pub struct InitUserCryptoRequest {
     pub email: String,
     /// The user's encrypted private key
     pub private_key: EncString,
+    /// The user's signing key
+    pub signing_key: Option<EncString>,
     /// The initialization method to use
     pub method: InitUserCryptoMethod,
 }
@@ -145,13 +148,16 @@ pub(super) async fn initialize_user_crypto(
                 master_key,
                 user_key,
                 req.private_key,
+                req.signing_key,
             )?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
-            client
-                .internal
-                .initialize_user_crypto_decrypted_key(user_key, req.private_key)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                req.private_key,
+                req.signing_key,
+            )?;
         }
         InitUserCryptoMethod::Pin {
             pin,
@@ -162,6 +168,7 @@ pub(super) async fn initialize_user_crypto(
                 pin_key,
                 pin_protected_user_key,
                 req.private_key,
+                req.signing_key,
             )?;
         }
         InitUserCryptoMethod::AuthRequest {
@@ -181,9 +188,11 @@ pub(super) async fn initialize_user_crypto(
                     auth_request_key,
                 )?,
             };
-            client
-                .internal
-                .initialize_user_crypto_decrypted_key(user_key, req.private_key)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                req.private_key,
+                req.signing_key,
+            )?;
         }
         InitUserCryptoMethod::DeviceKey {
             device_key,
@@ -194,9 +203,11 @@ pub(super) async fn initialize_user_crypto(
             let user_key = device_key
                 .decrypt_user_key(protected_device_private_key, device_protected_user_key)?;
 
-            client
-                .internal
-                .initialize_user_crypto_decrypted_key(user_key, req.private_key)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                req.private_key,
+                req.signing_key,
+            )?;
         }
         InitUserCryptoMethod::KeyConnector {
             master_key,
@@ -211,6 +222,7 @@ pub(super) async fn initialize_user_crypto(
                 master_key,
                 user_key,
                 req.private_key,
+                req.signing_key,
             )?;
         }
     }
@@ -528,7 +540,8 @@ pub(super) fn verify_asymmetric_keys(
             .map_err(VerifyError::ParseFailed)?;
 
         let derived_public_key_vec = private_key
-            .to_public_der()
+            .to_public_key()
+            .to_der()
             .map_err(VerifyError::PublicFailed)?;
 
         let derived_public_key = STANDARD.encode(derived_public_key_vec);
@@ -554,6 +567,47 @@ pub(super) fn verify_asymmetric_keys(
                 valid_private_key: false,
             }
         }
+    })
+}
+
+/// A new signing key pair along with the signed public key
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct MakeUserSigningKeysResponse {
+    /// Base64 encoded verifying key
+    verifying_key: String,
+    /// Signing key, encrypted with the user's symmetric key
+    signing_key: EncString,
+    /// The user's public key, signed by the signing key
+    signed_public_key: SignedPublicKey,
+}
+
+/// Makes a new set of signing keys for a user, which should only be done during
+/// once. This also signs the public key with the signing key
+/// and returns the signed public key.
+pub fn make_user_signing_keys_for_enrollment(
+    client: &Client,
+) -> Result<MakeUserSigningKeysResponse, CryptoError> {
+    let key_store = client.internal.get_key_store();
+    let mut ctx = key_store.context();
+
+    // Make new keypair and sign the public key with it
+    let signature_keypair = SigningKey::make(SignatureAlgorithm::Ed25519);
+    let signed_public_key = ctx.make_signed_public_key(
+        AsymmetricKeyId::UserPrivateKey,
+        SigningKeyId::UserSigningKey,
+    )?;
+
+    Ok(MakeUserSigningKeysResponse {
+        verifying_key: STANDARD.encode(signature_keypair.to_verifying_key().to_cose()),
+        // This needs to be changed to use the correct COSE content format before rolling out to
+        // users: https://bitwarden.atlassian.net/browse/PM-22189
+        signing_key: signature_keypair
+            .to_cose()
+            .encrypt(&mut ctx, SymmetricKeyId::User)?,
+        signed_public_key,
     })
 }
 
@@ -583,6 +637,7 @@ mod tests {
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
+                signing_key: None,
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
                     user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
@@ -603,6 +658,7 @@ mod tests {
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
+                signing_key: None,
                 method: InitUserCryptoMethod::Password {
                     password: "123412341234".into(),
                     user_key: new_password_response.new_key,
@@ -661,6 +717,7 @@ mod tests {
                 },
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
+                signing_key: None,
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
                     user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
@@ -683,6 +740,7 @@ mod tests {
                 },
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
+                signing_key: None,
                 method: InitUserCryptoMethod::Pin {
                     pin: "1234".into(),
                     pin_protected_user_key: pin_key.pin_protected_user_key,
@@ -726,6 +784,7 @@ mod tests {
                 },
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
+                signing_key: None,
                 method: InitUserCryptoMethod::Pin {
                     pin: "1234".into(),
                     pin_protected_user_key,
@@ -759,7 +818,6 @@ mod tests {
     #[test]
     fn test_enroll_admin_password_reset() {
         use base64::{engine::general_purpose::STANDARD, Engine};
-        use bitwarden_crypto::AsymmetricCryptoKey;
 
         let client = Client::new(None);
 
@@ -776,7 +834,7 @@ mod tests {
         let private_key ="2.yN7l00BOlUE0Sb0M//Q53w==|EwKG/BduQRQ33Izqc/ogoBROIoI5dmgrxSo82sgzgAMIBt3A2FZ9vPRMY+GWT85JiqytDitGR3TqwnFUBhKUpRRAq4x7rA6A1arHrFp5Tp1p21O3SfjtvB3quiOKbqWk6ZaU1Np9HwqwAecddFcB0YyBEiRX3VwF2pgpAdiPbSMuvo2qIgyob0CUoC/h4Bz1be7Qa7B0Xw9/fMKkB1LpOm925lzqosyMQM62YpMGkjMsbZz0uPopu32fxzDWSPr+kekNNyLt9InGhTpxLmq1go/pXR2uw5dfpXc5yuta7DB0EGBwnQ8Vl5HPdDooqOTD9I1jE0mRyuBpWTTI3FRnu3JUh3rIyGBJhUmHqGZvw2CKdqHCIrQeQkkEYqOeJRJVdBjhv5KGJifqT3BFRwX/YFJIChAQpebNQKXe/0kPivWokHWwXlDB7S7mBZzhaAPidZvnuIhalE2qmTypDwHy22FyqV58T8MGGMchcASDi/QXI6kcdpJzPXSeU9o+NC68QDlOIrMVxKFeE7w7PvVmAaxEo0YwmuAzzKy9QpdlK0aab/xEi8V4iXj4hGepqAvHkXIQd+r3FNeiLfllkb61p6WTjr5urcmDQMR94/wYoilpG5OlybHdbhsYHvIzYoLrC7fzl630gcO6t4nM24vdB6Ymg9BVpEgKRAxSbE62Tqacxqnz9AcmgItb48NiR/He3n3ydGjPYuKk/ihZMgEwAEZvSlNxYONSbYrIGDtOY+8Nbt6KiH3l06wjZW8tcmFeVlWv+tWotnTY9IqlAfvNVTjtsobqtQnvsiDjdEVtNy/s2ci5TH+NdZluca2OVEr91Wayxh70kpM6ib4UGbfdmGgCo74gtKvKSJU0rTHakQ5L9JlaSDD5FamBRyI0qfL43Ad9qOUZ8DaffDCyuaVyuqk7cz9HwmEmvWU3VQ+5t06n/5kRDXttcw8w+3qClEEdGo1KeENcnXCB32dQe3tDTFpuAIMLqwXs6FhpawfZ5kPYvLPczGWaqftIs/RXJ/EltGc0ugw2dmTLpoQhCqrcKEBDoYVk0LDZKsnzitOGdi9mOWse7Se8798ib1UsHFUjGzISEt6upestxOeupSTOh0v4+AjXbDzRUyogHww3V+Bqg71bkcMxtB+WM+pn1XNbVTyl9NR040nhP7KEf6e9ruXAtmrBC2ah5cFEpLIot77VFZ9ilLuitSz+7T8n1yAh1IEG6xxXxninAZIzi2qGbH69O5RSpOJuJTv17zTLJQIIc781JwQ2TTwTGnx5wZLbffhCasowJKd2EVcyMJyhz6ru0PvXWJ4hUdkARJs3Xu8dus9a86N8Xk6aAPzBDqzYb1vyFIfBxP0oO8xFHgd30Cgmz8UrSE3qeWRrF8ftrI6xQnFjHBGWD/JWSvd6YMcQED0aVuQkuNW9ST/DzQThPzRfPUoiL10yAmV7Ytu4fR3x2sF0Yfi87YhHFuCMpV/DsqxmUizyiJuD938eRcH8hzR/VO53Qo3UIsqOLcyXtTv6THjSlTopQ+JOLOnHm1w8dzYbLN44OG44rRsbihMUQp+wUZ6bsI8rrOnm9WErzkbQFbrfAINdoCiNa6cimYIjvvnMTaFWNymqY1vZxGztQiMiHiHYwTfwHTXrb9j0uPM=|09J28iXv9oWzYtzK2LBT6Yht4IT4MijEkk0fwFdrVQ4=".parse().unwrap();
         client
             .internal
-            .initialize_user_crypto_master_key(master_key, user_key, private_key)
+            .initialize_user_crypto_master_key(master_key, user_key, private_key, None)
             .unwrap();
 
         let public_key = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsy7RFHcX3C8Q4/OMmhhbFReYWfB45W9PDTEA8tUZwZmtOiN2RErIS2M1c+K/4HoDJ/TjpbX1f2MZcr4nWvKFuqnZXyewFc+jmvKVewYi+NAu2++vqKq2kKcmMNhwoQDQdQIVy/Uqlp4Cpi2cIwO6ogq5nHNJGR3jm+CpyrafYlbz1bPvL3hbyoGDuG2tgADhyhXUdFuef2oF3wMvn1lAJAvJnPYpMiXUFmj1ejmbwtlxZDrHgUJvUcp7nYdwUKaFoi+sOttHn3u7eZPtNvxMjhSS/X/1xBIzP/mKNLdywH5LoRxniokUk+fV3PYUxJsiU3lV0Trc/tH46jqd8ZGjmwIDAQAB";
