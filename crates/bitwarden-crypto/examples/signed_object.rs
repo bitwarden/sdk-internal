@@ -39,7 +39,7 @@ fn main() {
 
     // Bob retrieves the signed object from the server
     let retrieved_signed_object = SignedObject::from_cose(
-        &mock_server
+        mock_server
             .download("signed_object")
             .expect("Failed to download signed object"),
     )

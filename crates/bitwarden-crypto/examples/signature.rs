@@ -45,7 +45,7 @@ fn main() {
 
     // Bob retrieves the signed object from the server
     let retrieved_signature = bitwarden_crypto::Signature::from_cose(
-        &mock_server
+        mock_server
             .download("signature")
             .expect("Failed to download signature"),
     )
@@ -62,7 +62,7 @@ fn main() {
 
     // Bob verifies the signature using Alice's verifying key
     if !retrieved_signature.verify(
-        &retrieved_serialized_message.as_bytes().to_vec(),
+        retrieved_serialized_message.as_bytes(),
         &alice_verifying_key,
         EXAMPLE_NAMESPACE,
     ) {
@@ -91,13 +91,13 @@ fn main() {
             .expect("Failed to get content type from signature"),
     );
     let retrieved_alice_signature = bitwarden_crypto::Signature::from_cose(
-        &mock_server
+        mock_server
             .download("signature")
             .expect("Failed to download Alice's signature"),
     )
     .expect("Failed to deserialize Alice's signature");
     let retrieved_bobs_signature = bitwarden_crypto::Signature::from_cose(
-        &mock_server
+        mock_server
             .download("bobs_signature")
             .expect("Failed to download Bob's signature"),
     )
@@ -105,7 +105,7 @@ fn main() {
 
     // Charlie verifies Alice's signature
     if !retrieved_alice_signature.verify(
-        &retrieved_serialized_message.as_bytes().to_vec(),
+        retrieved_serialized_message.as_bytes(),
         &alice_verifying_key,
         EXAMPLE_NAMESPACE,
     ) {
@@ -113,7 +113,7 @@ fn main() {
     }
     // Charlie verifies Bob's signature
     if !retrieved_bobs_signature.verify(
-        &retrieved_serialized_message.as_bytes().to_vec(),
+        retrieved_serialized_message.as_bytes(),
         &bob_verifying_key,
         EXAMPLE_NAMESPACE,
     ) {
