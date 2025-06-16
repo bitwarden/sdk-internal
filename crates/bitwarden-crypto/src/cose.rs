@@ -57,18 +57,17 @@ pub(crate) fn encrypt_xchacha20_poly1305(
 ) -> Result<Vec<u8>, CryptoError> {
     let mut plaintext = plaintext.to_vec();
 
-    let mut header_builder: coset::HeaderBuilder = content_format.into();
+    let header_builder: coset::HeaderBuilder = content_format.into();
     let mut protected_header = header_builder.key_id(key.key_id.to_vec()).build();
+    // This should be adjusted to use the builder pattern once implemented in coset.
+    // The related coset upstream issue is:
+    // https://github.com/google/coset/issues/105
     protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
 
     if should_pad_content(&content_format) {
         // Pad the data to a block size in order to hide plaintext length
         crate::keys::utils::pad_bytes(&mut plaintext, XCHACHA20_TEXT_PAD_BLOCK_SIZE);
     }
-    // This should be adjusted to use the builder pattern once implemented in coset.
-    // The related coset upstream issue is:
-    // https://github.com/google/coset/issues/105
-    protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
 
     let mut nonce = [0u8; xchacha20::NONCE_SIZE];
     let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
@@ -171,7 +170,7 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
     }
 }
 
-impl From<ContentFormat> for coset::Header {
+impl From<ContentFormat> for coset::HeaderBuilder {
     fn from(format: ContentFormat) -> Self {
         let header_builder = coset::HeaderBuilder::new();
         let header_builder = match format {
