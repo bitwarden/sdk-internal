@@ -669,6 +669,7 @@ mod tests {
         assert_eq!(unwrapped_key_4, key_xchacha_4_id);
     }
 
+    #[test]
     fn test_signing() {
         let store: KeyStore<TestIds> = KeyStore::default();
 
