@@ -104,16 +104,6 @@ impl From<SignedPublicKey> for String {
     }
 }
 
-impl TryFrom<String> for SignedPublicKey {
-    type Error = EncodingError;
-    fn try_from(encoded: String) -> Result<Self, EncodingError> {
-        let bytes = STANDARD
-            .decode(encoded)
-            .map_err(|_| EncodingError::InvalidCborSerialization)?;
-        Self::try_from(bytes)
-    }
-}
-
 impl SignedPublicKey {
     /// Verifies the signature of the public key against the provided `VerifyingKey`, and returns
     /// the `AsymmetricPublicCryptoKey` if the verification is successful.
@@ -140,7 +130,10 @@ impl FromStr for SignedPublicKey {
     type Err = EncodingError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::try_from(s.to_string())
+        let bytes = STANDARD
+            .decode(s)
+            .map_err(|_| EncodingError::InvalidCborSerialization)?;
+        Self::try_from(bytes)
     }
 }
 
