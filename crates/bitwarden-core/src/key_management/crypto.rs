@@ -9,8 +9,8 @@ use std::collections::HashMap;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, SignatureAlgorithm, SignedPublicKey, SigningKey, SymmetricCryptoKey,
-    UnsignedSharedKey, UserKey,
+    KeyEncryptable, MasterKey, RotateUserKeysResponse, SignatureAlgorithm, SignedPublicKey,
+    SigningKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
@@ -615,24 +615,6 @@ pub fn make_user_signing_keys_for_enrollment(
     })
 }
 
-/// Rotated set of account keys
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct RotateUserKeysResponse {
-    /// The verifying key
-    verifying_key: String,
-    /// Signing key, encrypted with a symmetric key (user key, org key)
-    signing_key: EncString,
-    /// The user's public key, signed by the signing key
-    signed_public_key: String,
-    // The user's public key, without signature
-    public_key: String,
-    // The user's private key, encrypted with the user key
-    private_key: EncString,
-}
-
 /// Rotates user's account's keys without setting them to state
 pub fn rotate_account_keys(
     client: &Client,
@@ -640,28 +622,12 @@ pub fn rotate_account_keys(
 ) -> Result<RotateUserKeysResponse, CryptoError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
-
-    // This needs to be changed to use the correct COSE content format for private and signing keys
-    // before rolling out to users: https://bitwarden.atlassian.net/browse/PM-22189
-    let new_user_key = SymmetricCryptoKey::try_from(new_user_key)?;
-    #[allow(deprecated)]
-    let signing_key = ctx.dangerous_get_signing_key(SigningKeyId::UserSigningKey)?;
-    #[allow(deprecated)]
-    let private_key = ctx.dangerous_get_asymmetric_key(AsymmetricKeyId::UserPrivateKey)?;
-    let signed_public_key: Vec<u8> = ctx
-        .make_signed_public_key(
-            AsymmetricKeyId::UserPrivateKey,
-            SigningKeyId::UserSigningKey,
-        )?
-        .into();
-
-    Ok(RotateUserKeysResponse {
-        verifying_key: STANDARD.encode(signing_key.to_verifying_key().to_cose()),
-        signing_key: signing_key.to_cose().encrypt_with_key(&new_user_key)?,
-        signed_public_key: STANDARD.encode(&signed_public_key),
-        public_key: STANDARD.encode(private_key.to_public_key().to_der()?),
-        private_key: private_key.to_der()?.encrypt_with_key(&new_user_key)?,
-    })
+    bitwarden_crypto::get_rotated_account_keys(
+        SymmetricCryptoKey::try_from(new_user_key)?,
+        AsymmetricKeyId::UserPrivateKey,
+        SigningKeyId::UserSigningKey,
+        &ctx,
+    )
 }
 
 #[cfg(test)]

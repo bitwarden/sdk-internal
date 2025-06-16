@@ -1,4 +1,4 @@
-use bitwarden_crypto::CryptoError;
+use bitwarden_crypto::{CryptoError, RotateUserKeysResponse};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 #[cfg(feature = "wasm")]
@@ -8,8 +8,7 @@ use super::crypto::{
     derive_key_connector, make_key_pair, make_user_signing_keys_for_enrollment,
     rotate_account_keys, verify_asymmetric_keys, DeriveKeyConnectorError,
     DeriveKeyConnectorRequest, EnrollAdminPasswordResetError, MakeKeyPairResponse,
-    MakeUserSigningKeysResponse, RotateUserKeysResponse, VerifyAsymmetricKeysRequest,
-    VerifyAsymmetricKeysResponse,
+    MakeUserSigningKeysResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
 };
 #[cfg(feature = "internal")]
 use crate::key_management::crypto::{

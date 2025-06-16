@@ -20,6 +20,8 @@ pub use error::CryptoError;
 pub(crate) use error::Result;
 mod fingerprint;
 pub use fingerprint::fingerprint;
+mod key_rotation;
+pub use key_rotation::*;
 mod keys;
 pub use keys::*;
 mod rsa;
