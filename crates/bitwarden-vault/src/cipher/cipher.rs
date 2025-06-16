@@ -236,6 +236,8 @@ pub struct CipherListView {
 
     /// The number of attachments
     pub attachments: u32,
+    /// Indicates if the cipher has old attachments that need to be re-uploaded
+    pub has_old_attachments: bool,
 
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
@@ -243,9 +245,6 @@ pub struct CipherListView {
 
     /// Hints for the presentation layer for which fields can be copied.
     pub copyable_fields: Vec<CopyableCipherFields>,
-
-    /// Indicates if the cipher has old attachments that need to be re-uploaded
-    pub has_old_attachments: bool,
 
     pub local_data: Option<LocalDataView>,
 }
