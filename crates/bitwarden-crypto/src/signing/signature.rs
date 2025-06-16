@@ -28,7 +28,7 @@ impl Signature {
         &self.0
     }
 
-    pub(self) fn namespace(&self) -> Result<SigningNamespace, CryptoError> {
+    fn namespace(&self) -> Result<SigningNamespace, CryptoError> {
         namespace(&self.0.protected)
     }
 
@@ -44,7 +44,6 @@ impl Signature {
     ///
     /// The first anticipated consumer will be signed org memberships / emergency access:
     /// <https://bitwarden.atlassian.net/browse/PM-17458>
-    #[allow(unused)]
     pub fn verify(
         &self,
         serialized_message_bytes: &[u8],
@@ -80,6 +79,8 @@ impl SigningKey {
     /// use bitwarden_crypto::{SigningNamespace, SignatureAlgorithm, SigningKey};
     /// use serde::{Serialize, Deserialize};
     ///
+    /// const EXAMPLE_NAMESPACE: SigningNamespace = SigningNamespace::SignedPublicKey;
+    ///
     /// #[derive(Serialize, Deserialize, Debug, PartialEq)]
     /// struct TestMessage {
     ///  field1: String,
@@ -89,13 +90,12 @@ impl SigningKey {
     /// let message = TestMessage {
     ///  field1: "Test message".to_string(),
     /// };
-    /// let namespace = SigningNamespace::ExampleNamespace;
+    /// let namespace = EXAMPLE_NAMESPACE;
     /// let (signature, serialized_message) = signing_key.sign_detached(&message, &namespace).unwrap();
     /// // Verification
     /// let verifying_key = signing_key.to_verifying_key();
     /// assert!(signature.verify(&serialized_message.as_bytes(), &verifying_key, &namespace));
     /// ```
-    #[allow(unused)]
     pub fn sign_detached<Message: Serialize>(
         &self,
         message: &Message,

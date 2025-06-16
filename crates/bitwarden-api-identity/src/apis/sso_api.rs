@@ -9,9 +9,9 @@
  */
 
 use reqwest;
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as _, Deserialize, Serialize};
 
-use super::{configuration, Error};
+use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
 /// struct for typed errors of method [`sso_external_callback_get`]
@@ -45,36 +45,28 @@ pub enum SsoPreValidateGetError {
 pub async fn sso_external_callback_get(
     configuration: &configuration::Configuration,
 ) -> Result<(), Error<SsoExternalCallbackGetError>> {
-    let local_var_configuration = configuration;
+    let uri_str = format!("{}/sso/ExternalCallback", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!("{}/sso/ExternalCallback", local_var_configuration.base_path);
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<SsoExternalCallbackGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<SsoExternalCallbackGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -85,55 +77,46 @@ pub async fn sso_external_challenge_get(
     user_identifier: Option<&str>,
     sso_token: Option<&str>,
 ) -> Result<(), Error<SsoExternalChallengeGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_domain_hint = domain_hint;
+    let p_return_url = return_url;
+    let p_user_identifier = user_identifier;
+    let p_sso_token = sso_token;
 
-    let local_var_client = &local_var_configuration.client;
+    let uri_str = format!("{}/sso/ExternalChallenge", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    let local_var_uri_str = format!(
-        "{}/sso/ExternalChallenge",
-        local_var_configuration.base_path
-    );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-    if let Some(ref local_var_str) = domain_hint {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("domainHint", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_domain_hint {
+        req_builder = req_builder.query(&[("domainHint", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = return_url {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("returnUrl", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_return_url {
+        req_builder = req_builder.query(&[("returnUrl", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = user_identifier {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("userIdentifier", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_user_identifier {
+        req_builder = req_builder.query(&[("userIdentifier", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = sso_token {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("ssoToken", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_sso_token {
+        req_builder = req_builder.query(&[("ssoToken", &param_value.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<SsoExternalChallengeGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<SsoExternalChallengeGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -141,40 +124,34 @@ pub async fn sso_login_get(
     configuration: &configuration::Configuration,
     return_url: Option<&str>,
 ) -> Result<(), Error<SsoLoginGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_return_url = return_url;
 
-    let local_var_client = &local_var_configuration.client;
+    let uri_str = format!("{}/sso/Login", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    let local_var_uri_str = format!("{}/sso/Login", local_var_configuration.base_path);
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-    if let Some(ref local_var_str) = return_url {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("returnUrl", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_return_url {
+        req_builder = req_builder.query(&[("returnUrl", &param_value.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<SsoLoginGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<SsoLoginGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -182,39 +159,33 @@ pub async fn sso_pre_validate_get(
     configuration: &configuration::Configuration,
     domain_hint: Option<&str>,
 ) -> Result<(), Error<SsoPreValidateGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_domain_hint = domain_hint;
 
-    let local_var_client = &local_var_configuration.client;
+    let uri_str = format!("{}/sso/PreValidate", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    let local_var_uri_str = format!("{}/sso/PreValidate", local_var_configuration.base_path);
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-    if let Some(ref local_var_str) = domain_hint {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("domainHint", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_domain_hint {
+        req_builder = req_builder.query(&[("domainHint", &param_value.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<SsoPreValidateGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<SsoPreValidateGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }

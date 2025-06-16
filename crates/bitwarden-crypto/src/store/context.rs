@@ -326,12 +326,6 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(signed_public_key)
     }
 
-    /// Returns a signing key from the context
-    #[deprecated(note = "This function should ideally never be used outside this crate")]
-    pub fn dangerous_get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
-        self.get_signing_key(key_id)
-    }
-
     fn get_symmetric_key(&self, key_id: Ids::Symmetric) -> Result<&SymmetricCryptoKey> {
         if key_id.is_local() {
             self.local_symmetric_keys.get(key_id)

@@ -32,11 +32,11 @@ impl SignedObject {
         content_type(&self.0.protected)
     }
 
-    pub(crate) fn inner(&self) -> &CoseSign1 {
+    fn inner(&self) -> &CoseSign1 {
         &self.0
     }
 
-    pub(crate) fn namespace(&self) -> Result<SigningNamespace, CryptoError> {
+    fn namespace(&self) -> Result<SigningNamespace, CryptoError> {
         namespace(&self.0.protected)
     }
 
@@ -122,6 +122,8 @@ impl SigningKey {
     /// use bitwarden_crypto::{SigningNamespace, SignatureAlgorithm, SigningKey};
     /// use serde::{Serialize, Deserialize};
     ///
+    /// const EXAMPLE_NAMESPACE: SigningNamespace = SigningNamespace::SignedPublicKey;
+    ///
     /// #[derive(Serialize, Deserialize, Debug, PartialEq)]
     /// struct TestMessage {
     ///   field1: String,
@@ -131,7 +133,7 @@ impl SigningKey {
     /// let message = TestMessage {
     ///   field1: "Test message".to_string(),
     /// };
-    /// let namespace = SigningNamespace::ExampleNamespace;
+    /// let namespace = EXAMPLE_NAMESPACE;
     /// let signed_object = signing_key.sign(&message, &namespace).unwrap();
     /// // The signed object can be verified using the verifying key:
     /// let verifying_key = signing_key.to_verifying_key();

@@ -1,5 +1,9 @@
-use bitwarden_crypto::{CoseSerializable, SignedObject};
+//! This example demonstrates how to sign and verify structs.
+
+use bitwarden_crypto::{CoseSerializable, SignedObject, SigningNamespace};
 use serde::{Deserialize, Serialize};
+
+const EXAMPLE_NAMESPACE: &SigningNamespace = &SigningNamespace::SignedPublicKey;
 
 fn main() {
     // Alice wants to create a message, for which Bob is sure that Alice signed it. Bob should only
@@ -26,7 +30,7 @@ fn main() {
             },
             // The namespace should be unique per message type. It ensures no cross protocol
             // attacks can happen.
-            &bitwarden_crypto::SigningNamespace::ExampleNamespace,
+            EXAMPLE_NAMESPACE,
         )
         .expect("Failed to sign message");
 
@@ -42,10 +46,7 @@ fn main() {
     .expect("Failed to deserialize signed object");
     // Bob verifies the signed object using Alice's verifying key
     let verified_message: MessageToBob = retrieved_signed_object
-        .verify_and_unwrap(
-            &alice_verifying_key,
-            &bitwarden_crypto::SigningNamespace::ExampleNamespace,
-        )
+        .verify_and_unwrap(&alice_verifying_key, EXAMPLE_NAMESPACE)
         .expect("Failed to verify signed object");
     // Bob can now access the content of the message
     println!(

@@ -41,16 +41,14 @@ enum PublicKeyFormat {
 /// `SignedAsymmetricPublicKeyMessage` is a message that once signed, makes a claim towards owning a
 /// public encryption key.
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SignedPublicKeyMessage {
     /// The algorithm/crypto system used with this public key.
-    #[serde(rename = "alg")]
     algorithm: PublicKeyEncryptionAlgorithms,
     /// The format of the public key.
-    #[serde(rename = "format")]
     content_format: PublicKeyFormat,
     /// The public key, serialized and formatted in the content format specified in
     /// `content_format`.
-    #[serde(rename = "key")]
     public_key: ByteBuf,
 }
 
