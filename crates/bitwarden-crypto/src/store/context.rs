@@ -528,8 +528,8 @@ mod tests {
             KeyStore,
         },
         traits::tests::{TestIds, TestSigningKey, TestSymmKey},
-        CompositeEncryptable, CryptoError, Decryptable, Encryptable, SignatureAlgorithm,
-        SigningKey, SigningNamespace, SymmetricCryptoKey,
+        CompositeEncryptable, CryptoError, Decryptable, SignatureAlgorithm, SigningKey,
+        SigningNamespace, SymmetricCryptoKey,
     };
 
     #[test]
