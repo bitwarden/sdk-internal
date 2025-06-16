@@ -235,6 +235,7 @@ jobs:
     permissions:
       actions: read
       contents: write
+      id-token: write
     env:
       _PKG_VERSION: ${{ needs.validate.outputs.version }}
       _RELEASE_NAME: ${{ needs.validate.outputs.release_name }}
