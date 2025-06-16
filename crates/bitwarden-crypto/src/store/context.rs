@@ -8,12 +8,10 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, derive_shareable_key, error::UnsupportedOperation,
-    error::UnsupportedOperation, signing, store::backend::StoreBackend,
-    store::backend::StoreBackend, AsymmetricCryptoKey, AsymmetricCryptoKey, ContentFormat,
-    CryptoError, CryptoError, EncString, EncString, KeyId, KeyId, KeyIds, KeyIds, Result, Result,
-    Signature, SignatureAlgorithm, SignedObject, SignedPublicKey, SignedPublicKeyMessage,
-    SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
+    derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
+    AsymmetricCryptoKey, ContentFormat, CryptoError, EncString, KeyId, KeyIds, Result, Signature,
+    SignatureAlgorithm, SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey,
+    SymmetricCryptoKey, UnsignedSharedKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -525,15 +523,13 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        store::{tests::DataView, KeyStore},
         store::{
             tests::{Data, DataView},
             KeyStore,
         },
         traits::tests::{TestIds, TestSigningKey, TestSymmKey},
-        traits::tests::{TestIds, TestSymmKey},
-        CompositeEncryptable, CryptoError, Decryptable, Decryptable, Encryptable,
-        SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey, SymmetricCryptoKey,
+        CompositeEncryptable, CryptoError, Decryptable, Encryptable, SignatureAlgorithm,
+        SigningKey, SigningNamespace, SymmetricCryptoKey,
     };
 
     #[test]

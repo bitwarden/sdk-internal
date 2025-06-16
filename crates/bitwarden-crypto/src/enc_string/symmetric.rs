@@ -8,8 +8,7 @@ use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
     util::FromStrVisitor,
-    Aes256CbcHmacKey, Aes256CbcHmacKey, ContentFormat, KeyDecryptable, KeyDecryptable,
-    KeyEncryptable, KeyEncryptable, SymmetricCryptoKey, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    Aes256CbcHmacKey, ContentFormat, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
     XChaCha20Poly1305Key,
 };
 

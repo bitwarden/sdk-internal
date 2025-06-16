@@ -164,10 +164,9 @@ impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptable<Ids, Key, Output>, Output>
 #[cfg(test)]
 mod tests {
     use crate::{
-        cose::ContentFormat, traits::tests::*, traits::tests::*, AsymmetricCryptoKey,
-        AsymmetricCryptoKey, Decryptable, Decryptable, Encryptable, KeyStore, KeyStore,
-        PrimitiveEncryptable, PrimitiveEncryptableWithContentType, PublicKeyEncryptionAlgorithm,
-        SymmetricCryptoKey, SymmetricCryptoKey,
+        cose::ContentFormat, traits::tests::*, AsymmetricCryptoKey, Decryptable, Encryptable,
+        KeyStore, PrimitiveEncryptable, PrimitiveEncryptableWithContentType,
+        PublicKeyEncryptionAlgorithm, SymmetricCryptoKey,
     };
 
     fn test_store() -> KeyStore<TestIds> {
