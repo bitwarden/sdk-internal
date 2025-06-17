@@ -27,7 +27,7 @@ where
         communication: &Com,
         sessions: &Ses,
         message: OutgoingMessage,
-    ) -> impl std::future::Future<Output = Result<(), Self::SendError>>;
+    ) -> impl std::future::Future<Output = Result<(), Self::SendError>> + Send;
 
     /// Receive a message.
     ///
