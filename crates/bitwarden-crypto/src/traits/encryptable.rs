@@ -138,7 +138,7 @@ impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptable<Ids, Key, Output>, Output>
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         key: Key,
-        content_format: crate::cose::ContentFormat,
+        content_format: crate::ContentFormat,
     ) -> Result<Option<Output>, CryptoError> {
         self.as_ref()
             .map(|value| value.encrypt(ctx, key, content_format))
@@ -164,7 +164,7 @@ impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptable<Ids, Key, Output>, Output>
 #[cfg(test)]
 mod tests {
     use crate::{
-        cose::ContentFormat, traits::tests::*, AsymmetricCryptoKey, Decryptable, KeyStore,
+        traits::tests::*, AsymmetricCryptoKey, ContentFormat, Decryptable, KeyStore,
         PrimitiveEncryptable, PrimitiveEncryptableWithContentType, PublicKeyEncryptionAlgorithm,
         SymmetricCryptoKey,
     };

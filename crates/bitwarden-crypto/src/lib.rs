@@ -13,6 +13,8 @@
 static ALLOC: ZeroizingAllocator<std::alloc::System> = ZeroizingAllocator(std::alloc::System);
 
 mod aes;
+mod content_format;
+pub use content_format::ContentFormat;
 mod enc_string;
 pub use enc_string::{EncString, UnsignedSharedKey};
 mod error;
@@ -35,7 +37,6 @@ pub use cose::CoseSerializable;
 mod signing;
 pub use signing::*;
 mod traits;
-pub use cose::ContentFormat;
 mod xchacha20;
 pub use traits::{
     CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds, PrimitiveEncryptable,

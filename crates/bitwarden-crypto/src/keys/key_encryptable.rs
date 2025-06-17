@@ -3,7 +3,7 @@ use std::{collections::HashMap, hash::Hash, sync::Arc};
 use rayon::prelude::*;
 use uuid::Uuid;
 
-use crate::{cose::ContentFormat, error::Result, CryptoError, SymmetricCryptoKey};
+use crate::{error::Result, ContentFormat, CryptoError, SymmetricCryptoKey};
 
 #[allow(missing_docs)]
 pub trait KeyContainer: Send + Sync {
