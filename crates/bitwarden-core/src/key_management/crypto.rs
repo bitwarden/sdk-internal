@@ -603,8 +603,6 @@ pub fn make_user_signing_keys_for_enrollment(
 
     Ok(MakeUserSigningKeysResponse {
         verifying_key: STANDARD.encode(signature_keypair.to_verifying_key().to_cose()),
-        // This needs to be changed to use the correct COSE content format before rolling out to
-        // users: https://bitwarden.atlassian.net/browse/PM-22189
         signing_key: signature_keypair.to_cose().encrypt(
             &mut ctx,
             SymmetricKeyId::User,
