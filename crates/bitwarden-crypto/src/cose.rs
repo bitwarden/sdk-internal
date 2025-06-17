@@ -180,7 +180,9 @@ impl TryFrom<&coset::Header> for ContentFormat {
             Some(ContentType::Text(format)) if format == CONTENT_TYPE_PADDED_UTF8 => {
                 Ok(ContentFormat::Utf8)
             }
-
+            Some(ContentType::Text(format)) if format == CONTENT_TYPE_BITWARDEN_LEGACY_KEY => {
+                Ok(ContentFormat::BitwardenLegacyKey)
+            }
             Some(ContentType::Assigned(CoapContentFormat::Pkcs8)) => Ok(ContentFormat::Pkcs8),
             Some(ContentType::Assigned(CoapContentFormat::CoseKey)) => Ok(ContentFormat::CoseKey),
             Some(ContentType::Assigned(CoapContentFormat::OctetStream)) => {
