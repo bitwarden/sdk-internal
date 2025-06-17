@@ -8,9 +8,6 @@ use coset::{
     CborSerializable, ContentType, Label,
 };
 use generic_array::GenericArray;
-use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify_next::Tsify;
 use typenum::U32;
 
 use crate::{
