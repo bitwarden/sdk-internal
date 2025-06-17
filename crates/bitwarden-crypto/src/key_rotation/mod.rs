@@ -26,8 +26,8 @@ pub struct RotateUserKeysResponse {
     private_key: EncString,
 }
 
-/// Re-encrypts the user's keys with the provided symmetric key.
-pub fn get_rotated_account_keys<Ids: crate::KeyIds>(
+/// Re-encrypts the user's keys with the provided symmetric key for a v2 user.
+pub fn get_v2_rotated_account_keys<Ids: crate::KeyIds>(
     new_user_key: SymmetricCryptoKey,
     current_user_private_key_id: Ids::Asymmetric,
     current_user_signing_key_id: Ids::Signing,

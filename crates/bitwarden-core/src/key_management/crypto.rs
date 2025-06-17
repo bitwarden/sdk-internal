@@ -9,8 +9,9 @@ use std::collections::HashMap;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     AsymmetricCryptoKey, ContentFormat, CoseSerializable, CryptoError, EncString, Kdf,
-    KeyDecryptable, KeyEncryptable, MasterKey, PrimitiveEncryptable, SignatureAlgorithm,
-    SignedPublicKey, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey,
+    KeyDecryptable, KeyEncryptable, MasterKey, PrimitiveEncryptable, RotateUserKeysResponse,
+    SignatureAlgorithm, SignedPublicKey, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
+    UserKey,
 };
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
@@ -611,6 +612,25 @@ pub fn make_user_signing_keys_for_enrollment(
         )?,
         signed_public_key,
     })
+}
+
+/// Gets a set of new wrapped account keys for a user, given a new user key.
+///
+/// In the current implementation, it just re-encrypts any existing keys. This function expects a
+/// user to be a v2 user; that is, they have a signing
+pub fn get_v2_rotated_account_keys(
+    client: &Client,
+    user_key: String,
+) -> Result<RotateUserKeysResponse, CryptoError> {
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+
+    bitwarden_crypto::get_v2_rotated_account_keys(
+        SymmetricCryptoKey::try_from(user_key)?,
+        AsymmetricKeyId::UserPrivateKey,
+        SigningKeyId::UserSigningKey,
+        &ctx,
+    )
 }
 
 #[cfg(test)]
