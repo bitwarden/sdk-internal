@@ -19,9 +19,9 @@ pub enum ContentFormat {
     CoseKey,
     /// Bitwarden Legacy Key
     /// There are three permissible byte values here:
-    /// - [u8; 32] - AES-CBC (no hmac) key. This is to be removed and banned.
-    /// - [u8; 64] - AES-CBC with HMAC key. This is the v1 userkey key type
-    /// - [u8; >64] - COSE key. Padded to be larger than 64 bytes.
+    /// - `[u8; 32]` - AES-CBC (no hmac) key. This is to be removed and banned.
+    /// - `[u8; 64]` - AES-CBC with HMAC key. This is the v1 userkey key type
+    /// - `[u8; >64]` - COSE key. Padded to be larger than 64 bytes.
     BitwardenLegacyKey,
     /// Stream of bytes
     OctetStream,
