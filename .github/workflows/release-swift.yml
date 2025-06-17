@@ -131,7 +131,7 @@ jobs:
             echo "ref=main" >> $GITHUB_OUTPUT
           fi
 
-      - name: Azure Login
+      - name: Log in to Azure
         id: azure-login
         uses: bitwarden/gh-actions/azure-login@main
         with:
@@ -148,7 +148,7 @@ jobs:
             github-gpg-private-key-passphrase,
             github-pat-bitwarden-devops-bot-repo-scope"
 
-      - name: Azure Logout
+      - name: Log out from Azure
         uses: bitwarden/gh-actions/azure-logout@main
 
       - name: Checkout SDK-Swift repo
@@ -241,7 +241,7 @@ jobs:
       _RELEASE_NAME: ${{ needs.validate.outputs.release_name }}
       _BUILD_RUN_ID: ${{ needs.validate.outputs.run_id }}
     steps:
-      - name: Azure Login
+      - name: Log in to Azure
         id: azure-login
         uses: bitwarden/gh-actions/azure-login@main
         with:
@@ -256,7 +256,7 @@ jobs:
           keyvault: ${{ env._KEY_VAULT }}
           secrets: "github-pat-bitwarden-devops-bot-repo-scope"
 
-      - name: Azure Logout
+      - name: Log out from Azure
         uses: bitwarden/gh-actions/azure-logout@main
 
       - name: Download BitwardenEFI artifact
