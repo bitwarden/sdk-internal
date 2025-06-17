@@ -23,7 +23,11 @@ use crate::{
 /// the draft was never published as an RFC, we use a private-use value for the algorithm.
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
 const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
-const CONTENT_TYPE_PADDED_UTF8: &str = "application/utf8-padded";
+
+// Note: These are in the "unregistered" tree: https://datatracker.ietf.org/doc/html/rfc6838#section-3.4
+// These are only used within Bitwarden, and not meant for exchange with other systems.
+const CONTENT_TYPE_PADDED_UTF8: &str = "application/x.bitwarden.utf8-padded";
+const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
 
 /// The content format describes the format of the contained bytes. Message encryption always
 /// happens on the byte level, and this allows determining what format the contained data has. For
@@ -40,6 +44,12 @@ pub enum ContentFormat {
     Pkcs8,
     /// COSE serialized CoseKey
     CoseKey,
+    /// Bitwarden Legacy Key
+    /// There are three permissible byte values here:
+    /// - [u8; 32] - AES-CBC (no hmac) key. This is to be removed and banned.
+    /// - [u8; 64] - AES-CBC with HMAC key. This is the v1 userkey key type
+    /// - [u8; >64] - COSE key. Padded to be larger than 64 bytes.
+    BitwardenLegacyKey,
     /// Stream of bytes
     OctetStream,
 }
@@ -180,6 +190,9 @@ impl From<ContentFormat> for coset::HeaderBuilder {
             }
             ContentFormat::Pkcs8 => header_builder.content_format(CoapContentFormat::Pkcs8),
             ContentFormat::CoseKey => header_builder.content_format(CoapContentFormat::CoseKey),
+            ContentFormat::BitwardenLegacyKey => {
+                header_builder.content_type(CONTENT_TYPE_BITWARDEN_LEGACY_KEY.to_string())
+            }
             ContentFormat::OctetStream => {
                 header_builder.content_format(CoapContentFormat::OctetStream)
             }
@@ -194,6 +207,9 @@ impl TryFrom<&coset::Header> for ContentFormat {
         match header.content_type.as_ref() {
             Some(ContentType::Text(format)) if format == CONTENT_TYPE_PADDED_UTF8 => {
                 Ok(ContentFormat::Utf8)
+            }
+            Some(ContentType::Text(format)) if format == CONTENT_TYPE_BITWARDEN_LEGACY_KEY => {
+                Ok(ContentFormat::BitwardenLegacyKey)
             }
             Some(ContentType::Assigned(CoapContentFormat::Pkcs8)) => Ok(ContentFormat::Pkcs8),
             Some(ContentType::Assigned(CoapContentFormat::CoseKey)) => Ok(ContentFormat::CoseKey),

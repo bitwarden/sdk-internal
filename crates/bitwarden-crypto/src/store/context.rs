@@ -179,7 +179,9 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 let (content_bytes, content_format) =
                     crate::cose::decrypt_xchacha20_poly1305(data, key)?;
                 match content_format {
-                    ContentFormat::OctetStream => SymmetricCryptoKey::try_from(content_bytes)?,
+                    ContentFormat::BitwardenLegacyKey => {
+                        SymmetricCryptoKey::try_from(content_bytes)?
+                    }
                     ContentFormat::CoseKey => SymmetricCryptoKey::try_from_cose(&content_bytes)?,
                     _ => return Err(CryptoError::InvalidKey),
                 }
@@ -223,13 +225,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             ) => self.encrypt_data_with_symmetric_key(
                 wrapping_key,
                 key_to_wrap_instance.to_encoded().as_slice(),
-                ContentFormat::OctetStream,
+                ContentFormat::BitwardenLegacyKey,
             ),
             (XChaCha20Poly1305Key(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => self
                 .encrypt_data_with_symmetric_key(
                     wrapping_key,
                     key_to_wrap_instance.to_encoded().as_slice(),
-                    ContentFormat::OctetStream,
+                    ContentFormat::BitwardenLegacyKey,
                 ),
             (XChaCha20Poly1305Key(_), XChaCha20Poly1305Key(_)) => self
                 .encrypt_data_with_symmetric_key(
@@ -612,7 +614,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wrap_unwrap_aes256_cbc_hmac() {
+    fn test_wrap_unwrap() {
         let store: KeyStore<TestIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
