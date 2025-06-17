@@ -1,4 +1,4 @@
-use bitwarden_crypto::CryptoError;
+use bitwarden_crypto::{CryptoError, RotateUserKeysResponse};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 #[cfg(feature = "wasm")]
@@ -6,9 +6,9 @@ use wasm_bindgen::prelude::*;
 
 use super::crypto::{
     derive_key_connector, make_key_pair, make_user_signing_keys_for_enrollment,
-    verify_asymmetric_keys, DeriveKeyConnectorError, DeriveKeyConnectorRequest,
-    EnrollAdminPasswordResetError, MakeKeyPairResponse, MakeUserSigningKeysResponse,
-    VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
+    rotate_account_keys, verify_asymmetric_keys, DeriveKeyConnectorError,
+    DeriveKeyConnectorRequest, EnrollAdminPasswordResetError, MakeKeyPairResponse,
+    MakeUserSigningKeysResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
 };
 #[cfg(feature = "internal")]
 use crate::key_management::crypto::{
@@ -68,6 +68,14 @@ impl CryptoClient {
         &self,
     ) -> Result<MakeUserSigningKeysResponse, CryptoError> {
         make_user_signing_keys_for_enrollment(&self.client)
+    }
+
+    /// Creates a rotated set of account keys for the current state
+    pub fn rotate_account_keys(
+        &self,
+        user_key: String,
+    ) -> Result<RotateUserKeysResponse, CryptoError> {
+        rotate_account_keys(&self.client, user_key)
     }
 }
 
