@@ -22,7 +22,7 @@ pub enum RpcError {
 }
 
 impl RpcError {
-    pub(crate) fn to_vec(self) -> Vec<u8> {
+    pub(crate) fn to_vec(&self) -> Vec<u8> {
         serde_utils::to_vec(&self).expect("Serializing RpcError should not fail")
     }
 }
