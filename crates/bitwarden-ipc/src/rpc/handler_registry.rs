@@ -79,7 +79,7 @@ mod test {
         let registry = RpcHandlerRegistry::new();
 
         let request = TestRequest { a: 1, b: 2 };
-        let request_bytes = serde_json::to_vec(&request).unwrap();
+        let request_bytes = crate::serde_utils::to_vec(&request).unwrap();
 
         let result = registry.handle("TestRequest", request_bytes).await;
 
@@ -93,14 +93,14 @@ mod test {
         registry.register(TestHandler).await;
 
         let request = TestRequest { a: 1, b: 2 };
-        let request_bytes = serde_json::to_vec(&request).unwrap();
+        let request_bytes = crate::serde_utils::to_vec(&request).unwrap();
 
         let result = registry
             .handle("TestRequest", request_bytes)
             .await
             .expect("Failed to handle request");
         let response: TestResponse =
-            serde_json::from_slice(&result).expect("Failed to deserialize response");
+            crate::serde_utils::from_slice(&result).expect("Failed to deserialize response");
 
         assert_eq!(response.result, 3);
     }

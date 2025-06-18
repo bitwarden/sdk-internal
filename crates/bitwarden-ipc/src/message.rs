@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::endpoint::Endpoint;
+use crate::{endpoint::Endpoint, serde_utils};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -27,7 +27,7 @@ pub struct IncomingMessage {
     pub topic: Option<String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct TypedOutgoingMessage<Payload> {
     pub payload: Payload,
@@ -36,13 +36,13 @@ pub struct TypedOutgoingMessage<Payload> {
 
 impl<Payload> TryFrom<OutgoingMessage> for TypedOutgoingMessage<Payload>
 where
-    Payload: TryFrom<Vec<u8>>,
+    Payload: DeserializeOwned,
 {
-    type Error = <Payload as TryFrom<Vec<u8>>>::Error;
+    type Error = serde_utils::SerializeError;
 
     fn try_from(value: OutgoingMessage) -> Result<Self, Self::Error> {
         Ok(Self {
-            payload: Payload::try_from(value.payload)?,
+            payload: serde_utils::from_slice(&value.payload)?,
             destination: value.destination,
         })
     }
@@ -50,13 +50,13 @@ where
 
 impl<Payload> TryFrom<TypedOutgoingMessage<Payload>> for OutgoingMessage
 where
-    Payload: TryInto<Vec<u8>> + PayloadTypeName,
+    Payload: Serialize + PayloadTypeName,
 {
-    type Error = <Payload as TryInto<Vec<u8>>>::Error;
+    type Error = serde_utils::DeserializeError;
 
     fn try_from(value: TypedOutgoingMessage<Payload>) -> Result<Self, Self::Error> {
         Ok(Self {
-            payload: value.payload.try_into()?,
+            payload: serde_utils::to_vec(&value.payload)?,
             destination: value.destination,
             topic: Some(Payload::name()),
         })
@@ -78,13 +78,13 @@ pub trait PayloadTypeName {
 
 impl<Payload> TryFrom<IncomingMessage> for TypedIncomingMessage<Payload>
 where
-    Payload: TryFrom<Vec<u8>> + PayloadTypeName,
+    Payload: DeserializeOwned + PayloadTypeName,
 {
-    type Error = <Payload as TryFrom<Vec<u8>>>::Error;
+    type Error = serde_utils::DeserializeError;
 
     fn try_from(value: IncomingMessage) -> Result<Self, Self::Error> {
         Ok(Self {
-            payload: Payload::try_from(value.payload)?,
+            payload: serde_utils::from_slice(&value.payload)?,
             destination: value.destination,
             source: value.source,
         })
@@ -93,13 +93,13 @@ where
 
 impl<Payload> TryFrom<TypedIncomingMessage<Payload>> for IncomingMessage
 where
-    Payload: TryInto<Vec<u8>> + PayloadTypeName,
+    Payload: Serialize + PayloadTypeName,
 {
-    type Error = <Payload as TryInto<Vec<u8>>>::Error;
+    type Error = serde_utils::SerializeError;
 
     fn try_from(value: TypedIncomingMessage<Payload>) -> Result<Self, Self::Error> {
         Ok(Self {
-            payload: value.payload.try_into()?,
+            payload: serde_utils::to_vec(&value.payload)?,
             destination: value.destination,
             source: value.source,
             topic: Some(Payload::name()),

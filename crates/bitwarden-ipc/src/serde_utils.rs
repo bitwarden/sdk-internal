@@ -4,6 +4,9 @@
 
 use serde::{Deserialize, Serialize};
 
+pub(crate) type SerializeError = serde_json::Error;
+pub(crate) type DeserializeError = serde_json::Error;
+
 pub(crate) fn to_vec<T: Serialize>(value: &T) -> Result<Vec<u8>, serde_json::Error> {
     serde_json::to_vec(value)
 }
