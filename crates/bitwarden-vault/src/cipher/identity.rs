@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use tsify_next::Tsify;
 
 use super::cipher::CipherKind;
-use crate::VaultParseError;
+use crate::{cipher::cipher::CopyableCipherFields, Cipher, VaultParseError};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -163,6 +163,31 @@ impl CipherKind for Identity {
 
         Ok(build_subtitle_identity(first_name, last_name))
     }
+
+    fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
+        [
+            self.username
+                .as_ref()
+                .map(|_| CopyableCipherFields::IdentityUsername),
+            self.email
+                .as_ref()
+                .map(|_| CopyableCipherFields::IdentityEmail),
+            self.phone
+                .as_ref()
+                .map(|_| CopyableCipherFields::IdentityPhone),
+            self.address1
+                .as_ref()
+                .or(self.address2.as_ref())
+                .or(self.address3.as_ref())
+                .or(self.city.as_ref())
+                .or(self.state.as_ref())
+                .or(self.postal_code.as_ref())
+                .map(|_| CopyableCipherFields::IdentityAddress),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+    }
 }
 
 /// Builds the subtitle for a card cipher
@@ -193,6 +218,30 @@ fn build_subtitle_identity(first_name: Option<String>, last_name: Option<String>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cipher::cipher::CopyableCipherFields;
+
+    fn create_identity() -> Identity {
+        Identity {
+            title: None,
+            first_name: None,
+            middle_name: None,
+            last_name: None,
+            address1: None,
+            address2: None,
+            address3: None,
+            city: None,
+            state: None,
+            postal_code: None,
+            country: None,
+            company: None,
+            email: None,
+            phone: None,
+            ssn: None,
+            username: None,
+            passport_number: None,
+            license_number: None,
+        }
+    }
 
     #[test]
     fn test_build_subtitle_identity() {
@@ -228,5 +277,60 @@ mod tests {
 
         let subtitle = build_subtitle_identity(first_name, last_name);
         assert_eq!(subtitle, "");
+    }
+
+    #[test]
+    fn test_get_copyable_fields_identity_empty() {
+        let identity = create_identity();
+
+        let copyable_fields = identity.get_copyable_fields(None);
+        assert_eq!(copyable_fields, vec![]);
+    }
+
+    #[test]
+    fn test_get_copyable_fields_identity_has_username() {
+        let mut identity = create_identity();
+        identity.username = Some("2.yXXpPbsf6NZhLVkNe/i4Bw==|ol/HTI++aMO1peBBBhSR7Q==|awNmmj31efIXTzaru42/Ay+bQ6V+1MrKxXh1Uo5gca8=".parse().unwrap());
+
+        let copyable_fields = identity.get_copyable_fields(None);
+        assert_eq!(
+            copyable_fields,
+            vec![CopyableCipherFields::IdentityUsername]
+        );
+    }
+
+    #[test]
+    fn test_get_copyable_fields_identity_has_email() {
+        let mut identity = create_identity();
+        identity.email = Some("2.yXXpPbsf6NZhLVkNe/i4Bw==|ol/HTI++aMO1peBBBhSR7Q==|awNmmj31efIXTzaru42/Ay+bQ6V+1MrKxXh1Uo5gca8=".parse().unwrap());
+
+        let copyable_fields = identity.get_copyable_fields(None);
+        assert_eq!(copyable_fields, vec![CopyableCipherFields::IdentityEmail]);
+    }
+
+    #[test]
+    fn test_get_copyable_fields_identity_has_phone() {
+        let mut identity = create_identity();
+        identity.phone = Some("2.yXXpPbsf6NZhLVkNe/i4Bw==|ol/HTI++aMO1peBBBhSR7Q==|awNmmj31efIXTzaru42/Ay+bQ6V+1MrKxXh1Uo5gca8=".parse().unwrap());
+
+        let copyable_fields = identity.get_copyable_fields(None);
+        assert_eq!(copyable_fields, vec![CopyableCipherFields::IdentityPhone]);
+    }
+
+    #[test]
+    fn test_get_copyable_fields_identity_has_address() {
+        let mut identity = create_identity();
+
+        identity.address1 = Some("2.yXXpPbsf6NZhLVkNe/i4Bw==|ol/HTI++aMO1peBBBhSR7Q==|awNmmj31efIXTzaru42/Ay+bQ6V+1MrKxXh1Uo5gca8=".parse().unwrap());
+
+        let mut copyable_fields = identity.get_copyable_fields(None);
+
+        assert_eq!(copyable_fields, vec![CopyableCipherFields::IdentityAddress]);
+
+        identity.state = Some("2.yXXpPbsf6NZhLVkNe/i4Bw==|ol/HTI++aMO1peBBBhSR7Q==|awNmmj31efIXTzaru42/Ay+bQ6V+1MrKxXh1Uo5gca8=".parse().unwrap());
+        identity.address1 = None;
+
+        copyable_fields = identity.get_copyable_fields(None);
+        assert_eq!(copyable_fields, vec![CopyableCipherFields::IdentityAddress]);
     }
 }

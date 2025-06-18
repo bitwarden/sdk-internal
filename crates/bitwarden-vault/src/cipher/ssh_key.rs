@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use tsify_next::Tsify;
 
 use super::cipher::CipherKind;
+use crate::{cipher::cipher::CopyableCipherFields, Cipher};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -69,6 +70,10 @@ impl CipherKind for SshKey {
     ) -> Result<String, CryptoError> {
         self.fingerprint.decrypt(ctx, key)
     }
+
+    fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
+        [CopyableCipherFields::SshKey].into_iter().collect()
+    }
 }
 
 #[cfg(test)]
@@ -77,6 +82,7 @@ mod tests {
     use bitwarden_crypto::SymmetricCryptoKey;
 
     use super::*;
+    use crate::cipher::cipher::CopyableCipherFields;
 
     #[test]
     fn test_subtitle_ssh_key() {
@@ -100,5 +106,17 @@ mod tests {
             ssh_key.decrypt_subtitle(&mut ctx, key).unwrap(),
             original_subtitle
         );
+    }
+
+    #[test]
+    fn test_get_copyable_fields_sshkey() {
+        let ssh_key = SshKey {
+            private_key: "2.tMIugb6zQOL+EuOizna1wQ==|W5dDLoNJtajN68yeOjrr6w==|qS4hwJB0B0gNLI0o+jxn+sKMBmvtVgJCRYNEXBZoGeE=".parse().unwrap(),
+            public_key: "2.tMIugb6zQOL+EuOizna1wQ==|W5dDLoNJtajN68yeOjrr6w==|qS4hwJB0B0gNLI0o+jxn+sKMBmvtVgJCRYNEXBZoGeE=".parse().unwrap(),
+            fingerprint: "2.tMIugb6zQOL+EuOizna1wQ==|W5dDLoNJtajN68yeOjrr6w==|qS4hwJB0B0gNLI0o+jxn+sKMBmvtVgJCRYNEXBZoGeE=".parse().unwrap(),
+        };
+
+        let copyable_fields = ssh_key.get_copyable_fields(None);
+        assert_eq!(copyable_fields, vec![CopyableCipherFields::SshKey]);
     }
 }

@@ -6,6 +6,8 @@ on:
     branches: ["main"]
   pull_request:
 
+permissions: {}
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -17,6 +19,10 @@ jobs:
     name: Check Style
 
     runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
       - name: Checkout
@@ -57,7 +63,7 @@ jobs:
         run: cargo install clippy-sarif sarif-fmt --locked --git https://github.com/psastras/sarif-rs.git --rev 11c33a53f6ffeaed736856b86fb6b7b09fabdfd8
 
       - name: Cargo clippy-sarif
-        run: cargo clippy --all-features --tests --message-format=json |
+        run: cargo clippy --all-features --all-targets --message-format=json |
           clippy-sarif | tee clippy_result.sarif | sarif-fmt
         env:
           RUSTFLAGS: "-D warnings"
@@ -73,7 +79,7 @@ jobs:
       # status code of the command is caught and reported as failed in GitHub.
       # This should be cached from the previous step and should be fast.
       - name: Cargo clippy
-        run: cargo clippy --all-features --tests
+        run: cargo clippy --all-features --all-targets
         env:
           RUSTFLAGS: "-D warnings"
 

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use tsify_next::Tsify;
 
 use super::cipher::CipherKind;
-use crate::VaultParseError;
+use crate::{cipher::cipher::CopyableCipherFields, Cipher, VaultParseError};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -143,6 +143,20 @@ impl CipherKind for Card {
 
         Ok(build_subtitle_card(brand, number))
     }
+
+    fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
+        [
+            self.number
+                .as_ref()
+                .map(|_| CopyableCipherFields::CardNumber),
+            self.code
+                .as_ref()
+                .map(|_| CopyableCipherFields::CardSecurityCode),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+    }
 }
 
 /// Builds the subtitle for a card cipher
@@ -232,5 +246,39 @@ mod tests {
 
         let subtitle = build_subtitle_card(brand, number);
         assert_eq!(subtitle, "*4444");
+    }
+    #[test]
+    fn test_get_copyable_fields_code() {
+        let card = Card {
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: Some("2.6TpmzzaQHgYr+mXjdGLQlg==|vT8VhfvMlWSCN9hxGYftZ5rjKRsZ9ofjdlUCx5Gubnk=|uoD3/GEQBWKKx2O+/YhZUCzVkfhm8rFK3sUEVV84mv8=".parse().unwrap()),
+            brand: None,
+            number: None,
+        };
+
+        let copyable_fields = card.get_copyable_fields(None);
+
+        assert_eq!(
+            copyable_fields,
+            vec![CopyableCipherFields::CardSecurityCode]
+        );
+    }
+
+    #[test]
+    fn test_get_copyable_fields_number() {
+        let card = Card {
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+            brand: None,
+            number: Some("2.6TpmzzaQHgYr+mXjdGLQlg==|vT8VhfvMlWSCN9hxGYftZ5rjKRsZ9ofjdlUCx5Gubnk=|uoD3/GEQBWKKx2O+/YhZUCzVkfhm8rFK3sUEVV84mv8=".parse().unwrap()),
+        };
+
+        let copyable_fields = card.get_copyable_fields(None);
+
+        assert_eq!(copyable_fields, vec![CopyableCipherFields::CardNumber]);
     }
 }
