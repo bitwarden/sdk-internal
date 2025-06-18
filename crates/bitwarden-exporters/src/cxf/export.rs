@@ -4,7 +4,7 @@ use credential_exchange_format::{
 };
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
-use {tsify_next::Tsify, wasm_bindgen::prelude::*};
+use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{cxf::CxfError, Cipher, CipherType, Login};
 

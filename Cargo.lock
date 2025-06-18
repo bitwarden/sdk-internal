@@ -378,7 +378,7 @@ dependencies = [
  "serde_repr",
  "thiserror 2.0.12",
  "tokio",
- "tsify-next",
+ "tsify",
  "uniffi",
  "uuid",
  "wasm-bindgen",
@@ -420,7 +420,7 @@ dependencies = [
  "sha2",
  "subtle",
  "thiserror 2.0.12",
- "tsify-next",
+ "tsify",
  "typenum",
  "uniffi",
  "uuid",
@@ -437,7 +437,7 @@ dependencies = [
  "js-sys",
  "serde",
  "trybuild",
- "tsify-next",
+ "tsify",
  "wasm-bindgen",
  "wasm-bindgen-test",
 ]
@@ -454,7 +454,7 @@ dependencies = [
  "serde",
  "syn",
  "thiserror 2.0.12",
- "tsify-next",
+ "tsify",
  "wasm-bindgen",
 ]
 
@@ -475,7 +475,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.12",
- "tsify-next",
+ "tsify",
  "uniffi",
  "uuid",
  "wasm-bindgen",
@@ -520,7 +520,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.12",
  "tokio",
- "tsify-next",
+ "tsify",
  "uniffi",
  "wasm-bindgen",
  "wiremock",
@@ -538,7 +538,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.12",
  "tokio",
- "tsify-next",
+ "tsify",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
@@ -594,7 +594,7 @@ dependencies = [
  "serde",
  "ssh-key",
  "thiserror 2.0.12",
- "tsify-next",
+ "tsify",
  "uniffi",
  "wasm-bindgen",
 ]
@@ -614,7 +614,7 @@ dependencies = [
  "tokio",
  "tokio-test",
  "tokio-util",
- "tsify-next",
+ "tsify",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
@@ -687,7 +687,7 @@ dependencies = [
  "sha2",
  "thiserror 2.0.12",
  "tokio",
- "tsify-next",
+ "tsify",
  "uniffi",
  "uuid",
  "wasm-bindgen",
@@ -4279,22 +4279,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "tsify-next"
-version = "0.5.6"
+name = "tsify"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d0f2208feeb5f7a6edb15a2389c14cd42480ef6417318316bb866da5806a61d"
+checksum = "b2ec91b85e6c6592ed28636cb1dd1fac377ecbbeb170ff1d79f97aac5e38926d"
 dependencies = [
  "serde",
  "serde-wasm-bindgen",
- "tsify-next-macros",
+ "tsify-macros",
  "wasm-bindgen",
 ]
 
 [[package]]
-name = "tsify-next-macros"
-version = "0.5.6"
+name = "tsify-macros"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f81253930d0d388a3ab8fa4ae56da9973ab171ef833d1be2e9080fc3ce502bd6"
+checksum = "9a324606929ad11628a19206d7853807481dcaecd6c08be70a235930b8241955"
 dependencies = [
  "proc-macro2",
  "quote",

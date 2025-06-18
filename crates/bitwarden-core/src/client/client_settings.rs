@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
     feature = "wasm",
-    derive(tsify_next::Tsify),
+    derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
 pub struct ClientSettings {
@@ -51,7 +51,7 @@ impl Default for ClientSettings {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(
     feature = "wasm",
-    derive(tsify_next::Tsify),
+    derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
 pub enum DeviceType {
