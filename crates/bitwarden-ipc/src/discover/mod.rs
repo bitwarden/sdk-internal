@@ -1,5 +1,3 @@
-use std::convert::Infallible;
-
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
@@ -20,38 +18,6 @@ impl RpcRequest for DiscoverRequest {
 
     fn name() -> String {
         "DiscoverRequest".to_string()
-    }
-}
-
-impl TryFrom<DiscoverRequest> for Vec<u8> {
-    type Error = Infallible;
-
-    fn try_from(_value: DiscoverRequest) -> Result<Self, Self::Error> {
-        Ok(vec![])
-    }
-}
-
-impl TryFrom<Vec<u8>> for DiscoverRequest {
-    type Error = Infallible;
-
-    fn try_from(_value: Vec<u8>) -> Result<Self, Self::Error> {
-        Ok(DiscoverRequest)
-    }
-}
-
-impl TryFrom<DiscoverResponse> for Vec<u8> {
-    type Error = serde_json::Error;
-
-    fn try_from(value: DiscoverResponse) -> Result<Self, Self::Error> {
-        serde_json::to_vec(&value)
-    }
-}
-
-impl TryFrom<Vec<u8>> for DiscoverResponse {
-    type Error = serde_json::Error;
-
-    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        serde_json::from_slice(&value)
     }
 }
 

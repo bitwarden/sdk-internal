@@ -225,12 +225,6 @@ where
     pub async fn register_rpc_handler<H>(self: &Arc<Self>, handler: H)
     where
         H: RpcHandler + Send + Sync + 'static,
-        H::Request: RpcRequest + TryFrom<Vec<u8>> + TryInto<Vec<u8>>,
-        <H::Request as RpcRequest>::Response: TryFrom<Vec<u8>> + TryInto<Vec<u8>>,
-        <H::Request as TryFrom<Vec<u8>>>::Error: std::fmt::Display,
-        <H::Request as TryInto<Vec<u8>>>::Error: std::fmt::Display,
-        <<H::Request as RpcRequest>::Response as TryFrom<Vec<u8>>>::Error: std::fmt::Display,
-        <<H::Request as RpcRequest>::Response as TryInto<Vec<u8>>>::Error: std::fmt::Display,
     {
         self.handlers.register(handler).await;
     }
@@ -292,10 +286,7 @@ where
         cancellation_token: Option<CancellationToken>,
     ) -> Result<Request::Response, RequestError<Crypto::SendError>>
     where
-        Request: RpcRequest + TryInto<Vec<u8>> + TryFrom<Vec<u8>>,
-        Request::Response: TryInto<Vec<u8>> + TryFrom<Vec<u8>>,
-        <Request as TryInto<Vec<u8>>>::Error: std::fmt::Display,
-        <Request::Response as TryFrom<Vec<u8>>>::Error: std::fmt::Display,
+        Request: RpcRequest,
     {
         let request_id = uuid::Uuid::new_v4().to_string();
         let mut response_subscription: IpcClientTypedSubscription<RpcResponseMessage> =

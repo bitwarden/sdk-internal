@@ -74,38 +74,6 @@ mod test {
         }
     }
 
-    impl TryFrom<TestRequest> for Vec<u8> {
-        type Error = serde_json::Error;
-
-        fn try_from(value: TestRequest) -> Result<Self, Self::Error> {
-            serde_json::to_vec(&value)
-        }
-    }
-
-    impl TryFrom<Vec<u8>> for TestRequest {
-        type Error = serde_json::Error;
-
-        fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-            serde_json::from_slice(&value)
-        }
-    }
-
-    impl TryFrom<TestResponse> for Vec<u8> {
-        type Error = serde_json::Error;
-
-        fn try_from(value: TestResponse) -> Result<Self, Self::Error> {
-            serde_json::to_vec(&value)
-        }
-    }
-
-    impl TryFrom<Vec<u8>> for TestResponse {
-        type Error = serde_json::Error;
-
-        fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-            serde_json::from_slice(&value)
-        }
-    }
-
     #[tokio::test]
     async fn handle_returns_error_when_no_handler_can_be_found() {
         let registry = RpcHandlerRegistry::new();

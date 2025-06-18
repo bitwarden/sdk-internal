@@ -1,6 +1,7 @@
 use std::future::Future;
 
 use super::{error::RpcError, request::RpcRequest};
+use crate::serde_utils;
 
 /// Trait defining a handler for RPC requests.
 /// These can registered with the IPC client and will be used to handle incoming RPC requests.
@@ -34,38 +35,27 @@ pub(crate) trait RpcHandlerExt {
     ) -> Result<<Self::Request as RpcRequest>::Response, RpcError>;
 }
 
-impl<T> RpcHandlerExt for T
+impl<T: RpcHandler> RpcHandlerExt for T
 where
     T: RpcHandler,
-    T::Request: RpcRequest + TryFrom<Vec<u8>> + TryInto<Vec<u8>>,
-    <T::Request as RpcRequest>::Response: TryFrom<Vec<u8>> + TryInto<Vec<u8>>,
-    <T::Request as TryFrom<Vec<u8>>>::Error: std::fmt::Display,
-    <T::Request as TryInto<Vec<u8>>>::Error: std::fmt::Display,
-    <<T::Request as RpcRequest>::Response as TryFrom<Vec<u8>>>::Error: std::fmt::Display,
-    <<T::Request as RpcRequest>::Response as TryInto<Vec<u8>>>::Error: std::fmt::Display,
 {
     type Request = T::Request;
 
     fn serialize_request(&self, request: Self::Request) -> Result<Vec<u8>, RpcError> {
-        request
-            .try_into()
+        serde_utils::to_vec(&request)
             .map_err(|e| RpcError::RequestSerializationError(e.to_string()))
     }
 
     fn deserialize_request(&self, request: Vec<u8>) -> Result<Self::Request, RpcError> {
-        request
-            .try_into()
-            .map_err(|e: <T::Request as TryFrom<Vec<u8>>>::Error| {
-                RpcError::RequestDeserializationError(e.to_string())
-            })
+        serde_utils::from_slice(&request)
+            .map_err(|e| RpcError::RequestDeserializationError(e.to_string()))
     }
 
     fn serialize_response(
         &self,
         request: <Self::Request as RpcRequest>::Response,
     ) -> Result<Vec<u8>, RpcError> {
-        request
-            .try_into()
+        serde_utils::to_vec(&request)
             .map_err(|e| RpcError::ResponseSerializationError(e.to_string()))
     }
 
@@ -73,11 +63,8 @@ where
         &self,
         request: Vec<u8>,
     ) -> Result<<Self::Request as RpcRequest>::Response, RpcError> {
-        request.try_into().map_err(
-            |e: <<T::Request as RpcRequest>::Response as TryFrom<Vec<u8>>>::Error| {
-                RpcError::ResponseDeserializationError(e.to_string())
-            },
-        )
+        serde_utils::from_slice(&request)
+            .map_err(|e| RpcError::ResponseDeserializationError(e.to_string()))
     }
 }
 
@@ -90,12 +77,6 @@ pub(crate) trait ErasedRpcHandler: Send + Sync {
 impl<H> ErasedRpcHandler for H
 where
     H: RpcHandler + Send + Sync,
-    H::Request: RpcRequest + TryFrom<Vec<u8>> + TryInto<Vec<u8>>,
-    <H::Request as RpcRequest>::Response: TryFrom<Vec<u8>> + TryInto<Vec<u8>>,
-    <H::Request as TryFrom<Vec<u8>>>::Error: std::fmt::Display,
-    <H::Request as TryInto<Vec<u8>>>::Error: std::fmt::Display,
-    <<H::Request as RpcRequest>::Response as TryFrom<Vec<u8>>>::Error: std::fmt::Display,
-    <<H::Request as RpcRequest>::Response as TryInto<Vec<u8>>>::Error: std::fmt::Display,
 {
     async fn handle(&self, serialized_request: Vec<u8>) -> Result<Vec<u8>, RpcError> {
         let request: H::Request = self.deserialize_request(serialized_request)?;

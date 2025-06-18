@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::message::PayloadTypeName;
+use crate::{message::PayloadTypeName, rpc::error::RpcError, serde_utils};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RpcRequestMessage {
@@ -15,18 +15,13 @@ impl PayloadTypeName for RpcRequestMessage {
     }
 }
 
-impl TryFrom<Vec<u8>> for RpcRequestMessage {
-    type Error = serde_json::Error;
-
-    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        serde_json::from_slice(&value)
+impl RpcRequestMessage {
+    pub(crate) fn serialize(&self) -> Result<Vec<u8>, RpcError> {
+        serde_utils::to_vec(self).map_err(|e| RpcError::RequestSerializationError(e.to_string()))
     }
-}
 
-impl TryFrom<RpcRequestMessage> for Vec<u8> {
-    type Error = serde_json::Error;
-
-    fn try_from(value: RpcRequestMessage) -> Result<Self, Self::Error> {
-        serde_json::to_vec(&value)
+    pub(crate) fn deserialize(data: Vec<u8>) -> Result<Self, RpcError> {
+        serde_utils::from_slice(&data)
+            .map_err(|e| RpcError::RequestDeserializationError(e.to_string()))
     }
 }
