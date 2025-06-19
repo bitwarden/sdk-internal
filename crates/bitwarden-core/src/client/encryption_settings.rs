@@ -84,7 +84,9 @@ impl EncryptionSettings {
             if let Some(signing_key) = signing_key {
                 use bitwarden_crypto::SerializedBytes;
 
-                let dec: Vec<u8> = signing_key.decrypt_with_key(&user_key).unwrap();
+                let dec: Vec<u8> = signing_key
+                    .decrypt_with_key(&user_key)
+                    .map_err(|_| EncryptionSettingsError::InvalidSigningKey)?;
                 let signing_key = SigningKey::from_cose(&SerializedBytes::from(dec))
                     .map_err(|_| EncryptionSettingsError::InvalidSigningKey)?;
                 ctx.set_signing_key(SigningKeyId::UserSigningKey, signing_key)?;
