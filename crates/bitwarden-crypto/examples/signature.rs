@@ -38,7 +38,7 @@ fn main() {
         .expect("Failed to sign message");
 
     // Alice sends the signed object to Bob
-    mock_server.upload("signature", signature.to_cose().as_ref().to_vec());
+    mock_server.upload("signature", signature.to_cose().to_vec());
     mock_server.upload("serialized_message", serialized_message.as_bytes().to_vec());
 
     // Bob retrieves the signed object from the server
@@ -78,7 +78,7 @@ fn main() {
         )
         .expect("Failed to counter sign message");
     // Bob sends the counter signature to Charlie
-    mock_server.upload("bobs_signature", bobs_signature.to_cose().as_ref().to_vec());
+    mock_server.upload("bobs_signature", bobs_signature.to_cose().to_vec());
 
     // Charlie retrieves the signatures, and the message
     let retrieved_serialized_message = bitwarden_crypto::SerializedMessage::from_bytes(

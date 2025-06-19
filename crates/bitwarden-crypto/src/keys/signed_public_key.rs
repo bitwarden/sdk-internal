@@ -82,7 +82,7 @@ pub struct SignedPublicKey(pub(crate) SignedObject);
 
 impl From<SignedPublicKey> for Vec<u8> {
     fn from(val: SignedPublicKey) -> Self {
-        val.0.to_cose().as_ref().to_vec()
+        val.0.to_cose().to_vec()
     }
 }
 

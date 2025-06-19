@@ -302,7 +302,7 @@ impl PureCrypto {
         let bytes = Self::symmetric_decrypt_bytes(signing_key, wrapping_key)?;
         let signing_key = SigningKey::from_cose(&Bytes::<CoseKeyContentFormat>::from(bytes))?;
         let verifying_key = signing_key.to_verifying_key();
-        Ok(verifying_key.to_cose().as_ref().to_vec())
+        Ok(verifying_key.to_cose().to_vec())
     }
 
     /// Returns the algorithm used for the given verifying key.
@@ -329,7 +329,7 @@ impl PureCrypto {
         signed_public_key
             .verify_and_unwrap(&verifying_key)
             .map(|public_key| public_key.to_der())?
-            .map(|pk| pk.as_ref().to_vec())
+            .map(|pk| pk.to_vec())
     }
 }
 
@@ -575,16 +575,13 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
         let wrapping_key = PureCrypto::make_user_key_aes256_cbc_hmac();
         let wrapped_key = PureCrypto::wrap_decapsulation_key(
-            decapsulation_key.to_der().unwrap().as_ref().to_vec(),
+            decapsulation_key.to_der().unwrap().to_vec(),
             wrapping_key.clone(),
         )
         .unwrap();
         let unwrapped_key =
             PureCrypto::unwrap_decapsulation_key(wrapped_key, wrapping_key).unwrap();
-        assert_eq!(
-            decapsulation_key.to_der().unwrap().as_ref().to_vec(),
-            unwrapped_key
-        );
+        assert_eq!(decapsulation_key.to_der().unwrap().to_vec(), unwrapped_key);
     }
 
     #[test]
@@ -594,12 +591,12 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let encapsulation_key = decapsulation_key.to_public_key().to_der().unwrap();
         let encapsulated_key = PureCrypto::encapsulate_key_unsigned(
             shared_key.clone(),
-            encapsulation_key.clone().as_ref().to_vec(),
+            encapsulation_key.clone().to_vec(),
         )
         .unwrap();
         let unwrapped_key = PureCrypto::decapsulate_key_unsigned(
             encapsulated_key,
-            decapsulation_key.to_der().unwrap().as_ref().to_vec(),
+            decapsulation_key.to_der().unwrap().to_vec(),
         )
         .unwrap();
         assert_eq!(shared_key, unwrapped_key);
@@ -611,8 +608,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
             VerifyingKey::from_cose(&Bytes::<CoseKeyContentFormat>::from(VERIFYING_KEY.to_vec()))
                 .unwrap();
         let algorithm =
-            PureCrypto::key_algorithm_for_verifying_key(verifying_key.to_cose().as_ref().to_vec())
-                .unwrap();
+            PureCrypto::key_algorithm_for_verifying_key(verifying_key.to_cose().to_vec()).unwrap();
         assert_eq!(algorithm, SignatureAlgorithm::Ed25519);
     }
 

@@ -211,8 +211,8 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         assert_eq!(pem_key.to_der().unwrap(), der_key.to_der().unwrap());
 
         // Check that the keys can be converted back to DER
-        assert_eq!(der_key.to_der().unwrap().as_ref().to_vec(), der_key_vec);
-        assert_eq!(pem_key.to_der().unwrap().as_ref().to_vec(), der_key_vec);
+        assert_eq!(der_key.to_der().unwrap().to_vec(), der_key_vec);
+        assert_eq!(pem_key.to_der().unwrap().to_vec(), der_key_vec);
     }
 
     #[test]

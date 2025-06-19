@@ -36,7 +36,7 @@ fn main() {
         .expect("Failed to sign message");
 
     // Alice sends the signed object to Bob
-    mock_server.upload("signed_object", signed_object.to_cose().as_ref().to_vec());
+    mock_server.upload("signed_object", signed_object.to_cose().to_vec());
 
     // Bob retrieves the signed object from the server
     let retrieved_signed_object = SignedObject::from_cose(&Bytes::<CoseSign1ContentFormat>::from(
