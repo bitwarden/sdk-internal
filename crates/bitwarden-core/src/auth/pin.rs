@@ -18,7 +18,11 @@ pub(crate) fn validate_pin(
         .ok_or(NotAuthenticatedError)?;
 
     #[allow(irrefutable_let_patterns)]
-    let LoginMethod::User(login_method) = login_method.as_ref() else {
+    let LoginMethod::User {
+        method: login_method,
+        ..
+    } = login_method.as_ref()
+    else {
         return Err(NotAuthenticatedError)?;
     };
 
@@ -47,6 +51,7 @@ mod tests {
     use std::num::NonZeroU32;
 
     use bitwarden_crypto::{Kdf, MasterKey};
+    use uuid::Uuid;
 
     use super::*;
     use crate::client::{Client, LoginMethod, UserLoginMethod};
@@ -60,13 +65,14 @@ mod tests {
             iterations: NonZeroU32::new(600_000).unwrap(),
         };
 
-        client
-            .internal
-            .set_login_method(LoginMethod::User(UserLoginMethod::Username {
+        client.internal.set_login_method(LoginMethod::User {
+            method: UserLoginMethod::Username {
                 email: email.to_string(),
                 kdf: kdf.clone(),
                 client_id: "1".to_string(),
-            }));
+            },
+            user_id: Uuid::new_v4(),
+        });
 
         let master_key = MasterKey::derive(password, email, &kdf).unwrap();
 

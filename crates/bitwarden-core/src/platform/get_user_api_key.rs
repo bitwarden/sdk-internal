@@ -78,7 +78,11 @@ fn build_secret_verification_request(
     login_method: &LoginMethod,
     input: &SecretVerificationRequest,
 ) -> Result<SecretVerificationRequestModel, UserApiKeyError> {
-    if let LoginMethod::User(UserLoginMethod::Username { email, kdf, .. }) = login_method {
+    if let LoginMethod::User {
+        method: UserLoginMethod::Username { email, kdf, .. },
+        ..
+    } = login_method
+    {
         let master_password_hash = input
             .master_password
             .as_ref()

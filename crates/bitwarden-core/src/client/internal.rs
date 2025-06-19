@@ -1,4 +1,4 @@
-use std::sync::{Arc, OnceLock, RwLock};
+use std::sync::{Arc, RwLock};
 
 use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
@@ -12,8 +12,7 @@ use super::encryption_settings::EncryptionSettings;
 #[cfg(feature = "secrets")]
 use super::login_method::ServiceAccountLoginMethod;
 use crate::{
-    auth::renew::renew_token, client::login_method::LoginMethod, error::UserIdAlreadySetError,
-    key_management::KeyIds, DeviceType,
+    auth::renew::renew_token, client::login_method::LoginMethod, key_management::KeyIds, DeviceType,
 };
 #[cfg(feature = "internal")]
 use crate::{
@@ -45,7 +44,6 @@ pub(crate) struct Tokens {
 #[allow(missing_docs)]
 #[derive(Debug)]
 pub struct InternalClient {
-    pub(crate) user_id: OnceLock<Uuid>,
     pub(crate) tokens: RwLock<Tokens>,
     pub(crate) login_method: RwLock<Option<Arc<LoginMethod>>>,
 
@@ -153,9 +151,10 @@ impl InternalClient {
             .expect("RwLock is not poisoned")
             .as_deref()
         {
-            Some(LoginMethod::User(
-                UserLoginMethod::Username { kdf, .. } | UserLoginMethod::ApiKey { kdf, .. },
-            )) => Ok(kdf.clone()),
+            Some(LoginMethod::User {
+                method: UserLoginMethod::Username { kdf, .. } | UserLoginMethod::ApiKey { kdf, .. },
+                ..
+            }) => Ok(kdf.clone()),
             _ => Err(NotAuthenticatedError),
         }
     }
@@ -183,13 +182,16 @@ impl InternalClient {
     }
 
     #[allow(missing_docs)]
-    pub fn init_user_id(&self, user_id: Uuid) -> Result<(), UserIdAlreadySetError> {
-        self.user_id.set(user_id).map_err(|_| UserIdAlreadySetError)
-    }
-
-    #[allow(missing_docs)]
     pub fn get_user_id(&self) -> Option<Uuid> {
-        self.user_id.get().copied()
+        match self
+            .login_method
+            .read()
+            .expect("RwLock is not poisoned")
+            .as_deref()
+        {
+            Some(LoginMethod::User { user_id, .. }) => Some(*user_id),
+            _ => None,
+        }
     }
 
     #[cfg(feature = "internal")]

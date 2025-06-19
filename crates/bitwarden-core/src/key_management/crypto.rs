@@ -44,7 +44,7 @@ pub enum CryptoClientError {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct InitUserCryptoRequest {
     /// The user's ID.
-    pub user_id: Option<uuid::Uuid>,
+    pub user_id: uuid::Uuid,
     /// The user's KDF parameters, as received from the prelogin request
     pub kdf_params: Kdf,
     /// The user's email address
@@ -137,10 +137,6 @@ pub(super) async fn initialize_user_crypto(
 
     use crate::auth::{auth_request_decrypt_master_key, auth_request_decrypt_user_key};
 
-    if let Some(user_id) = req.user_id {
-        client.internal.init_user_id(user_id)?;
-    }
-
     match req.method {
         InitUserCryptoMethod::Password { password, user_key } => {
             let master_key = MasterKey::derive(&password, &req.email, &req.kdf_params)?;
@@ -229,13 +225,14 @@ pub(super) async fn initialize_user_crypto(
 
     client
         .internal
-        .set_login_method(crate::client::LoginMethod::User(
-            crate::client::UserLoginMethod::Username {
+        .set_login_method(crate::client::LoginMethod::User {
+            user_id: req.user_id,
+            method: crate::client::UserLoginMethod::Username {
                 client_id: "".to_string(),
                 email: req.email,
                 kdf: req.kdf_params,
             },
-        ));
+        });
 
     Ok(())
 }
@@ -299,10 +296,12 @@ pub(super) fn update_password(
 
     // Derive a new master key from password
     let new_master_key = match login_method.as_ref() {
-        LoginMethod::User(
-            UserLoginMethod::Username { email, kdf, .. }
-            | UserLoginMethod::ApiKey { email, kdf, .. },
-        ) => MasterKey::derive(&new_password, email, kdf)?,
+        LoginMethod::User {
+            method:
+                UserLoginMethod::Username { email, kdf, .. }
+                | UserLoginMethod::ApiKey { email, kdf, .. },
+            ..
+        } => MasterKey::derive(&new_password, email, kdf)?,
         #[cfg(feature = "secrets")]
         LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
     };
@@ -382,10 +381,12 @@ fn derive_pin_protected_user_key(
     use bitwarden_crypto::PinKey;
 
     let derived_key = match login_method {
-        LoginMethod::User(
-            UserLoginMethod::Username { email, kdf, .. }
-            | UserLoginMethod::ApiKey { email, kdf, .. },
-        ) => PinKey::derive(pin.as_bytes(), email.as_bytes(), kdf)?,
+        LoginMethod::User {
+            method:
+                UserLoginMethod::Username { email, kdf, .. }
+                | UserLoginMethod::ApiKey { email, kdf, .. },
+            ..
+        } => PinKey::derive(pin.as_bytes(), email.as_bytes(), kdf)?,
         #[cfg(feature = "secrets")]
         LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
     };
@@ -633,7 +634,7 @@ mod tests {
         initialize_user_crypto(
             & client,
             InitUserCryptoRequest {
-                user_id: Some(uuid::Uuid::new_v4()),
+                user_id: uuid::Uuid::new_v4(),
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
@@ -654,7 +655,7 @@ mod tests {
         initialize_user_crypto(
             &client2,
             InitUserCryptoRequest {
-                user_id: Some(uuid::Uuid::new_v4()),
+                user_id: uuid::Uuid::new_v4(),
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
@@ -711,7 +712,7 @@ mod tests {
         initialize_user_crypto(
             & client,
             InitUserCryptoRequest {
-                user_id: Some(uuid::Uuid::new_v4()),
+                user_id: uuid::Uuid::new_v4(),
                 kdf_params: Kdf::PBKDF2 {
                     iterations: 100_000.try_into().unwrap(),
                 },
@@ -734,7 +735,7 @@ mod tests {
         initialize_user_crypto(
             &client2,
             InitUserCryptoRequest {
-                user_id: Some(uuid::Uuid::new_v4()),
+                user_id: uuid::Uuid::new_v4(),
                 kdf_params: Kdf::PBKDF2 {
                     iterations: 100_000.try_into().unwrap(),
                 },
@@ -778,7 +779,7 @@ mod tests {
         initialize_user_crypto(
             &client3,
             InitUserCryptoRequest {
-                user_id: Some(uuid::Uuid::new_v4()),
+                user_id: uuid::Uuid::new_v4(),
                 kdf_params: Kdf::PBKDF2 {
                     iterations: 100_000.try_into().unwrap(),
                 },

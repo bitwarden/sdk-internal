@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::key_management::{KeyIds, SymmetricKeyId};
-use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError, VaultLockedError};
+use crate::{MissingPrivateKeyError, VaultLockedError};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -29,9 +29,6 @@ pub enum EncryptionSettingsError {
 
     #[error(transparent)]
     MissingPrivateKey(#[from] MissingPrivateKeyError),
-
-    #[error(transparent)]
-    UserIdAlreadySetError(#[from] UserIdAlreadySetError),
 }
 
 #[allow(missing_docs)]

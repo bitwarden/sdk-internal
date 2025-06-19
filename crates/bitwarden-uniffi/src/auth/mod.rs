@@ -3,6 +3,7 @@ use bitwarden_core::auth::{
     RegisterKeyResponse, RegisterTdeKeyResponse,
 };
 use bitwarden_crypto::{EncString, HashPurpose, Kdf, TrustDeviceResponse, UnsignedSharedKey};
+use uuid::Uuid;
 
 use crate::error::{Error, Result};
 
@@ -69,11 +70,12 @@ impl AuthClient {
         email: String,
         org_public_key: String,
         remember_device: bool,
+        user_id: Uuid,
     ) -> Result<RegisterTdeKeyResponse> {
         Ok(self
             .0
             .auth()
-            .make_register_tde_keys(email, org_public_key, remember_device)
+            .make_register_tde_keys(email, org_public_key, remember_device, user_id)
             .map_err(Error::EncryptionSettings)?)
     }
 

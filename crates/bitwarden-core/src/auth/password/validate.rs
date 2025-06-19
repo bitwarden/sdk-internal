@@ -18,7 +18,11 @@ pub(crate) fn validate_password(
         .ok_or(NotAuthenticatedError)?;
 
     #[allow(irrefutable_let_patterns)]
-    if let LoginMethod::User(login_method) = login_method.as_ref() {
+    if let LoginMethod::User {
+        method: login_method,
+        ..
+    } = login_method.as_ref()
+    {
         match login_method {
             UserLoginMethod::Username { email, kdf, .. }
             | UserLoginMethod::ApiKey { email, kdf, .. } => {
@@ -49,8 +53,11 @@ pub(crate) fn validate_password_user_key(
         .get_login_method()
         .ok_or(NotAuthenticatedError)?;
 
-    #[allow(irrefutable_let_patterns)]
-    if let LoginMethod::User(login_method) = login_method.as_ref() {
+    if let LoginMethod::User {
+        method: login_method,
+        ..
+    } = login_method.as_ref()
+    {
         match login_method {
             UserLoginMethod::Username { email, kdf, .. }
             | UserLoginMethod::ApiKey { email, kdf, .. } => {
@@ -91,15 +98,16 @@ mod tests {
         use crate::client::{Client, LoginMethod, UserLoginMethod};
 
         let client = Client::new(None);
-        client
-            .internal
-            .set_login_method(LoginMethod::User(UserLoginMethod::Username {
+        client.internal.set_login_method(LoginMethod::User {
+            method: UserLoginMethod::Username {
                 email: "test@bitwarden.com".to_string(),
                 kdf: Kdf::PBKDF2 {
                     iterations: NonZeroU32::new(100_000).unwrap(),
                 },
                 client_id: "1".to_string(),
-            }));
+            },
+            user_id: uuid::Uuid::new_v4(),
+        });
 
         let password = "password123".to_string();
         let password_hash = "7kTqkF1pY/3JeOu73N9kR99fDDe9O1JOZaVc7KH3lsU=".to_string();
@@ -125,13 +133,14 @@ mod tests {
             iterations: NonZeroU32::new(600_000).unwrap(),
         };
 
-        client
-            .internal
-            .set_login_method(LoginMethod::User(UserLoginMethod::Username {
+        client.internal.set_login_method(LoginMethod::User {
+            method: UserLoginMethod::Username {
                 email: email.to_string(),
                 kdf: kdf.clone(),
                 client_id: "1".to_string(),
-            }));
+            },
+            user_id: uuid::Uuid::new_v4(),
+        });
 
         let master_key = MasterKey::derive(password, email, &kdf).unwrap();
 
@@ -173,13 +182,14 @@ mod tests {
             iterations: NonZeroU32::new(600_000).unwrap(),
         };
 
-        client
-            .internal
-            .set_login_method(LoginMethod::User(UserLoginMethod::Username {
+        client.internal.set_login_method(LoginMethod::User {
+            method: UserLoginMethod::Username {
                 email: email.to_string(),
                 kdf: kdf.clone(),
                 client_id: "1".to_string(),
-            }));
+            },
+            user_id: uuid::Uuid::new_v4(),
+        });
 
         let master_key = MasterKey::derive(password, email, &kdf).unwrap();
 

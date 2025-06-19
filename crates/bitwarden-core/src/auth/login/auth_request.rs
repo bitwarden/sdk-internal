@@ -10,6 +10,7 @@ use crate::{
     auth::{
         api::{request::AuthRequestTokenRequest, response::IdentityTokenResponse},
         auth_request::new_auth_request,
+        JwtToken,
     },
     client::{LoginMethod, UserLoginMethod},
     key_management::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
@@ -88,6 +89,8 @@ pub(crate) async fn complete_auth_request(
     .await?;
 
     if let IdentityTokenResponse::Authenticated(r) = response {
+        let access_token_obj: JwtToken = r.access_token.parse()?;
+
         let kdf = Kdf::default();
 
         client.internal.set_tokens(
@@ -95,13 +98,14 @@ pub(crate) async fn complete_auth_request(
             r.refresh_token.clone(),
             r.expires_in,
         );
-        client
-            .internal
-            .set_login_method(LoginMethod::User(UserLoginMethod::Username {
+        client.internal.set_login_method(LoginMethod::User {
+            method: UserLoginMethod::Username {
                 client_id: "web".to_owned(),
                 email: auth_req.email.to_owned(),
                 kdf: kdf.clone(),
-            }));
+            },
+            user_id: access_token_obj.sub.parse()?,
+        });
 
         let method = match res.master_password_hash {
             Some(_) => AuthRequestMethod::MasterKey {
@@ -116,7 +120,7 @@ pub(crate) async fn complete_auth_request(
         client
             .crypto()
             .initialize_user_crypto(InitUserCryptoRequest {
-                user_id: None,
+                user_id: access_token_obj.sub.parse()?,
                 kdf_params: kdf,
                 email: auth_req.email,
                 private_key: require!(r.private_key).parse()?,
