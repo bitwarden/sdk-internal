@@ -2,7 +2,6 @@
 use std::path::PathBuf;
 
 use bitwarden_crypto::Kdf;
-#[cfg(feature = "secrets")]
 use uuid::Uuid;
 
 #[cfg(feature = "secrets")]
