@@ -13,6 +13,8 @@
 static ALLOC: ZeroizingAllocator<std::alloc::System> = ZeroizingAllocator(std::alloc::System);
 
 mod aes;
+mod content_format;
+pub use content_format::*;
 mod enc_string;
 pub use enc_string::{EncString, UnsignedSharedKey};
 mod error;
@@ -36,7 +38,9 @@ mod signing;
 pub use signing::*;
 mod traits;
 mod xchacha20;
-pub use traits::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
+pub use traits::{
+    CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds, PrimitiveEncryptable,
+};
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
 
 #[cfg(feature = "uniffi")]

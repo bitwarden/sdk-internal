@@ -27,6 +27,9 @@ pub enum EncryptionSettingsError {
     #[error("Invalid private key")]
     InvalidPrivateKey,
 
+    #[error("Invalid signing key")]
+    InvalidSigningKey,
+
     #[error(transparent)]
     MissingPrivateKey(#[from] MissingPrivateKeyError),
 
@@ -49,16 +52,16 @@ impl EncryptionSettings {
         signing_key: Option<EncString>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
-        use bitwarden_crypto::{
-            AsymmetricCryptoKey, CoseSerializable, CryptoError, KeyDecryptable, SigningKey,
-        };
+        use bitwarden_crypto::{AsymmetricCryptoKey, CoseSerializable, KeyDecryptable, SigningKey};
         use log::warn;
 
         use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
 
         let private_key = {
-            let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
+            use bitwarden_crypto::{Bytes, Pkcs8PrivateKeyDerContentFormat};
 
+            let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
+            let dec: Bytes<Pkcs8PrivateKeyDerContentFormat> = Bytes::from(dec);
             // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a recovery
             // process in place.
             AsymmetricCryptoKey::from_der(&dec)
@@ -72,25 +75,28 @@ impl EncryptionSettings {
             //         .map_err(|_| EncryptionSettingsError::InvalidPrivateKey)?,
             // )
         };
-        let signing_key = signing_key
-            .map(|key| {
-                let dec: Vec<u8> = key.decrypt_with_key(&user_key)?;
-                SigningKey::from_cose(dec.as_slice()).map_err(Into::<CryptoError>::into)
-            })
-            .transpose()?;
 
         // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
         #[allow(deprecated)]
         {
             let mut ctx = store.context_mut();
-            ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
+
+            if let Some(signing_key) = signing_key {
+                use bitwarden_crypto::Bytes;
+
+                let dec: Vec<u8> = signing_key
+                    .decrypt_with_key(&user_key)
+                    .map_err(|_| EncryptionSettingsError::InvalidSigningKey)?;
+                let signing_key = SigningKey::from_cose(&Bytes::from(dec))
+                    .map_err(|_| EncryptionSettingsError::InvalidSigningKey)?;
+                ctx.set_signing_key(SigningKeyId::UserSigningKey, signing_key)?;
+            }
+
             if let Some(private_key) = private_key {
                 ctx.set_asymmetric_key(AsymmetricKeyId::UserPrivateKey, private_key)?;
             }
 
-            if let Some(signing_key) = signing_key {
-                ctx.set_signing_key(SigningKeyId::UserSigningKey, signing_key)?;
-            }
+            ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
         }
 
         Ok(())

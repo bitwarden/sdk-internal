@@ -3,7 +3,10 @@ use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
-use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{
+    CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
+    PrimitiveEncryptable,
+};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
@@ -50,8 +53,8 @@ pub struct FieldView {
     pub linked_id: Option<LinkedIdType>,
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Field> for FieldView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Field> for FieldView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,

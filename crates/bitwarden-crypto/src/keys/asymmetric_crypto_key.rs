@@ -4,7 +4,10 @@ use rsa::{pkcs8::DecodePublicKey, RsaPrivateKey, RsaPublicKey};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::key_encryptable::CryptoKey;
-use crate::error::{CryptoError, Result};
+use crate::{
+    content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat, SpkiPublicKeyDerContentFormat},
+    error::{CryptoError, Result},
+};
 
 /// Algorithm / public key encryption scheme used for encryption/decryption.
 #[derive(Serialize_repr, Deserialize_repr)]
@@ -41,14 +44,15 @@ impl AsymmetricPublicCryptoKey {
     }
 
     /// Makes a SubjectPublicKeyInfo DER serialized version of the public key.
-    pub fn to_der(&self) -> Result<Vec<u8>> {
+    pub fn to_der(&self) -> Result<Bytes<SpkiPublicKeyDerContentFormat>> {
         use rsa::pkcs8::EncodePublicKey;
         match &self.inner {
             RawPublicKey::RsaOaepSha1(public_key) => Ok(public_key
                 .to_public_key_der()
                 .map_err(|_| CryptoError::InvalidKey)?
                 .as_bytes()
-                .to_owned()),
+                .to_owned()
+                .into()),
         }
     }
 }
@@ -110,17 +114,17 @@ impl AsymmetricCryptoKey {
     }
 
     #[allow(missing_docs)]
-    pub fn from_der(der: &[u8]) -> Result<Self> {
+    pub fn from_der(der: &Bytes<Pkcs8PrivateKeyDerContentFormat>) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
             inner: RawPrivateKey::RsaOaepSha1(Box::pin(
-                RsaPrivateKey::from_pkcs8_der(der).map_err(|_| CryptoError::InvalidKey)?,
+                RsaPrivateKey::from_pkcs8_der(der.as_ref()).map_err(|_| CryptoError::InvalidKey)?,
             )),
         })
     }
 
     #[allow(missing_docs)]
-    pub fn to_der(&self) -> Result<Vec<u8>> {
+    pub fn to_der(&self) -> Result<Bytes<Pkcs8PrivateKeyDerContentFormat>> {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => {
                 use rsa::pkcs8::EncodePrivateKey;
@@ -128,7 +132,8 @@ impl AsymmetricCryptoKey {
                     .to_pkcs8_der()
                     .map_err(|_| CryptoError::InvalidKey)?
                     .as_bytes()
-                    .to_owned())
+                    .to_owned()
+                    .into())
             }
         }
     }
@@ -160,6 +165,7 @@ mod tests {
     use base64::{engine::general_purpose::STANDARD, Engine};
 
     use crate::{
+        content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat},
         AsymmetricCryptoKey, AsymmetricPublicCryptoKey, SymmetricCryptoKey, UnsignedSharedKey,
     };
 
@@ -198,12 +204,15 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
         // Load the two different formats and check they are the same key
         let pem_key = AsymmetricCryptoKey::from_pem(pem_key_str).unwrap();
-        let der_key = AsymmetricCryptoKey::from_der(&der_key_vec).unwrap();
+        let der_key = AsymmetricCryptoKey::from_der(
+            &Bytes::<Pkcs8PrivateKeyDerContentFormat>::from(der_key_vec.clone()),
+        )
+        .unwrap();
         assert_eq!(pem_key.to_der().unwrap(), der_key.to_der().unwrap());
 
         // Check that the keys can be converted back to DER
-        assert_eq!(der_key.to_der().unwrap(), der_key_vec);
-        assert_eq!(pem_key.to_der().unwrap(), der_key_vec);
+        assert_eq!(der_key.to_der().unwrap().to_vec(), der_key_vec);
+        assert_eq!(pem_key.to_der().unwrap().to_vec(), der_key_vec);
     }
 
     #[test]
@@ -251,6 +260,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
             ))
             .unwrap();
 
+        let private_key = Bytes::<Pkcs8PrivateKeyDerContentFormat>::from(private_key);
         let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
         let public_key = AsymmetricPublicCryptoKey::from_der(&public_key).unwrap();
 
