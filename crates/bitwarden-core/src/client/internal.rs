@@ -181,7 +181,7 @@ impl InternalClient {
         &self.key_store
     }
 
-    #[allow(missing_docs)]
+    /// Returns the user's ID if logged in as a user.
     pub fn get_user_id(&self) -> Option<Uuid> {
         match self
             .login_method
