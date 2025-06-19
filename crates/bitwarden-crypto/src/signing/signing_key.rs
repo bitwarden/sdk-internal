@@ -13,7 +13,7 @@ use super::{
     SignatureAlgorithm,
 };
 use crate::{
-    content_format::{CoseKeyContentFormat, Bytes},
+    content_format::{Bytes, CoseKeyContentFormat},
     cose::CoseSerializable,
     error::{EncodingError, Result},
     keys::KeyId,

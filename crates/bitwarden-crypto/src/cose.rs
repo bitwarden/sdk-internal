@@ -11,7 +11,7 @@ use generic_array::GenericArray;
 use typenum::U32;
 
 use crate::{
-    content_format::{ConstContentFormat, CoseContentFormat, Bytes},
+    content_format::{Bytes, ConstContentFormat, CoseContentFormat},
     error::{EncStringParseError, EncodingError},
     xchacha20, ContentFormat, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
 };

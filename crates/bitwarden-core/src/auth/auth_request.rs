@@ -111,8 +111,7 @@ mod tests {
     use std::num::NonZeroU32;
 
     use bitwarden_crypto::{
-        BitwardenLegacyKeyContentFormat, Kdf, MasterKey, Bytes,
-        SpkiPublicKeyDerContentFormat,
+        BitwardenLegacyKeyContentFormat, Bytes, Kdf, MasterKey, SpkiPublicKeyDerContentFormat,
     };
 
     use super::*;

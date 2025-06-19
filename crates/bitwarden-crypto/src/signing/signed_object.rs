@@ -7,7 +7,7 @@ use super::{
     verifying_key::VerifyingKey, SigningNamespace,
 };
 use crate::{
-    content_format::{CoseSign1ContentFormat, Bytes},
+    content_format::{Bytes, CoseSign1ContentFormat},
     cose::{CoseSerializable, SIGNING_NAMESPACE},
     error::{EncodingError, SignatureError},
     CryptoError,
@@ -172,7 +172,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        content_format::{CoseKeyContentFormat, CoseSign1ContentFormat, Bytes},
+        content_format::{Bytes, CoseKeyContentFormat, CoseSign1ContentFormat},
         CoseSerializable, CryptoError, SignatureAlgorithm, SignedObject, SigningKey,
         SigningNamespace, VerifyingKey,
     };
@@ -200,10 +200,9 @@ mod tests {
 
     #[test]
     fn test_roundtrip_cose() {
-        let signed_object = SignedObject::from_cose(
-            &Into::<Bytes<CoseSign1ContentFormat>>::into(SIGNED_OBJECT),
-        )
-        .unwrap();
+        let signed_object =
+            SignedObject::from_cose(&Into::<Bytes<CoseSign1ContentFormat>>::into(SIGNED_OBJECT))
+                .unwrap();
         assert_eq!(
             signed_object.content_type().unwrap(),
             coset::iana::CoapContentFormat::Cbor
@@ -220,14 +219,12 @@ mod tests {
         let test_message = TestMessage {
             field1: "Test message".to_string(),
         };
-        let signed_object = SignedObject::from_cose(
-            &Into::<Bytes<CoseSign1ContentFormat>>::into(SIGNED_OBJECT),
-        )
-        .unwrap();
-        let verifying_key = VerifyingKey::from_cose(
-            &Into::<Bytes<CoseKeyContentFormat>>::into(VERIFYING_KEY),
-        )
-        .unwrap();
+        let signed_object =
+            SignedObject::from_cose(&Into::<Bytes<CoseSign1ContentFormat>>::into(SIGNED_OBJECT))
+                .unwrap();
+        let verifying_key =
+            VerifyingKey::from_cose(&Into::<Bytes<CoseKeyContentFormat>>::into(VERIFYING_KEY))
+                .unwrap();
         let namespace = SigningNamespace::ExampleNamespace;
         let payload: TestMessage = signed_object
             .verify_and_unwrap(&verifying_key, &namespace)

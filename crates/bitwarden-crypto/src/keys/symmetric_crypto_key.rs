@@ -19,8 +19,7 @@ use super::{
     key_id::{KeyId, KEY_ID_SIZE},
 };
 use crate::{
-    cose, BitwardenLegacyKeyContentFormat, ContentFormat, CoseKeyContentFormat, CryptoError,
-    Bytes,
+    cose, BitwardenLegacyKeyContentFormat, Bytes, ContentFormat, CoseKeyContentFormat, CryptoError,
 };
 
 /// [Aes256CbcKey] is a symmetric encryption key, consisting of one 256-bit key,
@@ -267,18 +266,14 @@ impl TryFrom<String> for SymmetricCryptoKey {
         let bytes = STANDARD
             .decode(value)
             .map_err(|_| CryptoError::InvalidKey)?;
-        Self::try_from(&Bytes::<BitwardenLegacyKeyContentFormat>::from(
-            bytes,
-        ))
+        Self::try_from(&Bytes::<BitwardenLegacyKeyContentFormat>::from(bytes))
     }
 }
 
 impl TryFrom<&Bytes<BitwardenLegacyKeyContentFormat>> for SymmetricCryptoKey {
     type Error = CryptoError;
 
-    fn try_from(
-        value: &Bytes<BitwardenLegacyKeyContentFormat>,
-    ) -> Result<Self, Self::Error> {
+    fn try_from(value: &Bytes<BitwardenLegacyKeyContentFormat>) -> Result<Self, Self::Error> {
         let slice = value.as_ref();
 
         // Raw byte serialized keys are either 32, 64, or more bytes long. If they are 32/64, they
@@ -530,14 +525,18 @@ mod tests {
 
     #[test]
     fn test_eq_aes_cbc() {
-        let key1 = SymmetricCryptoKey::try_from(
-            &Bytes::<BitwardenLegacyKeyContentFormat>::from(vec![1u8; 32]),
-        )
-        .unwrap();
-        let key2 = SymmetricCryptoKey::try_from(
-            &Bytes::<BitwardenLegacyKeyContentFormat>::from(vec![2u8; 32]),
-        )
-        .unwrap();
+        let key1 =
+            SymmetricCryptoKey::try_from(&Bytes::<BitwardenLegacyKeyContentFormat>::from(vec![
+                1u8;
+                32
+            ]))
+            .unwrap();
+        let key2 =
+            SymmetricCryptoKey::try_from(&Bytes::<BitwardenLegacyKeyContentFormat>::from(vec![
+                2u8;
+                32
+            ]))
+            .unwrap();
         assert_ne!(key1, key2);
         let key3 = SymmetricCryptoKey::try_from(key1.to_base64()).unwrap();
         assert_eq!(key1, key3);

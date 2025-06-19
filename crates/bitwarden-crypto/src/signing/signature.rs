@@ -7,7 +7,7 @@ use super::{
     VerifyingKey,
 };
 use crate::{
-    content_format::{CoseSign1ContentFormat, Bytes},
+    content_format::{Bytes, CoseSign1ContentFormat},
     cose::{CoseSerializable, SIGNING_NAMESPACE},
     error::{EncodingError, SignatureError},
     CryptoError,
@@ -193,7 +193,7 @@ impl CoseSerializable<CoseSign1ContentFormat> for Signature {
 mod tests {
     use super::*;
     use crate::{
-        content_format::{CoseKeyContentFormat, Bytes},
+        content_format::{Bytes, CoseKeyContentFormat},
         SignatureAlgorithm,
     };
 
@@ -218,8 +218,7 @@ mod tests {
     #[test]
     fn test_cose_roundtrip_encode_signature() {
         let signature =
-            Signature::from_cose(&Bytes::<CoseSign1ContentFormat>::from(SIGNATURE))
-                .unwrap();
+            Signature::from_cose(&Bytes::<CoseSign1ContentFormat>::from(SIGNATURE)).unwrap();
         let cose_bytes = signature.to_cose();
         let decoded_signature = Signature::from_cose(&cose_bytes).unwrap();
         assert_eq!(signature.inner(), decoded_signature.inner());
@@ -227,13 +226,10 @@ mod tests {
 
     #[test]
     fn test_verify_testvector() {
-        let verifying_key = VerifyingKey::from_cose(
-            &Bytes::<CoseKeyContentFormat>::from(VERIFYING_KEY),
-        )
-        .unwrap();
+        let verifying_key =
+            VerifyingKey::from_cose(&Bytes::<CoseKeyContentFormat>::from(VERIFYING_KEY)).unwrap();
         let signature =
-            Signature::from_cose(&Bytes::<CoseSign1ContentFormat>::from(SIGNATURE))
-                .unwrap();
+            Signature::from_cose(&Bytes::<CoseSign1ContentFormat>::from(SIGNATURE)).unwrap();
         let serialized_message =
             SerializedMessage::from_bytes(SERIALIZED_MESSAGE.to_vec(), CoapContentFormat::Cbor);
 

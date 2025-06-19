@@ -2,8 +2,7 @@ use std::path::Path;
 
 use bitwarden_core::Client;
 use bitwarden_crypto::{
-    Decryptable, EncString, IdentifyKey, OctetStreamContentFormat, PrimitiveEncryptable,
-    Bytes,
+    Bytes, Decryptable, EncString, IdentifyKey, OctetStreamContentFormat, PrimitiveEncryptable,
 };
 use thiserror::Error;
 
@@ -130,8 +129,7 @@ impl SendClient {
 
         let key = Send::get_key(&mut ctx, &send.key, send.key_identifier())?;
 
-        let encrypted =
-            Bytes::<OctetStreamContentFormat>::from(buffer).encrypt(&mut ctx, key)?;
+        let encrypted = Bytes::<OctetStreamContentFormat>::from(buffer).encrypt(&mut ctx, key)?;
         Ok(encrypted.to_buffer()?)
     }
 }

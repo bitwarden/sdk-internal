@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::{
     content_format::SpkiPublicKeyDerContentFormat, error::Result, wordlist::EFF_LONG_WORD_LIST,
-    CryptoError, Bytes,
+    Bytes, CryptoError,
 };
 
 /// Computes a fingerprint of the given `fingerprint_material` using the given `public_key`.
@@ -93,8 +93,7 @@ mod tests {
             197, 3, 219, 56, 77, 109, 47, 72, 251, 131, 36, 240, 96, 169, 31, 82, 93, 166, 242, 3,
             33, 213, 2, 3, 1, 0, 1,
         ];
-        let key: Bytes<SpkiPublicKeyDerContentFormat> =
-            Bytes::from(key.to_vec());
+        let key: Bytes<SpkiPublicKeyDerContentFormat> = Bytes::from(key.to_vec());
         assert_eq!(
             "turban-deftly-anime-chatroom-unselfish",
             fingerprint(user_id, &key).unwrap()

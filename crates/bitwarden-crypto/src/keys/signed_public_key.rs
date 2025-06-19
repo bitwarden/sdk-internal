@@ -11,7 +11,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::AsymmetricPublicCryptoKey;
 use crate::{
-    content_format::{CoseSign1ContentFormat, Bytes},
+    content_format::{Bytes, CoseSign1ContentFormat},
     cose::CoseSerializable,
     error::EncodingError,
     util::FromStrVisitor,
@@ -89,9 +89,11 @@ impl From<SignedPublicKey> for Vec<u8> {
 impl TryFrom<Vec<u8>> for SignedPublicKey {
     type Error = EncodingError;
     fn try_from(bytes: Vec<u8>) -> Result<Self, EncodingError> {
-        Ok(SignedPublicKey(SignedObject::from_cose(
-            &Bytes::<CoseSign1ContentFormat>::from(bytes),
-        )?))
+        Ok(SignedPublicKey(SignedObject::from_cose(&Bytes::<
+            CoseSign1ContentFormat,
+        >::from(
+            bytes
+        ))?))
     }
 }
 

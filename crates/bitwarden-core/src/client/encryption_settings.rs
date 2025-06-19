@@ -58,7 +58,7 @@ impl EncryptionSettings {
         use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
 
         let private_key = {
-            use bitwarden_crypto::{Pkcs8PrivateKeyDerContentFormat, Bytes};
+            use bitwarden_crypto::{Bytes, Pkcs8PrivateKeyDerContentFormat};
 
             let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
             let dec: Bytes<Pkcs8PrivateKeyDerContentFormat> = Bytes::from(dec);

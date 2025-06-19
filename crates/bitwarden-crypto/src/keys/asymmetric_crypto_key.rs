@@ -5,9 +5,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::key_encryptable::CryptoKey;
 use crate::{
-    content_format::{
-        Pkcs8PrivateKeyDerContentFormat, Bytes, SpkiPublicKeyDerContentFormat,
-    },
+    content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat, SpkiPublicKeyDerContentFormat},
     error::{CryptoError, Result},
 };
 
@@ -167,7 +165,7 @@ mod tests {
     use base64::{engine::general_purpose::STANDARD, Engine};
 
     use crate::{
-        content_format::{Pkcs8PrivateKeyDerContentFormat, Bytes},
+        content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat},
         AsymmetricCryptoKey, AsymmetricPublicCryptoKey, SymmetricCryptoKey, UnsignedSharedKey,
     };
 
@@ -206,9 +204,9 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
         // Load the two different formats and check they are the same key
         let pem_key = AsymmetricCryptoKey::from_pem(pem_key_str).unwrap();
-        let der_key = AsymmetricCryptoKey::from_der(&Bytes::<
-            Pkcs8PrivateKeyDerContentFormat,
-        >::from(der_key_vec.clone()))
+        let der_key = AsymmetricCryptoKey::from_der(
+            &Bytes::<Pkcs8PrivateKeyDerContentFormat>::from(der_key_vec.clone()),
+        )
         .unwrap();
         assert_eq!(pem_key.to_der().unwrap(), der_key.to_der().unwrap());
 

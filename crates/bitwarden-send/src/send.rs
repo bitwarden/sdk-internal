@@ -8,8 +8,8 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    generate_random_bytes, CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey,
-    KeyStoreContext, OctetStreamContentFormat, PrimitiveEncryptable, Bytes,
+    generate_random_bytes, Bytes, CompositeEncryptable, CryptoError, Decryptable, EncString,
+    IdentifyKey, KeyStoreContext, OctetStreamContentFormat, PrimitiveEncryptable,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
