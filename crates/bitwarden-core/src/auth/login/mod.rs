@@ -42,6 +42,8 @@ pub enum LoginError {
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
     InvalidBase64(#[from] base64::DecodeError),
+    #[error(transparent)]
+    Uuid(#[from] uuid::Error),
 
     #[error(transparent)]
     MissingField(#[from] crate::MissingFieldError),

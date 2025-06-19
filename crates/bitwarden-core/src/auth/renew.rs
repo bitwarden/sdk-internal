@@ -40,7 +40,7 @@ pub(crate) async fn renew_token(client: &InternalClient) -> Result<(), LoginErro
             .clone();
 
         let res = match login_method.as_ref() {
-            LoginMethod::User(u) => match u {
+            LoginMethod::User { method: u, .. } => match u {
                 UserLoginMethod::Username { client_id, .. } => {
                     let refresh = tokens.refresh_token.ok_or(NotAuthenticatedError)?;
 

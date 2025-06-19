@@ -2,6 +2,8 @@
 use bitwarden_crypto::{
     CryptoError, DeviceKey, EncString, Kdf, TrustDeviceResponse, UnsignedSharedKey,
 };
+#[cfg(feature = "internal")]
+use uuid::Uuid;
 
 #[cfg(feature = "secrets")]
 use crate::auth::login::{login_access_token, AccessTokenLoginRequest, AccessTokenLoginResponse};
@@ -91,8 +93,15 @@ impl AuthClient {
         email: String,
         org_public_key: String,
         remember_device: bool,
+        user_id: Uuid,
     ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
-        make_register_tde_keys(&self.client, email, org_public_key, remember_device)
+        make_register_tde_keys(
+            &self.client,
+            email,
+            org_public_key,
+            remember_device,
+            user_id,
+        )
     }
 
     #[allow(missing_docs)]

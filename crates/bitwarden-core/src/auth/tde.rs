@@ -3,6 +3,7 @@ use bitwarden_crypto::{
     AsymmetricPublicCryptoKey, DeviceKey, EncString, Kdf, SymmetricCryptoKey, TrustDeviceResponse,
     UnsignedSharedKey, UserKey,
 };
+use uuid::Uuid;
 
 use crate::{client::encryption_settings::EncryptionSettingsError, Client};
 
@@ -14,6 +15,7 @@ pub(super) fn make_register_tde_keys(
     email: String,
     org_public_key: String,
     remember_device: bool,
+    user_id: Uuid,
 ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
     let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(org_public_key)?)?;
 
@@ -30,13 +32,14 @@ pub(super) fn make_register_tde_keys(
 
     client
         .internal
-        .set_login_method(crate::client::LoginMethod::User(
-            crate::client::UserLoginMethod::Username {
+        .set_login_method(crate::client::LoginMethod::User {
+            user_id,
+            method: crate::client::UserLoginMethod::Username {
                 client_id: "".to_owned(),
                 email,
                 kdf: Kdf::default(),
             },
-        ));
+        });
     client.internal.initialize_user_crypto_decrypted_key(
         user_key.0,
         key_pair.private.clone(),

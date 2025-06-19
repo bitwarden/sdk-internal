@@ -1,4 +1,4 @@
-use std::sync::{Arc, OnceLock, RwLock};
+use std::sync::{Arc, RwLock};
 
 use bitwarden_crypto::KeyStore;
 use reqwest::header::{self, HeaderValue};
@@ -76,7 +76,6 @@ impl Client {
 
         Self {
             internal: Arc::new(InternalClient {
-                user_id: OnceLock::new(),
                 tokens: RwLock::new(Tokens::default()),
                 login_method: RwLock::new(None),
                 #[cfg(feature = "internal")]

@@ -39,14 +39,15 @@ pub(crate) async fn login_api_key(
 
         let master_key = MasterKey::derive(&input.password, &email, &kdf)?;
 
-        client
-            .internal
-            .set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
+        client.internal.set_login_method(LoginMethod::User {
+            method: UserLoginMethod::ApiKey {
                 client_id: input.client_id.to_owned(),
                 client_secret: input.client_secret.to_owned(),
                 email,
                 kdf,
-            }));
+            },
+            user_id: access_token_obj.sub.parse()?,
+        });
 
         let user_key: EncString = require!(r.key.as_deref()).parse()?;
         let private_key: EncString = require!(r.private_key.as_deref()).parse()?;

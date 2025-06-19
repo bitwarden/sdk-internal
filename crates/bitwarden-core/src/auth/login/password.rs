@@ -34,18 +34,23 @@ pub(crate) async fn login_password(
     let response = request_identity_tokens(client, input, &password_hash).await?;
 
     if let IdentityTokenResponse::Authenticated(r) = &response {
+        use crate::auth::JwtToken;
+
+        let access_token_obj: JwtToken = r.access_token.parse()?;
+
         client.internal.set_tokens(
             r.access_token.clone(),
             r.refresh_token.clone(),
             r.expires_in,
         );
-        client
-            .internal
-            .set_login_method(LoginMethod::User(UserLoginMethod::Username {
+        client.internal.set_login_method(LoginMethod::User {
+            method: UserLoginMethod::Username {
                 client_id: "web".to_owned(),
                 email: input.email.to_owned(),
                 kdf: input.kdf.to_owned(),
-            }));
+            },
+            user_id: access_token_obj.sub.parse()?,
+        });
 
         let user_key: EncString = require!(r.key.as_deref()).parse()?;
         let private_key: EncString = require!(r.private_key.as_deref()).parse()?;
