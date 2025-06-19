@@ -184,7 +184,26 @@ impl InternalClient {
 
     #[allow(missing_docs)]
     pub fn init_user_id(&self, user_id: Uuid) -> Result<(), UserIdAlreadySetError> {
-        self.user_id.set(user_id).map_err(|_| UserIdAlreadySetError)
+        let mut value = Some(user_id);
+        let set_uuid = self
+            .user_id
+            .get_or_init(|| value.take().expect("Value is Some"));
+
+        match value {
+            // If this is none, that means the user_id was not set before
+            None => Ok(()),
+            // If this is some, it means the user_id was already set
+            Some(_) => {
+                // Only return an error if the user_id is already set to a different value,
+                // as we want an SDK client to be tied to a single user_id.
+                // If it's the same value, we can just do nothing.
+                if *set_uuid != user_id {
+                    Err(UserIdAlreadySetError)
+                } else {
+                    Ok(())
+                }
+            }
+        }
     }
 
     #[allow(missing_docs)]
@@ -246,5 +265,29 @@ impl InternalClient {
         org_keys: Vec<(Uuid, UnsignedSharedKey)>,
     ) -> Result<(), EncryptionSettingsError> {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Client;
+
+    #[test]
+    fn initializing_user_multiple_times() {
+        use super::*;
+
+        let client = Client::new(None);
+        let user_id = Uuid::new_v4();
+
+        // Setting the user ID for the first time should work.
+        assert!(client.internal.init_user_id(user_id).is_ok());
+        assert_eq!(client.internal.get_user_id(), Some(user_id));
+
+        // Trying to set the same user_id again should not return an error.
+        assert!(client.internal.init_user_id(user_id).is_ok());
+
+        // Trying to set a different user_id should return an error.
+        let different_user_id = Uuid::new_v4();
+        assert!(client.internal.init_user_id(different_user_id).is_err());
     }
 }
