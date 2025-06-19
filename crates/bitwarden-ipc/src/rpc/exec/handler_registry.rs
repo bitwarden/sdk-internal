@@ -36,7 +36,7 @@ mod test {
 
     use super::*;
     use crate::{
-        rpc::{request::RpcRequest, request_message::TypedRpcRequestMessage},
+        rpc::{request::RpcRequest, request_message::RpcRequestMessage},
         serde_utils,
     };
 
@@ -76,7 +76,7 @@ mod test {
         let registry = RpcHandlerRegistry::new();
 
         let request = TestRequest { a: 1, b: 2 };
-        let message = TypedRpcRequestMessage {
+        let message = RpcRequestMessage {
             request,
             request_id: "test_id".to_string(),
             request_type: "TestRequest".to_string(),
@@ -96,7 +96,7 @@ mod test {
         registry.register(TestHandler).await;
 
         let request = TestRequest { a: 1, b: 2 };
-        let message = TypedRpcRequestMessage {
+        let message = RpcRequestMessage {
             request,
             request_id: "test_id".to_string(),
             request_type: "TestRequest".to_string(),

@@ -32,7 +32,7 @@ impl RpcRequestPayload {
         &self.partial.request_type
     }
 
-    pub fn full<T>(&self) -> Result<TypedRpcRequestMessage<T>, RpcError>
+    pub fn full<T>(&self) -> Result<RpcRequestMessage<T>, RpcError>
     where
         T: RpcRequest,
     {
@@ -42,7 +42,7 @@ impl RpcRequestPayload {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TypedRpcRequestMessage<T> {
+pub struct RpcRequestMessage<T> {
     pub request: T,
     pub request_id: String,
     pub request_type: String,
@@ -54,6 +54,6 @@ struct PartialRpcRequestMessage {
     pub request_type: String,
 }
 
-impl<T> PayloadTypeName for TypedRpcRequestMessage<T> {
+impl<T> PayloadTypeName for RpcRequestMessage<T> {
     const PAYLOAD_TYPE_NAME: &str = RPC_REQUEST_PAYLOAD_TYPE_NAME;
 }

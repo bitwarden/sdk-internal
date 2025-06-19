@@ -17,9 +17,7 @@ use crate::{
         error::RpcError,
         exec::handler_registry::RpcHandlerRegistry,
         request::RpcRequest,
-        request_message::{
-            RpcRequestPayload, TypedRpcRequestMessage, RPC_REQUEST_PAYLOAD_TYPE_NAME,
-        },
+        request_message::{RpcRequestMessage, RpcRequestPayload, RPC_REQUEST_PAYLOAD_TYPE_NAME},
         response_message::RpcResponseMessage,
     },
     serde_utils,
@@ -300,7 +298,7 @@ where
         let mut response_subscription: IpcClientTypedSubscription<RpcResponseMessage> =
             self.subscribe_typed().await?;
 
-        let request_payload = TypedRpcRequestMessage {
+        let request_payload = RpcRequestMessage {
             request,
             request_id: request_id.clone(),
             request_type: Request::name(),
@@ -312,7 +310,7 @@ where
         }
         .try_into()
         .map_err(
-            |e: <TypedOutgoingMessage<TypedRpcRequestMessage<Request>> as TryInto<
+            |e: <TypedOutgoingMessage<RpcRequestMessage<Request>> as TryInto<
                 OutgoingMessage,
             >>::Error| {
                 RequestError::<Crypto::SendError>::RpcError(RpcError::RequestSerializationError(
@@ -812,7 +810,7 @@ mod tests {
 
             // Read and verify the outgoing message
             let outgoing_messages = communication_provider.outgoing().await;
-            let outgoing_request: TypedRpcRequestMessage<TestRequest> =
+            let outgoing_request: RpcRequestMessage<TestRequest> =
                 serde_utils::from_slice(&outgoing_messages[0].payload)
                     .expect("Deserialization should not fail");
             assert_eq!(outgoing_request.request_type, "TestRequest");
@@ -854,7 +852,7 @@ mod tests {
             client.register_rpc_handler(TestHandler).await;
 
             // Simulate receiving a request
-            let simulated_request = TypedRpcRequestMessage {
+            let simulated_request = RpcRequestMessage {
                 request,
                 request_id: request_id.clone(),
                 request_type: "TestRequest".to_string(),
