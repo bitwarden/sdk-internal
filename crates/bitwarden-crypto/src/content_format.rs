@@ -79,6 +79,13 @@ impl<C: ConstContentFormat> AsRef<[u8]> for SerializedBytes<C> {
     }
 }
 
+impl<C: ConstContentFormat> SerializedBytes<C> {
+    /// Returns the serialized bytes as a `Vec<u8>`.
+    pub fn to_vec(&self) -> Vec<u8> {
+        self.inner.clone()
+    }
+}
+
 /// Content format for UTF-8 encoded text. Used for most text messages.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub(crate) struct Utf8ContentFormat;
@@ -128,7 +135,7 @@ impl CoseContentFormat for CoseKeyContentFormat {}
 /// A legacy content format for Bitwarden keys. See `ContentFormat::BitwardenLegacyKey`
 #[allow(unused)]
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub(crate) struct BitwardenLegacyKeyContentFormat;
+pub struct BitwardenLegacyKeyContentFormat;
 impl ConstContentFormat for BitwardenLegacyKeyContentFormat {
     fn content_format() -> ContentFormat {
         ContentFormat::BitwardenLegacyKey

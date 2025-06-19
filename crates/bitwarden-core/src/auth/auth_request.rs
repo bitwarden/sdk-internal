@@ -106,43 +106,47 @@ pub(crate) fn approve_auth_request(
     )?)
 }
 
-#[test]
-fn test_auth_request() {
-    let request = new_auth_request("test@bitwarden.com").unwrap();
-
-    let secret = vec![
-        111, 32, 97, 169, 4, 241, 174, 74, 239, 206, 113, 86, 174, 68, 216, 238, 52, 85, 156, 27,
-        134, 149, 54, 55, 91, 147, 45, 130, 131, 237, 51, 31, 191, 106, 155, 14, 160, 82, 47, 40,
-        96, 31, 114, 127, 212, 187, 167, 110, 205, 116, 198, 243, 218, 72, 137, 53, 248, 43, 255,
-        67, 35, 61, 245, 93,
-    ];
-
-    let private_key =
-        AsymmetricCryptoKey::from_der(&STANDARD.decode(&request.private_key).unwrap().into())
-            .unwrap();
-
-    let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(
-        &SymmetricCryptoKey::try_from(secret.clone()).unwrap(),
-        &private_key.to_public_key(),
-    )
-    .unwrap();
-
-    let decrypted = auth_request_decrypt_user_key(request.private_key, encrypted).unwrap();
-
-    assert_eq!(decrypted.to_encoded(), secret);
-}
-
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::{Kdf, MasterKey, SerializedBytes, SpkiPublicKeyDerContentFormat};
+    use bitwarden_crypto::{
+        BitwardenLegacyKeyContentFormat, Kdf, MasterKey, SerializedBytes,
+        SpkiPublicKeyDerContentFormat,
+    };
 
     use super::*;
     use crate::key_management::{
         crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
         SymmetricKeyId,
     };
+
+    #[test]
+    fn test_auth_request() {
+        let request = new_auth_request("test@bitwarden.com").unwrap();
+
+        let secret = vec![
+            111, 32, 97, 169, 4, 241, 174, 74, 239, 206, 113, 86, 174, 68, 216, 238, 52, 85, 156,
+            27, 134, 149, 54, 55, 91, 147, 45, 130, 131, 237, 51, 31, 191, 106, 155, 14, 160, 82,
+            47, 40, 96, 31, 114, 127, 212, 187, 167, 110, 205, 116, 198, 243, 218, 72, 137, 53,
+            248, 43, 255, 67, 35, 61, 245, 93,
+        ];
+
+        let private_key =
+            AsymmetricCryptoKey::from_der(&STANDARD.decode(&request.private_key).unwrap().into())
+                .unwrap();
+
+        let secret = SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(secret);
+        let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(
+            &SymmetricCryptoKey::try_from(&secret).unwrap(),
+            &private_key.to_public_key(),
+        )
+        .unwrap();
+
+        let decrypted = auth_request_decrypt_user_key(request.private_key, encrypted).unwrap();
+
+        assert_eq!(decrypted.to_encoded().to_vec(), secret.to_vec());
+    }
 
     #[test]
     fn test_approve() {
@@ -183,7 +187,7 @@ mod tests {
         let dec = auth_request_decrypt_user_key(private_key.to_owned(), enc_user_key).unwrap();
 
         assert_eq!(
-            &dec.to_encoded(),
+            &dec.to_encoded().to_vec(),
             &[
                 201, 37, 234, 213, 21, 75, 40, 70, 149, 213, 234, 16, 19, 251, 162, 245, 161, 74,
                 34, 245, 211, 151, 211, 192, 95, 10, 117, 50, 88, 223, 23, 157
@@ -202,7 +206,7 @@ mod tests {
                 .unwrap();
 
         assert_eq!(
-            &dec.to_encoded(),
+            &dec.to_encoded().to_vec(),
             &[
                 109, 128, 172, 147, 206, 123, 134, 95, 16, 36, 155, 113, 201, 18, 186, 230, 216,
                 212, 173, 188, 74, 11, 134, 131, 137, 242, 105, 178, 105, 126, 52, 139, 248, 91,

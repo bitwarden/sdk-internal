@@ -18,7 +18,10 @@ use super::{
     key_encryptable::CryptoKey,
     key_id::{KeyId, KEY_ID_SIZE},
 };
-use crate::{cose, CryptoError};
+use crate::{
+    cose, BitwardenLegacyKeyContentFormat, ContentFormat, CoseKeyContentFormat, CryptoError,
+    SerializedBytes,
+};
 
 /// [Aes256CbcKey] is a symmetric encryption key, consisting of one 256-bit key,
 /// used to decrypt legacy type 0 enc strings. The data is not authenticated
@@ -145,13 +148,17 @@ impl SymmetricCryptoKey {
     /// This can be used for storage and transmission in the old byte array format.
     /// When the wrapping key is a COSE key, and the wrapped key is a COSE key, then this should
     /// not use the byte representation but instead use the COSE key representation.
-    pub fn to_encoded(&self) -> Vec<u8> {
-        let mut encoded_key = self.to_encoded_raw();
-        match self {
-            Self::Aes256CbcKey(_) | Self::Aes256CbcHmacKey(_) => encoded_key,
-            Self::XChaCha20Poly1305Key(_) => {
+    pub fn to_encoded(&self) -> SerializedBytes<BitwardenLegacyKeyContentFormat> {
+        let encoded_key = self.to_encoded_raw();
+        match encoded_key {
+            EncodedSymmetricKey::Aes256CbcKey(_) | EncodedSymmetricKey::Aes256CbcHmacKey(_) => {
+                let encoded_key: Vec<u8> = encoded_key.into();
+                SerializedBytes::from(encoded_key)
+            }
+            EncodedSymmetricKey::XChaCha20Poly1305Key(_) => {
+                let mut encoded_key: Vec<u8> = encoded_key.into();
                 pad_key(&mut encoded_key, Self::AES256_CBC_HMAC_KEY_LEN + 1);
-                encoded_key
+                SerializedBytes::from(encoded_key)
             }
         }
     }
@@ -182,14 +189,16 @@ impl SymmetricCryptoKey {
     /// format hints an the key type, or can be represented as a byte array, if padded to be
     /// larger than the byte array representation of the other key types using the
     /// aforementioned [SymmetricCryptoKey::to_encoded] function.
-    pub(crate) fn to_encoded_raw(&self) -> Vec<u8> {
+    pub(crate) fn to_encoded_raw(&self) -> EncodedSymmetricKey {
         match self {
-            Self::Aes256CbcKey(key) => key.enc_key.to_vec(),
+            Self::Aes256CbcKey(key) => {
+                EncodedSymmetricKey::Aes256CbcKey(key.enc_key.to_vec().into())
+            }
             Self::Aes256CbcHmacKey(key) => {
                 let mut buf = Vec::with_capacity(64);
                 buf.extend_from_slice(&key.enc_key);
                 buf.extend_from_slice(&key.mac_key);
-                buf
+                EncodedSymmetricKey::Aes256CbcHmacKey(buf.into())
             }
             Self::XChaCha20Poly1305Key(key) => {
                 let builder = coset::CoseKeyBuilder::new_symmetric_key(key.enc_key.to_vec());
@@ -203,9 +212,12 @@ impl SymmetricCryptoKey {
                 cose_key.alg = Some(RegisteredLabelWithPrivate::PrivateUse(
                     cose::XCHACHA20_POLY1305,
                 ));
-                cose_key
-                    .to_vec()
-                    .expect("cose key serialization should not fail")
+                EncodedSymmetricKey::XChaCha20Poly1305Key(
+                    cose_key
+                        .to_vec()
+                        .expect("cose key serialization should not fail")
+                        .into(),
+                )
             }
         }
     }
@@ -252,57 +264,66 @@ impl TryFrom<String> for SymmetricCryptoKey {
     type Error = CryptoError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        let b = STANDARD
+        let bytes = STANDARD
             .decode(value)
             .map_err(|_| CryptoError::InvalidKey)?;
-        Self::try_from(b)
+        Self::try_from(&SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(
+            bytes,
+        ))
     }
 }
 
-impl TryFrom<Vec<u8>> for SymmetricCryptoKey {
+impl TryFrom<&SerializedBytes<BitwardenLegacyKeyContentFormat>> for SymmetricCryptoKey {
     type Error = CryptoError;
 
-    fn try_from(mut value: Vec<u8>) -> Result<Self, Self::Error> {
-        Self::try_from(value.as_mut_slice())
-    }
-}
+    fn try_from(
+        value: &SerializedBytes<BitwardenLegacyKeyContentFormat>,
+    ) -> Result<Self, Self::Error> {
+        let slice = value.as_ref();
 
-impl TryFrom<&mut [u8]> for SymmetricCryptoKey {
-    type Error = CryptoError;
-
-    /// Note: This function takes the byte slice by mutable reference and will zero out all
-    /// the data in it. This is to prevent the key from being left in memory.
-    fn try_from(value: &mut [u8]) -> Result<Self, Self::Error> {
         // Raw byte serialized keys are either 32, 64, or more bytes long. If they are 32/64, they
         // are the raw serializations of the AES256-CBC, and AES256-CBC-HMAC keys. If they
         // are longer, they are COSE keys. The COSE keys are padded to the minimum length of
         // 65 bytes, when serialized to raw byte arrays.
-        let result = if value.len() == Self::AES256_CBC_HMAC_KEY_LEN {
-            let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
-            let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
-
-            enc_key.copy_from_slice(&value[..32]);
-            mac_key.copy_from_slice(&value[32..]);
-
-            Ok(Self::Aes256CbcHmacKey(Aes256CbcHmacKey {
-                enc_key,
-                mac_key,
-            }))
-        } else if value.len() == Self::AES256_CBC_KEY_LEN {
-            let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
-
-            enc_key.copy_from_slice(&value[..Self::AES256_CBC_KEY_LEN]);
-
-            Ok(Self::Aes256CbcKey(Aes256CbcKey { enc_key }))
-        } else if value.len() > Self::AES256_CBC_HMAC_KEY_LEN {
-            let unpadded_value = unpad_key(value)?;
+        let result = if slice.len() == Self::AES256_CBC_HMAC_KEY_LEN {
+            Self::try_from(EncodedSymmetricKey::Aes256CbcHmacKey(value.clone()))
+        } else if slice.len() == Self::AES256_CBC_KEY_LEN {
+            Self::try_from(EncodedSymmetricKey::Aes256CbcKey(value.clone()))
+        } else if slice.len() > Self::AES256_CBC_HMAC_KEY_LEN {
+            let unpadded_value = unpad_key(slice)?;
             Ok(Self::try_from_cose(unpadded_value)?)
         } else {
             Err(CryptoError::InvalidKeyLen)
         };
 
-        value.zeroize();
         result
+    }
+}
+
+impl TryFrom<EncodedSymmetricKey> for SymmetricCryptoKey {
+    type Error = CryptoError;
+
+    fn try_from(value: EncodedSymmetricKey) -> Result<Self, Self::Error> {
+        match value {
+            EncodedSymmetricKey::Aes256CbcKey(key) => {
+                let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+                enc_key.copy_from_slice(&key.as_ref()[..Self::AES256_CBC_KEY_LEN]);
+                Ok(Self::Aes256CbcKey(Aes256CbcKey { enc_key }))
+            }
+            EncodedSymmetricKey::Aes256CbcHmacKey(key) => {
+                let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+                enc_key.copy_from_slice(&key.as_ref()[..32]);
+
+                let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
+                mac_key.copy_from_slice(&key.as_ref()[32..]);
+
+                Ok(Self::Aes256CbcHmacKey(Aes256CbcHmacKey {
+                    enc_key,
+                    mac_key,
+                }))
+            }
+            EncodedSymmetricKey::XChaCha20Poly1305Key(key) => Self::try_from_cose(key.as_ref()),
+        }
     }
 }
 
@@ -372,6 +393,32 @@ fn unpad_key(key_bytes: &[u8]) -> Result<&[u8], CryptoError> {
     crate::keys::utils::unpad_bytes(key_bytes).map_err(|_| CryptoError::InvalidKey)
 }
 
+/// An enum to represent the different encodings of symmetric crypto keys.
+pub enum EncodedSymmetricKey {
+    Aes256CbcKey(SerializedBytes<BitwardenLegacyKeyContentFormat>),
+    Aes256CbcHmacKey(SerializedBytes<BitwardenLegacyKeyContentFormat>),
+    XChaCha20Poly1305Key(SerializedBytes<CoseKeyContentFormat>),
+}
+impl Into<Vec<u8>> for EncodedSymmetricKey {
+    fn into(self) -> Vec<u8> {
+        match self {
+            EncodedSymmetricKey::Aes256CbcKey(key) => key.as_ref().to_vec(),
+            EncodedSymmetricKey::Aes256CbcHmacKey(key) => key.as_ref().to_vec(),
+            EncodedSymmetricKey::XChaCha20Poly1305Key(key) => key.as_ref().to_vec(),
+        }
+    }
+}
+impl EncodedSymmetricKey {
+    pub fn content_format(&self) -> ContentFormat {
+        match self {
+            EncodedSymmetricKey::Aes256CbcKey(_) | EncodedSymmetricKey::Aes256CbcHmacKey(_) => {
+                ContentFormat::BitwardenLegacyKey
+            }
+            EncodedSymmetricKey::XChaCha20Poly1305Key(_) => ContentFormat::CoseKey,
+        }
+    }
+}
+
 /// Test only helper for deriving a symmetric key.
 #[cfg(test)]
 pub fn derive_symmetric_key(name: &str) -> Aes256CbcHmacKey {
@@ -392,7 +439,8 @@ mod tests {
     use super::{derive_symmetric_key, SymmetricCryptoKey};
     use crate::{
         keys::symmetric_crypto_key::{pad_key, unpad_key},
-        Aes256CbcHmacKey, Aes256CbcKey, XChaCha20Poly1305Key,
+        Aes256CbcHmacKey, Aes256CbcKey, BitwardenLegacyKeyContentFormat, SerializedBytes,
+        XChaCha20Poly1305Key,
     };
 
     #[test]
@@ -411,14 +459,15 @@ mod tests {
     fn test_encode_decode_old_symmetric_crypto_key() {
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let encoded = key.to_encoded();
-        let decoded = SymmetricCryptoKey::try_from(encoded).unwrap();
+        let decoded = SymmetricCryptoKey::try_from(&encoded).unwrap();
         assert_eq!(key, decoded);
     }
 
     #[test]
     fn test_decode_new_symmetric_crypto_key() {
-        let key_b64 = STANDARD.decode("pQEEAlDib+JxbqMBlcd3KTUesbufAzoAARFvBIQDBAUGIFggt79surJXmqhPhYuuqi9ZyPfieebmtw2OsmN5SDrb4yUB").unwrap();
-        let key = SymmetricCryptoKey::try_from(key_b64).unwrap();
+        let key = STANDARD.decode("pQEEAlDib+JxbqMBlcd3KTUesbufAzoAARFvBIQDBAUGIFggt79surJXmqhPhYuuqi9ZyPfieebmtw2OsmN5SDrb4yUB").unwrap();
+        let key = SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(key);
+        let key = SymmetricCryptoKey::try_from(&key).unwrap();
         match key {
             SymmetricCryptoKey::XChaCha20Poly1305Key(_) => (),
             _ => panic!("Invalid key type"),
@@ -429,7 +478,7 @@ mod tests {
     fn test_encode_xchacha20_poly1305_key() {
         let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
         let encoded = key.to_encoded();
-        let decoded = SymmetricCryptoKey::try_from(encoded).unwrap();
+        let decoded = SymmetricCryptoKey::try_from(&encoded).unwrap();
         assert_eq!(key, decoded);
     }
 
@@ -481,8 +530,14 @@ mod tests {
 
     #[test]
     fn test_eq_aes_cbc() {
-        let key1 = SymmetricCryptoKey::try_from(vec![1u8; 32]).unwrap();
-        let key2 = SymmetricCryptoKey::try_from(vec![2u8; 32]).unwrap();
+        let key1 = SymmetricCryptoKey::try_from(
+            &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(vec![1u8; 32]),
+        )
+        .unwrap();
+        let key2 = SymmetricCryptoKey::try_from(
+            &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(vec![2u8; 32]),
+        )
+        .unwrap();
         assert_ne!(key1, key2);
         let key3 = SymmetricCryptoKey::try_from(key1.to_base64()).unwrap();
         assert_eq!(key1, key3);

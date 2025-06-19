@@ -2,11 +2,12 @@ use std::str::FromStr;
 
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CoseKeyContentFormat, CoseSerializable,
-    CryptoError, Decryptable, EncString, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey,
-    OctetStreamContentFormat, Pkcs8PrivateKeyDerContentFormat, PrimitiveEncryptable,
-    SerializedBytes, SignatureAlgorithm, SignedPublicKey, SigningKey,
-    SpkiPublicKeyDerContentFormat, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyContentFormat,
+    CoseKeyContentFormat, CoseSerializable, CryptoError, Decryptable, EncString, Kdf,
+    KeyDecryptable, KeyEncryptable, KeyStore, MasterKey, OctetStreamContentFormat,
+    Pkcs8PrivateKeyDerContentFormat, PrimitiveEncryptable, SerializedBytes, SignatureAlgorithm,
+    SignedPublicKey, SigningKey, SpkiPublicKeyDerContentFormat, SymmetricCryptoKey,
+    UnsignedSharedKey, VerifyingKey,
 };
 use wasm_bindgen::prelude::*;
 
@@ -30,6 +31,7 @@ impl PureCrypto {
         enc_string: String,
         key: Vec<u8>,
     ) -> Result<String, CryptoError> {
+        let key = &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(key);
         EncString::from_str(&enc_string)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
     }
 
@@ -37,6 +39,7 @@ impl PureCrypto {
         enc_string: String,
         key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
+        let key = &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(key);
         EncString::from_str(&enc_string)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
     }
 
@@ -53,10 +56,12 @@ impl PureCrypto {
         enc_bytes: Vec<u8>,
         key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
+        let key = &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(key);
         EncString::from_buffer(&enc_bytes)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
     }
 
     pub fn symmetric_encrypt_string(plain: String, key: Vec<u8>) -> Result<String, CryptoError> {
+        let key = &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(key);
         plain
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
             .map(|enc| enc.to_string())
@@ -64,6 +69,7 @@ impl PureCrypto {
 
     /// DEPRECATED: Only used by send keys
     pub fn symmetric_encrypt_bytes(plain: Vec<u8>, key: Vec<u8>) -> Result<String, CryptoError> {
+        let key = &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(key);
         SerializedBytes::<OctetStreamContentFormat>::from(plain)
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
             .map(|enc| enc.to_string())
@@ -73,6 +79,7 @@ impl PureCrypto {
         plain: Vec<u8>,
         key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
+        let key = &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(key);
         SerializedBytes::<OctetStreamContentFormat>::from(plain)
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)?
             .to_buffer()
@@ -89,7 +96,7 @@ impl PureCrypto {
         let result = master_key
             .decrypt_user_key(encrypted_user_key)
             .map_err(|_| CryptoError::InvalidKey)?;
-        Ok(result.to_encoded())
+        Ok(result.to_encoded().to_vec())
     }
 
     pub fn encrypt_user_key_with_master_password(
@@ -99,17 +106,22 @@ impl PureCrypto {
         kdf: Kdf,
     ) -> Result<String, CryptoError> {
         let master_key = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
+        let user_key = &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(user_key);
         let user_key = SymmetricCryptoKey::try_from(user_key)?;
         let result = master_key.encrypt_user_key(&user_key)?;
         Ok(result.to_string())
     }
 
     pub fn make_user_key_aes256_cbc_hmac() -> Vec<u8> {
-        SymmetricCryptoKey::make_aes256_cbc_hmac_key().to_encoded()
+        SymmetricCryptoKey::make_aes256_cbc_hmac_key()
+            .to_encoded()
+            .to_vec()
     }
 
     pub fn make_user_key_xchacha20_poly1305() -> Vec<u8> {
-        SymmetricCryptoKey::make_xchacha20_poly1305_key().to_encoded()
+        SymmetricCryptoKey::make_xchacha20_poly1305_key()
+            .to_encoded()
+            .to_vec()
     }
 
     /// Wraps (encrypts) a symmetric key using a symmetric wrapping key, returning the wrapped key
@@ -120,16 +132,16 @@ impl PureCrypto {
     ) -> Result<String, CryptoError> {
         let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
+        let wrapping_key = SymmetricCryptoKey::try_from(&SerializedBytes::<
+            BitwardenLegacyKeyContentFormat,
+        >::from(wrapping_key))?;
         #[allow(deprecated)]
-        context.set_symmetric_key(
-            SymmetricKeyId::Local("wrapping_key"),
-            SymmetricCryptoKey::try_from(wrapping_key)?,
-        )?;
+        context.set_symmetric_key(SymmetricKeyId::Local("wrapping_key"), wrapping_key)?;
+        let key_to_be_wrapped = SymmetricCryptoKey::try_from(&SerializedBytes::<
+            BitwardenLegacyKeyContentFormat,
+        >::from(key_to_be_wrapped))?;
         #[allow(deprecated)]
-        context.set_symmetric_key(
-            SymmetricKeyId::Local("key_to_wrap"),
-            SymmetricCryptoKey::try_from(key_to_be_wrapped)?,
-        )?;
+        context.set_symmetric_key(SymmetricKeyId::Local("key_to_wrap"), key_to_be_wrapped)?;
         // Note: The order of arguments is different here, and should probably be refactored
         Ok(context
             .wrap_symmetric_key(
@@ -147,11 +159,11 @@ impl PureCrypto {
     ) -> Result<Vec<u8>, CryptoError> {
         let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
+        let wrapping_key = SymmetricCryptoKey::try_from(&SerializedBytes::<
+            BitwardenLegacyKeyContentFormat,
+        >::from(wrapping_key))?;
         #[allow(deprecated)]
-        context.set_symmetric_key(
-            SymmetricKeyId::Local("wrapping_key"),
-            SymmetricCryptoKey::try_from(wrapping_key)?,
-        )?;
+        context.set_symmetric_key(SymmetricKeyId::Local("wrapping_key"), wrapping_key)?;
         // Note: The order of arguments is different here, and should probably be refactored
         context.unwrap_symmetric_key(
             SymmetricKeyId::Local("wrapping_key"),
@@ -160,7 +172,7 @@ impl PureCrypto {
         )?;
         #[allow(deprecated)]
         let key = context.dangerous_get_symmetric_key(SymmetricKeyId::Local("wrapped_key"))?;
-        Ok(key.to_encoded())
+        Ok(key.to_encoded().to_vec())
     }
 
     /// Wraps (encrypts) an SPKI DER encoded encapsulation (public) key using a symmetric wrapping
@@ -177,7 +189,9 @@ impl PureCrypto {
         #[allow(deprecated)]
         context.set_symmetric_key(
             SymmetricKeyId::Local("wrapping_key"),
-            SymmetricCryptoKey::try_from(wrapping_key)?,
+            SymmetricCryptoKey::try_from(
+                &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(wrapping_key),
+            )?,
         )?;
         Ok(
             SerializedBytes::<SpkiPublicKeyDerContentFormat>::from(encapsulation_key)
@@ -197,7 +211,9 @@ impl PureCrypto {
         #[allow(deprecated)]
         context.set_symmetric_key(
             SymmetricKeyId::Local("wrapping_key"),
-            SymmetricCryptoKey::try_from(wrapping_key)?,
+            SymmetricCryptoKey::try_from(
+                &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(wrapping_key),
+            )?,
         )?;
         EncString::from_str(wrapped_key.as_str())?
             .decrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))
@@ -214,7 +230,9 @@ impl PureCrypto {
         #[allow(deprecated)]
         context.set_symmetric_key(
             SymmetricKeyId::Local("wrapping_key"),
-            SymmetricCryptoKey::try_from(wrapping_key)?,
+            SymmetricCryptoKey::try_from(
+                &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(wrapping_key),
+            )?,
         )?;
         Ok(
             SerializedBytes::<Pkcs8PrivateKeyDerContentFormat>::from(decapsulation_key)
@@ -234,7 +252,9 @@ impl PureCrypto {
         #[allow(deprecated)]
         context.set_symmetric_key(
             SymmetricKeyId::Local("wrapping_key"),
-            SymmetricCryptoKey::try_from(wrapping_key)?,
+            SymmetricCryptoKey::try_from(
+                &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(wrapping_key),
+            )?,
         )?;
         EncString::from_str(wrapped_key.as_str())?
             .decrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))
@@ -249,7 +269,9 @@ impl PureCrypto {
     ) -> Result<String, CryptoError> {
         let encapsulation_key = AsymmetricPublicCryptoKey::from_der(encapsulation_key.as_slice())?;
         Ok(UnsignedSharedKey::encapsulate_key_unsigned(
-            &SymmetricCryptoKey::try_from(shared_key)?,
+            &SymmetricCryptoKey::try_from(
+                &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(shared_key),
+            )?,
             &encapsulation_key,
         )?
         .to_string())
@@ -268,7 +290,8 @@ impl PureCrypto {
             >::from(
                 decapsulation_key
             ))?)?
-            .to_encoded())
+            .to_encoded()
+            .to_vec())
     }
 
     /// Given a wrapped signing key and the symmetric key it is wrapped with, this returns
