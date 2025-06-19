@@ -11,9 +11,7 @@ pub struct RpcResponseMessage {
 }
 
 impl PayloadTypeName for RpcResponseMessage {
-    fn name() -> String {
-        "RpcResponseMessage".to_string()
-    }
+    const PAYLOAD_TYPE_NAME: &str = "RpcResponseMessage";
 }
 
 impl RpcResponseMessage {

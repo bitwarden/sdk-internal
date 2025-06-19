@@ -17,7 +17,9 @@ use crate::{
         error::RpcError,
         exec::handler_registry::RpcHandlerRegistry,
         request::RpcRequest,
-        request_message::{RpcRequestPayload, TypedRpcRequestMessage, RPC_PAYLOAD_NAME},
+        request_message::{
+            RpcRequestPayload, TypedRpcRequestMessage, RPC_REQUEST_PAYLOAD_TYPE_NAME,
+        },
         response_message::RpcResponseMessage,
     },
     serde_utils,
@@ -170,7 +172,7 @@ where
         let client = self.clone();
         let future = async move {
             loop {
-                let rpc_topic = RPC_PAYLOAD_NAME.to_owned();
+                let rpc_topic = RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned();
                 select! {
                     _ = cancellation_token.cancelled() => {
                         log::debug!("Cancellation signal received, stopping IPC client");
@@ -276,7 +278,8 @@ where
         Payload: DeserializeOwned + PayloadTypeName,
     {
         Ok(IpcClientTypedSubscription(
-            self.subscribe(Some(Payload::name())).await?,
+            self.subscribe(Some(Payload::PAYLOAD_TYPE_NAME.to_owned()))
+                .await?,
             std::marker::PhantomData,
         ))
     }
@@ -619,9 +622,7 @@ mod tests {
         }
 
         impl PayloadTypeName for TestPayload {
-            fn name() -> String {
-                "TestPayload".to_string()
-            }
+            const PAYLOAD_TYPE_NAME: &str = "TestPayload";
         }
 
         let unrelated = IncomingMessage {
@@ -669,9 +670,7 @@ mod tests {
         }
 
         impl PayloadTypeName for TestPayload {
-            fn name() -> String {
-                "TestPayload".to_string()
-            }
+            const PAYLOAD_TYPE_NAME: &str = "TestPayload";
         }
 
         let non_deserializable_message = IncomingMessage {
@@ -830,7 +829,7 @@ mod tests {
                     .expect("Serialization should not fail"),
                 source: Endpoint::BrowserBackground,
                 destination: Endpoint::Web { id: 9001 },
-                topic: Some(RpcResponseMessage::name()),
+                topic: Some(RpcResponseMessage::PAYLOAD_TYPE_NAME.to_owned()),
             };
             communication_provider.push_incoming(simulated_response);
 
@@ -865,7 +864,7 @@ mod tests {
                     .expect("Serialization should not fail"),
                 source: Endpoint::Web { id: 9001 },
                 destination: Endpoint::BrowserBackground,
-                topic: Some(RPC_PAYLOAD_NAME.to_owned()),
+                topic: Some(RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned()),
             };
             communication_provider.push_incoming(simulated_request_message);
 
@@ -884,7 +883,10 @@ mod tests {
             )
             .expect("Deserialization should not fail");
 
-            assert_eq!(outgoing_messages[0].topic, Some(RpcResponseMessage::name()));
+            assert_eq!(
+                outgoing_messages[0].topic,
+                Some(RpcResponseMessage::PAYLOAD_TYPE_NAME.to_owned())
+            );
             assert_eq!(outgoing_response.request_type, "TestRequest");
             assert_eq!(result, response);
         }

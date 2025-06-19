@@ -58,7 +58,7 @@ where
         Ok(Self {
             payload: serde_utils::to_vec(&value.payload)?,
             destination: value.destination,
-            topic: Some(Payload::name()),
+            topic: Some(Payload::PAYLOAD_TYPE_NAME.to_owned()),
         })
     }
 }
@@ -73,7 +73,7 @@ pub struct TypedIncomingMessage<Payload: PayloadTypeName> {
 
 /// This trait is used to ensure that the payload type has a topic associated with it.
 pub trait PayloadTypeName {
-    fn name() -> String;
+    const PAYLOAD_TYPE_NAME: &str;
 }
 
 impl<Payload> TryFrom<IncomingMessage> for TypedIncomingMessage<Payload>
@@ -102,7 +102,7 @@ where
             payload: serde_utils::to_vec(&value.payload)?,
             destination: value.destination,
             source: value.source,
-            topic: Some(Payload::name()),
+            topic: Some(Payload::PAYLOAD_TYPE_NAME.to_owned()),
         })
     }
 }

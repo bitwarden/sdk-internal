@@ -6,7 +6,7 @@ use crate::{
     serde_utils,
 };
 
-pub const RPC_PAYLOAD_NAME: &str = "RpcRequestMessage";
+pub const RPC_REQUEST_PAYLOAD_TYPE_NAME: &str = "RpcRequestMessage";
 
 /// Represents the payload of an RPC request.
 /// It encapsulates both the serialized and deserialized form of the request. This
@@ -49,24 +49,11 @@ pub struct TypedRpcRequestMessage<T> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PartialRpcRequestMessage {
+struct PartialRpcRequestMessage {
     pub request_id: String,
     pub request_type: String,
 }
 
 impl<T> PayloadTypeName for TypedRpcRequestMessage<T> {
-    fn name() -> String {
-        RPC_PAYLOAD_NAME.to_owned()
-    }
+    const PAYLOAD_TYPE_NAME: &str = RPC_REQUEST_PAYLOAD_TYPE_NAME;
 }
-
-// impl RpcRequestMessage {
-//     pub(crate) fn serialize(&self) -> Result<Vec<u8>, RpcError> {
-//         serde_utils::to_vec(self).map_err(|e| RpcError::RequestSerializationError(e.to_string()))
-//     }
-
-//     pub(crate) fn deserialize(data: Vec<u8>) -> Result<Self, RpcError> {
-//         serde_utils::from_slice(&data)
-//             .map_err(|e| RpcError::RequestDeserializationError(e.to_string()))
-//     }
-// }
