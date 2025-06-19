@@ -53,6 +53,7 @@ pub(crate) fn validate_password_user_key(
         .get_login_method()
         .ok_or(NotAuthenticatedError)?;
 
+    #[allow(irrefutable_let_patterns)]
     if let LoginMethod::User {
         method: login_method,
         ..
