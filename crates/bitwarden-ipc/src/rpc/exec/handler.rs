@@ -1,7 +1,9 @@
 use std::future::Future;
 
-use super::{error::RpcError, request::RpcRequest};
-use crate::serde_utils;
+use crate::{
+    rpc::{error::RpcError, request::RpcRequest, request_message::RpcRequestPayload},
+    serde_utils,
+};
 
 /// Trait defining a handler for RPC requests.
 /// These can registered with the IPC client and will be used to handle incoming RPC requests.
@@ -70,7 +72,7 @@ where
 
 #[async_trait::async_trait]
 pub(crate) trait ErasedRpcHandler: Send + Sync {
-    async fn handle(&self, serialized_request: Vec<u8>) -> Result<Vec<u8>, RpcError>;
+    async fn handle(&self, serialized_request: &RpcRequestPayload) -> Result<Vec<u8>, RpcError>;
 }
 
 #[async_trait::async_trait]
@@ -78,8 +80,8 @@ impl<H> ErasedRpcHandler for H
 where
     H: RpcHandler + Send + Sync,
 {
-    async fn handle(&self, serialized_request: Vec<u8>) -> Result<Vec<u8>, RpcError> {
-        let request: H::Request = self.deserialize_request(serialized_request)?;
+    async fn handle(&self, serialized_request: &RpcRequestPayload) -> Result<Vec<u8>, RpcError> {
+        let request: H::Request = serialized_request.full()?.request;
 
         let response = self.handle(request).await;
 

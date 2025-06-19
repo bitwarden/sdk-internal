@@ -14,8 +14,11 @@ use crate::{
         TypedOutgoingMessage,
     },
     rpc::{
-        error::RpcError, handler_registry::RpcHandlerRegistry, request::RpcRequest,
-        request_message::RpcRequestMessage, response_message::RpcResponseMessage,
+        error::RpcError,
+        exec::handler_registry::RpcHandlerRegistry,
+        request::RpcRequest,
+        request_message::{RpcRequestPayload, TypedRpcRequestMessage, RPC_PAYLOAD_NAME},
+        response_message::RpcResponseMessage,
     },
     serde_utils,
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
@@ -167,7 +170,7 @@ where
         let client = self.clone();
         let future = async move {
             loop {
-                let rpc_topic = RpcRequestMessage::name();
+                let rpc_topic = RPC_PAYLOAD_NAME.to_owned();
                 select! {
                     _ = cancellation_token.cancelled() => {
                         log::debug!("Cancellation signal received, stopping IPC client");
@@ -294,9 +297,8 @@ where
         let mut response_subscription: IpcClientTypedSubscription<RpcResponseMessage> =
             self.subscribe_typed().await?;
 
-        let request_payload = RpcRequestMessage {
-            request: serde_utils::to_vec(&request)
-                .map_err(|e| RpcError::RequestSerializationError(e.to_string()))?,
+        let request_payload = TypedRpcRequestMessage {
+            request,
             request_id: request_id.clone(),
             request_type: Request::name(),
         };
@@ -307,7 +309,9 @@ where
         }
         .try_into()
         .map_err(
-            |e: <TypedOutgoingMessage<RpcRequestMessage> as TryInto<OutgoingMessage>>::Error| {
+            |e: <TypedOutgoingMessage<TypedRpcRequestMessage<Request>> as TryInto<
+                OutgoingMessage,
+            >>::Error| {
                 RequestError::<Crypto::SendError>::RpcError(RpcError::RequestSerializationError(
                     e.to_string(),
                 ))
@@ -358,18 +362,16 @@ where
                 incoming_message: IncomingMessage,
                 handlers: &RpcHandlerRegistry,
             ) -> Result<OutgoingMessage, HandleError> {
-                let request: RpcRequestMessage = serde_utils::from_slice(&incoming_message.payload)
+                let request = RpcRequestPayload::from_slice(incoming_message.payload.clone())
                     .map_err(|e: serde_utils::DeserializeError| {
                         HandleError::Deserialize(e.to_string())
                     })?;
 
-                let response = handlers
-                    .handle(&request.request_type, request.request)
-                    .await;
+                let response = handlers.handle(&request).await;
 
                 let response_message = RpcResponseMessage {
-                    request_id: request.request_id,
-                    request_type: request.request_type,
+                    request_id: request.request_id().to_owned(),
+                    request_type: request.request_type().to_owned(),
                     result: response,
                 };
 
@@ -755,9 +757,7 @@ mod tests {
 
     mod request {
         use super::*;
-        use crate::rpc::{
-            request_message::RpcRequestMessage, response_message::RpcResponseMessage,
-        };
+        use crate::rpc::response_message::RpcResponseMessage;
 
         #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
         struct TestRequest {
@@ -813,13 +813,11 @@ mod tests {
 
             // Read and verify the outgoing message
             let outgoing_messages = communication_provider.outgoing().await;
-            let outgoing_request: RpcRequestMessage =
+            let outgoing_request: TypedRpcRequestMessage<TestRequest> =
                 serde_utils::from_slice(&outgoing_messages[0].payload)
                     .expect("Deserialization should not fail");
             assert_eq!(outgoing_request.request_type, "TestRequest");
-            let sent_request: TestRequest = serde_utils::from_slice(&outgoing_request.request)
-                .expect("Deserialization should not fail");
-            assert_eq!(sent_request, request);
+            assert_eq!(outgoing_request.request, request);
 
             // Simulate receiving a response
             let simulated_response = RpcResponseMessage {
@@ -857,8 +855,8 @@ mod tests {
             client.register_rpc_handler(TestHandler).await;
 
             // Simulate receiving a request
-            let simulated_request = RpcRequestMessage {
-                request: serde_utils::to_vec(&request).expect("Serialization should not fail"),
+            let simulated_request = TypedRpcRequestMessage {
+                request,
                 request_id: request_id.clone(),
                 request_type: "TestRequest".to_string(),
             };
@@ -867,7 +865,7 @@ mod tests {
                     .expect("Serialization should not fail"),
                 source: Endpoint::Web { id: 9001 },
                 destination: Endpoint::BrowserBackground,
-                topic: Some(RpcRequestMessage::name()),
+                topic: Some(RPC_PAYLOAD_NAME.to_owned()),
             };
             communication_provider.push_incoming(simulated_request_message);
 

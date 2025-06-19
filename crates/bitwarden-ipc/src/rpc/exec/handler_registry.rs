@@ -1,10 +1,7 @@
 use tokio::sync::RwLock;
 
-use super::{
-    handler::{ErasedRpcHandler, RpcHandler},
-    request::RpcRequest,
-};
-use crate::rpc::error::RpcError;
+use super::handler::{ErasedRpcHandler, RpcHandler};
+use crate::rpc::{error::RpcError, request::RpcRequest, request_message::RpcRequestPayload};
 
 pub struct RpcHandlerRegistry {
     handlers: RwLock<std::collections::HashMap<String, Box<dyn ErasedRpcHandler>>>,
@@ -25,23 +22,23 @@ impl RpcHandlerRegistry {
         self.handlers.write().await.insert(name, Box::new(handler));
     }
 
-    pub async fn handle(
-        &self,
-        name: &str,
-        serialized_request: Vec<u8>,
-    ) -> Result<Vec<u8>, RpcError> {
-        match self.handlers.read().await.get(name) {
-            Some(handler) => handler.handle(serialized_request).await,
+    pub async fn handle(&self, request: &RpcRequestPayload) -> Result<Vec<u8>, RpcError> {
+        match self.handlers.read().await.get(request.request_type()) {
+            Some(handler) => handler.handle(request).await,
             None => Err(RpcError::NoHandlerFound),
         }
     }
 }
 
+#[cfg(test)]
 mod test {
     use serde::{Deserialize, Serialize};
 
     use super::*;
-    use crate::rpc::request::RpcRequest;
+    use crate::{
+        rpc::{request::RpcRequest, request_message::TypedRpcRequestMessage},
+        serde_utils,
+    };
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     struct TestRequest {
@@ -79,9 +76,15 @@ mod test {
         let registry = RpcHandlerRegistry::new();
 
         let request = TestRequest { a: 1, b: 2 };
-        let request_bytes = crate::serde_utils::to_vec(&request).unwrap();
+        let message = TypedRpcRequestMessage {
+            request,
+            request_id: "test_id".to_string(),
+            request_type: "TestRequest".to_string(),
+        };
+        let serialized_request =
+            RpcRequestPayload::from_slice(serde_utils::to_vec(&message).unwrap()).unwrap();
 
-        let result = registry.handle("TestRequest", request_bytes).await;
+        let result = registry.handle(&serialized_request).await;
 
         assert!(matches!(result, Err(RpcError::NoHandlerFound)));
     }
@@ -93,14 +96,20 @@ mod test {
         registry.register(TestHandler).await;
 
         let request = TestRequest { a: 1, b: 2 };
-        let request_bytes = crate::serde_utils::to_vec(&request).unwrap();
+        let message = TypedRpcRequestMessage {
+            request,
+            request_id: "test_id".to_string(),
+            request_type: "TestRequest".to_string(),
+        };
+        let serialized_request =
+            RpcRequestPayload::from_slice(serde_utils::to_vec(&message).unwrap()).unwrap();
 
         let result = registry
-            .handle("TestRequest", request_bytes)
+            .handle(&serialized_request)
             .await
             .expect("Failed to handle request");
         let response: TestResponse =
-            crate::serde_utils::from_slice(&result).expect("Failed to deserialize response");
+            serde_utils::from_slice(&result).expect("Failed to deserialize response");
 
         assert_eq!(response.result, 3);
     }
