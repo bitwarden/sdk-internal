@@ -5,9 +5,10 @@ use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use wasm_bindgen::prelude::*;
 
 use super::crypto::{
-    derive_key_connector, make_key_pair, verify_asymmetric_keys, CryptoClientError,
-    DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
-    MakeKeyPairResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
+    derive_key_connector, make_key_pair, make_user_signing_keys_for_enrollment,
+    verify_asymmetric_keys, DeriveKeyConnectorError, DeriveKeyConnectorRequest,
+    EnrollAdminPasswordResetError, MakeKeyPairResponse, MakeUserSigningKeysResponse,
+    VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
 };
 #[cfg(feature = "internal")]
 use crate::key_management::crypto::{
@@ -15,7 +16,10 @@ use crate::key_management::crypto::{
     initialize_org_crypto, initialize_user_crypto, update_password, DerivePinKeyResponse,
     InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
 };
-use crate::{client::encryption_settings::EncryptionSettingsError, Client};
+use crate::{
+    client::encryption_settings::EncryptionSettingsError,
+    key_management::crypto::CryptoClientError, Client,
+};
 
 /// A client for the crypto operations.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -57,6 +61,13 @@ impl CryptoClient {
         request: VerifyAsymmetricKeysRequest,
     ) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
         verify_asymmetric_keys(request)
+    }
+
+    /// Makes a new signing key pair and signs the public key for the user
+    pub fn make_user_signing_keys_for_enrollment(
+        &self,
+    ) -> Result<MakeUserSigningKeysResponse, CryptoError> {
+        make_user_signing_keys_for_enrollment(&self.client)
     }
 }
 
