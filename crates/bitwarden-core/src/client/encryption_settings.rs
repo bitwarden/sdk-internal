@@ -58,10 +58,10 @@ impl EncryptionSettings {
         use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
 
         let private_key = {
-            use bitwarden_crypto::{Pkcs8PrivateKeyDerContentFormat, SerializedBytes};
+            use bitwarden_crypto::{Pkcs8PrivateKeyDerContentFormat, Bytes};
 
             let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
-            let dec: SerializedBytes<Pkcs8PrivateKeyDerContentFormat> = SerializedBytes::from(dec);
+            let dec: Bytes<Pkcs8PrivateKeyDerContentFormat> = Bytes::from(dec);
             // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a recovery
             // process in place.
             AsymmetricCryptoKey::from_der(&dec)
@@ -82,12 +82,12 @@ impl EncryptionSettings {
             let mut ctx = store.context_mut();
 
             if let Some(signing_key) = signing_key {
-                use bitwarden_crypto::SerializedBytes;
+                use bitwarden_crypto::Bytes;
 
                 let dec: Vec<u8> = signing_key
                     .decrypt_with_key(&user_key)
                     .map_err(|_| EncryptionSettingsError::InvalidSigningKey)?;
-                let signing_key = SigningKey::from_cose(&SerializedBytes::from(dec))
+                let signing_key = SigningKey::from_cose(&Bytes::from(dec))
                     .map_err(|_| EncryptionSettingsError::InvalidSigningKey)?;
                 ctx.set_signing_key(SigningKeyId::UserSigningKey, signing_key)?;
             }

@@ -6,7 +6,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use super::key_encryptable::CryptoKey;
 use crate::{
     content_format::{
-        Pkcs8PrivateKeyDerContentFormat, SerializedBytes, SpkiPublicKeyDerContentFormat,
+        Pkcs8PrivateKeyDerContentFormat, Bytes, SpkiPublicKeyDerContentFormat,
     },
     error::{CryptoError, Result},
 };
@@ -46,7 +46,7 @@ impl AsymmetricPublicCryptoKey {
     }
 
     /// Makes a SubjectPublicKeyInfo DER serialized version of the public key.
-    pub fn to_der(&self) -> Result<SerializedBytes<SpkiPublicKeyDerContentFormat>> {
+    pub fn to_der(&self) -> Result<Bytes<SpkiPublicKeyDerContentFormat>> {
         use rsa::pkcs8::EncodePublicKey;
         match &self.inner {
             RawPublicKey::RsaOaepSha1(public_key) => Ok(public_key
@@ -116,7 +116,7 @@ impl AsymmetricCryptoKey {
     }
 
     #[allow(missing_docs)]
-    pub fn from_der(der: &SerializedBytes<Pkcs8PrivateKeyDerContentFormat>) -> Result<Self> {
+    pub fn from_der(der: &Bytes<Pkcs8PrivateKeyDerContentFormat>) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
             inner: RawPrivateKey::RsaOaepSha1(Box::pin(
@@ -126,7 +126,7 @@ impl AsymmetricCryptoKey {
     }
 
     #[allow(missing_docs)]
-    pub fn to_der(&self) -> Result<SerializedBytes<Pkcs8PrivateKeyDerContentFormat>> {
+    pub fn to_der(&self) -> Result<Bytes<Pkcs8PrivateKeyDerContentFormat>> {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => {
                 use rsa::pkcs8::EncodePrivateKey;
@@ -167,7 +167,7 @@ mod tests {
     use base64::{engine::general_purpose::STANDARD, Engine};
 
     use crate::{
-        content_format::{Pkcs8PrivateKeyDerContentFormat, SerializedBytes},
+        content_format::{Pkcs8PrivateKeyDerContentFormat, Bytes},
         AsymmetricCryptoKey, AsymmetricPublicCryptoKey, SymmetricCryptoKey, UnsignedSharedKey,
     };
 
@@ -206,7 +206,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
         // Load the two different formats and check they are the same key
         let pem_key = AsymmetricCryptoKey::from_pem(pem_key_str).unwrap();
-        let der_key = AsymmetricCryptoKey::from_der(&SerializedBytes::<
+        let der_key = AsymmetricCryptoKey::from_der(&Bytes::<
             Pkcs8PrivateKeyDerContentFormat,
         >::from(der_key_vec.clone()))
         .unwrap();
@@ -262,7 +262,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
             ))
             .unwrap();
 
-        let private_key = SerializedBytes::<Pkcs8PrivateKeyDerContentFormat>::from(private_key);
+        let private_key = Bytes::<Pkcs8PrivateKeyDerContentFormat>::from(private_key);
         let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
         let public_key = AsymmetricPublicCryptoKey::from_der(&public_key).unwrap();
 

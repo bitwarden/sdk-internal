@@ -20,7 +20,7 @@ use super::{
 };
 use crate::{
     cose, BitwardenLegacyKeyContentFormat, ContentFormat, CoseKeyContentFormat, CryptoError,
-    SerializedBytes,
+    Bytes,
 };
 
 /// [Aes256CbcKey] is a symmetric encryption key, consisting of one 256-bit key,
@@ -148,17 +148,17 @@ impl SymmetricCryptoKey {
     /// This can be used for storage and transmission in the old byte array format.
     /// When the wrapping key is a COSE key, and the wrapped key is a COSE key, then this should
     /// not use the byte representation but instead use the COSE key representation.
-    pub fn to_encoded(&self) -> SerializedBytes<BitwardenLegacyKeyContentFormat> {
+    pub fn to_encoded(&self) -> Bytes<BitwardenLegacyKeyContentFormat> {
         let encoded_key = self.to_encoded_raw();
         match encoded_key {
             EncodedSymmetricKey::Aes256CbcKey(_) | EncodedSymmetricKey::Aes256CbcHmacKey(_) => {
                 let encoded_key: Vec<u8> = encoded_key.into();
-                SerializedBytes::from(encoded_key)
+                Bytes::from(encoded_key)
             }
             EncodedSymmetricKey::XChaCha20Poly1305Key(_) => {
                 let mut encoded_key: Vec<u8> = encoded_key.into();
                 pad_key(&mut encoded_key, Self::AES256_CBC_HMAC_KEY_LEN + 1);
-                SerializedBytes::from(encoded_key)
+                Bytes::from(encoded_key)
             }
         }
     }
@@ -267,17 +267,17 @@ impl TryFrom<String> for SymmetricCryptoKey {
         let bytes = STANDARD
             .decode(value)
             .map_err(|_| CryptoError::InvalidKey)?;
-        Self::try_from(&SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(
+        Self::try_from(&Bytes::<BitwardenLegacyKeyContentFormat>::from(
             bytes,
         ))
     }
 }
 
-impl TryFrom<&SerializedBytes<BitwardenLegacyKeyContentFormat>> for SymmetricCryptoKey {
+impl TryFrom<&Bytes<BitwardenLegacyKeyContentFormat>> for SymmetricCryptoKey {
     type Error = CryptoError;
 
     fn try_from(
-        value: &SerializedBytes<BitwardenLegacyKeyContentFormat>,
+        value: &Bytes<BitwardenLegacyKeyContentFormat>,
     ) -> Result<Self, Self::Error> {
         let slice = value.as_ref();
 
@@ -395,9 +395,9 @@ fn unpad_key(key_bytes: &[u8]) -> Result<&[u8], CryptoError> {
 
 /// An enum to represent the different encodings of symmetric crypto keys.
 pub enum EncodedSymmetricKey {
-    Aes256CbcKey(SerializedBytes<BitwardenLegacyKeyContentFormat>),
-    Aes256CbcHmacKey(SerializedBytes<BitwardenLegacyKeyContentFormat>),
-    XChaCha20Poly1305Key(SerializedBytes<CoseKeyContentFormat>),
+    Aes256CbcKey(Bytes<BitwardenLegacyKeyContentFormat>),
+    Aes256CbcHmacKey(Bytes<BitwardenLegacyKeyContentFormat>),
+    XChaCha20Poly1305Key(Bytes<CoseKeyContentFormat>),
 }
 impl Into<Vec<u8>> for EncodedSymmetricKey {
     fn into(self) -> Vec<u8> {
@@ -439,7 +439,7 @@ mod tests {
     use super::{derive_symmetric_key, SymmetricCryptoKey};
     use crate::{
         keys::symmetric_crypto_key::{pad_key, unpad_key},
-        Aes256CbcHmacKey, Aes256CbcKey, BitwardenLegacyKeyContentFormat, SerializedBytes,
+        Aes256CbcHmacKey, Aes256CbcKey, BitwardenLegacyKeyContentFormat, Bytes,
         XChaCha20Poly1305Key,
     };
 
@@ -466,7 +466,7 @@ mod tests {
     #[test]
     fn test_decode_new_symmetric_crypto_key() {
         let key = STANDARD.decode("pQEEAlDib+JxbqMBlcd3KTUesbufAzoAARFvBIQDBAUGIFggt79surJXmqhPhYuuqi9ZyPfieebmtw2OsmN5SDrb4yUB").unwrap();
-        let key = SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(key);
+        let key = Bytes::<BitwardenLegacyKeyContentFormat>::from(key);
         let key = SymmetricCryptoKey::try_from(&key).unwrap();
         match key {
             SymmetricCryptoKey::XChaCha20Poly1305Key(_) => (),
@@ -531,11 +531,11 @@ mod tests {
     #[test]
     fn test_eq_aes_cbc() {
         let key1 = SymmetricCryptoKey::try_from(
-            &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(vec![1u8; 32]),
+            &Bytes::<BitwardenLegacyKeyContentFormat>::from(vec![1u8; 32]),
         )
         .unwrap();
         let key2 = SymmetricCryptoKey::try_from(
-            &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(vec![2u8; 32]),
+            &Bytes::<BitwardenLegacyKeyContentFormat>::from(vec![2u8; 32]),
         )
         .unwrap();
         assert_ne!(key1, key2);

@@ -7,7 +7,7 @@ use super::{
     verifying_key::VerifyingKey, SigningNamespace,
 };
 use crate::{
-    content_format::{CoseSign1ContentFormat, SerializedBytes},
+    content_format::{CoseSign1ContentFormat, Bytes},
     cose::{CoseSerializable, SIGNING_NAMESPACE},
     error::{EncodingError, SignatureError},
     CryptoError,
@@ -151,14 +151,14 @@ impl SigningKey {
 }
 
 impl CoseSerializable<CoseSign1ContentFormat> for SignedObject {
-    fn from_cose(bytes: &SerializedBytes<CoseSign1ContentFormat>) -> Result<Self, EncodingError> {
+    fn from_cose(bytes: &Bytes<CoseSign1ContentFormat>) -> Result<Self, EncodingError> {
         Ok(SignedObject(
             CoseSign1::from_slice(bytes.as_ref())
                 .map_err(|_| EncodingError::InvalidCoseEncoding)?,
         ))
     }
 
-    fn to_cose(&self) -> SerializedBytes<CoseSign1ContentFormat> {
+    fn to_cose(&self) -> Bytes<CoseSign1ContentFormat> {
         self.0
             .clone()
             .to_vec()
@@ -172,7 +172,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        content_format::{CoseKeyContentFormat, CoseSign1ContentFormat, SerializedBytes},
+        content_format::{CoseKeyContentFormat, CoseSign1ContentFormat, Bytes},
         CoseSerializable, CryptoError, SignatureAlgorithm, SignedObject, SigningKey,
         SigningNamespace, VerifyingKey,
     };
@@ -201,7 +201,7 @@ mod tests {
     #[test]
     fn test_roundtrip_cose() {
         let signed_object = SignedObject::from_cose(
-            &Into::<SerializedBytes<CoseSign1ContentFormat>>::into(SIGNED_OBJECT),
+            &Into::<Bytes<CoseSign1ContentFormat>>::into(SIGNED_OBJECT),
         )
         .unwrap();
         assert_eq!(
@@ -211,7 +211,7 @@ mod tests {
         let cose_bytes = signed_object.to_cose();
         assert_eq!(
             cose_bytes,
-            SerializedBytes::<CoseSign1ContentFormat>::from(SIGNED_OBJECT)
+            Bytes::<CoseSign1ContentFormat>::from(SIGNED_OBJECT)
         );
     }
 
@@ -221,11 +221,11 @@ mod tests {
             field1: "Test message".to_string(),
         };
         let signed_object = SignedObject::from_cose(
-            &Into::<SerializedBytes<CoseSign1ContentFormat>>::into(SIGNED_OBJECT),
+            &Into::<Bytes<CoseSign1ContentFormat>>::into(SIGNED_OBJECT),
         )
         .unwrap();
         let verifying_key = VerifyingKey::from_cose(
-            &Into::<SerializedBytes<CoseKeyContentFormat>>::into(VERIFYING_KEY),
+            &Into::<Bytes<CoseKeyContentFormat>>::into(VERIFYING_KEY),
         )
         .unwrap();
         let namespace = SigningNamespace::ExampleNamespace;

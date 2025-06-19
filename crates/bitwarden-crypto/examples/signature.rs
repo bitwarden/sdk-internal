@@ -2,7 +2,7 @@
 //! to verify them.
 
 use bitwarden_crypto::{
-    CoseSerializable, CoseSign1ContentFormat, SerializedBytes, SigningNamespace,
+    CoseSerializable, CoseSign1ContentFormat, Bytes, SigningNamespace,
 };
 use serde::{Deserialize, Serialize};
 
@@ -45,7 +45,7 @@ fn main() {
 
     // Bob retrieves the signed object from the server
     let retrieved_signature =
-        bitwarden_crypto::Signature::from_cose(&SerializedBytes::<CoseSign1ContentFormat>::from(
+        bitwarden_crypto::Signature::from_cose(&Bytes::<CoseSign1ContentFormat>::from(
             mock_server
                 .download("signature")
                 .expect("Failed to download signature")
@@ -93,7 +93,7 @@ fn main() {
             .expect("Failed to get content type from signature"),
     );
     let retrieved_alice_signature =
-        bitwarden_crypto::Signature::from_cose(&SerializedBytes::<CoseSign1ContentFormat>::from(
+        bitwarden_crypto::Signature::from_cose(&Bytes::<CoseSign1ContentFormat>::from(
             mock_server
                 .download("signature")
                 .expect("Failed to download Alice's signature")
@@ -101,7 +101,7 @@ fn main() {
         ))
         .expect("Failed to deserialize Alice's signature");
     let retrieved_bobs_signature =
-        bitwarden_crypto::Signature::from_cose(&SerializedBytes::<CoseSign1ContentFormat>::from(
+        bitwarden_crypto::Signature::from_cose(&Bytes::<CoseSign1ContentFormat>::from(
             mock_server
                 .download("bobs_signature")
                 .expect("Failed to download Bob's signature")

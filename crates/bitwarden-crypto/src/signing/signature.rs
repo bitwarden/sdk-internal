@@ -7,7 +7,7 @@ use super::{
     VerifyingKey,
 };
 use crate::{
-    content_format::{CoseSign1ContentFormat, SerializedBytes},
+    content_format::{CoseSign1ContentFormat, Bytes},
     cose::{CoseSerializable, SIGNING_NAMESPACE},
     error::{EncodingError, SignatureError},
     CryptoError,
@@ -174,13 +174,13 @@ impl SigningKey {
 }
 
 impl CoseSerializable<CoseSign1ContentFormat> for Signature {
-    fn from_cose(bytes: &SerializedBytes<CoseSign1ContentFormat>) -> Result<Self, EncodingError> {
+    fn from_cose(bytes: &Bytes<CoseSign1ContentFormat>) -> Result<Self, EncodingError> {
         let cose_sign1 = CoseSign1::from_slice(bytes.as_ref())
             .map_err(|_| EncodingError::InvalidCoseEncoding)?;
         Ok(Signature(cose_sign1))
     }
 
-    fn to_cose(&self) -> SerializedBytes<CoseSign1ContentFormat> {
+    fn to_cose(&self) -> Bytes<CoseSign1ContentFormat> {
         self.0
             .clone()
             .to_vec()
@@ -193,7 +193,7 @@ impl CoseSerializable<CoseSign1ContentFormat> for Signature {
 mod tests {
     use super::*;
     use crate::{
-        content_format::{CoseKeyContentFormat, SerializedBytes},
+        content_format::{CoseKeyContentFormat, Bytes},
         SignatureAlgorithm,
     };
 
@@ -218,7 +218,7 @@ mod tests {
     #[test]
     fn test_cose_roundtrip_encode_signature() {
         let signature =
-            Signature::from_cose(&SerializedBytes::<CoseSign1ContentFormat>::from(SIGNATURE))
+            Signature::from_cose(&Bytes::<CoseSign1ContentFormat>::from(SIGNATURE))
                 .unwrap();
         let cose_bytes = signature.to_cose();
         let decoded_signature = Signature::from_cose(&cose_bytes).unwrap();
@@ -228,11 +228,11 @@ mod tests {
     #[test]
     fn test_verify_testvector() {
         let verifying_key = VerifyingKey::from_cose(
-            &SerializedBytes::<CoseKeyContentFormat>::from(VERIFYING_KEY),
+            &Bytes::<CoseKeyContentFormat>::from(VERIFYING_KEY),
         )
         .unwrap();
         let signature =
-            Signature::from_cose(&SerializedBytes::<CoseSign1ContentFormat>::from(SIGNATURE))
+            Signature::from_cose(&Bytes::<CoseSign1ContentFormat>::from(SIGNATURE))
                 .unwrap();
         let serialized_message =
             SerializedMessage::from_bytes(SERIALIZED_MESSAGE.to_vec(), CoapContentFormat::Cbor);

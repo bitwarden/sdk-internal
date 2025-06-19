@@ -5,7 +5,7 @@ use bitwarden_crypto::{
     AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyContentFormat,
     CoseKeyContentFormat, CoseSerializable, CryptoError, Decryptable, EncString, Kdf,
     KeyDecryptable, KeyEncryptable, KeyStore, MasterKey, OctetStreamContentFormat,
-    Pkcs8PrivateKeyDerContentFormat, PrimitiveEncryptable, SerializedBytes, SignatureAlgorithm,
+    Pkcs8PrivateKeyDerContentFormat, PrimitiveEncryptable, Bytes, SignatureAlgorithm,
     SignedPublicKey, SigningKey, SpkiPublicKeyDerContentFormat, SymmetricCryptoKey,
     UnsignedSharedKey, VerifyingKey,
 };
@@ -31,7 +31,7 @@ impl PureCrypto {
         enc_string: String,
         key: Vec<u8>,
     ) -> Result<String, CryptoError> {
-        let key = &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(key);
+        let key = &Bytes::<BitwardenLegacyKeyContentFormat>::from(key);
         EncString::from_str(&enc_string)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
     }
 
@@ -39,7 +39,7 @@ impl PureCrypto {
         enc_string: String,
         key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
-        let key = &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(key);
+        let key = &Bytes::<BitwardenLegacyKeyContentFormat>::from(key);
         EncString::from_str(&enc_string)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
     }
 
@@ -56,12 +56,12 @@ impl PureCrypto {
         enc_bytes: Vec<u8>,
         key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
-        let key = &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(key);
+        let key = &Bytes::<BitwardenLegacyKeyContentFormat>::from(key);
         EncString::from_buffer(&enc_bytes)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
     }
 
     pub fn symmetric_encrypt_string(plain: String, key: Vec<u8>) -> Result<String, CryptoError> {
-        let key = &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(key);
+        let key = &Bytes::<BitwardenLegacyKeyContentFormat>::from(key);
         plain
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
             .map(|enc| enc.to_string())
@@ -69,8 +69,8 @@ impl PureCrypto {
 
     /// DEPRECATED: Only used by send keys
     pub fn symmetric_encrypt_bytes(plain: Vec<u8>, key: Vec<u8>) -> Result<String, CryptoError> {
-        let key = &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(key);
-        SerializedBytes::<OctetStreamContentFormat>::from(plain)
+        let key = &Bytes::<BitwardenLegacyKeyContentFormat>::from(key);
+        Bytes::<OctetStreamContentFormat>::from(plain)
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
             .map(|enc| enc.to_string())
     }
@@ -79,8 +79,8 @@ impl PureCrypto {
         plain: Vec<u8>,
         key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
-        let key = &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(key);
-        SerializedBytes::<OctetStreamContentFormat>::from(plain)
+        let key = &Bytes::<BitwardenLegacyKeyContentFormat>::from(key);
+        Bytes::<OctetStreamContentFormat>::from(plain)
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)?
             .to_buffer()
     }
@@ -106,7 +106,7 @@ impl PureCrypto {
         kdf: Kdf,
     ) -> Result<String, CryptoError> {
         let master_key = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
-        let user_key = &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(user_key);
+        let user_key = &Bytes::<BitwardenLegacyKeyContentFormat>::from(user_key);
         let user_key = SymmetricCryptoKey::try_from(user_key)?;
         let result = master_key.encrypt_user_key(&user_key)?;
         Ok(result.to_string())
@@ -132,12 +132,12 @@ impl PureCrypto {
     ) -> Result<String, CryptoError> {
         let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
-        let wrapping_key = SymmetricCryptoKey::try_from(&SerializedBytes::<
+        let wrapping_key = SymmetricCryptoKey::try_from(&Bytes::<
             BitwardenLegacyKeyContentFormat,
         >::from(wrapping_key))?;
         #[allow(deprecated)]
         context.set_symmetric_key(SymmetricKeyId::Local("wrapping_key"), wrapping_key)?;
-        let key_to_be_wrapped = SymmetricCryptoKey::try_from(&SerializedBytes::<
+        let key_to_be_wrapped = SymmetricCryptoKey::try_from(&Bytes::<
             BitwardenLegacyKeyContentFormat,
         >::from(key_to_be_wrapped))?;
         #[allow(deprecated)]
@@ -159,7 +159,7 @@ impl PureCrypto {
     ) -> Result<Vec<u8>, CryptoError> {
         let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
-        let wrapping_key = SymmetricCryptoKey::try_from(&SerializedBytes::<
+        let wrapping_key = SymmetricCryptoKey::try_from(&Bytes::<
             BitwardenLegacyKeyContentFormat,
         >::from(wrapping_key))?;
         #[allow(deprecated)]
@@ -190,11 +190,11 @@ impl PureCrypto {
         context.set_symmetric_key(
             SymmetricKeyId::Local("wrapping_key"),
             SymmetricCryptoKey::try_from(
-                &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(wrapping_key),
+                &Bytes::<BitwardenLegacyKeyContentFormat>::from(wrapping_key),
             )?,
         )?;
         Ok(
-            SerializedBytes::<SpkiPublicKeyDerContentFormat>::from(encapsulation_key)
+            Bytes::<SpkiPublicKeyDerContentFormat>::from(encapsulation_key)
                 .encrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))?
                 .to_string(),
         )
@@ -212,7 +212,7 @@ impl PureCrypto {
         context.set_symmetric_key(
             SymmetricKeyId::Local("wrapping_key"),
             SymmetricCryptoKey::try_from(
-                &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(wrapping_key),
+                &Bytes::<BitwardenLegacyKeyContentFormat>::from(wrapping_key),
             )?,
         )?;
         EncString::from_str(wrapped_key.as_str())?
@@ -231,11 +231,11 @@ impl PureCrypto {
         context.set_symmetric_key(
             SymmetricKeyId::Local("wrapping_key"),
             SymmetricCryptoKey::try_from(
-                &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(wrapping_key),
+                &Bytes::<BitwardenLegacyKeyContentFormat>::from(wrapping_key),
             )?,
         )?;
         Ok(
-            SerializedBytes::<Pkcs8PrivateKeyDerContentFormat>::from(decapsulation_key)
+            Bytes::<Pkcs8PrivateKeyDerContentFormat>::from(decapsulation_key)
                 .encrypt(&mut context, SymmetricKeyId::Local("wrapping_key"))?
                 .to_string(),
         )
@@ -253,7 +253,7 @@ impl PureCrypto {
         context.set_symmetric_key(
             SymmetricKeyId::Local("wrapping_key"),
             SymmetricCryptoKey::try_from(
-                &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(wrapping_key),
+                &Bytes::<BitwardenLegacyKeyContentFormat>::from(wrapping_key),
             )?,
         )?;
         EncString::from_str(wrapped_key.as_str())?
@@ -270,7 +270,7 @@ impl PureCrypto {
         let encapsulation_key = AsymmetricPublicCryptoKey::from_der(encapsulation_key.as_slice())?;
         Ok(UnsignedSharedKey::encapsulate_key_unsigned(
             &SymmetricCryptoKey::try_from(
-                &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(shared_key),
+                &Bytes::<BitwardenLegacyKeyContentFormat>::from(shared_key),
             )?,
             &encapsulation_key,
         )?
@@ -285,7 +285,7 @@ impl PureCrypto {
         decapsulation_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         Ok(UnsignedSharedKey::from_str(encapsulated_key.as_str())?
-            .decapsulate_key_unsigned(&AsymmetricCryptoKey::from_der(&SerializedBytes::<
+            .decapsulate_key_unsigned(&AsymmetricCryptoKey::from_der(&Bytes::<
                 Pkcs8PrivateKeyDerContentFormat,
             >::from(
                 decapsulation_key
@@ -302,7 +302,7 @@ impl PureCrypto {
     ) -> Result<Vec<u8>, CryptoError> {
         let bytes = Self::symmetric_decrypt_bytes(signing_key, wrapping_key)?;
         let signing_key =
-            SigningKey::from_cose(&SerializedBytes::<CoseKeyContentFormat>::from(bytes))?;
+            SigningKey::from_cose(&Bytes::<CoseKeyContentFormat>::from(bytes))?;
         let verifying_key = signing_key.to_verifying_key();
         Ok(verifying_key.to_cose().as_ref().to_vec())
     }
@@ -312,7 +312,7 @@ impl PureCrypto {
         verifying_key: Vec<u8>,
     ) -> Result<SignatureAlgorithm, CryptoError> {
         let verifying_key = VerifyingKey::from_cose(
-            &SerializedBytes::<CoseKeyContentFormat>::from(verifying_key),
+            &Bytes::<CoseKeyContentFormat>::from(verifying_key),
         )?;
         let algorithm = verifying_key.algorithm();
         Ok(algorithm)
@@ -328,7 +328,7 @@ impl PureCrypto {
     ) -> Result<Vec<u8>, CryptoError> {
         let signed_public_key = SignedPublicKey::try_from(signed_public_key)?;
         let verifying_key = VerifyingKey::from_cose(
-            &SerializedBytes::<CoseKeyContentFormat>::from(verifying_key),
+            &Bytes::<CoseKeyContentFormat>::from(verifying_key),
         )?;
         signed_public_key
             .verify_and_unwrap(&verifying_key)
@@ -612,7 +612,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
     #[test]
     fn test_key_algorithm_for_verifying_key() {
         let verifying_key = VerifyingKey::from_cose(
-            &SerializedBytes::<CoseKeyContentFormat>::from(VERIFYING_KEY.to_vec()),
+            &Bytes::<CoseKeyContentFormat>::from(VERIFYING_KEY.to_vec()),
         )
         .unwrap();
         let algorithm =
@@ -629,7 +629,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         )
         .unwrap();
         let verifying_key = VerifyingKey::from_cose(
-            &SerializedBytes::<CoseKeyContentFormat>::from(VERIFYING_KEY.to_vec()),
+            &Bytes::<CoseKeyContentFormat>::from(VERIFYING_KEY.to_vec()),
         )
         .unwrap();
         let verifying_key_derived = PureCrypto::verifying_key_for_signing_key(
@@ -638,7 +638,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         )
         .unwrap();
         let verifying_key_derived = VerifyingKey::from_cose(
-            &SerializedBytes::<CoseKeyContentFormat>::from(verifying_key_derived),
+            &Bytes::<CoseKeyContentFormat>::from(verifying_key_derived),
         )
         .unwrap();
         assert_eq!(verifying_key.to_cose(), verifying_key_derived.to_cose());

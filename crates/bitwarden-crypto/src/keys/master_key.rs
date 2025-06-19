@@ -13,7 +13,7 @@ use super::{
 use crate::{
     util::{self},
     BitwardenLegacyKeyContentFormat, CryptoError, EncString, KeyDecryptable, Result,
-    SerializedBytes, SymmetricCryptoKey, UserKey,
+    Bytes, SymmetricCryptoKey, UserKey,
 };
 
 #[allow(missing_docs)]
@@ -160,7 +160,7 @@ pub(super) fn decrypt_user_key(
         }
     };
 
-    SymmetricCryptoKey::try_from(&SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(
+    SymmetricCryptoKey::try_from(&Bytes::<BitwardenLegacyKeyContentFormat>::from(
         dec,
     ))
 }

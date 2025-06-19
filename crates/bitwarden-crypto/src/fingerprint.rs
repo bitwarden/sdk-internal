@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::{
     content_format::SpkiPublicKeyDerContentFormat, error::Result, wordlist::EFF_LONG_WORD_LIST,
-    CryptoError, SerializedBytes,
+    CryptoError, Bytes,
 };
 
 /// Computes a fingerprint of the given `fingerprint_material` using the given `public_key`.
@@ -20,7 +20,7 @@ use crate::{
 /// - `public_key`: user's public key.
 pub fn fingerprint(
     fingerprint_material: &str,
-    public_key: &SerializedBytes<SpkiPublicKeyDerContentFormat>,
+    public_key: &Bytes<SpkiPublicKeyDerContentFormat>,
 ) -> Result<String> {
     let hkdf = hkdf::Hkdf::<sha2::Sha256>::from_prk(public_key.as_ref())
         .map_err(|_| CryptoError::InvalidKeyLen)?;
@@ -70,7 +70,7 @@ pub enum FingerprintError {
 #[cfg(test)]
 mod tests {
     use super::fingerprint;
-    use crate::{SerializedBytes, SpkiPublicKeyDerContentFormat};
+    use crate::{Bytes, SpkiPublicKeyDerContentFormat};
 
     #[test]
     fn test_fingerprint() {
@@ -93,8 +93,8 @@ mod tests {
             197, 3, 219, 56, 77, 109, 47, 72, 251, 131, 36, 240, 96, 169, 31, 82, 93, 166, 242, 3,
             33, 213, 2, 3, 1, 0, 1,
         ];
-        let key: SerializedBytes<SpkiPublicKeyDerContentFormat> =
-            SerializedBytes::from(key.to_vec());
+        let key: Bytes<SpkiPublicKeyDerContentFormat> =
+            Bytes::from(key.to_vec());
         assert_eq!(
             "turban-deftly-anime-chatroom-unselfish",
             fingerprint(user_id, &key).unwrap()

@@ -1,6 +1,6 @@
 use super::{AsymmetricCryptoKey, PublicKeyEncryptionAlgorithm};
 use crate::{
-    content_format::{Pkcs8PrivateKeyDerContentFormat, SerializedBytes},
+    content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat},
     error::Result,
     CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, UnsignedSharedKey,
 };
@@ -66,8 +66,8 @@ impl DeviceKey {
         protected_user_key: UnsignedSharedKey,
     ) -> Result<SymmetricCryptoKey> {
         let device_private_key: Vec<u8> = protected_device_private_key.decrypt_with_key(&self.0)?;
-        let device_private_key: SerializedBytes<Pkcs8PrivateKeyDerContentFormat> =
-            SerializedBytes::from(device_private_key);
+        let device_private_key: Bytes<Pkcs8PrivateKeyDerContentFormat> =
+            Bytes::from(device_private_key);
         let device_private_key = AsymmetricCryptoKey::from_der(&device_private_key)?;
 
         let user_key: SymmetricCryptoKey =
@@ -120,10 +120,9 @@ mod tests {
             128, 91, 226, 222, 165, 67, 251, 34, 83, 81, 77, 147, 225, 76, 13, 41, 102, 45, 183,
             218, 106, 89, 254, 208, 251, 101, 130, 10,
         ];
-        let user_key = SymmetricCryptoKey::try_from(&SerializedBytes::<
-            BitwardenLegacyKeyContentFormat,
-        >::from(user_key))
-        .unwrap();
+        let user_key =
+            SymmetricCryptoKey::try_from(&Bytes::<BitwardenLegacyKeyContentFormat>::from(user_key))
+                .unwrap();
 
         let key_data: &[u8] = &[
             114, 235, 60, 115, 172, 156, 203, 145, 195, 130, 215, 250, 88, 146, 215, 230, 12, 109,
@@ -132,10 +131,8 @@ mod tests {
             8, 247, 7, 203, 201, 65, 147, 206, 247,
         ];
         let device_key = DeviceKey(
-            SymmetricCryptoKey::try_from(
-                &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(key_data),
-            )
-            .unwrap(),
+            SymmetricCryptoKey::try_from(&Bytes::<BitwardenLegacyKeyContentFormat>::from(key_data))
+                .unwrap(),
         );
 
         let protected_user_key: UnsignedSharedKey = "4.f+VbbacRhO2q4MOUSdt1AIjQ2FuLAvg4aDxJMXAh3VxvbmUADj8Ct/R7XEpPUqApmbRS566jS0eRVy8Sk08ogoCdj1IFN9VsIky2i2X1WHK1fUnr3UBmXE3tl2NPBbx56U+h73S2jNTSyet2W18Jg2q7/w8KIhR3J41QrG9aGoOTN93to3hb5W4z6rdrSI0e7GkizbwcIA0NH7Z1JyAhrjPm9+tjRjg060YbEbGaWTAOkZWfgbLjr8bY455DteO2xxG139cOx7EBo66N+YhjsLi0ozkeUyPQkoWBdKMcQllS7jCfB4fDyJA05ALTbk74syKkvqFxqwmQbg+aVn+dcw==".parse().unwrap();

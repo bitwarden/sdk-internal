@@ -11,7 +11,7 @@ use generic_array::GenericArray;
 use typenum::U32;
 
 use crate::{
-    content_format::{ConstContentFormat, CoseContentFormat, SerializedBytes},
+    content_format::{ConstContentFormat, CoseContentFormat, Bytes},
     error::{EncStringParseError, EncodingError},
     xchacha20, ContentFormat, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
 };
@@ -216,9 +216,9 @@ fn should_pad_content(format: &ContentFormat) -> bool {
 /// Trait for structs that are serializable to COSE objects.
 pub trait CoseSerializable<T: CoseContentFormat + ConstContentFormat> {
     /// Serializes the struct to COSE serialization
-    fn to_cose(&self) -> SerializedBytes<T>;
+    fn to_cose(&self) -> Bytes<T>;
     /// Deserializes a serialized COSE object to a struct
-    fn from_cose(bytes: &SerializedBytes<T>) -> Result<Self, EncodingError>
+    fn from_cose(bytes: &Bytes<T>) -> Result<Self, EncodingError>
     where
         Self: Sized;
 }

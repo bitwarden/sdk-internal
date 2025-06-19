@@ -111,7 +111,7 @@ mod tests {
     use std::num::NonZeroU32;
 
     use bitwarden_crypto::{
-        BitwardenLegacyKeyContentFormat, Kdf, MasterKey, SerializedBytes,
+        BitwardenLegacyKeyContentFormat, Kdf, MasterKey, Bytes,
         SpkiPublicKeyDerContentFormat,
     };
 
@@ -136,7 +136,7 @@ mod tests {
             AsymmetricCryptoKey::from_der(&STANDARD.decode(&request.private_key).unwrap().into())
                 .unwrap();
 
-        let secret = SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(secret);
+        let secret = Bytes::<BitwardenLegacyKeyContentFormat>::from(secret);
         let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(
             &SymmetricCryptoKey::try_from(&secret).unwrap(),
             &private_key.to_public_key(),
@@ -172,7 +172,7 @@ mod tests {
 
         // Verify fingerprint
         let pubkey = STANDARD.decode(public_key).unwrap();
-        let pubkey = SerializedBytes::<SpkiPublicKeyDerContentFormat>::from(pubkey.clone());
+        let pubkey = Bytes::<SpkiPublicKeyDerContentFormat>::from(pubkey.clone());
         let fingerprint = fingerprint("test@bitwarden.com", &pubkey).unwrap();
         assert_eq!(fingerprint, "childless-unfair-prowler-dropbox-designate");
 

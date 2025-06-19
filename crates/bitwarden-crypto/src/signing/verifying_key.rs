@@ -11,7 +11,7 @@ use coset::{
 
 use super::{ed25519_verifying_key, key_id, SignatureAlgorithm};
 use crate::{
-    content_format::{CoseKeyContentFormat, SerializedBytes},
+    content_format::{CoseKeyContentFormat, Bytes},
     cose::CoseSerializable,
     error::{EncodingError, SignatureError},
     keys::KeyId,
@@ -59,7 +59,7 @@ impl VerifyingKey {
 }
 
 impl CoseSerializable<CoseKeyContentFormat> for VerifyingKey {
-    fn to_cose(&self) -> SerializedBytes<CoseKeyContentFormat> {
+    fn to_cose(&self) -> Bytes<CoseKeyContentFormat> {
         match &self.inner {
             RawVerifyingKey::Ed25519(key) => coset::CoseKeyBuilder::new_okp_key()
                 .key_id((&self.id).into())
@@ -84,7 +84,7 @@ impl CoseSerializable<CoseKeyContentFormat> for VerifyingKey {
         }
     }
 
-    fn from_cose(bytes: &SerializedBytes<CoseKeyContentFormat>) -> Result<Self, EncodingError>
+    fn from_cose(bytes: &Bytes<CoseKeyContentFormat>) -> Result<Self, EncodingError>
     where
         Self: Sized,
     {
@@ -130,7 +130,7 @@ mod tests {
     #[test]
     fn test_cose_roundtrip_encode_verifying() {
         let verifying_key = VerifyingKey::from_cose(
-            &SerializedBytes::<CoseKeyContentFormat>::from(VERIFYING_KEY.to_vec()),
+            &Bytes::<CoseKeyContentFormat>::from(VERIFYING_KEY.to_vec()),
         )
         .unwrap();
         let cose = verifying_key.to_cose();
@@ -142,7 +142,7 @@ mod tests {
     #[test]
     fn test_testvector() {
         let verifying_key = VerifyingKey::from_cose(
-            &SerializedBytes::<CoseKeyContentFormat>::from(VERIFYING_KEY.to_vec()),
+            &Bytes::<CoseKeyContentFormat>::from(VERIFYING_KEY.to_vec()),
         )
         .unwrap();
         assert_eq!(verifying_key.algorithm(), SignatureAlgorithm::Ed25519);
@@ -155,7 +155,7 @@ mod tests {
     #[test]
     fn test_invalid_testvector() {
         let verifying_key = VerifyingKey::from_cose(
-            &SerializedBytes::<CoseKeyContentFormat>::from(VERIFYING_KEY.to_vec()),
+            &Bytes::<CoseKeyContentFormat>::from(VERIFYING_KEY.to_vec()),
         )
         .unwrap();
         assert_eq!(verifying_key.algorithm(), SignatureAlgorithm::Ed25519);

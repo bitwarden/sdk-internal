@@ -10,7 +10,7 @@ use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
     AsymmetricCryptoKey, BitwardenLegacyKeyContentFormat, ContentFormat, CryptoError, EncString,
-    KeyId, KeyIds, Result, SerializedBytes, Signature, SignatureAlgorithm, SignedObject,
+    KeyId, KeyIds, Result, Bytes, Signature, SignatureAlgorithm, SignedObject,
     SignedPublicKey, SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
 };
 
@@ -157,7 +157,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let key = match (wrapped_key, wrapping_key) {
             (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
                 SymmetricCryptoKey::try_from(
-                    &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(
+                    &Bytes::<BitwardenLegacyKeyContentFormat>::from(
                         crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)?,
                     ),
                 )?
@@ -166,7 +166,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => SymmetricCryptoKey::try_from(
-                &SerializedBytes::<BitwardenLegacyKeyContentFormat>::from(
+                &Bytes::<BitwardenLegacyKeyContentFormat>::from(
                     crate::aes::decrypt_aes256_hmac(
                         iv,
                         mac,
@@ -184,7 +184,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                     crate::cose::decrypt_xchacha20_poly1305(data, key)?;
                 match content_format {
                     ContentFormat::BitwardenLegacyKey => {
-                        SymmetricCryptoKey::try_from(&SerializedBytes::<
+                        SymmetricCryptoKey::try_from(&Bytes::<
                             BitwardenLegacyKeyContentFormat,
                         >::from(
                             content_bytes
