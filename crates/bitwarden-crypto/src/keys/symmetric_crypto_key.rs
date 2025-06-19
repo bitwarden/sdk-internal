@@ -150,11 +150,11 @@ impl SymmetricCryptoKey {
     pub fn to_encoded(&self) -> Bytes<BitwardenLegacyKeyContentFormat> {
         let encoded_key = self.to_encoded_raw();
         match encoded_key {
-            EncodedSymmetricKey::Aes256CbcKey(_) | EncodedSymmetricKey::Aes256CbcHmacKey(_) => {
+            EncodedSymmetricKey::LegacyNonCoseKey(_) => {
                 let encoded_key: Vec<u8> = encoded_key.into();
                 Bytes::from(encoded_key)
             }
-            EncodedSymmetricKey::XChaCha20Poly1305Key(_) => {
+            EncodedSymmetricKey::CoseKey(_) => {
                 let mut encoded_key: Vec<u8> = encoded_key.into();
                 pad_key(&mut encoded_key, Self::AES256_CBC_HMAC_KEY_LEN + 1);
                 Bytes::from(encoded_key)
@@ -191,13 +191,13 @@ impl SymmetricCryptoKey {
     pub(crate) fn to_encoded_raw(&self) -> EncodedSymmetricKey {
         match self {
             Self::Aes256CbcKey(key) => {
-                EncodedSymmetricKey::Aes256CbcKey(key.enc_key.to_vec().into())
+                EncodedSymmetricKey::LegacyNonCoseKey(key.enc_key.to_vec().into())
             }
             Self::Aes256CbcHmacKey(key) => {
                 let mut buf = Vec::with_capacity(64);
                 buf.extend_from_slice(&key.enc_key);
                 buf.extend_from_slice(&key.mac_key);
-                EncodedSymmetricKey::Aes256CbcHmacKey(buf.into())
+                EncodedSymmetricKey::LegacyNonCoseKey(buf.into())
             }
             Self::XChaCha20Poly1305Key(key) => {
                 let builder = coset::CoseKeyBuilder::new_symmetric_key(key.enc_key.to_vec());
@@ -211,7 +211,7 @@ impl SymmetricCryptoKey {
                 cose_key.alg = Some(RegisteredLabelWithPrivate::PrivateUse(
                     cose::XCHACHA20_POLY1305,
                 ));
-                EncodedSymmetricKey::XChaCha20Poly1305Key(
+                EncodedSymmetricKey::CoseKey(
                     cose_key
                         .to_vec()
                         .expect("cose key serialization should not fail")
@@ -280,10 +280,10 @@ impl TryFrom<&Bytes<BitwardenLegacyKeyContentFormat>> for SymmetricCryptoKey {
         // are the raw serializations of the AES256-CBC, and AES256-CBC-HMAC keys. If they
         // are longer, they are COSE keys. The COSE keys are padded to the minimum length of
         // 65 bytes, when serialized to raw byte arrays.
-        let result = if slice.len() == Self::AES256_CBC_HMAC_KEY_LEN {
-            Self::try_from(EncodedSymmetricKey::Aes256CbcHmacKey(value.clone()))
-        } else if slice.len() == Self::AES256_CBC_KEY_LEN {
-            Self::try_from(EncodedSymmetricKey::Aes256CbcKey(value.clone()))
+        let result = if slice.len() == Self::AES256_CBC_HMAC_KEY_LEN
+            || slice.len() == Self::AES256_CBC_KEY_LEN
+        {
+            Self::try_from(EncodedSymmetricKey::LegacyNonCoseKey(value.clone()))
         } else if slice.len() > Self::AES256_CBC_HMAC_KEY_LEN {
             let unpadded_value = unpad_key(slice)?;
             Ok(Self::try_from_cose(unpadded_value)?)
@@ -300,12 +300,16 @@ impl TryFrom<EncodedSymmetricKey> for SymmetricCryptoKey {
 
     fn try_from(value: EncodedSymmetricKey) -> Result<Self, Self::Error> {
         match value {
-            EncodedSymmetricKey::Aes256CbcKey(key) => {
+            EncodedSymmetricKey::LegacyNonCoseKey(key)
+                if key.as_ref().len() == Self::AES256_CBC_KEY_LEN =>
+            {
                 let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
                 enc_key.copy_from_slice(&key.as_ref()[..Self::AES256_CBC_KEY_LEN]);
                 Ok(Self::Aes256CbcKey(Aes256CbcKey { enc_key }))
             }
-            EncodedSymmetricKey::Aes256CbcHmacKey(key) => {
+            EncodedSymmetricKey::LegacyNonCoseKey(key)
+                if key.as_ref().len() == Self::AES256_CBC_HMAC_KEY_LEN =>
+            {
                 let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
                 enc_key.copy_from_slice(&key.as_ref()[..32]);
 
@@ -317,7 +321,8 @@ impl TryFrom<EncodedSymmetricKey> for SymmetricCryptoKey {
                     mac_key,
                 }))
             }
-            EncodedSymmetricKey::XChaCha20Poly1305Key(key) => Self::try_from_cose(key.as_ref()),
+            EncodedSymmetricKey::CoseKey(key) => Self::try_from_cose(key.as_ref()),
+            _ => Err(CryptoError::InvalidKey),
         }
     }
 }
@@ -390,26 +395,24 @@ fn unpad_key(key_bytes: &[u8]) -> Result<&[u8], CryptoError> {
 
 /// An enum to represent the different encodings of symmetric crypto keys.
 pub enum EncodedSymmetricKey {
-    Aes256CbcKey(Bytes<BitwardenLegacyKeyContentFormat>),
-    Aes256CbcHmacKey(Bytes<BitwardenLegacyKeyContentFormat>),
-    XChaCha20Poly1305Key(Bytes<CoseKeyContentFormat>),
+    /// An Aes256-CBC-HMAC key, or a Aes256-CBC key
+    LegacyNonCoseKey(Bytes<BitwardenLegacyKeyContentFormat>),
+    /// A symmetric key encoded as a COSE key
+    CoseKey(Bytes<CoseKeyContentFormat>),
 }
-impl Into<Vec<u8>> for EncodedSymmetricKey {
-    fn into(self) -> Vec<u8> {
-        match self {
-            EncodedSymmetricKey::Aes256CbcKey(key) => key.as_ref().to_vec(),
-            EncodedSymmetricKey::Aes256CbcHmacKey(key) => key.as_ref().to_vec(),
-            EncodedSymmetricKey::XChaCha20Poly1305Key(key) => key.as_ref().to_vec(),
+impl From<EncodedSymmetricKey> for Vec<u8> {
+    fn from(val: EncodedSymmetricKey) -> Self {
+        match val {
+            EncodedSymmetricKey::LegacyNonCoseKey(key) => key.to_vec(),
+            EncodedSymmetricKey::CoseKey(key) => key.to_vec(),
         }
     }
 }
 impl EncodedSymmetricKey {
     pub fn content_format(&self) -> ContentFormat {
         match self {
-            EncodedSymmetricKey::Aes256CbcKey(_) | EncodedSymmetricKey::Aes256CbcHmacKey(_) => {
-                ContentFormat::BitwardenLegacyKey
-            }
-            EncodedSymmetricKey::XChaCha20Poly1305Key(_) => ContentFormat::CoseKey,
+            EncodedSymmetricKey::LegacyNonCoseKey(_) => ContentFormat::BitwardenLegacyKey,
+            EncodedSymmetricKey::CoseKey(_) => ContentFormat::CoseKey,
         }
     }
 }

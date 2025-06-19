@@ -169,7 +169,7 @@ impl UnsignedSharedKey {
                 Ok(UnsignedSharedKey::Rsa2048_OaepSha1_B64 {
                     data: encrypt_rsa2048_oaep_sha1(
                         rsa_public_key,
-                        &encapsulated_key.to_encoded().as_ref().to_vec(),
+                        encapsulated_key.to_encoded().as_ref(),
                     )?,
                 })
             }
