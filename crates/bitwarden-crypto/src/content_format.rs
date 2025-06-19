@@ -166,14 +166,14 @@ impl<T: ConstContentFormat> KeyEncryptable<SymmetricCryptoKey, EncString> for &S
     }
 }
 
-impl Into<SerializedBytes<Utf8ContentFormat>> for String {
-    fn into(self) -> SerializedBytes<Utf8ContentFormat> {
-        SerializedBytes::from(self.into_bytes())
+impl From<String> for SerializedBytes<Utf8ContentFormat> {
+    fn from(val: String) -> Self {
+        SerializedBytes::from(val.into_bytes())
     }
 }
 
-impl Into<SerializedBytes<Utf8ContentFormat>> for &str {
-    fn into(self) -> SerializedBytes<Utf8ContentFormat> {
-        SerializedBytes::from(self.as_bytes().to_vec())
+impl From<&str> for SerializedBytes<Utf8ContentFormat> {
+    fn from(val: &str) -> Self {
+        SerializedBytes::from(val.as_bytes().to_vec())
     }
 }
