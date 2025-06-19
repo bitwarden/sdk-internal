@@ -184,25 +184,15 @@ impl InternalClient {
 
     #[allow(missing_docs)]
     pub fn init_user_id(&self, user_id: Uuid) -> Result<(), UserIdAlreadySetError> {
-        let mut value = Some(user_id);
-        let set_uuid = self
-            .user_id
-            .get_or_init(|| value.take().expect("Value is Some"));
+        let set_uuid = self.user_id.get_or_init(|| user_id);
 
-        match value {
-            // If this is none, that means the user_id was not set before
-            None => Ok(()),
-            // If this is some, it means the user_id was already set
-            Some(_) => {
-                // Only return an error if the user_id is already set to a different value,
-                // as we want an SDK client to be tied to a single user_id.
-                // If it's the same value, we can just do nothing.
-                if *set_uuid != user_id {
-                    Err(UserIdAlreadySetError)
-                } else {
-                    Ok(())
-                }
-            }
+        // Only return an error if the user_id is already set to a different value,
+        // as we want an SDK client to be tied to a single user_id.
+        // If it's the same value, we can just do nothing.
+        if *set_uuid != user_id {
+            Err(UserIdAlreadySetError)
+        } else {
+            Ok(())
         }
     }
 
