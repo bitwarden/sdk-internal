@@ -49,16 +49,16 @@ impl EncryptionSettings {
         signing_key: Option<EncString>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
-        use bitwarden_crypto::{
-            AsymmetricCryptoKey, CoseSerializable, CryptoError, KeyDecryptable, SigningKey,
-        };
+        use bitwarden_crypto::{AsymmetricCryptoKey, CoseSerializable, KeyDecryptable, SigningKey};
         use log::warn;
 
         use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
 
         let private_key = {
-            let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
+            use bitwarden_crypto::{Pkcs8PrivateKeyDerContentFormat, SerializedBytes};
 
+            let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
+            let dec: SerializedBytes<Pkcs8PrivateKeyDerContentFormat> = SerializedBytes::from(dec);
             // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a recovery
             // process in place.
             AsymmetricCryptoKey::from_der(&dec)
@@ -72,12 +72,13 @@ impl EncryptionSettings {
             //         .map_err(|_| EncryptionSettingsError::InvalidPrivateKey)?,
             // )
         };
-        let signing_key = signing_key
-            .map(|key| {
-                let dec: Vec<u8> = key.decrypt_with_key(&user_key)?;
-                SigningKey::from_cose(dec.as_slice()).map_err(Into::<CryptoError>::into)
-            })
-            .transpose()?;
+        let signing_key = signing_key.map(|key| {
+            use bitwarden_crypto::{CoseKeyContentFormat, SerializedBytes};
+
+            let dec: Vec<u8> = key.decrypt_with_key(&user_key).unwrap();
+            let dec: SerializedBytes<CoseKeyContentFormat> = SerializedBytes::from(dec);
+            SigningKey::from_cose(&dec).unwrap()
+        });
 
         // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
         #[allow(deprecated)]

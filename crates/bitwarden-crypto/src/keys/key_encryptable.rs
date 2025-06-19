@@ -21,6 +21,11 @@ pub trait CryptoKey {}
 
 #[allow(missing_docs)]
 pub trait KeyEncryptable<Key: CryptoKey, Output> {
+    fn encrypt_with_key(self, key: &Key) -> Result<Output>;
+}
+
+#[allow(missing_docs)]
+pub(crate) trait KeyEncryptableWithContentType<Key: CryptoKey, Output> {
     fn encrypt_with_key(self, key: &Key, content_format: ContentFormat) -> Result<Output>;
 }
 
@@ -32,9 +37,8 @@ pub trait KeyDecryptable<Key: CryptoKey, Output> {
 impl<T: KeyEncryptable<Key, Output>, Key: CryptoKey, Output> KeyEncryptable<Key, Option<Output>>
     for Option<T>
 {
-    fn encrypt_with_key(self, key: &Key, content_format: ContentFormat) -> Result<Option<Output>> {
-        self.map(|e| e.encrypt_with_key(key, content_format))
-            .transpose()
+    fn encrypt_with_key(self, key: &Key) -> Result<Option<Output>> {
+        self.map(|e| e.encrypt_with_key(key)).transpose()
     }
 }
 
@@ -49,8 +53,8 @@ impl<T: KeyDecryptable<Key, Output>, Key: CryptoKey, Output> KeyDecryptable<Key,
 impl<T: KeyEncryptable<Key, Output>, Key: CryptoKey, Output> KeyEncryptable<Key, Output>
     for Box<T>
 {
-    fn encrypt_with_key(self, key: &Key, content_format: ContentFormat) -> Result<Output> {
-        (*self).encrypt_with_key(key, content_format)
+    fn encrypt_with_key(self, key: &Key) -> Result<Output> {
+        (*self).encrypt_with_key(key)
     }
 }
 
@@ -68,9 +72,9 @@ impl<
         Output: Send + Sync,
     > KeyEncryptable<Key, Vec<Output>> for Vec<T>
 {
-    fn encrypt_with_key(self, key: &Key, content_format: ContentFormat) -> Result<Vec<Output>> {
+    fn encrypt_with_key(self, key: &Key) -> Result<Vec<Output>> {
         self.into_par_iter()
-            .map(|e| e.encrypt_with_key(key, content_format))
+            .map(|e| e.encrypt_with_key(key))
             .collect()
     }
 }
@@ -95,13 +99,9 @@ impl<
         Id: Hash + Eq + Send + Sync,
     > KeyEncryptable<Key, HashMap<Id, Output>> for HashMap<Id, T>
 {
-    fn encrypt_with_key(
-        self,
-        key: &Key,
-        content_format: ContentFormat,
-    ) -> Result<HashMap<Id, Output>> {
+    fn encrypt_with_key(self, key: &Key) -> Result<HashMap<Id, Output>> {
         self.into_par_iter()
-            .map(|(id, e)| Ok((id, e.encrypt_with_key(key, content_format)?)))
+            .map(|(id, e)| Ok((id, e.encrypt_with_key(key)?)))
             .collect()
     }
 }

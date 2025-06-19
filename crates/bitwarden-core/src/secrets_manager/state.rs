@@ -5,7 +5,7 @@
 
 use std::{fmt::Debug, path::Path};
 
-use bitwarden_crypto::{ContentFormat, EncString, KeyDecryptable, KeyEncryptable};
+use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable};
 use serde::{Deserialize, Serialize};
 
 use crate::auth::AccessToken;
@@ -73,7 +73,7 @@ pub(crate) fn set(
 ) -> Result<(), StateFileError> {
     let serialized_state: String = serde_json::to_string(&state)?;
     let encrypted_state: EncString =
-        serialized_state.encrypt_with_key(&access_token.encryption_key, ContentFormat::Utf8)?;
+        serialized_state.encrypt_with_key(&access_token.encryption_key)?;
     let state_string: String = encrypted_state.to_string();
 
     Ok(std::fs::write(state_file, state_string)?)

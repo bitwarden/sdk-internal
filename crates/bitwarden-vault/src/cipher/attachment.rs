@@ -1,7 +1,7 @@
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CompositeEncryptable, ContentFormat, CryptoError, Decryptable, EncString, IdentifyKey,
-    KeyStoreContext, PrimitiveEncryptable, PrimitiveEncryptableWithContentType,
+    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
+    OctetStreamContentFormat, PrimitiveEncryptable, SerializedBytes,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -94,9 +94,8 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult>
         // Because this is a new attachment, we have to generate a key for it, encrypt the contents
         // with it, and then encrypt the key with the cipher key
         let attachment_key = ctx.generate_symmetric_key(ATTACHMENT_KEY)?;
-        let encrypted_contents =
-            self.contents
-                .encrypt(ctx, attachment_key, ContentFormat::OctetStream)?;
+        let encrypted_contents = SerializedBytes::<OctetStreamContentFormat>::from(self.contents)
+            .encrypt(ctx, attachment_key)?;
         attachment.key = Some(ctx.wrap_symmetric_key(ciphers_key, attachment_key)?);
 
         let contents = encrypted_contents.to_buffer()?;

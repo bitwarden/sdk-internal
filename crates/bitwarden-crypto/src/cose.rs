@@ -11,6 +11,7 @@ use generic_array::GenericArray;
 use typenum::U32;
 
 use crate::{
+    content_format::{ConstContentFormat, CoseContentFormat, SerializedBytes},
     error::{EncStringParseError, EncodingError},
     xchacha20, ContentFormat, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
 };
@@ -25,6 +26,7 @@ const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
 // These are only used within Bitwarden, and not meant for exchange with other systems.
 const CONTENT_TYPE_PADDED_UTF8: &str = "application/x.bitwarden.utf8-padded";
 const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
+const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-key";
 
 // Labels
 //
@@ -160,7 +162,13 @@ impl From<ContentFormat> for coset::HeaderBuilder {
             ContentFormat::Utf8 => {
                 header_builder.content_type(CONTENT_TYPE_PADDED_UTF8.to_string())
             }
-            ContentFormat::Pkcs8 => header_builder.content_format(CoapContentFormat::Pkcs8),
+            ContentFormat::Pkcs8PrivateKey => {
+                header_builder.content_format(CoapContentFormat::Pkcs8)
+            }
+            ContentFormat::SPKIPublicKeyDer => {
+                header_builder.content_type(CONTENT_TYPE_SPKI_PUBLIC_KEY.to_string())
+            }
+            ContentFormat::CoseSign1 => header_builder.content_format(CoapContentFormat::CoseSign1),
             ContentFormat::CoseKey => header_builder.content_format(CoapContentFormat::CoseKey),
             ContentFormat::BitwardenLegacyKey => {
                 header_builder.content_type(CONTENT_TYPE_BITWARDEN_LEGACY_KEY.to_string())
@@ -168,6 +176,7 @@ impl From<ContentFormat> for coset::HeaderBuilder {
             ContentFormat::OctetStream => {
                 header_builder.content_format(CoapContentFormat::OctetStream)
             }
+            ContentFormat::Cbor => header_builder.content_format(CoapContentFormat::Cbor),
         }
     }
 }
@@ -183,7 +192,12 @@ impl TryFrom<&coset::Header> for ContentFormat {
             Some(ContentType::Text(format)) if format == CONTENT_TYPE_BITWARDEN_LEGACY_KEY => {
                 Ok(ContentFormat::BitwardenLegacyKey)
             }
-            Some(ContentType::Assigned(CoapContentFormat::Pkcs8)) => Ok(ContentFormat::Pkcs8),
+            Some(ContentType::Text(format)) if format == CONTENT_TYPE_SPKI_PUBLIC_KEY => {
+                Ok(ContentFormat::SPKIPublicKeyDer)
+            }
+            Some(ContentType::Assigned(CoapContentFormat::Pkcs8)) => {
+                Ok(ContentFormat::Pkcs8PrivateKey)
+            }
             Some(ContentType::Assigned(CoapContentFormat::CoseKey)) => Ok(ContentFormat::CoseKey),
             Some(ContentType::Assigned(CoapContentFormat::OctetStream)) => {
                 Ok(ContentFormat::OctetStream)
@@ -200,11 +214,11 @@ fn should_pad_content(format: &ContentFormat) -> bool {
 }
 
 /// Trait for structs that are serializable to COSE objects.
-pub trait CoseSerializable {
+pub trait CoseSerializable<T: CoseContentFormat + ConstContentFormat> {
     /// Serializes the struct to COSE serialization
-    fn to_cose(&self) -> Vec<u8>;
+    fn to_cose(&self) -> SerializedBytes<T>;
     /// Deserializes a serialized COSE object to a struct
-    fn from_cose(bytes: &[u8]) -> Result<Self, EncodingError>
+    fn from_cose(bytes: &SerializedBytes<T>) -> Result<Self, EncodingError>
     where
         Self: Sized;
 }
@@ -265,9 +279,13 @@ mod test {
         };
 
         let plaintext = b"Hello, world!";
-        let encrypted = encrypt_xchacha20_poly1305(plaintext, key, ContentFormat::Pkcs8).unwrap();
+        let encrypted =
+            encrypt_xchacha20_poly1305(plaintext, key, ContentFormat::Pkcs8PrivateKey).unwrap();
         let decrypted = decrypt_xchacha20_poly1305(&encrypted, key).unwrap();
-        assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::Pkcs8));
+        assert_eq!(
+            decrypted,
+            (plaintext.to_vec(), ContentFormat::Pkcs8PrivateKey)
+        );
     }
 
     #[test]

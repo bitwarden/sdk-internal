@@ -11,9 +11,12 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::AsymmetricPublicCryptoKey;
 use crate::{
-    cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CryptoError,
-    PublicKeyEncryptionAlgorithm, RawPublicKey, SignedObject, SigningKey, SigningNamespace,
-    VerifyingKey,
+    content_format::{CoseSign1ContentFormat, SerializedBytes},
+    cose::CoseSerializable,
+    error::EncodingError,
+    util::FromStrVisitor,
+    CryptoError, PublicKeyEncryptionAlgorithm, RawPublicKey, SignedObject, SigningKey,
+    SigningNamespace, VerifyingKey,
 };
 
 #[cfg(feature = "wasm")]
@@ -57,7 +60,7 @@ impl SignedPublicKeyMessage {
             RawPublicKey::RsaOaepSha1(_) => Ok(SignedPublicKeyMessage {
                 algorithm: PublicKeyEncryptionAlgorithm::RsaOaepSha1,
                 content_format: PublicKeyFormat::Spki,
-                public_key: ByteBuf::from(public_key.to_der()?),
+                public_key: ByteBuf::from(public_key.to_der()?.as_ref()),
             }),
         }
     }
@@ -79,14 +82,16 @@ pub struct SignedPublicKey(pub(crate) SignedObject);
 
 impl From<SignedPublicKey> for Vec<u8> {
     fn from(val: SignedPublicKey) -> Self {
-        val.0.to_cose()
+        val.0.to_cose().as_ref().to_vec()
     }
 }
 
 impl TryFrom<Vec<u8>> for SignedPublicKey {
     type Error = EncodingError;
     fn try_from(bytes: Vec<u8>) -> Result<Self, EncodingError> {
-        Ok(SignedPublicKey(SignedObject::from_cose(&bytes)?))
+        Ok(SignedPublicKey(SignedObject::from_cose(
+            &SerializedBytes::<CoseSign1ContentFormat>::from(bytes),
+        )?))
     }
 }
 

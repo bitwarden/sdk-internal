@@ -1,7 +1,8 @@
 use super::{AsymmetricCryptoKey, PublicKeyEncryptionAlgorithm};
 use crate::{
-    error::Result, ContentFormat, CryptoError, EncString, KeyDecryptable, KeyEncryptable,
-    SymmetricCryptoKey, UnsignedSharedKey,
+    content_format::{Pkcs8PrivateKeyDerContentFormat, SerializedBytes},
+    error::Result,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, UnsignedSharedKey,
 };
 
 /// Device Key
@@ -44,11 +45,11 @@ impl DeviceKey {
         let protected_device_public_key = device_private_key
             .to_public_key()
             .to_der()?
-            .encrypt_with_key(user_key, ContentFormat::OctetStream)?;
+            .encrypt_with_key(user_key)?;
 
         let protected_device_private_key = device_private_key
             .to_der()?
-            .encrypt_with_key(&device_key.0, ContentFormat::Pkcs8)?;
+            .encrypt_with_key(&device_key.0)?;
 
         Ok(TrustDeviceResponse {
             device_key: device_key.to_base64(),
@@ -65,6 +66,8 @@ impl DeviceKey {
         protected_user_key: UnsignedSharedKey,
     ) -> Result<SymmetricCryptoKey> {
         let device_private_key: Vec<u8> = protected_device_private_key.decrypt_with_key(&self.0)?;
+        let device_private_key: SerializedBytes<Pkcs8PrivateKeyDerContentFormat> =
+            SerializedBytes::from(device_private_key);
         let device_private_key = AsymmetricCryptoKey::from_der(&device_private_key)?;
 
         let user_key: SymmetricCryptoKey =

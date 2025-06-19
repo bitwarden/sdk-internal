@@ -1,4 +1,5 @@
 mod key_encryptable;
+pub(crate) use key_encryptable::KeyEncryptableWithContentType;
 pub use key_encryptable::{CryptoKey, KeyContainer, KeyDecryptable, KeyEncryptable};
 mod master_key;
 pub use master_key::{HashPurpose, MasterKey};

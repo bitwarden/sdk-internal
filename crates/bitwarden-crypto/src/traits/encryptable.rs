@@ -58,13 +58,13 @@ impl<Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output>
 
 /// An encryption operation that takes the input value - a primitive such as `String` and encrypts
 /// it into the output value. The implementation decides the content format.
-pub trait PrimitiveEncryptableWithContentType<Ids: KeyIds, Key: KeyId, Output> {
+pub trait PrimitiveEncryptable<Ids: KeyIds, Key: KeyId, Output> {
     /// Encrypts a primitive without requiring an externally provided content type
     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: Key) -> Result<Output, CryptoError>;
 }
 
-impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptableWithContentType<Ids, Key, Output>, Output>
-    PrimitiveEncryptableWithContentType<Ids, Key, Option<Output>> for Option<T>
+impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptable<Ids, Key, Output>, Output>
+    PrimitiveEncryptable<Ids, Key, Option<Output>> for Option<T>
 {
     fn encrypt(
         &self,
@@ -77,7 +77,7 @@ impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptableWithContentType<Ids, Key, O
     }
 }
 
-impl<Ids: KeyIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncString> for &str {
+impl<Ids: KeyIds> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString> for &str {
     fn encrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -87,7 +87,7 @@ impl<Ids: KeyIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncSt
     }
 }
 
-impl<Ids: KeyIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncString> for String {
+impl<Ids: KeyIds> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString> for String {
     fn encrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -99,7 +99,7 @@ impl<Ids: KeyIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncSt
 
 /// An encryption operation that takes the input value - a primitive such as `Vec<u8>` - and
 /// encrypts it into the output value. The caller must specify the content format.
-pub trait PrimitiveEncryptable<Ids: KeyIds, Key: KeyId, Output> {
+pub(crate) trait PrimitiveEncryptableWithContentType<Ids: KeyIds, Key: KeyId, Output> {
     /// Encrypts a primitive, given an externally provided content type
     fn encrypt(
         &self,
@@ -109,7 +109,7 @@ pub trait PrimitiveEncryptable<Ids: KeyIds, Key: KeyId, Output> {
     ) -> Result<Output, CryptoError>;
 }
 
-impl<Ids: KeyIds> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString> for &[u8] {
+impl<Ids: KeyIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncString> for &[u8] {
     fn encrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -120,7 +120,7 @@ impl<Ids: KeyIds> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString> for &[u8]
     }
 }
 
-impl<Ids: KeyIds> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString> for Vec<u8> {
+impl<Ids: KeyIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncString> for Vec<u8> {
     fn encrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -131,8 +131,8 @@ impl<Ids: KeyIds> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString> for Vec<u
     }
 }
 
-impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptable<Ids, Key, Output>, Output>
-    PrimitiveEncryptable<Ids, Key, Option<Output>> for Option<T>
+impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptableWithContentType<Ids, Key, Output>, Output>
+    PrimitiveEncryptableWithContentType<Ids, Key, Option<Output>> for Option<T>
 {
     fn encrypt(
         &self,
@@ -146,8 +146,8 @@ impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptable<Ids, Key, Output>, Output>
     }
 }
 
-impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptable<Ids, Key, Output>, Output>
-    PrimitiveEncryptable<Ids, Key, Vec<Output>> for Vec<T>
+impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptableWithContentType<Ids, Key, Output>, Output>
+    PrimitiveEncryptableWithContentType<Ids, Key, Vec<Output>> for Vec<T>
 {
     fn encrypt(
         &self,
@@ -164,9 +164,9 @@ impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptable<Ids, Key, Output>, Output>
 #[cfg(test)]
 mod tests {
     use crate::{
-        traits::tests::*, AsymmetricCryptoKey, ContentFormat, Decryptable, KeyStore,
-        PrimitiveEncryptable, PrimitiveEncryptableWithContentType, PublicKeyEncryptionAlgorithm,
-        SymmetricCryptoKey,
+        traits::{encryptable::PrimitiveEncryptableWithContentType, tests::*},
+        AsymmetricCryptoKey, ContentFormat, Decryptable, KeyStore, PrimitiveEncryptable,
+        PublicKeyEncryptionAlgorithm, SymmetricCryptoKey,
     };
 
     fn test_store() -> KeyStore<TestIds> {

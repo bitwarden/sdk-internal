@@ -1,6 +1,8 @@
 //! This example demonstrates how to sign and verify structs.
 
-use bitwarden_crypto::{CoseSerializable, SignedObject, SigningNamespace};
+use bitwarden_crypto::{
+    CoseSerializable, CoseSign1ContentFormat, SerializedBytes, SignedObject, SigningNamespace,
+};
 use serde::{Deserialize, Serialize};
 
 const EXAMPLE_NAMESPACE: &SigningNamespace = &SigningNamespace::SignedPublicKey;
@@ -34,15 +36,17 @@ fn main() {
         .expect("Failed to sign message");
 
     // Alice sends the signed object to Bob
-    mock_server.upload("signed_object", signed_object.to_cose());
+    mock_server.upload("signed_object", signed_object.to_cose().as_ref().to_vec());
 
     // Bob retrieves the signed object from the server
-    let retrieved_signed_object = SignedObject::from_cose(
-        mock_server
-            .download("signed_object")
-            .expect("Failed to download signed object"),
-    )
-    .expect("Failed to deserialize signed object");
+    let retrieved_signed_object =
+        SignedObject::from_cose(&SerializedBytes::<CoseSign1ContentFormat>::from(
+            mock_server
+                .download("signed_object")
+                .expect("Failed to download signed object")
+                .clone(),
+        ))
+        .expect("Failed to deserialize signed object");
     // Bob verifies the signed object using Alice's verifying key
     let verified_message: MessageToBob = retrieved_signed_object
         .verify_and_unwrap(&alice_verifying_key, EXAMPLE_NAMESPACE)

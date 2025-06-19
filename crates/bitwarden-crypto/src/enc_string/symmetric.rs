@@ -6,10 +6,11 @@ use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
+    content_format::{SerializedBytes, Utf8ContentFormat},
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
     util::FromStrVisitor,
-    Aes256CbcHmacKey, ContentFormat, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
-    XChaCha20Poly1305Key,
+    Aes256CbcHmacKey, ContentFormat, KeyDecryptable, KeyEncryptable, KeyEncryptableWithContentType,
+    SymmetricCryptoKey, XChaCha20Poly1305Key,
 };
 
 #[cfg(feature = "wasm")]
@@ -279,7 +280,7 @@ impl EncString {
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
+impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
     fn encrypt_with_key(
         self,
         key: &SymmetricCryptoKey,
@@ -321,22 +322,14 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for String {
-    fn encrypt_with_key(
-        self,
-        key: &SymmetricCryptoKey,
-        content_format: ContentFormat,
-    ) -> Result<EncString> {
-        self.as_bytes().encrypt_with_key(key, content_format)
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
+        Into::<SerializedBytes<Utf8ContentFormat>>::into(self).encrypt_with_key(key)
     }
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
-    fn encrypt_with_key(
-        self,
-        key: &SymmetricCryptoKey,
-        content_format: ContentFormat,
-    ) -> Result<EncString> {
-        self.as_bytes().encrypt_with_key(key, content_format)
+    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
+        Into::<SerializedBytes<Utf8ContentFormat>>::into(self).encrypt_with_key(key)
     }
 }
 
@@ -365,8 +358,8 @@ mod tests {
 
     use super::EncString;
     use crate::{
-        derive_symmetric_key, ContentFormat, CryptoError, KeyDecryptable, KeyEncryptable,
-        SymmetricCryptoKey, KEY_ID_SIZE,
+        derive_symmetric_key, CryptoError, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+        KEY_ID_SIZE,
     };
 
     #[test]
@@ -379,10 +372,7 @@ mod tests {
         });
 
         let test_string = "encrypted_test_string";
-        let cipher = test_string
-            .to_owned()
-            .encrypt_with_key(&key, ContentFormat::Utf8)
-            .unwrap();
+        let cipher = test_string.to_owned().encrypt_with_key(&key).unwrap();
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);
     }
@@ -392,10 +382,7 @@ mod tests {
         let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
 
         let test_string = "encrypted_test_string";
-        let cipher = test_string
-            .to_string()
-            .encrypt_with_key(&key, ContentFormat::Utf8)
-            .unwrap();
+        let cipher = test_string.to_string().encrypt_with_key(&key).unwrap();
 
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);
@@ -406,10 +393,7 @@ mod tests {
         let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
 
         let test_string: &'static str = "encrypted_test_string";
-        let cipher = test_string
-            .to_string()
-            .encrypt_with_key(&key, ContentFormat::Utf8)
-            .unwrap();
+        let cipher = test_string.to_string().encrypt_with_key(&key).unwrap();
 
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);

@@ -5,7 +5,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
-    PrimitiveEncryptableWithContentType,
+    PrimitiveEncryptable,
 };
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};

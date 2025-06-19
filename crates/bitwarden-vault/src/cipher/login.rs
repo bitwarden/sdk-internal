@@ -6,7 +6,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
-    PrimitiveEncryptableWithContentType,
+    PrimitiveEncryptable,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

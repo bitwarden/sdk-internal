@@ -7,6 +7,7 @@ use super::{
     verifying_key::VerifyingKey, SigningNamespace,
 };
 use crate::{
+    content_format::{CoseSign1ContentFormat, SerializedBytes},
     cose::{CoseSerializable, SIGNING_NAMESPACE},
     error::{EncodingError, SignatureError},
     CryptoError,
@@ -149,18 +150,20 @@ impl SigningKey {
     }
 }
 
-impl CoseSerializable for SignedObject {
-    fn from_cose(bytes: &[u8]) -> Result<Self, EncodingError> {
+impl CoseSerializable<CoseSign1ContentFormat> for SignedObject {
+    fn from_cose(bytes: &SerializedBytes<CoseSign1ContentFormat>) -> Result<Self, EncodingError> {
         Ok(SignedObject(
-            CoseSign1::from_slice(bytes).map_err(|_| EncodingError::InvalidCoseEncoding)?,
+            CoseSign1::from_slice(bytes.as_ref())
+                .map_err(|_| EncodingError::InvalidCoseEncoding)?,
         ))
     }
 
-    fn to_cose(&self) -> Vec<u8> {
+    fn to_cose(&self) -> SerializedBytes<CoseSign1ContentFormat> {
         self.0
             .clone()
             .to_vec()
             .expect("SignedObject is always serializable")
+            .into()
     }
 }
 
@@ -169,6 +172,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
+        content_format::{CoseKeyContentFormat, CoseSign1ContentFormat, SerializedBytes},
         CoseSerializable, CryptoError, SignatureAlgorithm, SignedObject, SigningKey,
         SigningNamespace, VerifyingKey,
     };
@@ -196,13 +200,19 @@ mod tests {
 
     #[test]
     fn test_roundtrip_cose() {
-        let signed_object = SignedObject::from_cose(SIGNED_OBJECT).unwrap();
+        let signed_object = SignedObject::from_cose(
+            &Into::<SerializedBytes<CoseSign1ContentFormat>>::into(SIGNED_OBJECT),
+        )
+        .unwrap();
         assert_eq!(
             signed_object.content_type().unwrap(),
             coset::iana::CoapContentFormat::Cbor
         );
         let cose_bytes = signed_object.to_cose();
-        assert_eq!(cose_bytes, SIGNED_OBJECT);
+        assert_eq!(
+            cose_bytes,
+            SerializedBytes::<CoseSign1ContentFormat>::from(SIGNED_OBJECT)
+        );
     }
 
     #[test]
@@ -210,8 +220,14 @@ mod tests {
         let test_message = TestMessage {
             field1: "Test message".to_string(),
         };
-        let signed_object = SignedObject::from_cose(SIGNED_OBJECT).unwrap();
-        let verifying_key = VerifyingKey::from_cose(VERIFYING_KEY).unwrap();
+        let signed_object = SignedObject::from_cose(
+            &Into::<SerializedBytes<CoseSign1ContentFormat>>::into(SIGNED_OBJECT),
+        )
+        .unwrap();
+        let verifying_key = VerifyingKey::from_cose(
+            &Into::<SerializedBytes<CoseKeyContentFormat>>::into(VERIFYING_KEY),
+        )
+        .unwrap();
         let namespace = SigningNamespace::ExampleNamespace;
         let payload: TestMessage = signed_object
             .verify_and_unwrap(&verifying_key, &namespace)

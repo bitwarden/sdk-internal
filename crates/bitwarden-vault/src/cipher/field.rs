@@ -5,7 +5,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
-    PrimitiveEncryptableWithContentType,
+    PrimitiveEncryptable,
 };
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
