@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use bitwarden_error::bitwarden_error;
 use bitwarden_threading::cancellation_token::CancellationToken;
+use serde::de::DeserializeOwned;
 use thiserror::Error;
 use tokio::{select, sync::RwLock};
 
@@ -13,9 +14,13 @@ use crate::{
         TypedOutgoingMessage,
     },
     rpc::{
-        error::RpcError, handler_registry::RpcHandlerRegistry, request::RpcRequest,
-        request_message::RpcRequestMessage, response_message::RpcResponseMessage,
+        error::RpcError,
+        exec::handler_registry::RpcHandlerRegistry,
+        request::RpcRequest,
+        request_message::{RpcRequestMessage, RpcRequestPayload, RPC_REQUEST_PAYLOAD_TYPE_NAME},
+        response_message::RpcResponseMessage,
     },
+    serde_utils,
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
     RpcHandler,
 };
@@ -51,7 +56,7 @@ pub struct IpcClientSubscription {
 /// The subcription will start buffering messages after its creation and return them
 /// when receive() is called. Messages received before the subscription was created will not be
 /// returned.
-pub struct IpcClientTypedSubscription<Payload: TryFrom<Vec<u8>> + PayloadTypeName>(
+pub struct IpcClientTypedSubscription<Payload: DeserializeOwned + PayloadTypeName>(
     IpcClientSubscription,
     std::marker::PhantomData<Payload>,
 );
@@ -165,7 +170,7 @@ where
         let client = self.clone();
         let future = async move {
             loop {
-                let rpc_topic = RpcRequestMessage::name();
+                let rpc_topic = RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned();
                 select! {
                     _ = cancellation_token.cancelled() => {
                         log::debug!("Cancellation signal received, stopping IPC client");
@@ -225,12 +230,6 @@ where
     pub async fn register_rpc_handler<H>(self: &Arc<Self>, handler: H)
     where
         H: RpcHandler + Send + Sync + 'static,
-        H::Request: RpcRequest + TryFrom<Vec<u8>> + TryInto<Vec<u8>>,
-        <H::Request as RpcRequest>::Response: TryFrom<Vec<u8>> + TryInto<Vec<u8>>,
-        <H::Request as TryFrom<Vec<u8>>>::Error: std::fmt::Display,
-        <H::Request as TryInto<Vec<u8>>>::Error: std::fmt::Display,
-        <<H::Request as RpcRequest>::Response as TryFrom<Vec<u8>>>::Error: std::fmt::Display,
-        <<H::Request as RpcRequest>::Response as TryInto<Vec<u8>>>::Error: std::fmt::Display,
     {
         self.handlers.register(handler).await;
     }
@@ -274,10 +273,11 @@ where
         self: &Arc<Self>,
     ) -> Result<IpcClientTypedSubscription<Payload>, SubscribeError>
     where
-        Payload: TryFrom<Vec<u8>> + PayloadTypeName,
+        Payload: DeserializeOwned + PayloadTypeName,
     {
         Ok(IpcClientTypedSubscription(
-            self.subscribe(Some(Payload::name())).await?,
+            self.subscribe(Some(Payload::PAYLOAD_TYPE_NAME.to_owned()))
+                .await?,
             std::marker::PhantomData,
         ))
     }
@@ -292,19 +292,14 @@ where
         cancellation_token: Option<CancellationToken>,
     ) -> Result<Request::Response, RequestError<Crypto::SendError>>
     where
-        Request: RpcRequest + TryInto<Vec<u8>> + TryFrom<Vec<u8>>,
-        Request::Response: TryInto<Vec<u8>> + TryFrom<Vec<u8>>,
-        <Request as TryInto<Vec<u8>>>::Error: std::fmt::Display,
-        <Request::Response as TryFrom<Vec<u8>>>::Error: std::fmt::Display,
+        Request: RpcRequest,
     {
         let request_id = uuid::Uuid::new_v4().to_string();
         let mut response_subscription: IpcClientTypedSubscription<RpcResponseMessage> =
             self.subscribe_typed().await?;
 
         let request_payload = RpcRequestMessage {
-            request: request
-                .try_into()
-                .map_err(|e| RpcError::RequestSerializationError(e.to_string()))?,
+            request,
             request_id: request_id.clone(),
             request_type: Request::name(),
         };
@@ -315,7 +310,9 @@ where
         }
         .try_into()
         .map_err(
-            |e: <TypedOutgoingMessage<RpcRequestMessage> as TryInto<OutgoingMessage>>::Error| {
+            |e: <TypedOutgoingMessage<RpcRequestMessage<Request>> as TryInto<
+                OutgoingMessage,
+            >>::Error| {
                 RequestError::<Crypto::SendError>::RpcError(RpcError::RequestSerializationError(
                     e.to_string(),
                 ))
@@ -337,13 +334,12 @@ where
             }
         };
 
-        let result: Request::Response = response.payload.result?.try_into().map_err(
-            |e: <Request::Response as TryFrom<Vec<u8>>>::Error| {
+        let result: Request::Response = serde_utils::from_slice(&response.payload.result?)
+            .map_err(|e: serde_utils::DeserializeError| {
                 RequestError::<Crypto::SendError>::RpcError(RpcError::ResponseDeserializationError(
                     e.to_string(),
                 ))
-            },
-        )?;
+            })?;
 
         Ok(result)
     }
@@ -367,19 +363,16 @@ where
                 incoming_message: IncomingMessage,
                 handlers: &RpcHandlerRegistry,
             ) -> Result<OutgoingMessage, HandleError> {
-                let request: RpcRequestMessage = incoming_message.payload.try_into().map_err(
-                    |e: <RpcRequestMessage as TryFrom<Vec<u8>>>::Error| {
+                let request = RpcRequestPayload::from_slice(incoming_message.payload.clone())
+                    .map_err(|e: serde_utils::DeserializeError| {
                         HandleError::Deserialize(e.to_string())
-                    },
-                )?;
+                    })?;
 
-                let response = handlers
-                    .handle(&request.request_type, request.request)
-                    .await;
+                let response = handlers.handle(&request).await;
 
                 let response_message = RpcResponseMessage {
-                    request_id: request.request_id,
-                    request_type: request.request_type,
+                    request_id: request.request_id().to_owned(),
+                    request_type: request.request_type().to_owned(),
                     result: response,
                 };
 
@@ -442,10 +435,9 @@ impl IpcClientSubscription {
     }
 }
 
-impl<Payload, TryFromError> IpcClientTypedSubscription<Payload>
+impl<Payload> IpcClientTypedSubscription<Payload>
 where
-    Payload: TryFrom<Vec<u8>, Error = TryFromError> + PayloadTypeName,
-    TryFromError: std::fmt::Display,
+    Payload: DeserializeOwned + PayloadTypeName,
 {
     /// Receive a message.
     /// Setting the cancellation_token to `None` will wait indefinitely.
@@ -454,9 +446,11 @@ where
         cancellation_token: Option<CancellationToken>,
     ) -> Result<TypedIncomingMessage<Payload>, TypedReceiveError> {
         let received = self.0.receive(cancellation_token).await?;
-        received
-            .try_into()
-            .map_err(|e: TryFromError| TypedReceiveError::Typing(e.to_string()))
+        received.try_into().map_err(
+            |e: <TypedIncomingMessage<Payload> as TryFrom<IncomingMessage>>::Error| {
+                TypedReceiveError::Typing(e.to_string())
+            },
+        )
     }
 }
 
@@ -626,25 +620,7 @@ mod tests {
         }
 
         impl PayloadTypeName for TestPayload {
-            fn name() -> String {
-                "TestPayload".to_string()
-            }
-        }
-
-        impl TryFrom<Vec<u8>> for TestPayload {
-            type Error = serde_json::Error;
-
-            fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-                serde_json::from_slice(&value)
-            }
-        }
-
-        impl TryFrom<TestPayload> for Vec<u8> {
-            type Error = serde_json::Error;
-
-            fn try_from(value: TestPayload) -> Result<Self, Self::Error> {
-                serde_json::to_vec(&value)
-            }
+            const PAYLOAD_TYPE_NAME: &str = "TestPayload";
         }
 
         let unrelated = IncomingMessage {
@@ -692,25 +668,7 @@ mod tests {
         }
 
         impl PayloadTypeName for TestPayload {
-            fn name() -> String {
-                "TestPayload".to_string()
-            }
-        }
-
-        impl TryFrom<Vec<u8>> for TestPayload {
-            type Error = serde_json::Error;
-
-            fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-                serde_json::from_slice(&value)
-            }
-        }
-
-        impl TryFrom<TestPayload> for Vec<u8> {
-            type Error = serde_json::Error;
-
-            fn try_from(value: TestPayload) -> Result<Self, Self::Error> {
-                serde_json::to_vec(&value)
-            }
+            const PAYLOAD_TYPE_NAME: &str = "TestPayload";
         }
 
         let non_deserializable_message = IncomingMessage {
@@ -796,9 +754,7 @@ mod tests {
 
     mod request {
         use super::*;
-        use crate::rpc::{
-            request_message::RpcRequestMessage, response_message::RpcResponseMessage,
-        };
+        use crate::rpc::response_message::RpcResponseMessage;
 
         #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
         struct TestRequest {
@@ -816,38 +772,6 @@ mod tests {
 
             fn name() -> String {
                 "TestRequest".to_string()
-            }
-        }
-
-        impl TryFrom<TestRequest> for Vec<u8> {
-            type Error = serde_json::Error;
-
-            fn try_from(value: TestRequest) -> Result<Self, Self::Error> {
-                serde_json::to_vec(&value)
-            }
-        }
-
-        impl TryFrom<Vec<u8>> for TestRequest {
-            type Error = serde_json::Error;
-
-            fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-                serde_json::from_slice(&value)
-            }
-        }
-
-        impl TryFrom<TestResponse> for Vec<u8> {
-            type Error = serde_json::Error;
-
-            fn try_from(value: TestResponse) -> Result<Self, Self::Error> {
-                serde_json::to_vec(&value)
-            }
-        }
-
-        impl TryFrom<Vec<u8>> for TestResponse {
-            type Error = serde_json::Error;
-
-            fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-                serde_json::from_slice(&value)
             }
         }
 
@@ -886,28 +810,24 @@ mod tests {
 
             // Read and verify the outgoing message
             let outgoing_messages = communication_provider.outgoing().await;
-            let outgoing_request: RpcRequestMessage = outgoing_messages[0]
-                .clone()
-                .payload
-                .try_into()
-                .expect("Deserialization should not fail");
+            let outgoing_request: RpcRequestMessage<TestRequest> =
+                serde_utils::from_slice(&outgoing_messages[0].payload)
+                    .expect("Deserialization should not fail");
             assert_eq!(outgoing_request.request_type, "TestRequest");
-            let sent_request: TestRequest = outgoing_request.request.try_into().unwrap();
-            assert_eq!(sent_request, request);
+            assert_eq!(outgoing_request.request, request);
 
             // Simulate receiving a response
             let simulated_response = RpcResponseMessage {
-                result: Ok(response.try_into().unwrap()),
+                result: Ok(serde_utils::to_vec(&response).expect("Serialization should not fail")),
                 request_id: outgoing_request.request_id.clone(),
                 request_type: outgoing_request.request_type.clone(),
             };
             let simulated_response = IncomingMessage {
-                payload: simulated_response
-                    .try_into()
+                payload: serde_utils::to_vec(&simulated_response)
                     .expect("Serialization should not fail"),
                 source: Endpoint::BrowserBackground,
                 destination: Endpoint::Web { id: 9001 },
-                topic: Some(RpcResponseMessage::name()),
+                topic: Some(RpcResponseMessage::PAYLOAD_TYPE_NAME.to_owned()),
             };
             communication_provider.push_incoming(simulated_response);
 
@@ -933,17 +853,16 @@ mod tests {
 
             // Simulate receiving a request
             let simulated_request = RpcRequestMessage {
-                request: request.try_into().unwrap(),
+                request,
                 request_id: request_id.clone(),
                 request_type: "TestRequest".to_string(),
             };
             let simulated_request_message = IncomingMessage {
-                payload: simulated_request
-                    .try_into()
+                payload: serde_utils::to_vec(&simulated_request)
                     .expect("Serialization should not fail"),
                 source: Endpoint::Web { id: 9001 },
                 destination: Endpoint::BrowserBackground,
-                topic: Some(RpcRequestMessage::name()),
+                topic: Some(RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned()),
             };
             communication_provider.push_incoming(simulated_request_message);
 
@@ -952,14 +871,20 @@ mod tests {
 
             // Read and verify the outgoing message
             let outgoing_messages = communication_provider.outgoing().await;
-            let outgoing_response: RpcResponseMessage = outgoing_messages[0]
-                .clone()
-                .payload
-                .try_into()
-                .expect("Deserialization should not fail");
-            let result: TestResponse = outgoing_response.result.unwrap().try_into().unwrap();
+            let outgoing_response: RpcResponseMessage =
+                serde_utils::from_slice(&outgoing_messages[0].payload)
+                    .expect("Deserialization should not fail");
+            let result: TestResponse = serde_utils::from_slice(
+                &outgoing_response
+                    .result
+                    .expect("Response should not be an error"),
+            )
+            .expect("Deserialization should not fail");
 
-            assert_eq!(outgoing_messages[0].topic, Some(RpcResponseMessage::name()));
+            assert_eq!(
+                outgoing_messages[0].topic,
+                Some(RpcResponseMessage::PAYLOAD_TYPE_NAME.to_owned())
+            );
             assert_eq!(outgoing_response.request_type, "TestRequest");
             assert_eq!(result, response);
         }
