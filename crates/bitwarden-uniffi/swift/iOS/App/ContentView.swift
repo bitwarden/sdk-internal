@@ -189,7 +189,7 @@ struct ContentView: View {
 
         try await clientCrypto.initializeUserCrypto(
             req: InitUserCryptoRequest(
-                userId: nil,
+                userId: "fc0243b7-38f8-4f9c-af7e-e459298eefc3",
                 kdfParams: kdf,
                 email: EMAIL,
                 privateKey: loginData.PrivateKey,
@@ -248,7 +248,7 @@ struct ContentView: View {
         let key = biometricRetrieveValue()!
 
         try await clientCrypto.initializeUserCrypto(req: InitUserCryptoRequest(
-            userId: nil,
+            userId: "fc0243b7-38f8-4f9c-af7e-e459298eefc3",
             kdfParams: kdf,
             email: EMAIL,
             privateKey: privateKey,
@@ -276,7 +276,7 @@ struct ContentView: View {
         let pinProtectedUserKey = defaults.string(forKey: "pinProtectedUserKey")!
 
         try await clientCrypto.initializeUserCrypto(req: InitUserCryptoRequest(
-            userId: nil,
+            userId: "fc0243b7-38f8-4f9c-af7e-e459298eefc3",
             kdfParams: kdf,
             email: EMAIL,
             privateKey: privateKey,
