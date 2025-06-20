@@ -81,8 +81,7 @@ impl SignedSecurityState {
         self,
         verifying_key: &VerifyingKey,
     ) -> Result<SecurityState, CryptoError> {
-        self
-            .0
+        self.0
             .verify_and_unwrap(verifying_key, &SigningNamespace::SecurityState)
     }
 }
