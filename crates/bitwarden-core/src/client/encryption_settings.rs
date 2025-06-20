@@ -1,4 +1,4 @@
-use bitwarden_crypto::security_state::SignedSecurityState;
+use bitwarden_crypto::{security_state::SignedSecurityState, CryptoError};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 #[cfg(any(feature = "internal", feature = "secrets"))]
@@ -7,8 +7,6 @@ use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use uuid::Uuid;
-
-use bitwarden_crypto::CryptoError;
 
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::key_management::{KeyIds, SymmetricKeyId};
@@ -64,9 +62,10 @@ impl EncryptionSettings {
 
         use crate::key_management::{AsymmetricKeyId, SymmetricKeyId};
 
-        // This is an all-or-nothing check. The server cannot pretend a signing key or security state to be missing, because they are *always* present when the
-        // user key is an XChaCha20Poly1305Key. Thus, the server or network cannot lie about the presence of these, because otherwise the entire user account will
-        // fail to decrypt.
+        // This is an all-or-nothing check. The server cannot pretend a signing key or security
+        // state to be missing, because they are *always* present when the user key is an
+        // XChaCha20Poly1305Key. Thus, the server or network cannot lie about the presence of these,
+        // because otherwise the entire user account will fail to decrypt.
         let is_v2_user = if let SymmetricCryptoKey::XChaCha20Poly1305Key(_) = user_key {
             true
         } else {
@@ -113,8 +112,8 @@ impl EncryptionSettings {
             let private_key = {
                 let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
 
-                // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a recovery
-                // process in place.
+                // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a
+                // recovery process in place.
                 AsymmetricCryptoKey::from_der(&dec)
                     .map_err(|_| {
                         warn!("Invalid private key");

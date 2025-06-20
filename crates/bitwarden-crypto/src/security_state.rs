@@ -1,20 +1,24 @@
-//! Security state is a signed object that attests to a user's (or later an organization's) security state.
-//! The security goal is to prevent downgrades of specific features within the user's account by the server / a
-//! networked attacker with TLS introspection access.
+//! Security state is a signed object that attests to a user's (or later an organization's) security
+//! state. The security goal is to prevent downgrades of specific features within the user's account
+//! by the server / a networked attacker with TLS introspection access.
 //!
-//! A security state contains a security version. Based on this version, features can be disabled. Since the server cannot
-//! sign a security state, it can no longer downgrade the feature, because it cannot produce an arbitrary valid signed security state.
+//! A security state contains a security version. Based on this version, features can be disabled.
+//! Since the server cannot sign a security state, it can no longer downgrade the feature, because
+//! it cannot produce an arbitrary valid signed security state.
 //!
-//! Note: A long-term compromised server can record the security state of a user, and then replay this specific state, or the entire account
-//! to downgrade users to previous states. This can be prevented per logged in session by the client, and for bootstrapping a client by
+//! Note: A long-term compromised server can record the security state of a user, and then replay
+//! this specific state, or the entire account to downgrade users to previous states. This can be
+//! prevented per logged in session by the client, and for bootstrapping a client by
 //! using an extended login-with-device protocol.
 //!
 //! To utilize the security state to disable a feature the following steps are taken:
 //! 1. Assume: Feature with format version A is insecure, and cannot be changed by simple mutation
 //! 2. A new, safe format version B is introduced, and an upgrade path created
 //! 3. The upgrade path is made mandatory
-//! 4. After upgrades are run, the sdk validates that all items are in format version B, and the security state can be updated to contain the security version N+1
-//! 5. The client, given a security state with security version N+1 will reject all items that are in format version A.
+//! 4. After upgrades are run, the sdk validates that all items are in format version B, and the
+//!    security state can be updated to contain the security version N+1
+//! 5. The client, given a security state with security version N+1 will reject all items that are
+//!    in format version A.
 
 use std::str::FromStr;
 
@@ -34,8 +38,9 @@ export type SignedSecurityState = string;
 
 /// The security state is a signed object attesting to the security state of a user.
 ///
-/// It contains a version, which can only ever increment. Based on the version, old formats and features are blocked. This prevents a server from downgrading
-/// a user's account features, because only the user can create this signed object.
+/// It contains a version, which can only ever increment. Based on the version, old formats and
+/// features are blocked. This prevents a server from downgrading a user's account features, because
+/// only the user can create this signed object.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SecurityState {
