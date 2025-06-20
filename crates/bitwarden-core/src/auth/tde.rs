@@ -43,6 +43,7 @@ pub(super) fn make_register_tde_keys(
         // Note: Signing keys are not supported on registration yet. This needs to be changed as
         // soon as registration is supported.
         None,
+        None,
     )?;
 
     Ok(RegisterTdeKeyResponse {

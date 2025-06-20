@@ -4,7 +4,9 @@ use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
+use bitwarden_crypto::{
+    security_state::SignedSecurityState, EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey,
+};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -199,9 +201,16 @@ impl InternalClient {
         user_key: EncString,
         private_key: EncString,
         signing_key: Option<EncString>,
+        security_state: Option<SignedSecurityState>,
     ) -> Result<(), EncryptionSettingsError> {
         let user_key = master_key.decrypt_user_key(user_key)?;
-        EncryptionSettings::new_decrypted_key(user_key, private_key, signing_key, &self.key_store)?;
+        EncryptionSettings::new_decrypted_key(
+            user_key,
+            private_key,
+            signing_key,
+            security_state,
+            &self.key_store,
+        )?;
 
         Ok(())
     }
@@ -212,8 +221,15 @@ impl InternalClient {
         user_key: SymmetricCryptoKey,
         private_key: EncString,
         signing_key: Option<EncString>,
+        security_state: Option<SignedSecurityState>,
     ) -> Result<(), EncryptionSettingsError> {
-        EncryptionSettings::new_decrypted_key(user_key, private_key, signing_key, &self.key_store)?;
+        EncryptionSettings::new_decrypted_key(
+            user_key,
+            private_key,
+            signing_key,
+            security_state,
+            &self.key_store,
+        )?;
 
         Ok(())
     }
@@ -225,9 +241,15 @@ impl InternalClient {
         pin_protected_user_key: EncString,
         private_key: EncString,
         signing_key: Option<EncString>,
+        security_state: Option<SignedSecurityState>,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = pin_key.decrypt_user_key(pin_protected_user_key)?;
-        self.initialize_user_crypto_decrypted_key(decrypted_user_key, private_key, signing_key)
+        self.initialize_user_crypto_decrypted_key(
+            decrypted_user_key,
+            private_key,
+            signing_key,
+            security_state,
+        )
     }
 
     #[cfg(feature = "secrets")]

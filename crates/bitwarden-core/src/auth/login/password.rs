@@ -55,6 +55,7 @@ pub(crate) async fn login_password(
             user_key,
             private_key,
             None,
+            None,
         )?;
     }
 

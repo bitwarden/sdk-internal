@@ -1,3 +1,4 @@
+use bitwarden_crypto::security_state::SignedSecurityState;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 #[cfg(any(feature = "internal", feature = "secrets"))]
@@ -47,6 +48,7 @@ impl EncryptionSettings {
         user_key: SymmetricCryptoKey,
         private_key: EncString,
         signing_key: Option<EncString>,
+        _security_state: Option<SignedSecurityState>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
         use bitwarden_crypto::{
