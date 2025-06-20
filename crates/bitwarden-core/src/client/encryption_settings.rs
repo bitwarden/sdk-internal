@@ -66,12 +66,7 @@ impl EncryptionSettings {
         // state to be missing, because they are *always* present when the user key is an
         // XChaCha20Poly1305Key. Thus, the server or network cannot lie about the presence of these,
         // because otherwise the entire user account will fail to decrypt.
-        let is_v2_user = if let SymmetricCryptoKey::XChaCha20Poly1305Key(_) = user_key {
-            true
-        } else {
-            false
-        };
-
+        let is_v2_user = matches!(user_key, SymmetricCryptoKey::XChaCha20Poly1305Key(_));
         if is_v2_user {
             // For v2 users, we mandate the signing key and security state to be present
             // The private key must also be valid.

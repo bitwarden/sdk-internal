@@ -72,7 +72,7 @@ pub fn sign<Ids: KeyIds>(
     ctx: &mut KeyStoreContext<Ids>,
 ) -> Result<SignedSecurityState, CryptoError> {
     let signing_key = ctx.get_signing_key(signing_key_id)?;
-    security_state.sign(&signing_key)
+    security_state.sign(signing_key)
 }
 
 impl SignedSecurityState {
@@ -81,9 +81,9 @@ impl SignedSecurityState {
         self,
         verifying_key: &VerifyingKey,
     ) -> Result<SecurityState, CryptoError> {
-        Ok(self
+        self
             .0
-            .verify_and_unwrap(verifying_key, &SigningNamespace::SecurityState)?)
+            .verify_and_unwrap(verifying_key, &SigningNamespace::SecurityState)
     }
 }
 
