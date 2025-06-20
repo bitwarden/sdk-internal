@@ -34,6 +34,8 @@ key_ids! {
     #[signing]
     pub enum SigningKeyId {
         UserSigningKey,
+        #[local]
+        Local(&'static str),
     }
 
     pub KeyIds => SymmetricKeyId, AsymmetricKeyId, SigningKeyId;

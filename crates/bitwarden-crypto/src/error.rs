@@ -66,6 +66,12 @@ pub enum CryptoError {
 
     #[error("Encoding error, {0}")]
     EncodingError(#[from] EncodingError),
+
+    #[error("Uninitialized error")]
+    UninitializedError,
+
+    #[error("Attempted security downgrade {0}")]
+    SecurityDowngrade(String),
 }
 
 #[derive(Debug, Error)]
