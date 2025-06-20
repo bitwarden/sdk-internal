@@ -28,9 +28,8 @@ bitwarden-vault = { workspace = true, features = ["wasm"] }
 console_error_panic_hook = "0.1.7"
 console_log = { version = "1.0.0", features = ["color"] }
 log = "0.4.20"
-# When upgrading wasm-bindgen, make sure to update the version in the workflows!
-wasm-bindgen = { version = "=0.2.100", features = ["serde-serialize"] }
-wasm-bindgen-futures = "0.4.41"
+wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
 
 [lints]
 workspace = true
