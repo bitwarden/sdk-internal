@@ -69,6 +69,9 @@ pub enum CryptoError {
 
     #[error("Uninitialized error")]
     UninitializedError,
+
+    #[error("Attempted security downgrade {0}")]
+    SecurityDowngrade(String),
 }
 
 #[derive(Debug, Error)]
