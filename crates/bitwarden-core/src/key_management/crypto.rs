@@ -623,7 +623,7 @@ pub fn make_user_signing_keys_for_enrollment(
     );
     let signed_security_state = bitwarden_crypto::security_state::sign(
         &security_state,
-        SigningKeyId::UserSigningKey,
+        temporary_signature_keypair_id,
         &mut ctx,
     )?;
     Ok(MakeUserSigningKeysResponse {
