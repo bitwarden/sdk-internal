@@ -24,6 +24,7 @@ use std::str::FromStr;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
+use serde_bytes::ByteBuf;
 
 use crate::{
     cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CryptoError, KeyIds,
@@ -44,7 +45,7 @@ export type SignedSecurityState = string;
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SecurityState {
-    entity_id: String,
+    entity_id: ByteBuf,
     version: u64,
 }
 
@@ -53,7 +54,7 @@ impl SecurityState {
     /// The user needs to be a v2 encryption user.
     pub fn initialize_for_user(user_id: uuid::Uuid) -> Self {
         SecurityState {
-            entity_id: user_id.to_string(),
+            entity_id: user_id.as_bytes().to_vec().into(),
             version: 1,
         }
     }
