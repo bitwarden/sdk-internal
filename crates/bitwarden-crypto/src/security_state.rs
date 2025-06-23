@@ -168,7 +168,16 @@ mod tests {
             .verify_and_unwrap(&verifying_key)
             .unwrap();
 
-        assert_eq!(verified_security_state.entity_id, user_id.to_string());
+        assert_eq!(
+            uuid::Uuid::from_bytes(
+                verified_security_state
+                    .entity_id
+                    .as_ref()
+                    .try_into()
+                    .unwrap()
+            ),
+            user_id
+        );
         assert_eq!(verified_security_state.version, 1);
     }
 }
