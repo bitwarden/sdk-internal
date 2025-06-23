@@ -9,9 +9,9 @@
  */
 
 use reqwest;
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as _, Deserialize, Serialize};
 
-use super::{configuration, Error};
+use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
 /// struct for typed errors of method [`organizations_organization_id_billing_get`]
@@ -97,43 +97,39 @@ pub async fn organizations_organization_id_billing_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{organizationId}/billing",
-        local_var_configuration.base_path,
-        organizationId = crate::apis::urlencode(organization_id.to_string())
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrganizationIdBillingGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrganizationIdBillingGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -141,43 +137,39 @@ pub async fn organizations_organization_id_billing_history_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingHistoryGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{organizationId}/billing/history",
-        local_var_configuration.base_path,
-        organizationId = crate::apis::urlencode(organization_id.to_string())
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrganizationIdBillingHistoryGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrganizationIdBillingHistoryGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -187,51 +179,47 @@ pub async fn organizations_organization_id_billing_invoices_get(
     status: Option<&str>,
     start_after: Option<&str>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingInvoicesGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_status = status;
+    let p_start_after = start_after;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{organizationId}/billing/invoices",
-        local_var_configuration.base_path,
-        organizationId = crate::apis::urlencode(organization_id.to_string())
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_str) = status {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("status", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_status {
+        req_builder = req_builder.query(&[("status", &param_value.to_string())]);
     }
-    if let Some(ref local_var_str) = start_after {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("startAfter", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_start_after {
+        req_builder = req_builder.query(&[("startAfter", &param_value.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrganizationIdBillingInvoicesGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrganizationIdBillingInvoicesGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -239,43 +227,39 @@ pub async fn organizations_organization_id_billing_metadata_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingMetadataGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{organizationId}/billing/metadata",
-        local_var_configuration.base_path,
-        organizationId = crate::apis::urlencode(organization_id.to_string())
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrganizationIdBillingMetadataGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrganizationIdBillingMetadataGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -283,43 +267,39 @@ pub async fn organizations_organization_id_billing_payment_method_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingPaymentMethodGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{organizationId}/billing/payment-method",
-        local_var_configuration.base_path,
-        organizationId = crate::apis::urlencode(organization_id.to_string())
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrganizationIdBillingPaymentMethodGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrganizationIdBillingPaymentMethodGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -328,44 +308,41 @@ pub async fn organizations_organization_id_billing_payment_method_put(
     organization_id: uuid::Uuid,
     update_payment_method_request_body: Option<models::UpdatePaymentMethodRequestBody>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingPaymentMethodPutError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_update_payment_method_request_body = update_payment_method_request_body;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{organizationId}/billing/payment-method",
-        local_var_configuration.base_path,
-        organizationId = crate::apis::urlencode(organization_id.to_string())
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&update_payment_method_request_body);
+    req_builder = req_builder.json(&p_update_payment_method_request_body);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrganizationIdBillingPaymentMethodPutError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrganizationIdBillingPaymentMethodPutError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -374,45 +351,44 @@ pub async fn organizations_organization_id_billing_payment_method_verify_bank_ac
     organization_id: uuid::Uuid,
     verify_bank_account_request_body: Option<models::VerifyBankAccountRequestBody>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingPaymentMethodVerifyBankAccountPostError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_verify_bank_account_request_body = verify_bank_account_request_body;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{organizationId}/billing/payment-method/verify-bank-account",
-        local_var_configuration.base_path,
-        organizationId = crate::apis::urlencode(organization_id.to_string())
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&verify_bank_account_request_body);
+    req_builder = req_builder.json(&p_verify_bank_account_request_body);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<
+        let content = resp.text().await?;
+        let entity: Option<
             OrganizationsOrganizationIdBillingPaymentMethodVerifyBankAccountPostError,
-        > = serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        > = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -421,45 +397,43 @@ pub async fn organizations_organization_id_billing_restart_subscription_post(
     organization_id: uuid::Uuid,
     organization_create_request_model: Option<models::OrganizationCreateRequestModel>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingRestartSubscriptionPostError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_organization_create_request_model = organization_create_request_model;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{organizationId}/billing/restart-subscription",
-        local_var_configuration.base_path,
-        organizationId = crate::apis::urlencode(organization_id.to_string())
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&organization_create_request_model);
+    req_builder = req_builder.json(&p_organization_create_request_model);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<
-            OrganizationsOrganizationIdBillingRestartSubscriptionPostError,
-        > = serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrganizationIdBillingRestartSubscriptionPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -467,43 +441,39 @@ pub async fn organizations_organization_id_billing_tax_information_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingTaxInformationGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{organizationId}/billing/tax-information",
-        local_var_configuration.base_path,
-        organizationId = crate::apis::urlencode(organization_id.to_string())
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrganizationIdBillingTaxInformationGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrganizationIdBillingTaxInformationGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -512,44 +482,41 @@ pub async fn organizations_organization_id_billing_tax_information_put(
     organization_id: uuid::Uuid,
     tax_information_request_body: Option<models::TaxInformationRequestBody>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingTaxInformationPutError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_tax_information_request_body = tax_information_request_body;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{organizationId}/billing/tax-information",
-        local_var_configuration.base_path,
-        organizationId = crate::apis::urlencode(organization_id.to_string())
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    local_var_req_builder = local_var_req_builder.json(&tax_information_request_body);
+    req_builder = req_builder.json(&p_tax_information_request_body);
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrganizationIdBillingTaxInformationPutError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrganizationIdBillingTaxInformationPutError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }
 
@@ -558,46 +525,42 @@ pub async fn organizations_organization_id_billing_transactions_get(
     organization_id: uuid::Uuid,
     start_after: Option<String>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingTransactionsGetError>> {
-    let local_var_configuration = configuration;
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_start_after = start_after;
 
-    let local_var_client = &local_var_configuration.client;
-
-    let local_var_uri_str = format!(
+    let uri_str = format!(
         "{}/organizations/{organizationId}/billing/transactions",
-        local_var_configuration.base_path,
-        organizationId = crate::apis::urlencode(organization_id.to_string())
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
     );
-    let mut local_var_req_builder =
-        local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref local_var_str) = start_after {
-        local_var_req_builder =
-            local_var_req_builder.query(&[("startAfter", &local_var_str.to_string())]);
+    if let Some(ref param_value) = p_start_after {
+        req_builder = req_builder.query(&[("startAfter", &param_value.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-        local_var_req_builder =
-            local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
-    if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-        local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
     };
 
-    let local_var_req = local_var_req_builder.build()?;
-    let local_var_resp = local_var_client.execute(local_var_req).await?;
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
 
-    let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    let status = resp.status();
 
-    if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+    if !status.is_client_error() && !status.is_server_error() {
         Ok(())
     } else {
-        let local_var_entity: Option<OrganizationsOrganizationIdBillingTransactionsGetError> =
-            serde_json::from_str(&local_var_content).ok();
-        let local_var_error = ResponseContent {
-            status: local_var_status,
-            content: local_var_content,
-            entity: local_var_entity,
-        };
-        Err(Error::ResponseError(local_var_error))
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrganizationIdBillingTransactionsGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
     }
 }

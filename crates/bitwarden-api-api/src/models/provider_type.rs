@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum ProviderType {
     Msp = 0,
@@ -33,15 +24,18 @@ pub enum ProviderType {
 }
 
 impl std::fmt::Display for ProviderType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Msp => write!(f, "0"),
-            Self::Reseller => write!(f, "1"),
-            Self::MultiOrganizationEnterprise => write!(f, "2"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Msp => "0",
+                Self::Reseller => "1",
+                Self::MultiOrganizationEnterprise => "2",
+            }
+        )
     }
 }
-
 impl Default for ProviderType {
     fn default() -> ProviderType {
         Self::Msp

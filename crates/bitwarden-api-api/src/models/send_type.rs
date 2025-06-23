@@ -9,22 +9,13 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 ///
 #[repr(i64)]
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    serde_repr::Serialize_repr,
-    serde_repr::Deserialize_repr,
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
 pub enum SendType {
     Text = 0,
@@ -32,14 +23,17 @@ pub enum SendType {
 }
 
 impl std::fmt::Display for SendType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Text => write!(f, "0"),
-            Self::File => write!(f, "1"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Text => "0",
+                Self::File => "1",
+            }
+        )
     }
 }
-
 impl Default for SendType {
     fn default() -> SendType {
         Self::Text

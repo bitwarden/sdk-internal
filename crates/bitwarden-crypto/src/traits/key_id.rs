@@ -2,7 +2,7 @@ use std::{fmt::Debug, hash::Hash};
 
 use zeroize::ZeroizeOnDrop;
 
-use crate::{AsymmetricCryptoKey, CryptoKey, SymmetricCryptoKey};
+use crate::{AsymmetricCryptoKey, CryptoKey, SigningKey, SymmetricCryptoKey};
 
 /// Represents a key identifier that can be used to identify cryptographic keys in the
 /// key store. It is used to avoid exposing the key material directly in the public API.
@@ -33,6 +33,8 @@ pub trait KeyIds {
     type Symmetric: KeyId<KeyValue = SymmetricCryptoKey>;
     #[allow(missing_docs)]
     type Asymmetric: KeyId<KeyValue = AsymmetricCryptoKey>;
+    /// Signing keys are used to create detached signatures and to sign objects.
+    type Signing: KeyId<KeyValue = SigningKey>;
 }
 
 /// Just a small derive_like macro that can be used to generate the key identifier enums.
@@ -52,7 +54,13 @@ pub trait KeyIds {
 ///     pub enum AsymmKeyId {
 ///         PrivateKey,
 ///     }
-///     pub Ids => SymmKeyId, AsymmKeyId;
+///
+///     #[signing]
+///     pub enum SigningKeyId {
+///        SigningKey,
+///     }
+///
+///     pub Ids => SymmKeyId, AsymmKeyId, SigningKeyId;
 /// }
 #[macro_export]
 macro_rules! key_ids {
@@ -66,7 +74,7 @@ macro_rules! key_ids {
             $(,)?
         }
     )+
-    $ids_vis:vis $ids_name:ident => $symm_name:ident, $asymm_name:ident;
+    $ids_vis:vis $ids_name:ident => $symm_name:ident, $asymm_name:ident, $signing_name:ident;
     ) => {
         $(
             #[derive(std::fmt::Debug, Clone, Copy, std::hash::Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -93,11 +101,13 @@ macro_rules! key_ids {
         impl $crate::KeyIds for $ids_name {
             type Symmetric = $symm_name;
             type Asymmetric = $asymm_name;
+            type Signing = $signing_name;
         }
     };
 
     ( @key_type symmetric ) => { $crate::SymmetricCryptoKey };
     ( @key_type asymmetric ) => { $crate::AsymmetricCryptoKey };
+    ( @key_type signing ) => { $crate::SigningKey };
 
     ( @variant_match $variant:ident ( $inner:ty ) ) => { $variant (_) };
     ( @variant_match $variant:ident ) => { $variant };
@@ -109,7 +119,7 @@ macro_rules! key_ids {
 #[cfg(test)]
 pub(crate) mod tests {
     use crate::{
-        traits::tests::{TestAsymmKey, TestSymmKey},
+        traits::tests::{TestAsymmKey, TestSigningKey, TestSymmKey},
         KeyId,
     };
 
@@ -122,5 +132,9 @@ pub(crate) mod tests {
         assert!(!TestAsymmKey::A(0).is_local());
         assert!(!TestAsymmKey::B.is_local());
         assert!(TestAsymmKey::C("test").is_local());
+
+        assert!(!TestSigningKey::A(0).is_local());
+        assert!(!TestSigningKey::B.is_local());
+        assert!(TestSigningKey::C("test").is_local());
     }
 }
