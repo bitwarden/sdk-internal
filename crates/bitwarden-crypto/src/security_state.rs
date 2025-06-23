@@ -69,6 +69,11 @@ impl SecurityState {
             signing_key.sign(self, &SigningNamespace::SecurityState)?,
         ))
     }
+
+    /// Returns the version of the security state
+    pub fn version(&self) -> u64 {
+        self.version
+    }
 }
 
 /// Signs the `SecurityState` with the provided signing key ID from the context.
@@ -183,6 +188,6 @@ mod tests {
             ),
             user_id
         );
-        assert_eq!(verified_security_state.version, 1);
+        assert_eq!(verified_security_state.version(), 1);
     }
 }

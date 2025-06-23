@@ -602,6 +602,8 @@ pub struct EnrollUserCryptoV2Response {
 
     /// The user's signed security state
     signed_security_state: SignedSecurityState,
+    /// The security state's version
+    security_version: u64,
 }
 
 /// Initializes the user's cryptographic state for v2 users.
@@ -673,6 +675,7 @@ pub fn make_keys_for_user_crypto_v2(
         verifying_key: STANDARD.encode(signing_key.to_verifying_key().to_cose()),
 
         signed_security_state,
+        security_version: security_state.version(),
     })
 }
 
