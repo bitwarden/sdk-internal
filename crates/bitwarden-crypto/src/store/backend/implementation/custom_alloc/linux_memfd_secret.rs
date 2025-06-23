@@ -55,9 +55,11 @@ unsafe impl Allocator for LinuxMemfdSecretAlloc {
             return Err(AllocError);
         };
 
-        // Check that the pointer is aligned to the requested alignment.
-        // This should never happen, but just in case, we free the memory and return an allocation
-        // error.
+        // The pointer that we return needs to be aligned to the requested alignment.
+        // If that's not the case, we should free the memory and return an allocation error.
+        //  While we check for this error condition, this should never happen in practice, as the
+        // pointer returned by `memfd_secret_sized` should be page-aligned (typically 4KB)
+        // which should be larger than any possible alignment value.
         if (ptr.as_ptr() as *mut u8).align_offset(layout.align()) != 0 {
             unsafe { memsec::free_memfd_secret(ptr) };
             return Err(AllocError);
