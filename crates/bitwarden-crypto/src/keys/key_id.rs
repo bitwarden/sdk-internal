@@ -9,7 +9,8 @@ pub(crate) const KEY_ID_SIZE: usize = 16;
 /// A key id is a unique identifier for a single key. There is a 1:1 mapping between key ID and key
 /// bytes, so something like a user key rotation is replacing the key with ID A with a new key with
 /// ID B.
-pub(crate) struct KeyId(uuid::Uuid);
+#[derive(Clone)]
+pub(crate) struct KeyId(Uuid);
 
 /// Fixed length identifiers for keys.
 /// These are intended to be unique and constant per-key.
@@ -35,6 +36,12 @@ impl KeyId {
 impl From<KeyId> for [u8; KEY_ID_SIZE] {
     fn from(key_id: KeyId) -> Self {
         key_id.0.into_bytes()
+    }
+}
+
+impl From<&KeyId> for Vec<u8> {
+    fn from(key_id: &KeyId) -> Self {
+        key_id.0.as_bytes().to_vec()
     }
 }
 
