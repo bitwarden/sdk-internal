@@ -1,3 +1,4 @@
+use erased_serde::Serialize as ErasedSerialize;
 use tokio::sync::RwLock;
 
 use super::handler::{ErasedRpcHandler, RpcHandler};
@@ -22,7 +23,10 @@ impl RpcHandlerRegistry {
         self.handlers.write().await.insert(name, Box::new(handler));
     }
 
-    pub async fn handle(&self, request: &RpcRequestPayload) -> Result<Vec<u8>, RpcError> {
+    pub async fn handle(
+        &self,
+        request: &RpcRequestPayload,
+    ) -> Result<Box<dyn ErasedSerialize>, RpcError> {
         match self.handlers.read().await.get(request.request_type()) {
             Some(handler) => handler.handle(request).await,
             None => Err(RpcError::NoHandlerFound),
@@ -32,7 +36,7 @@ impl RpcHandlerRegistry {
 
 #[cfg(test)]
 mod test {
-    use serde::{Deserialize, Serialize};
+    use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
     use super::*;
     use crate::{
@@ -108,9 +112,17 @@ mod test {
             .handle(&serialized_request)
             .await
             .expect("Failed to handle request");
-        let response: TestResponse =
-            serde_utils::from_slice(&result).expect("Failed to deserialize response");
+        let response: TestResponse = deserialize_erased_object(&result);
 
         assert_eq!(response.result, 3);
+    }
+
+    fn deserialize_erased_object<T>(value: &Box<dyn ErasedSerialize>) -> T
+    where
+        T: DeserializeOwned,
+    {
+        let serialized = serde_utils::to_vec(value).expect("Failed to serialize erased serialize");
+
+        serde_utils::from_slice(&serialized).expect("Failed to deserialize erased serialize")
     }
 }

@@ -1,5 +1,7 @@
 use std::future::Future;
 
+use erased_serde::Serialize as ErasedSerialize;
+
 use crate::{
     rpc::{error::RpcError, request::RpcRequest, request_message::RpcRequestPayload},
     serde_utils,
@@ -72,7 +74,10 @@ where
 
 #[async_trait::async_trait]
 pub(crate) trait ErasedRpcHandler: Send + Sync {
-    async fn handle(&self, serialized_request: &RpcRequestPayload) -> Result<Vec<u8>, RpcError>;
+    async fn handle(
+        &self,
+        serialized_request: &RpcRequestPayload,
+    ) -> Result<Box<dyn ErasedSerialize>, RpcError>;
 }
 
 #[async_trait::async_trait]
@@ -80,11 +85,14 @@ impl<H> ErasedRpcHandler for H
 where
     H: RpcHandler + Send + Sync,
 {
-    async fn handle(&self, serialized_request: &RpcRequestPayload) -> Result<Vec<u8>, RpcError> {
+    async fn handle(
+        &self,
+        serialized_request: &RpcRequestPayload,
+    ) -> Result<Box<dyn ErasedSerialize>, RpcError> {
         let request: H::Request = serialized_request.full()?.request;
 
         let response = self.handle(request).await;
 
-        self.serialize_response(response)
+        Ok(Box::new(response) as Box<dyn ErasedSerialize>)
     }
 }

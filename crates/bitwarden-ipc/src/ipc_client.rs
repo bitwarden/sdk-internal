@@ -18,7 +18,7 @@ use crate::{
         exec::handler_registry::RpcHandlerRegistry,
         request::RpcRequest,
         request_message::{RpcRequestMessage, RpcRequestPayload, RPC_REQUEST_PAYLOAD_TYPE_NAME},
-        response_message::RpcResponseMessage,
+        response_message::{IncomingRpcResponseMessage, OutgoingRpcResponseMessage},
     },
     serde_utils,
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
@@ -295,8 +295,9 @@ where
         Request: RpcRequest,
     {
         let request_id = uuid::Uuid::new_v4().to_string();
-        let mut response_subscription: IpcClientTypedSubscription<RpcResponseMessage> =
-            self.subscribe_typed().await?;
+        let mut response_subscription: IpcClientTypedSubscription<
+            IncomingRpcResponseMessage<Request::Response>,
+        > = self.subscribe_typed().await?;
 
         let request_payload = RpcRequestMessage {
             request,
@@ -334,17 +335,9 @@ where
             }
         };
 
-        let result: Request::Response = serde_utils::from_slice(&response.payload.result?)
-            .map_err(|e: serde_utils::DeserializeError| {
-                RequestError::<Crypto::SendError>::RpcError(RpcError::ResponseDeserializationError(
-                    e.to_string(),
-                ))
-            })?;
-
-        Ok(result)
+        Ok(response.payload.result?)
     }
 
-    #[allow(dead_code)]
     fn handle_rpc_request(self: &Arc<Self>, incoming_message: IncomingMessage) {
         let client = self.clone();
         let future = async move {
@@ -370,7 +363,7 @@ where
 
                 let response = handlers.handle(&request).await;
 
-                let response_message = RpcResponseMessage {
+                let response_message = OutgoingRpcResponseMessage {
                     request_id: request.request_id().to_owned(),
                     request_type: request.request_type().to_owned(),
                     result: response,
@@ -382,7 +375,7 @@ where
                 }
                 .try_into()
                 .map_err(
-                    |e: <TypedOutgoingMessage<RpcResponseMessage> as TryInto<
+                    |e: <TypedOutgoingMessage<OutgoingRpcResponseMessage> as TryInto<
                         OutgoingMessage,
                     >>::Error| { HandleError::Serialize(e.to_string()) },
                 )?;
@@ -754,7 +747,7 @@ mod tests {
 
     mod request {
         use super::*;
-        use crate::rpc::response_message::RpcResponseMessage;
+        use crate::rpc::response_message::IncomingRpcResponseMessage;
 
         #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
         struct TestRequest {
@@ -817,8 +810,8 @@ mod tests {
             assert_eq!(outgoing_request.request, request);
 
             // Simulate receiving a response
-            let simulated_response = RpcResponseMessage {
-                result: Ok(serde_utils::to_vec(&response).expect("Serialization should not fail")),
+            let simulated_response = IncomingRpcResponseMessage {
+                result: Ok(response),
                 request_id: outgoing_request.request_id.clone(),
                 request_type: outgoing_request.request_type.clone(),
             };
@@ -827,7 +820,9 @@ mod tests {
                     .expect("Serialization should not fail"),
                 source: Endpoint::BrowserBackground,
                 destination: Endpoint::Web { id: 9001 },
-                topic: Some(RpcResponseMessage::PAYLOAD_TYPE_NAME.to_owned()),
+                topic: Some(
+                    IncomingRpcResponseMessage::<TestRequest>::PAYLOAD_TYPE_NAME.to_owned(),
+                ),
             };
             communication_provider.push_incoming(simulated_response);
 
@@ -871,22 +866,16 @@ mod tests {
 
             // Read and verify the outgoing message
             let outgoing_messages = communication_provider.outgoing().await;
-            let outgoing_response: RpcResponseMessage =
+            let outgoing_response: IncomingRpcResponseMessage<TestResponse> =
                 serde_utils::from_slice(&outgoing_messages[0].payload)
                     .expect("Deserialization should not fail");
-            let result: TestResponse = serde_utils::from_slice(
-                &outgoing_response
-                    .result
-                    .expect("Response should not be an error"),
-            )
-            .expect("Deserialization should not fail");
 
             assert_eq!(
                 outgoing_messages[0].topic,
-                Some(RpcResponseMessage::PAYLOAD_TYPE_NAME.to_owned())
+                Some(IncomingRpcResponseMessage::<TestResponse>::PAYLOAD_TYPE_NAME.to_owned())
             );
             assert_eq!(outgoing_response.request_type, "TestRequest");
-            assert_eq!(result, response);
+            assert_eq!(outgoing_response.result, Ok(response));
         }
     }
 }

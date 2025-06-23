@@ -23,6 +23,7 @@ wasm = [
 async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-threading = { workspace = true }
+erased-serde = "0.4.6"
 js-sys = { workspace = true, optional = true }
 log = { workspace = true }
 serde = { workspace = true }

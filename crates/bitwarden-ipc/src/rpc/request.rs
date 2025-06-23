@@ -1,7 +1,7 @@
 use serde::{de::DeserializeOwned, Serialize};
 
-pub trait RpcRequest: Serialize + DeserializeOwned {
-    type Response: Serialize + DeserializeOwned;
+pub trait RpcRequest: Serialize + DeserializeOwned + 'static {
+    type Response: Serialize + DeserializeOwned + 'static;
 
     /// Used to identify handlers
     fn name() -> String;
