@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use coset::CborSerializable;
@@ -336,11 +336,11 @@ impl KeyDecryptable<SymmetricCryptoKey, String> for EncString {
 /// Usually we wouldn't want to expose EncStrings in the API or the schemas.
 /// But during the transition phase we will expose endpoints using the EncString type.
 impl schemars::JsonSchema for EncString {
-    fn schema_name() -> String {
-        "EncString".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "EncString".into()
     }
 
-    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(generator: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
         generator.subschema_for::<String>()
     }
 }

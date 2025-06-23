@@ -2,7 +2,7 @@
 //! identity, which is provided by a signature keypair. This is done by signing the public key, and
 //! requiring consumers to verify the public key before consumption by using unwrap_and_verify.
 
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
@@ -150,11 +150,11 @@ impl serde::Serialize for SignedPublicKey {
 }
 
 impl schemars::JsonSchema for SignedPublicKey {
-    fn schema_name() -> String {
-        "SignedPublicKey".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "SignedPublicKey".into()
     }
 
-    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(generator: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
         generator.subschema_for::<String>()
     }
 }
