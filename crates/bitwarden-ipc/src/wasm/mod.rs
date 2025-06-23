@@ -1,6 +1,5 @@
 mod communication_backend;
 mod discover;
-mod error;
 mod ipc_client;
 mod message;
 

@@ -13,7 +13,7 @@ mod traits;
 pub mod wasm;
 
 pub use ipc_client::{
-    IpcClient, IpcClientSubscription, IpcClientTypedSubscription, ReceiveError, SubscribeError,
-    TypedReceiveError,
+    IpcClient, IpcClientSubscription, IpcClientTypedSubscription, ReceiveError, RequestError,
+    SubscribeError, TypedReceiveError,
 };
 pub use rpc::handler::RpcHandler;
