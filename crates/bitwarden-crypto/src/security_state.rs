@@ -45,7 +45,11 @@ export type SignedSecurityState = string;
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SecurityState {
+    /// The entity ID is a permanent, unchangeable, unique identifier for the object this security state applies to.
+    /// For users, this is the user ID, which never changes.
     entity_id: ByteBuf,
+    /// The version of the security state gates feature availability. It can only ever be incremented. Components can use
+    /// it to gate format support of specific formats (like item url hashes).
     version: u64,
 }
 
