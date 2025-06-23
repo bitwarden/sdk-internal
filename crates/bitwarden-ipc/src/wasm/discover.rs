@@ -24,12 +24,12 @@ pub async fn ipc_request_discover(
     destination: Endpoint,
     abort_signal: Option<AbortSignal>,
 ) -> Result<DiscoverResponse, RequestError> {
-    Ok(ipc_client
+    ipc_client
         .client
         .request(
             DiscoverRequest,
             destination,
             abort_signal.map(|c| c.to_cancellation_token()),
         )
-        .await?)
+        .await
 }
