@@ -35,8 +35,10 @@ impl Client {
             {
                 use rustls::ClientConfig;
                 use rustls_platform_verifier::ConfigVerifierExt;
-                client_builder =
-                    client_builder.use_preconfigured_tls(ClientConfig::with_platform_verifier());
+                client_builder = client_builder.use_preconfigured_tls(
+                    ClientConfig::with_platform_verifier()
+                        .expect("Failed to create platform verifier"),
+                );
             }
 
             client_builder
