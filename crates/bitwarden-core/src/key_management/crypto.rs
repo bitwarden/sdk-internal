@@ -595,9 +595,12 @@ pub fn make_user_signing_keys_for_enrollment(
 
     // Make new keypair and sign the public key with it
     let signature_keypair = SigningKey::make(SignatureAlgorithm::Ed25519);
+    let temporary_signature_keypair_id = SigningKeyId::Local("temporary_key_for_rotation");
+    #[allow(deprecated)]
+    ctx.set_signing_key(temporary_signature_keypair_id, signature_keypair.clone())?;
     let signed_public_key = ctx.make_signed_public_key(
         AsymmetricKeyId::UserPrivateKey,
-        SigningKeyId::UserSigningKey,
+        temporary_signature_keypair_id,
     )?;
 
     Ok(MakeUserSigningKeysResponse {
