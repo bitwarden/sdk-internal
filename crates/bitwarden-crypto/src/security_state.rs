@@ -60,7 +60,7 @@ impl SecurityState {
     pub fn initialize_for_user(user_id: uuid::Uuid) -> Self {
         SecurityState {
             entity_id: user_id.as_bytes().to_vec().into(),
-            version: 1,
+            version: 2,
         }
     }
 
@@ -188,6 +188,6 @@ mod tests {
             ),
             user_id
         );
-        assert_eq!(verified_security_state.version(), 1);
+        assert_eq!(verified_security_state.version(), 2);
     }
 }
