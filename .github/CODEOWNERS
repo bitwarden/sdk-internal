@@ -9,6 +9,9 @@
 
 crates/bitwarden-vault/** @bitwarden/team-vault-dev @bitwarden/team-platform-dev
 
+# Temporarily owned by multiple teams
+/crates/bitwarden-crypto/ @bitwarden/team-platform-dev @bitwarden/dept-architecture @bitwarden/team-key-management-dev
+
 # BRE for publish workflow changes
 .github/workflows/publish-*.yml @bitwarden/dept-bre
 .github/workflows/release-rust-crates.yml @bitwarden/dept-bre
