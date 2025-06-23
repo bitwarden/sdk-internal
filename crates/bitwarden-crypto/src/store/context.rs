@@ -265,8 +265,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(key_id)
     }
 
-    /// Makes a new asymmetric encryption key using the current default algorithm, and stores it in the
-    /// context
+    /// Makes a new asymmetric encryption key using the current default algorithm, and stores it in
+    /// the context
     pub fn make_asymmetric_key(&mut self, key_id: Ids::Asymmetric) -> Result<Ids::Asymmetric> {
         let key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         #[allow(deprecated)]
