@@ -117,9 +117,10 @@ mod test {
         assert_eq!(response.result, 3);
     }
 
-    fn deserialize_erased_object<T>(value: &Box<dyn ErasedSerialize>) -> T
+    fn deserialize_erased_object<T, R>(value: &T) -> R
     where
-        T: DeserializeOwned,
+        T: Serialize,
+        R: DeserializeOwned,
     {
         let serialized = serde_utils::to_vec(value).expect("Failed to serialize erased serialize");
 
