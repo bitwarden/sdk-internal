@@ -1,10 +1,11 @@
 use bitwarden_threading::cancellation_token::wasm::{AbortSignal, AbortSignalExt};
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use super::{error::JsRequestError, JsIpcClient};
+use super::JsIpcClient;
 use crate::{
     discover::{DiscoverHandler, DiscoverRequest, DiscoverResponse},
     endpoint::Endpoint,
+    RequestError,
 };
 
 #[wasm_bindgen(js_name = ipcRegisterDiscoverHandler)]
@@ -22,13 +23,13 @@ pub async fn ipc_request_discover(
     ipc_client: &JsIpcClient,
     destination: Endpoint,
     abort_signal: Option<AbortSignal>,
-) -> Result<DiscoverResponse, JsRequestError> {
-    Ok(ipc_client
+) -> Result<DiscoverResponse, RequestError> {
+    ipc_client
         .client
         .request(
             DiscoverRequest,
             destination,
             abort_signal.map(|c| c.to_cancellation_token()),
         )
-        .await?)
+        .await
 }

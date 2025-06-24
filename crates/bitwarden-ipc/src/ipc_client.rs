@@ -111,7 +111,9 @@ impl From<ReceiveError> for TypedReceiveError {
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
-pub enum RequestError<SendError> {
+#[bitwarden_error(flat)]
+#[allow(missing_docs)]
+pub enum RequestError {
     #[error(transparent)]
     Subscribe(#[from] SubscribeError),
 
@@ -122,7 +124,7 @@ pub enum RequestError<SendError> {
     Timeout(#[from] tokio::time::error::Elapsed),
 
     #[error("Failed to send message: {0}")]
-    Send(SendError),
+    Send(String),
 
     #[error("Error occured on the remote target: {0}")]
     RpcError(#[from] RpcError),
@@ -290,7 +292,7 @@ where
         request: Request,
         destination: Endpoint,
         cancellation_token: Option<CancellationToken>,
-    ) -> Result<Request::Response, RequestError<Crypto::SendError>>
+    ) -> Result<Request::Response, RequestError>
     where
         Request: RpcRequest,
     {
@@ -311,18 +313,18 @@ where
         }
         .try_into()
         .map_err(|e: serde_utils::DeserializeError| {
-            RequestError::<_>::RpcError(RpcError::RequestSerializationError(e.to_string()))
+            RequestError::RpcError(RpcError::RequestSerializationError(e.to_string()))
         })?;
 
         self.send(message)
             .await
-            .map_err(RequestError::<Crypto::SendError>::Send)?;
+            .map_err(|e| RequestError::Send(format!("{:?}", e)))?;
 
         let response = loop {
             let received = response_subscription
                 .receive(cancellation_token.clone())
                 .await
-                .map_err(RequestError::<Crypto::SendError>::Receive)?;
+                .map_err(RequestError::Receive)?;
 
             if received.payload.request_id == request_id {
                 break received;
