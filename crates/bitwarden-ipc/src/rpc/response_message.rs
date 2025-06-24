@@ -1,33 +1,27 @@
+use erased_serde::Serialize as ErasedSerialize;
 use serde::{Deserialize, Serialize};
 
 use super::error::RpcError;
 use crate::message::PayloadTypeName;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RpcResponseMessage {
-    pub result: Result<Vec<u8>, RpcError>,
+pub struct IncomingRpcResponseMessage<T> {
+    pub result: Result<T, RpcError>,
     pub request_id: String,
     pub request_type: String,
 }
 
-impl PayloadTypeName for RpcResponseMessage {
-    fn name() -> String {
-        "RpcResponseMessage".to_string()
-    }
+#[derive(Serialize)]
+pub struct OutgoingRpcResponseMessage<'a> {
+    pub result: Result<Box<dyn ErasedSerialize>, RpcError>,
+    pub request_id: &'a str,
+    pub request_type: &'a str,
 }
 
-impl TryFrom<Vec<u8>> for RpcResponseMessage {
-    type Error = serde_json::Error;
-
-    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        serde_json::from_slice(&value)
-    }
+impl<T> PayloadTypeName for IncomingRpcResponseMessage<T> {
+    const PAYLOAD_TYPE_NAME: &str = "RpcResponseMessage";
 }
 
-impl TryFrom<RpcResponseMessage> for Vec<u8> {
-    type Error = serde_json::Error;
-
-    fn try_from(value: RpcResponseMessage) -> Result<Self, Self::Error> {
-        serde_json::to_vec(&value)
-    }
+impl<'a> PayloadTypeName for OutgoingRpcResponseMessage<'a> {
+    const PAYLOAD_TYPE_NAME: &'static str = "RpcResponseMessage";
 }

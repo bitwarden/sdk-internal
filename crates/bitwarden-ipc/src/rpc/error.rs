@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::serde_utils;
+
 #[derive(Debug, Error, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RpcError {
     #[error("Failed to read request: {0}")]
@@ -20,7 +22,7 @@ pub enum RpcError {
 }
 
 impl RpcError {
-    pub(crate) fn serialize(self) -> Vec<u8> {
-        serde_json::to_vec(&self).expect("Serializing RpcError should not fail")
+    pub(crate) fn to_vec(&self) -> Vec<u8> {
+        serde_utils::to_vec(&self).expect("Serializing RpcError should not fail")
     }
 }

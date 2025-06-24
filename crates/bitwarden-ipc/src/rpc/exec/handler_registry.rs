@@ -1,10 +1,8 @@
+use erased_serde::Serialize as ErasedSerialize;
 use tokio::sync::RwLock;
 
-use super::{
-    handler::{ErasedRpcHandler, RpcHandler},
-    request::RpcRequest,
-};
-use crate::rpc::error::RpcError;
+use super::handler::{ErasedRpcHandler, RpcHandler};
+use crate::rpc::{error::RpcError, request::RpcRequest, request_message::RpcRequestPayload};
 
 pub struct RpcHandlerRegistry {
     handlers: RwLock<std::collections::HashMap<String, Box<dyn ErasedRpcHandler>>>,
@@ -27,21 +25,24 @@ impl RpcHandlerRegistry {
 
     pub async fn handle(
         &self,
-        name: &str,
-        serialized_request: Vec<u8>,
-    ) -> Result<Vec<u8>, RpcError> {
-        match self.handlers.read().await.get(name) {
-            Some(handler) => handler.handle(serialized_request).await,
+        request: &RpcRequestPayload,
+    ) -> Result<Box<dyn ErasedSerialize>, RpcError> {
+        match self.handlers.read().await.get(request.request_type()) {
+            Some(handler) => handler.handle(request).await,
             None => Err(RpcError::NoHandlerFound),
         }
     }
 }
 
+#[cfg(test)]
 mod test {
-    use serde::{Deserialize, Serialize};
+    use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
     use super::*;
-    use crate::rpc::request::RpcRequest;
+    use crate::{
+        rpc::{request::RpcRequest, request_message::RpcRequestMessage},
+        serde_utils,
+    };
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     struct TestRequest {
@@ -74,46 +75,20 @@ mod test {
         }
     }
 
-    impl TryFrom<TestRequest> for Vec<u8> {
-        type Error = serde_json::Error;
-
-        fn try_from(value: TestRequest) -> Result<Self, Self::Error> {
-            serde_json::to_vec(&value)
-        }
-    }
-
-    impl TryFrom<Vec<u8>> for TestRequest {
-        type Error = serde_json::Error;
-
-        fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-            serde_json::from_slice(&value)
-        }
-    }
-
-    impl TryFrom<TestResponse> for Vec<u8> {
-        type Error = serde_json::Error;
-
-        fn try_from(value: TestResponse) -> Result<Self, Self::Error> {
-            serde_json::to_vec(&value)
-        }
-    }
-
-    impl TryFrom<Vec<u8>> for TestResponse {
-        type Error = serde_json::Error;
-
-        fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-            serde_json::from_slice(&value)
-        }
-    }
-
     #[tokio::test]
     async fn handle_returns_error_when_no_handler_can_be_found() {
         let registry = RpcHandlerRegistry::new();
 
         let request = TestRequest { a: 1, b: 2 };
-        let request_bytes = serde_json::to_vec(&request).unwrap();
+        let message = RpcRequestMessage {
+            request,
+            request_id: "test_id".to_string(),
+            request_type: "TestRequest".to_string(),
+        };
+        let serialized_request =
+            RpcRequestPayload::from_slice(serde_utils::to_vec(&message).unwrap()).unwrap();
 
-        let result = registry.handle("TestRequest", request_bytes).await;
+        let result = registry.handle(&serialized_request).await;
 
         assert!(matches!(result, Err(RpcError::NoHandlerFound)));
     }
@@ -125,15 +100,30 @@ mod test {
         registry.register(TestHandler).await;
 
         let request = TestRequest { a: 1, b: 2 };
-        let request_bytes = serde_json::to_vec(&request).unwrap();
+        let message = RpcRequestMessage {
+            request,
+            request_id: "test_id".to_string(),
+            request_type: "TestRequest".to_string(),
+        };
+        let serialized_request =
+            RpcRequestPayload::from_slice(serde_utils::to_vec(&message).unwrap()).unwrap();
 
         let result = registry
-            .handle("TestRequest", request_bytes)
+            .handle(&serialized_request)
             .await
             .expect("Failed to handle request");
-        let response: TestResponse =
-            serde_json::from_slice(&result).expect("Failed to deserialize response");
+        let response: TestResponse = deserialize_erased_object(&result);
 
         assert_eq!(response.result, 3);
+    }
+
+    fn deserialize_erased_object<T, R>(value: &T) -> R
+    where
+        T: Serialize,
+        R: DeserializeOwned,
+    {
+        let serialized = serde_utils::to_vec(value).expect("Failed to serialize erased serialize");
+
+        serde_utils::from_slice(&serialized).expect("Failed to deserialize erased serialize")
     }
 }

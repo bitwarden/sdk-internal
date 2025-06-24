@@ -6,6 +6,7 @@ mod endpoint;
 mod ipc_client;
 mod message;
 mod rpc;
+mod serde_utils;
 mod traits;
 
 /// Re-export types to make sure wasm_bindgen picks them up
@@ -16,4 +17,4 @@ pub use ipc_client::{
     IpcClient, IpcClientSubscription, IpcClientTypedSubscription, ReceiveError, RequestError,
     SubscribeError, TypedReceiveError,
 };
-pub use rpc::handler::RpcHandler;
+pub use rpc::exec::handler::RpcHandler;
