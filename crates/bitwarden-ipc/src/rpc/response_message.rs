@@ -12,16 +12,16 @@ pub struct IncomingRpcResponseMessage<T> {
 }
 
 #[derive(Serialize)]
-pub struct OutgoingRpcResponseMessage {
+pub struct OutgoingRpcResponseMessage<'a> {
     pub result: Result<Box<dyn ErasedSerialize>, RpcError>,
-    pub request_id: String,
-    pub request_type: String,
+    pub request_id: &'a str,
+    pub request_type: &'a str,
 }
 
 impl<T> PayloadTypeName for IncomingRpcResponseMessage<T> {
     const PAYLOAD_TYPE_NAME: &str = "RpcResponseMessage";
 }
 
-impl PayloadTypeName for OutgoingRpcResponseMessage {
-    const PAYLOAD_TYPE_NAME: &str = "RpcResponseMessage";
+impl<'a> PayloadTypeName for OutgoingRpcResponseMessage<'a> {
+    const PAYLOAD_TYPE_NAME: &'static str = "RpcResponseMessage";
 }

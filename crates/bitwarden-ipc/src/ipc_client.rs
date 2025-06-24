@@ -295,9 +295,9 @@ where
         Request: RpcRequest,
     {
         let request_id = uuid::Uuid::new_v4().to_string();
-        let mut response_subscription: IpcClientTypedSubscription<
-            IncomingRpcResponseMessage<Request::Response>,
-        > = self.subscribe_typed().await?;
+        let mut response_subscription = self
+            .subscribe_typed::<IncomingRpcResponseMessage<_>>()
+            .await?;
 
         let request_payload = RpcRequestMessage {
             request,
@@ -310,15 +310,9 @@ where
             destination,
         }
         .try_into()
-        .map_err(
-            |e: <TypedOutgoingMessage<RpcRequestMessage<Request>> as TryInto<
-                OutgoingMessage,
-            >>::Error| {
-                RequestError::<Crypto::SendError>::RpcError(RpcError::RequestSerializationError(
-                    e.to_string(),
-                ))
-            },
-        )?;
+        .map_err(|e: serde_utils::DeserializeError| {
+            RequestError::<_>::RpcError(RpcError::RequestSerializationError(e.to_string()))
+        })?;
 
         self.send(message)
             .await
@@ -364,8 +358,8 @@ where
                 let response = handlers.handle(&request).await;
 
                 let response_message = OutgoingRpcResponseMessage {
-                    request_id: request.request_id().to_owned(),
-                    request_type: request.request_type().to_owned(),
+                    request_id: request.request_id(),
+                    request_type: request.request_type(),
                     result: response,
                 };
 
@@ -374,11 +368,7 @@ where
                     destination: incoming_message.source,
                 }
                 .try_into()
-                .map_err(
-                    |e: <TypedOutgoingMessage<OutgoingRpcResponseMessage> as TryInto<
-                        OutgoingMessage,
-                    >>::Error| { HandleError::Serialize(e.to_string()) },
-                )?;
+                .map_err(|e: serde_utils::SerializeError| HandleError::Serialize(e.to_string()))?;
 
                 Ok(outgoing)
             }
@@ -439,11 +429,9 @@ where
         cancellation_token: Option<CancellationToken>,
     ) -> Result<TypedIncomingMessage<Payload>, TypedReceiveError> {
         let received = self.0.receive(cancellation_token).await?;
-        received.try_into().map_err(
-            |e: <TypedIncomingMessage<Payload> as TryFrom<IncomingMessage>>::Error| {
-                TypedReceiveError::Typing(e.to_string())
-            },
-        )
+        received
+            .try_into()
+            .map_err(|e: serde_utils::DeserializeError| TypedReceiveError::Typing(e.to_string()))
     }
 }
 
