@@ -43,7 +43,7 @@ pub struct AttachmentView {
     /// process. It will be removed once the encryption/decryption logic is
     /// fully migrated to the SDK.
     ///
-    /// **Ticket**: https://bitwarden.atlassian.net/browse/PM-23005
+    /// **Ticket**: <https://bitwarden.atlassian.net/browse/PM-23005>
     ///
     /// Do not rely on this field for long-term use.
     #[cfg(feature = "wasm")]
