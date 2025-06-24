@@ -958,7 +958,7 @@ mod tests {
                 email: "test@bitwarden.com".into(),
                 private_key: enrollment_response.private_key,
                 signing_key: Some(enrollment_response.signing_key),
-                security_state: Some(enrollment_response.signed_security_state),
+                security_state: Some(enrollment_response.security_state),
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
                     user_key: encrypted_userkey_v2,
