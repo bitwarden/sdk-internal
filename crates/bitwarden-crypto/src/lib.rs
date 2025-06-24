@@ -36,6 +36,9 @@ mod store;
 pub use store::{KeyStore, KeyStoreContext};
 mod cose;
 pub use cose::CoseSerializable;
+/// The `SecurityState` module provides functionality to cryptographically attest to which features
+/// are allowed to be used for a user.
+pub mod security_state;
 mod signing;
 pub use signing::*;
 mod traits;

@@ -10,8 +10,9 @@ use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
     AsymmetricCryptoKey, BitwardenLegacyKeyContentFormat, Bytes, ContentFormat, CryptoError,
-    EncString, KeyId, KeyIds, Result, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
-    SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
+    EncString, KeyId, KeyIds, PublicKeyEncryptionAlgorithm, Result, Signature, SignatureAlgorithm,
+    SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey,
+    UnsignedSharedKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -307,6 +308,15 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         #[allow(deprecated)]
         self.set_symmetric_key(key_id, key)?;
+        Ok(key_id)
+    }
+
+    /// Makes a new asymmetric encryption key using the current default algorithm, and stores it in
+    /// the context
+    pub fn make_asymmetric_key(&mut self, key_id: Ids::Asymmetric) -> Result<Ids::Asymmetric> {
+        let key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        #[allow(deprecated)]
+        self.set_asymmetric_key(key_id, key)?;
         Ok(key_id)
     }
 

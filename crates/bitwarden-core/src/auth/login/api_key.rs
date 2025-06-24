@@ -56,6 +56,7 @@ pub(crate) async fn login_api_key(
             user_key,
             private_key,
             None,
+            None,
         )?;
     }
 
