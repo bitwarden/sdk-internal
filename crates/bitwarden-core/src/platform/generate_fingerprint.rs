@@ -3,7 +3,7 @@
 //! This module contains the logic for generating fingerprints.
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use bitwarden_crypto::fingerprint;
+use bitwarden_crypto::{fingerprint, Bytes, SpkiPublicKeyDerContentFormat};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -42,7 +42,7 @@ pub enum FingerprintError {
 
 pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String, FingerprintError> {
     let key = STANDARD.decode(&input.public_key)?;
-
+    let key = Bytes::<SpkiPublicKeyDerContentFormat>::from(key);
     Ok(fingerprint(&input.fingerprint_material, &key)?)
 }
 

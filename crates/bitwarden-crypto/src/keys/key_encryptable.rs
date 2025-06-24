@@ -3,7 +3,7 @@ use std::{collections::HashMap, hash::Hash, sync::Arc};
 use rayon::prelude::*;
 use uuid::Uuid;
 
-use crate::{error::Result, CryptoError, SymmetricCryptoKey};
+use crate::{error::Result, ContentFormat, CryptoError, SymmetricCryptoKey};
 
 #[allow(missing_docs)]
 pub trait KeyContainer: Send + Sync {
@@ -22,6 +22,11 @@ pub trait CryptoKey {}
 #[allow(missing_docs)]
 pub trait KeyEncryptable<Key: CryptoKey, Output> {
     fn encrypt_with_key(self, key: &Key) -> Result<Output>;
+}
+
+#[allow(missing_docs)]
+pub(crate) trait KeyEncryptableWithContentType<Key: CryptoKey, Output> {
+    fn encrypt_with_key(self, key: &Key, content_format: ContentFormat) -> Result<Output>;
 }
 
 #[allow(missing_docs)]
