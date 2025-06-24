@@ -103,13 +103,15 @@ pub struct SignedSecurityState(pub(crate) SignedObject);
 
 impl From<SignedSecurityState> for Vec<u8> {
     fn from(val: SignedSecurityState) -> Self {
-        val.0.to_cose()
+        val.0.to_cose().to_vec()
     }
 }
 
 impl TryFrom<Vec<u8>> for SignedSecurityState {
     type Error = EncodingError;
     fn try_from(bytes: Vec<u8>) -> Result<Self, EncodingError> {
+        use crate::content_format::{Bytes, CoseSign1ContentFormat};
+        let bytes = Bytes::<CoseSign1ContentFormat>::from(bytes);
         Ok(SignedSecurityState(SignedObject::from_cose(&bytes)?))
     }
 }

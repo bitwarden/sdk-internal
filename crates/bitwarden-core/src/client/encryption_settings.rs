@@ -57,7 +57,7 @@ impl EncryptionSettings {
         security_state: Option<SignedSecurityState>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
-        use bitwarden_crypto::{AsymmetricCryptoKey, CoseSerializable, KeyDecryptable, SigningKey};
+        use bitwarden_crypto::{AsymmetricCryptoKey, KeyDecryptable};
         use log::warn;
 
         use crate::key_management::{AsymmetricKeyId, SymmetricKeyId};
@@ -71,7 +71,9 @@ impl EncryptionSettings {
             // For v2 users, we mandate the signing key and security state to be present
             // The private key must also be valid.
 
-            use bitwarden_crypto::{security_state::SecurityState, CoseSerializable, SigningKey};
+            use bitwarden_crypto::{
+                security_state::SecurityState, Bytes, CoseSerializable, SigningKey,
+            };
 
             // Both of these are required for v2 users
             let signing_key = signing_key.ok_or(EncryptionSettingsError::Crypto(
@@ -85,9 +87,11 @@ impl EncryptionSettings {
 
             // Everything MUST decrypt.
             let signing_key: Vec<u8> = signing_key.decrypt_with_key(&user_key)?;
+            let signing_key = Bytes::from(signing_key);
             let signing_key = SigningKey::from_cose(&signing_key)
                 .map_err(|_| EncryptionSettingsError::InvalidSigningKey)?;
             let private_key: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
+            let private_key = Bytes::from(private_key);
             let private_key = AsymmetricCryptoKey::from_der(&private_key)
                 .map_err(|_| EncryptionSettingsError::InvalidPrivateKey)?;
             let _security_state: SecurityState = security_state
@@ -105,7 +109,10 @@ impl EncryptionSettings {
             }
         } else {
             let private_key = {
+                use bitwarden_crypto::Bytes;
+
                 let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
+                let dec = Bytes::from(dec);
 
                 // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a
                 // recovery process in place.
