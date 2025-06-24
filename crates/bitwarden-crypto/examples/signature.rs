@@ -1,7 +1,7 @@
 //! This example demonstrates how to create signatures and countersignatures for a message, and how
 //! to verify them.
 
-use bitwarden_crypto::{Bytes, CoseSerializable, CoseSign1ContentFormat, SigningNamespace};
+use bitwarden_crypto::{CoseSerializable, CoseSign1Bytes, SigningNamespace};
 use serde::{Deserialize, Serialize};
 
 const EXAMPLE_NAMESPACE: &SigningNamespace = &SigningNamespace::SignedPublicKey;

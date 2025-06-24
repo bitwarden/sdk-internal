@@ -1,8 +1,6 @@
 //! This example demonstrates how to sign and verify structs.
 
-use bitwarden_crypto::{
-    Bytes, CoseSerializable, CoseSign1ContentFormat, SignedObject, SigningNamespace,
-};
+use bitwarden_crypto::{CoseSerializable, CoseSign1Bytes, SignedObject, SigningNamespace};
 use serde::{Deserialize, Serialize};
 
 const EXAMPLE_NAMESPACE: &SigningNamespace = &SigningNamespace::SignedPublicKey;

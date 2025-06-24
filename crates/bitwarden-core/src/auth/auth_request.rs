@@ -110,9 +110,7 @@ pub(crate) fn approve_auth_request(
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::{
-        BitwardenLegacyKeyBytes, Bytes, Kdf, MasterKey, SpkiPublicKeyDerContentFormat,
-    };
+    use bitwarden_crypto::{BitwardenLegacyKeyBytes, Kdf, MasterKey, SpkiPublicKeyBytes};
 
     use super::*;
     use crate::key_management::{
