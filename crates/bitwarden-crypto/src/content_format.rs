@@ -101,7 +101,8 @@ impl ConstContentFormat for Utf8ContentFormat {
         ContentFormat::Utf8
     }
 }
-/// Utf8Bytes is a type alias for Bytes with `Utf8ContentFormat`, which is used for any textual data.
+/// Utf8Bytes is a type alias for Bytes with `Utf8ContentFormat`, which is used for any textual
+/// data.
 pub(crate) type Utf8Bytes = Bytes<Utf8ContentFormat>;
 
 /// Content format for raw bytes. Used for attachments and send seed keys.
@@ -113,8 +114,8 @@ impl ConstContentFormat for OctetStreamContentFormat {
         ContentFormat::OctetStream
     }
 }
-/// OctetStreamBytes is a type alias for Bytes with `OctetStreamContentFormat`. This should be used for e.g. attachments and other data without an
-/// explicit content format.
+/// OctetStreamBytes is a type alias for Bytes with `OctetStreamContentFormat`. This should be used
+/// for e.g. attachments and other data without an explicit content format.
 pub type OctetStreamBytes = Bytes<OctetStreamContentFormat>;
 
 /// Content format for PKCS8 private keys in DER format.
@@ -126,7 +127,8 @@ impl ConstContentFormat for Pkcs8PrivateKeyDerContentFormat {
         ContentFormat::Pkcs8PrivateKey
     }
 }
-/// Pkcs8PrivateKeyBytes is a type alias for Bytes with `Pkcs8PrivateKeyDerContentFormat`. This is used for PKCS8 private keys in DER format.
+/// Pkcs8PrivateKeyBytes is a type alias for Bytes with `Pkcs8PrivateKeyDerContentFormat`. This is
+/// used for PKCS8 private keys in DER format.
 pub type Pkcs8PrivateKeyBytes = Bytes<Pkcs8PrivateKeyDerContentFormat>;
 
 /// Content format for SPKI public keys in DER format.
@@ -138,7 +140,8 @@ impl ConstContentFormat for SpkiPublicKeyDerContentFormat {
         ContentFormat::SPKIPublicKeyDer
     }
 }
-/// SpkiPublicKeyBytes is a type alias for Bytes with `SpkiPublicKeyDerContentFormat`. This is used for SPKI public keys in DER format.
+/// SpkiPublicKeyBytes is a type alias for Bytes with `SpkiPublicKeyDerContentFormat`. This is used
+/// for SPKI public keys in DER format.
 pub type SpkiPublicKeyBytes = Bytes<SpkiPublicKeyDerContentFormat>;
 
 /// Content format for COSE keys.
@@ -151,7 +154,8 @@ impl ConstContentFormat for CoseKeyContentFormat {
     }
 }
 impl CoseContentFormat for CoseKeyContentFormat {}
-/// CoseKeyBytes is a type alias for Bytes with `CoseKeyContentFormat`. This is used for serialized CoseKey objects.
+/// CoseKeyBytes is a type alias for Bytes with `CoseKeyContentFormat`. This is used for serialized
+/// CoseKey objects.
 pub type CoseKeyBytes = Bytes<CoseKeyContentFormat>;
 
 /// A legacy content format for Bitwarden keys. See `ContentFormat::BitwardenLegacyKey`
@@ -163,8 +167,9 @@ impl ConstContentFormat for BitwardenLegacyKeyContentFormat {
         ContentFormat::BitwardenLegacyKey
     }
 }
-/// BitwardenLegacyKeyBytes is a type alias for Bytes with `BitwardenLegacyKeyContentFormat`. This is used for the legacy format for symmetric keys.
-/// A description of the format is available in the `ContentFormat::BitwardenLegacyKey` documentation.
+/// BitwardenLegacyKeyBytes is a type alias for Bytes with `BitwardenLegacyKeyContentFormat`. This
+/// is used for the legacy format for symmetric keys. A description of the format is available in
+/// the `ContentFormat::BitwardenLegacyKey` documentation.
 pub type BitwardenLegacyKeyBytes = Bytes<BitwardenLegacyKeyContentFormat>;
 
 /// Content format for COSE Sign1 messages.
@@ -177,7 +182,8 @@ impl ConstContentFormat for CoseSign1ContentFormat {
     }
 }
 impl CoseContentFormat for CoseSign1ContentFormat {}
-/// CoseSign1Bytes is a type alias for Bytes with `CoseSign1ContentFormat`. This is used for serialized COSE Sign1 messages.
+/// CoseSign1Bytes is a type alias for Bytes with `CoseSign1ContentFormat`. This is used for
+/// serialized COSE Sign1 messages.
 pub type CoseSign1Bytes = Bytes<CoseSign1ContentFormat>;
 
 /// A marker trait for COSE content formats.
