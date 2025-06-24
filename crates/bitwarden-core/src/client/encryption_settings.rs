@@ -58,13 +58,12 @@ impl EncryptionSettings {
         use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
 
         let private_key = {
-            use bitwarden_crypto::{Bytes, Pkcs8PrivateKeyDerContentFormat};
+            use bitwarden_crypto::Bytes;
 
             let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
-            let dec: Bytes<Pkcs8PrivateKeyDerContentFormat> = Bytes::from(dec);
             // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a recovery
             // process in place.
-            AsymmetricCryptoKey::from_der(&dec)
+            AsymmetricCryptoKey::from_der(&Bytes::from(dec))
                 .map_err(|_| {
                     warn!("Invalid private key");
                 })

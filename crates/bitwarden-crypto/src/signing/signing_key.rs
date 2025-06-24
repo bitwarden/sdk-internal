@@ -13,11 +13,11 @@ use super::{
     SignatureAlgorithm,
 };
 use crate::{
-    content_format::{Bytes, CoseKeyContentFormat},
+    content_format::CoseKeyContentFormat,
     cose::CoseSerializable,
     error::{EncodingError, Result},
     keys::KeyId,
-    CryptoKey,
+    CoseKeyBytes, CryptoKey,
 };
 
 /// A `SigningKey` without the key id. This enum contains a variant for each supported signature
@@ -89,7 +89,7 @@ impl SigningKey {
 
 impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
     /// Serializes the signing key to a COSE-formatted byte array.
-    fn to_cose(&self) -> Bytes<CoseKeyContentFormat> {
+    fn to_cose(&self) -> CoseKeyBytes {
         match &self.inner {
             RawSigningKey::Ed25519(key) => {
                 coset::CoseKeyBuilder::new_okp_key()
@@ -114,7 +114,7 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
     }
 
     /// Deserializes a COSE-formatted byte array into a signing key.
-    fn from_cose(bytes: &Bytes<CoseKeyContentFormat>) -> Result<Self, EncodingError> {
+    fn from_cose(bytes: &CoseKeyBytes) -> Result<Self, EncodingError> {
         let cose_key =
             CoseKey::from_slice(bytes.as_ref()).map_err(|_| EncodingError::InvalidCoseEncoding)?;
 

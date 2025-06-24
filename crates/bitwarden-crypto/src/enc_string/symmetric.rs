@@ -6,11 +6,10 @@ use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    content_format::{Bytes, Utf8ContentFormat},
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
     util::FromStrVisitor,
     Aes256CbcHmacKey, ContentFormat, KeyDecryptable, KeyEncryptable, KeyEncryptableWithContentType,
-    SymmetricCryptoKey, XChaCha20Poly1305Key,
+    SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
 };
 
 #[cfg(feature = "wasm")]
@@ -323,13 +322,13 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
 
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for String {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        Into::<Bytes<Utf8ContentFormat>>::into(self).encrypt_with_key(key)
+        Into::<Utf8Bytes>::into(self).encrypt_with_key(key)
     }
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        Into::<Bytes<Utf8ContentFormat>>::into(self).encrypt_with_key(key)
+        Into::<Utf8Bytes>::into(self).encrypt_with_key(key)
     }
 }
 

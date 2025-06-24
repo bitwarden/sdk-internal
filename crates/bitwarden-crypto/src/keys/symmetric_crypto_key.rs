@@ -18,9 +18,7 @@ use super::{
     key_encryptable::CryptoKey,
     key_id::{KeyId, KEY_ID_SIZE},
 };
-use crate::{
-    cose, BitwardenLegacyKeyContentFormat, Bytes, ContentFormat, CoseKeyContentFormat, CryptoError,
-};
+use crate::{cose, BitwardenLegacyKeyBytes, Bytes, ContentFormat, CoseKeyBytes, CryptoError};
 
 /// [Aes256CbcKey] is a symmetric encryption key, consisting of one 256-bit key,
 /// used to decrypt legacy type 0 enc strings. The data is not authenticated
@@ -147,7 +145,7 @@ impl SymmetricCryptoKey {
     /// This can be used for storage and transmission in the old byte array format.
     /// When the wrapping key is a COSE key, and the wrapped key is a COSE key, then this should
     /// not use the byte representation but instead use the COSE key representation.
-    pub fn to_encoded(&self) -> Bytes<BitwardenLegacyKeyContentFormat> {
+    pub fn to_encoded(&self) -> BitwardenLegacyKeyBytes {
         let encoded_key = self.to_encoded_raw();
         match encoded_key {
             EncodedSymmetricKey::LegacyNonCoseKey(_) => {
@@ -266,14 +264,14 @@ impl TryFrom<String> for SymmetricCryptoKey {
         let bytes = STANDARD
             .decode(value)
             .map_err(|_| CryptoError::InvalidKey)?;
-        Self::try_from(&Bytes::<BitwardenLegacyKeyContentFormat>::from(bytes))
+        Self::try_from(&BitwardenLegacyKeyBytes::from(bytes))
     }
 }
 
-impl TryFrom<&Bytes<BitwardenLegacyKeyContentFormat>> for SymmetricCryptoKey {
+impl TryFrom<&BitwardenLegacyKeyBytes> for SymmetricCryptoKey {
     type Error = CryptoError;
 
-    fn try_from(value: &Bytes<BitwardenLegacyKeyContentFormat>) -> Result<Self, Self::Error> {
+    fn try_from(value: &BitwardenLegacyKeyBytes) -> Result<Self, Self::Error> {
         let slice = value.as_ref();
 
         // Raw byte serialized keys are either 32, 64, or more bytes long. If they are 32/64, they
@@ -396,9 +394,9 @@ fn unpad_key(key_bytes: &[u8]) -> Result<&[u8], CryptoError> {
 /// An enum to represent the different encodings of symmetric crypto keys.
 pub enum EncodedSymmetricKey {
     /// An Aes256-CBC-HMAC key, or a Aes256-CBC key
-    LegacyNonCoseKey(Bytes<BitwardenLegacyKeyContentFormat>),
+    LegacyNonCoseKey(BitwardenLegacyKeyBytes),
     /// A symmetric key encoded as a COSE key
-    CoseKey(Bytes<CoseKeyContentFormat>),
+    CoseKey(CoseKeyBytes),
 }
 impl From<EncodedSymmetricKey> for Vec<u8> {
     fn from(val: EncodedSymmetricKey) -> Self {
@@ -437,8 +435,7 @@ mod tests {
     use super::{derive_symmetric_key, SymmetricCryptoKey};
     use crate::{
         keys::symmetric_crypto_key::{pad_key, unpad_key},
-        Aes256CbcHmacKey, Aes256CbcKey, BitwardenLegacyKeyContentFormat, Bytes,
-        XChaCha20Poly1305Key,
+        Aes256CbcHmacKey, Aes256CbcKey, BitwardenLegacyKeyBytes, XChaCha20Poly1305Key,
     };
 
     #[test]
@@ -464,7 +461,7 @@ mod tests {
     #[test]
     fn test_decode_new_symmetric_crypto_key() {
         let key = STANDARD.decode("pQEEAlDib+JxbqMBlcd3KTUesbufAzoAARFvBIQDBAUGIFggt79surJXmqhPhYuuqi9ZyPfieebmtw2OsmN5SDrb4yUB").unwrap();
-        let key = Bytes::<BitwardenLegacyKeyContentFormat>::from(key);
+        let key = BitwardenLegacyKeyBytes::from(key);
         let key = SymmetricCryptoKey::try_from(&key).unwrap();
         match key {
             SymmetricCryptoKey::XChaCha20Poly1305Key(_) => (),
@@ -529,17 +526,9 @@ mod tests {
     #[test]
     fn test_eq_aes_cbc() {
         let key1 =
-            SymmetricCryptoKey::try_from(&Bytes::<BitwardenLegacyKeyContentFormat>::from(vec![
-                1u8;
-                32
-            ]))
-            .unwrap();
+            SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(vec![1u8; 32])).unwrap();
         let key2 =
-            SymmetricCryptoKey::try_from(&Bytes::<BitwardenLegacyKeyContentFormat>::from(vec![
-                2u8;
-                32
-            ]))
-            .unwrap();
+            SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(vec![2u8; 32])).unwrap();
         assert_ne!(key1, key2);
         let key3 = SymmetricCryptoKey::try_from(key1.to_base64()).unwrap();
         assert_eq!(key1, key3);

@@ -12,8 +12,8 @@ use super::{
 };
 use crate::{
     util::{self},
-    BitwardenLegacyKeyContentFormat, Bytes, CryptoError, EncString, KeyDecryptable, Result,
-    SymmetricCryptoKey, UserKey,
+    BitwardenLegacyKeyBytes, CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey,
+    UserKey,
 };
 
 #[allow(missing_docs)]
@@ -160,7 +160,7 @@ pub(super) fn decrypt_user_key(
         }
     };
 
-    SymmetricCryptoKey::try_from(&Bytes::<BitwardenLegacyKeyContentFormat>::from(dec))
+    SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(dec))
 }
 
 /// Generate a new random user key and encrypt it with the master key.

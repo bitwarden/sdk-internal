@@ -10,8 +10,8 @@ use crate::{
     error::{CryptoError, EncStringParseError, Result},
     rsa::encrypt_rsa2048_oaep_sha1,
     util::FromStrVisitor,
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyContentFormat, Bytes,
-    RawPrivateKey, RawPublicKey, SymmetricCryptoKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, RawPrivateKey,
+    RawPublicKey, SymmetricCryptoKey,
 };
 // This module is a workaround to avoid deprecated warnings that come from the ZeroizeOnDrop
 // macro expansion
@@ -217,9 +217,7 @@ impl UnsignedSharedKey {
                     }
                 }
                 .map_err(|_| CryptoError::KeyDecrypt)?;
-                SymmetricCryptoKey::try_from(&Bytes::<BitwardenLegacyKeyContentFormat>::from(
-                    key_data,
-                ))
+                SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key_data))
             }
         }
     }

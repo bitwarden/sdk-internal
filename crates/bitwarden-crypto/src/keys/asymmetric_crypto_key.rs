@@ -5,8 +5,9 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::key_encryptable::CryptoKey;
 use crate::{
-    content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat, SpkiPublicKeyDerContentFormat},
+    content_format::{Bytes, SpkiPublicKeyDerContentFormat},
     error::{CryptoError, Result},
+    Pkcs8PrivateKeyBytes,
 };
 
 /// Algorithm / public key encryption scheme used for encryption/decryption.
@@ -114,7 +115,7 @@ impl AsymmetricCryptoKey {
     }
 
     #[allow(missing_docs)]
-    pub fn from_der(der: &Bytes<Pkcs8PrivateKeyDerContentFormat>) -> Result<Self> {
+    pub fn from_der(der: &Pkcs8PrivateKeyBytes) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
             inner: RawPrivateKey::RsaOaepSha1(Box::pin(
@@ -124,7 +125,7 @@ impl AsymmetricCryptoKey {
     }
 
     #[allow(missing_docs)]
-    pub fn to_der(&self) -> Result<Bytes<Pkcs8PrivateKeyDerContentFormat>> {
+    pub fn to_der(&self) -> Result<Pkcs8PrivateKeyBytes> {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => {
                 use rsa::pkcs8::EncodePrivateKey;

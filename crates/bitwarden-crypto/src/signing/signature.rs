@@ -7,10 +7,10 @@ use super::{
     VerifyingKey,
 };
 use crate::{
-    content_format::{Bytes, CoseSign1ContentFormat},
+    content_format::CoseSign1ContentFormat,
     cose::{CoseSerializable, SIGNING_NAMESPACE},
     error::{EncodingError, SignatureError},
-    CryptoError,
+    CoseSign1Bytes, CryptoError,
 };
 
 /// A signature cryptographically attests to a (namespace, data) pair. The namespace is included in
@@ -174,13 +174,13 @@ impl SigningKey {
 }
 
 impl CoseSerializable<CoseSign1ContentFormat> for Signature {
-    fn from_cose(bytes: &Bytes<CoseSign1ContentFormat>) -> Result<Self, EncodingError> {
+    fn from_cose(bytes: &CoseSign1Bytes) -> Result<Self, EncodingError> {
         let cose_sign1 = CoseSign1::from_slice(bytes.as_ref())
             .map_err(|_| EncodingError::InvalidCoseEncoding)?;
         Ok(Signature(cose_sign1))
     }
 
-    fn to_cose(&self) -> Bytes<CoseSign1ContentFormat> {
+    fn to_cose(&self) -> CoseSign1Bytes {
         self.0
             .clone()
             .to_vec()
@@ -192,10 +192,7 @@ impl CoseSerializable<CoseSign1ContentFormat> for Signature {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        content_format::{Bytes, CoseKeyContentFormat},
-        SignatureAlgorithm,
-    };
+    use crate::{content_format::Bytes, CoseKeyBytes, SignatureAlgorithm};
 
     const VERIFYING_KEY: &[u8] = &[
         166, 1, 1, 2, 80, 55, 131, 40, 191, 230, 137, 76, 182, 184, 139, 94, 152, 45, 63, 13, 71,
@@ -217,8 +214,7 @@ mod tests {
 
     #[test]
     fn test_cose_roundtrip_encode_signature() {
-        let signature =
-            Signature::from_cose(&Bytes::<CoseSign1ContentFormat>::from(SIGNATURE)).unwrap();
+        let signature = Signature::from_cose(&CoseSign1Bytes::from(SIGNATURE)).unwrap();
         let cose_bytes = signature.to_cose();
         let decoded_signature = Signature::from_cose(&cose_bytes).unwrap();
         assert_eq!(signature.inner(), decoded_signature.inner());
@@ -226,10 +222,8 @@ mod tests {
 
     #[test]
     fn test_verify_testvector() {
-        let verifying_key =
-            VerifyingKey::from_cose(&Bytes::<CoseKeyContentFormat>::from(VERIFYING_KEY)).unwrap();
-        let signature =
-            Signature::from_cose(&Bytes::<CoseSign1ContentFormat>::from(SIGNATURE)).unwrap();
+        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(VERIFYING_KEY)).unwrap();
+        let signature = Signature::from_cose(&CoseSign1Bytes::from(SIGNATURE)).unwrap();
         let serialized_message =
             SerializedMessage::from_bytes(SERIALIZED_MESSAGE.to_vec(), CoapContentFormat::Cbor);
 

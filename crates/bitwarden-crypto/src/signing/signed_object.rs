@@ -7,10 +7,10 @@ use super::{
     verifying_key::VerifyingKey, SigningNamespace,
 };
 use crate::{
-    content_format::{Bytes, CoseSign1ContentFormat},
+    content_format::CoseSign1ContentFormat,
     cose::{CoseSerializable, SIGNING_NAMESPACE},
     error::{EncodingError, SignatureError},
-    CryptoError,
+    CoseSign1Bytes, CryptoError,
 };
 
 /// A signed object is a message containing a payload and signature that attests the payload's
@@ -151,14 +151,14 @@ impl SigningKey {
 }
 
 impl CoseSerializable<CoseSign1ContentFormat> for SignedObject {
-    fn from_cose(bytes: &Bytes<CoseSign1ContentFormat>) -> Result<Self, EncodingError> {
+    fn from_cose(bytes: &CoseSign1Bytes) -> Result<Self, EncodingError> {
         Ok(SignedObject(
             CoseSign1::from_slice(bytes.as_ref())
                 .map_err(|_| EncodingError::InvalidCoseEncoding)?,
         ))
     }
 
-    fn to_cose(&self) -> Bytes<CoseSign1ContentFormat> {
+    fn to_cose(&self) -> CoseSign1Bytes {
         self.0
             .clone()
             .to_vec()
@@ -172,9 +172,9 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        content_format::{Bytes, CoseKeyContentFormat, CoseSign1ContentFormat},
-        CoseSerializable, CryptoError, SignatureAlgorithm, SignedObject, SigningKey,
-        SigningNamespace, VerifyingKey,
+        content_format::{Bytes, CoseSign1ContentFormat},
+        CoseKeyBytes, CoseSerializable, CoseSign1Bytes, CryptoError, SignatureAlgorithm,
+        SignedObject, SigningKey, SigningNamespace, VerifyingKey,
     };
 
     const VERIFYING_KEY: &[u8] = &[
@@ -201,17 +201,13 @@ mod tests {
     #[test]
     fn test_roundtrip_cose() {
         let signed_object =
-            SignedObject::from_cose(&Into::<Bytes<CoseSign1ContentFormat>>::into(SIGNED_OBJECT))
-                .unwrap();
+            SignedObject::from_cose(&Into::<CoseSign1Bytes>::into(SIGNED_OBJECT)).unwrap();
         assert_eq!(
             signed_object.content_type().unwrap(),
             coset::iana::CoapContentFormat::Cbor
         );
         let cose_bytes = signed_object.to_cose();
-        assert_eq!(
-            cose_bytes,
-            Bytes::<CoseSign1ContentFormat>::from(SIGNED_OBJECT)
-        );
+        assert_eq!(cose_bytes, CoseSign1Bytes::from(SIGNED_OBJECT));
     }
 
     #[test]
@@ -220,11 +216,9 @@ mod tests {
             field1: "Test message".to_string(),
         };
         let signed_object =
-            SignedObject::from_cose(&Into::<Bytes<CoseSign1ContentFormat>>::into(SIGNED_OBJECT))
-                .unwrap();
+            SignedObject::from_cose(&Into::<CoseSign1Bytes>::into(SIGNED_OBJECT)).unwrap();
         let verifying_key =
-            VerifyingKey::from_cose(&Into::<Bytes<CoseKeyContentFormat>>::into(VERIFYING_KEY))
-                .unwrap();
+            VerifyingKey::from_cose(&Into::<CoseKeyBytes>::into(VERIFYING_KEY)).unwrap();
         let namespace = SigningNamespace::ExampleNamespace;
         let payload: TestMessage = signed_object
             .verify_and_unwrap(&verifying_key, &namespace)

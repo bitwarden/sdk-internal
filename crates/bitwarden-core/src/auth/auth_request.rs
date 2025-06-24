@@ -111,7 +111,7 @@ mod tests {
     use std::num::NonZeroU32;
 
     use bitwarden_crypto::{
-        BitwardenLegacyKeyContentFormat, Bytes, Kdf, MasterKey, SpkiPublicKeyDerContentFormat,
+        BitwardenLegacyKeyBytes, Bytes, Kdf, MasterKey, SpkiPublicKeyDerContentFormat,
     };
 
     use super::*;
@@ -135,7 +135,7 @@ mod tests {
             AsymmetricCryptoKey::from_der(&STANDARD.decode(&request.private_key).unwrap().into())
                 .unwrap();
 
-        let secret = Bytes::<BitwardenLegacyKeyContentFormat>::from(secret);
+        let secret = BitwardenLegacyKeyBytes::from(secret);
         let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(
             &SymmetricCryptoKey::try_from(&secret).unwrap(),
             &private_key.to_public_key(),
