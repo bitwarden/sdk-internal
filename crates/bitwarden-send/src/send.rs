@@ -8,8 +8,8 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    generate_random_bytes, Bytes, CompositeEncryptable, CryptoError, Decryptable, EncString,
-    IdentifyKey, KeyStoreContext, OctetStreamContentFormat, PrimitiveEncryptable,
+    generate_random_bytes, CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey,
+    KeyStoreContext, OctetStreamBytes, PrimitiveEncryptable,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -331,7 +331,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Send> for SendView {
 
             name: self.name.encrypt(ctx, send_key)?,
             notes: self.notes.encrypt(ctx, send_key)?,
-            key: Bytes::<OctetStreamContentFormat>::from(k.clone()).encrypt(ctx, key)?,
+            key: OctetStreamBytes::from(k.clone()).encrypt(ctx, key)?,
             password: self.new_password.as_ref().map(|password| {
                 let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
                 STANDARD.encode(password)

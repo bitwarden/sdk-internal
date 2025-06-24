@@ -5,9 +5,8 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::key_encryptable::CryptoKey;
 use crate::{
-    content_format::{Bytes, SpkiPublicKeyDerContentFormat},
     error::{CryptoError, Result},
-    Pkcs8PrivateKeyBytes,
+    Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
 };
 
 /// Algorithm / public key encryption scheme used for encryption/decryption.
@@ -45,7 +44,7 @@ impl AsymmetricPublicCryptoKey {
     }
 
     /// Makes a SubjectPublicKeyInfo DER serialized version of the public key.
-    pub fn to_der(&self) -> Result<Bytes<SpkiPublicKeyDerContentFormat>> {
+    pub fn to_der(&self) -> Result<SpkiPublicKeyBytes> {
         use rsa::pkcs8::EncodePublicKey;
         match &self.inner {
             RawPublicKey::RsaOaepSha1(public_key) => Ok(public_key
@@ -167,7 +166,8 @@ mod tests {
 
     use crate::{
         content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat},
-        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, SymmetricCryptoKey, UnsignedSharedKey,
+        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, Pkcs8PrivateKeyBytes, SymmetricCryptoKey,
+        UnsignedSharedKey,
     };
 
     #[test]
@@ -261,7 +261,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
             ))
             .unwrap();
 
-        let private_key = Bytes::<Pkcs8PrivateKeyDerContentFormat>::from(private_key);
+        let private_key = Pkcs8PrivateKeyBytes::from(private_key);
         let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
         let public_key = AsymmetricPublicCryptoKey::from_der(&public_key).unwrap();
 

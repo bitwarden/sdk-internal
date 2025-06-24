@@ -39,7 +39,7 @@ fn main() {
     mock_server.upload("signed_object", signed_object.to_cose().to_vec());
 
     // Bob retrieves the signed object from the server
-    let retrieved_signed_object = SignedObject::from_cose(&Bytes::<CoseSign1ContentFormat>::from(
+    let retrieved_signed_object = SignedObject::from_cose(&CoseSign1Bytes::from(
         mock_server
             .download("signed_object")
             .expect("Failed to download signed object")

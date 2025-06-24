@@ -8,20 +8,14 @@ use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
 use thiserror::Error;
 
-use crate::{
-    content_format::SpkiPublicKeyDerContentFormat, error::Result, wordlist::EFF_LONG_WORD_LIST,
-    Bytes, CryptoError,
-};
+use crate::{error::Result, wordlist::EFF_LONG_WORD_LIST, CryptoError, SpkiPublicKeyBytes};
 
 /// Computes a fingerprint of the given `fingerprint_material` using the given `public_key`.
 ///
 /// This is commonly used for account fingerprints. With the following arguments:
 /// - `fingerprint_material`: user's id.
 /// - `public_key`: user's public key.
-pub fn fingerprint(
-    fingerprint_material: &str,
-    public_key: &Bytes<SpkiPublicKeyDerContentFormat>,
-) -> Result<String> {
+pub fn fingerprint(fingerprint_material: &str, public_key: &SpkiPublicKeyBytes) -> Result<String> {
     let hkdf = hkdf::Hkdf::<sha2::Sha256>::from_prk(public_key.as_ref())
         .map_err(|_| CryptoError::InvalidKeyLen)?;
 
@@ -93,7 +87,7 @@ mod tests {
             197, 3, 219, 56, 77, 109, 47, 72, 251, 131, 36, 240, 96, 169, 31, 82, 93, 166, 242, 3,
             33, 213, 2, 3, 1, 0, 1,
         ];
-        let key: Bytes<SpkiPublicKeyDerContentFormat> = Bytes::from(key.to_vec());
+        let key: SpkiPublicKeyBytes = Bytes::from(key.to_vec());
         assert_eq!(
             "turban-deftly-anime-chatroom-unselfish",
             fingerprint(user_id, &key).unwrap()

@@ -42,14 +42,13 @@ fn main() {
     mock_server.upload("serialized_message", serialized_message.as_bytes().to_vec());
 
     // Bob retrieves the signed object from the server
-    let retrieved_signature =
-        bitwarden_crypto::Signature::from_cose(&Bytes::<CoseSign1ContentFormat>::from(
-            mock_server
-                .download("signature")
-                .expect("Failed to download signature")
-                .clone(),
-        ))
-        .expect("Failed to deserialize signature");
+    let retrieved_signature = bitwarden_crypto::Signature::from_cose(&CoseSign1Bytes::from(
+        mock_server
+            .download("signature")
+            .expect("Failed to download signature")
+            .clone(),
+    ))
+    .expect("Failed to deserialize signature");
     let retrieved_serialized_message = bitwarden_crypto::SerializedMessage::from_bytes(
         mock_server
             .download("serialized_message")
@@ -90,22 +89,20 @@ fn main() {
             .content_type()
             .expect("Failed to get content type from signature"),
     );
-    let retrieved_alice_signature =
-        bitwarden_crypto::Signature::from_cose(&Bytes::<CoseSign1ContentFormat>::from(
-            mock_server
-                .download("signature")
-                .expect("Failed to download Alice's signature")
-                .clone(),
-        ))
-        .expect("Failed to deserialize Alice's signature");
-    let retrieved_bobs_signature =
-        bitwarden_crypto::Signature::from_cose(&Bytes::<CoseSign1ContentFormat>::from(
-            mock_server
-                .download("bobs_signature")
-                .expect("Failed to download Bob's signature")
-                .clone(),
-        ))
-        .expect("Failed to deserialize Bob's signature");
+    let retrieved_alice_signature = bitwarden_crypto::Signature::from_cose(&CoseSign1Bytes::from(
+        mock_server
+            .download("signature")
+            .expect("Failed to download Alice's signature")
+            .clone(),
+    ))
+    .expect("Failed to deserialize Alice's signature");
+    let retrieved_bobs_signature = bitwarden_crypto::Signature::from_cose(&CoseSign1Bytes::from(
+        mock_server
+            .download("bobs_signature")
+            .expect("Failed to download Bob's signature")
+            .clone(),
+    ))
+    .expect("Failed to deserialize Bob's signature");
 
     // Charlie verifies Alice's signature
     if !retrieved_alice_signature.verify(

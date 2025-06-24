@@ -171,7 +171,7 @@ mod tests {
 
         // Verify fingerprint
         let pubkey = STANDARD.decode(public_key).unwrap();
-        let pubkey = Bytes::<SpkiPublicKeyDerContentFormat>::from(pubkey.clone());
+        let pubkey = SpkiPublicKeyBytes::from(pubkey.clone());
         let fingerprint = fingerprint("test@bitwarden.com", &pubkey).unwrap();
         assert_eq!(fingerprint, "childless-unfair-prowler-dropbox-designate");
 
