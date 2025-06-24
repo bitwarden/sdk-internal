@@ -343,7 +343,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             permissions: self.permissions,
             view_password: self.view_password,
             local_data: self.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
-            attachments: self.attachments.decrypt(ctx, ciphers_key).ok().flatten(),
+            attachments: self.attachments.decrypt(ctx, ciphers_key)?,
             fields: self.fields.decrypt(ctx, ciphers_key).ok().flatten(),
             password_history: self
                 .password_history
@@ -962,6 +962,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: None,
+            decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
 
@@ -1031,6 +1032,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: None,
+            decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
 
@@ -1074,6 +1076,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: Some(attachment_key_enc),
+            decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
         let cred = generate_fido2(&mut key_store.context(), SymmetricKeyId::User);
@@ -1141,6 +1144,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: Some(attachment_key_enc.clone()),
+            decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
 
