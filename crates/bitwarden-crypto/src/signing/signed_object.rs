@@ -172,7 +172,6 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        content_format::{Bytes, CoseSign1ContentFormat},
         CoseKeyBytes, CoseSerializable, CoseSign1Bytes, CryptoError, SignatureAlgorithm,
         SignedObject, SigningKey, SigningNamespace, VerifyingKey,
     };

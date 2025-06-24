@@ -617,7 +617,7 @@ pub fn make_user_signing_keys_for_enrollment(
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::{Pkcs8PrivateKeyDerContentFormat, RsaKeyPair};
+    use bitwarden_crypto::RsaKeyPair;
 
     use super::*;
     use crate::Client;

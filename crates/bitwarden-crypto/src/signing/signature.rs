@@ -192,7 +192,7 @@ impl CoseSerializable<CoseSign1ContentFormat> for Signature {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{content_format::Bytes, CoseKeyBytes, SignatureAlgorithm};
+    use crate::{CoseKeyBytes, SignatureAlgorithm};
 
     const VERIFYING_KEY: &[u8] = &[
         166, 1, 1, 2, 80, 55, 131, 40, 191, 230, 137, 76, 182, 184, 139, 94, 152, 45, 63, 13, 71,

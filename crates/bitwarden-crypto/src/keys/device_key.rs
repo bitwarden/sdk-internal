@@ -89,7 +89,7 @@ impl TryFrom<String> for DeviceKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{derive_symmetric_key, BitwardenLegacyKeyBytes, BitwardenLegacyKeyContentFormat};
+    use crate::{derive_symmetric_key, BitwardenLegacyKeyBytes};
 
     #[test]
     fn test_trust_device() {
