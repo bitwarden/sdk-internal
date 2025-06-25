@@ -32,7 +32,7 @@ impl RpcRequestPayload {
         &self.partial.request_type
     }
 
-    pub fn full<T>(&self) -> Result<RpcRequestMessage<T>, RpcError>
+    pub fn deserialize_full<T>(&self) -> Result<RpcRequestMessage<T>, RpcError>
     where
         T: RpcRequest,
     {

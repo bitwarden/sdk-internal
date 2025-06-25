@@ -89,7 +89,7 @@ where
         &self,
         serialized_request: &RpcRequestPayload,
     ) -> Result<Box<dyn ErasedSerialize>, RpcError> {
-        let request: H::Request = serialized_request.full()?.request;
+        let request: H::Request = serialized_request.deserialize_full()?.request;
 
         let response = self.handle(request).await;
 
