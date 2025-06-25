@@ -407,6 +407,7 @@ impl From<EncodedSymmetricKey> for Vec<u8> {
     }
 }
 impl EncodedSymmetricKey {
+    #[allow(private_interfaces)]
     pub fn content_format(&self) -> ContentFormat {
         match self {
             EncodedSymmetricKey::LegacyNonCoseKey(_) => ContentFormat::BitwardenLegacyKey,

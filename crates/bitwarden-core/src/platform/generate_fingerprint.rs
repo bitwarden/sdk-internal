@@ -3,7 +3,7 @@
 //! This module contains the logic for generating fingerprints.
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use bitwarden_crypto::{fingerprint, SpkiPublicKeyBytes};
+use bitwarden_crypto::fingerprint;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
