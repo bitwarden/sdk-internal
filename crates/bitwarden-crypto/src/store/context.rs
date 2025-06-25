@@ -542,9 +542,11 @@ mod tests {
             tests::{Data, DataView},
             KeyStore,
         },
-        traits::tests::{TestIds, TestSigningKey, TestSymmKey},
-        CompositeEncryptable, CryptoError, Decryptable, SignatureAlgorithm, SigningKey,
-        SigningNamespace, SymmetricCryptoKey,
+        traits::tests::{TestAsymmKey, TestIds, TestSigningKey, TestSymmKey},
+        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes,
+        CoseSerializable, Decryptable, KeyDecryptable, Pkcs8PrivateKeyBytes,
+        PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SigningKey,
+        SigningNamespace, SpkiPublicKeyBytes, SymmetricCryptoKey,
     };
 
     #[test]
@@ -733,5 +735,84 @@ mod tests {
             &verifying_key,
             &SigningNamespace::ExampleNamespace
         ))
+    }
+
+    #[test]
+    fn test_account_key_rotation() {
+        let store: KeyStore<TestIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        // Generate a new user key
+        let new_user_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        let current_user_private_key_id = TestAsymmKey::A(0);
+        let current_user_signing_key_id = TestSigningKey::A(0);
+
+        // Make the keys
+        ctx.generate_symmetric_key(TestSymmKey::A(0)).unwrap();
+        ctx.make_signing_key(current_user_signing_key_id).unwrap();
+        ctx.set_asymmetric_key(
+            current_user_private_key_id,
+            AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1),
+        )
+        .unwrap();
+
+        // Get the rotated account keys
+        let rotated_keys = ctx
+            .dangerous_get_v2_rotated_account_keys(
+                new_user_key,
+                current_user_private_key_id,
+                current_user_signing_key_id,
+            )
+            .unwrap();
+
+        let user_key = ctx.get_symmetric_key(TestSymmKey::A(0)).unwrap();
+
+        // Public/Private key
+        assert_eq!(
+            AsymmetricPublicCryptoKey::from_der(&rotated_keys.public_key).unwrap(),
+            ctx.get_asymmetric_key(current_user_private_key_id)
+                .unwrap()
+                .to_public_key(),
+        );
+        let decrypted_private_key: Vec<u8> =
+            rotated_keys.private_key.decrypt_with_key(user_key).unwrap();
+        let private_key =
+            AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(decrypted_private_key))
+                .unwrap();
+        assert_eq!(
+            private_key.to_der().unwrap(),
+            ctx.get_asymmetric_key(current_user_private_key_id)
+                .unwrap()
+                .to_der()
+                .unwrap()
+        );
+
+        // Signing Key
+        let decrypted_signing_key: Vec<u8> =
+            rotated_keys.signing_key.decrypt_with_key(user_key).unwrap();
+        let signing_key =
+            SigningKey::from_cose(&CoseKeyBytes::from(decrypted_signing_key)).unwrap();
+        assert_eq!(
+            signing_key.to_cose(),
+            ctx.get_signing_key(current_user_signing_key_id)
+                .unwrap()
+                .to_cose(),
+        );
+
+        // Signed Public Key
+        let signed_public_key = SignedPublicKey::try_from(rotated_keys.signed_public_key).unwrap();
+        let unwrapped_key = signed_public_key
+            .verify_and_unwrap(
+                &ctx.get_signing_key(current_user_signing_key_id)
+                    .unwrap()
+                    .to_verifying_key(),
+            )
+            .unwrap();
+        assert_eq!(
+            unwrapped_key,
+            ctx.get_asymmetric_key(current_user_private_key_id)
+                .unwrap()
+                .to_public_key()
+        );
     }
 }
