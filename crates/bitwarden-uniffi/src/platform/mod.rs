@@ -57,7 +57,8 @@ repository::create_uniffi_repository!(CipherRepository, Cipher);
 
 #[derive(uniffi::Record)]
 pub struct SqliteConfiguration {
-    file_path: String,
+    db_name: String,
+    folder_path: String,
 }
 
 #[uniffi::export]
@@ -88,7 +89,8 @@ impl StateClient {
 impl From<SqliteConfiguration> for DatabaseConfiguration {
     fn from(config: SqliteConfiguration) -> Self {
         DatabaseConfiguration::Sqlite {
-            file_path: config.file_path,
+            db_name: config.db_name,
+            folder_path: config.folder_path.into(),
         }
     }
 }

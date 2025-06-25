@@ -17,13 +17,15 @@ impl Database for SqliteDatabase {
         registrations: &[RepositoryItemData],
     ) -> Result<Self, DatabaseError> {
         let DatabaseConfiguration::Sqlite {
-            file_path: _file_path,
+            db_name,
+            folder_path: mut path,
         } = configuration
         else {
             return Err(DatabaseError::UnsupportedConfiguration(configuration));
         };
+        path.set_file_name(format!("{}.sqlite", db_name));
 
-        let mut db = rusqlite::Connection::open_in_memory()?;
+        let mut db = rusqlite::Connection::open(path)?;
 
         // Set WAL mode for better concurrency
         db.execute("PRAGMA journal_mode = WAL;", [])?;
