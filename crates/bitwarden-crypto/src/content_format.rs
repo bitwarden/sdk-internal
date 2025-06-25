@@ -108,6 +108,7 @@ pub(crate) type Utf8Bytes = Bytes<Utf8ContentFormat>;
 pub struct OctetStreamContentFormat;
 impl private::Sealed for OctetStreamContentFormat {}
 impl ConstContentFormat for OctetStreamContentFormat {
+    #[allow(private_interfaces)]
     fn content_format() -> ContentFormat {
         ContentFormat::OctetStream
     }
@@ -121,7 +122,7 @@ pub type OctetStreamBytes = Bytes<OctetStreamContentFormat>;
 pub struct Pkcs8PrivateKeyDerContentFormat;
 impl private::Sealed for Pkcs8PrivateKeyDerContentFormat {}
 impl ConstContentFormat for Pkcs8PrivateKeyDerContentFormat {
-    #[allow(exported_private_dependencies)]
+    #[allow(private_interfaces)]
     fn content_format() -> ContentFormat {
         ContentFormat::Pkcs8PrivateKey
     }
@@ -135,6 +136,7 @@ pub type Pkcs8PrivateKeyBytes = Bytes<Pkcs8PrivateKeyDerContentFormat>;
 pub struct SpkiPublicKeyDerContentFormat;
 impl private::Sealed for SpkiPublicKeyDerContentFormat {}
 impl ConstContentFormat for SpkiPublicKeyDerContentFormat {
+    #[allow(private_interfaces)]
     fn content_format() -> ContentFormat {
         ContentFormat::SPKIPublicKeyDer
     }
@@ -148,6 +150,7 @@ pub type SpkiPublicKeyBytes = Bytes<SpkiPublicKeyDerContentFormat>;
 pub struct CoseKeyContentFormat;
 impl private::Sealed for CoseKeyContentFormat {}
 impl ConstContentFormat for CoseKeyContentFormat {
+    #[allow(private_interfaces)]
     fn content_format() -> ContentFormat {
         ContentFormat::CoseKey
     }
@@ -162,6 +165,7 @@ pub type CoseKeyBytes = Bytes<CoseKeyContentFormat>;
 pub struct BitwardenLegacyKeyContentFormat;
 impl private::Sealed for BitwardenLegacyKeyContentFormat {}
 impl ConstContentFormat for BitwardenLegacyKeyContentFormat {
+    #[allow(private_interfaces)]
     fn content_format() -> ContentFormat {
         ContentFormat::BitwardenLegacyKey
     }
@@ -176,6 +180,7 @@ pub type BitwardenLegacyKeyBytes = Bytes<BitwardenLegacyKeyContentFormat>;
 pub struct CoseSign1ContentFormat;
 impl private::Sealed for CoseSign1ContentFormat {}
 impl ConstContentFormat for CoseSign1ContentFormat {
+    #[allow(private_interfaces)]
     fn content_format() -> ContentFormat {
         ContentFormat::CoseSign1
     }
