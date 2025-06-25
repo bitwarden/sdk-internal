@@ -14,9 +14,8 @@ use crate::{
 /// a Pkcs8 private key, or a COSE key. Specifically, for COSE keys, this allows distinguishing
 /// between the old symmetric key format, represented as `ContentFormat::OctetStream`, and the new
 /// COSE key format, represented as `ContentFormat::CoseKey`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub enum ContentFormat {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum ContentFormat {
     /// UTF-8 encoded text
     Utf8,
     /// Pkcs8 private key DER
@@ -35,8 +34,6 @@ pub enum ContentFormat {
     BitwardenLegacyKey,
     /// Stream of bytes
     OctetStream,
-    /// CBOR serialized data
-    Cbor,
 }
 
 mod private {
@@ -51,6 +48,7 @@ mod private {
 /// which can still be mis-used, but has to be misused explicitly.
 pub trait ConstContentFormat: private::Sealed {
     /// Returns the content format as a `ContentFormat` enum.
+    #[allow(private_interfaces)]
     fn content_format() -> ContentFormat;
 }
 
@@ -123,6 +121,7 @@ pub type OctetStreamBytes = Bytes<OctetStreamContentFormat>;
 pub struct Pkcs8PrivateKeyDerContentFormat;
 impl private::Sealed for Pkcs8PrivateKeyDerContentFormat {}
 impl ConstContentFormat for Pkcs8PrivateKeyDerContentFormat {
+    #[allow(exported_private_dependencies)]
     fn content_format() -> ContentFormat {
         ContentFormat::Pkcs8PrivateKey
     }

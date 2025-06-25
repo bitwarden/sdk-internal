@@ -34,7 +34,8 @@ impl CryptoKey for PinKey {}
 impl KeyEncryptable<PinKey, EncString> for &SymmetricCryptoKey {
     fn encrypt_with_key(self, key: &PinKey) -> Result<EncString> {
         let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&key.0 .0)?);
-        // The (stretched) pin key is currently always an AES-256-CBC-HMAC key, and wraps a bitwarden legacy encoded symmetric key
+        // The (stretched) pin key is currently always an AES-256-CBC-HMAC key, and wraps a
+        // bitwarden legacy encoded symmetric key
         self.to_encoded().encrypt_with_key(&stretched_key)
     }
 }

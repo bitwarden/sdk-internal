@@ -176,7 +176,6 @@ impl From<ContentFormat> for coset::HeaderBuilder {
             ContentFormat::OctetStream => {
                 header_builder.content_format(CoapContentFormat::OctetStream)
             }
-            ContentFormat::Cbor => header_builder.content_format(CoapContentFormat::Cbor),
         }
     }
 }
