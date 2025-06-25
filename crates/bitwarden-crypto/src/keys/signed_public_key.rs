@@ -83,17 +83,17 @@ impl From<SignedPublicKey> for CoseSign1Bytes {
     }
 }
 
-impl From<SignedPublicKey> for String {
-    fn from(val: SignedPublicKey) -> Self {
-        let bytes: CoseSign1Bytes = val.into();
-        STANDARD.encode(bytes.as_ref())
-    }
-}
-
 impl TryFrom<CoseSign1Bytes> for SignedPublicKey {
     type Error = EncodingError;
     fn try_from(bytes: CoseSign1Bytes) -> Result<Self, EncodingError> {
         Ok(SignedPublicKey(SignedObject::from_cose(&bytes)?))
+    }
+}
+
+impl From<SignedPublicKey> for String {
+    fn from(val: SignedPublicKey) -> Self {
+        let bytes: CoseSign1Bytes = val.into();
+        STANDARD.encode(&bytes)
     }
 }
 
