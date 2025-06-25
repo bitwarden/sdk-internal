@@ -72,8 +72,9 @@ impl CiphersClient {
 
     /// Temporary method used to re-encrypt FIDO2 credentials for a cipher view.
     /// Necessary while the FIDO2 credentials remain in the LoginView in an encrypted form.
-    /// Used by the TS clients to encrypt FIDO2 credentials separately before encrypting the remaining cipher view.
-    /// TODO: Remove once FIDO2 credentials have been removed from the LoginView.
+    /// Used by the TS clients to encrypt FIDO2 credentials separately before encrypting the
+    /// remaining cipher view. TODO: Remove once FIDO2 credentials have been removed from the
+    /// LoginView.
     pub fn encrypt_fido2_credentials(
         &self,
         cipher_view: CipherView,
