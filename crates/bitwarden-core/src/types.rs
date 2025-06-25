@@ -20,9 +20,9 @@ impl TryInto<Vec<u8>> for Base64String {
     }
 }
 
-impl Into<String> for Base64String {
-    fn into(self) -> String {
-        self.0
+impl From<Base64String> for String {
+    fn from(val: Base64String) -> Self {
+        val.0
     }
 }
 
