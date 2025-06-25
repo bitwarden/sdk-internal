@@ -11,9 +11,9 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::AsymmetricPublicCryptoKey;
 use crate::{
-    cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CryptoError,
-    PublicKeyEncryptionAlgorithm, RawPublicKey, SignedObject, SigningKey, SigningNamespace,
-    VerifyingKey,
+    cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CoseSign1Bytes,
+    CryptoError, PublicKeyEncryptionAlgorithm, RawPublicKey, SignedObject, SigningKey,
+    SigningNamespace, SpkiPublicKeyBytes, VerifyingKey,
 };
 
 #[cfg(feature = "wasm")]
@@ -57,7 +57,7 @@ impl SignedPublicKeyMessage {
             RawPublicKey::RsaOaepSha1(_) => Ok(SignedPublicKeyMessage {
                 algorithm: PublicKeyEncryptionAlgorithm::RsaOaepSha1,
                 content_format: PublicKeyFormat::Spki,
-                public_key: ByteBuf::from(public_key.to_der()?),
+                public_key: ByteBuf::from(public_key.to_der()?.as_ref()),
             }),
         }
     }
@@ -79,14 +79,16 @@ pub struct SignedPublicKey(pub(crate) SignedObject);
 
 impl From<SignedPublicKey> for Vec<u8> {
     fn from(val: SignedPublicKey) -> Self {
-        val.0.to_cose()
+        val.0.to_cose().to_vec()
     }
 }
 
 impl TryFrom<Vec<u8>> for SignedPublicKey {
     type Error = EncodingError;
     fn try_from(bytes: Vec<u8>) -> Result<Self, EncodingError> {
-        Ok(SignedPublicKey(SignedObject::from_cose(&bytes)?))
+        Ok(SignedPublicKey(SignedObject::from_cose(
+            &CoseSign1Bytes::from(bytes),
+        )?))
     }
 }
 
@@ -112,8 +114,10 @@ impl SignedPublicKey {
             public_key_message.content_format,
         ) {
             (PublicKeyEncryptionAlgorithm::RsaOaepSha1, PublicKeyFormat::Spki) => Ok(
-                AsymmetricPublicCryptoKey::from_der(&public_key_message.public_key.into_vec())
-                    .map_err(|_| EncodingError::InvalidValue("public key"))?,
+                AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
+                    public_key_message.public_key.into_vec(),
+                ))
+                .map_err(|_| EncodingError::InvalidValue("public key"))?,
             ),
         }
     }

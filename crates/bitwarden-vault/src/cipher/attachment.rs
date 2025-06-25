@@ -1,6 +1,7 @@
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
+    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
+    OctetStreamBytes, PrimitiveEncryptable,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -78,8 +79,10 @@ impl IdentifyKey<SymmetricKeyId> for AttachmentFile {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for AttachmentFileView<'_> {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult>
+    for AttachmentFileView<'_>
+{
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -91,7 +94,8 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         // Because this is a new attachment, we have to generate a key for it, encrypt the contents
         // with it, and then encrypt the key with the cipher key
         let attachment_key = ctx.generate_symmetric_key(ATTACHMENT_KEY)?;
-        let encrypted_contents = self.contents.encrypt(ctx, attachment_key)?;
+        let encrypted_contents =
+            OctetStreamBytes::from(self.contents).encrypt(ctx, attachment_key)?;
         attachment.key = Some(ctx.wrap_symmetric_key(ciphers_key, attachment_key)?);
 
         let contents = encrypted_contents.to_buffer()?;
@@ -101,7 +105,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         attachment.size_name = Some(size_name(contents.len()));
 
         Ok(AttachmentEncryptResult {
-            attachment: attachment.encrypt(ctx, ciphers_key)?,
+            attachment: attachment.encrypt_composite(ctx, ciphers_key)?,
             contents,
         })
     }
@@ -137,8 +141,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, Vec<u8>> for AttachmentFile {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Attachment> for AttachmentView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Attachment> for AttachmentView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,

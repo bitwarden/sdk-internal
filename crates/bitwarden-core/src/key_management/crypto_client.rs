@@ -118,7 +118,7 @@ impl CryptoClient {
         &self,
         public_key: String,
     ) -> Result<UnsignedSharedKey, EnrollAdminPasswordResetError> {
-        enroll_admin_password_reset(&self.client, public_key)
+        enroll_admin_password_reset(&self.client, public_key.into())
     }
 
     /// Derive the master key for migrating to the key connector
