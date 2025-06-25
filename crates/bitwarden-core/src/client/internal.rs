@@ -5,13 +5,14 @@ use bitwarden_crypto::KeyStore;
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
+#[cfg(feature = "internal")]
+use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
 use uuid::Uuid;
 
+use super::encryption_settings::EncryptionSettings;
 #[cfg(feature = "secrets")]
 use super::login_method::ServiceAccountLoginMethod;
-#[cfg(any(feature = "internal", feature = "secrets"))]
-use crate::client::encryption_settings::EncryptionSettings;
 use crate::{
     auth::renew::renew_token, client::login_method::LoginMethod, error::UserIdAlreadySetError,
     key_management::KeyIds, DeviceType,
@@ -63,6 +64,9 @@ pub struct InternalClient {
     pub(crate) external_client: reqwest::Client,
 
     pub(super) key_store: KeyStore<KeyIds>,
+
+    #[cfg(feature = "internal")]
+    pub(crate) repository_map: StateRegistry,
 }
 
 impl InternalClient {
@@ -185,7 +189,16 @@ impl InternalClient {
 
     #[allow(missing_docs)]
     pub fn init_user_id(&self, user_id: Uuid) -> Result<(), UserIdAlreadySetError> {
-        self.user_id.set(user_id).map_err(|_| UserIdAlreadySetError)
+        let set_uuid = self.user_id.get_or_init(|| user_id);
+
+        // Only return an error if the user_id is already set to a different value,
+        // as we want an SDK client to be tied to a single user_id.
+        // If it's the same value, we can just do nothing.
+        if *set_uuid != user_id {
+            Err(UserIdAlreadySetError)
+        } else {
+            Ok(())
+        }
     }
 
     #[allow(missing_docs)]
@@ -199,9 +212,10 @@ impl InternalClient {
         master_key: MasterKey,
         user_key: EncString,
         private_key: EncString,
+        signing_key: Option<EncString>,
     ) -> Result<(), EncryptionSettingsError> {
         let user_key = master_key.decrypt_user_key(user_key)?;
-        EncryptionSettings::new_decrypted_key(user_key, private_key, &self.key_store)?;
+        EncryptionSettings::new_decrypted_key(user_key, private_key, signing_key, &self.key_store)?;
 
         Ok(())
     }
@@ -211,8 +225,9 @@ impl InternalClient {
         &self,
         user_key: SymmetricCryptoKey,
         private_key: EncString,
+        signing_key: Option<EncString>,
     ) -> Result<(), EncryptionSettingsError> {
-        EncryptionSettings::new_decrypted_key(user_key, private_key, &self.key_store)?;
+        EncryptionSettings::new_decrypted_key(user_key, private_key, signing_key, &self.key_store)?;
 
         Ok(())
     }
@@ -223,9 +238,10 @@ impl InternalClient {
         pin_key: PinKey,
         pin_protected_user_key: EncString,
         private_key: EncString,
+        signing_key: Option<EncString>,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = pin_key.decrypt_user_key(pin_protected_user_key)?;
-        self.initialize_user_crypto_decrypted_key(decrypted_user_key, private_key)
+        self.initialize_user_crypto_decrypted_key(decrypted_user_key, private_key, signing_key)
     }
 
     #[cfg(feature = "secrets")]
@@ -244,5 +260,29 @@ impl InternalClient {
         org_keys: Vec<(Uuid, UnsignedSharedKey)>,
     ) -> Result<(), EncryptionSettingsError> {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Client;
+
+    #[test]
+    fn initializing_user_multiple_times() {
+        use super::*;
+
+        let client = Client::new(None);
+        let user_id = Uuid::new_v4();
+
+        // Setting the user ID for the first time should work.
+        assert!(client.internal.init_user_id(user_id).is_ok());
+        assert_eq!(client.internal.get_user_id(), Some(user_id));
+
+        // Trying to set the same user_id again should not return an error.
+        assert!(client.internal.init_user_id(user_id).is_ok());
+
+        // Trying to set a different user_id should return an error.
+        let different_user_id = Uuid::new_v4();
+        assert!(client.internal.init_user_id(different_user_id).is_err());
     }
 }

@@ -12,8 +12,11 @@ pub use symmetric_crypto_key::{
 };
 mod asymmetric_crypto_key;
 pub use asymmetric_crypto_key::{
-    AsymmetricCryptoKey, AsymmetricEncryptable, AsymmetricPublicCryptoKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, PublicKeyEncryptionAlgorithm,
 };
+pub(crate) use asymmetric_crypto_key::{RawPrivateKey, RawPublicKey};
+mod signed_public_key;
+pub use signed_public_key::{SignedPublicKey, SignedPublicKeyMessage};
 mod user_key;
 pub use user_key::UserKey;
 mod device_key;
@@ -26,6 +29,5 @@ pub use kdf::{
     default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
     default_pbkdf2_iterations, Kdf,
 };
-#[cfg(test)]
-pub(crate) use key_id::KEY_ID_SIZE;
+pub(crate) use key_id::{KeyId, KEY_ID_SIZE};
 mod utils;

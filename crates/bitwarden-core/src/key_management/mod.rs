@@ -31,7 +31,14 @@ key_ids! {
         Local(&'static str),
     }
 
-    pub KeyIds => SymmetricKeyId, AsymmetricKeyId;
+    #[signing]
+    pub enum SigningKeyId {
+        UserSigningKey,
+        #[local]
+        Local(&'static str),
+    }
+
+    pub KeyIds => SymmetricKeyId, AsymmetricKeyId, SigningKeyId;
 }
 
 /// This is a helper function to create a test KeyStore with a single user key.
