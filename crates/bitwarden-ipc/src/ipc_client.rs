@@ -304,7 +304,7 @@ where
         let request_payload = RpcRequestMessage {
             request,
             request_id: request_id.clone(),
-            request_type: Request::name(),
+            request_type: Request::NAME.to_owned(),
         };
 
         let message = TypedOutgoingMessage {
@@ -753,9 +753,7 @@ mod tests {
         impl RpcRequest for TestRequest {
             type Response = TestResponse;
 
-            fn name() -> String {
-                "TestRequest".to_string()
-            }
+            const NAME: &str = "TestRequest";
         }
 
         struct TestHandler;

@@ -4,5 +4,5 @@ pub trait RpcRequest: Serialize + DeserializeOwned + 'static {
     type Response: Serialize + DeserializeOwned + 'static;
 
     /// Used to identify handlers
-    fn name() -> String;
+    const NAME: &str;
 }

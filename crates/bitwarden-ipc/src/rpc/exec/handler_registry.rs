@@ -19,7 +19,7 @@ impl RpcHandlerRegistry {
     where
         H: RpcHandler + ErasedRpcHandler + 'static,
     {
-        let name = H::Request::name();
+        let name = H::Request::NAME.to_owned();
         self.handlers.write().await.insert(name, Box::new(handler));
     }
 
@@ -58,9 +58,7 @@ mod test {
     impl RpcRequest for TestRequest {
         type Response = TestResponse;
 
-        fn name() -> String {
-            "TestRequest".to_string()
-        }
+        const NAME: &str = "TestRequest";
     }
 
     struct TestHandler;

@@ -16,9 +16,7 @@ pub struct DiscoverResponse {
 impl RpcRequest for DiscoverRequest {
     type Response = DiscoverResponse;
 
-    fn name() -> String {
-        "DiscoverRequest".to_string()
-    }
+    const NAME: &str = "DiscoverRequest";
 }
 
 pub struct DiscoverHandler {
