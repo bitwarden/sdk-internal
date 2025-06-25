@@ -215,9 +215,8 @@ mod tests {
             field1: "Test message".to_string(),
         };
         let signed_object =
-            SignedObject::from_cose(&Into::<CoseSign1Bytes>::into(SIGNED_OBJECT)).unwrap();
-        let verifying_key =
-            VerifyingKey::from_cose(&Into::<CoseKeyBytes>::into(VERIFYING_KEY)).unwrap();
+            SignedObject::from_cose(&<CoseSign1Bytes>::from(SIGNED_OBJECT)).unwrap();
+        let verifying_key = VerifyingKey::from_cose(&<CoseKeyBytes>::from(VERIFYING_KEY)).unwrap();
         let namespace = SigningNamespace::ExampleNamespace;
         let payload: TestMessage = signed_object
             .verify_and_unwrap(&verifying_key, &namespace)
