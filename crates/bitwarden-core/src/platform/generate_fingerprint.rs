@@ -42,8 +42,7 @@ pub enum FingerprintError {
 
 pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String, FingerprintError> {
     let key = STANDARD.decode(&input.public_key)?;
-    let key = SpkiPublicKeyBytes::from(key);
-    Ok(fingerprint(&input.fingerprint_material, &key)?)
+    Ok(fingerprint(&input.fingerprint_material, &key.into())?)
 }
 
 /// Errors that can occur when computing a fingerprint.
