@@ -655,7 +655,7 @@ pub fn get_v2_rotated_account_keys(
     let ctx = key_store.context();
 
     ctx.dangerous_get_v2_rotated_account_keys(
-        SymmetricCryptoKey::try_from(user_key)?,
+        &SymmetricCryptoKey::try_from(user_key)?,
         AsymmetricKeyId::UserPrivateKey,
         SigningKeyId::UserSigningKey,
     )

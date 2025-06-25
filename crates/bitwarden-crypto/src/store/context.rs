@@ -546,7 +546,7 @@ mod tests {
         AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes,
         CoseSerializable, CryptoError, Decryptable, KeyDecryptable, Pkcs8PrivateKeyBytes,
         PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SigningKey,
-        SigningNamespace, SpkiPublicKeyBytes, SymmetricCryptoKey,
+        SigningNamespace, SymmetricCryptoKey,
     };
 
     #[test]
