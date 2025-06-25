@@ -3,10 +3,10 @@ use std::str::FromStr;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
     AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, CoseKeyBytes,
-    CoseSerializable, CryptoError, Decryptable, EncString, Kdf, KeyDecryptable, KeyEncryptable,
-    KeyStore, MasterKey, OctetStreamBytes, Pkcs8PrivateKeyBytes, PrimitiveEncryptable,
-    SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
-    UnsignedSharedKey, VerifyingKey,
+    CoseSerializable, CoseSign1Bytes, CryptoError, Decryptable, EncString, Kdf, KeyDecryptable,
+    KeyEncryptable, KeyStore, MasterKey, OctetStreamBytes, Pkcs8PrivateKeyBytes,
+    PrimitiveEncryptable, SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes,
+    SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
 };
 use wasm_bindgen::prelude::*;
 
@@ -304,7 +304,7 @@ impl PureCrypto {
         signed_public_key: Vec<u8>,
         verifying_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
-        let signed_public_key = SignedPublicKey::try_from(signed_public_key)?;
+        let signed_public_key = SignedPublicKey::try_from(CoseSign1Bytes::from(signed_public_key))?;
         let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(verifying_key))?;
         signed_public_key
             .verify_and_unwrap(&verifying_key)

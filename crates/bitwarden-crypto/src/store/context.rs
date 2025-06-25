@@ -10,7 +10,7 @@ use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
-    KeyIds, Result, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
+    KeyIds, Result, RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
     SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
 };
 
@@ -514,6 +514,21 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         namespace: &crate::SigningNamespace,
     ) -> Result<(Signature, signing::SerializedMessage)> {
         self.get_signing_key(key)?.sign_detached(message, namespace)
+    }
+
+    /// Re-encrypts the user's keys with the provided symmetric key for a v2 user.
+    pub fn dangerous_get_v2_rotated_account_keys(
+        &self,
+        new_user_key: SymmetricCryptoKey,
+        current_user_private_key_id: Ids::Asymmetric,
+        current_user_signing_key_id: Ids::Signing,
+    ) -> Result<RotatedUserKeys> {
+        crate::get_v2_rotated_account_keys(
+            new_user_key,
+            current_user_private_key_id,
+            current_user_signing_key_id,
+            self,
+        )
     }
 }
 

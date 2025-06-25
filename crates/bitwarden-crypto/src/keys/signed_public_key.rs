@@ -77,25 +77,23 @@ impl SignedPublicKeyMessage {
 #[derive(Clone, Debug)]
 pub struct SignedPublicKey(pub(crate) SignedObject);
 
-impl From<SignedPublicKey> for Vec<u8> {
+impl From<SignedPublicKey> for CoseSign1Bytes {
     fn from(val: SignedPublicKey) -> Self {
-        val.0.to_cose().to_vec()
-    }
-}
-
-impl TryFrom<Vec<u8>> for SignedPublicKey {
-    type Error = EncodingError;
-    fn try_from(bytes: Vec<u8>) -> Result<Self, EncodingError> {
-        Ok(SignedPublicKey(SignedObject::from_cose(
-            &CoseSign1Bytes::from(bytes),
-        )?))
+        val.0.to_cose()
     }
 }
 
 impl From<SignedPublicKey> for String {
     fn from(val: SignedPublicKey) -> Self {
-        let bytes: Vec<u8> = val.into();
-        STANDARD.encode(&bytes)
+        let bytes: CoseSign1Bytes = val.into();
+        STANDARD.encode(bytes.as_ref())
+    }
+}
+
+impl TryFrom<CoseSign1Bytes> for SignedPublicKey {
+    type Error = EncodingError;
+    fn try_from(bytes: CoseSign1Bytes) -> Result<Self, EncodingError> {
+        Ok(SignedPublicKey(SignedObject::from_cose(&bytes)?))
     }
 }
 
@@ -130,7 +128,7 @@ impl FromStr for SignedPublicKey {
         let bytes = STANDARD
             .decode(s)
             .map_err(|_| EncodingError::InvalidCborSerialization)?;
-        Self::try_from(bytes)
+        Self::try_from(CoseSign1Bytes::from(bytes))
     }
 }
 

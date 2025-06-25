@@ -1,4 +1,4 @@
-use bitwarden_crypto::{CryptoError, RotateUserKeysResponse};
+use bitwarden_crypto::CryptoError;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 #[cfg(feature = "wasm")]
@@ -18,7 +18,9 @@ use crate::key_management::crypto::{
 };
 use crate::{
     client::encryption_settings::EncryptionSettingsError,
-    key_management::crypto::{get_v2_rotated_account_keys, CryptoClientError},
+    key_management::crypto::{
+        get_v2_rotated_account_keys, CryptoClientError, RotateUserKeysResponse,
+    },
     Client,
 };
 
