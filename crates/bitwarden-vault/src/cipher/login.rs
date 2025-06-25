@@ -4,7 +4,10 @@ use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
-use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{
+    CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
+    PrimitiveEncryptable,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -197,8 +200,8 @@ impl From<Fido2CredentialFullView> for Fido2CredentialNewView {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2CredentialFullView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2CredentialFullView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -322,8 +325,8 @@ pub struct LoginListView {
     pub uris: Option<Vec<LoginUriView>>,
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, LoginUri> for LoginUriView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, LoginUri> for LoginUriView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -336,8 +339,8 @@ impl Encryptable<KeyIds, SymmetricKeyId, LoginUri> for LoginUriView {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Login> for LoginView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Login> for LoginView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -346,7 +349,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, Login> for LoginView {
             username: self.username.encrypt(ctx, key)?,
             password: self.password.encrypt(ctx, key)?,
             password_revision_date: self.password_revision_date,
-            uris: self.uris.encrypt(ctx, key)?,
+            uris: self.uris.encrypt_composite(ctx, key)?,
             totp: self.totp.encrypt(ctx, key)?,
             autofill_on_page_load: self.autofill_on_page_load,
             fido2_credentials: self.fido2_credentials.clone(),
@@ -406,8 +409,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, LoginListView> for Login {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2CredentialView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2CredentialView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,

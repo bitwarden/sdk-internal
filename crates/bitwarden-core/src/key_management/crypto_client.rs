@@ -1,4 +1,4 @@
-use bitwarden_crypto::{CryptoError, RotateUserKeysResponse};
+use bitwarden_crypto::CryptoError;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 #[cfg(feature = "wasm")]
@@ -18,7 +18,7 @@ use crate::key_management::crypto::{
 use crate::{
     client::encryption_settings::EncryptionSettingsError,
     key_management::crypto::{
-        get_v2_rotated_account_keys, make_keys_for_user_crypto_v2, CryptoClientError,
+        make_keys_for_user_crypto_v2, CryptoClientError, RotateUserKeysResponse,
     },
     Client,
 };
@@ -117,7 +117,7 @@ impl CryptoClient {
         &self,
         public_key: String,
     ) -> Result<UnsignedSharedKey, EnrollAdminPasswordResetError> {
-        enroll_admin_password_reset(&self.client, public_key)
+        enroll_admin_password_reset(&self.client, public_key.into())
     }
 
     /// Derive the master key for migrating to the key connector

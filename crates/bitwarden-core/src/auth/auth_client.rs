@@ -26,6 +26,7 @@ use crate::{
         RegisterRequest,
     },
     client::encryption_settings::EncryptionSettingsError,
+    Base64String,
 };
 use crate::{
     auth::{login::LoginError, renew::renew_token},
@@ -89,7 +90,7 @@ impl AuthClient {
     pub fn make_register_tde_keys(
         &self,
         email: String,
-        org_public_key: String,
+        org_public_key: Base64String,
         remember_device: bool,
     ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
         make_register_tde_keys(&self.client, email, org_public_key, remember_device)
@@ -172,7 +173,7 @@ impl AuthClient {
     #[allow(missing_docs)]
     pub fn approve_auth_request(
         &self,
-        public_key: String,
+        public_key: Base64String,
     ) -> Result<UnsignedSharedKey, ApproveAuthRequestError> {
         approve_auth_request(&self.client, public_key)
     }

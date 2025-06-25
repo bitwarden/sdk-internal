@@ -28,3 +28,5 @@ pub use client::{Client, ClientSettings, DeviceType};
 
 mod ids;
 pub use ids::*;
+mod types;
+pub use types::*;

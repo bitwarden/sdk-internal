@@ -1,4 +1,6 @@
-use bitwarden_crypto::{security_state::SignedSecurityState, CryptoError};
+use bitwarden_crypto::{
+    security_state::SignedSecurityState, CoseKeyBytes, CryptoError, Pkcs8PrivateKeyBytes,
+};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 #[cfg(any(feature = "internal", feature = "secrets"))]

@@ -11,10 +11,11 @@ use coset::{
 
 use super::{ed25519_verifying_key, key_id, SignatureAlgorithm};
 use crate::{
+    content_format::CoseKeyContentFormat,
     cose::CoseSerializable,
     error::{EncodingError, SignatureError},
     keys::KeyId,
-    CryptoError,
+    CoseKeyBytes, CryptoError,
 };
 
 /// A `VerifyingKey` without the key id. This enum contains a variant for each supported signature
@@ -57,8 +58,8 @@ impl VerifyingKey {
     }
 }
 
-impl CoseSerializable for VerifyingKey {
-    fn to_cose(&self) -> Vec<u8> {
+impl CoseSerializable<CoseKeyContentFormat> for VerifyingKey {
+    fn to_cose(&self) -> CoseKeyBytes {
         match &self.inner {
             RawVerifyingKey::Ed25519(key) => coset::CoseKeyBuilder::new_okp_key()
                 .key_id((&self.id).into())
@@ -78,16 +79,17 @@ impl CoseSerializable for VerifyingKey {
                 .add_key_op(KeyOperation::Verify)
                 .build()
                 .to_vec()
-                .expect("Verifying key is always serializable"),
+                .expect("Verifying key is always serializable")
+                .into(),
         }
     }
 
-    fn from_cose(bytes: &[u8]) -> Result<Self, EncodingError>
+    fn from_cose(bytes: &CoseKeyBytes) -> Result<Self, EncodingError>
     where
         Self: Sized,
     {
-        let cose_key =
-            coset::CoseKey::from_slice(bytes).map_err(|_| EncodingError::InvalidCoseEncoding)?;
+        let cose_key = coset::CoseKey::from_slice(bytes.as_ref())
+            .map_err(|_| EncodingError::InvalidCoseEncoding)?;
 
         let algorithm = cose_key
             .alg
@@ -127,7 +129,7 @@ mod tests {
 
     #[test]
     fn test_cose_roundtrip_encode_verifying() {
-        let verifying_key = VerifyingKey::from_cose(VERIFYING_KEY).unwrap();
+        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(VERIFYING_KEY)).unwrap();
         let cose = verifying_key.to_cose();
         let parsed_key = VerifyingKey::from_cose(&cose).unwrap();
 
@@ -136,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_testvector() {
-        let verifying_key = VerifyingKey::from_cose(VERIFYING_KEY).unwrap();
+        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(VERIFYING_KEY)).unwrap();
         assert_eq!(verifying_key.algorithm(), SignatureAlgorithm::Ed25519);
 
         verifying_key
@@ -146,7 +148,7 @@ mod tests {
 
     #[test]
     fn test_invalid_testvector() {
-        let verifying_key = VerifyingKey::from_cose(VERIFYING_KEY).unwrap();
+        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(VERIFYING_KEY)).unwrap();
         assert_eq!(verifying_key.algorithm(), SignatureAlgorithm::Ed25519);
 
         // This should fail, as the signed object is not valid for the given verifying key.

@@ -1,6 +1,6 @@
 use super::{
     kdf::{Kdf, KdfDerivedKeyMaterial},
-    master_key::{decrypt_user_key, encrypt_user_key},
+    master_key::decrypt_user_key,
     utils::stretch_key,
 };
 use crate::{
@@ -20,7 +20,7 @@ impl PinKey {
 
     /// Encrypt the users user key
     pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
-        encrypt_user_key(&self.0 .0, user_key)
+        user_key.encrypt_with_key(self)
     }
 
     /// Decrypt the users user key
@@ -31,15 +31,19 @@ impl PinKey {
 
 impl CryptoKey for PinKey {}
 
-impl KeyEncryptable<PinKey, EncString> for &[u8] {
+impl KeyEncryptable<PinKey, EncString> for &SymmetricCryptoKey {
     fn encrypt_with_key(self, key: &PinKey) -> Result<EncString> {
         let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&key.0 .0)?);
-        self.encrypt_with_key(&stretched_key)
+        // The (stretched) pin key is currently always an AES-256-CBC-HMAC key, and wraps a
+        // bitwarden legacy encoded symmetric key
+        self.to_encoded().encrypt_with_key(&stretched_key)
     }
 }
 
 impl KeyEncryptable<PinKey, EncString> for String {
     fn encrypt_with_key(self, key: &PinKey) -> Result<EncString> {
-        self.as_bytes().encrypt_with_key(key)
+        self.encrypt_with_key(&SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(
+            &key.0 .0,
+        )?))
     }
 }

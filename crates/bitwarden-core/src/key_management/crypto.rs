@@ -22,7 +22,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
     key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId},
-    Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
+    Base64String, Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
 };
 
 /// Catch all error for mobile crypto operations.
@@ -183,13 +183,13 @@ pub(super) async fn initialize_user_crypto(
         } => {
             let user_key = match method {
                 AuthRequestMethod::UserKey { protected_user_key } => {
-                    auth_request_decrypt_user_key(request_private_key, protected_user_key)?
+                    auth_request_decrypt_user_key(request_private_key.into(), protected_user_key)?
                 }
                 AuthRequestMethod::MasterKey {
                     protected_master_key,
                     auth_request_key,
                 } => auth_request_decrypt_master_key(
-                    request_private_key,
+                    request_private_key.into(),
                     protected_master_key,
                     auth_request_key,
                 )?,
@@ -416,12 +416,11 @@ pub enum EnrollAdminPasswordResetError {
 
 pub(super) fn enroll_admin_password_reset(
     client: &Client,
-    public_key: String,
+    public_key: Base64String,
 ) -> Result<UnsignedSharedKey, EnrollAdminPasswordResetError> {
-    use base64::{engine::general_purpose::STANDARD, Engine};
     use bitwarden_crypto::AsymmetricPublicCryptoKey;
 
-    let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(public_key)?)?;
+    let public_key = AsymmetricPublicCryptoKey::from_der(&public_key.try_into()?)?;
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
@@ -545,6 +544,7 @@ pub(super) fn verify_asymmetric_keys(
             .decrypt_with_key(user_key)
             .map_err(VerifyError::DecryptFailed)?;
 
+        let decrypted_private_key = Pkcs8PrivateKeyBytes::from(decrypted_private_key);
         let private_key = AsymmetricCryptoKey::from_der(&decrypted_private_key)
             .map_err(VerifyError::ParseFailed)?;
 
@@ -664,19 +664,47 @@ pub fn make_keys_for_user_crypto_v2(
             .dangerous_get_asymmetric_key(private_key_id)?
             .to_der()?
             .encrypt(&mut ctx, temporary_user_key_id)?,
-        public_key: STANDARD.encode(public_key.to_der()?),
+        public_key: Base64String::from(public_key.to_der()?).into(),
         signed_public_key,
 
-        // This needs to be changed to use the correct COSE content format before rolling out to
-        // users: https://bitwarden.atlassian.net/browse/PM-22189
         signing_key: signing_key
             .to_cose()
             .encrypt(&mut ctx, temporary_user_key_id)?,
-        verifying_key: STANDARD.encode(signing_key.to_verifying_key().to_cose()),
+        verifying_key: Base64String::from(signing_key.to_verifying_key().to_cose()).into(),
 
         security_state: signed_security_state,
         security_version: security_state.version(),
     })
+}
+
+/// A rotated set of account keys for a user
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct RotateUserKeysResponse {
+    /// The verifying key
+    pub verifying_key: String,
+    /// Signing key, encrypted with a symmetric key (user key, org key)
+    pub signing_key: EncString,
+    /// The user's public key, signed by the signing key
+    pub signed_public_key: String,
+    /// The user's public key, without signature
+    pub public_key: String,
+    /// The user's private key, encrypted with the user key
+    pub private_key: EncString,
+}
+
+impl From<RotatedUserKeys> for RotateUserKeysResponse {
+    fn from(rotated: RotatedUserKeys) -> Self {
+        RotateUserKeysResponse {
+            verifying_key: Base64String::from(rotated.verifying_key.to_vec()).into(),
+            signing_key: rotated.signing_key,
+            signed_public_key: Base64String::from(rotated.signed_public_key.to_vec()).into(),
+            public_key: Base64String::from(rotated.public_key.to_vec()).into(),
+            private_key: rotated.private_key,
+        }
+    }
 }
 
 /// Gets a set of new wrapped account keys for a user, given a new user key.
@@ -690,12 +718,12 @@ pub fn get_v2_rotated_account_keys(
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
 
-    bitwarden_crypto::get_v2_rotated_account_keys(
-        SymmetricCryptoKey::try_from(user_key)?,
+    ctx.dangerous_get_v2_rotated_account_keys(
+        &SymmetricCryptoKey::try_from(user_key)?,
         AsymmetricKeyId::UserPrivateKey,
         SigningKeyId::UserSigningKey,
-        &ctx,
     )
+    .map(|rotated| rotated.into())
 }
 
 #[cfg(test)]
@@ -971,8 +999,6 @@ mod tests {
 
     #[test]
     fn test_enroll_admin_password_reset() {
-        use base64::{engine::general_purpose::STANDARD, Engine};
-
         let client = Client::new(None);
 
         let master_key = MasterKey::derive(
@@ -993,11 +1019,15 @@ mod tests {
 
         let public_key = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsy7RFHcX3C8Q4/OMmhhbFReYWfB45W9PDTEA8tUZwZmtOiN2RErIS2M1c+K/4HoDJ/TjpbX1f2MZcr4nWvKFuqnZXyewFc+jmvKVewYi+NAu2++vqKq2kKcmMNhwoQDQdQIVy/Uqlp4Cpi2cIwO6ogq5nHNJGR3jm+CpyrafYlbz1bPvL3hbyoGDuG2tgADhyhXUdFuef2oF3wMvn1lAJAvJnPYpMiXUFmj1ejmbwtlxZDrHgUJvUcp7nYdwUKaFoi+sOttHn3u7eZPtNvxMjhSS/X/1xBIzP/mKNLdywH5LoRxniokUk+fV3PYUxJsiU3lV0Trc/tH46jqd8ZGjmwIDAQAB";
 
-        let encrypted = enroll_admin_password_reset(&client, public_key.to_owned()).unwrap();
+        let encrypted = enroll_admin_password_reset(&client, public_key.to_owned().into()).unwrap();
 
         let private_key = "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCzLtEUdxfcLxDj84yaGFsVF5hZ8Hjlb08NMQDy1RnBma06I3ZESshLYzVz4r/gegMn9OOltfV/Yxlyvida8oW6qdlfJ7AVz6Oa8pV7BiL40C7b76+oqraQpyYw2HChANB1AhXL9SqWngKmLZwjA7qiCrmcc0kZHeOb4KnKtp9iVvPVs+8veFvKgYO4ba2AAOHKFdR0W55/agXfAy+fWUAkC8mc9ikyJdQWaPV6OZvC2XFkOseBQm9Rynudh3BQpoWiL6w620efe7t5k+02/EyOFJL9f/XEEjM/+Yo0t3LAfkuhHGeKiRST59Xc9hTEmyJTeVXROtz+0fjqOp3xkaObAgMBAAECggEACs4xhnO0HaZhh1/iH7zORMIRXKeyxP2LQiTR8xwN5JJ9wRWmGAR9VasS7EZFTDidIGVME2u/h4s5EqXnhxfO+0gGksVvgNXJ/qw87E8K2216g6ZNo6vSGA7H1GH2voWwejJ4/k/cJug6dz2S402rRAKh2Wong1arYHSkVlQp3diiMa5FHAOSE+Cy09O2ZsaF9IXQYUtlW6AVXFrBEPYH2kvkaPXchh8VETMijo6tbvoKLnUHe+wTaDMls7hy8exjtVyI59r3DNzjy1lNGaGb5QSnFMXR+eHhPZc844Wv02MxC15zKABADrl58gpJyjTl6XpDdHCYGsmGpVGH3X9TQQKBgQDz/9beFjzq59ve6rGwn+EtnQfSsyYT+jr7GN8lNEXb3YOFXBgPhfFIcHRh2R00Vm9w2ApfAx2cd8xm2I6HuvQ1Os7g26LWazvuWY0Qzb+KaCLQTEGH1RnTq6CCG+BTRq/a3J8M4t38GV5TWlzv8wr9U4dl6FR4efjb65HXs1GQ4QKBgQC7/uHfrOTEHrLeIeqEuSl0vWNqEotFKdKLV6xpOvNuxDGbgW4/r/zaxDqt0YBOXmRbQYSEhmO3oy9J6XfE1SUln0gbavZeW0HESCAmUIC88bDnspUwS9RxauqT5aF8ODKN/bNCWCnBM1xyonPOs1oT1nyparJVdQoG//Y7vkB3+wKBgBqLqPq8fKAp3XfhHLfUjREDVoiLyQa/YI9U42IOz9LdxKNLo6p8rgVthpvmnRDGnpUuS+KOWjhdqDVANjF6G3t3DG7WNl8Rh5Gk2H4NhFswfSkgQrjebFLlBy9gjQVCWXt8KSmjvPbiY6q52Aaa8IUjA0YJAregvXxfopxO+/7BAoGARicvEtDp7WWnSc1OPoj6N14VIxgYcI7SyrzE0d/1x3ffKzB5e7qomNpxKzvqrVP8DzG7ydh8jaKPmv1MfF8tpYRy3AhmN3/GYwCnPqT75YYrhcrWcVdax5gmQVqHkFtIQkRSCIftzPLlpMGKha/YBV8c1fvC4LD0NPh/Ynv0gtECgYEAyOZg95/kte0jpgUEgwuMrzkhY/AaUJULFuR5MkyvReEbtSBQwV5tx60+T95PHNiFooWWVXiLMsAgyI2IbkxVR1Pzdri3gWK5CTfqb7kLuaj/B7SGvBa2Sxo478KS5K8tBBBWkITqo+wLC0mn3uZi1dyMWO1zopTA+KtEGF2dtGQ=";
-        let private_key =
-            AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key).unwrap()).unwrap();
+        let private_key = AsymmetricCryptoKey::from_der(
+            &Base64String::from(private_key.to_string())
+                .try_into()
+                .unwrap(),
+        )
+        .unwrap();
         let decrypted: SymmetricCryptoKey =
             encrypted.decapsulate_key_unsigned(&private_key).unwrap();
 
@@ -1089,11 +1119,7 @@ mod tests {
     fn test_verify_asymmetric_keys_parse_failed() {
         let (user_key, key_pair) = setup_asymmetric_keys_test();
 
-        let invalid_private_key = "bad_key"
-            .to_string()
-            .into_bytes()
-            .encrypt_with_key(&user_key.0)
-            .unwrap();
+        let invalid_private_key = "bad_key".to_string().encrypt_with_key(&user_key.0).unwrap();
 
         let request = VerifyAsymmetricKeysRequest {
             user_key: user_key.0.to_base64(),
