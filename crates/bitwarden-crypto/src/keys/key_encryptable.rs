@@ -24,7 +24,6 @@ pub trait KeyEncryptable<Key: CryptoKey, Output> {
     fn encrypt_with_key(self, key: &Key) -> Result<Output>;
 }
 
-#[allow(missing_docs)]
 pub(crate) trait KeyEncryptableWithContentType<Key: CryptoKey, Output> {
     fn encrypt_with_key(self, key: &Key, content_format: ContentFormat) -> Result<Output>;
 }
