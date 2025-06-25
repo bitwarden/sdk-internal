@@ -35,10 +35,11 @@ impl AsymmetricPublicCryptoKey {
     }
 
     /// Build a public key from the SubjectPublicKeyInfo DER.
-    pub fn from_der(der: &[u8]) -> Result<Self> {
+    pub fn from_der(der: &SpkiPublicKeyBytes) -> Result<Self> {
         Ok(AsymmetricPublicCryptoKey {
             inner: RawPublicKey::RsaOaepSha1(
-                RsaPublicKey::from_public_key_der(der).map_err(|_| CryptoError::InvalidKey)?,
+                RsaPublicKey::from_public_key_der(der.as_ref())
+                    .map_err(|_| CryptoError::InvalidKey)?,
             ),
         })
     }
@@ -263,7 +264,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
         let private_key = Pkcs8PrivateKeyBytes::from(private_key);
         let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
-        let public_key = AsymmetricPublicCryptoKey::from_der(&public_key).unwrap();
+        let public_key = AsymmetricPublicCryptoKey::from_der(&public_key.into()).unwrap();
 
         let raw_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(&raw_key, &public_key).unwrap();
