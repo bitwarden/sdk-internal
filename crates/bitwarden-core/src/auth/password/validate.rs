@@ -145,6 +145,7 @@ mod tests {
                 user_key.parse().unwrap(),
                 private_key,
                 None,
+                None,
             )
             .unwrap();
 
@@ -192,6 +193,7 @@ mod tests {
                 master_key,
                 user_key.parse().unwrap(),
                 private_key,
+                None,
                 None,
             )
             .unwrap();

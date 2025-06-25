@@ -1,6 +1,8 @@
 use std::{num::NonZeroU32, str::FromStr};
 
-use crate::{CryptoError, EncString, SignedPublicKey, UnsignedSharedKey};
+use crate::{
+    security_state::SignedSecurityState, CryptoError, EncString, SignedPublicKey, UnsignedSharedKey,
+};
 
 uniffi::custom_type!(NonZeroU32, u32, {
     remote,
@@ -25,6 +27,15 @@ uniffi::custom_type!(UnsignedSharedKey, String, {
 });
 
 uniffi::custom_type!(SignedPublicKey, String, {
+    try_lift: |val| {
+        val.parse().map_err(|e| {
+            CryptoError::EncodingError(e).into()
+        })
+    },
+    lower: |obj| obj.into(),
+});
+
+uniffi::custom_type!(SignedSecurityState, String, {
     try_lift: |val| {
         val.parse().map_err(|e| {
             CryptoError::EncodingError(e).into()
