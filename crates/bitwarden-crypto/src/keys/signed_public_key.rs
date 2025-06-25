@@ -89,9 +89,7 @@ impl From<SignedPublicKey> for Vec<u8> {
 impl TryFrom<Vec<u8>> for SignedPublicKey {
     type Error = EncodingError;
     fn try_from(bytes: Vec<u8>) -> Result<Self, EncodingError> {
-        Ok(SignedPublicKey(SignedObject::from_cose(&Bytes::<
-            CoseSign1ContentFormat,
-        >::from(
+        Ok(SignedPublicKey(SignedObject::from_cose(&CoseSign1ContentFormat::from(
             bytes
         ))?))
     }
