@@ -259,14 +259,16 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         res
     }
 
-    /// Decrypt a list of items using this key store, returning a tuple of successful and failed items.
+    /// Decrypt a list of items using this key store, returning a tuple of successful and failed
+    /// items.
     ///
     /// # Arguments
     /// * `data` - The list of items to decrypt.
     ///
     /// # Returns
     /// A tuple containing two vectors: the first vector contains the successfully decrypted items,
-    /// and the second vector contains the items that failed to decrypt along with their error views.
+    /// and the second vector contains the items that failed to decrypt along with their error
+    /// views.
     pub fn decrypt_list_with_failures<
         'a,
         Key: KeyId,
