@@ -4,7 +4,10 @@ use bitwarden_crypto::{Encryptable, IdentifyKey};
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
-use crate::{Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError, Fido2CredentialFullView, Fido2CredentialView};
+use crate::{
+    Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
+    Fido2CredentialFullView, Fido2CredentialView,
+};
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -66,8 +69,8 @@ impl CiphersClient {
         let credentials = cipher_view.decrypt_fido2_credentials(&mut key_store.context())?;
         Ok(credentials)
     }
-    
-    /// Temporary method used to re-encrypt FIDO2 credentials for a cipher view. 
+
+    /// Temporary method used to re-encrypt FIDO2 credentials for a cipher view.
     /// Necessary while the FIDO2 credentials remain in the LoginView in an encrypted form.
     /// Used by the TS clients to encrypt FIDO2 credentials separately before encrypting the remaining cipher view.
     /// TODO: Remove once FIDO2 credentials have been removed from the LoginView.
@@ -78,10 +81,11 @@ impl CiphersClient {
     ) -> Result<crate::Fido2Credential, EncryptError> {
         let key_store = self.client.internal.get_key_store();
         let key = cipher_view.key_identifier();
-        let cipher_key = Cipher::decrypt_cipher_key(&mut key_store.context(), key, &cipher_view.key)?;
-        
+        let cipher_key =
+            Cipher::decrypt_cipher_key(&mut key_store.context(), key, &cipher_view.key)?;
+
         let fido2_credential = fido2_credentials.encrypt(&mut key_store.context(), cipher_key)?;
-        
+
         Ok(fido2_credential)
     }
 
