@@ -6,7 +6,7 @@ use wasm_bindgen::prelude::*;
 use super::EncryptionContext;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    Fido2CredentialFullView, Fido2CredentialView,
+    Fido2CredentialFullView,
 };
 
 #[allow(missing_docs)]
