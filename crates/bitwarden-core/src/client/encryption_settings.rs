@@ -73,26 +73,27 @@ impl EncryptionSettings {
             //         .map_err(|_| EncryptionSettingsError::InvalidPrivateKey)?,
             // )
         };
+        let signing_key = signing_key
+            .map(|key| {
+                use bitwarden_crypto::CryptoError;
+
+                let dec: Vec<u8> = key.decrypt_with_key(&user_key)?;
+                SigningKey::from_cose(&CoseKeyBytes::from(dec)).map_err(Into::<CryptoError>::into)
+            })
+            .transpose()?;
 
         // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
         #[allow(deprecated)]
         {
             let mut ctx = store.context_mut();
-
-            if let Some(signing_key) = signing_key {
-                let dec: Vec<u8> = signing_key
-                    .decrypt_with_key(&user_key)
-                    .map_err(|_| EncryptionSettingsError::InvalidSigningKey)?;
-                let signing_key = SigningKey::from_cose(&CoseKeyBytes::from(dec))
-                    .map_err(|_| EncryptionSettingsError::InvalidSigningKey)?;
-                ctx.set_signing_key(SigningKeyId::UserSigningKey, signing_key)?;
-            }
-
+            ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
             if let Some(private_key) = private_key {
                 ctx.set_asymmetric_key(AsymmetricKeyId::UserPrivateKey, private_key)?;
             }
 
-            ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
+            if let Some(signing_key) = signing_key {
+                ctx.set_signing_key(SigningKeyId::UserSigningKey, signing_key)?;
+            }
         }
 
         Ok(())
