@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, Bytes, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
+    AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
     KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, SignatureAlgorithm,
     SignedPublicKey, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
