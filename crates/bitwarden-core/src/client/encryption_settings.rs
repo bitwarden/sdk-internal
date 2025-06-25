@@ -1,6 +1,4 @@
-use bitwarden_crypto::{
-    security_state::SignedSecurityState, CoseKeyBytes, CryptoError, Pkcs8PrivateKeyBytes,
-};
+use bitwarden_crypto::{security_state::SignedSecurityState, CryptoError, Pkcs8PrivateKeyBytes};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 #[cfg(any(feature = "internal", feature = "secrets"))]
@@ -73,7 +71,9 @@ impl EncryptionSettings {
             // For v2 users, we mandate the signing key and security state to be present
             // The private key must also be valid.
 
-            use bitwarden_crypto::{security_state::SecurityState, CoseSerializable, SigningKey};
+            use bitwarden_crypto::{
+                security_state::SecurityState, CoseKeyBytes, CoseSerializable, SigningKey,
+            };
 
             // Both of these are required for v2 users
             let signing_key = signing_key.ok_or(EncryptionSettingsError::Crypto(
@@ -87,11 +87,12 @@ impl EncryptionSettings {
 
             // Everything MUST decrypt.
             let signing_key: Vec<u8> = signing_key.decrypt_with_key(&user_key)?;
-            let signing_key = SigningKey::from_cose(&signing_key)
+            let signing_key = SigningKey::from_cose(&CoseKeyBytes::from(signing_key))
                 .map_err(|_| EncryptionSettingsError::InvalidSigningKey)?;
             let private_key: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
-            let private_key = AsymmetricCryptoKey::from_der(&private_key)
-                .map_err(|_| EncryptionSettingsError::InvalidPrivateKey)?;
+            let private_key =
+                AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key))
+                    .map_err(|_| EncryptionSettingsError::InvalidPrivateKey)?;
             let _security_state: SecurityState = security_state
                 .verify_and_unwrap(&signing_key.to_verifying_key())
                 .map_err(|_| EncryptionSettingsError::InvalidSecurityState)?;
@@ -111,7 +112,7 @@ impl EncryptionSettings {
 
                 // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a
                 // recovery process in place.
-                AsymmetricCryptoKey::from_der(&dec)
+                AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(dec))
                     .map_err(|_| {
                         warn!("Invalid private key");
                     })

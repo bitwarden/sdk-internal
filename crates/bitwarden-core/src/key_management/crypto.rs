@@ -9,9 +9,9 @@ use std::collections::HashMap;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     security_state::SignedSecurityState, AsymmetricCryptoKey, CoseSerializable, CryptoError,
-    EncString, Encryptable, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, RotateUserKeysResponse,
-    SignatureAlgorithm, SignedPublicKey, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
-    UserKey,
+    EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes,
+    PrimitiveEncryptable, RotatedUserKeys, SignatureAlgorithm, SignedPublicKey, SigningKey,
+    SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
@@ -544,9 +544,9 @@ pub(super) fn verify_asymmetric_keys(
             .decrypt_with_key(user_key)
             .map_err(VerifyError::DecryptFailed)?;
 
-        let decrypted_private_key = Pkcs8PrivateKeyBytes::from(decrypted_private_key);
-        let private_key = AsymmetricCryptoKey::from_der(&decrypted_private_key)
-            .map_err(VerifyError::ParseFailed)?;
+        let private_key =
+            AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(decrypted_private_key))
+                .map_err(VerifyError::ParseFailed)?;
 
         let derived_public_key_vec = private_key
             .to_public_key()
@@ -698,10 +698,10 @@ pub struct RotateUserKeysResponse {
 impl From<RotatedUserKeys> for RotateUserKeysResponse {
     fn from(rotated: RotatedUserKeys) -> Self {
         RotateUserKeysResponse {
-            verifying_key: Base64String::from(rotated.verifying_key.to_vec()).into(),
+            verifying_key: Base64String::from(rotated.verifying_key).into(),
             signing_key: rotated.signing_key,
-            signed_public_key: Base64String::from(rotated.signed_public_key.to_vec()).into(),
-            public_key: Base64String::from(rotated.public_key.to_vec()).into(),
+            signed_public_key: Base64String::from(rotated.signed_public_key).into(),
+            public_key: Base64String::from(rotated.public_key).into(),
             private_key: rotated.private_key,
         }
     }

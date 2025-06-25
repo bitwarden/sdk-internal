@@ -18,7 +18,8 @@ use crate::key_management::crypto::{
 use crate::{
     client::encryption_settings::EncryptionSettingsError,
     key_management::crypto::{
-        make_keys_for_user_crypto_v2, CryptoClientError, RotateUserKeysResponse,
+        get_v2_rotated_account_keys, make_keys_for_user_crypto_v2, CryptoClientError,
+        RotateUserKeysResponse,
     },
     Client,
 };
