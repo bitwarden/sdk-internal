@@ -328,7 +328,7 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for String {
 
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        Into::<Utf8Bytes>::into(self).encrypt_with_key(key)
+        Utf8Bytes::from(self).encrypt_with_key(key)
     }
 }
 
