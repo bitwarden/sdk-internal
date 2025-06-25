@@ -259,6 +259,54 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         res
     }
 
+    /// Decrypt a list of items using this key store, returning a tuple of successful and failed items.
+    ///
+    /// # Arguments
+    /// * `data` - The list of items to decrypt.
+    ///
+    /// # Returns
+    /// A tuple containing two vectors: the first vector contains the successfully decrypted items,
+    /// and the second vector contains the items that failed to decrypt along with their error views.
+    pub fn decrypt_list_with_failures<
+        'a,
+        Key: KeyId,
+        Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Send + Sync + 'a,
+        Output: Send + Sync,
+        ErrorView: From<&'a Data> + Send + Sync,
+    >(
+        &self,
+        data: &'a [Data],
+    ) -> (Vec<Output>, Vec<ErrorView>) {
+        let results: Vec<_> = data
+            .par_chunks(batch_chunk_size(data.len()))
+            .map(|chunk| {
+                let mut ctx = self.context();
+                let mut successes = Vec::new();
+                let mut failures = Vec::new();
+
+                for item in chunk {
+                    let key = item.key_identifier();
+                    match item.decrypt(&mut ctx, key) {
+                        Ok(decrypted) => successes.push(decrypted),
+                        Err(_) => failures.push(ErrorView::from(item)),
+                    }
+                    ctx.clear_local();
+                }
+
+                (successes, failures)
+            })
+            .collect();
+
+        let (mut successes, mut failures) = (Vec::new(), Vec::new());
+
+        for (successes_chunk, failures_chunk) in results {
+            successes.extend(successes_chunk);
+            failures.extend(failures_chunk);
+        }
+
+        (successes, failures)
+    }
+
     /// Encrypt a list of items using this key store. The keys returned by
     /// `data[i].key_identifier()` must already be present in the store, otherwise this will
     /// return an error. This method will try to parallelize the encryption of the items, for
