@@ -1,14 +1,14 @@
 extern crate console_error_panic_hook;
 use std::fmt::Display;
 
-use bitwarden_core::{Client, ClientSettings};
+use bitwarden_core::{key_management::CryptoClient, Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
 use bitwarden_exporters::ExporterClientExt;
 use bitwarden_generators::GeneratorClientsExt;
 use bitwarden_vault::{VaultClient, VaultClientExt};
 use wasm_bindgen::prelude::*;
 
-use crate::CryptoClient;
+use crate::platform::PlatformClient;
 
 #[allow(missing_docs)]
 #[wasm_bindgen]
@@ -47,12 +47,17 @@ impl BitwardenClient {
 
     #[allow(missing_docs)]
     pub fn crypto(&self) -> CryptoClient {
-        CryptoClient::new(self.0.crypto())
+        self.0.crypto()
     }
 
     #[allow(missing_docs)]
     pub fn vault(&self) -> VaultClient {
         self.0.vault()
+    }
+
+    /// Constructs a specific client for platform-specific functionality
+    pub fn platform(&self) -> PlatformClient {
+        PlatformClient::new(self.0.clone())
     }
 
     /// Constructs a specific client for generating passwords and passphrases

@@ -33,6 +33,13 @@ impl PlatformClient {
     ) -> Result<UserApiKeyResponse, UserApiKeyError> {
         get_user_api_key(&self.client, &input).await
     }
+
+    /// Access to state functionality.
+    pub fn state(&self) -> super::StateClient {
+        super::StateClient {
+            client: self.client.clone(),
+        }
+    }
 }
 
 impl Client {

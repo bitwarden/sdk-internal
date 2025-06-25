@@ -12,7 +12,7 @@ use crate::{
         auth_request::new_auth_request,
     },
     client::{LoginMethod, UserLoginMethod},
-    mobile::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
+    key_management::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
     require, ApiError, Client,
 };
 
@@ -120,6 +120,7 @@ pub(crate) async fn complete_auth_request(
                 kdf_params: kdf,
                 email: auth_req.email,
                 private_key: require!(r.private_key).parse()?,
+                signing_key: None,
                 method: InitUserCryptoMethod::AuthRequest {
                     request_private_key: auth_req.private_key,
                     method,

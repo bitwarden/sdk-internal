@@ -1,4 +1,4 @@
-use bitwarden_core::mobile::crypto::{
+use bitwarden_core::key_management::crypto::{
     DeriveKeyConnectorRequest, DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest,
     UpdatePasswordResponse,
 };
@@ -8,7 +8,7 @@ use crate::error::{Error, Result};
 
 #[allow(missing_docs)]
 #[derive(uniffi::Object)]
-pub struct CryptoClient(pub(crate) bitwarden_core::mobile::CryptoClient);
+pub struct CryptoClient(pub(crate) bitwarden_core::key_management::CryptoClient);
 
 #[uniffi::export(async_runtime = "tokio")]
 impl CryptoClient {
