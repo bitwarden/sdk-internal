@@ -536,7 +536,7 @@ pub(super) fn verify_asymmetric_keys(
             .decrypt_with_key(user_key)
             .map_err(VerifyError::DecryptFailed)?;
 
-        let decrypted_private_key: Pkcs8PrivateKeyBytes = Bytes::from(decrypted_private_key);
+        let decrypted_private_key = Pkcs8PrivateKeyBytes::from(decrypted_private_key);
         let private_key = AsymmetricCryptoKey::from_der(&decrypted_private_key)
             .map_err(VerifyError::ParseFailed)?;
 
