@@ -200,7 +200,7 @@ mod tests {
     #[test]
     fn test_roundtrip_cose() {
         let signed_object =
-            SignedObject::from_cose(&Into::<CoseSign1Bytes>::into(SIGNED_OBJECT)).unwrap();
+            SignedObject::from_cose(&<CoseSign1Bytes>::from(SIGNED_OBJECT)).unwrap();
         assert_eq!(
             signed_object.content_type().unwrap(),
             coset::iana::CoapContentFormat::Cbor
