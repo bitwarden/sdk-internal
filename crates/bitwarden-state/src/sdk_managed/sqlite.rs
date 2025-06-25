@@ -5,14 +5,24 @@ use tokio::sync::Mutex;
 
 use crate::{
     repository::{RepositoryItem, RepositoryItemData},
-    sdk_managed::{Database, DatabaseError},
+    sdk_managed::{Database, DatabaseConfiguration, DatabaseError},
 };
 
 // TODO: Use connection pooling with r2d2 and r2d2_sqlite?
 #[derive(Clone)]
 pub struct SqliteDatabase(Arc<Mutex<rusqlite::Connection>>);
 impl Database for SqliteDatabase {
-    async fn initialize(registrations: &[RepositoryItemData]) -> Result<Self, DatabaseError> {
+    async fn initialize(
+        configuration: DatabaseConfiguration,
+        registrations: &[RepositoryItemData],
+    ) -> Result<Self, DatabaseError> {
+        let DatabaseConfiguration::Sqlite {
+            file_path: _file_path,
+        } = configuration
+        else {
+            return Err(DatabaseError::UnsupportedConfiguration(configuration));
+        };
+
         let mut db = rusqlite::Connection::open_in_memory()?;
 
         // Set WAL mode for better concurrency

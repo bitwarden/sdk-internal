@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::{
     repository::{Repository, RepositoryItem, RepositoryItemData},
-    sdk_managed::{Database, SystemDatabase},
+    sdk_managed::{Database, DatabaseConfiguration, SystemDatabase},
 };
 
 /// A registry that contains repositories for different types of items.
@@ -65,6 +65,7 @@ impl StateRegistry {
     /// Initializes the database used for sdk-managed repositories.
     pub async fn initialize_database(
         &self,
+        configuration: DatabaseConfiguration,
         repositories: Vec<RepositoryItemData>,
     ) -> Result<(), StateRegistryError> {
         if self.database.get().is_some() {
@@ -72,7 +73,7 @@ impl StateRegistry {
         }
         let _ = self
             .database
-            .set(SystemDatabase::initialize(&repositories).await?);
+            .set(SystemDatabase::initialize(configuration, &repositories).await?);
 
         *self
             .sdk_managed

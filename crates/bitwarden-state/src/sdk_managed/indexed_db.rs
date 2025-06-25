@@ -3,7 +3,7 @@ use serde::{de::DeserializeOwned, ser::Serialize};
 
 use crate::{
     repository::{RepositoryItem, RepositoryItemData},
-    sdk_managed::{Database, DatabaseError},
+    sdk_managed::{Database, DatabaseConfiguration, DatabaseError},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -20,7 +20,14 @@ pub struct IndexedDbDatabase(
     bitwarden_threading::ThreadBoundRunner<indexed_db::Database<IndexedDbInternalError>>,
 );
 impl Database for IndexedDbDatabase {
-    async fn initialize(registrations: &[RepositoryItemData]) -> Result<Self, DatabaseError> {
+    async fn initialize(
+        configuration: DatabaseConfiguration,
+        registrations: &[RepositoryItemData],
+    ) -> Result<Self, DatabaseError> {
+        let DatabaseConfiguration::IndexedDb { db_name: _db_name } = configuration else {
+            return Err(DatabaseError::UnsupportedConfiguration(configuration));
+        };
+
         let factory = indexed_db::Factory::get()?;
 
         let registrations = registrations.to_vec();

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use bitwarden_state::{
     registry::StateRegistryError,
     repository::{Repository, RepositoryItem, RepositoryItemData},
+    DatabaseConfiguration,
 };
 
 use crate::Client;
@@ -32,12 +33,13 @@ impl StateClient {
     /// Initialize the database for SDK managed repositories.
     pub async fn initialize_database(
         &self,
+        configuration: DatabaseConfiguration,
         repositories: Vec<RepositoryItemData>,
     ) -> Result<(), StateRegistryError> {
         self.client
             .internal
             .repository_map
-            .initialize_database(repositories)
+            .initialize_database(configuration, repositories)
             .await
     }
 
