@@ -31,9 +31,9 @@ pub(crate) fn get_v2_rotated_account_keys<Ids: crate::KeyIds>(
 
     Ok(RotatedUserKeys {
         verifying_key: signing_key.to_verifying_key().to_cose(),
-        signing_key: signing_key.to_cose().encrypt_with_key(&new_user_key)?,
+        signing_key: signing_key.to_cose().encrypt_with_key(new_user_key)?,
         signed_public_key: signed_public_key.into(),
         public_key: private_key.to_public_key().to_der()?,
-        private_key: private_key.to_der()?.encrypt_with_key(&new_user_key)?,
+        private_key: private_key.to_der()?.encrypt_with_key(new_user_key)?,
     })
 }
