@@ -129,8 +129,7 @@ mod tests {
 
     #[test]
     fn test_cose_roundtrip_encode_verifying() {
-        let verifying_key =
-            VerifyingKey::from_cose(&CoseKeyBytes::from(VERIFYING_KEY.to_vec())).unwrap();
+        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(VERIFYING_KEY)).unwrap();
         let cose = verifying_key.to_cose();
         let parsed_key = VerifyingKey::from_cose(&cose).unwrap();
 
@@ -139,8 +138,7 @@ mod tests {
 
     #[test]
     fn test_testvector() {
-        let verifying_key =
-            VerifyingKey::from_cose(&CoseKeyBytes::from(VERIFYING_KEY.to_vec())).unwrap();
+        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(VERIFYING_KEY)).unwrap();
         assert_eq!(verifying_key.algorithm(), SignatureAlgorithm::Ed25519);
 
         verifying_key
@@ -150,8 +148,7 @@ mod tests {
 
     #[test]
     fn test_invalid_testvector() {
-        let verifying_key =
-            VerifyingKey::from_cose(&CoseKeyBytes::from(VERIFYING_KEY.to_vec())).unwrap();
+        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(VERIFYING_KEY)).unwrap();
         assert_eq!(verifying_key.algorithm(), SignatureAlgorithm::Ed25519);
 
         // This should fail, as the signed object is not valid for the given verifying key.
