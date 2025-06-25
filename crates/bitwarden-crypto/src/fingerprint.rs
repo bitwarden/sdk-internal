@@ -87,7 +87,7 @@ mod tests {
             197, 3, 219, 56, 77, 109, 47, 72, 251, 131, 36, 240, 96, 169, 31, 82, 93, 166, 242, 3,
             33, 213, 2, 3, 1, 0, 1,
         ];
-        let key: SpkiPublicKeyBytes = Bytes::from(key.to_vec());
+        let key = SpkiPublicKeyBytes::from(key);
         assert_eq!(
             "turban-deftly-anime-chatroom-unselfish",
             fingerprint(user_id, &key).unwrap()
