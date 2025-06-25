@@ -27,8 +27,8 @@ use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 
 use crate::{
-    cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CryptoError, KeyIds,
-    KeyStoreContext, SignedObject, SigningKey, SigningNamespace, VerifyingKey,
+    cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CoseSign1Bytes,
+    CryptoError, KeyIds, KeyStoreContext, SignedObject, SigningKey, SigningNamespace, VerifyingKey,
 };
 
 #[cfg(feature = "wasm")]
@@ -101,22 +101,22 @@ impl SignedSecurityState {
 #[derive(Clone, Debug)]
 pub struct SignedSecurityState(pub(crate) SignedObject);
 
-impl From<SignedSecurityState> for Vec<u8> {
+impl From<SignedSecurityState> for CoseSign1Bytes {
     fn from(val: SignedSecurityState) -> Self {
         val.0.to_cose()
     }
 }
 
-impl TryFrom<Vec<u8>> for SignedSecurityState {
+impl TryFrom<&CoseSign1Bytes> for SignedSecurityState {
     type Error = EncodingError;
-    fn try_from(bytes: Vec<u8>) -> Result<Self, EncodingError> {
-        Ok(SignedSecurityState(SignedObject::from_cose(&bytes)?))
+    fn try_from(bytes: &CoseSign1Bytes) -> Result<Self, EncodingError> {
+        Ok(SignedSecurityState(SignedObject::from_cose(bytes)?))
     }
 }
 
 impl From<SignedSecurityState> for String {
     fn from(val: SignedSecurityState) -> Self {
-        let bytes: Vec<u8> = val.into();
+        let bytes: CoseSign1Bytes = val.into();
         STANDARD.encode(&bytes)
     }
 }
@@ -128,7 +128,7 @@ impl FromStr for SignedSecurityState {
         let bytes = STANDARD
             .decode(s)
             .map_err(|_| EncodingError::InvalidCborSerialization)?;
-        Self::try_from(bytes)
+        Self::try_from(&CoseSign1Bytes::from(bytes))
     }
 }
 
