@@ -155,7 +155,7 @@ impl SymmetricCryptoKey {
             EncodedSymmetricKey::CoseKey(_) => {
                 let mut encoded_key: Vec<u8> = encoded_key.into();
                 pad_key(&mut encoded_key, Self::AES256_CBC_HMAC_KEY_LEN + 1);
-                Bytes::from(encoded_key)
+                BitwardenLegacyKeyBytes::from(encoded_key)
             }
         }
     }
