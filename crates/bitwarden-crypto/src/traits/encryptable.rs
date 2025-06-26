@@ -8,9 +8,14 @@
 //! Encrypting data directly, a content type must be provided, since an encrypted byte array alone
 //! is not enough to tell the decryption code how to interpret the decrypted bytes. For this, there
 //! are two traits, `PrimitiveEncryptable` and `PrimitiveEncryptableWithContentType`. The former
-//! assumes that the caller provides the content format when encrypting. The latter is a convenience
-//! trait that pre-defines the content format based on the type of data that is encrypted. This is
-//! currently done exactly for `String` and `&str`, which are encrypted as UTF-8,
+//! assumes that the implementation provides content format when encrypting, based on the type
+//! of struct that is being encrypted. The latter allows the caller to specify the content format
+//! at runtime, which is only allowed within the crypto crate.
+//!
+//! `PrimitiveEncryptable` is implemented for `crate::content_format::Bytes<C>` types, where `C` is
+//! a type that implements the `ConstContentFormat` trait. This allows for compile-time type
+//! checking of the content format, and the risk of using the wrong content format is limited to
+//! converting untyped bytes into a `Bytes<C>` type
 
 use crate::{store::KeyStoreContext, ContentFormat, CryptoError, EncString, KeyId, KeyIds};
 
