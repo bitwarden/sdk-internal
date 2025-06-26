@@ -77,7 +77,7 @@ impl EncryptionSettings {
                 use bitwarden_crypto::CryptoError;
 
                 let dec: Vec<u8> = key.decrypt_with_key(&user_key)?;
-                SigningKey::from_cose(&CoseKeyBytes::from(dec)).map_err(Into::<CryptoError>::into)
+                SigningKey::from_cose(&dec.into()).map_err(Into::<CryptoError>::into)
             })
             .transpose()?;
 
