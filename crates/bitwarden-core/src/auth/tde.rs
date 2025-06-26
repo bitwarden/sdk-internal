@@ -1,9 +1,10 @@
+use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     AsymmetricPublicCryptoKey, DeviceKey, EncString, Kdf, SymmetricCryptoKey, TrustDeviceResponse,
     UnsignedSharedKey, UserKey,
 };
 
-use crate::{client::encryption_settings::EncryptionSettingsError, Base64String, Client};
+use crate::{client::encryption_settings::EncryptionSettingsError, Client};
 
 /// This function generates a new user key and key pair, initializes the client's crypto with the
 /// generated user key, and encrypts the user key with the organization public key for admin
@@ -11,10 +12,10 @@ use crate::{client::encryption_settings::EncryptionSettingsError, Base64String, 
 pub(super) fn make_register_tde_keys(
     client: &Client,
     email: String,
-    org_public_key: Base64String,
+    org_public_key: String,
     remember_device: bool,
 ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
-    let public_key = AsymmetricPublicCryptoKey::from_der(&org_public_key.try_into()?)?;
+    let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(org_public_key)?)?;
 
     let user_key = UserKey::new(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
     let key_pair = user_key.make_key_pair()?;

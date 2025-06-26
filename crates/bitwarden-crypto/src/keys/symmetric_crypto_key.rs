@@ -18,7 +18,7 @@ use super::{
     key_encryptable::CryptoKey,
     key_id::{KeyId, KEY_ID_SIZE},
 };
-use crate::{cose, BitwardenLegacyKeyBytes, Bytes, ContentFormat, CoseKeyBytes, CryptoError};
+use crate::{cose, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError};
 
 /// [Aes256CbcKey] is a symmetric encryption key, consisting of one 256-bit key,
 /// used to decrypt legacy type 0 enc strings. The data is not authenticated
@@ -148,14 +148,14 @@ impl SymmetricCryptoKey {
     pub fn to_encoded(&self) -> BitwardenLegacyKeyBytes {
         let encoded_key = self.to_encoded_raw();
         match encoded_key {
-            EncodedSymmetricKey::LegacyNonCoseKey(_) => {
+            EncodedSymmetricKey::BitwardenLegacyKey(_) => {
                 let encoded_key: Vec<u8> = encoded_key.into();
-                Bytes::from(encoded_key)
+                BitwardenLegacyKeyBytes::from(encoded_key)
             }
             EncodedSymmetricKey::CoseKey(_) => {
                 let mut encoded_key: Vec<u8> = encoded_key.into();
                 pad_key(&mut encoded_key, Self::AES256_CBC_HMAC_KEY_LEN + 1);
-                Bytes::from(encoded_key)
+                BitwardenLegacyKeyBytes::from(encoded_key)
             }
         }
     }
@@ -189,13 +189,13 @@ impl SymmetricCryptoKey {
     pub(crate) fn to_encoded_raw(&self) -> EncodedSymmetricKey {
         match self {
             Self::Aes256CbcKey(key) => {
-                EncodedSymmetricKey::LegacyNonCoseKey(key.enc_key.to_vec().into())
+                EncodedSymmetricKey::BitwardenLegacyKey(key.enc_key.to_vec().into())
             }
             Self::Aes256CbcHmacKey(key) => {
                 let mut buf = Vec::with_capacity(64);
                 buf.extend_from_slice(&key.enc_key);
                 buf.extend_from_slice(&key.mac_key);
-                EncodedSymmetricKey::LegacyNonCoseKey(buf.into())
+                EncodedSymmetricKey::BitwardenLegacyKey(buf.into())
             }
             Self::XChaCha20Poly1305Key(key) => {
                 let builder = coset::CoseKeyBuilder::new_symmetric_key(key.enc_key.to_vec());
@@ -281,7 +281,7 @@ impl TryFrom<&BitwardenLegacyKeyBytes> for SymmetricCryptoKey {
         let result = if slice.len() == Self::AES256_CBC_HMAC_KEY_LEN
             || slice.len() == Self::AES256_CBC_KEY_LEN
         {
-            Self::try_from(EncodedSymmetricKey::LegacyNonCoseKey(value.clone()))
+            Self::try_from(EncodedSymmetricKey::BitwardenLegacyKey(value.clone()))
         } else if slice.len() > Self::AES256_CBC_HMAC_KEY_LEN {
             let unpadded_value = unpad_key(slice)?;
             Ok(Self::try_from_cose(unpadded_value)?)
@@ -298,14 +298,14 @@ impl TryFrom<EncodedSymmetricKey> for SymmetricCryptoKey {
 
     fn try_from(value: EncodedSymmetricKey) -> Result<Self, Self::Error> {
         match value {
-            EncodedSymmetricKey::LegacyNonCoseKey(key)
+            EncodedSymmetricKey::BitwardenLegacyKey(key)
                 if key.as_ref().len() == Self::AES256_CBC_KEY_LEN =>
             {
                 let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
                 enc_key.copy_from_slice(&key.as_ref()[..Self::AES256_CBC_KEY_LEN]);
                 Ok(Self::Aes256CbcKey(Aes256CbcKey { enc_key }))
             }
-            EncodedSymmetricKey::LegacyNonCoseKey(key)
+            EncodedSymmetricKey::BitwardenLegacyKey(key)
                 if key.as_ref().len() == Self::AES256_CBC_HMAC_KEY_LEN =>
             {
                 let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
@@ -391,17 +391,17 @@ fn unpad_key(key_bytes: &[u8]) -> Result<&[u8], CryptoError> {
     crate::keys::utils::unpad_bytes(key_bytes).map_err(|_| CryptoError::InvalidKey)
 }
 
-/// An enum to represent the different encodings of symmetric crypto keys.
+/// Encoded representation of [SymmetricCryptoKey]
 pub enum EncodedSymmetricKey {
     /// An Aes256-CBC-HMAC key, or a Aes256-CBC key
-    LegacyNonCoseKey(BitwardenLegacyKeyBytes),
+    BitwardenLegacyKey(BitwardenLegacyKeyBytes),
     /// A symmetric key encoded as a COSE key
     CoseKey(CoseKeyBytes),
 }
 impl From<EncodedSymmetricKey> for Vec<u8> {
     fn from(val: EncodedSymmetricKey) -> Self {
         match val {
-            EncodedSymmetricKey::LegacyNonCoseKey(key) => key.to_vec(),
+            EncodedSymmetricKey::BitwardenLegacyKey(key) => key.to_vec(),
             EncodedSymmetricKey::CoseKey(key) => key.to_vec(),
         }
     }
@@ -410,7 +410,7 @@ impl EncodedSymmetricKey {
     #[allow(private_interfaces)]
     pub fn content_format(&self) -> ContentFormat {
         match self {
-            EncodedSymmetricKey::LegacyNonCoseKey(_) => ContentFormat::BitwardenLegacyKey,
+            EncodedSymmetricKey::BitwardenLegacyKey(_) => ContentFormat::BitwardenLegacyKey,
             EncodedSymmetricKey::CoseKey(_) => ContentFormat::CoseKey,
         }
     }

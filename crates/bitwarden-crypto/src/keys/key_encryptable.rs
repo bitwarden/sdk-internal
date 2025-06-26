@@ -19,11 +19,22 @@ impl<T: KeyContainer> KeyContainer for Arc<T> {
 #[allow(missing_docs)]
 pub trait CryptoKey {}
 
-#[allow(missing_docs)]
+/// An encryption operation that takes the input value and encrypts it into the output value
+/// using a key reference. Implementing this requires a content type to be specified in
+/// the implementation.
 pub trait KeyEncryptable<Key: CryptoKey, Output> {
+    /// Encrypts a value using the provided key reference.
     fn encrypt_with_key(self, key: &Key) -> Result<Output>;
 }
 
+/// An encryption operation that takes the input value and encrypts it into the output value
+/// using a key reference, with an externally provided content type.
+///
+/// In contrast to `KeyEncryptable`, this trait allows the caller to specify the content format.
+/// Because of this, it is not exposed outside of the crate, because outside callers should
+/// not make a choice about the content format. Where possible, the content format is
+/// ensured at compile time by the type system, not at runtime by the caller passing
+/// in a parameter.
 pub(crate) trait KeyEncryptableWithContentType<Key: CryptoKey, Output> {
     fn encrypt_with_key(self, key: &Key, content_format: ContentFormat) -> Result<Output>;
 }

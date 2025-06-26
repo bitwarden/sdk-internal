@@ -13,7 +13,7 @@ use super::AsymmetricPublicCryptoKey;
 use crate::{
     cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CoseSign1Bytes,
     CryptoError, PublicKeyEncryptionAlgorithm, RawPublicKey, SignedObject, SigningKey,
-    SigningNamespace, SpkiPublicKeyBytes, VerifyingKey,
+    SigningNamespace, VerifyingKey,
 };
 
 #[cfg(feature = "wasm")]
@@ -112,10 +112,8 @@ impl SignedPublicKey {
             public_key_message.content_format,
         ) {
             (PublicKeyEncryptionAlgorithm::RsaOaepSha1, PublicKeyFormat::Spki) => Ok(
-                AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
-                    public_key_message.public_key.into_vec(),
-                ))
-                .map_err(|_| EncodingError::InvalidValue("public key"))?,
+                AsymmetricPublicCryptoKey::from_der(&public_key_message.public_key.into_vec())
+                    .map_err(|_| EncodingError::InvalidValue("public key"))?,
             ),
         }
     }

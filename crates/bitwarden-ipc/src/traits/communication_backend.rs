@@ -20,7 +20,7 @@ pub trait CommunicationBackend: Send + Sync + 'static {
     fn send(
         &self,
         message: OutgoingMessage,
-    ) -> impl std::future::Future<Output = Result<(), Self::SendError>>;
+    ) -> impl std::future::Future<Output = Result<(), Self::SendError>> + Send;
 
     /// Subscribe to receive messages. This function will return a receiver that can be used to
     /// receive messages asynchronously.

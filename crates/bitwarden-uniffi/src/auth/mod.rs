@@ -73,7 +73,7 @@ impl AuthClient {
         Ok(self
             .0
             .auth()
-            .make_register_tde_keys(email, org_public_key.into(), remember_device)
+            .make_register_tde_keys(email, org_public_key, remember_device)
             .map_err(Error::EncryptionSettings)?)
     }
 
@@ -146,7 +146,7 @@ impl AuthClient {
         Ok(self
             .0
             .auth()
-            .approve_auth_request(public_key.into())
+            .approve_auth_request(public_key)
             .map_err(Error::ApproveAuthRequest)?)
     }
 

@@ -15,11 +15,16 @@ use crate::{
 /// [IpcClient] documentation.
 #[wasm_bindgen(js_name = IpcClient)]
 pub struct JsIpcClient {
-    // TODO: Change session provider to a JS-implemented one
-    client: Arc<
+    #[wasm_bindgen(skip)]
+    /// The underlying IPC client instance. Use this to create WASM-compatible functions
+    /// that interact with the IPC client, e.g. to register RPC handlers, trigger RPC requests,
+    /// send typed messages, etc. For examples see
+    /// [wasm::ipc_register_discover_handler](crate::wasm::ipc_register_discover_handler).
+    pub client: Arc<
         IpcClient<
             NoEncryptionCryptoProvider,
             JsCommunicationBackend,
+            // TODO: Change session provider to a JS-implemented one
             InMemorySessionRepository<()>,
         >,
     >,

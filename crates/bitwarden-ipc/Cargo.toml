@@ -20,8 +20,10 @@ wasm = [
 ] # WASM support
 
 [dependencies]
+async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-threading = { workspace = true }
+erased-serde = ">=0.4.6, <0.5"
 js-sys = { workspace = true, optional = true }
 log = { workspace = true }
 serde = { workspace = true }
@@ -29,6 +31,7 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { features = ["sync", "time", "rt"], workspace = true }
 tsify-next = { workspace = true, optional = true }
+uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 
