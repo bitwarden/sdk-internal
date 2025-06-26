@@ -259,20 +259,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
     /// Generate a new random symmetric key and store it in the context
     pub fn generate_symmetric_key(&mut self) -> Result<Ids::Symmetric> {
-        let key_id = Ids::Symmetric::new_local();
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        #[allow(deprecated)]
-        self.set_symmetric_key(key_id, key)?;
-        Ok(key_id)
+        self.add_local_symmetric_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key())
     }
 
     /// Generate a new signature key using the current default algorithm, and store it in the
     /// context
-    pub fn make_signing_key(&mut self, key_id: Ids::Signing) -> Result<Ids::Signing> {
-        let key = SigningKey::make(SignatureAlgorithm::default_algorithm());
-        #[allow(deprecated)]
-        self.set_signing_key(key_id, key)?;
-        Ok(key_id)
+    pub fn make_signing_key(&mut self) -> Result<Ids::Signing> {
+        self.add_local_signing_key(SigningKey::make(SignatureAlgorithm::default_algorithm()))
     }
 
     /// Derive a shareable key using hkdf from secret and name and store it in the context.
@@ -395,6 +388,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 .upsert(key_id, key);
         }
         Ok(())
+    }
+
+    /// Add a new signing key to the local context, returning a new unique identifier for it.
+    pub fn add_local_signing_key(&mut self, key: SigningKey) -> Result<Ids::Signing> {
+        let key_id = Ids::Signing::new_local();
+        self.local_signing_keys.upsert(key_id, key);
+        Ok(key_id)
     }
 
     /// Sets a signing key in the context

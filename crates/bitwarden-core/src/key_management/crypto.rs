@@ -20,7 +20,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
-    key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId},
+    key_management::{AsymmetricKeyId, SymmetricKeyId},
     Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
 };
 
@@ -595,9 +595,8 @@ pub fn make_user_signing_keys_for_enrollment(
 
     // Make new keypair and sign the public key with it
     let signature_keypair = SigningKey::make(SignatureAlgorithm::Ed25519);
-    let temporary_signature_keypair_id = SigningKeyId::Local("temporary_key_for_rotation");
-    #[allow(deprecated)]
-    ctx.set_signing_key(temporary_signature_keypair_id, signature_keypair.clone())?;
+    let temporary_signature_keypair_id = ctx.add_local_signing_key(signature_keypair.clone())?;
+
     let signed_public_key = ctx.make_signed_public_key(
         AsymmetricKeyId::UserPrivateKey,
         temporary_signature_keypair_id,
