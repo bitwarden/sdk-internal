@@ -8,8 +8,7 @@ pub enum DatabaseConfiguration {
         /// The name of the SQLite database. Different users should have different database
         /// names to avoid conflicts.
         db_name: String,
-        /// The file path to the SQLite database. Databases for different users should be stored in
-        /// different files.
+        /// The path to the folder in which the SQLite database should be stored.
         folder_path: PathBuf,
     },
 
