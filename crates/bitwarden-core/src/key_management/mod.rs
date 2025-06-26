@@ -9,9 +9,11 @@
 //!   [Encryptable](bitwarden_crypto::Encryptable) and [Decryptable](bitwarden_crypto::Encryptable).
 use bitwarden_crypto::{key_ids, KeyStore, SymmetricCryptoKey};
 
+#[cfg(feature = "internal")]
 pub mod crypto;
+#[cfg(feature = "internal")]
 mod crypto_client;
-
+#[cfg(feature = "internal")]
 pub use crypto_client::CryptoClient;
 
 key_ids! {

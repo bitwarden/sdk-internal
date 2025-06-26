@@ -10,9 +10,10 @@ use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
 use uuid::Uuid;
 
-use super::encryption_settings::EncryptionSettings;
+#[cfg(any(feature = "internal", feature = "secrets"))]
+use crate::client::encryption_settings::EncryptionSettings;
 #[cfg(feature = "secrets")]
-use super::login_method::ServiceAccountLoginMethod;
+use crate::client::login_method::ServiceAccountLoginMethod;
 use crate::{
     auth::renew::renew_token, client::login_method::LoginMethod, error::UserIdAlreadySetError,
     key_management::KeyIds, DeviceType,
