@@ -150,7 +150,7 @@ impl SymmetricCryptoKey {
         match encoded_key {
             EncodedSymmetricKey::LegacyNonCoseKey(_) => {
                 let encoded_key: Vec<u8> = encoded_key.into();
-                Bytes::from(encoded_key)
+                BitwardenLegacyKeyBytes::from(encoded_key)
             }
             EncodedSymmetricKey::CoseKey(_) => {
                 let mut encoded_key: Vec<u8> = encoded_key.into();
