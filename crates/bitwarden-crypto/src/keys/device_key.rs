@@ -1,7 +1,7 @@
 use super::{AsymmetricCryptoKey, PublicKeyEncryptionAlgorithm};
 use crate::{
-    content_format::Bytes, error::Result, CryptoError, EncString, KeyDecryptable, KeyEncryptable,
-    Pkcs8PrivateKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
+    error::Result, CryptoError, EncString, KeyDecryptable, KeyEncryptable, Pkcs8PrivateKeyBytes,
+    SymmetricCryptoKey, UnsignedSharedKey,
 };
 
 /// Device Key

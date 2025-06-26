@@ -18,7 +18,7 @@ use super::{
     key_encryptable::CryptoKey,
     key_id::{KeyId, KEY_ID_SIZE},
 };
-use crate::{cose, BitwardenLegacyKeyBytes, Bytes, ContentFormat, CoseKeyBytes, CryptoError};
+use crate::{cose, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError};
 
 /// [Aes256CbcKey] is a symmetric encryption key, consisting of one 256-bit key,
 /// used to decrypt legacy type 0 enc strings. The data is not authenticated

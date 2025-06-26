@@ -1,5 +1,5 @@
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{CoseKeyBytes, EncString, Pkcs8PrivateKeyBytes, UnsignedSharedKey};
+use bitwarden_crypto::{EncString, UnsignedSharedKey};
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
