@@ -52,7 +52,7 @@ pub(crate) fn auth_request_decrypt_user_key(
     private_key: String,
     user_key: UnsignedSharedKey,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
-    let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
+    let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?.into())?;
     let key: SymmetricCryptoKey = user_key.decapsulate_key_unsigned(&key)?;
     Ok(key)
 }
@@ -66,7 +66,7 @@ pub(crate) fn auth_request_decrypt_master_key(
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
     use bitwarden_crypto::MasterKey;
 
-    let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
+    let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?.into())?;
     let master_key: SymmetricCryptoKey = master_key.decapsulate_key_unsigned(&key)?;
     let master_key = MasterKey::try_from(&master_key)?;
 
@@ -106,42 +106,44 @@ pub(crate) fn approve_auth_request(
     )?)
 }
 
-#[test]
-fn test_auth_request() {
-    let request = new_auth_request("test@bitwarden.com").unwrap();
-
-    let secret = vec![
-        111, 32, 97, 169, 4, 241, 174, 74, 239, 206, 113, 86, 174, 68, 216, 238, 52, 85, 156, 27,
-        134, 149, 54, 55, 91, 147, 45, 130, 131, 237, 51, 31, 191, 106, 155, 14, 160, 82, 47, 40,
-        96, 31, 114, 127, 212, 187, 167, 110, 205, 116, 198, 243, 218, 72, 137, 53, 248, 43, 255,
-        67, 35, 61, 245, 93,
-    ];
-
-    let private_key =
-        AsymmetricCryptoKey::from_der(&STANDARD.decode(&request.private_key).unwrap()).unwrap();
-
-    let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(
-        &SymmetricCryptoKey::try_from(secret.clone()).unwrap(),
-        &private_key.to_public_key(),
-    )
-    .unwrap();
-
-    let decrypted = auth_request_decrypt_user_key(request.private_key, encrypted).unwrap();
-
-    assert_eq!(decrypted.to_encoded(), secret);
-}
-
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::{Kdf, MasterKey};
+    use bitwarden_crypto::{BitwardenLegacyKeyBytes, Kdf, MasterKey, SpkiPublicKeyBytes};
 
     use super::*;
     use crate::key_management::{
         crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
         SymmetricKeyId,
     };
+
+    #[test]
+    fn test_auth_request() {
+        let request = new_auth_request("test@bitwarden.com").unwrap();
+
+        let secret = vec![
+            111, 32, 97, 169, 4, 241, 174, 74, 239, 206, 113, 86, 174, 68, 216, 238, 52, 85, 156,
+            27, 134, 149, 54, 55, 91, 147, 45, 130, 131, 237, 51, 31, 191, 106, 155, 14, 160, 82,
+            47, 40, 96, 31, 114, 127, 212, 187, 167, 110, 205, 116, 198, 243, 218, 72, 137, 53,
+            248, 43, 255, 67, 35, 61, 245, 93,
+        ];
+
+        let private_key =
+            AsymmetricCryptoKey::from_der(&STANDARD.decode(&request.private_key).unwrap().into())
+                .unwrap();
+
+        let secret = BitwardenLegacyKeyBytes::from(secret);
+        let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(
+            &SymmetricCryptoKey::try_from(&secret).unwrap(),
+            &private_key.to_public_key(),
+        )
+        .unwrap();
+
+        let decrypted = auth_request_decrypt_user_key(request.private_key, encrypted).unwrap();
+
+        assert_eq!(decrypted.to_encoded().to_vec(), secret.to_vec());
+    }
 
     #[test]
     fn test_approve() {
@@ -166,8 +168,9 @@ mod tests {
         let public_key = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvyLRDUwXB4BfQ507D4meFPmwn5zwy3IqTPJO4plrrhnclWahXa240BzyFW9gHgYu+Jrgms5xBfRTBMcEsqqNm7+JpB6C1B6yvnik0DpJgWQw1rwvy4SUYidpR/AWbQi47n/hvnmzI/sQxGddVfvWu1iTKOlf5blbKYAXnUE5DZBGnrWfacNXwRRdtP06tFB0LwDgw+91CeLSJ9py6dm1qX5JIxoO8StJOQl65goLCdrTWlox+0Jh4xFUfCkb+s3px+OhSCzJbvG/hlrSRcUz5GnwlCEyF3v5lfUtV96MJD+78d8pmH6CfFAp2wxKRAbGdk+JccJYO6y6oIXd3Fm7twIDAQAB";
 
         // Verify fingerprint
-        let pbkey = STANDARD.decode(public_key).unwrap();
-        let fingerprint = fingerprint("test@bitwarden.com", &pbkey).unwrap();
+        let pubkey = STANDARD.decode(public_key).unwrap();
+        let pubkey = SpkiPublicKeyBytes::from(pubkey.clone());
+        let fingerprint = fingerprint("test@bitwarden.com", &pubkey).unwrap();
         assert_eq!(fingerprint, "childless-unfair-prowler-dropbox-designate");
 
         approve_auth_request(&client, public_key.to_owned()).unwrap();
@@ -181,7 +184,7 @@ mod tests {
         let dec = auth_request_decrypt_user_key(private_key.to_owned(), enc_user_key).unwrap();
 
         assert_eq!(
-            &dec.to_encoded(),
+            &dec.to_encoded().to_vec(),
             &[
                 201, 37, 234, 213, 21, 75, 40, 70, 149, 213, 234, 16, 19, 251, 162, 245, 161, 74,
                 34, 245, 211, 151, 211, 192, 95, 10, 117, 50, 88, 223, 23, 157
@@ -200,7 +203,7 @@ mod tests {
                 .unwrap();
 
         assert_eq!(
-            &dec.to_encoded(),
+            &dec.to_encoded().to_vec(),
             &[
                 109, 128, 172, 147, 206, 123, 134, 95, 16, 36, 155, 113, 201, 18, 186, 230, 216,
                 212, 173, 188, 74, 11, 134, 131, 137, 242, 105, 178, 105, 126, 52, 139, 248, 91,

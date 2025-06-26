@@ -11,9 +11,9 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::AsymmetricPublicCryptoKey;
 use crate::{
-    cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CryptoError,
-    PublicKeyEncryptionAlgorithm, RawPublicKey, SignedObject, SigningKey, SigningNamespace,
-    VerifyingKey,
+    cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CoseSign1Bytes,
+    CryptoError, PublicKeyEncryptionAlgorithm, RawPublicKey, SignedObject, SigningKey,
+    SigningNamespace, VerifyingKey,
 };
 
 #[cfg(feature = "wasm")]
@@ -57,7 +57,7 @@ impl SignedPublicKeyMessage {
             RawPublicKey::RsaOaepSha1(_) => Ok(SignedPublicKeyMessage {
                 algorithm: PublicKeyEncryptionAlgorithm::RsaOaepSha1,
                 content_format: PublicKeyFormat::Spki,
-                public_key: ByteBuf::from(public_key.to_der()?),
+                public_key: ByteBuf::from(public_key.to_der()?.as_ref()),
             }),
         }
     }
@@ -77,22 +77,24 @@ impl SignedPublicKeyMessage {
 #[derive(Clone, Debug)]
 pub struct SignedPublicKey(pub(crate) SignedObject);
 
-impl From<SignedPublicKey> for Vec<u8> {
+impl From<SignedPublicKey> for CoseSign1Bytes {
     fn from(val: SignedPublicKey) -> Self {
         val.0.to_cose()
     }
 }
 
-impl TryFrom<Vec<u8>> for SignedPublicKey {
+impl TryFrom<CoseSign1Bytes> for SignedPublicKey {
     type Error = EncodingError;
-    fn try_from(bytes: Vec<u8>) -> Result<Self, EncodingError> {
-        Ok(SignedPublicKey(SignedObject::from_cose(&bytes)?))
+    fn try_from(bytes: CoseSign1Bytes) -> Result<Self, EncodingError> {
+        Ok(SignedPublicKey(SignedObject::from_cose(
+            &CoseSign1Bytes::from(bytes),
+        )?))
     }
 }
 
 impl From<SignedPublicKey> for String {
     fn from(val: SignedPublicKey) -> Self {
-        let bytes: Vec<u8> = val.into();
+        let bytes: CoseSign1Bytes = val.into();
         STANDARD.encode(&bytes)
     }
 }
@@ -126,7 +128,7 @@ impl FromStr for SignedPublicKey {
         let bytes = STANDARD
             .decode(s)
             .map_err(|_| EncodingError::InvalidCborSerialization)?;
-        Self::try_from(bytes)
+        Self::try_from(CoseSign1Bytes::from(bytes))
     }
 }
 

@@ -10,8 +10,8 @@ use crate::{
     error::{CryptoError, EncStringParseError, Result},
     rsa::encrypt_rsa2048_oaep_sha1,
     util::FromStrVisitor,
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, RawPrivateKey, RawPublicKey,
-    SymmetricCryptoKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, RawPrivateKey,
+    RawPublicKey, SymmetricCryptoKey,
 };
 // This module is a workaround to avoid deprecated warnings that come from the ZeroizeOnDrop
 // macro expansion
@@ -169,7 +169,7 @@ impl UnsignedSharedKey {
                 Ok(UnsignedSharedKey::Rsa2048_OaepSha1_B64 {
                     data: encrypt_rsa2048_oaep_sha1(
                         rsa_public_key,
-                        &encapsulated_key.to_encoded(),
+                        encapsulated_key.to_encoded().as_ref(),
                     )?,
                 })
             }
@@ -200,7 +200,7 @@ impl UnsignedSharedKey {
         match decapsulation_key.inner() {
             RawPrivateKey::RsaOaepSha1(rsa_private_key) => {
                 use UnsignedSharedKey::*;
-                let mut key_data = match self {
+                let key_data = match self {
                     Rsa2048_OaepSha256_B64 { data } => {
                         rsa_private_key.decrypt(Oaep::new::<sha2::Sha256>(), data)
                     }
@@ -217,7 +217,7 @@ impl UnsignedSharedKey {
                     }
                 }
                 .map_err(|_| CryptoError::KeyDecrypt)?;
-                SymmetricCryptoKey::try_from(key_data.as_mut_slice())
+                SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key_data))
             }
         }
     }

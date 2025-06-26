@@ -1,7 +1,8 @@
 use bitwarden_api_api::models::CipherPasswordHistoryModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
+    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
+    PrimitiveEncryptable,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -41,8 +42,8 @@ impl IdentifyKey<SymmetricKeyId> for PasswordHistoryView {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, PasswordHistory> for PasswordHistoryView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, PasswordHistory> for PasswordHistoryView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,

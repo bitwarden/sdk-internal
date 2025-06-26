@@ -6,7 +6,9 @@
 //! - [KeyIds] is a helper type that combines both symmetric and asymmetric key identifiers. This is
 //!   usually used in the type bounds of [KeyStore],
 //!   [KeyStoreContext](bitwarden_crypto::KeyStoreContext),
-//!   [Encryptable](bitwarden_crypto::Encryptable) and [Decryptable](bitwarden_crypto::Encryptable).
+//!   [PrimitiveEncryptable](bitwarden_crypto::PrimitiveEncryptable),
+//!   [CompositeEncryptable](bitwarden_crypto::CompositeEncryptable), and
+//!   [Decryptable](bitwarden_crypto::Decryptable).
 use bitwarden_crypto::{key_ids, KeyStore, SymmetricCryptoKey};
 
 #[cfg(feature = "internal")]

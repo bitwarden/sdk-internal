@@ -9,15 +9,17 @@ use zeroize::Zeroizing;
 use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
-    AsymmetricCryptoKey, CryptoError, EncString, KeyId, KeyIds, Result, Signature,
-    SignatureAlgorithm, SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey,
-    SymmetricCryptoKey, UnsignedSharedKey,
+    AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
+    KeyIds, Result, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
+    SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
 ///
 /// This will usually be accessed from an implementation of [crate::Decryptable] or
-/// [crate::Encryptable], but can also be obtained through [super::KeyStore::context]
+/// [crate::CompositeEncryptable], [crate::PrimitiveEncryptable],
+/// but can also be obtained
+/// through [super::KeyStore::context]
 ///
 /// This context contains access to the user keys stored in the [super::KeyStore] (sometimes
 /// referred to as `global keys`) and it also contains it's own individual secure backend for key
@@ -59,8 +61,8 @@ use crate::{
 ///
 /// const LOCAL_KEY: SymmKeyId = SymmKeyId::Local("local_key_id");
 ///
-/// impl Encryptable<Ids, SymmKeyId, EncString> for Data {
-///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
+/// impl CompositeEncryptable<Ids, SymmKeyId, EncString> for Data {
+///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
 ///         let local_key_id = ctx.unwrap_symmetric_key(key, LOCAL_KEY, &self.key)?;
 ///         self.name.encrypt(ctx, local_key_id)
 ///     }
@@ -139,25 +141,50 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// # Arguments
     ///
-    /// * `encryption_key` - The key id used to decrypt the `encrypted_key`. It must already exist
-    ///   in the context
+    /// * `wrapping_key` - The key id used to decrypt the `wrapped_key`. It must already exist in
+    ///   the context
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
-    /// * `encrypted_key` - The key to decrypt
+    /// * `wrapped_key` - The key to decrypt
     pub fn unwrap_symmetric_key(
         &mut self,
-        encryption_key: Ids::Symmetric,
+        wrapping_key: Ids::Symmetric,
         new_key_id: Ids::Symmetric,
-        encrypted_key: &EncString,
+        wrapped_key: &EncString,
     ) -> Result<Ids::Symmetric> {
-        let mut new_key_material =
-            self.decrypt_data_with_symmetric_key(encryption_key, encrypted_key)?;
+        let wrapping_key = self.get_symmetric_key(wrapping_key)?;
+
+        let key = match (wrapped_key, wrapping_key) {
+            (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
+                SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
+                    crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)?,
+                ))?
+            }
+            (
+                EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
+                SymmetricCryptoKey::Aes256CbcHmacKey(key),
+            ) => SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
+                crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)?,
+            ))?,
+            (
+                EncString::Cose_Encrypt0_B64 { data },
+                SymmetricCryptoKey::XChaCha20Poly1305Key(key),
+            ) => {
+                let (content_bytes, content_format) =
+                    crate::cose::decrypt_xchacha20_poly1305(data, key)?;
+                match content_format {
+                    ContentFormat::BitwardenLegacyKey => {
+                        SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(content_bytes))?
+                    }
+                    ContentFormat::CoseKey => SymmetricCryptoKey::try_from_cose(&content_bytes)?,
+                    _ => return Err(CryptoError::InvalidKey),
+                }
+            }
+            _ => return Err(CryptoError::InvalidKey),
+        };
 
         #[allow(deprecated)]
-        self.set_symmetric_key(
-            new_key_id,
-            SymmetricCryptoKey::try_from(new_key_material.as_mut_slice())?,
-        )?;
+        self.set_symmetric_key(new_key_id, key)?;
 
         // Returning the new key identifier for convenience
         Ok(new_key_id)
@@ -186,11 +213,27 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         // or `Aes256CbcKey`, or by specifying the content format to be CoseKey, in case the
         // wrapped key is a `XChaCha20Poly1305Key`.
         match (wrapping_key_instance, key_to_wrap_instance) {
-            (Aes256CbcHmacKey(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => self
-                .encrypt_data_with_symmetric_key(
+            (
+                Aes256CbcHmacKey(_),
+                Aes256CbcHmacKey(_) | Aes256CbcKey(_) | XChaCha20Poly1305Key(_),
+            ) => self.encrypt_data_with_symmetric_key(
+                wrapping_key,
+                key_to_wrap_instance
+                    .to_encoded()
+                    .as_ref()
+                    .to_vec()
+                    .as_slice(),
+                ContentFormat::BitwardenLegacyKey,
+            ),
+            (XChaCha20Poly1305Key(_), _) => {
+                let encoded = key_to_wrap_instance.to_encoded_raw();
+                let content_format = encoded.content_format();
+                self.encrypt_data_with_symmetric_key(
                     wrapping_key,
-                    key_to_wrap_instance.to_encoded().as_slice(),
-                ),
+                    Into::<Vec<u8>>::into(encoded).as_slice(),
+                    content_format,
+                )
+            }
             _ => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperation::EncryptionNotImplementedForKey,
             )),
@@ -415,6 +458,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
+            (
+                EncString::Cose_Encrypt0_B64 { data },
+                SymmetricCryptoKey::XChaCha20Poly1305Key(key),
+            ) => {
+                let (data, _) = crate::cose::decrypt_xchacha20_poly1305(data, key)?;
+                Ok(data)
+            }
             _ => Err(CryptoError::InvalidKey),
         }
     }
@@ -423,6 +473,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         &self,
         key: Ids::Symmetric,
         data: &[u8],
+        content_format: ContentFormat,
     ) -> Result<EncString> {
         let key = self.get_symmetric_key(key)?;
         match key {
@@ -431,7 +482,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
-                EncString::encrypt_xchacha20_poly1305(data, key)
+                EncString::encrypt_xchacha20_poly1305(data, key, content_format)
             }
         }
     }
@@ -469,10 +520,13 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        store::{tests::DataView, KeyStore},
+        store::{
+            tests::{Data, DataView},
+            KeyStore,
+        },
         traits::tests::{TestIds, TestSigningKey, TestSymmKey},
-        CryptoError, Decryptable, Encryptable, SignatureAlgorithm, SigningKey, SigningNamespace,
-        SymmetricCryptoKey,
+        CompositeEncryptable, CryptoError, Decryptable, SignatureAlgorithm, SigningKey,
+        SigningNamespace, SymmetricCryptoKey,
     };
 
     #[test]
@@ -505,7 +559,9 @@ mod tests {
 
         // Encrypt some data with the key
         let data = DataView("Hello, World!".to_string(), key_a0_id);
-        let _encrypted = data.encrypt(&mut store.context(), key_a0_id).unwrap();
+        let _encrypted: Data = data
+            .encrypt_composite(&mut store.context(), key_a0_id)
+            .unwrap();
     }
 
     #[test]
@@ -543,13 +599,71 @@ mod tests {
         // with one and decrypt with the other
 
         let data = DataView("Hello, World!".to_string(), key_2_id);
-        let encrypted = data.encrypt(&mut ctx, key_2_id).unwrap();
+        let encrypted = data.encrypt_composite(&mut ctx, key_2_id).unwrap();
 
         let decrypted1 = encrypted.decrypt(&mut ctx, key_2_id).unwrap();
         let decrypted2 = encrypted.decrypt(&mut ctx, new_key_id).unwrap();
 
         // Assert that the decrypted data is the same
         assert_eq!(decrypted1.0, decrypted2.0);
+    }
+
+    #[test]
+    fn test_wrap_unwrap() {
+        let store: KeyStore<TestIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        // Aes256 CBC HMAC keys
+        let key_aes_1_id = TestSymmKey::A(1);
+        let key_aes_1 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        ctx.set_symmetric_key(key_aes_1_id, key_aes_1.clone())
+            .unwrap();
+        let key_aes_2_id = TestSymmKey::A(2);
+        let key_aes_2 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        ctx.set_symmetric_key(key_aes_2_id, key_aes_2.clone())
+            .unwrap();
+
+        // XChaCha20 Poly1305 keys
+        let key_xchacha_3_id = TestSymmKey::A(3);
+        let key_xchacha_3 = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        ctx.set_symmetric_key(key_xchacha_3_id, key_xchacha_3.clone())
+            .unwrap();
+        let key_xchacha_4_id = TestSymmKey::A(4);
+        let key_xchacha_4 = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        ctx.set_symmetric_key(key_xchacha_4_id, key_xchacha_4.clone())
+            .unwrap();
+
+        // Wrap and unwrap the keys
+        let wrapped_key_1_2 = ctx.wrap_symmetric_key(key_aes_1_id, key_aes_2_id).unwrap();
+        let wrapped_key_1_3 = ctx
+            .wrap_symmetric_key(key_aes_1_id, key_xchacha_3_id)
+            .unwrap();
+        let wrapped_key_3_1 = ctx
+            .wrap_symmetric_key(key_xchacha_3_id, key_aes_1_id)
+            .unwrap();
+        let wrapped_key_3_4 = ctx
+            .wrap_symmetric_key(key_xchacha_3_id, key_xchacha_4_id)
+            .unwrap();
+
+        // Unwrap the keys
+        let unwrapped_key_2 = ctx
+            .unwrap_symmetric_key(key_aes_1_id, key_aes_2_id, &wrapped_key_1_2)
+            .unwrap();
+        let unwrapped_key_3 = ctx
+            .unwrap_symmetric_key(key_aes_1_id, key_xchacha_3_id, &wrapped_key_1_3)
+            .unwrap();
+        let unwrapped_key_1 = ctx
+            .unwrap_symmetric_key(key_xchacha_3_id, key_aes_1_id, &wrapped_key_3_1)
+            .unwrap();
+        let unwrapped_key_4 = ctx
+            .unwrap_symmetric_key(key_xchacha_3_id, key_xchacha_4_id, &wrapped_key_3_4)
+            .unwrap();
+
+        // Assert that the unwrapped keys are the same as the original keys
+        assert_eq!(unwrapped_key_2, key_aes_2_id);
+        assert_eq!(unwrapped_key_3, key_xchacha_3_id);
+        assert_eq!(unwrapped_key_1, key_aes_1_id);
+        assert_eq!(unwrapped_key_4, key_xchacha_4_id);
     }
 
     #[test]

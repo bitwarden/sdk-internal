@@ -8,9 +8,9 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Encryptable, Kdf,
-    KeyDecryptable, KeyEncryptable, MasterKey, SignatureAlgorithm, SignedPublicKey, SigningKey,
-    SymmetricCryptoKey, UnsignedSharedKey, UserKey,
+    AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
+    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, SignatureAlgorithm,
+    SignedPublicKey, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
@@ -536,6 +536,7 @@ pub(super) fn verify_asymmetric_keys(
             .decrypt_with_key(user_key)
             .map_err(VerifyError::DecryptFailed)?;
 
+        let decrypted_private_key = Pkcs8PrivateKeyBytes::from(decrypted_private_key);
         let private_key = AsymmetricCryptoKey::from_der(&decrypted_private_key)
             .map_err(VerifyError::ParseFailed)?;
 
@@ -605,8 +606,6 @@ pub fn make_user_signing_keys_for_enrollment(
 
     Ok(MakeUserSigningKeysResponse {
         verifying_key: STANDARD.encode(signature_keypair.to_verifying_key().to_cose()),
-        // This needs to be changed to use the correct COSE content format before rolling out to
-        // users: https://bitwarden.atlassian.net/browse/PM-22189
         signing_key: signature_keypair
             .to_cose()
             .encrypt(&mut ctx, SymmetricKeyId::User)?,
@@ -845,8 +844,9 @@ mod tests {
         let encrypted = enroll_admin_password_reset(&client, public_key.to_owned()).unwrap();
 
         let private_key = "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCzLtEUdxfcLxDj84yaGFsVF5hZ8Hjlb08NMQDy1RnBma06I3ZESshLYzVz4r/gegMn9OOltfV/Yxlyvida8oW6qdlfJ7AVz6Oa8pV7BiL40C7b76+oqraQpyYw2HChANB1AhXL9SqWngKmLZwjA7qiCrmcc0kZHeOb4KnKtp9iVvPVs+8veFvKgYO4ba2AAOHKFdR0W55/agXfAy+fWUAkC8mc9ikyJdQWaPV6OZvC2XFkOseBQm9Rynudh3BQpoWiL6w620efe7t5k+02/EyOFJL9f/XEEjM/+Yo0t3LAfkuhHGeKiRST59Xc9hTEmyJTeVXROtz+0fjqOp3xkaObAgMBAAECggEACs4xhnO0HaZhh1/iH7zORMIRXKeyxP2LQiTR8xwN5JJ9wRWmGAR9VasS7EZFTDidIGVME2u/h4s5EqXnhxfO+0gGksVvgNXJ/qw87E8K2216g6ZNo6vSGA7H1GH2voWwejJ4/k/cJug6dz2S402rRAKh2Wong1arYHSkVlQp3diiMa5FHAOSE+Cy09O2ZsaF9IXQYUtlW6AVXFrBEPYH2kvkaPXchh8VETMijo6tbvoKLnUHe+wTaDMls7hy8exjtVyI59r3DNzjy1lNGaGb5QSnFMXR+eHhPZc844Wv02MxC15zKABADrl58gpJyjTl6XpDdHCYGsmGpVGH3X9TQQKBgQDz/9beFjzq59ve6rGwn+EtnQfSsyYT+jr7GN8lNEXb3YOFXBgPhfFIcHRh2R00Vm9w2ApfAx2cd8xm2I6HuvQ1Os7g26LWazvuWY0Qzb+KaCLQTEGH1RnTq6CCG+BTRq/a3J8M4t38GV5TWlzv8wr9U4dl6FR4efjb65HXs1GQ4QKBgQC7/uHfrOTEHrLeIeqEuSl0vWNqEotFKdKLV6xpOvNuxDGbgW4/r/zaxDqt0YBOXmRbQYSEhmO3oy9J6XfE1SUln0gbavZeW0HESCAmUIC88bDnspUwS9RxauqT5aF8ODKN/bNCWCnBM1xyonPOs1oT1nyparJVdQoG//Y7vkB3+wKBgBqLqPq8fKAp3XfhHLfUjREDVoiLyQa/YI9U42IOz9LdxKNLo6p8rgVthpvmnRDGnpUuS+KOWjhdqDVANjF6G3t3DG7WNl8Rh5Gk2H4NhFswfSkgQrjebFLlBy9gjQVCWXt8KSmjvPbiY6q52Aaa8IUjA0YJAregvXxfopxO+/7BAoGARicvEtDp7WWnSc1OPoj6N14VIxgYcI7SyrzE0d/1x3ffKzB5e7qomNpxKzvqrVP8DzG7ydh8jaKPmv1MfF8tpYRy3AhmN3/GYwCnPqT75YYrhcrWcVdax5gmQVqHkFtIQkRSCIftzPLlpMGKha/YBV8c1fvC4LD0NPh/Ynv0gtECgYEAyOZg95/kte0jpgUEgwuMrzkhY/AaUJULFuR5MkyvReEbtSBQwV5tx60+T95PHNiFooWWVXiLMsAgyI2IbkxVR1Pzdri3gWK5CTfqb7kLuaj/B7SGvBa2Sxo478KS5K8tBBBWkITqo+wLC0mn3uZi1dyMWO1zopTA+KtEGF2dtGQ=";
-        let private_key =
-            AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key).unwrap()).unwrap();
+        let private_key = STANDARD.decode(private_key).unwrap();
+        let private_key = Pkcs8PrivateKeyBytes::from(private_key);
+        let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
         let decrypted: SymmetricCryptoKey =
             encrypted.decapsulate_key_unsigned(&private_key).unwrap();
 
@@ -938,11 +938,7 @@ mod tests {
     fn test_verify_asymmetric_keys_parse_failed() {
         let (user_key, key_pair) = setup_asymmetric_keys_test();
 
-        let invalid_private_key = "bad_key"
-            .to_string()
-            .into_bytes()
-            .encrypt_with_key(&user_key.0)
-            .unwrap();
+        let invalid_private_key = "bad_key".to_string().encrypt_with_key(&user_key.0).unwrap();
 
         let request = VerifyAsymmetricKeysRequest {
             user_key: user_key.0.to_base64(),

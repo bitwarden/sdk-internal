@@ -1,6 +1,9 @@
 use bitwarden_api_api::models::CipherCardModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{
+    CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
+    PrimitiveEncryptable,
+};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
@@ -63,8 +66,8 @@ pub enum CardBrand {
     Other,
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Card> for CardView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Card> for CardView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
