@@ -64,7 +64,7 @@ pub enum FingerprintError {
 #[cfg(test)]
 mod tests {
     use super::fingerprint;
-    use crate::SpkiPublicKeyBytes;
+    use crate::{Bytes, SpkiPublicKeyBytes};
 
     #[test]
     fn test_fingerprint() {

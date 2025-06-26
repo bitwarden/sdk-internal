@@ -20,7 +20,7 @@ impl PinKey {
 
     /// Encrypt the users user key
     pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
-        user_key.encrypt_with_key(self)
+        user_key.encrypt_with_key(&self)
     }
 
     /// Decrypt the users user key
