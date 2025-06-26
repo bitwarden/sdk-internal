@@ -60,7 +60,11 @@ pub use context::KeyStoreContext;
 ///         #[local]
 ///         Local(uuid::Uuid),
 ///     }
-///     pub Ids => SymmKeyId, AsymmKeyId;
+///     #[signing]
+///     pub enum SigningKeyId {
+///        UserSigning,
+///     }
+///     pub Ids => SymmKeyId, AsymmKeyId, SigningKeyId;
 /// }
 ///
 /// // Initialize the store and insert a test key
@@ -103,6 +107,7 @@ impl<Ids: KeyIds> std::fmt::Debug for KeyStore<Ids> {
 struct KeyStoreInner<Ids: KeyIds> {
     symmetric_keys: Box<dyn StoreBackend<Ids::Symmetric>>,
     asymmetric_keys: Box<dyn StoreBackend<Ids::Asymmetric>>,
+    signing_keys: Box<dyn StoreBackend<Ids::Signing>>,
 }
 
 /// Create a new key store with the best available implementation for the current platform.
@@ -112,6 +117,7 @@ impl<Ids: KeyIds> Default for KeyStore<Ids> {
             inner: Arc::new(RwLock::new(KeyStoreInner {
                 symmetric_keys: create_store(),
                 asymmetric_keys: create_store(),
+                signing_keys: create_store(),
             })),
         }
     }
@@ -124,6 +130,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         let mut keys = self.inner.write().expect("RwLock is poisoned");
         keys.symmetric_keys.clear();
         keys.asymmetric_keys.clear();
+        keys.signing_keys.clear();
     }
 
     /// Initiate an encryption/decryption context. This context will have read only access to the
@@ -162,6 +169,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
             global_keys: GlobalKeys::ReadOnly(self.inner.read().expect("RwLock is poisoned")),
             local_symmetric_keys: create_store(),
             local_asymmetric_keys: create_store(),
+            local_signing_keys: create_store(),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -191,6 +199,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
             global_keys: GlobalKeys::ReadWrite(self.inner.write().expect("RwLock is poisoned")),
             local_symmetric_keys: create_store(),
             local_asymmetric_keys: create_store(),
+            local_signing_keys: create_store(),
             _phantom: std::marker::PhantomData,
         }
     }
