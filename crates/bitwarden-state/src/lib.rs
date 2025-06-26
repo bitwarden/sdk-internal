@@ -7,3 +7,5 @@ pub mod repository;
 pub mod registry;
 
 pub(crate) mod sdk_managed;
+
+pub use sdk_managed::DatabaseConfiguration;

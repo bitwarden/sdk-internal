@@ -4,6 +4,9 @@ use thiserror::Error;
 
 use crate::repository::{Repository, RepositoryError, RepositoryItem, RepositoryItemData};
 
+mod configuration;
+pub use configuration::DatabaseConfiguration;
+
 #[cfg(target_arch = "wasm32")]
 mod indexed_db;
 #[cfg(target_arch = "wasm32")]
@@ -21,6 +24,9 @@ type InternalError = ::rusqlite::Error;
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum DatabaseError {
+    #[error("Database not supported on this platform: {0:?}")]
+    UnsupportedConfiguration(DatabaseConfiguration),
+
     #[error(transparent)]
     ThreadBoundRunner(#[from] bitwarden_threading::CallError),
 
@@ -35,7 +41,10 @@ pub enum DatabaseError {
 }
 
 pub trait Database {
-    async fn initialize(registrations: &[RepositoryItemData]) -> Result<Self, DatabaseError>
+    async fn initialize(
+        configuration: DatabaseConfiguration,
+        registrations: &[RepositoryItemData],
+    ) -> Result<Self, DatabaseError>
     where
         Self: Sized;
 

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bitwarden_core::{platform::FingerprintRequest, Client};
 use bitwarden_fido::ClientFido2Ext;
-use bitwarden_state::repository::RepositoryItem;
+use bitwarden_state::{repository::RepositoryItem, DatabaseConfiguration};
 use bitwarden_vault::Cipher;
 use repository::UniffiRepositoryBridge;
 
@@ -55,10 +55,17 @@ pub struct StateClient(Client);
 
 repository::create_uniffi_repository!(CipherRepository, Cipher);
 
+#[derive(uniffi::Record)]
+pub struct SqliteConfiguration {
+    db_name: String,
+    folder_path: String,
+}
+
 #[uniffi::export]
 impl StateClient {
     pub async fn initialize_state(
         &self,
+        configuration: SqliteConfiguration,
         cipher_repository: Arc<dyn CipherRepository>,
     ) -> Result<()> {
         let cipher = UniffiRepositoryBridge::new(cipher_repository);
@@ -72,9 +79,18 @@ impl StateClient {
         self.0
             .platform()
             .state()
-            .initialize_database(sdk_managed_repositories)
+            .initialize_database(configuration.into(), sdk_managed_repositories)
             .await
             .map_err(Error::StateRegistry)?;
         Ok(())
+    }
+}
+
+impl From<SqliteConfiguration> for DatabaseConfiguration {
+    fn from(config: SqliteConfiguration) -> Self {
+        DatabaseConfiguration::Sqlite {
+            db_name: config.db_name,
+            folder_path: config.folder_path.into(),
+        }
     }
 }

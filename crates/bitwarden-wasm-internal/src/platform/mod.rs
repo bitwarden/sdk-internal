@@ -1,6 +1,8 @@
 use bitwarden_core::Client;
-use bitwarden_state::repository::RepositoryItem;
+use bitwarden_state::{repository::RepositoryItem, DatabaseConfiguration};
 use bitwarden_vault::Cipher;
+use serde::{Deserialize, Serialize};
+use tsify_next::Tsify;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 mod repository;
@@ -32,10 +34,17 @@ impl StateClient {
 
 repository::create_wasm_repository!(CipherRepository, Cipher, "Repository<Cipher>");
 
+#[derive(Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct IndexedDbConfiguration {
+    pub db_name: String,
+}
+
 #[wasm_bindgen]
 impl StateClient {
     pub async fn initialize_state(
         &self,
+        configuration: IndexedDbConfiguration,
         cipher_repository: CipherRepository,
     ) -> Result<(), bitwarden_state::registry::StateRegistryError> {
         let cipher = cipher_repository.into_channel_impl();
@@ -49,7 +58,15 @@ impl StateClient {
         self.0
             .platform()
             .state()
-            .initialize_database(sdk_managed_repositories)
+            .initialize_database(configuration.into(), sdk_managed_repositories)
             .await
+    }
+}
+
+impl From<IndexedDbConfiguration> for DatabaseConfiguration {
+    fn from(config: IndexedDbConfiguration) -> Self {
+        bitwarden_state::DatabaseConfiguration::IndexedDb {
+            db_name: config.db_name,
+        }
     }
 }
