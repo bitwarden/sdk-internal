@@ -15,7 +15,7 @@
 //! `PrimitiveEncryptable` is implemented for `crate::content_format::Bytes<C>` types, where `C` is
 //! a type that implements the `ConstContentFormat` trait. This allows for compile-time type
 //! checking of the content format, and the risk of using the wrong content format is limited to
-//! converting untyped bytes into a `Bytes<C>` type
+//! converting untyped bytes into a `Bytes<C>`
 
 use crate::{store::KeyStoreContext, ContentFormat, CryptoError, EncString, KeyId, KeyIds};
 
