@@ -143,6 +143,9 @@ impl ConstContentFormat for SpkiPublicKeyDerContentFormat {
 /// for SPKI public keys in DER format.
 pub type SpkiPublicKeyBytes = Bytes<SpkiPublicKeyDerContentFormat>;
 
+/// A marker trait for COSE content formats.
+pub trait CoseContentFormat {}
+
 /// Content format for COSE keys.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct CoseKeyContentFormat;
@@ -187,9 +190,6 @@ impl CoseContentFormat for CoseSign1ContentFormat {}
 /// CoseSign1Bytes is a type alias for Bytes with `CoseSign1ContentFormat`. This is used for
 /// serialized COSE Sign1 messages.
 pub type CoseSign1Bytes = Bytes<CoseSign1ContentFormat>;
-
-/// A marker trait for COSE content formats.
-pub trait CoseContentFormat {}
 
 impl<Ids: KeyIds, T: ConstContentFormat> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString>
     for Bytes<T>
