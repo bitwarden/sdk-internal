@@ -14,6 +14,9 @@ on:
       - "rc"
       - "hotfix-rc"
 
+permissions:
+  contents: read
+
 jobs:
   memory-test:
     name: Testing

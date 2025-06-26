@@ -17,6 +17,8 @@ jobs:
   setup:
     name: Setup
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     outputs:
       release-version: ${{ steps.version.outputs.version }}
     steps:
