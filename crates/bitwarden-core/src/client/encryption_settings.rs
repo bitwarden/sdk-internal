@@ -61,7 +61,7 @@ impl EncryptionSettings {
             let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
             // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a recovery
             // process in place.
-            AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(dec))
+            AsymmetricCryptoKey::from_der(&dec.into())
                 .map_err(|_| {
                     warn!("Invalid private key");
                 })
