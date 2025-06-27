@@ -47,7 +47,7 @@ pub fn validate_only_whitespaces(value: &str) -> Result<(), validator::Validatio
 
 impl From<ValidationErrors> for ValidationError {
     fn from(e: ValidationErrors) -> Self {
-        debug!("Validation errors: {:#?}", e);
+        debug!("Validation errors: {e:#?}");
         for (field_name, errors) in e.field_errors() {
             for error in errors {
                 match error.code.as_ref() {
@@ -74,7 +74,7 @@ impl From<ValidationErrors> for ValidationError {
                 }
             }
         }
-        ValidationError::Unknown(format!("{:#?}", e))
+        ValidationError::Unknown(format!("{e:#?}"))
     }
 }
 

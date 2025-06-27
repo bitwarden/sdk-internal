@@ -31,7 +31,7 @@ impl ApiTokenRequest {
             device_name: "firefox".to_string(),
             grant_type: "client_credentials".to_string(),
         };
-        debug!("initializing {:?}", obj);
+        debug!("initializing {obj:?}");
         obj
     }
 

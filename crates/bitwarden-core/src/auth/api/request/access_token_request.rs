@@ -23,7 +23,7 @@ impl AccessTokenRequest {
             client_secret: client_secret.to_string(),
             grant_type: "client_credentials".to_string(),
         };
-        debug!("initializing {:?}", obj);
+        debug!("initializing {obj:?}");
         obj
     }
 

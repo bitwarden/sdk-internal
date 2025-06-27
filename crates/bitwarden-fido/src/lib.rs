@@ -256,7 +256,7 @@ pub struct UnknownEnum;
 
 // Some utilities to convert back and forth between enums and strings
 fn get_enum_from_string_name<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, UnknownEnum> {
-    let serialized = format!(r#""{}""#, s);
+    let serialized = format!(r#""{s}""#);
     let deserialized: T = serde_json::from_str(&serialized).map_err(|_| UnknownEnum)?;
     Ok(deserialized)
 }

@@ -17,7 +17,7 @@ impl fmt::Display for IdentityTokenFailResponse {
             false => self.error_model.message.clone(),
         };
 
-        write!(f, "{}", msg)
+        write!(f, "{msg}")
     }
 }
 

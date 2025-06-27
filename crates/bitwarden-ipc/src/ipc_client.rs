@@ -190,7 +190,7 @@ where
                                 };
                             }
                             Err(e) => {
-                                log::error!("Error receiving message: {:?}", e);
+                                log::error!("Error receiving message: {e:?}");
                                 break;
                             }
                         }
@@ -244,7 +244,7 @@ where
             .await;
 
         if result.is_err() {
-            log::error!("Error sending message: {:?}", result);
+            log::error!("Error sending message: {result:?}");
             self.stop().await;
         }
 
@@ -318,7 +318,7 @@ where
 
         self.send(message)
             .await
-            .map_err(|e| RequestError::Send(format!("{:?}", e)))?;
+            .map_err(|e| RequestError::Send(format!("{e:?}")))?;
 
         let response = loop {
             let received = response_subscription
@@ -382,7 +382,7 @@ where
                     }
                 }
                 Err(e) => {
-                    log::error!("Error handling RPC request: {:?}", e);
+                    log::error!("Error handling RPC request: {e:?}");
                 }
             }
         };

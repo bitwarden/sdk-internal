@@ -345,7 +345,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
         let enc_str: &str = "4.ZheRb3PCfAunyFdQYPfyrFqpuvmln9H9w5nDjt88i5A7ug1XE0LJdQHCIYJl0YOZ1gCOGkhFu/CRY2StiLmT3iRKrrVBbC1+qRMjNNyDvRcFi91LWsmRXhONVSPjywzrJJXglsztDqGkLO93dKXNhuKpcmtBLsvgkphk/aFvxbaOvJ/FHdK/iV0dMGNhc/9tbys8laTdwBlI5xIChpRcrfH+XpSFM88+Bu03uK67N9G6eU1UmET+pISJwJvMuIDMqH+qkT7OOzgL3t6I0H2LDj+CnsumnQmDsvQzDiNfTR0IgjpoE9YH2LvPXVP2wVUkiTwXD9cG/E7XeoiduHyHjw==";
         let enc_string: UnsignedSharedKey = enc_str.parse().unwrap();
 
-        let debug_string = format!("{:?}", enc_string);
+        let debug_string = format!("{enc_string:?}");
         assert_eq!(debug_string, "UnsignedSharedKey");
     }
 

@@ -20,7 +20,7 @@ fn basic_error_wasm(
     export_as_identifier: &proc_macro2::Ident,
 ) -> proc_macro2::TokenStream {
     let export_as_identifier_str = export_as_identifier.to_string();
-    let is_error_function_name = format!("is{}", export_as_identifier);
+    let is_error_function_name = format!("is{export_as_identifier}");
     let ts_code_str = format!(
         r##"r#"
             export interface {export_as_identifier} extends Error {{
