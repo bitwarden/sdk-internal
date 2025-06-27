@@ -36,7 +36,14 @@ fn main() {
     .expect("Sealing should work");
 
     // Store the sealed item on disk
-    disk.save("sealed_item", (&sealed_item).try_into().unwrap());
+    disk.save("sealed_item", (&sealed_item).into());
+    let sealed_item = disk
+        .load("sealed_item")
+        .expect("Failed to load sealed item")
+        .clone();
+    let sealed_item: bitwarden_crypto::DataEnvelope<ExampleIds> =
+        bitwarden_crypto::DataEnvelope::try_from(sealed_item)
+            .expect("Failed to deserialize sealed item");
 
     let my_item: MyItem = sealed_item
         .unseal(ExampleSymmetricKey::ItemKey, &mut ctx)

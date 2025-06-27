@@ -60,10 +60,10 @@ impl<Ids: KeyIds> DataEnvelope<Ids> {
             DataEnvelope {
                 envelope_data: cose::encrypt_xchacha20_poly1305(
                     serialized_message.as_bytes(),
-                    &cek,
+                    cek,
                     crate::ContentFormat::Cbor,
                 )
-                .unwrap(),
+                .map_err(|_| DataEnvelopError::EncryptionError)?,
                 _phantom: PhantomData,
             },
             cek.clone(),
@@ -96,8 +96,8 @@ impl<Ids: KeyIds> DataEnvelope<Ids> {
     where
         T: DeserializeOwned + SealableData,
     {
-        let (data, content_format) =
-            cose::decrypt_xchacha20_poly1305(&self.envelope_data, cek).unwrap();
+        let (data, content_format) = cose::decrypt_xchacha20_poly1305(&self.envelope_data, cek)
+            .map_err(|_| DataEnvelopError::DecryptionError)?;
 
         let content_format = match content_format {
             crate::ContentFormat::Cbor => CoapContentFormat::Cbor,
@@ -111,9 +111,9 @@ impl<Ids: KeyIds> DataEnvelope<Ids> {
     }
 }
 
-impl<Ids: KeyIds> Into<Vec<u8>> for &DataEnvelope<Ids> {
-    fn into(self) -> Vec<u8> {
-        self.envelope_data.to_vec()
+impl<Ids: KeyIds> From<&DataEnvelope<Ids>> for Vec<u8> {
+    fn from(val: &DataEnvelope<Ids>) -> Self {
+        val.envelope_data.to_vec()
     }
 }
 
@@ -141,6 +141,12 @@ pub enum DataEnvelopError {
     /// Indicates that there was an error with the key store.
     #[error("KeyStore error: {0}")]
     KeyStoreError(String),
+    /// Indicates that there was an error during decryption.
+    #[error("Decryption error")]
+    DecryptionError,
+    /// Indicates that there was an error during encryption.
+    #[error("Encryption error")]
+    EncryptionError,
 }
 
 #[cfg(test)]
