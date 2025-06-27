@@ -33,7 +33,7 @@ async fn test_register_initialize_crypto() {
             kdf_params: kdf,
             email: email.to_owned(),
             private_key: register_response.keys.private,
-
+            signing_key: None,
             method: InitUserCryptoMethod::Password {
                 password: password.to_owned(),
                 user_key: register_response.encrypted_user_key,

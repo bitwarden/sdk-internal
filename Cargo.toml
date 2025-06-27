@@ -31,6 +31,7 @@ bitwarden-fido = { path = "crates/bitwarden-fido", version = "=1.0.0" }
 bitwarden-generators = { path = "crates/bitwarden-generators", version = "=1.0.0" }
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=1.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=1.0.0" }
+bitwarden-state = { path = "crates/bitwarden-state", version = "=1.0.0" }
 bitwarden-threading = { path = "crates/bitwarden-threading", version = "=1.0.0" }
 bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=1.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=1.0.0" }
@@ -39,6 +40,7 @@ bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=1.0.0
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=1.0.0" }
 
 # External crates that are expected to maintain a consistent version across all crates
+async-trait = ">=0.1.80, <0.2"
 chrono = { version = ">=0.4.26, <0.5", features = [
     "clock",
     "serde",

@@ -1,9 +1,14 @@
-use bitwarden_core::platform::FingerprintRequest;
+use std::sync::Arc;
+
+use bitwarden_core::{platform::FingerprintRequest, Client};
 use bitwarden_fido::ClientFido2Ext;
+use bitwarden_vault::Cipher;
+use repository::UniffiRepositoryBridge;
 
 use crate::error::{Error, Result};
 
 mod fido2;
+mod repository;
 
 #[derive(uniffi::Object)]
 pub struct PlatformClient(pub(crate) bitwarden_core::Client);
@@ -37,5 +42,25 @@ impl PlatformClient {
     /// FIDO2 operations
     pub fn fido2(&self) -> fido2::ClientFido2 {
         fido2::ClientFido2(self.0.fido2())
+    }
+
+    pub fn state(&self) -> StateClient {
+        StateClient(self.0.clone())
+    }
+}
+
+#[derive(uniffi::Object)]
+pub struct StateClient(Client);
+
+repository::create_uniffi_repository!(CipherRepository, Cipher);
+
+#[uniffi::export]
+impl StateClient {
+    pub fn register_cipher_repository(&self, store: Arc<dyn CipherRepository>) {
+        let store_internal = UniffiRepositoryBridge::new(store);
+        self.0
+            .platform()
+            .state()
+            .register_client_managed(store_internal)
     }
 }

@@ -13,7 +13,8 @@ use tsify_next::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::VaultParseError;
+use super::cipher::CipherKind;
+use crate::{cipher::cipher::CopyableCipherFields, Cipher, VaultParseError};
 
 #[allow(missing_docs)]
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
@@ -555,8 +556,40 @@ impl TryFrom<bitwarden_api_api::models::CipherFido2CredentialModel> for Fido2Cre
     }
 }
 
+impl CipherKind for Login {
+    fn decrypt_subtitle(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<String, CryptoError> {
+        let username: Option<String> = self.username.decrypt(ctx, key)?;
+
+        Ok(username.unwrap_or_default())
+    }
+
+    fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
+        [
+            self.username
+                .as_ref()
+                .map(|_| CopyableCipherFields::LoginUsername),
+            self.password
+                .as_ref()
+                .map(|_| CopyableCipherFields::LoginPassword),
+            self.totp.as_ref().map(|_| CopyableCipherFields::LoginTotp),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::{
+        cipher::cipher::{CipherKind, CopyableCipherFields},
+        Login,
+    };
+
     #[test]
     fn test_valid_checksum() {
         let uri = super::LoginUriView {
@@ -600,6 +633,61 @@ mod tests {
         assert_eq!(
             uri.uri_checksum.unwrap().as_str(),
             "OWk2vQvwYD1nhLZdA+ltrpBWbDa2JmHyjUEWxRZSS8w="
+        );
+    }
+
+    #[test]
+    fn test_get_copyable_fields_login_password() {
+        let login_with_password = Login {
+            username: None,
+            password: Some("2.38t4E88QbQEkBdK+oZNHFg==|B3BiDcG3ZfEkD2BK+FMytQ==|2Dw1/f+LCfkCmCj4gKOxOu6CRnZj93qaBYUqbzy/reU=".parse().unwrap()),
+            password_revision_date: None,
+            uris: None,
+            totp: None,
+            autofill_on_page_load: None,
+            fido2_credentials: None,
+        };
+
+        let copyable_fields = login_with_password.get_copyable_fields(None);
+        assert_eq!(copyable_fields, vec![CopyableCipherFields::LoginPassword]);
+    }
+
+    #[test]
+    fn test_get_copyable_fields_login_username() {
+        let login_with_username = Login {
+            username: Some("2.38t4E88QbQEkBdK+oZNHFg==|B3BiDcG3ZfEkD2BK+FMytQ==|2Dw1/f+LCfkCmCj4gKOxOu6CRnZj93qaBYUqbzy/reU=".parse().unwrap()),
+            password: None,
+            password_revision_date: None,
+            uris: None,
+            totp: None,
+            autofill_on_page_load: None,
+            fido2_credentials: None,
+        };
+
+        let copyable_fields = login_with_username.get_copyable_fields(None);
+        assert_eq!(copyable_fields, vec![CopyableCipherFields::LoginUsername]);
+    }
+
+    #[test]
+    fn test_get_copyable_fields_login_everything() {
+        let login = Login {
+            username: Some("2.38t4E88QbQEkBdK+oZNHFg==|B3BiDcG3ZfEkD2BK+FMytQ==|2Dw1/f+LCfkCmCj4gKOxOu6CRnZj93qaBYUqbzy/reU=".parse().unwrap()),
+            password: Some("2.38t4E88QbQEkBdK+oZNHFg==|B3BiDcG3ZfEkD2BK+FMytQ==|2Dw1/f+LCfkCmCj4gKOxOu6CRnZj93qaBYUqbzy/reU=".parse().unwrap()),
+            password_revision_date: None,
+            uris: None,
+            totp: Some("2.38t4E88QbQEkBdK+oZNHFg==|B3BiDcG3ZfEkD2BK+FMytQ==|2Dw1/f+LCfkCmCj4gKOxOu6CRnZj93qaBYUqbzy/reU=".parse().unwrap()),
+            autofill_on_page_load: None,
+            fido2_credentials: None,
+        };
+
+        let copyable_fields = login.get_copyable_fields(None);
+        assert_eq!(
+            copyable_fields,
+            vec![
+                CopyableCipherFields::LoginUsername,
+                CopyableCipherFields::LoginPassword,
+                CopyableCipherFields::LoginTotp
+            ]
         );
     }
 }

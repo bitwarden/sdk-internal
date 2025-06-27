@@ -34,6 +34,7 @@ bitwarden-api-api = { workspace = true }
 bitwarden-api-identity = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-state = { workspace = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
 # We don't use this directly (it's used by rand), but we need it here to enable WASM support
@@ -60,7 +61,7 @@ zxcvbn = { version = ">=3.0.1, <4.0", optional = true }
 # The only exception is WASM, as it just uses the browsers/node fetch
 reqwest = { workspace = true, features = ["rustls-tls-manual-roots"] }
 rustls = { version = "0.23.19", default-features = false }
-rustls-platform-verifier = "0.5.0"
+rustls-platform-verifier = "0.6.0"
 
 [dev-dependencies]
 rand_chacha = "0.3.1"

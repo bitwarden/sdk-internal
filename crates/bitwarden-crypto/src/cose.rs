@@ -8,13 +8,19 @@ use generic_array::GenericArray;
 use typenum::U32;
 
 use crate::{
-    error::EncStringParseError, xchacha20, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    error::{EncStringParseError, EncodingError},
+    xchacha20, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
 };
 
 /// XChaCha20 <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03> is used over ChaCha20
 /// to be able to randomly generate nonces, and to not have to worry about key wearout. Since
 /// the draft was never published as an RFC, we use a private-use value for the algorithm.
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
+
+// Labels
+//
+/// The label used for the namespace ensuring strong domain separation when using signatures.
+pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
 
 /// Encrypts a plaintext message using XChaCha20Poly1305 and returns a COSE Encrypt0 message
 pub(crate) fn encrypt_xchacha20_poly1305(
@@ -117,6 +123,15 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
     }
 }
 
+/// Trait for structs that are serializable to COSE objects.
+pub trait CoseSerializable {
+    /// Serializes the struct to COSE serialization
+    fn to_cose(&self) -> Vec<u8>;
+    /// Deserializes a serialized COSE object to a struct
+    fn from_cose(bytes: &[u8]) -> Result<Self, EncodingError>
+    where
+        Self: Sized;
+}
 #[cfg(test)]
 mod test {
     use super::*;
