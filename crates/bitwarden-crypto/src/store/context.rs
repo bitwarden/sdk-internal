@@ -9,8 +9,8 @@ use zeroize::Zeroizing;
 use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
-    AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
-    KeyIds, Result, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
+    AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CryptoError,
+    EncString, KeyId, KeyIds, Result, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
     SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
 };
 
@@ -170,8 +170,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (content_bytes, content_format) =
-                    crate::cose::decrypt_xchacha20_poly1305(data, key)?;
+                let (content_bytes, content_format) = crate::cose::decrypt_xchacha20_poly1305(
+                    &CoseEncrypt0Bytes::from(data.clone()),
+                    key,
+                )?;
                 match content_format {
                     ContentFormat::BitwardenLegacyKey => {
                         SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(content_bytes))?
@@ -462,7 +464,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (data, _) = crate::cose::decrypt_xchacha20_poly1305(data, key)?;
+                let (data, _) = crate::cose::decrypt_xchacha20_poly1305(
+                    &CoseEncrypt0Bytes::from(data.clone()),
+                    key,
+                )?;
                 Ok(data)
             }
             _ => Err(CryptoError::InvalidKey),
