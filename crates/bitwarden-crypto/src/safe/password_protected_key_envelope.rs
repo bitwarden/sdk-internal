@@ -286,9 +286,19 @@ impl TryInto<Argon2RawSettings> for Header {
             ))?;
 
         Ok(Argon2RawSettings {
-            iterations: i128::from(*iterations).try_into().unwrap(),
-            memory: i128::from(*memory).try_into().unwrap(),
-            parallelism: i128::from(*parallelism).try_into().unwrap(),
+            iterations: i128::from(*iterations).try_into().map_err(|_| {
+                PasswordProtectedKeyEnvelopeError::ParsingError(
+                    "Invalid Argon2 iterations".to_string(),
+                )
+            })?,
+            memory: i128::from(*memory).try_into().map_err(|_| {
+                PasswordProtectedKeyEnvelopeError::ParsingError("Invalid Argon2 memory".to_string())
+            })?,
+            parallelism: i128::from(*parallelism).try_into().map_err(|_| {
+                PasswordProtectedKeyEnvelopeError::ParsingError(
+                    "Invalid Argon2 parallelism".to_string(),
+                )
+            })?,
             salt,
         })
     }
