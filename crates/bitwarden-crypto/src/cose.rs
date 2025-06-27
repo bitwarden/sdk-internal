@@ -22,10 +22,16 @@ use crate::{
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
 const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
 
+pub(crate) const ALG_ARGON2ID13: i64 = -71000;
+pub(crate) const ARGON2_SALT: i64 = -71001;
+pub(crate) const ARGON2_ITERATIONS: i64 = -71002;
+pub(crate) const ARGON2_MEMORY: i64 = -71003;
+pub(crate) const ARGON2_PARALLELISM: i64 = -71004;
+
 // Note: These are in the "unregistered" tree: https://datatracker.ietf.org/doc/html/rfc6838#section-3.4
 // These are only used within Bitwarden, and not meant for exchange with other systems.
 const CONTENT_TYPE_PADDED_UTF8: &str = "application/x.bitwarden.utf8-padded";
-const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
+pub(crate) const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
 const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-key";
 
 // Labels
