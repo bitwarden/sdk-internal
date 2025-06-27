@@ -309,6 +309,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Generate a new random xchacha20-poly1305 symmetric key and store it in the context
+    #[cfg(test)]
     pub(crate) fn make_cose_symmetric_key(
         &mut self,
         key_id: Ids::Symmetric,
