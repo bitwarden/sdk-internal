@@ -42,8 +42,7 @@ fn main() {
         .expect("Failed to load sealed item")
         .clone();
     let sealed_item: bitwarden_crypto::DataEnvelope<ExampleIds> =
-        bitwarden_crypto::DataEnvelope::try_from(sealed_item)
-            .expect("Failed to deserialize sealed item");
+        bitwarden_crypto::DataEnvelope::from(sealed_item);
 
     let my_item: MyItem = sealed_item
         .unseal(ExampleSymmetricKey::ItemKey, &mut ctx)
