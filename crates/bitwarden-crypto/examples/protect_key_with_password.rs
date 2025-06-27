@@ -1,4 +1,5 @@
-//! This example demonstrates how to securely protect keys with a password using the [PasswordProtectedKeyEnvelope].
+//! This example demonstrates how to securely protect keys with a password using the
+//! [PasswordProtectedKeyEnvelope].
 
 use bitwarden_crypto::{
     key_ids, KeyStore, KeyStoreContext, PasswordProtectedKeyEnvelope,

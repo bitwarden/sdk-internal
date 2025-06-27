@@ -16,17 +16,20 @@ use crate::{
     KeyStoreContext, SymmetricCryptoKey,
 };
 
-/// A password-protected key envelope can seal a symmetric key, and protect it with a password. It does so
-/// by using a Key Derivation Function (KDF), to increase the difficulty of brute-forcing the password.
+/// A password-protected key envelope can seal a symmetric key, and protect it with a password. It
+/// does so by using a Key Derivation Function (KDF), to increase the difficulty of brute-forcing
+/// the password.
 ///
-/// The KDF parameters such as iterations and salt are stored in the key-envelope and do not have to be provided.
+/// The KDF parameters such as iterations and salt are stored in the key-envelope and do not have to
+/// be provided.
 pub struct PasswordProtectedKeyEnvelope<Ids: KeyIds> {
     _phantom: PhantomData<Ids>,
     cose_encrypt: coset::CoseEncrypt,
 }
 
 impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
-    /// Seals a symmetric key with a password, using the current default KDF parameters and a random salt.
+    /// Seals a symmetric key with a password, using the current default KDF parameters and a random
+    /// salt.
     ///
     /// This should never fail, except for memory allocation error, when running the KDF.
     pub fn seal(
@@ -60,11 +63,12 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
         kdf_settings: &Argon2RawSettings,
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
         // Cose does not yet have a standardized way to protect a key using a password.
-        // This implements content encryption using direct encryption with a KDF derived key, similar to
-        // "Direct Key with KDF". The KDF settings are placed in a single recipient struct.
+        // This implements content encryption using direct encryption with a KDF derived key,
+        // similar to "Direct Key with KDF". The KDF settings are placed in a single
+        // recipient struct.
 
-        // The envelope key is directly derived from the KDF and used as the key to encrypt the key that should
-        // be sealed.
+        // The envelope key is directly derived from the KDF and used as the key to encrypt the key
+        // that should be sealed.
         let envelope_key = derive_key(kdf_settings, password)
             .map_err(|_| PasswordProtectedKeyEnvelopeError::KdfError)?;
 
@@ -100,7 +104,8 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
         })
     }
 
-    /// Unseals a symmetric key from the password-protected envelope, and stores it in the key store context.
+    /// Unseals a symmetric key from the password-protected envelope, and stores it in the key store
+    /// context.
     pub fn unseal(
         &self,
         target_keyslot: Ids::Symmetric,
@@ -117,7 +122,8 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
         &self,
         password: &str,
     ) -> Result<SymmetricCryptoKey, PasswordProtectedKeyEnvelopeError> {
-        // There must be exactly one recipient in the COSE Encrypt object, which contains the KDF parameters.
+        // There must be exactly one recipient in the COSE Encrypt object, which contains the KDF
+        // parameters.
         if self.cose_encrypt.recipients.len() != 1 {
             return Err(PasswordProtectedKeyEnvelopeError::ParsingError(
                 "Invalid number of recipients".to_string(),
@@ -209,8 +215,8 @@ impl<Ids: KeyIds> TryFrom<&Vec<u8>> for PasswordProtectedKeyEnvelope<Ids> {
 }
 
 /// Raw argon2 settings differ from the KDF struct defined for existing master-password unlock.
-/// The memory is represented in kibibytes (KiB) instead of mebibytes (MiB), and the salt is a fixed size of 32 bytes,
-/// and randomly generated, instead of being derived from the email.
+/// The memory is represented in kibibytes (KiB) instead of mebibytes (MiB), and the salt is a fixed
+/// size of 32 bytes, and randomly generated, instead of being derived from the email.
 struct Argon2RawSettings {
     iterations: u32,
     memory: u32,
@@ -322,19 +328,19 @@ pub enum PasswordProtectedKeyEnvelopeError {
     /// The envelope could not be parsed correctly, or the KDF parameters are invalid
     #[error("Parsing error {0}")]
     ParsingError(String),
-    /// The KDF failed to derive a key, possibly due to invalid parameters or memory allocation issues
+    /// The KDF failed to derive a key, possibly due to invalid parameters or memory allocation
+    /// issues
     #[error("Kdf error")]
     KdfError,
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::{
         traits::tests::{TestIds, TestSymmKey},
         KeyStore,
     };
-
-    use super::*;
 
     #[test]
     fn test_make_envelope() {
