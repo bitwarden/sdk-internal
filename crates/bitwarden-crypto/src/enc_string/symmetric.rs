@@ -266,7 +266,9 @@ impl EncString {
         content_format: ContentFormat,
     ) -> Result<EncString> {
         let data = crate::cose::encrypt_xchacha20_poly1305(data_dec, key, content_format)?;
-        Ok(EncString::Cose_Encrypt0_B64 { data })
+        Ok(EncString::Cose_Encrypt0_B64 {
+            data: data.to_vec(),
+        })
     }
 
     /// The numerical representation of the encryption type of the [EncString].
@@ -312,7 +314,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
                 let (decrypted_message, _) =
-                    crate::cose::decrypt_xchacha20_poly1305(data.as_slice(), key)?;
+                    crate::cose::decrypt_xchacha20_poly1305(&data.to_vec().into(), key)?;
                 Ok(decrypted_message)
             }
             _ => Err(CryptoError::WrongKeyType),

@@ -47,12 +47,12 @@ impl SerializedMessage {
         &self.serialized_message_bytes
     }
 
-    pub(super) fn content_type(&self) -> CoapContentFormat {
+    pub(crate) fn content_type(&self) -> CoapContentFormat {
         self.content_type
     }
 
     /// Encodes a message into a `SerializedMessage` using CBOR serialization.
-    pub(super) fn encode<Message: Serialize>(message: &Message) -> Result<Self, EncodingError> {
+    pub(crate) fn encode<Message: Serialize>(message: &Message) -> Result<Self, EncodingError> {
         let mut buffer = Vec::new();
         ciborium::ser::into_writer(message, &mut buffer)
             .map_err(|_| EncodingError::InvalidCborSerialization)?;

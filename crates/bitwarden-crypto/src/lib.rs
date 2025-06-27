@@ -14,6 +14,7 @@ static ALLOC: ZeroizingAllocator<std::alloc::System> = ZeroizingAllocator(std::a
 
 mod aes;
 mod content_format;
+mod safe;
 pub use content_format::*;
 mod enc_string;
 pub use enc_string::{EncString, UnsignedSharedKey};
