@@ -205,6 +205,8 @@ impl ConstContentFormat for CborContentFormat {
         ContentFormat::Cbor
     }
 }
+/// CborBytes is a type alias for Bytes with `CborContentFormat`. This is used for CBOR serialized
+/// data.
 pub type CborBytes = Bytes<CborContentFormat>;
 
 /// Content format for COSE Encrypt0 messages.
@@ -217,6 +219,8 @@ impl ConstContentFormat for CoseEncrypt0ContentFormat {
         ContentFormat::CoseEncrypt0
     }
 }
+/// CoseEncrypt0Bytes is a type alias for Bytes with `CoseEncrypt0ContentFormat`. This is used for
+/// serialized COSE Encrypt0 messages.
 pub type CoseEncrypt0Bytes = Bytes<CoseEncrypt0ContentFormat>;
 
 impl<Ids: KeyIds, T: ConstContentFormat> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString>
