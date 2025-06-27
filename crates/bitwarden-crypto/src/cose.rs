@@ -207,6 +207,7 @@ impl TryFrom<&coset::Header> for ContentFormat {
             Some(ContentType::Assigned(CoapContentFormat::OctetStream)) => {
                 Ok(ContentFormat::OctetStream)
             }
+            Some(ContentType::Assigned(CoapContentFormat::Cbor)) => Ok(ContentFormat::Cbor),
             _ => Err(CryptoError::EncString(
                 EncStringParseError::CoseMissingContentType,
             )),
