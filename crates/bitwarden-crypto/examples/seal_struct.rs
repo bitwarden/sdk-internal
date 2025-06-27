@@ -1,8 +1,10 @@
 //! This example demonstrates how to seal a piece of data.
 //!
-//! If there is a struct that should be kept secret, in can be sealed with a `DataEnvelope`. This will automatically create a content-encryption-key.
-//! This is useful because the key is stored separately. Rotating the encrypting key now only requires re-uploading the content-encryption-key instead of
-//! the entire data. Further, server-side tampering (swapping of individual fields encrypted by the same key) is prevented.
+//! If there is a struct that should be kept secret, in can be sealed with a `DataEnvelope`. This
+//! will automatically create a content-encryption-key. This is useful because the key is stored
+//! separately. Rotating the encrypting key now only requires re-uploading the
+//! content-encryption-key instead of the entire data. Further, server-side tampering (swapping of
+//! individual fields encrypted by the same key) is prevented.
 //!
 //! In general, if a struct of data should be protected, the `DataEnvelope` should be used.
 

@@ -13,15 +13,18 @@ pub trait SealableData {}
 
 /// `DataEnvelope` allows sealing structs entire structs to encrypted blobs.
 ///
-/// Sealing a struct results in an encrypted blob, and a content-encryption-key. The content-encryption-key must be provided again when unsealing the data.
-/// A content encryption key allows easy key-rotation of the encrypting-key, as now just the content-encryption-keys need to be re-uploaded, instead of all data.
+/// Sealing a struct results in an encrypted blob, and a content-encryption-key. The
+/// content-encryption-key must be provided again when unsealing the data. A content encryption key
+/// allows easy key-rotation of the encrypting-key, as now just the content-encryption-keys need to
+/// be re-uploaded, instead of all data.
 pub struct DataEnvelope<Ids: KeyIds> {
     envelope_data: CoseEncrypt0Bytes,
     _phantom: PhantomData<Ids>,
 }
 
 impl<Ids: KeyIds> DataEnvelope<Ids> {
-    /// Seals a struct into an encrypted blob, and stores the content-encryption-key in the provided context.
+    /// Seals a struct into an encrypted blob, and stores the content-encryption-key in the provided
+    /// context.
     pub fn seal<T>(
         data: T,
         cek_keyslot: Ids::Symmetric,
@@ -37,7 +40,8 @@ impl<Ids: KeyIds> DataEnvelope<Ids> {
         Ok(envelope)
     }
 
-    /// Seals a struct into an encrypted blob, and returns the encrypted blob and the content-encryption-key.
+    /// Seals a struct into an encrypted blob, and returns the encrypted blob and the
+    /// content-encryption-key.
     fn seal_ref<T>(data: &T) -> Result<(DataEnvelope<Ids>, XChaCha20Poly1305Key), DataEnvelopError>
     where
         T: Serialize + SealableData,
@@ -66,7 +70,8 @@ impl<Ids: KeyIds> DataEnvelope<Ids> {
         ))
     }
 
-    /// Unseals the data from the encrypted blob using a content-encryption-key stored in the context.
+    /// Unseals the data from the encrypted blob using a content-encryption-key stored in the
+    /// context.
     pub fn unseal<T>(
         &self,
         cek_keyslot: Ids::Symmetric,
@@ -142,9 +147,8 @@ pub enum DataEnvelopError {
 mod tests {
     use serde::Deserialize;
 
-    use crate::traits::tests::TestIds;
-
     use super::*;
+    use crate::traits::tests::TestIds;
 
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct TestData {
