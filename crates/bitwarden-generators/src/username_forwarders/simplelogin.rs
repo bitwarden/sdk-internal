@@ -19,7 +19,7 @@ async fn generate_with_api_url(
 ) -> Result<String, UsernameError> {
     let query = website
         .as_ref()
-        .map(|w| format!("?hostname={}", w))
+        .map(|w| format!("?hostname={w}"))
         .unwrap_or_default();
 
     let note = super::format_description(&website);

@@ -560,7 +560,7 @@ pub(super) fn verify_asymmetric_keys(
             valid_private_key: true,
         },
         Err(e) => {
-            log::debug!("User asymmetric keys verification: {}", e);
+            log::debug!("User asymmetric keys verification: {e}");
 
             VerifyAsymmetricKeysResponse {
                 private_key_decryptable: !matches!(e, VerifyError::DecryptFailed(_)),

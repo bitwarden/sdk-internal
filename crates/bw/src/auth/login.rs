@@ -32,10 +32,10 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
         // TODO: We should build a web captcha solution
         error!("Captcha required");
     } else if let Some(two_factor) = result.two_factor {
-        error!("{:?}", two_factor);
+        error!("{two_factor:?}");
 
         let two_factor = if let Some(tf) = two_factor.authenticator {
-            debug!("{:?}", tf);
+            debug!("{tf:?}");
 
             let token = Text::new("Authenticator code").prompt()?;
 
@@ -54,7 +54,7 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
                 })
                 .await?;
 
-            info!("Two factor code sent to {:?}", tf);
+            info!("Two factor code sent to {tf:?}");
             let token = Text::new("Two factor code").prompt()?;
 
             Some(TwoFactorRequest {
@@ -76,9 +76,9 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
             })
             .await?;
 
-        debug!("{:?}", result);
+        debug!("{result:?}");
     } else {
-        debug!("{:?}", result);
+        debug!("{result:?}");
     }
 
     let res = client
@@ -87,7 +87,7 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
             exclude_subdomains: Some(true),
         })
         .await?;
-    info!("{:#?}", res);
+    info!("{res:#?}");
 
     Ok(())
 }
@@ -111,7 +111,7 @@ pub(crate) async fn login_api_key(
         })
         .await?;
 
-    debug!("{:?}", result);
+    debug!("{result:?}");
 
     Ok(())
 }
