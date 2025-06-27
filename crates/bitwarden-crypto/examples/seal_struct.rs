@@ -46,7 +46,7 @@ fn main() {
 
     let my_item: MyItem = sealed_item
         .unseal(ExampleSymmetricKey::ItemKey, &mut ctx)
-        .unwrap();
+        .expect("Unsealing should work");
     assert!(my_item.a == 42);
     assert!(my_item.b == "Hello, World!");
 }
