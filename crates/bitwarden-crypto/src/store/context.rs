@@ -308,6 +308,17 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(key_id)
     }
 
+    /// Generate a new random xchacha20-poly1305 symmetric key and store it in the context
+    pub(crate) fn make_cose_symmetric_key(
+        &mut self,
+        key_id: Ids::Symmetric,
+    ) -> Result<Ids::Symmetric> {
+        let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        #[allow(deprecated)]
+        self.set_symmetric_key(key_id, key)?;
+        Ok(key_id)
+    }
+
     /// Generate a new signature key using the current default algorithm, and store it in the
     /// context
     pub fn make_signing_key(&mut self, key_id: Ids::Signing) -> Result<Ids::Signing> {

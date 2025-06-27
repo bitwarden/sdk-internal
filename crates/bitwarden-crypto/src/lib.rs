@@ -34,6 +34,8 @@ mod store;
 pub use store::{KeyStore, KeyStoreContext};
 mod cose;
 pub use cose::CoseSerializable;
+mod safe;
+pub use safe::*;
 mod signing;
 pub use signing::*;
 mod traits;
