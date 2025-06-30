@@ -1,6 +1,5 @@
 use bitwarden_api_api::{apis::folders_api, models::FolderRequestModel};
 use bitwarden_core::{require, ApiError, Client, MissingFieldError};
-use bitwarden_crypto::Decryptable;
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::RepositoryError;
 use chrono::Utc;
