@@ -543,12 +543,10 @@ mod tests {
             KeyStore,
         },
         traits::tests::{TestAsymmKey, TestIds, TestSigningKey, TestSymmKey},
-        traits::tests::{TestIds, TestSigningKey, TestSymmKey},
-        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CompositeEncryptable,
-        CoseKeyBytes, CoseSerializable, CryptoError, CryptoError, Decryptable, Decryptable,
-        KeyDecryptable, Pkcs8PrivateKeyBytes, PublicKeyEncryptionAlgorithm, SignatureAlgorithm,
-        SignatureAlgorithm, SignedPublicKey, SigningKey, SigningKey, SigningNamespace,
-        SymmetricCryptoKey,
+        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes,
+        CoseSerializable, CryptoError, Decryptable, KeyDecryptable, Pkcs8PrivateKeyBytes,
+        PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SigningKey,
+        SigningNamespace, SymmetricCryptoKey,
     };
 
     #[test]
