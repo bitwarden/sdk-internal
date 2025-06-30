@@ -41,11 +41,10 @@ pub(crate) fn get_v2_rotated_account_keys(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::{
         KeyDecryptable, Pkcs8PrivateKeyBytes, PublicKeyEncryptionAlgorithm, SignatureAlgorithm,
     };
-
-    use super::*;
 
     #[test]
     fn test_get_v2_rotated_account_keys() {
