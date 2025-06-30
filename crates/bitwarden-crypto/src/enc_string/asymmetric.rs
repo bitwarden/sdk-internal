@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::FromStr};
+use std::{borrow::Cow, fmt::Display, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 pub use internal::UnsignedSharedKey;
@@ -227,11 +227,11 @@ impl UnsignedSharedKey {
 /// But during the transition phase we will expose endpoints using the UnsignedSharedKey
 /// type.
 impl schemars::JsonSchema for UnsignedSharedKey {
-    fn schema_name() -> String {
-        "UnsignedSharedKey".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "UnsignedSharedKey".into()
     }
 
-    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(generator: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
         generator.subschema_for::<String>()
     }
 }
@@ -355,7 +355,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
 
         assert_eq!(
             serde_json::to_string(&schema).unwrap(),
-            r#"{"$schema":"http://json-schema.org/draft-07/schema#","title":"UnsignedSharedKey","type":"string"}"#
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"UnsignedSharedKey","type":"string"}"#
         );
     }
 }
