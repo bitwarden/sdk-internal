@@ -1,6 +1,6 @@
 use crate::{
-    CoseKeyBytes, CoseSerializable, CoseSign1Bytes, CryptoError, EncString, KeyEncryptable,
-    KeyStoreContext, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    AsymmetricCryptoKey, CoseKeyBytes, CoseSerializable, CoseSign1Bytes, CryptoError, EncString,
+    KeyEncryptable, SignedPublicKeyMessage, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
 };
 
 /// Rotated set of account keys
@@ -18,22 +18,84 @@ pub struct RotatedUserKeys {
 }
 
 /// Re-encrypts the user's keys with the provided symmetric key for a v2 user.
-pub(crate) fn get_v2_rotated_account_keys<Ids: crate::KeyIds>(
+pub(crate) fn get_v2_rotated_account_keys(
     new_user_key: &SymmetricCryptoKey,
-    current_user_private_key_id: Ids::Asymmetric,
-    current_user_signing_key_id: Ids::Signing,
-    ctx: &KeyStoreContext<Ids>,
+    current_private_key: &AsymmetricCryptoKey,
+    current_signing_key: &SigningKey,
 ) -> Result<RotatedUserKeys, CryptoError> {
-    let signing_key = ctx.get_signing_key(current_user_signing_key_id)?;
-    let private_key = ctx.get_asymmetric_key(current_user_private_key_id)?;
     let signed_public_key =
-        ctx.make_signed_public_key(current_user_private_key_id, current_user_signing_key_id)?;
-
+        SignedPublicKeyMessage::from_public_key(&current_private_key.to_public_key())?
+            .sign(current_signing_key)?;
     Ok(RotatedUserKeys {
-        verifying_key: signing_key.to_verifying_key().to_cose(),
-        signing_key: signing_key.to_cose().encrypt_with_key(new_user_key)?,
+        verifying_key: current_signing_key.to_verifying_key().to_cose(),
+        signing_key: current_signing_key
+            .to_cose()
+            .encrypt_with_key(new_user_key)?,
         signed_public_key: signed_public_key.into(),
-        public_key: private_key.to_public_key().to_der()?,
-        private_key: private_key.to_der()?.encrypt_with_key(new_user_key)?,
+        public_key: current_private_key.to_public_key().to_der()?,
+        private_key: current_private_key
+            .to_der()?
+            .encrypt_with_key(new_user_key)?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        KeyDecryptable, Pkcs8PrivateKeyBytes, PublicKeyEncryptionAlgorithm, SignatureAlgorithm,
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_get_v2_rotated_account_keys() {
+        let new_user_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        let current_private_key =
+            AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let current_signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
+        let rotated_keys =
+            get_v2_rotated_account_keys(&new_user_key, &current_private_key, &current_signing_key)
+                .expect("Failed to rotate keys");
+
+        let decrypted_signing_key: Vec<u8> = rotated_keys
+            .signing_key
+            .decrypt_with_key(&new_user_key)
+            .expect("Failed to decrypt signing key");
+        let decrypted_signing_key =
+            SigningKey::from_cose(&CoseKeyBytes::from(decrypted_signing_key))
+                .expect("Failed to parse signing key");
+        let decrypted_private_key: Vec<u8> = rotated_keys
+            .private_key
+            .decrypt_with_key(&new_user_key)
+            .expect("Failed to decrypt private key");
+        let decrypted_private_key =
+            AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(decrypted_private_key))
+                .expect("Failed to parse private key");
+
+        assert_eq!(
+            decrypted_signing_key.to_verifying_key().to_cose(),
+            rotated_keys.verifying_key
+        );
+        assert_eq!(
+            decrypted_signing_key.to_verifying_key().to_cose(),
+            current_signing_key.to_verifying_key().to_cose()
+        );
+        assert_eq!(
+            decrypted_signing_key.to_cose(),
+            current_signing_key.to_cose()
+        );
+
+        assert_eq!(
+            decrypted_private_key.to_public_key().to_der().unwrap(),
+            rotated_keys.public_key
+        );
+        assert_eq!(
+            decrypted_private_key.to_public_key().to_der().unwrap(),
+            current_private_key.to_public_key().to_der().unwrap()
+        );
+        assert_eq!(
+            decrypted_private_key.to_der().unwrap(),
+            current_private_key.to_der().unwrap()
+        );
+    }
 }

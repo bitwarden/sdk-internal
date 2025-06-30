@@ -523,12 +523,9 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         current_user_private_key_id: Ids::Asymmetric,
         current_user_signing_key_id: Ids::Signing,
     ) -> Result<RotatedUserKeys> {
-        crate::get_v2_rotated_account_keys(
-            new_user_key,
-            current_user_private_key_id,
-            current_user_signing_key_id,
-            self,
-        )
+        let private_key = self.get_asymmetric_key(current_user_private_key_id)?;
+        let signing_key = self.get_signing_key(current_user_signing_key_id)?;
+        crate::get_v2_rotated_account_keys(new_user_key, private_key, signing_key)
     }
 }
 

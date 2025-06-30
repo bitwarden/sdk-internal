@@ -649,7 +649,7 @@ impl From<RotatedUserKeys> for RotateUserKeysResponse {
 /// Gets a set of new wrapped account keys for a user, given a new user key.
 ///
 /// In the current implementation, it just re-encrypts any existing keys. This function expects a
-/// user to be a v2 user; that is, they have a signing
+/// user to be a v2 user; that is, they have a signing key, a cose user-key, and a private key
 pub fn get_v2_rotated_account_keys(
     client: &Client,
     user_key: String,
