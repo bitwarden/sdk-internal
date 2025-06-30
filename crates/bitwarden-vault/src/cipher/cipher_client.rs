@@ -60,7 +60,8 @@ impl CiphersClient {
         Ok(cipher_views)
     }
 
-    #[allow(missing_docs)]
+    /// Decrypt cipher list with failures
+    /// Returns both successfully decrypted ciphers and any that failed to decrypt
     pub fn decrypt_list_with_failures(&self, ciphers: Vec<Cipher>) -> DecryptCipherListResult {
         let key_store = self.client.internal.get_key_store();
         let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
