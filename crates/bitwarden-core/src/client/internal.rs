@@ -33,18 +33,21 @@ pub struct ApiConfigurations {
     pub device_type: DeviceType,
 }
 
-#[derive(Debug)]
+/// Access and refresh tokens used for authentication and authorization.
+#[derive(Debug, Clone)]
 pub(crate) enum Tokens {
     SdkManaged(SdkManagedTokens),
     ClientManaged(Arc<dyn ClientManagedTokens>),
 }
 
+/// Access tokens managed by client applications, such as the web or mobile apps.
 #[async_trait::async_trait]
 pub trait ClientManagedTokens: std::fmt::Debug + Send + Sync {
     /// Returns the access token, if available.
     async fn get_access_token(&self) -> Option<String>;
 }
 
+/// Tokens managed by the SDK, the SDK will automatically handle token renewal.
 #[derive(Debug, Default, Clone)]
 pub(crate) struct SdkManagedTokens {
     // These two fields are always written to, but they are not read

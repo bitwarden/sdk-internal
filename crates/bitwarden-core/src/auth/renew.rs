@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use chrono::Utc;
 
 use super::login::LoginError;
@@ -11,37 +13,38 @@ use crate::{
 use crate::{
     auth::api::{request::ApiTokenRequest, response::IdentityTokenResponse},
     client::{
-        internal::{InternalClient, SdkManagedTokens, Tokens},
+        internal::{ClientManagedTokens, InternalClient, SdkManagedTokens, Tokens},
         LoginMethod, UserLoginMethod,
     },
     NotAuthenticatedError,
 };
 
-// TODO: Clean up, the match is ugly
 pub(crate) async fn renew_token(client: &InternalClient) -> Result<(), LoginError> {
-    let tokens = {
-        let tokens_guard = client.tokens.read().expect("RwLock is not poisoned");
-        match &*tokens_guard {
-            Tokens::SdkManaged(tokens) => (Some(tokens.clone()), None),
-            Tokens::ClientManaged(tokens) => (None, Some(tokens.clone())),
-        }
-    };
+    let tokens_guard = client
+        .tokens
+        .read()
+        .expect("RwLock is not poisoned")
+        .clone();
 
-    match tokens {
-        (Some(tokens), None) => renew_token_sdk_managed(client, tokens).await,
-        (None, Some(tokens)) => {
-            let token = tokens
-                .get_access_token()
-                .await
-                .ok_or(NotAuthenticatedError)?;
-            client.set_tokens_internal(token);
-            Ok(())
-        }
-        _ => Err(NotAuthenticatedError.into()),
+    match tokens_guard {
+        Tokens::SdkManaged(tokens) => renew_token_sdk_managed(client, tokens).await,
+        Tokens::ClientManaged(tokens) => renew_token_client_managed(client, tokens).await,
     }
 }
 
-pub(crate) async fn renew_token_sdk_managed(
+async fn renew_token_client_managed(
+    client: &InternalClient,
+    tokens: Arc<dyn ClientManagedTokens>,
+) -> Result<(), LoginError> {
+    let token = tokens
+        .get_access_token()
+        .await
+        .ok_or(NotAuthenticatedError)?;
+    client.set_tokens_internal(token);
+    Ok(())
+}
+
+async fn renew_token_sdk_managed(
     client: &InternalClient,
     tokens: SdkManagedTokens,
 ) -> Result<(), LoginError> {
