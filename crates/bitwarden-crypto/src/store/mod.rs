@@ -284,7 +284,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
             .map(|chunk| {
                 let mut ctx = self.context();
 
-                let mut result = Vec::with_capacity(data.len());
+                let mut result = Vec::with_capacity(chunk.len());
 
                 for item in chunk {
                     let key = item.key_identifier();
