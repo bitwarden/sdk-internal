@@ -25,21 +25,21 @@ key_ids! {
         User,
         Organization(uuid::Uuid),
         #[local]
-        Local(uuid::Uuid),
+        Local(LocalId),
     }
 
     #[asymmetric]
     pub enum AsymmetricKeyId {
         UserPrivateKey,
         #[local]
-        Local(uuid::Uuid),
+        Local(LocalId),
     }
 
     #[signing]
     pub enum SigningKeyId {
         UserSigningKey,
         #[local]
-        Local(uuid::Uuid),
+        Local(LocalId),
     }
 
     pub KeyIds => SymmetricKeyId, AsymmetricKeyId, SigningKeyId;

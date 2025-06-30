@@ -10,7 +10,7 @@ use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
-    KeyIds, Result, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
+    KeyIds, LocalId, Result, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
     SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
 };
 
@@ -38,13 +38,13 @@ use crate::{
 /// #     pub enum SymmKeyId {
 /// #         User,
 /// #         #[local]
-/// #         Local(uuid::Uuid),
+/// #         Local(LocalId),
 /// #     }
 /// #     #[asymmetric]
 /// #     pub enum AsymmKeyId {
 /// #         UserPrivate,
 /// #         #[local]
-/// #         Local(uuid::Uuid),
+/// #         Local(LocalId),
 /// #     }
 /// #     #[signing]
 /// #     pub enum SigningKeyId {
@@ -184,7 +184,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             _ => return Err(CryptoError::InvalidKey),
         };
 
-        let new_key_id = Ids::Symmetric::new_local();
+        let new_key_id = Ids::Symmetric::new_local(LocalId::new());
 
         #[allow(deprecated)]
         self.set_symmetric_key(new_key_id, key)?;
@@ -324,7 +324,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         name: &str,
         info: Option<&str>,
     ) -> Result<Ids::Symmetric> {
-        let key_id = Ids::Symmetric::new_local();
+        let key_id = Ids::Symmetric::new_local(LocalId::new());
         #[allow(deprecated)]
         self.set_symmetric_key(
             key_id,
@@ -413,7 +413,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
     /// Add a new symmetric key to the local context, returning a new unique identifier for it.
     pub fn add_local_symmetric_key(&mut self, key: SymmetricCryptoKey) -> Result<Ids::Symmetric> {
-        let key_id = Ids::Symmetric::new_local();
+        let key_id = Ids::Symmetric::new_local(LocalId::new());
         self.local_symmetric_keys.upsert(key_id, key);
         Ok(key_id)
     }
@@ -438,7 +438,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
     /// Add a new signing key to the local context, returning a new unique identifier for it.
     pub fn add_local_signing_key(&mut self, key: SigningKey) -> Result<Ids::Signing> {
-        let key_id = Ids::Signing::new_local();
+        let key_id = Ids::Signing::new_local(LocalId::new());
         self.local_signing_keys.upsert(key_id, key);
         Ok(key_id)
     }
@@ -529,7 +529,6 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 #[allow(deprecated)]
 mod tests {
     use serde::{Deserialize, Serialize};
-    use uuid::Uuid;
 
     use crate::{
         store::{
@@ -537,7 +536,7 @@ mod tests {
             KeyStore,
         },
         traits::tests::{TestIds, TestSigningKey, TestSymmKey},
-        CompositeEncryptable, CryptoError, Decryptable, SignatureAlgorithm, SigningKey,
+        CompositeEncryptable, CryptoError, Decryptable, LocalId, SignatureAlgorithm, SigningKey,
         SigningNamespace, SymmetricCryptoKey,
     };
 
@@ -579,11 +578,12 @@ mod tests {
     #[test]
     fn test_key_encryption() {
         let store: KeyStore<TestIds> = KeyStore::default();
+        let local = LocalId::new();
 
         let mut ctx = store.context();
 
         // Generate and insert a key
-        let key_1_id = TestSymmKey::C(Uuid::new_v4());
+        let key_1_id = TestSymmKey::C(local);
         let key_1 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
         ctx.set_symmetric_key(key_1_id, key_1.clone()).unwrap();
@@ -591,7 +591,7 @@ mod tests {
         assert!(ctx.has_symmetric_key(key_1_id));
 
         // Generate and insert a new key
-        let key_2_id = TestSymmKey::C(Uuid::new_v4());
+        let key_2_id = TestSymmKey::C(local);
         let key_2 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
         ctx.set_symmetric_key(key_2_id, key_2.clone()).unwrap();
