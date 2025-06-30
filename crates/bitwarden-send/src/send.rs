@@ -8,8 +8,8 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    generate_random_bytes, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey,
-    KeyStoreContext,
+    generate_random_bytes, CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey,
+    KeyStoreContext, OctetStreamBytes, PrimitiveEncryptable,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -193,8 +193,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendTextView> for SendText {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, SendText> for SendTextView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, SendText> for SendTextView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -221,8 +221,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendFileView> for SendFile {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, SendFile> for SendFileView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, SendFile> for SendFileView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -301,8 +301,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendListView> for Send {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Send> for SendView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Send> for SendView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -331,15 +331,15 @@ impl Encryptable<KeyIds, SymmetricKeyId, Send> for SendView {
 
             name: self.name.encrypt(ctx, send_key)?,
             notes: self.notes.encrypt(ctx, send_key)?,
-            key: k.encrypt(ctx, key)?,
+            key: OctetStreamBytes::from(k.clone()).encrypt(ctx, key)?,
             password: self.new_password.as_ref().map(|password| {
                 let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
                 STANDARD.encode(password)
             }),
 
             r#type: self.r#type,
-            file: self.file.encrypt(ctx, send_key)?,
-            text: self.text.encrypt(ctx, send_key)?,
+            file: self.file.encrypt_composite(ctx, send_key)?,
+            text: self.text.encrypt_composite(ctx, send_key)?,
 
             max_access_count: self.max_access_count,
             access_count: self.access_count,
