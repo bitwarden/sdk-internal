@@ -234,6 +234,24 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_decrypt_list_with_failures_mixed_results() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let valid_cipher = test_cipher();
+        let mut invalid_cipher = test_cipher();
+        // Set an invalid encryptedkey to cause decryption failure
+        invalid_cipher.key = Some("2.Gg8yCM4IIgykCZyq0O4+cA==|GJLBtfvSJTDJh/F7X4cJPkzI6ccnzJm5DYl3yxOW2iUn7DgkkmzoOe61sUhC5dgVdV0kFqsZPcQ0yehlN1DDsFIFtrb4x7LwzJNIkMgxNyg=|1rGkGJ8zcM5o5D0aIIwAyLsjMLrPsP3EWm3CctBO3Fw=".parse().unwrap());
+
+        let ciphers = vec![valid_cipher, invalid_cipher];
+
+        let result = client.vault().ciphers().decrypt_list_with_failures(ciphers);
+
+        assert_eq!(result.successes.len(), 1);
+        assert_eq!(result.failures.len(), 1);
+
+        assert_eq!(result.successes[0].name, "234234");
+    }
+
+    #[tokio::test]
     async fn test_move_user_cipher_with_attachment_without_key_to_org_fails() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
