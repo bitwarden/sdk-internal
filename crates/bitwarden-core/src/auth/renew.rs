@@ -11,13 +11,40 @@ use crate::{
 use crate::{
     auth::api::{request::ApiTokenRequest, response::IdentityTokenResponse},
     client::{
-        internal::{InternalClient, Tokens},
+        internal::{InternalClient, SdkManagedTokens, Tokens},
         LoginMethod, UserLoginMethod,
     },
     NotAuthenticatedError,
 };
 
+// TODO: Clean up, the match is ugly
 pub(crate) async fn renew_token(client: &InternalClient) -> Result<(), LoginError> {
+    let tokens = {
+        let tokens_guard = client.tokens.read().expect("RwLock is not poisoned");
+        match &*tokens_guard {
+            Tokens::SdkManaged(tokens) => (Some(tokens.clone()), None),
+            Tokens::ClientManaged(tokens) => (None, Some(tokens.clone())),
+        }
+    };
+
+    match tokens {
+        (Some(tokens), None) => renew_token_sdk_managed(client, tokens).await,
+        (None, Some(tokens)) => {
+            let token = tokens
+                .get_access_token()
+                .await
+                .ok_or(NotAuthenticatedError)?;
+            client.set_tokens_internal(token);
+            Ok(())
+        }
+        _ => Err(NotAuthenticatedError.into()),
+    }
+}
+
+pub(crate) async fn renew_token_sdk_managed(
+    client: &InternalClient,
+    tokens: SdkManagedTokens,
+) -> Result<(), LoginError> {
     const TOKEN_RENEW_MARGIN_SECONDS: i64 = 5 * 60;
 
     let login_method = client
@@ -25,14 +52,6 @@ pub(crate) async fn renew_token(client: &InternalClient) -> Result<(), LoginErro
         .read()
         .expect("RwLock is not poisoned")
         .clone();
-
-    let tokens = {
-        let tokens_guard = client.tokens.read().expect("RwLock is not poisoned");
-        match &*tokens_guard {
-            Tokens::SdkManaged(tokens) => tokens.clone(),
-            _ => return Err(NotAuthenticatedError.into()),
-        }
-    };
 
     if let (Some(expires), Some(login_method)) = (tokens.expires_on, login_method) {
         if Utc::now().timestamp() < expires - TOKEN_RENEW_MARGIN_SECONDS {

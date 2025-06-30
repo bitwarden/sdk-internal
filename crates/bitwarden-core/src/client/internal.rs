@@ -36,19 +36,20 @@ pub struct ApiConfigurations {
 #[derive(Debug)]
 pub(crate) enum Tokens {
     SdkManaged(SdkManagedTokens),
-    ClientManaged(Box<dyn ClientManagedTokens>),
+    ClientManaged(Arc<dyn ClientManagedTokens>),
 }
 
+#[async_trait::async_trait]
 pub trait ClientManagedTokens: std::fmt::Debug + Send + Sync {
     /// Returns the access token, if available.
-    fn get_access_token(&self) -> Option<String>;
+    async fn get_access_token(&self) -> Option<String>;
 }
 
 #[derive(Debug, Default, Clone)]
 pub(crate) struct SdkManagedTokens {
     // These two fields are always written to, but they are not read
     // from the secrets manager SDK.
-    #[cfg_attr(not(feature = "internal"), allow(dead_code))]
+    #[allow(dead_code)]
     access_token: Option<String>,
     pub(crate) expires_on: Option<i64>,
 
@@ -134,6 +135,11 @@ impl InternalClient {
                 expires_on: Some(Utc::now().timestamp() + expires_in as i64),
                 refresh_token,
             });
+        self.set_tokens_internal(token);
+    }
+
+    /// Used to set tokens for internal API clients, use [set_tokens] for SdkManagedTokens.
+    pub(crate) fn set_tokens_internal(&self, token: String) {
         let mut guard = self
             .__api_configurations
             .write()

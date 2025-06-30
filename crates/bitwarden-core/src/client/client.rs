@@ -33,7 +33,7 @@ impl Client {
     #[allow(missing_docs)]
     pub fn new_with_client_tokens(
         settings: Option<ClientSettings>,
-        tokens: Box<dyn ClientManagedTokens>,
+        tokens: Arc<dyn ClientManagedTokens>,
     ) -> Self {
         Self::new_tokens(settings, Tokens::ClientManaged(tokens))
     }
