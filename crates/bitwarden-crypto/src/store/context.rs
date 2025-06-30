@@ -10,7 +10,8 @@ use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
-    KeyIds, Result, RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
+    KeyIds, KeyIds, Result, Result, RotatedUserKeys, Signature, Signature, SignatureAlgorithm,
+    SignatureAlgorithm, SignedObject, SignedObject, SignedPublicKey, SignedPublicKey,
     SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
 };
 
@@ -543,10 +544,12 @@ mod tests {
             KeyStore,
         },
         traits::tests::{TestAsymmKey, TestIds, TestSigningKey, TestSymmKey},
-        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes,
-        CoseSerializable, CryptoError, Decryptable, KeyDecryptable, Pkcs8PrivateKeyBytes,
-        PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SigningKey,
-        SigningNamespace, SymmetricCryptoKey,
+        traits::tests::{TestIds, TestSigningKey, TestSymmKey},
+        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CompositeEncryptable,
+        CoseKeyBytes, CoseSerializable, CryptoError, CryptoError, Decryptable, Decryptable,
+        KeyDecryptable, Pkcs8PrivateKeyBytes, PublicKeyEncryptionAlgorithm, SignatureAlgorithm,
+        SignatureAlgorithm, SignedPublicKey, SigningKey, SigningKey, SigningNamespace,
+        SymmetricCryptoKey,
     };
 
     #[test]

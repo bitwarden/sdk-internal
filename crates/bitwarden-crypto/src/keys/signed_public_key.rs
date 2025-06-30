@@ -86,7 +86,9 @@ impl From<SignedPublicKey> for CoseSign1Bytes {
 impl TryFrom<CoseSign1Bytes> for SignedPublicKey {
     type Error = EncodingError;
     fn try_from(bytes: CoseSign1Bytes) -> Result<Self, EncodingError> {
-        Ok(SignedPublicKey(SignedObject::from_cose(&bytes)?))
+        Ok(SignedPublicKey(SignedObject::from_cose(
+            &CoseSign1Bytes::from(bytes),
+        )?))
     }
 }
 
