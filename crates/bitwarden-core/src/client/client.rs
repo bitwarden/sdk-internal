@@ -10,7 +10,7 @@ use super::internal::InternalClient;
 use crate::client::flags::Flags;
 use crate::client::{
     client_settings::ClientSettings,
-    internal::{ApiConfigurations, Tokens},
+    internal::{ApiConfigurations, ClientManagedTokens, SdkManagedTokens, Tokens},
 };
 
 /// The main struct to interact with the Bitwarden SDK.
@@ -26,7 +26,19 @@ pub struct Client {
 
 impl Client {
     #[allow(missing_docs)]
-    pub fn new(settings_input: Option<ClientSettings>) -> Self {
+    pub fn new(settings: Option<ClientSettings>) -> Self {
+        Self::new_tokens(settings, Tokens::SdkManaged(SdkManagedTokens::default()))
+    }
+
+    #[allow(missing_docs)]
+    pub fn new_with_client_tokens(
+        settings: Option<ClientSettings>,
+        tokens: Box<dyn ClientManagedTokens>,
+    ) -> Self {
+        Self::new_tokens(settings, Tokens::ClientManaged(tokens))
+    }
+
+    fn new_tokens(settings_input: Option<ClientSettings>, tokens: Tokens) -> Self {
         let settings = settings_input.unwrap_or_default();
 
         fn new_client_builder() -> reqwest::ClientBuilder {
@@ -81,7 +93,7 @@ impl Client {
         Self {
             internal: Arc::new(InternalClient {
                 user_id: OnceLock::new(),
-                tokens: RwLock::new(Tokens::default()),
+                tokens: RwLock::new(tokens),
                 login_method: RwLock::new(None),
                 #[cfg(feature = "internal")]
                 flags: RwLock::new(Flags::default()),

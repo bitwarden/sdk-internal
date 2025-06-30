@@ -33,8 +33,19 @@ pub struct ApiConfigurations {
     pub device_type: DeviceType,
 }
 
+#[derive(Debug)]
+pub(crate) enum Tokens {
+    SdkManaged(SdkManagedTokens),
+    ClientManaged(Box<dyn ClientManagedTokens>),
+}
+
+pub trait ClientManagedTokens: std::fmt::Debug + Send + Sync {
+    /// Returns the access token, if available.
+    fn get_access_token(&self) -> Option<String>;
+}
+
 #[derive(Debug, Default, Clone)]
-pub(crate) struct Tokens {
+pub(crate) struct SdkManagedTokens {
     // These two fields are always written to, but they are not read
     // from the secrets manager SDK.
     #[cfg_attr(not(feature = "internal"), allow(dead_code))]
@@ -117,11 +128,12 @@ impl InternalClient {
     }
 
     pub(crate) fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64) {
-        *self.tokens.write().expect("RwLock is not poisoned") = Tokens {
-            access_token: Some(token.clone()),
-            expires_on: Some(Utc::now().timestamp() + expires_in as i64),
-            refresh_token,
-        };
+        *self.tokens.write().expect("RwLock is not poisoned") =
+            Tokens::SdkManaged(SdkManagedTokens {
+                access_token: Some(token.clone()),
+                expires_on: Some(Utc::now().timestamp() + expires_in as i64),
+                refresh_token,
+            });
         let mut guard = self
             .__api_configurations
             .write()
@@ -130,24 +142,6 @@ impl InternalClient {
         let inner = Arc::make_mut(&mut guard);
         inner.identity.oauth_access_token = Some(token.clone());
         inner.api.oauth_access_token = Some(token);
-    }
-
-    #[allow(missing_docs)]
-    #[cfg(feature = "internal")]
-    pub fn is_authed(&self) -> bool {
-        let is_token_set = self
-            .tokens
-            .read()
-            .expect("RwLock is not poisoned")
-            .access_token
-            .is_some();
-        let is_login_method_set = self
-            .login_method
-            .read()
-            .expect("RwLock is not poisoned")
-            .is_some();
-
-        is_token_set || is_login_method_set
     }
 
     #[allow(missing_docs)]
