@@ -49,6 +49,8 @@ use crate::{
 /// #     #[signing]
 /// #     pub enum SigningKeyId {
 /// #         UserSigning,
+/// #         #[local]
+/// #         Local(LocalId),
 /// #     }
 /// #     pub Ids => SymmKeyId, AsymmKeyId, SigningKeyId;
 /// # }

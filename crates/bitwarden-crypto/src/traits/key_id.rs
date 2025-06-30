@@ -74,6 +74,8 @@ impl LocalId {
 ///     #[signing]
 ///     pub enum SigningKeyId {
 ///        SigningKey,
+///        #[local]
+///        Local(LocalId),
 ///     }
 ///
 ///     pub Ids => SymmKeyId, AsymmKeyId, SigningKeyId;
