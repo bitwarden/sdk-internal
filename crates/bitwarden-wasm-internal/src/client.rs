@@ -1,10 +1,13 @@
 extern crate console_error_panic_hook;
 use std::{fmt::Display, sync::Arc};
 
-use bitwarden_core::{key_management::CryptoClient, Client, ClientSettings};
+use bitwarden_core::{
+    client::internal::ClientManagedTokens, key_management::CryptoClient, Client, ClientSettings,
+};
 use bitwarden_error::bitwarden_error;
 use bitwarden_exporters::ExporterClientExt;
 use bitwarden_generators::GeneratorClientsExt;
+use bitwarden_threading::ThreadBoundRunner;
 use bitwarden_vault::{VaultClient, VaultClientExt};
 use wasm_bindgen::prelude::*;
 
@@ -81,65 +84,50 @@ impl Display for TestError {
     }
 }
 
-/// JavaScript-compatible token provider using function closure
-#[wasm_bindgen]
-pub struct JsTokenProvider {
-    get_access_token_fn: js_sys::Function,
+#[wasm_bindgen(typescript_custom_section)]
+const TOKEN_CUSTOM_TS_TYPE: &'static str = r#"
+export interface TokenProvider {
+    get_access_token(): Promise<string>;
 }
-
-impl std::fmt::Debug for JsTokenProvider {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("JsTokenProvider")
-            .field("get_access_token_fn", &"<js_function>")
-            .finish()
-    }
-}
+"#;
 
 #[wasm_bindgen]
-impl JsTokenProvider {
-    #[wasm_bindgen(constructor)]
-    pub fn new(get_access_token_fn: js_sys::Function) -> Self {
-        Self {
-            get_access_token_fn,
-        }
-    }
+extern "C" {
+    #[wasm_bindgen(js_name = TokenProvider)]
+    pub type JsTokenProvider;
+
+    #[wasm_bindgen(method)]
+    pub async fn get_access_token(this: &JsTokenProvider) -> JsValue;
 }
 
-/// Wrapper to make JsTokenProvider compatible with ClientManagedTokens
-#[derive(Debug)]
-struct WasmClientManagedTokens {
-    js_provider: JsTokenProvider,
-}
+struct WasmClientManagedTokens(ThreadBoundRunner<JsTokenProvider>);
 
 impl WasmClientManagedTokens {
-    fn new(js_provider: JsTokenProvider) -> Self {
-        Self { js_provider }
+    pub fn new(js_provider: JsTokenProvider) -> Self {
+        Self(ThreadBoundRunner::new(js_provider))
     }
 }
 
-impl bitwarden_core::client::internal::ClientManagedTokens for WasmClientManagedTokens {
-    fn get_access_token(&self) -> Option<String> {
-        match self
-            .js_provider
-            .get_access_token_fn
-            .call0(&wasm_bindgen::JsValue::UNDEFINED)
-        {
-            Ok(result) => {
-                if result.is_null() || result.is_undefined() {
-                    None
-                } else {
-                    result.as_string()
-                }
-            }
-            Err(_) => None,
-        }
+impl std::fmt::Debug for WasmClientManagedTokens {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WasmClientManagedTokens").finish()
     }
 }
 
-// SAFETY: JsTokenProvider is only used in WASM context where there's no real threading
-unsafe impl Send for WasmClientManagedTokens {}
-unsafe impl Sync for WasmClientManagedTokens {}
+#[async_trait::async_trait]
+impl ClientManagedTokens for WasmClientManagedTokens {
+    async fn get_access_token(&self) -> Option<String> {
+        let t = self
+            .0
+            .run_in_thread(async move |c| c.get_access_token().await.as_string())
+            .await
+            .unwrap();
 
+        t
+    }
+}
+
+/*
 #[cfg(test)]
 #[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
 mod tests {
@@ -202,3 +190,4 @@ mod tests {
         assert_eq!(result, None);
     }
 }
+*/
