@@ -1,5 +1,8 @@
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{
+    CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
+    PrimitiveEncryptable,
+};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
@@ -34,8 +37,8 @@ pub struct SshKeyView {
     pub fingerprint: String,
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, SshKey> for SshKeyView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, SshKey> for SshKeyView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
