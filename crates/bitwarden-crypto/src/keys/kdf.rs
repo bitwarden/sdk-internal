@@ -101,7 +101,7 @@ impl KdfDerivedKeyMaterial {
 #[deprecated(
     note = "This function is only meant as a temporary stop-gap to expose KDF derivation in PureCrypto until the higher-level consumers are moved to the SDK directly. DO NOT USE THIS OUTSIDE OF PureCrypto!"
 )]
-/// Derives KDF material given a password, email and kdf configuration. This function is
+/// Derives KDF material given a password, salt and kdf configuration. This function is
 /// a stop-gap solution and should not be used outside of PureCrypto.
 ///
 /// The clean-up ticket is tracked here:
