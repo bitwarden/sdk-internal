@@ -1,5 +1,6 @@
 use bitwarden_api_api::{apis::folders_api, models::FolderRequestModel};
 use bitwarden_core::{require, ApiError, Client, MissingFieldError};
+use bitwarden_crypto::Decryptable;
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::RepositoryError;
 use chrono::Utc;
@@ -37,6 +38,8 @@ pub enum CreateFolderError {
     #[error(transparent)]
     Encrypt(#[from] EncryptError),
     #[error(transparent)]
+    Decrypt(#[from] DecryptError),
+    #[error(transparent)]
     Api(#[from] ApiError),
     #[error(transparent)]
     VaultParse(#[from] VaultParseError),
@@ -70,7 +73,10 @@ impl FoldersClient {
     }
 
     /// Create a new folder and save it to the server.
-    pub async fn create(&self, request: FolderAddEditRequest) -> Result<Folder, CreateFolderError> {
+    pub async fn create(
+        &self,
+        request: FolderAddEditRequest,
+    ) -> Result<FolderView, CreateFolderError> {
         // TODO: We should probably not use a Folder model here, but rather create
         // FolderRequestModel directly?
         let folder = self.encrypt(FolderView {
@@ -99,7 +105,7 @@ impl FoldersClient {
             .set(require!(folder.id).to_string(), folder.clone())
             .await?;
 
-        Ok(folder)
+        Ok(self.decrypt(folder)?)
     }
 
     /// Edit the folder.
