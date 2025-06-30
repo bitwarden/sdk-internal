@@ -24,7 +24,7 @@
 
 use std::sync::{Arc, RwLock};
 
-use rayon::prelude::*;
+use rayon::{iter::Either, prelude::*};
 
 use crate::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
 
@@ -279,34 +279,31 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         &self,
         data: &'a [Data],
     ) -> (Vec<Output>, Vec<ErrorView>) {
-        let results: Vec<_> = data
+        let results: (Vec<_>, Vec<_>) = data
             .par_chunks(batch_chunk_size(data.len()))
             .map(|chunk| {
                 let mut ctx = self.context();
-                let mut successes = Vec::new();
-                let mut failures = Vec::new();
+
+                let mut result = Vec::with_capacity(data.len());
 
                 for item in chunk {
                     let key = item.key_identifier();
-                    match item.decrypt(&mut ctx, key) {
-                        Ok(decrypted) => successes.push(decrypted),
-                        Err(_) => failures.push(ErrorView::from(item)),
-                    }
+                    result.push(
+                        item.decrypt(&mut ctx, key)
+                            .map_err(|_| ErrorView::from(item)),
+                    );
                     ctx.clear_local();
                 }
 
-                (successes, failures)
+                result
             })
-            .collect();
+            .flatten()
+            .partition_map(|result| match result {
+                Ok(output) => Either::Left(output),
+                Err(err) => Either::Right(err),
+            });
 
-        let (mut successes, mut failures) = (Vec::new(), Vec::new());
-
-        for (successes_chunk, failures_chunk) in results {
-            successes.extend(successes_chunk);
-            failures.extend(failures_chunk);
-        }
-
-        (successes, failures)
+        results
     }
 
     /// Encrypt a list of items using this key store. The keys returned by
