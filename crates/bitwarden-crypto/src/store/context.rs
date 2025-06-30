@@ -436,13 +436,6 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(())
     }
 
-    /// Add a new signing key to the local context, returning a new unique identifier for it.
-    pub fn add_local_signing_key(&mut self, key: SigningKey) -> Result<Ids::Signing> {
-        let key_id = Ids::Signing::new_local(LocalId::new());
-        self.local_signing_keys.upsert(key_id, key);
-        Ok(key_id)
-    }
-
     /// Sets a signing key in the context
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn set_signing_key(&mut self, key_id: Ids::Signing, key: SigningKey) -> Result<()> {
@@ -452,6 +445,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             self.global_keys.get_mut()?.signing_keys.upsert(key_id, key);
         }
         Ok(())
+    }
+
+    /// Add a new signing key to the local context, returning a new unique identifier for it.
+    pub fn add_local_signing_key(&mut self, key: SigningKey) -> Result<Ids::Signing> {
+        let key_id = Ids::Signing::new_local(LocalId::new());
+        self.local_signing_keys.upsert(key_id, key);
+        Ok(key_id)
     }
 
     pub(crate) fn decrypt_data_with_symmetric_key(
