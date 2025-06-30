@@ -1,11 +1,17 @@
 use std::any::TypeId;
 
+use crate::registry::RepositoryNotFoundError;
+
 /// An error resulting from operations on a repository.
 #[derive(thiserror::Error, Debug)]
 pub enum RepositoryError {
     /// An internal unspecified error.
     #[error("Internal error: {0}")]
     Internal(String),
+
+    /// Repository not found.
+    #[error(transparent)]
+    RepositoryNotFound(#[from] RepositoryNotFoundError),
 }
 
 /// This trait represents a generic repository interface, capable of storing and retrieving
