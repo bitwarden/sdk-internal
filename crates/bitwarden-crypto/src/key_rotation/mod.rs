@@ -89,8 +89,8 @@ mod tests {
             rotated_keys.public_key
         );
         assert_eq!(
-            decrypted_private_key.to_public_key().to_der().unwrap(),
-            current_private_key.to_public_key().to_der().unwrap()
+            decrypted_private_key.to_public_key(),
+            current_private_key.to_public_key()
         );
         assert_eq!(
             decrypted_private_key.to_der().unwrap(),
