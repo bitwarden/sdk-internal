@@ -10,7 +10,7 @@ use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
-    KeyIds, Result, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
+    KeyIds, LocalId, Result, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
     SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
 };
 
@@ -37,15 +37,20 @@ use crate::{
 /// #     #[symmetric]
 /// #     pub enum SymmKeyId {
 /// #         User,
-/// #         Local(&'static str),
+/// #         #[local]
+/// #         Local(LocalId),
 /// #     }
 /// #     #[asymmetric]
 /// #     pub enum AsymmKeyId {
 /// #         UserPrivate,
+/// #         #[local]
+/// #         Local(LocalId),
 /// #     }
 /// #     #[signing]
 /// #     pub enum SigningKeyId {
 /// #         UserSigning,
+/// #         #[local]
+/// #         Local(LocalId),
 /// #     }
 /// #     pub Ids => SymmKeyId, AsymmKeyId, SigningKeyId;
 /// # }
@@ -59,11 +64,10 @@ use crate::{
 /// #    }
 /// # }
 ///
-/// const LOCAL_KEY: SymmKeyId = SymmKeyId::Local("local_key_id");
 ///
 /// impl CompositeEncryptable<Ids, SymmKeyId, EncString> for Data {
 ///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
-///         let local_key_id = ctx.unwrap_symmetric_key(key, LOCAL_KEY, &self.key)?;
+///         let local_key_id = ctx.unwrap_symmetric_key(key, &self.key)?;
 ///         self.name.encrypt(ctx, local_key_id)
 ///     }
 /// }
@@ -149,7 +153,6 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     pub fn unwrap_symmetric_key(
         &mut self,
         wrapping_key: Ids::Symmetric,
-        new_key_id: Ids::Symmetric,
         wrapped_key: &EncString,
     ) -> Result<Ids::Symmetric> {
         let wrapping_key = self.get_symmetric_key(wrapping_key)?;
@@ -182,6 +185,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             }
             _ => return Err(CryptoError::InvalidKey),
         };
+
+        let new_key_id = Ids::Symmetric::new_local(LocalId::new());
 
         #[allow(deprecated)]
         self.set_symmetric_key(new_key_id, key)?;
@@ -301,20 +306,14 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Generate a new random symmetric key and store it in the context
-    pub fn generate_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<Ids::Symmetric> {
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        #[allow(deprecated)]
-        self.set_symmetric_key(key_id, key)?;
-        Ok(key_id)
+    pub fn generate_symmetric_key(&mut self) -> Result<Ids::Symmetric> {
+        self.add_local_symmetric_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key())
     }
 
     /// Generate a new signature key using the current default algorithm, and store it in the
     /// context
-    pub fn make_signing_key(&mut self, key_id: Ids::Signing) -> Result<Ids::Signing> {
-        let key = SigningKey::make(SignatureAlgorithm::default_algorithm());
-        #[allow(deprecated)]
-        self.set_signing_key(key_id, key)?;
-        Ok(key_id)
+    pub fn make_signing_key(&mut self) -> Result<Ids::Signing> {
+        self.add_local_signing_key(SigningKey::make(SignatureAlgorithm::default_algorithm()))
     }
 
     /// Derive a shareable key using hkdf from secret and name and store it in the context.
@@ -323,11 +322,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Bitwarden `clients` repository.
     pub fn derive_shareable_key(
         &mut self,
-        key_id: Ids::Symmetric,
         secret: Zeroizing<[u8; 16]>,
         name: &str,
         info: Option<&str>,
     ) -> Result<Ids::Symmetric> {
+        let key_id = Ids::Symmetric::new_local(LocalId::new());
         #[allow(deprecated)]
         self.set_symmetric_key(
             key_id,
@@ -414,6 +413,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(())
     }
 
+    /// Add a new symmetric key to the local context, returning a new unique identifier for it.
+    pub fn add_local_symmetric_key(&mut self, key: SymmetricCryptoKey) -> Result<Ids::Symmetric> {
+        let key_id = Ids::Symmetric::new_local(LocalId::new());
+        self.local_symmetric_keys.upsert(key_id, key);
+        Ok(key_id)
+    }
+
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     #[allow(missing_docs)]
     pub fn set_asymmetric_key(
@@ -441,6 +447,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             self.global_keys.get_mut()?.signing_keys.upsert(key_id, key);
         }
         Ok(())
+    }
+
+    /// Add a new signing key to the local context, returning a new unique identifier for it.
+    pub fn add_local_signing_key(&mut self, key: SigningKey) -> Result<Ids::Signing> {
+        let key_id = Ids::Signing::new_local(LocalId::new());
+        self.local_signing_keys.upsert(key_id, key);
+        Ok(key_id)
     }
 
     pub(crate) fn decrypt_data_with_symmetric_key(
@@ -525,7 +538,7 @@ mod tests {
             KeyStore,
         },
         traits::tests::{TestIds, TestSigningKey, TestSymmKey},
-        CompositeEncryptable, CryptoError, Decryptable, SignatureAlgorithm, SigningKey,
+        CompositeEncryptable, CryptoError, Decryptable, LocalId, SignatureAlgorithm, SigningKey,
         SigningNamespace, SymmetricCryptoKey,
     };
 
@@ -567,11 +580,12 @@ mod tests {
     #[test]
     fn test_key_encryption() {
         let store: KeyStore<TestIds> = KeyStore::default();
+        let local = LocalId::new();
 
         let mut ctx = store.context();
 
         // Generate and insert a key
-        let key_1_id = TestSymmKey::C(1);
+        let key_1_id = TestSymmKey::C(local);
         let key_1 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
         ctx.set_symmetric_key(key_1_id, key_1.clone()).unwrap();
@@ -579,7 +593,7 @@ mod tests {
         assert!(ctx.has_symmetric_key(key_1_id));
 
         // Generate and insert a new key
-        let key_2_id = TestSymmKey::C(2);
+        let key_2_id = TestSymmKey::C(local);
         let key_2 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
         ctx.set_symmetric_key(key_2_id, key_2.clone()).unwrap();
@@ -590,10 +604,7 @@ mod tests {
         let key_2_enc = ctx.wrap_symmetric_key(key_1_id, key_2_id).unwrap();
 
         // Decrypt the new key with the old key in a different identifier
-        let new_key_id = TestSymmKey::C(3);
-
-        ctx.unwrap_symmetric_key(key_1_id, new_key_id, &key_2_enc)
-            .unwrap();
+        let new_key_id = ctx.unwrap_symmetric_key(key_1_id, &key_2_enc).unwrap();
 
         // Now `key_2_id` and `new_key_id` contain the same key, so we should be able to encrypt
         // with one and decrypt with the other
@@ -646,24 +657,18 @@ mod tests {
             .unwrap();
 
         // Unwrap the keys
-        let unwrapped_key_2 = ctx
-            .unwrap_symmetric_key(key_aes_1_id, key_aes_2_id, &wrapped_key_1_2)
+        let _unwrapped_key_2 = ctx
+            .unwrap_symmetric_key(key_aes_1_id, &wrapped_key_1_2)
             .unwrap();
-        let unwrapped_key_3 = ctx
-            .unwrap_symmetric_key(key_aes_1_id, key_xchacha_3_id, &wrapped_key_1_3)
+        let _unwrapped_key_3 = ctx
+            .unwrap_symmetric_key(key_aes_1_id, &wrapped_key_1_3)
             .unwrap();
-        let unwrapped_key_1 = ctx
-            .unwrap_symmetric_key(key_xchacha_3_id, key_aes_1_id, &wrapped_key_3_1)
+        let _unwrapped_key_1 = ctx
+            .unwrap_symmetric_key(key_xchacha_3_id, &wrapped_key_3_1)
             .unwrap();
-        let unwrapped_key_4 = ctx
-            .unwrap_symmetric_key(key_xchacha_3_id, key_xchacha_4_id, &wrapped_key_3_4)
+        let _unwrapped_key_4 = ctx
+            .unwrap_symmetric_key(key_xchacha_3_id, &wrapped_key_3_4)
             .unwrap();
-
-        // Assert that the unwrapped keys are the same as the original keys
-        assert_eq!(unwrapped_key_2, key_aes_2_id);
-        assert_eq!(unwrapped_key_3, key_xchacha_3_id);
-        assert_eq!(unwrapped_key_1, key_aes_1_id);
-        assert_eq!(unwrapped_key_4, key_xchacha_4_id);
     }
 
     #[test]
