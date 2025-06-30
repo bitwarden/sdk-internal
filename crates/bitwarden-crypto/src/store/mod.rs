@@ -284,18 +284,16 @@ impl<Ids: KeyIds> KeyStore<Ids> {
             .map(|chunk| {
                 let mut ctx = self.context();
 
-                let mut result = Vec::with_capacity(chunk.len());
-
-                for item in chunk {
-                    let key = item.key_identifier();
-                    result.push(
-                        item.decrypt(&mut ctx, key)
-                            .map_err(|_| ErrorView::from(item)),
-                    );
-                    ctx.clear_local();
-                }
-
-                result
+                chunk
+                    .iter()
+                    .map(|item| {
+                        let result = item
+                            .decrypt(&mut ctx, item.key_identifier())
+                            .map_err(|_| ErrorView::from(item));
+                        ctx.clear_local();
+                        result
+                    })
+                    .collect::<Vec<_>>()
             })
             .flatten()
             .partition_map(|result| match result {
