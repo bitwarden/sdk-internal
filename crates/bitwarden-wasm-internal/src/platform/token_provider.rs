@@ -36,7 +36,7 @@ impl std::fmt::Debug for WasmClientManagedTokens {
 impl ClientManagedTokens for WasmClientManagedTokens {
     async fn get_access_token(&self) -> Option<String> {
         self.0
-            .run_in_thread(async move |c| c.get_access_token().await.as_string())
+            .run_in_thread(|c| async move { c.get_access_token().await.as_string() })
             .await
             .unwrap_or_default()
     }

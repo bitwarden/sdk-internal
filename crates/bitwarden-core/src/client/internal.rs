@@ -141,7 +141,7 @@ impl InternalClient {
         self.set_tokens_internal(token);
     }
 
-    /// Used to set tokens for internal API clients, use [set_tokens] for SdkManagedTokens.
+    /// Used to set tokens for internal API clients, use `set_tokens` for SdkManagedTokens.
     pub(crate) fn set_tokens_internal(&self, token: String) {
         let mut guard = self
             .__api_configurations
