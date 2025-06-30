@@ -1,6 +1,7 @@
 use bitwarden_api_api::{apis::folders_api, models::FolderRequestModel};
-use bitwarden_core::{ApiError, Client};
+use bitwarden_core::{require, ApiError, Client, MissingFieldError};
 use bitwarden_error::bitwarden_error;
+use bitwarden_state::repository::RepositoryError;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -39,6 +40,10 @@ pub enum CreateFolderError {
     Api(#[from] ApiError),
     #[error(transparent)]
     VaultParse(#[from] VaultParseError),
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError),
+    #[error(transparent)]
+    RepositoryError(#[from] RepositoryError),
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -74,7 +79,7 @@ impl FoldersClient {
         })?;
 
         let config = self.client.internal.get_api_configurations().await;
-        let req = folders_api::folders_post(
+        let resp = folders_api::folders_post(
             &config.api,
             Some(FolderRequestModel {
                 name: folder.name.to_string(),
@@ -83,7 +88,17 @@ impl FoldersClient {
         .await
         .map_err(ApiError::from)?;
 
-        Ok(req.try_into()?)
+        let folder: Folder = resp.try_into()?;
+
+        self.client
+            .platform()
+            .state()
+            .get_client_managed::<Folder>()
+            .ok_or(MissingFieldError("Folder not found in state"))?
+            .set(require!(folder.id).to_string(), folder.clone())
+            .await?;
+
+        Ok(folder)
     }
 
     /// Edit the folder.
