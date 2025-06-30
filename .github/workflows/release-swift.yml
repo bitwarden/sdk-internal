@@ -132,7 +132,6 @@ jobs:
           fi
 
       - name: Log in to Azure
-        id: azure-login
         uses: bitwarden/gh-actions/azure-login@main
         with:
           subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -242,7 +241,6 @@ jobs:
       _BUILD_RUN_ID: ${{ needs.validate.outputs.run_id }}
     steps:
       - name: Log in to Azure
-        id: azure-login
         uses: bitwarden/gh-actions/azure-login@main
         with:
           subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
