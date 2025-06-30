@@ -113,7 +113,6 @@ pub fn dangerous_derive_kdf_key(
 ) -> Result<Vec<u8>, CryptoError> {
     KdfDerivedKeyMaterial::derive_kdf_key(password, email, kdf)
         .map(|kdf_key| kdf_key.0.to_vec())
-        .map_err(|e| e.into())
 }
 
 /// Key Derivation Function for Bitwarden Account
