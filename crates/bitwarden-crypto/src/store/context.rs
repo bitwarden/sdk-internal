@@ -10,8 +10,7 @@ use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
-    KeyIds, KeyIds, Result, Result, RotatedUserKeys, Signature, Signature, SignatureAlgorithm,
-    SignatureAlgorithm, SignedObject, SignedObject, SignedPublicKey, SignedPublicKey,
+    KeyIds, Result, RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
     SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
 };
 
