@@ -20,10 +20,12 @@ use crate::VaultParseError;
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Folder {
-    id: Option<Uuid>,
-    name: EncString,
-    revision_date: DateTime<Utc>,
+    pub id: Option<Uuid>,
+    pub name: EncString,
+    pub revision_date: DateTime<Utc>,
 }
+
+bitwarden_state::register_repository_item!(Folder, "Folder");
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
