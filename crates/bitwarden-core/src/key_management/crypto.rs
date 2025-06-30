@@ -10,8 +10,8 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
     KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, RotatedUserKeys,
-    SignatureAlgorithm, SignedPublicKey, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
-    UserKey,
+    SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    UnsignedSharedKey, UserKey,
 };
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
@@ -413,7 +413,9 @@ pub(super) fn enroll_admin_password_reset(
     use base64::{engine::general_purpose::STANDARD, Engine};
     use bitwarden_crypto::AsymmetricPublicCryptoKey;
 
-    let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(public_key)?)?;
+    let public_key = AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
+        STANDARD.decode(public_key)?,
+    ))?;
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
@@ -635,10 +637,10 @@ pub struct RotateUserKeysResponse {
 impl From<RotatedUserKeys> for RotateUserKeysResponse {
     fn from(rotated: RotatedUserKeys) -> Self {
         RotateUserKeysResponse {
-            verifying_key: Base64String::from(rotated.verifying_key.to_vec()).into(),
+            verifying_key: STANDARD.encode(rotated.verifying_key.to_vec()),
             signing_key: rotated.signing_key,
-            signed_public_key: Base64String::from(rotated.signed_public_key.to_vec()).into(),
-            public_key: Base64String::from(rotated.public_key.to_vec()).into(),
+            signed_public_key: STANDARD.encode(rotated.signed_public_key.to_vec()),
+            public_key: STANDARD.encode(rotated.public_key.to_vec()),
             private_key: rotated.private_key,
         }
     }
