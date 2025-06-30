@@ -20,19 +20,19 @@ pub(crate) mod tests {
     key_ids! {
         #[symmetric]
         pub enum TestSymmKey {
-            A(u8),
+            A(u32),
 
             // We only support one variant value,
             // but that value can be a tuple
             B((u8, u8)),
 
             #[local]
-            C(u8),
+            C(u16),
         }
 
         #[asymmetric]
         pub enum TestAsymmKey {
-            A(u8),
+            A(u16),
             B,
             #[local]
             C(&'static str),
