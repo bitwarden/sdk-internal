@@ -108,11 +108,10 @@ impl KdfDerivedKeyMaterial {
 /// `https://bitwarden.atlassian.net/browse/PM-23168`
 pub fn dangerous_derive_kdf_key(
     password: &[u8],
-    email: &[u8],
+    salt: &[u8],
     kdf: &Kdf,
 ) -> Result<Vec<u8>, CryptoError> {
-    KdfDerivedKeyMaterial::derive_kdf_key(password, email, kdf)
-        .map(|kdf_key| kdf_key.0.to_vec())
+    KdfDerivedKeyMaterial::derive_kdf_key(password, salt, kdf).map(|kdf_key| kdf_key.0.to_vec())
 }
 
 /// Key Derivation Function for Bitwarden Account

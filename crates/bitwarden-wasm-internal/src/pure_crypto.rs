@@ -315,12 +315,12 @@ impl PureCrypto {
 
     /// Derive the KDF output for a [bitwarden_crypto::Kdf] configuration.
     pub fn derive_kdf_output(
-        password: String,
-        email: String,
+        password: &[u8],
+        salt: &[u8],
         kdf: Kdf,
     ) -> Result<Vec<u8>, CryptoError> {
         #[allow(deprecated)]
-        dangerous_derive_kdf_key(password.as_bytes(), email.as_bytes(), &kdf)
+        dangerous_derive_kdf_key(password, salt, &kdf)
     }
 }
 
@@ -643,8 +643,8 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
     #[test]
     fn test_derive_pbkdf2_output() {
-        let password = "test_password".to_string();
-        let email = "test_email@example.com".to_string();
+        let password = "test_password".as_bytes();
+        let email = "test_email@example.com".as_bytes();
         let kdf = Kdf::PBKDF2 {
             iterations: NonZero::try_from(600000).unwrap(),
         };
@@ -654,8 +654,8 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
     #[test]
     fn test_derived_argon2_output() {
-        let password = "test_password".to_string();
-        let email = "test_email@example.com".to_string();
+        let password = "test_password".as_bytes();
+        let email = "test_email@example.com".as_bytes();
         let kdf = Kdf::Argon2id {
             iterations: NonZero::try_from(3).unwrap(),
             memory: NonZero::try_from(64).unwrap(),
