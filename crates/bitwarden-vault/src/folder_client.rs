@@ -71,7 +71,8 @@ impl FoldersClient {
 
     /// Create a new folder and save it to the server.
     pub async fn create(&self, request: FolderAddEditRequest) -> Result<Folder, CreateFolderError> {
-        // TODO: We should probably not use a Folder model here, but rather create FolderRequestModel directly?
+        // TODO: We should probably not use a Folder model here, but rather create
+        // FolderRequestModel directly?
         let folder = self.encrypt(FolderView {
             id: None,
             name: request.name,

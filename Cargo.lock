@@ -728,13 +728,11 @@ dependencies = [
  "bitwarden-vault",
  "console_error_panic_hook",
  "console_log",
- "js-sys",
  "log",
  "serde",
  "tsify-next",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-bindgen-test",
 ]
 
 [[package]]

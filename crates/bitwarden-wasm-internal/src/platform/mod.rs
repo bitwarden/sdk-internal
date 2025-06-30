@@ -3,6 +3,7 @@ use bitwarden_vault::Cipher;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 mod repository;
+pub mod token_provider;
 
 #[wasm_bindgen]
 pub struct PlatformClient(Client);

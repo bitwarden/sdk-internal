@@ -1,17 +1,17 @@
 extern crate console_error_panic_hook;
 use std::{fmt::Display, sync::Arc};
 
-use bitwarden_core::{
-    client::internal::ClientManagedTokens, key_management::CryptoClient, Client, ClientSettings,
-};
+use bitwarden_core::{key_management::CryptoClient, Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
 use bitwarden_exporters::ExporterClientExt;
 use bitwarden_generators::GeneratorClientsExt;
-use bitwarden_threading::ThreadBoundRunner;
 use bitwarden_vault::{VaultClient, VaultClientExt};
 use wasm_bindgen::prelude::*;
 
-use crate::platform::PlatformClient;
+use crate::platform::{
+    token_provider::{JsTokenProvider, WasmClientManagedTokens},
+    PlatformClient,
+};
 
 #[allow(missing_docs)]
 #[wasm_bindgen]
@@ -83,111 +83,3 @@ impl Display for TestError {
         write!(f, "{}", self.0)
     }
 }
-
-#[wasm_bindgen(typescript_custom_section)]
-const TOKEN_CUSTOM_TS_TYPE: &'static str = r#"
-export interface TokenProvider {
-    get_access_token(): Promise<string>;
-}
-"#;
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_name = TokenProvider)]
-    pub type JsTokenProvider;
-
-    #[wasm_bindgen(method)]
-    pub async fn get_access_token(this: &JsTokenProvider) -> JsValue;
-}
-
-struct WasmClientManagedTokens(ThreadBoundRunner<JsTokenProvider>);
-
-impl WasmClientManagedTokens {
-    pub fn new(js_provider: JsTokenProvider) -> Self {
-        Self(ThreadBoundRunner::new(js_provider))
-    }
-}
-
-impl std::fmt::Debug for WasmClientManagedTokens {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("WasmClientManagedTokens").finish()
-    }
-}
-
-#[async_trait::async_trait]
-impl ClientManagedTokens for WasmClientManagedTokens {
-    async fn get_access_token(&self) -> Option<String> {
-        let t = self
-            .0
-            .run_in_thread(async move |c| c.get_access_token().await.as_string())
-            .await
-            .unwrap();
-
-        t
-    }
-}
-
-/*
-#[cfg(test)]
-#[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
-mod tests {
-    use super::*;
-    use bitwarden_core::client::internal::ClientManagedTokens;
-    use wasm_bindgen_test::*;
-
-    // Note: These tests are designed to run in a WASM environment
-    // Run with: wasm-pack test --node
-
-    #[wasm_bindgen_test]
-    fn test_js_token_provider_creation() {
-        // Create a simple function that returns a test token
-        let js_fn = js_sys::Function::new_no_args("return 'test-token-123';");
-        let provider = JsTokenProvider::new(js_fn);
-
-        // Verify the provider was created successfully
-        // This mainly tests the constructor works without panicking
-        assert!(format!("{:?}", provider).contains("JsTokenProvider"));
-    }
-
-    #[wasm_bindgen_test]
-    fn test_wasm_client_managed_tokens_with_valid_token() {
-        let js_fn = js_sys::Function::new_no_args("return 'valid-access-token';");
-        let provider = JsTokenProvider::new(js_fn);
-        let tokens = WasmClientManagedTokens::new(provider);
-
-        let result = tokens.get_access_token();
-        assert_eq!(result, Some("valid-access-token".to_string()));
-    }
-
-    #[wasm_bindgen_test]
-    fn test_wasm_client_managed_tokens_with_null_token() {
-        let js_fn = js_sys::Function::new_no_args("return null;");
-        let provider = JsTokenProvider::new(js_fn);
-        let tokens = WasmClientManagedTokens::new(provider);
-
-        let result = tokens.get_access_token();
-        assert_eq!(result, None);
-    }
-
-    #[wasm_bindgen_test]
-    fn test_wasm_client_managed_tokens_with_undefined_token() {
-        let js_fn = js_sys::Function::new_no_args("return undefined;");
-        let provider = JsTokenProvider::new(js_fn);
-        let tokens = WasmClientManagedTokens::new(provider);
-
-        let result = tokens.get_access_token();
-        assert_eq!(result, None);
-    }
-
-    #[wasm_bindgen_test]
-    fn test_wasm_client_managed_tokens_with_error() {
-        let js_fn = js_sys::Function::new_no_args("throw new Error('Token error');");
-        let provider = JsTokenProvider::new(js_fn);
-        let tokens = WasmClientManagedTokens::new(provider);
-
-        let result = tokens.get_access_token();
-        // Should return None when the JS function throws an error
-        assert_eq!(result, None);
-    }
-}
-*/
