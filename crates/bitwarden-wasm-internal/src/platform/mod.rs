@@ -31,16 +31,10 @@ impl StateClient {
 }
 
 repository::create_wasm_repository!(CipherRepository, Cipher, "Repository<Cipher>");
-repository::create_wasm_repository!(FolderRepository, Folder, "Repository<Folder>");
 
 #[wasm_bindgen]
 impl StateClient {
     pub fn register_cipher_repository(&self, store: CipherRepository) {
-        let store = store.into_channel_impl();
-        self.0.platform().state().register_client_managed(store)
-    }
-
-    pub fn register_folder_repository(&self, store: FolderRepository) {
         let store = store.into_channel_impl();
         self.0.platform().state().register_client_managed(store)
     }
