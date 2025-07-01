@@ -527,7 +527,8 @@ mod tests {
             tests::{Data, DataView},
             KeyStore,
         },
-        traits::tests::{TestIds, TestSigningKey, TestSymmKey}, CompositeEncryptable, CryptoError, Decryptable, SignatureAlgorithm, SigningKey,
+        traits::tests::{TestIds, TestSigningKey, TestSymmKey},
+        CompositeEncryptable, CryptoError, Decryptable, SignatureAlgorithm, SigningKey,
         SigningNamespace, SymmetricCryptoKey,
     };
 
