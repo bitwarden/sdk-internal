@@ -343,7 +343,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             permissions: self.permissions,
             view_password: self.view_password,
             local_data: self.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
-            attachments: self.attachments.decrypt(ctx, ciphers_key)?,
+            attachments: self.attachments.decrypt(ctx, ciphers_key).ok().flatten(),
             fields: self.fields.decrypt(ctx, ciphers_key).ok().flatten(),
             password_history: self
                 .password_history
