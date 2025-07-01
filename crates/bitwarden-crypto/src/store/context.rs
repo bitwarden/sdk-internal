@@ -527,10 +527,7 @@ mod tests {
             tests::{Data, DataView},
             KeyStore,
         },
-        traits::tests::{TestAsymmKey, TestIds, TestSigningKey, TestSymmKey},
-        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes,
-        CoseSerializable, CryptoError, Decryptable, KeyDecryptable, Pkcs8PrivateKeyBytes,
-        PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SigningKey,
+        traits::tests::{TestIds, TestSigningKey, TestSymmKey}, CompositeEncryptable, CryptoError, Decryptable, SignatureAlgorithm, SigningKey,
         SigningNamespace, SymmetricCryptoKey,
     };
 
