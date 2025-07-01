@@ -16,15 +16,17 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 use crate::VaultParseError;
 
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Folder {
-    id: Option<Uuid>,
-    name: EncString,
-    revision_date: DateTime<Utc>,
+    pub id: Option<Uuid>,
+    pub name: EncString,
+    pub revision_date: DateTime<Utc>,
 }
+
+bitwarden_state::register_repository_item!(Folder, "Folder");
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
