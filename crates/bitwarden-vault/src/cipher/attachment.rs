@@ -172,6 +172,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<AttachmentView, CryptoError> {
+        #[cfg(feature = "wasm")]
         let decrypted_key = if let Some(attachment_key) = &self.key {
             let content_key_id = ctx.unwrap_symmetric_key(key, ATTACHMENT_KEY, attachment_key)?;
 
