@@ -67,12 +67,11 @@ mod tests {
     use uuid::uuid;
     use wiremock::{matchers, Mock, MockServer, Request, ResponseTemplate};
 
-    //#[tokio::test]
+    #[tokio::test]
     async fn test_edit_folder() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
         #[allow(deprecated)]
-        let _ = ctx.set_symmetric_key(
+        let _ = store.context_mut().set_symmetric_key(
             SymmetricKeyId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
@@ -117,7 +116,9 @@ mod tests {
                 folder_id,
                 Folder {
                     id: Some(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1")),
-                    name: "old_name".encrypt(&mut ctx, SymmetricKeyId::User).unwrap(),
+                    name: "old_name"
+                        .encrypt(&mut store.context_mut(), SymmetricKeyId::User)
+                        .unwrap(),
                     revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
                 },
             )
