@@ -22,8 +22,6 @@ pub use error::CryptoError;
 pub(crate) use error::Result;
 mod fingerprint;
 pub use fingerprint::fingerprint;
-mod key_rotation;
-pub use key_rotation::*;
 mod keys;
 pub use keys::*;
 mod rsa;
@@ -33,7 +31,9 @@ pub use util::{generate_random_alphanumeric, generate_random_bytes, pbkdf2};
 mod wordlist;
 pub use wordlist::EFF_LONG_WORD_LIST;
 mod store;
-pub use store::{KeyStore, KeyStoreContext};
+pub use store::{
+    dangerous_get_v2_rotated_account_keys, KeyStore, KeyStoreContext, RotatedUserKeys,
+};
 mod cose;
 pub use cose::CoseSerializable;
 mod signing;

@@ -8,10 +8,10 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, RotatedUserKeys,
-    SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
-    UnsignedSharedKey, UserKey,
+    dangerous_get_v2_rotated_account_keys, AsymmetricCryptoKey, CoseSerializable, CryptoError,
+    EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes,
+    PrimitiveEncryptable, RotatedUserKeys, SignatureAlgorithm, SignedPublicKey, SigningKey,
+    SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
@@ -657,10 +657,11 @@ pub fn get_v2_rotated_account_keys(
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
 
-    ctx.dangerous_get_v2_rotated_account_keys(
+    dangerous_get_v2_rotated_account_keys(
         &SymmetricCryptoKey::try_from(user_key)?,
         AsymmetricKeyId::UserPrivateKey,
         SigningKeyId::UserSigningKey,
+        &ctx,
     )
     .map(|rotated| rotated.into())
 }
