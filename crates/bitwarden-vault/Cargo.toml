@@ -23,8 +23,7 @@ uniffi = [
 wasm = [
     "bitwarden-core/wasm",
     "dep:tsify-next",
-    "dep:wasm-bindgen",
-    "dep:wasm-bindgen-futures"
+    "dep:wasm-bindgen"
 ] # WASM support
 
 [dependencies]
@@ -49,7 +48,6 @@ tsify-next = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
-wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt"] }
