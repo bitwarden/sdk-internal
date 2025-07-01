@@ -112,7 +112,7 @@ impl InternalClient {
     pub(crate) fn set_login_method(&self, login_method: LoginMethod) {
         use log::debug;
 
-        debug! {"setting login method: {:#?}", login_method}
+        debug! {"setting login method: {login_method:#?}"}
         *self.login_method.write().expect("RwLock is not poisoned") = Some(Arc::new(login_method));
     }
 

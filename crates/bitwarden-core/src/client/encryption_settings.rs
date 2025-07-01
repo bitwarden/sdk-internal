@@ -27,6 +27,9 @@ pub enum EncryptionSettingsError {
     #[error("Invalid private key")]
     InvalidPrivateKey,
 
+    #[error("Invalid signing key")]
+    InvalidSigningKey,
+
     #[error(transparent)]
     MissingPrivateKey(#[from] MissingPrivateKeyError),
 
@@ -49,19 +52,16 @@ impl EncryptionSettings {
         signing_key: Option<EncString>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
-        use bitwarden_crypto::{
-            AsymmetricCryptoKey, CoseSerializable, CryptoError, KeyDecryptable, SigningKey,
-        };
+        use bitwarden_crypto::{AsymmetricCryptoKey, CoseSerializable, KeyDecryptable, SigningKey};
         use log::warn;
 
         use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
 
         let private_key = {
             let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
-
             // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a recovery
             // process in place.
-            AsymmetricCryptoKey::from_der(&dec)
+            AsymmetricCryptoKey::from_der(&dec.into())
                 .map_err(|_| {
                     warn!("Invalid private key");
                 })
@@ -74,8 +74,10 @@ impl EncryptionSettings {
         };
         let signing_key = signing_key
             .map(|key| {
+                use bitwarden_crypto::CryptoError;
+
                 let dec: Vec<u8> = key.decrypt_with_key(&user_key)?;
-                SigningKey::from_cose(dec.as_slice()).map_err(Into::<CryptoError>::into)
+                SigningKey::from_cose(&dec.into()).map_err(Into::<CryptoError>::into)
             })
             .transpose()?;
 

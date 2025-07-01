@@ -67,7 +67,7 @@ fn flat_error_wasm(
     variant_names: &[&proc_macro2::Ident],
 ) -> proc_macro2::TokenStream {
     let export_as_identifier_str = export_as_identifier.to_string();
-    let is_error_function_name = format!("is{}", export_as_identifier);
+    let is_error_function_name = format!("is{export_as_identifier}");
     let ts_variant_names = variant_names
         .iter()
         .map(|vn| format!(r#""{vn}""#))

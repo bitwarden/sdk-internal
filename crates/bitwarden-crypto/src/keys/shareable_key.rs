@@ -19,7 +19,7 @@ pub fn derive_shareable_key(
 ) -> Aes256CbcHmacKey {
     // Because all inputs are fixed size, we can unwrap all errors here without issue
     let res = Zeroizing::new(
-        PbkdfSha256Hmac::new_from_slice(format!("bitwarden-{}", name).as_bytes())
+        PbkdfSha256Hmac::new_from_slice(format!("bitwarden-{name}").as_bytes())
             .expect("hmac new_from_slice should not fail")
             .chain_update(secret)
             .finalize()
