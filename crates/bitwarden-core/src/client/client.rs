@@ -25,20 +25,20 @@ pub struct Client {
 }
 
 impl Client {
-    #[allow(missing_docs)]
+    /// Create a new Bitwarden client with SDK-managed tokens.
     pub fn new(settings: Option<ClientSettings>) -> Self {
-        Self::new_tokens(settings, Tokens::SdkManaged(SdkManagedTokens::default()))
+        Self::new_internal(settings, Tokens::SdkManaged(SdkManagedTokens::default()))
     }
 
-    #[allow(missing_docs)]
+    /// Create a new Bitwarden client with client-managed tokens.
     pub fn new_with_client_tokens(
         settings: Option<ClientSettings>,
         tokens: Arc<dyn ClientManagedTokens>,
     ) -> Self {
-        Self::new_tokens(settings, Tokens::ClientManaged(tokens))
+        Self::new_internal(settings, Tokens::ClientManaged(tokens))
     }
 
-    fn new_tokens(settings_input: Option<ClientSettings>, tokens: Tokens) -> Self {
+    fn new_internal(settings_input: Option<ClientSettings>, tokens: Tokens) -> Self {
         let settings = settings_input.unwrap_or_default();
 
         fn new_client_builder() -> reqwest::ClientBuilder {

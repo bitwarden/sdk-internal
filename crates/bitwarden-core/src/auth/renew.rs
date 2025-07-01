@@ -40,7 +40,7 @@ async fn renew_token_client_managed(
         .get_access_token()
         .await
         .ok_or(NotAuthenticatedError)?;
-    client.set_tokens_internal(token);
+    client.set_api_tokens_internal(token);
     Ok(())
 }
 

@@ -138,11 +138,11 @@ impl InternalClient {
                 expires_on: Some(Utc::now().timestamp() + expires_in as i64),
                 refresh_token,
             });
-        self.set_tokens_internal(token);
+        self.set_api_tokens_internal(token);
     }
 
-    /// Used to set tokens for internal API clients, use `set_tokens` for SdkManagedTokens.
-    pub(crate) fn set_tokens_internal(&self, token: String) {
+    /// Sets api tokens for only internal API clients, use `set_tokens` for SdkManagedTokens.
+    pub(crate) fn set_api_tokens_internal(&self, token: String) {
         let mut guard = self
             .__api_configurations
             .write()

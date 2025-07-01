@@ -18,6 +18,7 @@ extern "C" {
     pub async fn get_access_token(this: &JsTokenProvider) -> JsValue;
 }
 
+/// Thread-bound runner for JavaScript token provider
 pub(crate) struct WasmClientManagedTokens(ThreadBoundRunner<JsTokenProvider>);
 
 impl WasmClientManagedTokens {
