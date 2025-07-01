@@ -1,8 +1,15 @@
+use std::sync::Arc;
+
 use bitwarden_api_api::{apis::folders_api, models::FolderRequestModel};
-use bitwarden_core::{require, ApiError, Client, MissingFieldError};
+use bitwarden_core::{
+    key_management::{KeyIds, SymmetricKeyId},
+    require, ApiError, Client, MissingFieldError,
+};
+use bitwarden_crypto::{
+    CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, PrimitiveEncryptable,
+};
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::RepositoryError;
-use chrono::Utc;
+use bitwarden_state::repository::{Repository, RepositoryError};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -35,9 +42,7 @@ pub struct FoldersClient {
 #[derive(Debug, Error)]
 pub enum CreateFolderError {
     #[error(transparent)]
-    Encrypt(#[from] EncryptError),
-    #[error(transparent)]
-    Decrypt(#[from] DecryptError),
+    Crypto(#[from] CryptoError),
     #[error(transparent)]
     Api(#[from] ApiError),
     #[error(transparent)]
@@ -76,50 +81,153 @@ impl FoldersClient {
         &self,
         request: FolderAddEditRequest,
     ) -> Result<FolderView, CreateFolderError> {
-        // TODO: We should probably not use a Folder model here, but rather create
-        // FolderRequestModel directly?
-        let folder = self.encrypt(FolderView {
-            id: None,
-            name: request.name,
-            revision_date: Utc::now(),
-        })?;
-
+        let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
-        let resp = folders_api::folders_post(
-            &config.api,
-            Some(FolderRequestModel {
-                name: folder.name.to_string(),
-            }),
-        )
-        .await
-        .map_err(ApiError::from)?;
+        let repository = self.get_repository()?;
 
-        let folder: Folder = resp.try_into()?;
-
-        self.client
-            .platform()
-            .state()
-            .get_client_managed::<Folder>()
-            .map_err(CreateFolderError::Repository)?
-            .set(require!(folder.id).to_string(), folder.clone())
-            .await?;
-
-        Ok(self.decrypt(folder)?)
+        create_folder(key_store, request, &config.api, &repository).await
     }
 
     /// Edit the folder.
-    ///
-    /// TODO: Replace `old_folder` with `FolderId` and load the old folder from state.
-    /// TODO: Save the folder to the server and state.
-    pub fn edit_without_state(
+    pub async fn edit(
         &self,
-        old_folder: Folder,
-        folder: FolderAddEditRequest,
-    ) -> Result<Folder, EncryptError> {
-        self.encrypt(FolderView {
-            id: old_folder.id,
-            name: folder.name,
-            revision_date: old_folder.revision_date,
+        folder_id: &str,
+        request: FolderAddEditRequest,
+    ) -> Result<FolderView, CreateFolderError> {
+        let repository = self.get_repository()?;
+        let key_store = self.client.internal.get_key_store();
+
+        // Check if the folder exists
+        repository
+            .get(folder_id.to_owned())
+            .await?
+            .ok_or(MissingFieldError("Folder not found in repository"))?;
+
+        let folder_request = key_store.encrypt(request)?;
+
+        let config = self.client.internal.get_api_configurations().await;
+        let resp = folders_api::folders_id_put(&config.api, folder_id, Some(folder_request))
+            .await
+            .map_err(ApiError::from)?;
+
+        let folder: Folder = resp.try_into()?;
+
+        repository
+            .set(require!(folder.id).to_string(), folder.clone())
+            .await?;
+
+        Ok(key_store.decrypt(&folder)?)
+    }
+}
+
+impl FoldersClient {
+    fn get_repository(&self) -> Result<Arc<dyn Repository<Folder>>, RepositoryError> {
+        Ok(self
+            .client
+            .platform()
+            .state()
+            .get_client_managed::<Folder>()?)
+    }
+}
+
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, FolderRequestModel> for FolderAddEditRequest {
+    fn encrypt_composite(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<FolderRequestModel, CryptoError> {
+        Ok(FolderRequestModel {
+            name: self.name.encrypt(ctx, key)?.to_string(),
         })
+    }
+}
+
+impl IdentifyKey<SymmetricKeyId> for FolderAddEditRequest {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::User
+    }
+}
+
+pub async fn create_folder<R: Repository<Folder> + ?Sized>(
+    key_store: &KeyStore<KeyIds>,
+    request: FolderAddEditRequest,
+    api_config: &bitwarden_api_api::apis::configuration::Configuration,
+    repository: &Arc<R>,
+) -> Result<FolderView, CreateFolderError> {
+    let folder_request = key_store.encrypt(request)?;
+    let resp = folders_api::folders_post(api_config, Some(folder_request))
+        .await
+        .map_err(ApiError::from)?;
+
+    let folder: Folder = resp.try_into()?;
+
+    repository
+        .set(require!(folder.id).to_string(), folder.clone())
+        .await?;
+
+    Ok(key_store.decrypt(&folder)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bitwarden_api_api::models::FolderResponseModel;
+    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_state::repository::MemoryRepository;
+    use uuid::uuid;
+    use wiremock::{matchers, Mock, MockServer, Request, ResponseTemplate};
+
+    #[tokio::test]
+    async fn test_create_folder_flow_success() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        #[allow(deprecated)]
+        let _ = store.context_mut().set_symmetric_key(
+            SymmetricKeyId::User,
+            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+        );
+
+        let server = MockServer::start().await;
+        server
+            .register(
+                Mock::given(matchers::path("/folders"))
+                    .respond_with(|req: &Request| {
+                        let body: FolderRequestModel = req.body_json().unwrap();
+                        ResponseTemplate::new(201).set_body_json(FolderResponseModel {
+                            id: Some(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1")),
+                            name: Some(body.name),
+                            revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+                            object: Some("folder".to_string()),
+                        })
+                    })
+                    .expect(1),
+            )
+            .await;
+
+        let request = FolderAddEditRequest {
+            name: "test".to_string(),
+        };
+        let api_config = &bitwarden_api_api::apis::configuration::Configuration {
+            base_path: server.uri(),
+            user_agent: Some("test-agent".to_string()),
+            client: reqwest::Client::new(),
+            basic_auth: None,
+            oauth_access_token: None,
+            bearer_access_token: None,
+            api_key: None,
+        };
+        let repository = Arc::new(MemoryRepository::<Folder>::new());
+
+        let result = create_folder(&store, request, api_config, &repository)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            result,
+            FolderView {
+                id: Some(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1")),
+                name: "test".to_string(),
+                revision_date: "2025-01-01T00:00:00Z".parse().unwrap(),
+            }
+        );
     }
 }
