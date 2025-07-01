@@ -1,5 +1,5 @@
 use bitwarden_core::Client;
-use bitwarden_vault::{Cipher, Folder};
+use bitwarden_vault::Cipher;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 mod repository;
