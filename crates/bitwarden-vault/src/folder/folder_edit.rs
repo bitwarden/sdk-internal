@@ -59,13 +59,14 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use bitwarden_api_api::models::{FolderRequestModel, FolderResponseModel};
     use bitwarden_core::key_management::SymmetricKeyId;
     use bitwarden_crypto::{PrimitiveEncryptable, SymmetricCryptoKey};
     use bitwarden_state::repository::MemoryRepository;
     use uuid::uuid;
     use wiremock::{matchers, Mock, MockServer, Request, ResponseTemplate};
+
+    use super::*;
 
     #[tokio::test]
     async fn test_edit_folder() {
@@ -76,24 +77,22 @@ mod tests {
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 
-        let folder_id = "25afb11c-9c95-4db5-8bac-c21cb204a3f1".to_owned();
+        let folder_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
 
         let server = MockServer::start().await;
         server
             .register(
-                Mock::given(matchers::path(
-                    "/folders/25afb11c-9c95-4db5-8bac-c21cb204a3f1",
-                ))
-                .respond_with(|req: &Request| {
-                    let body: FolderRequestModel = req.body_json().unwrap();
-                    ResponseTemplate::new(201).set_body_json(FolderResponseModel {
-                        id: Some(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1")),
-                        name: Some(body.name),
-                        revision_date: Some("2025-01-01T00:00:00Z".to_string()),
-                        object: Some("folder".to_string()),
+                Mock::given(matchers::path(format!("/folders/{}", folder_id)))
+                    .respond_with(move |req: &Request| {
+                        let body: FolderRequestModel = req.body_json().unwrap();
+                        ResponseTemplate::new(201).set_body_json(FolderResponseModel {
+                            id: Some(folder_id),
+                            name: Some(body.name),
+                            revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+                            object: Some("folder".to_string()),
+                        })
                     })
-                })
-                .expect(1),
+                    .expect(1),
             )
             .await;
 
@@ -113,9 +112,9 @@ mod tests {
 
         repository
             .set(
-                folder_id,
+                folder_id.to_string(),
                 Folder {
-                    id: Some(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1")),
+                    id: Some(folder_id),
                     name: "old_name"
                         .encrypt(&mut store.context_mut(), SymmetricKeyId::User)
                         .unwrap(),
@@ -129,7 +128,7 @@ mod tests {
             &store,
             api_config,
             &repository,
-            "25afb11c-9c95-4db5-8bac-c21cb204a3f1",
+            &folder_id.to_string(),
             request,
         )
         .await

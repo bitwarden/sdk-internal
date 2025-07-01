@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use bitwarden_core::Client;
-
 use bitwarden_state::repository::{Repository, RepositoryError};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -53,7 +52,7 @@ impl FoldersClient {
         create_folder(key_store, &config.api, &repository, request).await
     }
 
-    /// Edit the folder.
+    /// Edit the folder and save it to the server.
     pub async fn edit(
         &self,
         folder_id: &str,

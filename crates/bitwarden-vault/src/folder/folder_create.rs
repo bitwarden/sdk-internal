@@ -85,12 +85,13 @@ pub(super) async fn create_folder<R: Repository<Folder> + ?Sized>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use bitwarden_api_api::models::FolderResponseModel;
     use bitwarden_crypto::SymmetricCryptoKey;
     use bitwarden_state::repository::MemoryRepository;
     use uuid::uuid;
     use wiremock::{matchers, Mock, MockServer, Request, ResponseTemplate};
+
+    use super::*;
 
     #[tokio::test]
     async fn test_create_folder() {
