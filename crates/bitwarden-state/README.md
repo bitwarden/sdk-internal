@@ -14,7 +14,7 @@ struct Cipher {
 
 // Register `Cipher` for use with a `Repository`.
 // This should be done in the crate where `Cipher` is defined.
-bitwarden_state::register_repository_item!(Cipher, "Cipher");
+bitwarden_state::register_repository_item!(Cipher, "Cipher", version: 1);
 ```
 
 With the registration complete, the next important decision is to select where will the data be
@@ -172,4 +172,65 @@ class CipherStoreImpl: CipherStore {
 }
 
 getClient(userId = userId).platform().store().registerCipherStore(CipherStoreImpl());
+```
+
+## SDK-Managed State
+
+With `SDK-Managed State`, the SDK will be exclusively responsible for the data storage. This means
+that the clients don't need to make any changes themselves, as the implementation is internal to the
+SDK. To add support for an SDK managed `Repository`, it needs to be added to the initialization code
+for WASM and UniFFI. This example shows how to add support for `Cipher`s.
+
+### WASM
+
+Go to `crates/bitwarden-wasm-internal/src/platform/mod.rs` and add a line with your type, as shown:
+
+```rust,ignore
+    pub async fn initialize_state(
+        &self,
+        cipher_repository: CipherRepository,
+    ) -> Result<(), bitwarden_state::registry::StateRegistryError> {
+        let cipher = cipher_repository.into_channel_impl();
+        self.0.platform().state().register_client_managed(cipher);
+
+        let sdk_managed_repositories = vec![
+            // This should list all the SDK-managed repositories
+            <Cipher as RepositoryItem>::data(),
+            // Add your type here
+        ];
+
+        self.0
+            .platform()
+            .state()
+            .initialize_database(sdk_managed_repositories)
+            .await
+    }
+```
+
+### UniFFI
+
+Go to `crates/bitwarden-uniffi/src/platform/mod.rs` and add a line with your type, as shown:
+
+```rust,ignore
+    pub async fn initialize_state(
+        &self,
+        cipher_repository: Arc<dyn CipherRepository>,
+    ) -> Result<()> {
+        let cipher = UniffiRepositoryBridge::new(cipher_repository);
+        self.0.platform().state().register_client_managed(cipher);
+
+        let sdk_managed_repositories = vec![
+            // This should list all the SDK-managed repositories
+            <Cipher as RepositoryItem>::data(),
+            // Add your type here
+        ];
+
+        self.0
+            .platform()
+            .state()
+            .initialize_database(sdk_managed_repositories)
+            .await
+            .map_err(Error::StateRegistry)?;
+        Ok(())
+    }
 ```
