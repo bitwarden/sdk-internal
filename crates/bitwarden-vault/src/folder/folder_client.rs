@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use bitwarden_api_api::apis::folders_api;
-use bitwarden_core::{require, ApiError, Client, MissingFieldError};
+use bitwarden_core::Client;
 
 use bitwarden_state::repository::{Repository, RepositoryError};
 #[cfg(feature = "wasm")]
@@ -9,8 +8,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     error::{DecryptError, EncryptError},
-    folder::create_folder,
-    CreateFolderError, Folder, FolderAddEditRequest, FolderView,
+    folder::{create_folder, edit_folder},
+    CreateFolderError, EditFolderError, Folder, FolderAddEditRequest, FolderView,
 };
 
 #[allow(missing_docs)]
@@ -51,7 +50,7 @@ impl FoldersClient {
         let config = self.client.internal.get_api_configurations().await;
         let repository = self.get_repository()?;
 
-        create_folder(key_store, request, &config.api, &repository).await
+        create_folder(key_store, &config.api, &repository, request).await
     }
 
     /// Edit the folder.
@@ -59,30 +58,12 @@ impl FoldersClient {
         &self,
         folder_id: &str,
         request: FolderAddEditRequest,
-    ) -> Result<FolderView, CreateFolderError> {
-        let repository = self.get_repository()?;
+    ) -> Result<FolderView, EditFolderError> {
         let key_store = self.client.internal.get_key_store();
-
-        // Check if the folder exists
-        repository
-            .get(folder_id.to_owned())
-            .await?
-            .ok_or(MissingFieldError("Folder not found in repository"))?;
-
-        let folder_request = key_store.encrypt(request)?;
-
         let config = self.client.internal.get_api_configurations().await;
-        let resp = folders_api::folders_id_put(&config.api, folder_id, Some(folder_request))
-            .await
-            .map_err(ApiError::from)?;
+        let repository = self.get_repository()?;
 
-        let folder: Folder = resp.try_into()?;
-
-        repository
-            .set(require!(folder.id).to_string(), folder.clone())
-            .await?;
-
-        Ok(key_store.decrypt(&folder)?)
+        edit_folder(key_store, &config.api, &repository, folder_id, request).await
     }
 }
 

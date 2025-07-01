@@ -65,9 +65,9 @@ pub enum CreateFolderError {
 
 pub(super) async fn create_folder<R: Repository<Folder> + ?Sized>(
     key_store: &KeyStore<KeyIds>,
-    request: FolderAddEditRequest,
     api_config: &bitwarden_api_api::apis::configuration::Configuration,
     repository: &Arc<R>,
+    request: FolderAddEditRequest,
 ) -> Result<FolderView, CreateFolderError> {
     let folder_request = key_store.encrypt(request)?;
     let resp = folders_api::folders_post(api_config, Some(folder_request))
@@ -93,7 +93,7 @@ mod tests {
     use wiremock::{matchers, Mock, MockServer, Request, ResponseTemplate};
 
     #[tokio::test]
-    async fn test_create_folder_flow_success() {
+    async fn test_create_folder() {
         let store: KeyStore<KeyIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
@@ -132,7 +132,7 @@ mod tests {
         };
         let repository = Arc::new(MemoryRepository::<Folder>::new());
 
-        let result = create_folder(&store, request, api_config, &repository)
+        let result = create_folder(&store, api_config, &repository, request)
             .await
             .unwrap();
 
