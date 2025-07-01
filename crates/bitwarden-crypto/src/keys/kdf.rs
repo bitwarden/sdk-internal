@@ -106,7 +106,7 @@ impl KdfDerivedKeyMaterial {
 ///
 /// The clean-up ticket is tracked here:
 /// `https://bitwarden.atlassian.net/browse/PM-23168`
-pub fn dangerous_derive_kdf_key(
+pub fn dangerous_derive_kdf_output(
     password: &[u8],
     salt: &[u8],
     kdf: &Kdf,
