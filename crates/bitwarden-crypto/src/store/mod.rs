@@ -281,7 +281,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     ) -> (Vec<Output>, Vec<ErrorView>) {
         let results: (Vec<_>, Vec<_>) = data
             .par_chunks(batch_chunk_size(data.len()))
-            .map(|chunk| {
+            .flat_map(|chunk| {
                 let mut ctx = self.context();
 
                 chunk
@@ -295,7 +295,6 @@ impl<Ids: KeyIds> KeyStore<Ids> {
                     })
                     .collect::<Vec<_>>()
             })
-            .flatten()
             .partition_map(|result| match result {
                 Ok(output) => Either::Left(output),
                 Err(err) => Either::Right(err),
