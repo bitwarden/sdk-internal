@@ -1,7 +1,7 @@
 use super::{AsymmetricCryptoKey, PublicKeyEncryptionAlgorithm};
 use crate::{
-    error::Result, CryptoError, EncString, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
-    UnsignedSharedKey,
+    error::Result, CryptoError, EncString, KeyDecryptable, KeyEncryptable, Pkcs8PrivateKeyBytes,
+    SymmetricCryptoKey, UnsignedSharedKey,
 };
 
 /// Device Key
@@ -65,6 +65,7 @@ impl DeviceKey {
         protected_user_key: UnsignedSharedKey,
     ) -> Result<SymmetricCryptoKey> {
         let device_private_key: Vec<u8> = protected_device_private_key.decrypt_with_key(&self.0)?;
+        let device_private_key = Pkcs8PrivateKeyBytes::from(device_private_key);
         let device_private_key = AsymmetricCryptoKey::from_der(&device_private_key)?;
 
         let user_key: SymmetricCryptoKey =
@@ -88,7 +89,7 @@ impl TryFrom<String> for DeviceKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::derive_symmetric_key;
+    use crate::{derive_symmetric_key, BitwardenLegacyKeyBytes};
 
     #[test]
     fn test_trust_device() {
@@ -111,21 +112,24 @@ mod tests {
     #[test]
     fn test_decrypt_user_key() {
         // Example keys from desktop app
-        let user_key: &mut [u8] = &mut [
+        let user_key: &[u8] = &[
             109, 128, 172, 147, 206, 123, 134, 95, 16, 36, 155, 113, 201, 18, 186, 230, 216, 212,
             173, 188, 74, 11, 134, 131, 137, 242, 105, 178, 105, 126, 52, 139, 248, 91, 215, 21,
             128, 91, 226, 222, 165, 67, 251, 34, 83, 81, 77, 147, 225, 76, 13, 41, 102, 45, 183,
             218, 106, 89, 254, 208, 251, 101, 130, 10,
         ];
-        let user_key = SymmetricCryptoKey::try_from(user_key).unwrap();
+        let user_key =
+            SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(user_key)).unwrap();
 
-        let key_data: &mut [u8] = &mut [
+        let key_data: &[u8] = &[
             114, 235, 60, 115, 172, 156, 203, 145, 195, 130, 215, 250, 88, 146, 215, 230, 12, 109,
             245, 222, 54, 217, 255, 211, 221, 105, 230, 236, 65, 52, 209, 133, 76, 208, 113, 254,
             194, 216, 156, 19, 230, 62, 32, 93, 87, 7, 144, 156, 117, 142, 250, 32, 182, 118, 187,
             8, 247, 7, 203, 201, 65, 147, 206, 247,
         ];
-        let device_key = DeviceKey(key_data.try_into().unwrap());
+        let device_key = DeviceKey(
+            SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key_data)).unwrap(),
+        );
 
         let protected_user_key: UnsignedSharedKey = "4.f+VbbacRhO2q4MOUSdt1AIjQ2FuLAvg4aDxJMXAh3VxvbmUADj8Ct/R7XEpPUqApmbRS566jS0eRVy8Sk08ogoCdj1IFN9VsIky2i2X1WHK1fUnr3UBmXE3tl2NPBbx56U+h73S2jNTSyet2W18Jg2q7/w8KIhR3J41QrG9aGoOTN93to3hb5W4z6rdrSI0e7GkizbwcIA0NH7Z1JyAhrjPm9+tjRjg060YbEbGaWTAOkZWfgbLjr8bY455DteO2xxG139cOx7EBo66N+YhjsLi0ozkeUyPQkoWBdKMcQllS7jCfB4fDyJA05ALTbk74syKkvqFxqwmQbg+aVn+dcw==".parse().unwrap();
 

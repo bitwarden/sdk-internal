@@ -1,6 +1,8 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
+#[cfg(feature = "internal")]
+use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
 
 use super::internal::InternalClient;
@@ -35,8 +37,10 @@ impl Client {
             {
                 use rustls::ClientConfig;
                 use rustls_platform_verifier::ConfigVerifierExt;
-                client_builder =
-                    client_builder.use_preconfigured_tls(ClientConfig::with_platform_verifier());
+                client_builder = client_builder.use_preconfigured_tls(
+                    ClientConfig::with_platform_verifier()
+                        .expect("Failed to create platform verifier"),
+                );
             }
 
             client_builder
@@ -88,6 +92,8 @@ impl Client {
                 })),
                 external_client,
                 key_store: KeyStore::default(),
+                #[cfg(feature = "internal")]
+                repository_map: StateRegistry::new(),
             }),
         }
     }

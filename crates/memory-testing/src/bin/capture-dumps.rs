@@ -12,12 +12,11 @@ fn dump_process_to_bytearray(pid: u32, output_dir: &Path, output_name: &Path) ->
 
     if !output.status.success() {
         return io::Result::Err(io::Error::other(format!(
-            "Failed to dump process: {:?}",
-            output
+            "Failed to dump process: {output:?}"
         )));
     }
 
-    let core_path = format!("core.{}", pid);
+    let core_path = format!("core.{pid}");
     let output_path = output_dir.join(output_name);
     let len = fs::copy(&core_path, output_path)?;
     fs::remove_file(&core_path)?;
@@ -48,7 +47,7 @@ fn wait_dump_and_continue(
         }
     }
     let dump_size = dump_process_to_bytearray(id, &base_dir.join("output"), name)?;
-    println!("Got memory dump of file size: {}", dump_size);
+    println!("Got memory dump of file size: {dump_size}");
 
     stdin.write_all(b".")?;
     stdin.flush()?;
@@ -72,7 +71,7 @@ fn main() -> io::Result<()> {
         .stdin(Stdio::piped())
         .spawn()?;
     let id = proc.id();
-    println!("Started memory testing process with PID: {}", id);
+    println!("Started memory testing process with PID: {id}");
 
     let stdin = proc.stdin.as_mut().expect("Valid stdin");
     let stdout = proc.stdout.as_mut().expect("Valid stdin");
@@ -82,7 +81,7 @@ fn main() -> io::Result<()> {
 
     // Wait for the process to finish and print the output
     let output = proc.wait()?;
-    println!("Return code: {}", output);
+    println!("Return code: {output}");
 
     std::process::exit(output.code().unwrap_or(1));
 }

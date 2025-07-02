@@ -10,6 +10,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Building ${{matrix.package}} for - ${{ matrix.os }}
@@ -27,8 +30,10 @@ jobs:
         package:
           - bitwarden-api-api
           - bitwarden-api-identity
+          - bitwarden-core
           - bitwarden-crypto
           - bitwarden-generators
+          - bitwarden-sm
 
     steps:
       - name: Checkout
