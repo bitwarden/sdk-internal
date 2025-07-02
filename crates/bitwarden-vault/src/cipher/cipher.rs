@@ -250,61 +250,13 @@ pub struct CipherListView {
 }
 
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct CipherDecryptionErrorView {
-    pub id: Option<Uuid>,
-    pub organization_id: Option<Uuid>,
-    pub folder_id: Option<Uuid>,
-    pub collection_ids: Vec<Uuid>,
-    pub r#type: CipherType,
-    pub favorite: bool,
-    pub organization_use_totp: bool,
-    pub has_fido2: bool,
-    pub has_totp: bool,
-    pub deleted_date: Option<DateTime<Utc>>,
-}
-
-#[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct DecryptCipherListResult {
     pub successes: Vec<CipherListView>,
-    pub failures: Vec<CipherDecryptionErrorView>,
-}
-
-impl From<&Cipher> for CipherDecryptionErrorView {
-    fn from(cipher: &Cipher) -> Self {
-        let has_totp = cipher
-            .login
-            .as_ref()
-            .and_then(|c| c.totp.as_ref())
-            .is_some();
-
-        let has_fido2 = cipher
-            .login
-            .as_ref()
-            .and_then(|c| c.fido2_credentials.as_ref())
-            .map(|fido_vec| !fido_vec.is_empty())
-            .unwrap_or(false);
-
-        Self {
-            id: cipher.id,
-            organization_id: cipher.organization_id,
-            folder_id: cipher.folder_id,
-            collection_ids: cipher.collection_ids.clone(),
-            r#type: cipher.r#type,
-            favorite: cipher.favorite,
-            organization_use_totp: cipher.organization_use_totp,
-            has_fido2,
-            has_totp,
-            deleted_date: cipher.deleted_date,
-        }
-    }
+    pub failures: Vec<Cipher>,
 }
 
 impl CipherListView {

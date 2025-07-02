@@ -68,7 +68,7 @@ impl CiphersClient {
 
         DecryptCipherListResult {
             successes,
-            failures,
+            failures: failures.into_iter().cloned().collect(),
         }
     }
 
@@ -242,7 +242,7 @@ mod tests {
         // Set an invalid encryptedkey to cause decryption failure
         invalid_cipher.key = Some("2.Gg8yCM4IIgykCZyq0O4+cA==|GJLBtfvSJTDJh/F7X4cJPkzI6ccnzJm5DYl3yxOW2iUn7DgkkmzoOe61sUhC5dgVdV0kFqsZPcQ0yehlN1DDsFIFtrb4x7LwzJNIkMgxNyg=|1rGkGJ8zcM5o5D0aIIwAyLsjMLrPsP3EWm3CctBO3Fw=".parse().unwrap());
 
-        let ciphers = vec![valid_cipher, invalid_cipher];
+        let ciphers = vec![valid_cipher, invalid_cipher.clone()];
 
         let result = client.vault().ciphers().decrypt_list_with_failures(ciphers);
 

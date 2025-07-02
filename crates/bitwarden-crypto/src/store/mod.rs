@@ -267,18 +267,16 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     ///
     /// # Returns
     /// A tuple containing two vectors: the first vector contains the successfully decrypted items,
-    /// and the second vector contains the items that failed to decrypt along with their error
-    /// views.
+    /// and the second vector contains the original items that failed to decrypt.
     pub fn decrypt_list_with_failures<
         'a,
         Key: KeyId,
         Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Send + Sync + 'a,
         Output: Send + Sync,
-        ErrorView: From<&'a Data> + Send + Sync,
     >(
         &self,
         data: &'a [Data],
-    ) -> (Vec<Output>, Vec<ErrorView>) {
+    ) -> (Vec<Output>, Vec<&'a Data>) {
         let results: (Vec<_>, Vec<_>) = data
             .par_chunks(batch_chunk_size(data.len()))
             .flat_map(|chunk| {
@@ -289,7 +287,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
                     .map(|item| {
                         let result = item
                             .decrypt(&mut ctx, item.key_identifier())
-                            .map_err(|_| ErrorView::from(item));
+                            .map_err(|_| item);
                         ctx.clear_local();
                         result
                     })
@@ -297,7 +295,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
             })
             .partition_map(|result| match result {
                 Ok(output) => Either::Left(output),
-                Err(err) => Either::Right(err),
+                Err(original_item) => Either::Right(original_item),
             });
 
         results
