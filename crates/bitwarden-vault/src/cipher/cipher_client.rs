@@ -71,10 +71,11 @@ impl CiphersClient {
     }
 
     /// Temporary method used to re-encrypt FIDO2 credentials for a cipher view.
-    /// Necessary while the FIDO2 credentials remain in the LoginView in an encrypted form.
-    /// Used by the TS clients to encrypt FIDO2 credentials separately before encrypting the
-    /// remaining cipher view. TODO: Remove once FIDO2 credentials have been removed from the
-    /// LoginView.
+    /// Necessary until the TS clients utilize the SDK entirely for FIDO2 credentials management.
+    /// TS clients create decrypted FIDO2 credentials that need to be encrypted manually when encrypting
+    /// the rest of the CipherView. 
+    /// TODO: Remove once TS passkey provider implementation uses SDK - PM-8313
+    #[cfg(feature = "wasm")]
     pub fn encrypt_fido2_credentials(
         &self,
         cipher_view: CipherView,
