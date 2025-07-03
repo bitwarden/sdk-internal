@@ -100,11 +100,13 @@ mod tests {
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 
+        let folder_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
+
         let (_server, api_config) = start_api_mock(vec![Mock::given(matchers::path("/folders"))
-            .respond_with(|req: &Request| {
+            .respond_with(move |req: &Request| {
                 let body: FolderRequestModel = req.body_json().unwrap();
                 ResponseTemplate::new(201).set_body_json(FolderResponseModel {
-                    id: Some(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1")),
+                    id: Some(folder_id),
                     name: Some(body.name),
                     revision_date: Some("2025-01-01T00:00:00Z".to_string()),
                     object: Some("folder".to_string()),
@@ -129,10 +131,54 @@ mod tests {
         assert_eq!(
             result,
             FolderView {
-                id: Some(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1")),
+                id: Some(folder_id),
                 name: "test".to_string(),
                 revision_date: "2025-01-01T00:00:00Z".parse().unwrap(),
             }
         );
+
+        // Confirm the folder was stored in the repository
+        assert_eq!(
+            store
+                .decrypt(
+                    &repository
+                        .get(folder_id.to_string())
+                        .await
+                        .unwrap()
+                        .unwrap()
+                )
+                .unwrap(),
+            result
+        );
+    }
+
+    #[tokio::test]
+    async fn test_create_folder_http_error() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        #[allow(deprecated)]
+        let _ = store.context_mut().set_symmetric_key(
+            SymmetricKeyId::User,
+            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+        );
+
+        let (_server, api_config) = start_api_mock(vec![
+            Mock::given(matchers::path("/folders")).respond_with(ResponseTemplate::new(500))
+        ])
+        .await;
+
+        let repository = MemoryRepository::<Folder>::default();
+
+        let result = create_folder(
+            &store,
+            &api_config,
+            &repository,
+            FolderAddEditRequest {
+                name: "test".to_string(),
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), CreateFolderError::Api(_)));
     }
 }

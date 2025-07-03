@@ -9,10 +9,17 @@ use wasm_bindgen::prelude::*;
 
 use crate::{Folder, FolderAddEditRequest, FolderView, VaultParseError};
 
+/// Item does not already exist error.
+#[derive(Debug, thiserror::Error)]
+#[error("Item does not already exist")]
+pub struct ItemDoesNotExistError;
+
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum EditFolderError {
+    #[error(transparent)]
+    ItemDoesNotExist(#[from] ItemDoesNotExistError),
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error(transparent)]
@@ -38,7 +45,7 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
     repository
         .get(folder_id.to_owned())
         .await?
-        .ok_or(MissingFieldError("Folder not found in repository"))?;
+        .ok_or(ItemDoesNotExistError)?;
 
     let folder_request = key_store.encrypt(request)?;
 
@@ -57,7 +64,10 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_api_api::models::{FolderRequestModel, FolderResponseModel};
+    use bitwarden_api_api::{
+        apis::configuration::Configuration,
+        models::{FolderRequestModel, FolderResponseModel},
+    };
     use bitwarden_core::key_management::SymmetricKeyId;
     use bitwarden_crypto::{PrimitiveEncryptable, SymmetricCryptoKey};
     use bitwarden_test::{start_api_mock, MemoryRepository};
@@ -65,6 +75,27 @@ mod tests {
     use wiremock::{matchers, Mock, Request, ResponseTemplate};
 
     use super::*;
+
+    async fn repository_add_folder(
+        repository: &MemoryRepository<Folder>,
+        store: &KeyStore<KeyIds>,
+        folder_id: uuid::Uuid,
+        name: &str,
+    ) {
+        repository
+            .set(
+                folder_id.to_string(),
+                Folder {
+                    id: Some(folder_id),
+                    name: name
+                        .encrypt(&mut store.context(), SymmetricKeyId::User)
+                        .unwrap(),
+                    revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+                },
+            )
+            .await
+            .unwrap();
+    }
 
     #[tokio::test]
     async fn test_edit_folder() {
@@ -94,20 +125,7 @@ mod tests {
         .await;
 
         let repository = MemoryRepository::<Folder>::default();
-
-        repository
-            .set(
-                folder_id.to_string(),
-                Folder {
-                    id: Some(folder_id),
-                    name: "old_name"
-                        .encrypt(&mut store.context(), SymmetricKeyId::User)
-                        .unwrap(),
-                    revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
-                },
-            )
-            .await
-            .unwrap();
+        repository_add_folder(&repository, &store, folder_id, "old_name").await;
 
         let result = edit_folder(
             &store,
@@ -129,5 +147,66 @@ mod tests {
                 revision_date: "2025-01-01T00:00:00Z".parse().unwrap(),
             }
         );
+    }
+
+    #[tokio::test]
+    async fn test_edit_folder_does_not_exist() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+
+        let repository = MemoryRepository::<Folder>::default();
+        let folder_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
+
+        let result = edit_folder(
+            &store,
+            &Configuration::default(),
+            &repository,
+            &folder_id.to_string(),
+            FolderAddEditRequest {
+                name: "test".to_string(),
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            EditFolderError::ItemDoesNotExist(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_edit_folder_http_error() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        #[allow(deprecated)]
+        let _ = store.context_mut().set_symmetric_key(
+            SymmetricKeyId::User,
+            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+        );
+
+        let folder_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
+
+        let (_server, api_config) = start_api_mock(vec![Mock::given(matchers::path(format!(
+            "/folders/{}",
+            folder_id
+        )))
+        .respond_with(ResponseTemplate::new(500))])
+        .await;
+
+        let repository = MemoryRepository::<Folder>::default();
+        repository_add_folder(&repository, &store, folder_id, "old_name").await;
+
+        let result = edit_folder(
+            &store,
+            &api_config,
+            &repository,
+            &folder_id.to_string(),
+            FolderAddEditRequest {
+                name: "test".to_string(),
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), EditFolderError::Api(_)));
     }
 }
