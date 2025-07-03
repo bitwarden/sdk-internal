@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 #[allow(deprecated)]
-use bitwarden_crypto::dangerous_derive_kdf_output;
+use bitwarden_crypto::dangerous_derive_kdf_material;
 use bitwarden_crypto::{
     AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, CoseKeyBytes,
     CoseSerializable, CoseSign1Bytes, CryptoError, Decryptable, EncString, Kdf, KeyDecryptable,
@@ -313,14 +313,14 @@ impl PureCrypto {
             .map(|pk| pk.to_vec())
     }
 
-    /// Derive the KDF output for a [bitwarden_crypto::Kdf] configuration.
-    pub fn derive_kdf_output(
+    /// Derive output of the KDF for a [bitwarden_crypto::Kdf] configuration.
+    pub fn derive_kdf_material(
         password: &[u8],
         salt: &[u8],
         kdf: Kdf,
     ) -> Result<Vec<u8>, CryptoError> {
         #[allow(deprecated)]
-        dangerous_derive_kdf_output(password, salt, &kdf)
+        dangerous_derive_kdf_material(password, salt, &kdf)
     }
 }
 
@@ -648,7 +648,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let kdf = Kdf::PBKDF2 {
             iterations: NonZero::try_from(600000).unwrap(),
         };
-        let derived_key = PureCrypto::derive_kdf_output(password, email, kdf).unwrap();
+        let derived_key = PureCrypto::derive_kdf_material(password, email, kdf).unwrap();
         assert_eq!(derived_key, DERIVED_KDF_MATERIAL_PBKDF2);
     }
 
@@ -661,7 +661,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
             memory: NonZero::try_from(64).unwrap(),
             parallelism: NonZero::try_from(4).unwrap(),
         };
-        let derived_key = PureCrypto::derive_kdf_output(password, email, kdf).unwrap();
+        let derived_key = PureCrypto::derive_kdf_material(password, email, kdf).unwrap();
         assert_eq!(derived_key, DERIVED_KDF_MATERIAL_ARGON2ID);
     }
 }
