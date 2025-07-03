@@ -212,7 +212,7 @@ fn username_subaddress(mut rng: impl RngCore, r#type: AppendType, email: String)
         AppendType::WebsiteName { website } => website,
     };
 
-    format!("{}+{}@{}", email_begin, email_middle, email_end)
+    format!("{email_begin}+{email_middle}@{email_end}")
 }
 
 /// Generate a username using a catchall email address
@@ -227,7 +227,7 @@ fn username_catchall(mut rng: impl RngCore, r#type: AppendType, domain: String) 
         AppendType::WebsiteName { website } => website,
     };
 
-    format!("{}@{}", email_start, domain)
+    format!("{email_start}@{domain}")
 }
 
 fn random_lowercase_string(mut rng: impl RngCore, length: usize) -> String {
