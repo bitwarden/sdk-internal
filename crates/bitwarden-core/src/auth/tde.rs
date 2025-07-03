@@ -1,9 +1,8 @@
+use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     AsymmetricPublicCryptoKey, DeviceKey, EncString, Kdf, SpkiPublicKeyBytes, SymmetricCryptoKey,
     TrustDeviceResponse, UnsignedSharedKey, UserKey,
 };
-
-use base64::{engine::general_purpose::STANDARD, Engine};
 
 use crate::{client::encryption_settings::EncryptionSettingsError, Client};
 
