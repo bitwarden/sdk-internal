@@ -5,9 +5,8 @@ use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use wasm_bindgen::prelude::*;
 
 use super::crypto::{
-    derive_key_connector, make_key_pair, make_user_signing_keys_for_enrollment,
-    verify_asymmetric_keys, DeriveKeyConnectorError, DeriveKeyConnectorRequest,
-    EnrollAdminPasswordResetError, MakeKeyPairResponse, MakeUserSigningKeysResponse,
+    derive_key_connector, make_key_pair, verify_asymmetric_keys, DeriveKeyConnectorError,
+    DeriveKeyConnectorRequest, EnrollAdminPasswordResetError, MakeKeyPairResponse,
     VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
 };
 #[cfg(feature = "internal")]
@@ -19,7 +18,8 @@ use crate::key_management::crypto::{
 use crate::{
     client::encryption_settings::EncryptionSettingsError,
     key_management::crypto::{
-        get_v2_rotated_account_keys, CryptoClientError, RotateUserKeysResponse,
+        get_v2_rotated_account_keys, make_keys_for_user_crypto_v2, CryptoClientError,
+        EnrollUserCryptoV2Response, RotateUserKeysResponse,
     },
     Client,
 };
@@ -67,10 +67,8 @@ impl CryptoClient {
     }
 
     /// Makes a new signing key pair and signs the public key for the user
-    pub fn make_user_signing_keys_for_enrollment(
-        &self,
-    ) -> Result<MakeUserSigningKeysResponse, CryptoError> {
-        make_user_signing_keys_for_enrollment(&self.client)
+    pub fn make_keys_for_user_crypto_v2(&self) -> Result<EnrollUserCryptoV2Response, CryptoError> {
+        make_keys_for_user_crypto_v2(&self.client)
     }
 
     /// Creates a rotated set of account keys for the current state
@@ -120,7 +118,7 @@ impl CryptoClient {
         &self,
         public_key: String,
     ) -> Result<UnsignedSharedKey, EnrollAdminPasswordResetError> {
-        enroll_admin_password_reset(&self.client, public_key)
+        enroll_admin_password_reset(&self.client, public_key.into())
     }
 
     /// Derive the master key for migrating to the key connector

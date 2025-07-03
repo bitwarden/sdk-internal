@@ -1,8 +1,9 @@
-use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     AsymmetricPublicCryptoKey, DeviceKey, EncString, Kdf, SpkiPublicKeyBytes, SymmetricCryptoKey,
     TrustDeviceResponse, UnsignedSharedKey, UserKey,
 };
+
+use base64::{engine::general_purpose::STANDARD, Engine};
 
 use crate::{client::encryption_settings::EncryptionSettingsError, Client};
 
@@ -44,6 +45,7 @@ pub(super) fn make_register_tde_keys(
         key_pair.private.clone(),
         // Note: Signing keys are not supported on registration yet. This needs to be changed as
         // soon as registration is supported.
+        None,
         None,
     )?;
 

@@ -80,6 +80,7 @@ mod tests {
                 user_key.parse().unwrap(),
                 private_key,
                 None,
+                None,
             )
             .unwrap();
 

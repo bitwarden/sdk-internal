@@ -1,5 +1,6 @@
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{EncString, UnsignedSharedKey};
+use bitwarden_crypto::{security_state::SignedSecurityState, EncString, UnsignedSharedKey};
+use bitwarden_crypto::{CryptoError, Pkcs8PrivateKeyBytes};
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
@@ -30,6 +31,9 @@ pub enum EncryptionSettingsError {
     #[error("Invalid signing key")]
     InvalidSigningKey,
 
+    #[error("Invalid security state")]
+    InvalidSecurityState,
+
     #[error(transparent)]
     MissingPrivateKey(#[from] MissingPrivateKeyError),
 
@@ -50,48 +54,84 @@ impl EncryptionSettings {
         user_key: SymmetricCryptoKey,
         private_key: EncString,
         signing_key: Option<EncString>,
+        security_state: Option<SignedSecurityState>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
-        use bitwarden_crypto::{AsymmetricCryptoKey, CoseSerializable, KeyDecryptable, SigningKey};
+        use bitwarden_crypto::{AsymmetricCryptoKey, KeyDecryptable};
         use log::warn;
 
-        use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
+        use crate::key_management::{AsymmetricKeyId, SymmetricKeyId};
 
-        let private_key = {
-            let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
-            // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a recovery
-            // process in place.
-            AsymmetricCryptoKey::from_der(&dec.into())
-                .map_err(|_| {
-                    warn!("Invalid private key");
-                })
-                .ok()
+        // This is an all-or-nothing check. The server cannot pretend a signing key or security
+        // state to be missing, because they are *always* present when the user key is an
+        // XChaCha20Poly1305Key. Thus, the server or network cannot lie about the presence of these,
+        // because otherwise the entire user account will fail to decrypt.
+        let is_v2_user = matches!(user_key, SymmetricCryptoKey::XChaCha20Poly1305Key(_));
+        if is_v2_user {
+            // For v2 users, we mandate the signing key and security state to be present
+            // The private key must also be valid.
 
-            // Some(
-            //     AsymmetricCryptoKey::from_der(&dec)
-            //         .map_err(|_| EncryptionSettingsError::InvalidPrivateKey)?,
-            // )
-        };
-        let signing_key = signing_key
-            .map(|key| {
-                use bitwarden_crypto::CryptoError;
+            use bitwarden_crypto::{
+                security_state::SecurityState, CoseKeyBytes, CoseSerializable, SigningKey,
+            };
 
-                let dec: Vec<u8> = key.decrypt_with_key(&user_key)?;
-                SigningKey::from_cose(&dec.into()).map_err(Into::<CryptoError>::into)
-            })
-            .transpose()?;
+            // Both of these are required for v2 users
+            let signing_key = signing_key.ok_or(EncryptionSettingsError::Crypto(
+                CryptoError::SecurityDowngrade("Signing key is required for v2 users".to_string()),
+            ))?;
+            let security_state = security_state.ok_or(EncryptionSettingsError::Crypto(
+                CryptoError::SecurityDowngrade(
+                    "Security state is required for v2 users".to_string(),
+                ),
+            ))?;
 
-        // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
-        #[allow(deprecated)]
-        {
-            let mut ctx = store.context_mut();
-            ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
-            if let Some(private_key) = private_key {
+            // Everything MUST decrypt.
+            let signing_key: Vec<u8> = signing_key.decrypt_with_key(&user_key)?;
+            let signing_key = SigningKey::from_cose(&CoseKeyBytes::from(signing_key))
+                .map_err(|_| EncryptionSettingsError::InvalidSigningKey)?;
+            let private_key: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
+            let private_key =
+                AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key))
+                    .map_err(|_| EncryptionSettingsError::InvalidPrivateKey)?;
+            let _security_state: SecurityState = security_state
+                .verify_and_unwrap(&signing_key.to_verifying_key())
+                .map_err(|_| EncryptionSettingsError::InvalidSecurityState)?;
+
+            #[allow(deprecated)]
+            {
+                use crate::key_management::SigningKeyId;
+
+                let mut ctx = store.context_mut();
+                ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
                 ctx.set_asymmetric_key(AsymmetricKeyId::UserPrivateKey, private_key)?;
-            }
-
-            if let Some(signing_key) = signing_key {
                 ctx.set_signing_key(SigningKeyId::UserSigningKey, signing_key)?;
+            }
+        } else {
+            let private_key = {
+                let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
+
+                // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a
+                // recovery process in place.
+                AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(dec))
+                    .map_err(|_| {
+                        warn!("Invalid private key");
+                    })
+                    .ok()
+
+                // Some(
+                //     AsymmetricCryptoKey::from_der(&dec)
+                //         .map_err(|_| EncryptionSettingsError::InvalidPrivateKey)?,
+                // )
+            };
+
+            // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
+            #[allow(deprecated)]
+            {
+                let mut ctx = store.context_mut();
+                ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
+                if let Some(private_key) = private_key {
+                    ctx.set_asymmetric_key(AsymmetricKeyId::UserPrivateKey, private_key)?;
+                }
             }
         }
 

@@ -107,6 +107,7 @@ mod tests {
                 user_key.parse().unwrap(),
                 private_key.parse().unwrap(),
                 None,
+                None,
             )
             .unwrap();
 
