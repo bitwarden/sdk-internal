@@ -31,7 +31,9 @@ pub use util::{generate_random_alphanumeric, generate_random_bytes, pbkdf2};
 mod wordlist;
 pub use wordlist::EFF_LONG_WORD_LIST;
 mod store;
-pub use store::{KeyStore, KeyStoreContext};
+pub use store::{
+    dangerous_get_v2_rotated_account_keys, KeyStore, KeyStoreContext, RotatedUserKeys,
+};
 mod cose;
 pub use cose::CoseSerializable;
 mod signing;

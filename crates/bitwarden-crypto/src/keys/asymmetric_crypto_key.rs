@@ -17,14 +17,14 @@ pub enum PublicKeyEncryptionAlgorithm {
     RsaOaepSha1 = 0,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub(crate) enum RawPublicKey {
     RsaOaepSha1(RsaPublicKey),
 }
 
 /// Public key of a key pair used in a public key encryption scheme. It is used for
 /// encrypting data.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct AsymmetricPublicCryptoKey {
     inner: RawPublicKey,
 }
@@ -35,10 +35,11 @@ impl AsymmetricPublicCryptoKey {
     }
 
     /// Build a public key from the SubjectPublicKeyInfo DER.
-    pub fn from_der(der: &[u8]) -> Result<Self> {
+    pub fn from_der(der: &SpkiPublicKeyBytes) -> Result<Self> {
         Ok(AsymmetricPublicCryptoKey {
             inner: RawPublicKey::RsaOaepSha1(
-                RsaPublicKey::from_public_key_der(der).map_err(|_| CryptoError::InvalidKey)?,
+                RsaPublicKey::from_public_key_der(der.as_ref())
+                    .map_err(|_| CryptoError::InvalidKey)?,
             ),
         })
     }
@@ -166,8 +167,8 @@ mod tests {
 
     use crate::{
         content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat},
-        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, Pkcs8PrivateKeyBytes, SymmetricCryptoKey,
-        UnsignedSharedKey,
+        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
+        SymmetricCryptoKey, UnsignedSharedKey,
     };
 
     #[test]
@@ -263,7 +264,8 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
         let private_key = Pkcs8PrivateKeyBytes::from(private_key);
         let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
-        let public_key = AsymmetricPublicCryptoKey::from_der(&public_key).unwrap();
+        let public_key =
+            AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(public_key)).unwrap();
 
         let raw_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(&raw_key, &public_key).unwrap();

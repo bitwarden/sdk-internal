@@ -1,5 +1,5 @@
 extern crate console_error_panic_hook;
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 
 use bitwarden_core::{key_management::CryptoClient, Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
@@ -8,7 +8,10 @@ use bitwarden_generators::GeneratorClientsExt;
 use bitwarden_vault::{VaultClient, VaultClientExt};
 use wasm_bindgen::prelude::*;
 
-use crate::platform::PlatformClient;
+use crate::platform::{
+    token_provider::{JsTokenProvider, WasmClientManagedTokens},
+    PlatformClient,
+};
 
 #[allow(missing_docs)]
 #[wasm_bindgen]
@@ -18,8 +21,9 @@ pub struct BitwardenClient(pub(crate) Client);
 impl BitwardenClient {
     #[allow(missing_docs)]
     #[wasm_bindgen(constructor)]
-    pub fn new(settings: Option<ClientSettings>) -> Self {
-        Self(Client::new(settings))
+    pub fn new(settings: Option<ClientSettings>, token_provider: JsTokenProvider) -> Self {
+        let tokens = Arc::new(WasmClientManagedTokens::new(token_provider));
+        Self(Client::new_with_client_tokens(settings, tokens))
     }
 
     /// Test method, echoes back the input

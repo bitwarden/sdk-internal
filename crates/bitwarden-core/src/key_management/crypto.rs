@@ -8,9 +8,10 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, SignatureAlgorithm,
-    SignedPublicKey, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey,
+    dangerous_get_v2_rotated_account_keys, AsymmetricCryptoKey, CoseSerializable, CryptoError,
+    EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes,
+    PrimitiveEncryptable, RotatedUserKeys, SignatureAlgorithm, SignedPublicKey, SigningKey,
+    SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
@@ -412,7 +413,9 @@ pub(super) fn enroll_admin_password_reset(
     use base64::{engine::general_purpose::STANDARD, Engine};
     use bitwarden_crypto::AsymmetricPublicCryptoKey;
 
-    let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(public_key)?)?;
+    let public_key = AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
+        STANDARD.decode(public_key)?,
+    ))?;
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
@@ -611,6 +614,56 @@ pub fn make_user_signing_keys_for_enrollment(
             .encrypt(&mut ctx, SymmetricKeyId::User)?,
         signed_public_key,
     })
+}
+
+/// A rotated set of account keys for a user
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct RotateUserKeysResponse {
+    /// The verifying key
+    pub verifying_key: String,
+    /// Signing key, encrypted with a symmetric key (user key, org key)
+    pub signing_key: EncString,
+    /// The user's public key, signed by the signing key
+    pub signed_public_key: String,
+    /// The user's public key, without signature
+    pub public_key: String,
+    /// The user's private key, encrypted with the user key
+    pub private_key: EncString,
+}
+
+impl From<RotatedUserKeys> for RotateUserKeysResponse {
+    fn from(rotated: RotatedUserKeys) -> Self {
+        RotateUserKeysResponse {
+            verifying_key: STANDARD.encode(rotated.verifying_key.to_vec()),
+            signing_key: rotated.signing_key,
+            signed_public_key: STANDARD.encode(rotated.signed_public_key.to_vec()),
+            public_key: STANDARD.encode(rotated.public_key.to_vec()),
+            private_key: rotated.private_key,
+        }
+    }
+}
+
+/// Gets a set of new wrapped account keys for a user, given a new user key.
+///
+/// In the current implementation, it just re-encrypts any existing keys. This function expects a
+/// user to be a v2 user; that is, they have a signing key, a cose user-key, and a private key
+pub(crate) fn get_v2_rotated_account_keys(
+    client: &Client,
+    user_key: String,
+) -> Result<RotateUserKeysResponse, CryptoError> {
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+
+    dangerous_get_v2_rotated_account_keys(
+        &SymmetricCryptoKey::try_from(user_key)?,
+        AsymmetricKeyId::UserPrivateKey,
+        SigningKeyId::UserSigningKey,
+        &ctx,
+    )
+    .map(Into::into)
 }
 
 #[cfg(test)]

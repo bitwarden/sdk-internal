@@ -33,11 +33,26 @@ pub struct ApiConfigurations {
     pub device_type: DeviceType,
 }
 
+/// Access and refresh tokens used for authentication and authorization.
+#[derive(Debug, Clone)]
+pub(crate) enum Tokens {
+    SdkManaged(SdkManagedTokens),
+    ClientManaged(Arc<dyn ClientManagedTokens>),
+}
+
+/// Access tokens managed by client applications, such as the web or mobile apps.
+#[async_trait::async_trait]
+pub trait ClientManagedTokens: std::fmt::Debug + Send + Sync {
+    /// Returns the access token, if available.
+    async fn get_access_token(&self) -> Option<String>;
+}
+
+/// Tokens managed by the SDK, the SDK will automatically handle token renewal.
 #[derive(Debug, Default, Clone)]
-pub(crate) struct Tokens {
+pub(crate) struct SdkManagedTokens {
     // These two fields are always written to, but they are not read
     // from the secrets manager SDK.
-    #[cfg_attr(not(feature = "internal"), allow(dead_code))]
+    #[allow(dead_code)]
     access_token: Option<String>,
     pub(crate) expires_on: Option<i64>,
 
@@ -117,11 +132,17 @@ impl InternalClient {
     }
 
     pub(crate) fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64) {
-        *self.tokens.write().expect("RwLock is not poisoned") = Tokens {
-            access_token: Some(token.clone()),
-            expires_on: Some(Utc::now().timestamp() + expires_in as i64),
-            refresh_token,
-        };
+        *self.tokens.write().expect("RwLock is not poisoned") =
+            Tokens::SdkManaged(SdkManagedTokens {
+                access_token: Some(token.clone()),
+                expires_on: Some(Utc::now().timestamp() + expires_in as i64),
+                refresh_token,
+            });
+        self.set_api_tokens_internal(token);
+    }
+
+    /// Sets api tokens for only internal API clients, use `set_tokens` for SdkManagedTokens.
+    pub(crate) fn set_api_tokens_internal(&self, token: String) {
         let mut guard = self
             .__api_configurations
             .write()
@@ -130,24 +151,6 @@ impl InternalClient {
         let inner = Arc::make_mut(&mut guard);
         inner.identity.oauth_access_token = Some(token.clone());
         inner.api.oauth_access_token = Some(token);
-    }
-
-    #[allow(missing_docs)]
-    #[cfg(feature = "internal")]
-    pub fn is_authed(&self) -> bool {
-        let is_token_set = self
-            .tokens
-            .read()
-            .expect("RwLock is not poisoned")
-            .access_token
-            .is_some();
-        let is_login_method_set = self
-            .login_method
-            .read()
-            .expect("RwLock is not poisoned")
-            .is_some();
-
-        is_token_set || is_login_method_set
     }
 
     #[allow(missing_docs)]

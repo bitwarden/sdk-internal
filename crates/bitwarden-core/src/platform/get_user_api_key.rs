@@ -63,14 +63,10 @@ pub(crate) async fn get_user_api_key(
 }
 
 fn get_login_method(client: &Client) -> Result<Arc<LoginMethod>, NotAuthenticatedError> {
-    if client.internal.is_authed() {
-        client
-            .internal
-            .get_login_method()
-            .ok_or(NotAuthenticatedError)
-    } else {
-        Err(NotAuthenticatedError)
-    }
+    client
+        .internal
+        .get_login_method()
+        .ok_or(NotAuthenticatedError)
 }
 
 /// Build the secret verification request.
