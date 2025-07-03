@@ -48,8 +48,8 @@ mod tests {
     use super::*;
     use crate::{
         traits::tests::{TestAsymmKey, TestIds, TestSigningKey, TestSymmKey},
-        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, KeyDecryptable, KeyStore,
-        Pkcs8PrivateKeyBytes, PublicKeyEncryptionAlgorithm, SignedPublicKey, SigningKey,
+        AsymmetricCryptoKey, KeyDecryptable, KeyStore, Pkcs8PrivateKeyBytes,
+        PublicKeyEncryptionAlgorithm, SignedPublicKey, SigningKey,
     };
 
     #[test]
@@ -83,10 +83,12 @@ mod tests {
 
         // Public/Private key
         assert_eq!(
-            AsymmetricPublicCryptoKey::from_der(&rotated_keys.public_key).unwrap(),
+            rotated_keys.public_key,
             ctx.get_asymmetric_key(current_user_private_key_id)
                 .unwrap()
-                .to_public_key(),
+                .to_public_key()
+                .to_der()
+                .unwrap()
         );
         let decrypted_private_key: Vec<u8> = rotated_keys
             .private_key
@@ -127,10 +129,12 @@ mod tests {
             )
             .unwrap();
         assert_eq!(
-            unwrapped_key,
+            unwrapped_key.to_der().unwrap(),
             ctx.get_asymmetric_key(current_user_private_key_id)
                 .unwrap()
                 .to_public_key()
+                .to_der()
+                .unwrap()
         );
     }
 }

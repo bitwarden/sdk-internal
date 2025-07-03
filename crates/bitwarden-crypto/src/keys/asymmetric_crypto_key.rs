@@ -17,14 +17,14 @@ pub enum PublicKeyEncryptionAlgorithm {
     RsaOaepSha1 = 0,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq)]
 pub(crate) enum RawPublicKey {
     RsaOaepSha1(RsaPublicKey),
 }
 
 /// Public key of a key pair used in a public key encryption scheme. It is used for
 /// encrypting data.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq)]
 pub struct AsymmetricPublicCryptoKey {
     inner: RawPublicKey,
 }
