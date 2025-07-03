@@ -39,7 +39,7 @@ wasm-bindgen = { workspace = true, optional = true }
 [dev-dependencies]
 rand_chacha = "0.3.1"
 tokio = { workspace = true, features = ["rt"] }
-wiremock = "0.6.0"
+wiremock = { workspace = true }
 
 [lints]
 workspace = true

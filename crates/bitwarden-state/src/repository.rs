@@ -28,65 +28,6 @@ pub trait Repository<V: RepositoryItem>: Send + Sync {
     async fn remove(&self, key: String) -> Result<(), RepositoryError>;
 }
 
-/// A simple in-memory repository implementation that uses a `HashMap` to store items.
-///
-/// Primarily used for testing and development purposes.
-pub struct MemoryRepository<V: RepositoryItem> {
-    store: std::sync::Mutex<std::collections::HashMap<String, V>>,
-}
-
-impl<V: RepositoryItem + Clone> MemoryRepository<V> {
-    /// Creates a new `MemoryRepository`.
-    pub fn new() -> Self {
-        MemoryRepository {
-            store: std::sync::Mutex::new(std::collections::HashMap::new()),
-        }
-    }
-}
-
-impl<V: RepositoryItem + Clone> Default for MemoryRepository<V> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[async_trait::async_trait]
-impl<V: RepositoryItem + Clone> Repository<V> for MemoryRepository<V> {
-    async fn get(&self, key: String) -> Result<Option<V>, RepositoryError> {
-        let store = self
-            .store
-            .lock()
-            .map_err(|e| RepositoryError::Internal(e.to_string()))?;
-        Ok(store.get(&key).cloned())
-    }
-
-    async fn list(&self) -> Result<Vec<V>, RepositoryError> {
-        let store = self
-            .store
-            .lock()
-            .map_err(|e| RepositoryError::Internal(e.to_string()))?;
-        Ok(store.values().cloned().collect())
-    }
-
-    async fn set(&self, key: String, value: V) -> Result<(), RepositoryError> {
-        let mut store = self
-            .store
-            .lock()
-            .map_err(|e| RepositoryError::Internal(e.to_string()))?;
-        store.insert(key, value);
-        Ok(())
-    }
-
-    async fn remove(&self, key: String) -> Result<(), RepositoryError> {
-        let mut store = self
-            .store
-            .lock()
-            .map_err(|e| RepositoryError::Internal(e.to_string()))?;
-        store.remove(&key);
-        Ok(())
-    }
-}
-
 /// This trait is used to mark types that can be stored in a repository.
 /// It should not be implemented manually; instead, users should
 /// use the [crate::register_repository_item] macro to register their item types.

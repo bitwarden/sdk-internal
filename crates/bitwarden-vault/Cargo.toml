@@ -18,13 +18,13 @@ keywords.workspace = true
 uniffi = [
     "bitwarden-core/uniffi",
     "bitwarden-crypto/uniffi",
-    "dep:uniffi",
+    "dep:uniffi"
 ] # Uniffi bindings
 wasm = [
     "bitwarden-core/wasm",
     "dep:tsify-next",
     "dep:wasm-bindgen",
-    "dep:wasm-bindgen-futures",
+    "dep:wasm-bindgen-futures"
 ] # WASM support
 
 [dependencies]
@@ -52,8 +52,9 @@ wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
+bitwarden-test = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
-wiremock = "0.6.0"
+wiremock = { workspace = true }
 
 [lints]
 workspace = true
