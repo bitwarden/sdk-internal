@@ -175,7 +175,7 @@ mod tests {
         let fingerprint = fingerprint("test@bitwarden.com", &pubkey).unwrap();
         assert_eq!(fingerprint, "childless-unfair-prowler-dropbox-designate");
 
-        approve_auth_request(&client, public_key.to_owned().into()).unwrap();
+        approve_auth_request(&client, public_key.to_owned()).unwrap();
     }
 
     #[tokio::test]
@@ -184,7 +184,7 @@ mod tests {
 
         let enc_user_key = "4.dxbd5OMwi/Avy7DQxvLV+Z7kDJgHBtg/jAbgYNO7QU0Zii4rLFNco2lS5aS9z42LTZHc2p5HYwn2ZwkZNfHsQ6//d5q40MDgGYJMKBXOZP62ZHhct1XsvYBmtcUtIOm5j2HSjt2pjEuGAc1LbyGIWRJJQ3Lp1ULbL2m71I+P23GF36JyOM8SUWvpvxE/3+qqVhRFPG2VqMCYa2kLLxwVfUmpV+KKjX1TXsrq6pfJIwHNwHw4h7MSfD8xTy2bx4MiBt638Z9Vt1pGsSQkh9RgPvCbnhuCpZQloUgJ8ByLVEcrlKx3yaaxiQXvte+ZhuOI7rGdjmoVoOzisooje4JgYw==".parse().unwrap();
         let dec =
-            auth_request_decrypt_user_key(private_key.to_owned().into(), enc_user_key).unwrap();
+            auth_request_decrypt_user_key(private_key.to_owned(), enc_user_key).unwrap();
 
         assert_eq!(
             &dec.to_encoded().to_vec(),
@@ -202,7 +202,7 @@ mod tests {
         let enc_master_key = "4.dxbd5OMwi/Avy7DQxvLV+Z7kDJgHBtg/jAbgYNO7QU0Zii4rLFNco2lS5aS9z42LTZHc2p5HYwn2ZwkZNfHsQ6//d5q40MDgGYJMKBXOZP62ZHhct1XsvYBmtcUtIOm5j2HSjt2pjEuGAc1LbyGIWRJJQ3Lp1ULbL2m71I+P23GF36JyOM8SUWvpvxE/3+qqVhRFPG2VqMCYa2kLLxwVfUmpV+KKjX1TXsrq6pfJIwHNwHw4h7MSfD8xTy2bx4MiBt638Z9Vt1pGsSQkh9RgPvCbnhuCpZQloUgJ8ByLVEcrlKx3yaaxiQXvte+ZhuOI7rGdjmoVoOzisooje4JgYw==".parse().unwrap();
         let enc_user_key = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=".parse().unwrap();
         let dec = auth_request_decrypt_master_key(
-            private_key.to_owned().into(),
+            private_key.to_owned(),
             enc_master_key,
             enc_user_key,
         )
@@ -251,7 +251,7 @@ mod tests {
         // Initialize an auth request, and approve it on the existing device
         let auth_req = new_auth_request(email).unwrap();
         let approved_req =
-            approve_auth_request(&existing_device, auth_req.public_key.into()).unwrap();
+            approve_auth_request(&existing_device, auth_req.public_key).unwrap();
 
         // Unlock the vault using the approved request
         new_device
