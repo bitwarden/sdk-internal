@@ -1,5 +1,5 @@
 use bitwarden_core::{Client, OrganizationId};
-use bitwarden_crypto::{Encryptable, IdentifyKey};
+use bitwarden_crypto::{CompositeEncryptable, IdentifyKey};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -85,7 +85,7 @@ impl CiphersClient {
         let cipher_key =
             Cipher::decrypt_cipher_key(&mut key_store.context(), key, &cipher_view.key)?;
 
-        let fido2_credential = fido2_credentials.encrypt(&mut key_store.context(), cipher_key)?;
+        let fido2_credential = fido2_credentials.encrypt_composite(&mut key_store.context(), cipher_key)?;
 
         Ok(fido2_credential)
     }
