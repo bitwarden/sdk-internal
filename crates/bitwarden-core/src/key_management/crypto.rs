@@ -663,7 +663,7 @@ pub(crate) fn get_v2_rotated_account_keys(
         SigningKeyId::UserSigningKey,
         &ctx,
     )
-    .map(|rotated| rotated.into())
+    .map(Into::into)
 }
 
 #[cfg(test)]
