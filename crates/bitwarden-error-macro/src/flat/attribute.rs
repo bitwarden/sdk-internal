@@ -78,7 +78,7 @@ fn flat_error_wasm(
             export interface {export_as_identifier_str} extends Error {{
                 name: "{export_as_identifier_str}";
                 variant: {ts_variant_names};
-            }};
+            }}
 
             export function {is_error_function_name}(error: any): error is {export_as_identifier_str};
         "#"##,
