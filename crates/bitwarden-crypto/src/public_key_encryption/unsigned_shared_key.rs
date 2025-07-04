@@ -5,14 +5,19 @@ pub use internal::UnsignedSharedKey;
 use rsa::Oaep;
 use serde::Deserialize;
 
-use super::{from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result},
+    from_b64_vec,
+    public_key_encryption::{
+        private_key::RawPrivateKey,
+        public_key::{AsymmetricPublicCryptoKey, RawPublicKey},
+    },
     rsa::encrypt_rsa2048_oaep_sha1,
+    split_enc_string,
     util::FromStrVisitor,
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, RawPrivateKey,
-    RawPublicKey, SymmetricCryptoKey,
+    AsymmetricCryptoKey, BitwardenLegacyKeyBytes, SymmetricCryptoKey,
 };
+
 // This module is a workaround to avoid deprecated warnings that come from the ZeroizeOnDrop
 // macro expansion
 #[allow(deprecated)]

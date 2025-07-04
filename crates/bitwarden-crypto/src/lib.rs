@@ -16,7 +16,8 @@ mod aes;
 mod content_format;
 pub use content_format::*;
 mod enc_string;
-pub use enc_string::{EncString, UnsignedSharedKey};
+pub use enc_string::EncString;
+pub(crate) use enc_string::{from_b64_vec, split_enc_string};
 mod error;
 pub use error::CryptoError;
 pub(crate) use error::Result;
@@ -38,6 +39,8 @@ mod cose;
 pub use cose::CoseSerializable;
 mod signing;
 pub use signing::*;
+mod public_key_encryption;
+pub use public_key_encryption::*;
 mod traits;
 mod xchacha20;
 pub use traits::{

@@ -6,10 +6,8 @@
 //! [SymmetricCryptoKey][crate::SymmetricCryptoKey] and
 //! [AsymmetricCryptoKey][crate::AsymmetricCryptoKey]s.
 
-mod asymmetric;
 mod symmetric;
 
-pub use asymmetric::UnsignedSharedKey;
 use base64::{engine::general_purpose::STANDARD, Engine};
 pub use symmetric::EncString;
 
@@ -26,7 +24,7 @@ fn check_length(buf: &[u8], expected: usize) -> Result<()> {
     Ok(())
 }
 
-fn from_b64_vec(s: &str) -> Result<Vec<u8>> {
+pub(crate) fn from_b64_vec(s: &str) -> Result<Vec<u8>> {
     Ok(STANDARD
         .decode(s)
         .map_err(EncStringParseError::InvalidBase64)?)
@@ -41,7 +39,7 @@ fn from_b64<const N: usize>(s: &str) -> Result<[u8; N]> {
         })?)
 }
 
-fn split_enc_string(s: &str) -> (&str, Vec<&str>) {
+pub(crate) fn split_enc_string(s: &str) -> (&str, Vec<&str>) {
     let header_parts: Vec<_> = s.split('.').collect();
 
     if header_parts.len() == 2 {

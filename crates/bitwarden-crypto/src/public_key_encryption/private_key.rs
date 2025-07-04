@@ -1,62 +1,12 @@
 use std::pin::Pin;
 
-use rsa::{pkcs8::DecodePublicKey, RsaPrivateKey, RsaPublicKey};
-use serde_repr::{Deserialize_repr, Serialize_repr};
+use rsa::RsaPrivateKey;
 
-use super::key_encryptable::CryptoKey;
 use crate::{
     error::{CryptoError, Result},
-    Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
+    public_key_encryption::public_key::{AsymmetricPublicCryptoKey, RawPublicKey},
+    CryptoKey, Pkcs8PrivateKeyBytes, PublicKeyEncryptionAlgorithm,
 };
-
-/// Algorithm / public key encryption scheme used for encryption/decryption.
-#[derive(Serialize_repr, Deserialize_repr)]
-#[repr(u8)]
-pub enum PublicKeyEncryptionAlgorithm {
-    /// RSA with OAEP padding and SHA-1 hashing.
-    RsaOaepSha1 = 0,
-}
-
-#[derive(Clone, PartialEq)]
-pub(crate) enum RawPublicKey {
-    RsaOaepSha1(RsaPublicKey),
-}
-
-/// Public key of a key pair used in a public key encryption scheme. It is used for
-/// encrypting data.
-#[derive(Clone, PartialEq)]
-pub struct AsymmetricPublicCryptoKey {
-    inner: RawPublicKey,
-}
-
-impl AsymmetricPublicCryptoKey {
-    pub(crate) fn inner(&self) -> &RawPublicKey {
-        &self.inner
-    }
-
-    /// Build a public key from the SubjectPublicKeyInfo DER.
-    pub fn from_der(der: &SpkiPublicKeyBytes) -> Result<Self> {
-        Ok(AsymmetricPublicCryptoKey {
-            inner: RawPublicKey::RsaOaepSha1(
-                RsaPublicKey::from_public_key_der(der.as_ref())
-                    .map_err(|_| CryptoError::InvalidKey)?,
-            ),
-        })
-    }
-
-    /// Makes a SubjectPublicKeyInfo DER serialized version of the public key.
-    pub fn to_der(&self) -> Result<SpkiPublicKeyBytes> {
-        use rsa::pkcs8::EncodePublicKey;
-        match &self.inner {
-            RawPublicKey::RsaOaepSha1(public_key) => Ok(public_key
-                .to_public_key_der()
-                .map_err(|_| CryptoError::InvalidKey)?
-                .as_bytes()
-                .to_owned()
-                .into()),
-        }
-    }
-}
 
 #[derive(Clone)]
 pub(crate) enum RawPrivateKey {
@@ -167,8 +117,9 @@ mod tests {
 
     use crate::{
         content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat},
-        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
-        SymmetricCryptoKey, UnsignedSharedKey,
+        public_key_encryption::public_key::AsymmetricPublicCryptoKey,
+        AsymmetricCryptoKey, Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes, SymmetricCryptoKey,
+        UnsignedSharedKey,
     };
 
     #[test]
