@@ -117,3 +117,36 @@ pub mod info_api;
 pub mod sso_api;
 
 pub mod configuration;
+
+use std::sync::Arc;
+
+#[cfg_attr(feature = "mockall", mockall::automock)]
+pub trait Api {
+    fn accounts_api(&self) -> Box<dyn accounts_api::AccountsApi>;
+    fn info_api(&self) -> Box<dyn info_api::InfoApi>;
+    fn sso_api(&self) -> Box<dyn sso_api::SsoApi>;
+}
+
+pub struct ApiClient {
+    configuration: Arc<configuration::Configuration>,
+}
+
+impl ApiClient {
+    pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
+        Self { configuration }
+    }
+}
+
+impl Api for ApiClient {
+    fn accounts_api(&self) -> Box<dyn accounts_api::AccountsApi> {
+        Box::new(accounts_api::AccountsApiClient::new(
+            self.configuration.clone(),
+        ))
+    }
+    fn info_api(&self) -> Box<dyn info_api::InfoApi> {
+        Box::new(info_api::InfoApiClient::new(self.configuration.clone()))
+    }
+    fn sso_api(&self) -> Box<dyn sso_api::SsoApi> {
+        Box::new(sso_api::SsoApiClient::new(self.configuration.clone()))
+    }
+}
