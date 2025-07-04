@@ -1,9 +1,8 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use rsa::{
     pkcs8::{EncodePrivateKey, EncodePublicKey},
-    Oaep, RsaPrivateKey, RsaPublicKey,
+    RsaPrivateKey, RsaPublicKey,
 };
-use sha1::Sha1;
 
 use crate::{
     error::{Result, RsaError, UnsupportedOperation},
@@ -53,14 +52,4 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
         public: b64,
         private: protected,
     })
-}
-
-/// Encrypt data using RSA-OAEP-SHA1 with a 2048 bit key
-pub(super) fn encrypt_rsa2048_oaep_sha1(public_key: &RsaPublicKey, data: &[u8]) -> Result<Vec<u8>> {
-    let mut rng = rand::thread_rng();
-
-    let padding = Oaep::new::<Sha1>();
-    public_key
-        .encrypt(&mut rng, padding, data)
-        .map_err(|e| CryptoError::RsaError(e.into()))
 }

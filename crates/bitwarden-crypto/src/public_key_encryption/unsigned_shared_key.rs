@@ -12,7 +12,6 @@ use crate::{
         private_key::RawPrivateKey,
         public_key::{AsymmetricPublicCryptoKey, RawPublicKey},
     },
-    rsa::encrypt_rsa2048_oaep_sha1,
     split_enc_string,
     util::FromStrVisitor,
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, SymmetricCryptoKey,
@@ -172,7 +171,7 @@ impl UnsignedSharedKey {
         match encapsulation_key.inner() {
             RawPublicKey::RsaOaepSha1(rsa_public_key) => {
                 Ok(UnsignedSharedKey::Rsa2048_OaepSha1_B64 {
-                    data: encrypt_rsa2048_oaep_sha1(
+                    data: super::hazmat::encrypt_rsa2048_oaep_sha1(
                         rsa_public_key,
                         encapsulated_key.to_encoded().as_ref(),
                     )?,
