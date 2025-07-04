@@ -1,8 +1,8 @@
-use bitwarden_crypto::{Aes256CbcHmacKey, XChaCha20Poly1305Key};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, CoseKeyBytes, CoseSerializable, CryptoError, EncString, KeyDecryptable,
-    Pkcs8PrivateKeyBytes, SecurityState, SignedSecurityState, SigningKey, UnsignedSharedKey,
+    Aes256CbcHmacKey, AsymmetricCryptoKey, CoseKeyBytes, CoseSerializable, CryptoError, EncString,
+    KeyDecryptable, Pkcs8PrivateKeyBytes, SecurityState, SignedSecurityState, SigningKey,
+    UnsignedSharedKey, XChaCha20Poly1305Key,
 };
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
@@ -48,6 +48,7 @@ pub enum EncryptionSettingsError {
     UserIdAlreadySetError(#[from] UserIdAlreadySetError),
 }
 
+#[cfg(feature = "internal")]
 pub(crate) enum AccountEncryptionKeys {
     V1 {
         user_key: Aes256CbcHmacKey,

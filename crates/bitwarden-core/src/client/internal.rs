@@ -1,7 +1,5 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
-#[cfg(feature = "internal")]
-use crate::client::encryption_settings::AccountEncryptionKeys;
 use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
@@ -14,6 +12,8 @@ use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
 use uuid::Uuid;
 
+#[cfg(feature = "internal")]
+use crate::client::encryption_settings::AccountEncryptionKeys;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::client::encryption_settings::EncryptionSettings;
 #[cfg(feature = "secrets")]
