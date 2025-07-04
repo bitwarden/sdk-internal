@@ -10,8 +10,8 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     dangerous_get_v2_rotated_account_keys, AsymmetricCryptoKey, CoseSerializable, CryptoError,
     EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes,
-    RotatedUserKeys, SecurityState, SignatureAlgorithm, SignedPublicKey, SignedSecurityState,
-    SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey, UserKey,
+    RotatedUserKeys, SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes,
+    SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
@@ -21,7 +21,9 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
-    key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId},
+    key_management::{
+        AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
+    },
     Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
 };
 

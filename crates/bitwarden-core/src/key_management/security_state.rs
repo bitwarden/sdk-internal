@@ -23,13 +23,12 @@
 use std::str::FromStr;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
+use bitwarden_crypto::{
+    CoseSerializable, CoseSign1Bytes, CryptoError, EncodingError, FromStrVisitor, KeyIds,
+    KeyStoreContext, SignedObject, SigningNamespace, VerifyingKey,
+};
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
-
-use crate::{
-    cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CoseSign1Bytes,
-    CryptoError, KeyIds, KeyStoreContext, SignedObject, SigningNamespace, VerifyingKey,
-};
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
@@ -160,24 +159,25 @@ impl schemars::JsonSchema for SignedSecurityState {
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_crypto::{KeyStore, SignatureAlgorithm, SigningKey};
+
     use super::*;
-    use crate::{
-        traits::tests::{TestIds, TestSigningKey},
-        KeyStore, SignatureAlgorithm, SigningKey,
-    };
+    use crate::key_management::{KeyIds, SigningKeyId};
 
     #[test]
     fn test_security_state_signing() {
-        let store: KeyStore<TestIds> = KeyStore::default();
+        let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let user_id = uuid::Uuid::new_v4();
         let security_state = SecurityState::initialize_for_user(user_id);
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         #[allow(deprecated)]
-        ctx.set_signing_key(TestSigningKey::B, signing_key.clone())
+        ctx.set_signing_key(SigningKeyId::Local(""), signing_key.clone())
             .unwrap();
-        let signed_security_state = security_state.sign(TestSigningKey::B, &mut ctx).unwrap();
+        let signed_security_state = security_state
+            .sign(SigningKeyId::Local(""), &mut ctx)
+            .unwrap();
 
         let verifying_key = signing_key.to_verifying_key();
         let verified_security_state = signed_security_state

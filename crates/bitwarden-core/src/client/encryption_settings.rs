@@ -1,8 +1,7 @@
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{
     Aes256CbcHmacKey, AsymmetricCryptoKey, CoseKeyBytes, CoseSerializable, CryptoError, EncString,
-    KeyDecryptable, Pkcs8PrivateKeyBytes, SecurityState, SignedSecurityState, SigningKey,
-    UnsignedSharedKey, XChaCha20Poly1305Key,
+    KeyDecryptable, Pkcs8PrivateKeyBytes, SigningKey, UnsignedSharedKey, XChaCha20Poly1305Key,
 };
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
@@ -14,7 +13,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 #[cfg(feature = "internal")]
-use crate::key_management::{AsymmetricKeyId, SigningKeyId};
+use crate::key_management::{AsymmetricKeyId, SignedSecurityState, SigningKeyId};
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::key_management::{KeyIds, SymmetricKeyId};
 use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError, VaultLockedError};
@@ -154,6 +153,8 @@ impl EncryptionSettings {
         security_state: Option<SignedSecurityState>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
+        use crate::key_management::SecurityState;
+
         let user_key = SymmetricCryptoKey::XChaCha20Poly1305Key(user_key);
 
         // For v2 users, we mandate the signing key and security state to be present

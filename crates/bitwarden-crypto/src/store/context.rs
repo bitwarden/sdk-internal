@@ -503,8 +503,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Signs the given data using the specified signing key, for the given
     /// [crate::SigningNamespace] and returns the signature and the serialized message. See
     /// [crate::SigningKey::sign]
-    #[allow(unused)]
-    pub(crate) fn sign<Message: Serialize>(
+    pub fn sign<Message: Serialize>(
         &self,
         key: Ids::Signing,
         message: &Message,

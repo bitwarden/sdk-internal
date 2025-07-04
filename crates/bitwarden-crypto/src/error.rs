@@ -121,16 +121,22 @@ pub enum SignatureError {
     InvalidNamespace,
 }
 
+/// Error type issues en- or de-coding values
 #[derive(Debug, Error)]
 pub enum EncodingError {
+    /// An error occurred while serializing or deserializing a value using COSE
     #[error("Invalid cose encoding")]
     InvalidCoseEncoding,
+    /// An error occurred while serializing or deserializing a value using CBOR
     #[error("Cbor serialization error")]
     InvalidCborSerialization,
+    /// A required value is missing from the serialized message
     #[error("Missing value {0}")]
     MissingValue(&'static str),
+    /// A value is invalid / outside the expected range
     #[error("Invalid value {0}")]
     InvalidValue(&'static str),
+    /// A value is unsupported but may be valid
     #[error("Unsupported value {0}")]
     UnsupportedValue(&'static str),
 }
