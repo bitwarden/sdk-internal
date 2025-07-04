@@ -58,6 +58,11 @@ pub struct FromStrVisitor<T>(std::marker::PhantomData<T>);
 impl<T> FromStrVisitor<T> {
     /// Create a new `FromStrVisitor` for the given type.
     pub fn new() -> Self {
+        Self::default()
+    }
+}
+impl<T> Default for FromStrVisitor<T> {
+    fn default() -> Self {
         Self(Default::default())
     }
 }
