@@ -8,8 +8,8 @@ use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
     util::FromStrVisitor,
-    Aes256CbcHmacKey, ContentFormat, KeyDecryptable, KeyEncryptable, KeyEncryptableWithContentType,
-    SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
+    Aes256CbcHmacKey, ContentFormat, CoseEncrypt0Bytes, KeyDecryptable, KeyEncryptable,
+    KeyEncryptableWithContentType, SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
 };
 
 #[cfg(feature = "wasm")]
@@ -224,9 +224,9 @@ impl std::fmt::Debug for EncString {
             }
             EncString::Cose_Encrypt0_B64 { data } => {
                 let msg = coset::CoseEncrypt0::from_slice(data.as_slice())
-                    .map(|msg| format!("{:?}", msg))
+                    .map(|msg| format!("{msg:?}"))
                     .unwrap_or_else(|_| "INVALID_COSE".to_string());
-                write!(f, "{}.{}", enc_type, msg)
+                write!(f, "{enc_type}.{msg}")
             }
         }
     }
@@ -313,8 +313,10 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (decrypted_message, _) =
-                    crate::cose::decrypt_xchacha20_poly1305(&data.to_vec().into(), key)?;
+                let (decrypted_message, _) = crate::cose::decrypt_xchacha20_poly1305(
+                    &CoseEncrypt0Bytes::from(data.as_slice()),
+                    key,
+                )?;
                 Ok(decrypted_message)
             }
             _ => Err(CryptoError::WrongKeyType),
@@ -506,7 +508,7 @@ mod tests {
         let enc_str  = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
         let enc_string: EncString = enc_str.parse().unwrap();
 
-        let debug_string = format!("{:?}", enc_string);
+        let debug_string = format!("{enc_string:?}");
         assert_eq!(debug_string, enc_str);
     }
 
