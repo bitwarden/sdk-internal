@@ -4,9 +4,7 @@ use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{
-    security_state::SignedSecurityState, EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey,
-};
+use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, SignedSecurityState, UnsignedSharedKey};
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;

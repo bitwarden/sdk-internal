@@ -1,8 +1,7 @@
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{
-    security_state::SecurityState, security_state::SignedSecurityState, AsymmetricCryptoKey,
-    CoseKeyBytes, CoseSerializable, CryptoError, EncString, KeyDecryptable, Pkcs8PrivateKeyBytes,
-    SigningKey, UnsignedSharedKey,
+    AsymmetricCryptoKey, CoseKeyBytes, CoseSerializable, CryptoError, EncString, KeyDecryptable,
+    Pkcs8PrivateKeyBytes, SecurityState, SignedSecurityState, SigningKey, UnsignedSharedKey,
 };
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};

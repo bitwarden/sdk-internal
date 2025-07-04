@@ -68,19 +68,19 @@ impl SecurityState {
     pub fn version(&self) -> u64 {
         self.version
     }
-}
 
-/// Signs the `SecurityState` with the provided signing key ID from the context.
-pub fn sign<Ids: KeyIds>(
-    security_state: &SecurityState,
-    signing_key_id: Ids::Signing,
-    ctx: &mut KeyStoreContext<Ids>,
-) -> Result<SignedSecurityState, CryptoError> {
-    Ok(SignedSecurityState(ctx.sign(
-        signing_key_id,
-        security_state,
-        &SigningNamespace::SecurityState,
-    )?))
+    /// Signs the `SecurityState` with the provided signing key ID from the context.
+    pub fn sign<Ids: KeyIds>(
+        &self,
+        signing_key_id: Ids::Signing,
+        ctx: &mut KeyStoreContext<Ids>,
+    ) -> Result<SignedSecurityState, CryptoError> {
+        Ok(SignedSecurityState(ctx.sign(
+            signing_key_id,
+            &self,
+            &SigningNamespace::SecurityState,
+        )?))
+    }
 }
 
 impl SignedSecurityState {
@@ -177,8 +177,7 @@ mod tests {
         #[allow(deprecated)]
         ctx.set_signing_key(TestSigningKey::B, signing_key.clone())
             .unwrap();
-        let signed_security_state =
-            crate::security_state::sign(&security_state, TestSigningKey::B, &mut ctx).unwrap();
+        let signed_security_state = security_state.sign(TestSigningKey::B, &mut ctx).unwrap();
 
         let verifying_key = signing_key.to_verifying_key();
         let verified_security_state = signed_security_state

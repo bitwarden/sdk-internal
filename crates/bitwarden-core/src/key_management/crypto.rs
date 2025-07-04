@@ -8,11 +8,10 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    dangerous_get_v2_rotated_account_keys, security_state::SignedSecurityState,
-    AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, RotatedUserKeys, SignatureAlgorithm,
-    SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
-    UserKey,
+    dangerous_get_v2_rotated_account_keys, AsymmetricCryptoKey, CoseSerializable, CryptoError,
+    EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes,
+    RotatedUserKeys, SecurityState, SignatureAlgorithm, SignedPublicKey, SignedSecurityState,
+    SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
@@ -647,17 +646,13 @@ pub(crate) fn make_keys_for_user_crypto_v2(
     let public_key = private_key.to_public_key();
 
     // Initialize security state for the user
-    let security_state = bitwarden_crypto::security_state::SecurityState::initialize_for_user(
+    let security_state = SecurityState::initialize_for_user(
         client
             .internal
             .get_user_id()
             .ok_or(CryptoError::UninitializedError)?,
     );
-    let signed_security_state = bitwarden_crypto::security_state::sign(
-        &security_state,
-        temporary_signing_key_id,
-        &mut ctx,
-    )?;
+    let signed_security_state = security_state.sign(temporary_signing_key_id, &mut ctx)?;
 
     Ok(EnrollUserCryptoV2Response {
         user_key: user_key.to_base64(),
