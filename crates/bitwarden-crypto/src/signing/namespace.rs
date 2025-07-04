@@ -12,8 +12,7 @@ pub enum SigningNamespace {
     /// The namespace for
     /// [`SignedPublicKey`](crate::keys::SignedPublicKey).
     SignedPublicKey = 1,
-    /// The namespace for
-    /// [`SignedSecurityState`](crate::security_state::SignedSecurityState).
+    /// The namespace for SignedSecurityState
     SecurityState = 2,
     /// This namespace is only used in tests
     #[cfg(test)]
