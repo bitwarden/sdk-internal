@@ -1,5 +1,6 @@
 use crate::{BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, SymmetricCryptoKey};
 
+/// Unwraps an encrypted symmetric key using the provided wrapping key
 pub(crate) fn unwrap_symmetric_key(
     wrapped_key: &EncString,
     wrapping_key: &SymmetricCryptoKey,
