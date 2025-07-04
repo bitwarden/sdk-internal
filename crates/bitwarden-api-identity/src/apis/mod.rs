@@ -117,3 +117,70 @@ pub mod info_api;
 pub mod sso_api;
 
 pub mod configuration;
+
+use std::sync::Arc;
+
+pub trait Api {
+    fn accounts_api(&self) -> &dyn accounts_api::AccountsApi;
+    fn info_api(&self) -> &dyn info_api::InfoApi;
+    fn sso_api(&self) -> &dyn sso_api::SsoApi;
+}
+
+pub struct ApiClient {
+    accounts_api: Box<dyn accounts_api::AccountsApi>,
+    info_api: Box<dyn info_api::InfoApi>,
+    sso_api: Box<dyn sso_api::SsoApi>,
+}
+
+impl ApiClient {
+    pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
+        Self {
+            accounts_api: Box::new(accounts_api::AccountsApiClient::new(configuration.clone())),
+            info_api: Box::new(info_api::InfoApiClient::new(configuration.clone())),
+            sso_api: Box::new(sso_api::SsoApiClient::new(configuration.clone())),
+        }
+    }
+}
+
+impl Api for ApiClient {
+    fn accounts_api(&self) -> &dyn accounts_api::AccountsApi {
+        self.accounts_api.as_ref()
+    }
+    fn info_api(&self) -> &dyn info_api::InfoApi {
+        self.info_api.as_ref()
+    }
+    fn sso_api(&self) -> &dyn sso_api::SsoApi {
+        self.sso_api.as_ref()
+    }
+}
+
+#[cfg(feature = "mockall")]
+pub struct MockApiClient {
+    pub accounts_api_mock: accounts_api::MockAccountsApi,
+    pub info_api_mock: info_api::MockInfoApi,
+    pub sso_api_mock: sso_api::MockSsoApi,
+}
+
+#[cfg(feature = "mockall")]
+impl MockApiClient {
+    pub fn new() -> Self {
+        Self {
+            accounts_api_mock: accounts_api::MockAccountsApi::new(),
+            info_api_mock: info_api::MockInfoApi::new(),
+            sso_api_mock: sso_api::MockSsoApi::new(),
+        }
+    }
+}
+
+#[cfg(feature = "mockall")]
+impl Api for MockApiClient {
+    fn accounts_api(&self) -> &dyn accounts_api::AccountsApi {
+        &self.accounts_api_mock
+    }
+    fn info_api(&self) -> &dyn info_api::InfoApi {
+        &self.info_api_mock
+    }
+    fn sso_api(&self) -> &dyn sso_api::SsoApi {
+        &self.sso_api_mock
+    }
+}
