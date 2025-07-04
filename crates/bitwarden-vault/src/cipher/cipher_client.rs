@@ -1,12 +1,12 @@
 use bitwarden_core::{Client, OrganizationId};
-use bitwarden_crypto::IdentifyKey;
+use bitwarden_crypto::{CompositeEncryptable, IdentifyKey};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
 use crate::{
     cipher::cipher::DecryptCipherListResult, Cipher, CipherError, CipherListView, CipherView,
-    DecryptError, EncryptError,
+    DecryptError, EncryptError, Fido2CredentialFullView
 };
 
 #[allow(missing_docs)]
@@ -80,6 +80,27 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let credentials = cipher_view.decrypt_fido2_credentials(&mut key_store.context())?;
         Ok(credentials)
+    }
+
+    /// Temporary method used to re-encrypt FIDO2 credentials for a cipher view.
+    /// Necessary until the TS clients utilize the SDK entirely for FIDO2 credentials management.
+    /// TS clients create decrypted FIDO2 credentials that need to be encrypted manually when encrypting
+    /// the rest of the CipherView.
+    /// TODO: Remove once TS passkey provider implementation uses SDK - PM-8313
+    #[cfg(feature = "wasm")]
+    pub fn encrypt_fido2_credentials(
+        &self,
+        cipher_view: CipherView,
+        fido2_credentials: Fido2CredentialFullView,
+    ) -> Result<crate::Fido2Credential, EncryptError> {
+        let key_store = self.client.internal.get_key_store();
+        let key = cipher_view.key_identifier();
+        let cipher_key =
+            Cipher::decrypt_cipher_key(&mut key_store.context(), key, &cipher_view.key)?;
+
+        let fido2_credential = fido2_credentials.encrypt_composite(&mut key_store.context(), cipher_key)?;
+
+        Ok(fido2_credential)
     }
 
     #[allow(missing_docs)]
