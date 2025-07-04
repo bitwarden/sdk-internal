@@ -9,10 +9,12 @@ use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use super::AsymmetricPublicCryptoKey;
 use crate::{
-    cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CoseSign1Bytes,
-    CryptoError, PublicKeyEncryptionAlgorithm, RawPublicKey, SignedObject, SigningKey,
+    cose::CoseSerializable,
+    error::EncodingError,
+    public_key_encryption::public_key::{AsymmetricPublicCryptoKey, RawPublicKey},
+    util::FromStrVisitor,
+    CoseSign1Bytes, CryptoError, PublicKeyEncryptionAlgorithm, SignedObject, SigningKey,
     SigningNamespace, SpkiPublicKeyBytes, VerifyingKey,
 };
 

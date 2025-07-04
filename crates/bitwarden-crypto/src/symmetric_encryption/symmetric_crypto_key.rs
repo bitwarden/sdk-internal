@@ -14,11 +14,11 @@ use subtle::{Choice, ConstantTimeEq};
 use typenum::U32;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::{
-    key_encryptable::CryptoKey,
-    key_id::{KeyId, KEY_ID_SIZE},
+use super::key_encryptable::CryptoKey;
+use crate::{
+    cose, keys::KeyId, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError,
+    KEY_ID_SIZE,
 };
-use crate::{cose, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError};
 
 /// [Aes256CbcKey] is a symmetric encryption key, consisting of one 256-bit key,
 /// used to decrypt legacy type 0 enc strings. The data is not authenticated
@@ -435,7 +435,7 @@ mod tests {
 
     use super::{derive_symmetric_key, SymmetricCryptoKey};
     use crate::{
-        keys::symmetric_crypto_key::{pad_key, unpad_key},
+        symmetric_encryption::symmetric_crypto_key::{pad_key, unpad_key},
         Aes256CbcHmacKey, Aes256CbcKey, BitwardenLegacyKeyBytes, XChaCha20Poly1305Key,
     };
 

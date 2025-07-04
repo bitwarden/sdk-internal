@@ -1,21 +1,8 @@
-//! Encrypted string types
-//!
-//! [EncString] and [UnsignedSharedKey] are Bitwarden specific primitive that represents a
-//! encrypted string. They are are used together with the [KeyDecryptable][crate::KeyDecryptable]
-//! and [KeyEncryptable][crate::KeyEncryptable] traits to encrypt and decrypt data using
-//! [SymmetricCryptoKey][crate::SymmetricCryptoKey] and
-//! [AsymmetricCryptoKey][crate::AsymmetricCryptoKey]s.
-
-mod asymmetric;
-mod symmetric;
-
-pub use asymmetric::UnsignedSharedKey;
 use base64::{engine::general_purpose::STANDARD, Engine};
-pub use symmetric::EncString;
 
 use crate::error::{EncStringParseError, Result};
 
-fn check_length(buf: &[u8], expected: usize) -> Result<()> {
+pub(super) fn check_length(buf: &[u8], expected: usize) -> Result<()> {
     if buf.len() < expected {
         return Err(EncStringParseError::InvalidLength {
             expected,
@@ -26,13 +13,13 @@ fn check_length(buf: &[u8], expected: usize) -> Result<()> {
     Ok(())
 }
 
-fn from_b64_vec(s: &str) -> Result<Vec<u8>> {
+pub(crate) fn from_b64_vec(s: &str) -> Result<Vec<u8>> {
     Ok(STANDARD
         .decode(s)
         .map_err(EncStringParseError::InvalidBase64)?)
 }
 
-fn from_b64<const N: usize>(s: &str) -> Result<[u8; N]> {
+pub(super) fn from_b64<const N: usize>(s: &str) -> Result<[u8; N]> {
     Ok(from_b64_vec(s)?
         .try_into()
         .map_err(|e: Vec<_>| EncStringParseError::InvalidLength {
@@ -41,7 +28,7 @@ fn from_b64<const N: usize>(s: &str) -> Result<[u8; N]> {
         })?)
 }
 
-fn split_enc_string(s: &str) -> (&str, Vec<&str>) {
+pub(crate) fn split_enc_string(s: &str) -> (&str, Vec<&str>) {
     let header_parts: Vec<_> = s.split('.').collect();
 
     if header_parts.len() == 2 {

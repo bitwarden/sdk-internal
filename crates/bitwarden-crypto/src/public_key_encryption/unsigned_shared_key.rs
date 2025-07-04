@@ -5,14 +5,18 @@ pub use internal::UnsignedSharedKey;
 use rsa::Oaep;
 use serde::Deserialize;
 
-use super::{from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result},
-    rsa::encrypt_rsa2048_oaep_sha1,
+    from_b64_vec,
+    public_key_encryption::{
+        private_key::RawPrivateKey,
+        public_key::{AsymmetricPublicCryptoKey, RawPublicKey},
+    },
+    split_enc_string,
     util::FromStrVisitor,
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, RawPrivateKey,
-    RawPublicKey, SymmetricCryptoKey,
+    AsymmetricCryptoKey, BitwardenLegacyKeyBytes, SymmetricCryptoKey,
 };
+
 // This module is a workaround to avoid deprecated warnings that come from the ZeroizeOnDrop
 // macro expansion
 #[allow(deprecated)]
@@ -167,7 +171,7 @@ impl UnsignedSharedKey {
         match encapsulation_key.inner() {
             RawPublicKey::RsaOaepSha1(rsa_public_key) => {
                 Ok(UnsignedSharedKey::Rsa2048_OaepSha1_B64 {
-                    data: encrypt_rsa2048_oaep_sha1(
+                    data: super::hazmat::encrypt_rsa2048_oaep_sha1(
                         rsa_public_key,
                         encapsulated_key.to_encoded().as_ref(),
                     )?,

@@ -12,8 +12,8 @@ use super::{
 };
 use crate::{
     util::{self},
-    BitwardenLegacyKeyBytes, CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey,
-    UserKey,
+    Aes256CbcKey, BitwardenLegacyKeyBytes, CryptoError, EncString, KeyDecryptable, Result,
+    SymmetricCryptoKey, UserKey,
 };
 
 #[allow(missing_docs)]
@@ -144,7 +144,7 @@ pub(super) fn decrypt_user_key(
         // moved to using `Aes256Cbc_HmacSha256_B64`. However, we still need to support
         // decrypting these old keys.
         EncString::Aes256Cbc_B64 { .. } => {
-            let legacy_key = SymmetricCryptoKey::Aes256CbcKey(super::Aes256CbcKey {
+            let legacy_key = SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey {
                 enc_key: Box::pin(GenericArray::clone_from_slice(key)),
             });
             user_key.decrypt_with_key(&legacy_key)?
@@ -186,8 +186,8 @@ mod tests {
 
     use super::{make_user_key, HashPurpose, Kdf, MasterKey};
     use crate::{
-        keys::{master_key::KdfDerivedKeyMaterial, symmetric_crypto_key::derive_symmetric_key},
-        EncString, SymmetricCryptoKey,
+        derive_symmetric_key, keys::master_key::KdfDerivedKeyMaterial, EncString,
+        SymmetricCryptoKey,
     };
 
     #[test]
