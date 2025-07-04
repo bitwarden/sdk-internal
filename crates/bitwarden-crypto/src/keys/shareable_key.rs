@@ -5,8 +5,10 @@ use hmac::Mac;
 use typenum::{U32, U64};
 use zeroize::{Zeroize, Zeroizing};
 
-use super::Aes256CbcHmacKey;
-use crate::util::{hkdf_expand, PbkdfSha256Hmac};
+use crate::{
+    util::{hkdf_expand, PbkdfSha256Hmac},
+    Aes256CbcHmacKey,
+};
 
 /// Derive a shareable key using hkdf from secret and name.
 ///

@@ -169,9 +169,9 @@ impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptableWithContentType<Ids, Key, O
 #[cfg(test)]
 mod tests {
     use crate::{
-        traits::{encryptable::PrimitiveEncryptableWithContentType, tests::*},
-        AsymmetricCryptoKey, ContentFormat, Decryptable, KeyStore, PrimitiveEncryptable,
-        PublicKeyEncryptionAlgorithm, SymmetricCryptoKey,
+        traits::tests::*, AsymmetricCryptoKey, ContentFormat, Decryptable, KeyStore,
+        PrimitiveEncryptable, PrimitiveEncryptableWithContentType, PublicKeyEncryptionAlgorithm,
+        SymmetricCryptoKey,
     };
 
     fn test_store() -> KeyStore<TestIds> {

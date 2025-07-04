@@ -3,8 +3,7 @@ use std::{cmp::max, pin::Pin};
 use generic_array::GenericArray;
 use typenum::U32;
 
-use super::Aes256CbcHmacKey;
-use crate::{util::hkdf_expand, CryptoError, Result};
+use crate::{util::hkdf_expand, Aes256CbcHmacKey, CryptoError, Result};
 
 /// Stretch the given key using HKDF.
 /// This can be either a kdf-derived key (PIN/Master password) or

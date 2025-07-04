@@ -84,9 +84,9 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     Ok(buffer)
 }
 
+#[cfg(test)]
 mod tests {
-    #[cfg(test)]
-    use crate::xchacha20::*;
+    use super::*;
 
     #[test]
     fn test_encrypt_decrypt_xchacha20() {

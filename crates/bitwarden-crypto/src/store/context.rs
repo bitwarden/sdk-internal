@@ -8,10 +8,10 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
-    AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
-    KeyIds, Result, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
-    SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
+    derive_shareable_key, error::UnsupportedOperation, key_wrap, signing,
+    store::backend::StoreBackend, AsymmetricCryptoKey, ContentFormat, CryptoError, EncString,
+    KeyDecryptable, KeyId, KeyIds, Result, Signature, SignatureAlgorithm, SignedObject,
+    SignedPublicKey, SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -153,38 +153,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         wrapped_key: &EncString,
     ) -> Result<Ids::Symmetric> {
         let wrapping_key = self.get_symmetric_key(wrapping_key)?;
-
-        let key = match (wrapped_key, wrapping_key) {
-            (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
-                SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
-                    crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)?,
-                ))?
-            }
-            (
-                EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
-                SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
-                crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)?,
-            ))?,
-            (
-                EncString::Cose_Encrypt0_B64 { data },
-                SymmetricCryptoKey::XChaCha20Poly1305Key(key),
-            ) => {
-                let (content_bytes, content_format) =
-                    crate::cose::decrypt_xchacha20_poly1305(data, key)?;
-                match content_format {
-                    ContentFormat::BitwardenLegacyKey => {
-                        SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(content_bytes))?
-                    }
-                    ContentFormat::CoseKey => SymmetricCryptoKey::try_from_cose(&content_bytes)?,
-                    _ => return Err(CryptoError::InvalidKey),
-                }
-            }
-            _ => return Err(CryptoError::InvalidKey),
-        };
+        let unwrapped_key = key_wrap::unwrap_symmetric_key(wrapped_key, wrapping_key)?;
 
         #[allow(deprecated)]
-        self.set_symmetric_key(new_key_id, key)?;
+        self.set_symmetric_key(new_key_id, unwrapped_key)?;
 
         // Returning the new key identifier for convenience
         Ok(new_key_id)
@@ -452,24 +424,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         data: &EncString,
     ) -> Result<Vec<u8>> {
         let key = self.get_symmetric_key(key)?;
-
-        match (data, key) {
-            (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
-                crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
-            }
-            (
-                EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
-                SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
-            (
-                EncString::Cose_Encrypt0_B64 { data },
-                SymmetricCryptoKey::XChaCha20Poly1305Key(key),
-            ) => {
-                let (data, _) = crate::cose::decrypt_xchacha20_poly1305(data, key)?;
-                Ok(data)
-            }
-            _ => Err(CryptoError::InvalidKey),
-        }
+        let data: Vec<u8> = data.decrypt_with_key(key)?;
+        Ok(data)
     }
 
     pub(crate) fn encrypt_data_with_symmetric_key(
