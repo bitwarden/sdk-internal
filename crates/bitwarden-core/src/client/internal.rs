@@ -229,8 +229,7 @@ impl InternalClient {
             private_key,
             signing_key,
             security_state,
-        );
-        Ok(())
+        )
     }
 
     #[cfg(feature = "internal")]

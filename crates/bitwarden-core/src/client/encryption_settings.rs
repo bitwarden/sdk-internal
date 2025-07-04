@@ -48,6 +48,7 @@ pub enum EncryptionSettingsError {
     UserIdAlreadySetError(#[from] UserIdAlreadySetError),
 }
 
+#[allow(clippy::large_enum_variant)]
 #[cfg(feature = "internal")]
 pub(crate) enum AccountEncryptionKeys {
     V1 {
