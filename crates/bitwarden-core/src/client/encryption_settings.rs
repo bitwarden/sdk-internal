@@ -1,23 +1,24 @@
 #[cfg(feature = "internal")]
+use crate::key_management::{AsymmetricKeyId, SigningKeyId};
+#[cfg(feature = "internal")]
 use bitwarden_crypto::{
-    security_state::SignedSecurityState, CryptoError, EncString, Pkcs8PrivateKeyBytes,
-    UnsignedSharedKey,
+    security_state::SecurityState, security_state::SignedSecurityState, AsymmetricCryptoKey,
+    CoseKeyBytes, CoseSerializable, CryptoError, EncString, KeyDecryptable, Pkcs8PrivateKeyBytes,
+    SigningKey, UnsignedSharedKey,
 };
-use bitwarden_crypto::{AsymmetricCryptoKey, KeyDecryptable};
+#[cfg(feature = "internal")]
+use log::warn;
+
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
-use log::warn;
 use thiserror::Error;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use uuid::Uuid;
 
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::key_management::{KeyIds, SymmetricKeyId};
-use crate::{
-    error::UserIdAlreadySetError, key_management::AsymmetricKeyId, MissingPrivateKeyError,
-    VaultLockedError,
-};
+use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError, VaultLockedError};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -78,6 +79,7 @@ impl EncryptionSettings {
         Ok(())
     }
 
+    #[cfg(feature = "internal")]
     fn init_v1(
         user_key: SymmetricCryptoKey,
         private_key: EncString,
@@ -106,6 +108,8 @@ impl EncryptionSettings {
             let mut ctx = store.context_mut();
             ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
             if let Some(private_key) = private_key {
+                use crate::key_management::AsymmetricKeyId;
+
                 ctx.set_asymmetric_key(AsymmetricKeyId::UserPrivateKey, private_key)?;
             }
         }
@@ -113,6 +117,7 @@ impl EncryptionSettings {
         Ok(())
     }
 
+    #[cfg(feature = "internal")]
     fn init_v2(
         user_key: SymmetricCryptoKey,
         private_key: EncString,
@@ -122,10 +127,6 @@ impl EncryptionSettings {
     ) -> Result<(), EncryptionSettingsError> {
         // For v2 users, we mandate the signing key and security state to be present
         // The private key must also be valid.
-
-        use bitwarden_crypto::{
-            security_state::SecurityState, CoseKeyBytes, CoseSerializable, SigningKey,
-        };
 
         // Both of these are required for v2 users
         let signing_key = signing_key.ok_or(CryptoError::SecurityDowngrade(
@@ -148,8 +149,6 @@ impl EncryptionSettings {
 
         #[allow(deprecated)]
         {
-            use crate::key_management::SigningKeyId;
-
             let mut ctx = store.context_mut();
             ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
             ctx.set_asymmetric_key(AsymmetricKeyId::UserPrivateKey, private_key)?;
