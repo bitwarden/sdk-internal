@@ -1,10 +1,14 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
+#[cfg(feature = "internal")]
+use crate::client::encryption_settings::AccountEncryptionKeys;
 use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, SignedSecurityState, UnsignedSharedKey};
+use bitwarden_crypto::{
+    CryptoError, EncString, Kdf, MasterKey, PinKey, SignedSecurityState, UnsignedSharedKey,
+};
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
@@ -220,14 +224,12 @@ impl InternalClient {
         security_state: Option<SignedSecurityState>,
     ) -> Result<(), EncryptionSettingsError> {
         let user_key = master_key.decrypt_user_key(user_key)?;
-        EncryptionSettings::new_decrypted_key(
+        self.initialize_user_crypto_decrypted_key(
             user_key,
             private_key,
             signing_key,
             security_state,
-            &self.key_store,
-        )?;
-
+        );
         Ok(())
     }
 
@@ -239,13 +241,33 @@ impl InternalClient {
         signing_key: Option<EncString>,
         security_state: Option<SignedSecurityState>,
     ) -> Result<(), EncryptionSettingsError> {
-        EncryptionSettings::new_decrypted_key(
-            user_key,
-            private_key,
-            signing_key,
-            security_state,
-            &self.key_store,
-        )?;
+        match user_key {
+            SymmetricCryptoKey::Aes256CbcHmacKey(ref user_key) => {
+                EncryptionSettings::new_decrypted_key(
+                    AccountEncryptionKeys::V1 {
+                        user_key: user_key.clone(),
+                        private_key,
+                    },
+                    &self.key_store,
+                )?;
+            }
+            SymmetricCryptoKey::XChaCha20Poly1305Key(ref user_key) => {
+                EncryptionSettings::new_decrypted_key(
+                    AccountEncryptionKeys::V2 {
+                        user_key: user_key.clone(),
+                        private_key,
+                        signing_key: signing_key
+                            .ok_or(EncryptionSettingsError::InvalidSigningKey)?,
+                        security_state: security_state
+                            .ok_or(EncryptionSettingsError::InvalidSecurityState)?,
+                    },
+                    &self.key_store,
+                )?;
+            }
+            _ => {
+                return Err(CryptoError::InvalidKey.into());
+            }
+        }
 
         Ok(())
     }

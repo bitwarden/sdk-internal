@@ -1,3 +1,4 @@
+use bitwarden_crypto::{Aes256CbcHmacKey, XChaCha20Poly1305Key};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{
     AsymmetricCryptoKey, CoseKeyBytes, CoseSerializable, CryptoError, EncString, KeyDecryptable,
@@ -47,6 +48,19 @@ pub enum EncryptionSettingsError {
     UserIdAlreadySetError(#[from] UserIdAlreadySetError),
 }
 
+pub(crate) enum AccountEncryptionKeys {
+    V1 {
+        user_key: Aes256CbcHmacKey,
+        private_key: EncString,
+    },
+    V2 {
+        user_key: XChaCha20Poly1305Key,
+        private_key: EncString,
+        signing_key: EncString,
+        security_state: SignedSecurityState,
+    },
+}
+
 #[allow(missing_docs)]
 pub struct EncryptionSettings {}
 
@@ -57,21 +71,34 @@ impl EncryptionSettings {
     /// discouraged
     #[cfg(feature = "internal")]
     pub(crate) fn new_decrypted_key(
-        user_key: SymmetricCryptoKey,
-        private_key: EncString,
-        signing_key: Option<EncString>,
-        security_state: Option<SignedSecurityState>,
+        encryption_keys: AccountEncryptionKeys,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
         // This is an all-or-nothing check. The server cannot pretend a signing key or security
         // state to be missing, because they are *always* present when the user key is an
         // XChaCha20Poly1305Key. Thus, the server or network cannot lie about the presence of these,
         // because otherwise the entire user account will fail to decrypt.
-        let is_v2_user = matches!(user_key, SymmetricCryptoKey::XChaCha20Poly1305Key(_));
-        if is_v2_user {
-            Self::init_v2(user_key, private_key, signing_key, security_state, store)?;
-        } else {
-            Self::init_v1(user_key, private_key, store)?;
+        match encryption_keys {
+            AccountEncryptionKeys::V1 {
+                user_key,
+                private_key,
+            } => {
+                Self::init_v1(user_key, private_key, store)?;
+            }
+            AccountEncryptionKeys::V2 {
+                user_key,
+                private_key,
+                signing_key,
+                security_state,
+            } => {
+                Self::init_v2(
+                    user_key,
+                    private_key,
+                    Some(signing_key),
+                    Some(security_state),
+                    store,
+                )?;
+            }
         }
 
         Ok(())
@@ -79,10 +106,12 @@ impl EncryptionSettings {
 
     #[cfg(feature = "internal")]
     fn init_v1(
-        user_key: SymmetricCryptoKey,
+        user_key: Aes256CbcHmacKey,
         private_key: EncString,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
+        let user_key = SymmetricCryptoKey::Aes256CbcHmacKey(user_key);
+
         let private_key = {
             let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
 
@@ -117,12 +146,14 @@ impl EncryptionSettings {
 
     #[cfg(feature = "internal")]
     fn init_v2(
-        user_key: SymmetricCryptoKey,
+        user_key: XChaCha20Poly1305Key,
         private_key: EncString,
         signing_key: Option<EncString>,
         security_state: Option<SignedSecurityState>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
+        let user_key = SymmetricCryptoKey::XChaCha20Poly1305Key(user_key);
+
         // For v2 users, we mandate the signing key and security state to be present
         // The private key must also be valid.
 
