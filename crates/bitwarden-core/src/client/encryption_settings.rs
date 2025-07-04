@@ -128,11 +128,11 @@ impl EncryptionSettings {
         };
 
         // Both of these are required for v2 users
-        let signing_key = signing_key.ok_or(EncryptionSettingsError::Crypto(
-            CryptoError::SecurityDowngrade("Signing key is required for v2 users".to_string()),
+        let signing_key = signing_key.ok_or(CryptoError::SecurityDowngrade(
+            "Signing key is required for v2 users".to_string(),
         ))?;
-        let security_state = security_state.ok_or(EncryptionSettingsError::Crypto(
-            CryptoError::SecurityDowngrade("Security state is required for v2 users".to_string()),
+        let security_state = security_state.ok_or(CryptoError::SecurityDowngrade(
+            "Security state is required for v2 users".to_string(),
         ))?;
 
         // Everything MUST decrypt.
