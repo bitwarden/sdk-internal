@@ -375,6 +375,7 @@ dependencies = [
  "rustls-platform-verifier",
  "schemars 0.8.22",
  "serde",
+ "serde_bytes",
  "serde_json",
  "serde_qs",
  "serde_repr",

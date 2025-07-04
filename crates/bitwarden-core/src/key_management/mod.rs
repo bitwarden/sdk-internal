@@ -18,6 +18,9 @@ mod crypto_client;
 #[cfg(feature = "internal")]
 pub use crypto_client::CryptoClient;
 
+mod security_state;
+pub use security_state::{SecurityState, SignedSecurityState};
+
 key_ids! {
     #[symmetric]
     pub enum SymmetricKeyId {

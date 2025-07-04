@@ -86,9 +86,7 @@ impl From<SignedPublicKey> for CoseSign1Bytes {
 impl TryFrom<CoseSign1Bytes> for SignedPublicKey {
     type Error = EncodingError;
     fn try_from(bytes: CoseSign1Bytes) -> Result<Self, EncodingError> {
-        Ok(SignedPublicKey(SignedObject::from_cose(
-            &CoseSign1Bytes::from(bytes),
-        )?))
+        Ok(SignedPublicKey(SignedObject::from_cose(&bytes)?))
     }
 }
 
@@ -115,7 +113,7 @@ impl SignedPublicKey {
         ) {
             (PublicKeyEncryptionAlgorithm::RsaOaepSha1, PublicKeyFormat::Spki) => Ok(
                 AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
-                    public_key_message.public_key.to_vec(),
+                    public_key_message.public_key.into_vec(),
                 ))
                 .map_err(|_| EncodingError::InvalidValue("public key"))?,
             ),
