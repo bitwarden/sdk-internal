@@ -28,7 +28,7 @@ validator = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt"] }
-wiremock = "0.6.0"
+wiremock = { workspace = true }
 
 [lints]
 workspace = true
