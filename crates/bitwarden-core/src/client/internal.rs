@@ -26,11 +26,53 @@ use crate::{
 };
 
 #[allow(missing_docs)]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ApiConfigurations {
-    pub identity: bitwarden_api_identity::apis::configuration::Configuration,
-    pub api: bitwarden_api_api::apis::configuration::Configuration,
+    pub identity_client: Arc<dyn bitwarden_api_identity::apis::Api + Send + Sync>,
+    pub api_client: Arc<dyn bitwarden_api_api::apis::Api + Send + Sync>,
+    pub identity_config: Arc<bitwarden_api_identity::apis::configuration::Configuration>,
+    pub api_config: Arc<bitwarden_api_api::apis::configuration::Configuration>,
     pub device_type: DeviceType,
+}
+
+/// Tokens managed by the SDK, the SDK will automatically handle token renewal.
+impl std::fmt::Debug for ApiConfigurations {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ApiConfigurations")
+            .field("device_type", &self.device_type)
+            .finish_non_exhaustive()
+    }
+}
+
+impl ApiConfigurations {
+    pub fn new(
+        identity: bitwarden_api_identity::apis::configuration::Configuration,
+        api: bitwarden_api_api::apis::configuration::Configuration,
+        device_type: DeviceType,
+    ) -> Self {
+        let identity = Arc::new(identity.clone());
+        let api = Arc::new(api.clone());
+
+        Self {
+            identity_client: Arc::new(bitwarden_api_identity::apis::ApiClient::new(
+                identity.clone(),
+            )),
+            api_client: Arc::new(bitwarden_api_api::apis::ApiClient::new(api.clone())),
+            identity_config: identity,
+            api_config: api,
+            device_type,
+        }
+    }
+
+    pub fn set_tokens(&mut self, token: String) {
+        let mut identity = (*self.identity_config).clone();
+        let mut api = (*self.api_config).clone();
+
+        identity.oauth_access_token = Some(token.clone());
+        api.oauth_access_token = Some(token);
+
+        *self = ApiConfigurations::new(identity, api, self.device_type);
+    }
 }
 
 /// Access and refresh tokens used for authentication and authorization.
@@ -47,7 +89,6 @@ pub trait ClientManagedTokens: std::fmt::Debug + Send + Sync {
     async fn get_access_token(&self) -> Option<String>;
 }
 
-/// Tokens managed by the SDK, the SDK will automatically handle token renewal.
 #[derive(Debug, Default, Clone)]
 pub(crate) struct SdkManagedTokens {
     // These two fields are always written to, but they are not read
@@ -73,7 +114,7 @@ pub struct InternalClient {
     /// Use Client::get_api_configurations().await to access this.
     /// It should only be used directly in renew_token
     #[doc(hidden)]
-    pub(crate) __api_configurations: RwLock<Arc<ApiConfigurations>>,
+    pub(crate) __api_configurations: RwLock<ApiConfigurations>,
 
     /// Reqwest client useable for external integrations like email forwarders, HIBP.
     #[allow(unused)]
@@ -143,14 +184,10 @@ impl InternalClient {
 
     /// Sets api tokens for only internal API clients, use `set_tokens` for SdkManagedTokens.
     pub(crate) fn set_api_tokens_internal(&self, token: String) {
-        let mut guard = self
-            .__api_configurations
+        self.__api_configurations
             .write()
-            .expect("RwLock is not poisoned");
-
-        let inner = Arc::make_mut(&mut guard);
-        inner.identity.oauth_access_token = Some(token.clone());
-        inner.api.oauth_access_token = Some(token);
+            .expect("RwLock is not poisoned")
+            .set_tokens(token);
     }
 
     #[allow(missing_docs)]
@@ -170,7 +207,7 @@ impl InternalClient {
     }
 
     #[allow(missing_docs)]
-    pub async fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
+    pub async fn get_api_configurations(&self) -> ApiConfigurations {
         // At the moment we ignore the error result from the token renewal, if it fails,
         // the token will end up expiring and the next operation is going to fail anyway.
         renew_token(self).await.ok();

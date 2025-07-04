@@ -160,77 +160,35 @@ pub mod configuration;
 {{#topLevelApiClient}}
 use std::sync::Arc;
 
+{{#mockall}}
+#[cfg_attr(feature = "mockall", mockall::automock)]
+{{/mockall}}
 pub trait Api {
     {{#apiInfo}}
     {{#apis}}
-    fn {{{classFilename}}}(&self) -> &dyn {{{classFilename}}}::{{classname}};
+    fn {{{classFilename}}}(&self) -> Box<dyn {{{classFilename}}}::{{classname}}>;
     {{/apis}}
     {{/apiInfo}}
 }
 
 pub struct ApiClient {
-    {{#apiInfo}}
-    {{#apis}}
-    {{{classFilename}}}: Box<dyn {{{classFilename}}}::{{classname}}>,
-    {{/apis}}
-    {{/apiInfo}}
+    configuration: Arc<configuration::Configuration>,
 }
 
 impl ApiClient {
     pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
-        Self {
-            {{#apiInfo}}
-            {{#apis}}
-            {{{classFilename}}}: Box::new({{{classFilename}}}::{{classname}}Client::new(configuration.clone())),
-            {{/apis}}
-            {{/apiInfo}}
-        }
+        Self { configuration }
     }
 }
 
 impl Api for ApiClient {
     {{#apiInfo}}
     {{#apis}}
-    fn {{{classFilename}}}(&self) -> &dyn {{{classFilename}}}::{{classname}} {
-        self.{{{classFilename}}}.as_ref()
+    fn {{{classFilename}}}(&self) -> Box<dyn {{{classFilename}}}::{{classname}}> {
+        Box::new({{{classFilename}}}::{{classname}}Client::new(self.configuration.clone()))
     }
     {{/apis}}
     {{/apiInfo}}
 }
-
-{{#mockall}}
-#[cfg(feature = "mockall")]
-pub struct MockApiClient {
-    {{#apiInfo}}
-    {{#apis}}
-    pub {{{classFilename}}}_mock: {{{classFilename}}}::Mock{{classname}},
-    {{/apis}}
-    {{/apiInfo}}
-}
-
-#[cfg(feature = "mockall")]
-impl MockApiClient {
-    pub fn new() -> Self {
-        Self {
-            {{#apiInfo}}
-            {{#apis}}
-            {{{classFilename}}}_mock: {{{classFilename}}}::Mock{{classname}}::new(),
-            {{/apis}}
-            {{/apiInfo}}
-        }
-    }
-}
-
-#[cfg(feature = "mockall")]
-impl Api for MockApiClient {
-    {{#apiInfo}}
-    {{#apis}}
-    fn {{{classFilename}}}(&self) -> &dyn {{{classFilename}}}::{{classname}} {
-        &self.{{{classFilename}}}_mock
-    }
-    {{/apis}}
-    {{/apiInfo}}
-}
-{{/mockall}}
 
 {{/topLevelApiClient}}
