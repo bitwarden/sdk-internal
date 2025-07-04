@@ -644,10 +644,7 @@ pub(crate) fn make_keys_for_user_crypto_v2(
 
     // Sign existing public key
     let signed_public_key = ctx.make_signed_public_key(private_key_id, temporary_signing_key_id)?;
-    #[allow(deprecated)]
-    let public_key = ctx
-        .dangerous_get_asymmetric_key(private_key_id)?
-        .to_public_key();
+    let public_key = private_key.to_public_key();
 
     // Initialize security state for the user
     let security_state = bitwarden_crypto::security_state::SecurityState::initialize_for_user(
