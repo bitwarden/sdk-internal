@@ -1,7 +1,4 @@
-use bitwarden_api_identity::{
-    apis::accounts_api::accounts_register_post,
-    models::{KeysRequestModel, RegisterRequestModel},
-};
+use bitwarden_api_identity::models::{KeysRequestModel, RegisterRequestModel};
 use bitwarden_crypto::{
     default_pbkdf2_iterations, CryptoError, EncString, HashPurpose, Kdf, MasterKey, RsaKeyPair,
 };
@@ -37,9 +34,10 @@ pub(super) async fn register(client: &Client, req: &RegisterRequest) -> Result<(
 
     let keys = make_register_keys(req.email.to_owned(), req.password.to_owned(), kdf)?;
 
-    accounts_register_post(
-        &config.identity,
-        Some(RegisterRequestModel {
+    config
+        .identity_client
+        .accounts_api()
+        .accounts_register_post(Some(RegisterRequestModel {
             name: req.name.to_owned(),
             email: req.email.to_owned(),
             master_password_hash: keys.master_password_hash,
@@ -57,10 +55,9 @@ pub(super) async fn register(client: &Client, req: &RegisterRequest) -> Result<(
             kdf_memory: None,
             kdf_parallelism: None,
             reference_data: None, // TODO: Add
-        }),
-    )
-    .await
-    .map_err(ApiError::from)?;
+        }))
+        .await
+        .map_err(ApiError::from)?;
 
     Ok(())
 }
