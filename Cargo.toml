@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["bitwarden_license/*", "crates/*"]
+members = ["bitwarden_license/*", "crates/*", "fuzz"]
 
 # Global settings for all crates should be defined here
 [workspace.package]
@@ -34,6 +34,8 @@ bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=1.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=1.0.0" }
 bitwarden-error = { path = "crates/bitwarden-error", version = "=1.0.0" }
 bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=1.0.0" }
+
+fuzz = { path = "fuzz", version = "=0.0.0" }
 
 # External crates that are expected to maintain a consistent version across all crates
 chrono = { version = ">=0.4.26, <0.5", features = [

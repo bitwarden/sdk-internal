@@ -13,6 +13,7 @@
 static ALLOC: ZeroizingAllocator<std::alloc::System> = ZeroizingAllocator(std::alloc::System);
 
 mod aes;
+pub use aes::generate_mac;
 mod enc_string;
 pub use enc_string::{EncString, UnsignedSharedKey};
 mod error;

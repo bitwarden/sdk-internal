@@ -11,6 +11,6 @@ mod export;
 pub(crate) use export::build_cxf;
 pub use export::Account;
 mod import;
-pub(crate) use import::parse_cxf;
+pub use import::parse_cxf;
 mod card;
 mod login;

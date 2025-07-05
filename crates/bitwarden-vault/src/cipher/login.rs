@@ -5,7 +5,7 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
-use chrono::{DateTime, Utc};
+use chrono::{Date, DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
@@ -149,6 +149,26 @@ pub struct Fido2CredentialFullView {
     pub user_display_name: Option<String>,
     pub discoverable: String,
     pub creation_date: DateTime<Utc>,
+}
+
+impl<'a> arbitrary::Arbitrary<'a> for Fido2CredentialFullView {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Fido2CredentialFullView {
+            credential_id: u.arbitrary()?,
+            key_type: u.arbitrary()?,
+            key_algorithm: u.arbitrary()?,
+            key_curve: u.arbitrary()?,
+            key_value: u.arbitrary()?,
+            rp_id: u.arbitrary()?,
+            user_handle: u.arbitrary()?,
+            user_name: u.arbitrary()?,
+            counter: u.arbitrary()?,
+            rp_name: u.arbitrary()?,
+            user_display_name: u.arbitrary()?,
+            discoverable: u.arbitrary()?,
+            creation_date: DateTime::<Utc>::from_timestamp_nanos(u.arbitrary::<i64>()?),
+        })
+    }
 }
 
 // This is mostly a copy of the Fido2CredentialView, meant to be exposed to the clients

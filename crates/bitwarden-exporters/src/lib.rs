@@ -13,7 +13,7 @@ mod uniffi_support;
 
 mod csv;
 mod cxf;
-pub use cxf::Account;
+pub use cxf::{parse_cxf, Account};
 mod encrypted_json;
 mod exporter_client;
 mod json;

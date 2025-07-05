@@ -23,6 +23,7 @@ uniffi = [
 wasm = ["dep:tsify-next", "dep:wasm-bindgen"] # WASM support
 
 [dependencies]
+arbitrary = { version = "1.4.1", features = ["derive_arbitrary"] }
 base64 = ">=0.22.1, <0.23"
 bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }

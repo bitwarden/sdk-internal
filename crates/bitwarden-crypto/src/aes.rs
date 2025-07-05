@@ -91,7 +91,7 @@ fn encrypt_aes256_internal(
 }
 
 /// Generate a MAC using HMAC-SHA256.
-fn generate_mac(mac_key: &[u8], iv: &[u8], data: &[u8]) -> Result<[u8; 32]> {
+pub fn generate_mac(mac_key: &[u8], iv: &[u8], data: &[u8]) -> Result<[u8; 32]> {
     let mut hmac =
         PbkdfSha256Hmac::new_from_slice(mac_key).expect("hmac new_from_slice should not fail");
     hmac.update(iv);

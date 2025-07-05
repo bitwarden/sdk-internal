@@ -1,0 +1,66 @@
+[package]
+name = "fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+bitwarden-crypto = { workspace = true }
+bitwarden-exporters = { workspace = true }
+bitwarden-fido = { workspace = true }
+bitwarden-vault = { workspace = true }
+chrono = { workspace = true }
+afl = "0.15.19"
+
+[[bin]]
+name = "parse_enc_buffer"
+path = "fuzz_targets/parse_enc_buffer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parse_enc_string"
+path = "fuzz_targets/parse_enc_string.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parse_symmetric_crypto_key"
+path = "fuzz_targets/parse_symmetric_crypto_key.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parse_unsigned_shared_key"
+path = "fuzz_targets/parse_unsigned_shared_key.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parse_cxf"
+path = "fuzz_targets/parse_cxf.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parse_passkey"
+path = "fuzz_targets/parse_passkey.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "generate_mac"
+path = "fuzz_targets/generate_mac.rs"
+test = false
+doc = false
+bench = false

@@ -105,7 +105,9 @@ impl TryFrom<CipherViewContainer> for Passkey {
     }
 }
 
-fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passkey, Fido2Error> {
+pub fn try_from_credential_full_view(
+    value: Fido2CredentialFullView,
+) -> Result<Passkey, Fido2Error> {
     let counter: u32 = value.counter.parse().expect("Invalid counter");
     let counter = (counter != 0).then_some(counter);
     let key_value = URL_SAFE_NO_PAD.decode(value.key_value)?;

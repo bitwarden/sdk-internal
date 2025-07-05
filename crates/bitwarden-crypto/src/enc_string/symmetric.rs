@@ -352,6 +352,12 @@ mod tests {
     };
 
     #[test]
+    fn from_buffer() {
+        let a = EncString::from_buffer(&[7]);
+        println!("{:?}", a);
+    }
+
+    #[test]
     fn test_enc_roundtrip_xchacha20() {
         let key_id = [0u8; KEY_ID_SIZE];
         let enc_key = [0u8; 32];

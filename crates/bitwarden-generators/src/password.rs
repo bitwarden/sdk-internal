@@ -130,7 +130,7 @@ impl Distribution<char> for CharSet {
 /// Represents a set of valid options to generate a password with.
 /// To get an instance of it, use
 /// [`PasswordGeneratorRequest::validate_options`](PasswordGeneratorRequest::validate_options)
-struct PasswordGeneratorOptions {
+pub struct PasswordGeneratorOptions {
     pub(super) lower: (CharSet, usize),
     pub(super) upper: (CharSet, usize),
     pub(super) number: (CharSet, usize),
@@ -224,7 +224,7 @@ impl PasswordGeneratorRequest {
 }
 
 /// Implementation of the random password generator.
-pub(crate) fn password(input: PasswordGeneratorRequest) -> Result<String, PasswordError> {
+pub fn password(input: PasswordGeneratorRequest) -> Result<String, PasswordError> {
     let options = input.validate_options()?;
     Ok(password_with_rng(rand::thread_rng(), options))
 }

@@ -9,7 +9,7 @@ use crate::{
     CipherType, ImportingCipher,
 };
 
-pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfError> {
+pub fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfError> {
     let account: CxfAccount = serde_json::from_str(&payload)?;
 
     let items: Vec<ImportingCipher> = account.items.into_iter().flat_map(parse_item).collect();
