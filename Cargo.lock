@@ -703,6 +703,7 @@ version = "1.0.0"
 dependencies = [
  "base64",
  "bitwarden-api-api",
+ "bitwarden-api-identity",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
@@ -725,7 +726,6 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wiremock",
 ]
 
 [[package]]
