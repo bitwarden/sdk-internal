@@ -1,5 +1,5 @@
 use bitwarden_api_api::apis::folders_api;
-use bitwarden_core::{key_management::KeyIds, require, ApiError, MissingFieldError};
+use bitwarden_core::{key_management::KeyIds, ApiError, MissingFieldError};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -55,8 +55,10 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
 
     let folder: Folder = resp.try_into()?;
 
+    debug_assert!(folder.id.unwrap_or_default().to_string() == folder_id);
+
     repository
-        .set(require!(folder.id).to_string(), folder.clone())
+        .set(folder_id.to_string(), folder.clone())
         .await?;
 
     Ok(key_store.decrypt(&folder)?)

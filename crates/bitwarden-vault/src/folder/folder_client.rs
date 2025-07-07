@@ -11,7 +11,7 @@ use crate::{
     CreateFolderError, EditFolderError, Folder, FolderAddEditRequest, FolderView,
 };
 
-#[allow(missing_docs)]
+/// Wrapper for folder specific functionality.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct FoldersClient {
     pub(crate) client: Client,
@@ -19,28 +19,28 @@ pub struct FoldersClient {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl FoldersClient {
-    #[allow(missing_docs)]
+    /// Encrypt a [FolderView] to a [Folder].
     pub fn encrypt(&self, folder_view: FolderView) -> Result<Folder, EncryptError> {
         let key_store = self.client.internal.get_key_store();
         let folder = key_store.encrypt(folder_view)?;
         Ok(folder)
     }
 
-    #[allow(missing_docs)]
+    /// Encrypt a [Folder] to [FolderView].
     pub fn decrypt(&self, folder: Folder) -> Result<FolderView, DecryptError> {
         let key_store = self.client.internal.get_key_store();
         let folder_view = key_store.decrypt(&folder)?;
         Ok(folder_view)
     }
 
-    #[allow(missing_docs)]
+    /// Decrypt a list of [Folder]s to a list of [FolderView]s.
     pub fn decrypt_list(&self, folders: Vec<Folder>) -> Result<Vec<FolderView>, DecryptError> {
         let key_store = self.client.internal.get_key_store();
         let views = key_store.decrypt_list(&folders)?;
         Ok(views)
     }
 
-    /// Create a new folder and save it to the server.
+    /// Create a new [Folder] and save it to the server.
     pub async fn create(
         &self,
         request: FolderAddEditRequest,
@@ -52,7 +52,7 @@ impl FoldersClient {
         create_folder(key_store, &config.api, repository.as_ref(), request).await
     }
 
-    /// Edit the folder and save it to the server.
+    /// Edit the [Folder] and save it to the server.
     pub async fn edit(
         &self,
         folder_id: &str,
@@ -74,6 +74,7 @@ impl FoldersClient {
 }
 
 impl FoldersClient {
+    /// Helper for getting the repository for folders.
     fn get_repository(&self) -> Result<Arc<dyn Repository<Folder>>, RepositoryError> {
         Ok(self
             .client
