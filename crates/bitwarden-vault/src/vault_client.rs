@@ -26,13 +26,6 @@ impl VaultClient {
         sync(&self.client, input).await
     }
 
-    /// Collection related operations.
-    pub fn collections(&self) -> CollectionsClient {
-        CollectionsClient {
-            client: self.client.clone(),
-        }
-    }
-
     /// Password history related operations.
     pub fn password_history(&self) -> PasswordHistoryClient {
         PasswordHistoryClient {
@@ -67,6 +60,13 @@ impl VaultClient {
     /// TOTP related operations.
     pub fn totp(&self) -> TotpClient {
         TotpClient {
+            client: self.client.clone(),
+        }
+    }
+
+    /// Collection related operations.
+    pub fn collections(&self) -> CollectionsClient {
+        CollectionsClient {
             client: self.client.clone(),
         }
     }

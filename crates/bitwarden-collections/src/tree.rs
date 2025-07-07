@@ -122,35 +122,35 @@ impl<T: TreeItem> Tree<T> {
     ///
     /// This contains the item, its children (or an empty vector), and its parent (if it has one)
     pub fn get_item_by_id(&self, tree_item_id: Uuid) -> Option<NodeItem<T>> {
-        let item = self.items.get(&tree_item_id);
+        let item = self.items.get(&tree_item_id)?;
+        
+        self.get_relatives(item)
+    }
 
-        if let Some(item) = item {
-            let node = self.nodes.get(item.id)?;
+    fn get_relatives(&self, item: &TreeIndex<T>) -> Option<NodeItem<T>> {
+        let node = self.nodes.get(item.id)?;
 
-            // Get the parent if it exists
-            let parent = node
-                .parent_idx
-                .and_then(|pid| self.nodes.get(pid))
-                .and_then(|p| self.items.get(&p.item_id))
-                .map(|p| p.data.clone());
+        // Get the parent if it exists
+        let parent = node
+            .parent_idx
+            .and_then(|pid| self.nodes.get(pid))
+            .and_then(|p| self.items.get(&p.item_id))
+            .map(|p| p.data.clone());
 
-            // Get any children
-            let children: Vec<T> = node
-                .children_idx
-                .iter()
-                .filter_map(|&child_id| self.nodes.get(child_id))
-                .filter_map(|child| self.items.get(&child.item_id))
-                .map(|i| i.data.clone())
-                .collect();
+        // Get any children
+        let children: Vec<T> = node
+            .children_idx
+            .iter()
+            .filter_map(|&child_id| self.nodes.get(child_id))
+            .filter_map(|child| self.items.get(&child.item_id))
+            .map(|i| i.data.clone())
+            .collect();
 
-            return Some(NodeItem {
-                item: item.data.clone(),
-                parent,
-                children,
-            });
-        }
-
-        None
+        Some(NodeItem {
+            item: item.data.clone(),
+            parent,
+            children,
+        })
     }
 
     /// Returns the list of root nodes with their children
@@ -160,6 +160,11 @@ impl<T: TreeItem> Tree<T> {
             .filter(|n| n.parent_idx.is_none())
             .filter_map(|n| self.get_item_by_id(n.item_id))
             .collect()
+    }
+
+    /// Returns a flat list of all items in the tree with relationships.
+    pub fn get_flat_items(&self) -> Vec<NodeItem<T>> {
+        self.items.values().into_iter().filter_map(|i| self.get_relatives(i)).collect()
     }
 }
 
