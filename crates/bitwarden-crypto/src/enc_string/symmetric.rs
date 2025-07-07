@@ -224,9 +224,9 @@ impl std::fmt::Debug for EncString {
             }
             EncString::Cose_Encrypt0_B64 { data } => {
                 let msg = coset::CoseEncrypt0::from_slice(data.as_slice())
-                    .map(|msg| format!("{:?}", msg))
+                    .map(|msg| format!("{msg:?}"))
                     .unwrap_or_else(|_| "INVALID_COSE".to_string());
-                write!(f, "{}.{}", enc_type, msg)
+                write!(f, "{enc_type}.{msg}")
             }
         }
     }
@@ -504,7 +504,7 @@ mod tests {
         let enc_str  = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
         let enc_string: EncString = enc_str.parse().unwrap();
 
-        let debug_string = format!("{:?}", enc_string);
+        let debug_string = format!("{enc_string:?}");
         assert_eq!(debug_string, enc_str);
     }
 

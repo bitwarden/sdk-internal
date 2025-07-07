@@ -83,6 +83,7 @@ pkcs5 = { git = "https://github.com/bitwarden/rustcrypto-formats.git", rev = "2b
 [workspace.lints.clippy]
 unused_async = "deny"
 unwrap_used = "deny"
+string_slice = "warn"
 
 [workspace.lints.rust]
 missing_docs = "warn"

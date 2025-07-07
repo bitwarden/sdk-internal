@@ -29,6 +29,7 @@ wasm = [
 ] # WASM support
 
 [dependencies]
+async-trait = { workspace = true }
 base64 = ">=0.22.1, <0.23"
 bitwarden-api-api = { workspace = true }
 bitwarden-api-identity = { workspace = true }
