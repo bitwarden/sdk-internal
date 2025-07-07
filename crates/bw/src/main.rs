@@ -154,8 +154,8 @@ async fn process_commands() -> Result<()> {
     match command.clone() {
         Commands::Login(args) => {
             let settings = args.server.map(|server| ClientSettings {
-                api_url: format!("{}/api", server),
-                identity_url: format!("{}/identity", server),
+                api_url: format!("{server}/api"),
+                identity_url: format!("{server}/identity"),
                 ..Default::default()
             });
             let client = bitwarden_core::Client::new(settings);
@@ -185,8 +185,8 @@ async fn process_commands() -> Result<()> {
             server,
         } => {
             let settings = server.map(|server| ClientSettings {
-                api_url: format!("{}/api", server),
-                identity_url: format!("{}/identity", server),
+                api_url: format!("{server}/api"),
+                identity_url: format!("{server}/identity"),
                 ..Default::default()
             });
             let client = bitwarden_core::Client::new(settings);
@@ -227,7 +227,7 @@ async fn process_commands() -> Result<()> {
                     ..Default::default()
                 })?;
 
-                println!("{}", password);
+                println!("{password}");
             }
             GeneratorCommands::Passphrase(args) => {
                 let passphrase = client.generator().passphrase(PassphraseGeneratorRequest {
@@ -237,7 +237,7 @@ async fn process_commands() -> Result<()> {
                     include_number: args.include_number,
                 })?;
 
-                println!("{}", passphrase);
+                println!("{passphrase}");
             }
         },
     };

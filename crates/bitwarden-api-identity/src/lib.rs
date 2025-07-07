@@ -3,7 +3,8 @@
     clippy::too_many_arguments,
     clippy::empty_docs,
     clippy::to_string_in_format_args,
-    clippy::needless_return
+    clippy::needless_return,
+    clippy::uninlined_format_args
 )]
 
 extern crate reqwest;
