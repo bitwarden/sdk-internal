@@ -1,6 +1,6 @@
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{
-    Aes256CbcHmacKey, AsymmetricCryptoKey, CoseKeyBytes, CoseSerializable, CryptoError, EncString,
+    Aes256CbcHmacKey, AsymmetricCryptoKey, CoseKeyBytes, CoseSerializable, EncString,
     KeyDecryptable, Pkcs8PrivateKeyBytes, SigningKey, UnsignedSharedKey, XChaCha20Poly1305Key,
 };
 #[cfg(any(feature = "internal", feature = "secrets"))]
