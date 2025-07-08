@@ -149,14 +149,16 @@ impl EncryptionSettings {
 
         let user_key = SymmetricCryptoKey::XChaCha20Poly1305Key(user_key);
 
-        // For v2 users, we mandate the signing key and security state and the private key to be present and valid
-        // Everything MUST decrypt.
+        // For v2 users, we mandate the signing key and security state and the private key to be
+        // present and valid Everything MUST decrypt.
         let signing_key: Vec<u8> = signing_key.decrypt_with_key(&user_key)?;
         let signing_key = SigningKey::from_cose(&CoseKeyBytes::from(signing_key))
             .map_err(|_| EncryptionSettingsError::InvalidSigningKey)?;
         let private_key: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
         let private_key = AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key))
             .map_err(|_| EncryptionSettingsError::InvalidPrivateKey)?;
+        // This is not used further currently, but we still need to verify that it decrypts properly
+        // and is valid.
         let _security_state: SecurityState = security_state
             .verify_and_unwrap(&signing_key.to_verifying_key())
             .map_err(|_| EncryptionSettingsError::InvalidSecurityState)?;
