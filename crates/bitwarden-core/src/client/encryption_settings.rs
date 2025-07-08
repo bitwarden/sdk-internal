@@ -92,13 +92,7 @@ impl EncryptionSettings {
                 signing_key,
                 security_state,
             } => {
-                Self::init_v2(
-                    user_key,
-                    private_key,
-                    Some(signing_key),
-                    Some(security_state),
-                    store,
-                )?;
+                Self::init_v2(user_key, private_key, signing_key, security_state, store)?;
             }
         }
 
@@ -149,25 +143,15 @@ impl EncryptionSettings {
     fn init_v2(
         user_key: XChaCha20Poly1305Key,
         private_key: EncString,
-        signing_key: Option<EncString>,
-        security_state: Option<SignedSecurityState>,
+        signing_key: EncString,
+        security_state: SignedSecurityState,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
         use crate::key_management::SecurityState;
 
         let user_key = SymmetricCryptoKey::XChaCha20Poly1305Key(user_key);
 
-        // For v2 users, we mandate the signing key and security state to be present
-        // The private key must also be valid.
-
-        // Both of these are required for v2 users
-        let signing_key = signing_key.ok_or(CryptoError::SecurityDowngrade(
-            "Signing key is required for v2 users".to_string(),
-        ))?;
-        let security_state = security_state.ok_or(CryptoError::SecurityDowngrade(
-            "Security state is required for v2 users".to_string(),
-        ))?;
-
+        // For v2 users, we mandate the signing key and security state and the private key to be present and valid
         // Everything MUST decrypt.
         let signing_key: Vec<u8> = signing_key.decrypt_with_key(&user_key)?;
         let signing_key = SigningKey::from_cose(&CoseKeyBytes::from(signing_key))
