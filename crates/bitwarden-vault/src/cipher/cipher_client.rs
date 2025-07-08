@@ -88,19 +88,16 @@ impl CiphersClient {
     /// the rest of the CipherView.
     /// TODO: Remove once TS passkey provider implementation uses SDK - PM-8313
     #[cfg(feature = "wasm")]
-    pub fn encrypt_fido2_credentials(
+    pub fn set_fido2_credentials(
         &self,
-        cipher_view: CipherView,
-        fido2_credentials: Fido2CredentialFullView,
-    ) -> Result<crate::Fido2Credential, EncryptError> {
+        mut cipher_view: CipherView,
+        fido2_credentials: Vec<Fido2CredentialFullView>,
+    ) -> Result<CipherView, CipherError> {
         let key_store = self.client.internal.get_key_store();
-        let key = cipher_view.key_identifier();
-        let cipher_key =
-            Cipher::decrypt_cipher_key(&mut key_store.context(), key, &cipher_view.key)?;
 
-        let fido2_credential = fido2_credentials.encrypt_composite(&mut key_store.context(), cipher_key)?;
+        cipher_view.set_new_fido2_credentials(&mut key_store.context(), fido2_credentials)?;
 
-        Ok(fido2_credential)
+        Ok(cipher_view)
     }
 
     #[allow(missing_docs)]
