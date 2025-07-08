@@ -5,7 +5,7 @@ use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 #[wasm_bindgen(typescript_custom_section)]
 const TOKEN_CUSTOM_TS_TYPE: &'static str = r#"
 export interface TokenProvider {
-    get_access_token(): Promise<string>;
+    get_access_token(): Promise<string | undefined>;
 }
 "#;
 
