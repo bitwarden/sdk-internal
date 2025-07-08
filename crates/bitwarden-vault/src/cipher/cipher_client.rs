@@ -6,7 +6,7 @@ use wasm_bindgen::prelude::*;
 use super::EncryptionContext;
 use crate::{
     cipher::cipher::DecryptCipherListResult, Cipher, CipherError, CipherListView, CipherView,
-    DecryptError, EncryptError, Fido2CredentialFullView
+    DecryptError, EncryptError, Fido2CredentialFullView,
 };
 
 #[allow(missing_docs)]
@@ -84,8 +84,8 @@ impl CiphersClient {
 
     /// Temporary method used to re-encrypt FIDO2 credentials for a cipher view.
     /// Necessary until the TS clients utilize the SDK entirely for FIDO2 credentials management.
-    /// TS clients create decrypted FIDO2 credentials that need to be encrypted manually when encrypting
-    /// the rest of the CipherView.
+    /// TS clients create decrypted FIDO2 credentials that need to be encrypted manually when
+    /// encrypting the rest of the CipherView.
     /// TODO: Remove once TS passkey provider implementation uses SDK - PM-8313
     #[cfg(feature = "wasm")]
     pub fn set_fido2_credentials(
