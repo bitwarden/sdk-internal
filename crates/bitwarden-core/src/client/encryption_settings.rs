@@ -130,8 +130,6 @@ impl EncryptionSettings {
             let mut ctx = store.context_mut();
             ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
             if let Some(private_key) = private_key {
-                use crate::key_management::AsymmetricKeyId;
-
                 ctx.set_asymmetric_key(AsymmetricKeyId::UserPrivateKey, private_key)?;
             }
         }
