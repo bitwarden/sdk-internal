@@ -9,8 +9,8 @@ use std::collections::HashMap;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     dangerous_get_v2_rotated_account_keys, AsymmetricCryptoKey, CoseSerializable, CryptoError,
-    EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes,
-    RotatedUserKeys, SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes,
+    CryptoStateError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
+    Pkcs8PrivateKeyBytes, SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes,
     SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use bitwarden_error::bitwarden_error;
@@ -648,12 +648,9 @@ pub(crate) fn make_keys_for_user_crypto_v2(
     let public_key = private_key.to_public_key();
 
     // Initialize security state for the user
-    let security_state = SecurityState::initialize_for_user(
-        client
-            .internal
-            .get_user_id()
-            .ok_or(CryptoError::UninitializedError)?,
-    );
+    let security_state = SecurityState::initialize_for_user(client.internal.get_user_id().ok_or(
+        CryptoError::CryptoStateError(CryptoStateError::MissingSecurityState.into()),
+    )?);
     let signed_security_state = security_state.sign(temporary_signing_key_id, &mut ctx)?;
 
     Ok(UserCryptoV2Response {
@@ -679,14 +676,41 @@ pub(crate) fn get_v2_rotated_account_keys(
     client: &Client,
 ) -> Result<UserCryptoV2Response, CryptoError> {
     let key_store = client.internal.get_key_store();
-    let ctx = key_store.context();
-    let security_state = client.internal.security_state.read().unwrap().unwrap();
+    let mut ctx = key_store.context();
+
+    let signed_security_state = client
+        .internal
+        .security_state
+        .read()
+        .expect("RwLock is not poisoned")
+        .to_owned();
+    let security_state =
+        signed_security_state
+            .as_ref()
+            .to_owned()
+            .ok_or(CryptoError::CryptoStateError(
+                CryptoStateError::MissingSecurityState,
+            ))?;
 
     let rotated_keys = dangerous_get_v2_rotated_account_keys(
-        SymmetricKeyId::UserPrivateKey,
+        AsymmetricKeyId::UserPrivateKey,
         SigningKeyId::UserSigningKey,
         &ctx,
-    );
+    )?;
+
+    Ok(UserCryptoV2Response {
+        user_key: rotated_keys.user_key.to_base64(),
+
+        private_key: rotated_keys.private_key,
+        public_key: STANDARD.encode(rotated_keys.public_key),
+        signed_public_key: SignedPublicKey::from(rotated_keys.signed_public_key),
+
+        signing_key: rotated_keys.signing_key,
+        verifying_key: STANDARD.encode(rotated_keys.verifying_key),
+
+        security_state: security_state.sign(SigningKeyId::UserSigningKey, &mut ctx)?,
+        security_version: security_state.version(),
+    })
 }
 
 #[cfg(test)]

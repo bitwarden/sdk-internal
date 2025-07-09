@@ -19,7 +19,7 @@ mod enc_string;
 pub use enc_string::{EncString, UnsignedSharedKey};
 mod error;
 pub(crate) use error::Result;
-pub use error::{CryptoError, EncodingError};
+pub use error::{CryptoError, CryptoStateError, EncodingError};
 mod fingerprint;
 pub use fingerprint::fingerprint;
 mod keys;

@@ -41,7 +41,7 @@ export type SignedSecurityState = string;
 /// It contains a version, which can only ever increment. Based on the version, old formats and
 /// features are blocked. This prevents a server from downgrading a user's account features, because
 /// only the user can create this signed object.
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SecurityState {
     /// The entity ID is a permanent, unchangeable, unique identifier for the object this security

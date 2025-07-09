@@ -1,4 +1,7 @@
 #[cfg(feature = "internal")]
+use std::sync::{Arc, RwLock};
+
+#[cfg(feature = "internal")]
 use bitwarden_crypto::{
     Aes256CbcHmacKey, AsymmetricCryptoKey, CoseKeyBytes, CoseSerializable, EncString,
     KeyDecryptable, Pkcs8PrivateKeyBytes, SigningKey, UnsignedSharedKey, XChaCha20Poly1305Key,
@@ -13,7 +16,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 #[cfg(feature = "internal")]
-use crate::key_management::{AsymmetricKeyId, SignedSecurityState, SigningKeyId};
+use crate::key_management::{AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId};
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::key_management::{KeyIds, SymmetricKeyId};
 use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError, VaultLockedError};
@@ -74,7 +77,7 @@ impl EncryptionSettings {
     pub(crate) fn new_decrypted_key(
         encryption_keys: AccountEncryptionKeys,
         store: &KeyStore<KeyIds>,
-        security_state: &RwLock<Arc<SignedSecurityState>>,
+        security_state_rwlock: &RwLock<Arc<Option<SecurityState>>>,
     ) -> Result<(), EncryptionSettingsError> {
         // This is an all-or-nothing check. The server cannot pretend a signing key or security
         // state to be missing, because they are *always* present when the user key is an
@@ -99,7 +102,7 @@ impl EncryptionSettings {
                     signing_key,
                     security_state,
                     store,
-                    security_state,
+                    security_state_rwlock,
                 )?;
             }
         }
@@ -152,7 +155,7 @@ impl EncryptionSettings {
         signing_key: EncString,
         security_state: SignedSecurityState,
         store: &KeyStore<KeyIds>,
-        sdk_security_state: &RwLock<Arc<SignedSecurityState>>,
+        sdk_security_state: &RwLock<Arc<Option<SecurityState>>>,
     ) -> Result<(), EncryptionSettingsError> {
         use crate::key_management::SecurityState;
 
@@ -166,15 +169,11 @@ impl EncryptionSettings {
         let private_key: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
         let private_key = AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key))
             .map_err(|_| EncryptionSettingsError::InvalidPrivateKey)?;
-        // This is not used further currently, but we still need to verify that it decrypts properly
-        // and is valid.
+
         let security_state: SecurityState = security_state
             .verify_and_unwrap(&signing_key.to_verifying_key())
             .map_err(|_| EncryptionSettingsError::InvalidSecurityState)?;
-        sdk_security_state
-            .write()
-            .map_err(|_| EncryptionSettingsError::VaultLocked)?
-            .replace(Arc::new(security_state));
+        *sdk_security_state.write().expect("RwLock not poisoned") = Arc::new(Some(security_state));
 
         #[allow(deprecated)]
         {

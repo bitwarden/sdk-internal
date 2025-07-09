@@ -528,12 +528,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Re-encrypts the user's keys with the provided symmetric key for a v2 user.
     pub fn dangerous_get_v2_rotated_account_keys(
         &self,
-        new_user_key: &SymmetricCryptoKey,
         current_user_private_key_id: Ids::Asymmetric,
         current_user_signing_key_id: Ids::Signing,
     ) -> Result<RotatedUserKeys> {
         crate::dangerous_get_v2_rotated_account_keys(
-            new_user_key,
             current_user_private_key_id,
             current_user_signing_key_id,
             self,
@@ -752,7 +750,6 @@ mod tests {
         let mut ctx = store.context_mut();
 
         // Generate a new user key
-        let new_user_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
         let current_user_private_key_id = TestAsymmKey::A(0);
         let current_user_signing_key_id = TestSigningKey::A(0);
 
@@ -768,7 +765,6 @@ mod tests {
         // Get the rotated account keys
         let rotated_keys = ctx
             .dangerous_get_v2_rotated_account_keys(
-                &new_user_key,
                 current_user_private_key_id,
                 current_user_signing_key_id,
             )
@@ -788,7 +784,7 @@ mod tests {
         );
         let decrypted_private_key: Vec<u8> = rotated_keys
             .private_key
-            .decrypt_with_key(&new_user_key)
+            .decrypt_with_key(&rotated_keys.user_key)
             .unwrap();
         let private_key =
             AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(decrypted_private_key))
@@ -804,7 +800,7 @@ mod tests {
         // Signing Key
         let decrypted_signing_key: Vec<u8> = rotated_keys
             .signing_key
-            .decrypt_with_key(&new_user_key)
+            .decrypt_with_key(&rotated_keys.user_key)
             .unwrap();
         let signing_key =
             SigningKey::from_cose(&CoseKeyBytes::from(decrypted_signing_key)).unwrap();

@@ -1,6 +1,7 @@
 use crate::{
-    CoseKeyBytes, CoseSerializable, CoseSign1Bytes, CryptoError, EncString, KeyEncryptable, KeyIds,
-    KeyStoreContext, SignedPublicKeyMessage, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    CoseKeyBytes, CoseSerializable, CryptoError, EncString, KeyEncryptable, KeyIds,
+    KeyStoreContext, SignedPublicKey, SignedPublicKeyMessage, SpkiPublicKeyBytes,
+    SymmetricCryptoKey,
 };
 
 /// Rotated set of account keys
@@ -12,7 +13,7 @@ pub struct RotatedUserKeys {
     /// Signing key, encrypted with a symmetric key (user key, org key)
     pub signing_key: EncString,
     /// The user's public key, signed by the signing key
-    pub signed_public_key: CoseSign1Bytes,
+    pub signed_public_key: SignedPublicKey,
     /// The user's public key, without signature
     pub public_key: SpkiPublicKeyBytes,
     /// The user's private key, encrypted with the user key
@@ -37,7 +38,7 @@ pub fn dangerous_get_v2_rotated_account_keys<Ids: KeyIds>(
         user_key: user_key.clone(),
         verifying_key: current_signing_key.to_verifying_key().to_cose(),
         signing_key: current_signing_key.to_cose().encrypt_with_key(&user_key)?,
-        signed_public_key: signed_public_key.into(),
+        signed_public_key: signed_public_key,
         public_key: current_private_key.to_public_key().to_der()?,
         private_key: current_private_key.to_der()?.encrypt_with_key(&user_key)?,
     })
@@ -74,7 +75,6 @@ mod tests {
 
         // Get the rotated account keys
         let rotated_keys = dangerous_get_v2_rotated_account_keys(
-            &new_user_key,
             current_user_private_key_id,
             current_user_signing_key_id,
             &ctx,
