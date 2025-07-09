@@ -296,11 +296,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         let mut cipher_view = self.clone();
-
-        // For compatibility reasons, we only create checksums for ciphers that have a key
-        if cipher_view.key.is_some() {
-            cipher_view.generate_checksums();
-        }
+        cipher_view.generate_checksums();
 
         Ok(Cipher {
             id: cipher_view.id,
