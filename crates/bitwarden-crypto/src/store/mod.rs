@@ -24,7 +24,7 @@
 
 use std::sync::{Arc, RwLock};
 
-use rayon::prelude::*;
+use rayon::{iter::Either, prelude::*};
 
 use crate::{CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds};
 
@@ -264,6 +264,48 @@ impl<Ids: KeyIds> KeyStore<Ids> {
             .collect();
 
         res
+    }
+
+    /// Decrypt a list of items using this key store, returning a tuple of successful and failed
+    /// items.
+    ///
+    /// # Arguments
+    /// * `data` - The list of items to decrypt.
+    ///
+    /// # Returns
+    /// A tuple containing two vectors: the first vector contains the successfully decrypted items,
+    /// and the second vector contains the original items that failed to decrypt.
+    pub fn decrypt_list_with_failures<
+        'a,
+        Key: KeyId,
+        Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Send + Sync + 'a,
+        Output: Send + Sync,
+    >(
+        &self,
+        data: &'a [Data],
+    ) -> (Vec<Output>, Vec<&'a Data>) {
+        let results: (Vec<_>, Vec<_>) = data
+            .par_chunks(batch_chunk_size(data.len()))
+            .flat_map(|chunk| {
+                let mut ctx = self.context();
+
+                chunk
+                    .iter()
+                    .map(|item| {
+                        let result = item
+                            .decrypt(&mut ctx, item.key_identifier())
+                            .map_err(|_| item);
+                        ctx.clear_local();
+                        result
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .partition_map(|result| match result {
+                Ok(output) => Either::Left(output),
+                Err(original_item) => Either::Right(original_item),
+            });
+
+        results
     }
 
     /// Encrypt a list of items using this key store. The keys returned by

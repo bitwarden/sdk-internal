@@ -1,6 +1,8 @@
 use std::str::FromStr;
 
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+#[allow(deprecated)]
+use bitwarden_crypto::dangerous_derive_kdf_material;
 use bitwarden_crypto::{
     AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, CoseKeyBytes,
     CoseSerializable, CoseSign1Bytes, CryptoError, Decryptable, EncString, Kdf, KeyDecryptable,
@@ -311,6 +313,16 @@ impl PureCrypto {
             .map(|public_key| public_key.to_der())?
             .map(|pk| pk.to_vec())
     }
+
+    /// Derive output of the KDF for a [bitwarden_crypto::Kdf] configuration.
+    pub fn derive_kdf_material(
+        password: &[u8],
+        salt: &[u8],
+        kdf: Kdf,
+    ) -> Result<Vec<u8>, CryptoError> {
+        #[allow(deprecated)]
+        dangerous_derive_kdf_material(password, salt, &kdf)
+    }
 }
 
 #[cfg(test)]
@@ -426,6 +438,16 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         73, 4, 134, 242, 24, 56, 54, 38, 178, 59, 11, 118, 230, 159, 87, 91, 20, 237, 188, 186,
         216, 86, 189, 50, 46, 173, 117, 36, 54, 105, 216, 9,
     ];
+
+    const DERIVED_KDF_MATERIAL_PBKDF2: &[u8] = &[
+        129, 57, 137, 140, 156, 220, 110, 212, 201, 255, 52, 182, 22, 206, 221, 66, 136, 199, 181,
+        89, 252, 175, 82, 168, 79, 204, 88, 174, 166, 60, 52, 79,
+    ];
+    const DERIVED_KDF_MATERIAL_ARGON2ID: &[u8] = &[
+        221, 57, 158, 206, 27, 154, 188, 170, 33, 198, 250, 144, 191, 231, 29, 74, 201, 102, 253,
+        77, 8, 128, 173, 111, 217, 41, 125, 9, 156, 52, 112, 140,
+    ];
+
     #[test]
     fn test_symmetric_decrypt() {
         let enc_string = EncString::from_str(ENCRYPTED).unwrap();
@@ -618,5 +640,29 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         )
         .unwrap();
         assert_eq!(public_key, PUBLIC_KEY);
+    }
+
+    #[test]
+    fn test_derive_pbkdf2_output() {
+        let password = "test_password".as_bytes();
+        let email = "test_email@example.com".as_bytes();
+        let kdf = Kdf::PBKDF2 {
+            iterations: NonZero::try_from(600000).unwrap(),
+        };
+        let derived_key = PureCrypto::derive_kdf_material(password, email, kdf).unwrap();
+        assert_eq!(derived_key, DERIVED_KDF_MATERIAL_PBKDF2);
+    }
+
+    #[test]
+    fn test_derived_argon2_output() {
+        let password = "test_password".as_bytes();
+        let email = "test_email@example.com".as_bytes();
+        let kdf = Kdf::Argon2id {
+            iterations: NonZero::try_from(3).unwrap(),
+            memory: NonZero::try_from(64).unwrap(),
+            parallelism: NonZero::try_from(4).unwrap(),
+        };
+        let derived_key = PureCrypto::derive_kdf_material(password, email, kdf).unwrap();
+        assert_eq!(derived_key, DERIVED_KDF_MATERIAL_ARGON2ID);
     }
 }

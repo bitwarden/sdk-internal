@@ -21,7 +21,7 @@ pub struct BitwardenClient(pub(crate) Client);
 impl BitwardenClient {
     #[allow(missing_docs)]
     #[wasm_bindgen(constructor)]
-    pub fn new(settings: Option<ClientSettings>, token_provider: JsTokenProvider) -> Self {
+    pub fn new(token_provider: JsTokenProvider, settings: Option<ClientSettings>) -> Self {
         let tokens = Arc::new(WasmClientManagedTokens::new(token_provider));
         Self(Client::new_with_client_tokens(settings, tokens))
     }

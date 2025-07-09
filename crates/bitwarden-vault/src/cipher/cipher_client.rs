@@ -4,7 +4,10 @@ use bitwarden_crypto::IdentifyKey;
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
-use crate::{Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError};
+use crate::{
+    cipher::cipher::DecryptCipherListResult, Cipher, CipherError, CipherListView, CipherView,
+    DecryptError, EncryptError,
+};
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -57,6 +60,18 @@ impl CiphersClient {
         Ok(cipher_views)
     }
 
+    /// Decrypt cipher list with failures
+    /// Returns both successfully decrypted ciphers and any that failed to decrypt
+    pub fn decrypt_list_with_failures(&self, ciphers: Vec<Cipher>) -> DecryptCipherListResult {
+        let key_store = self.client.internal.get_key_store();
+        let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+
+        DecryptCipherListResult {
+            successes,
+            failures: failures.into_iter().cloned().collect(),
+        }
+    }
+
     #[allow(missing_docs)]
     pub fn decrypt_fido2_credentials(
         &self,
@@ -97,50 +112,6 @@ mod tests {
 
     use super::*;
     use crate::{Attachment, CipherRepromptType, CipherType, Login, VaultClientExt};
-
-    #[tokio::test]
-    async fn test_decrypt_list() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
-
-        let dec = client
-            .vault()
-            .ciphers()
-            .decrypt_list(vec![Cipher {
-                id: Some("a1569f46-0797-4d3f-b859-b181009e2e49".parse().unwrap()),
-                organization_id: Some("1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap()),
-                folder_id: None,
-                collection_ids: vec!["66c5ca57-0868-4c7e-902f-b181009709c0".parse().unwrap()],
-                key: None,
-                name: "2.RTdUGVWYl/OZHUMoy68CMg==|sCaT5qHx8i0rIvzVrtJKww==|jB8DsRws6bXBtXNfNXUmFJ0JLDlB6GON6Y87q0jgJ+0=".parse().unwrap(),
-                notes: None,
-                r#type: CipherType::Login,
-                login: Some(Login{
-                    username: Some("2.ouEYEk+SViUtqncesfe9Ag==|iXzEJq1zBeNdDbumFO1dUA==|RqMoo9soSwz/yB99g6YPqk8+ASWRcSdXsKjbwWzyy9U=".parse().unwrap()),
-                    password: Some("2.6yXnOz31o20Z2kiYDnXueA==|rBxTb6NK9lkbfdhrArmacw==|ogZir8Z8nLgiqlaLjHH+8qweAtItS4P2iPv1TELo5a0=".parse().unwrap()),
-                    password_revision_date: None, uris:None, totp: None, autofill_on_page_load: None, fido2_credentials: None }),
-                identity: None,
-                card: None,
-                secure_note: None,
-                ssh_key: None,
-                favorite: false,
-                reprompt: CipherRepromptType::None,
-                organization_use_totp: true,
-                edit: true,
-                permissions: None,
-                view_password: true,
-                local_data: None,
-                attachments: None,
-                fields:  None,
-                password_history: None,
-                creation_date: "2024-05-31T09:35:55.12Z".parse().unwrap(),
-                deleted_date: None,
-                revision_date: "2024-05-31T09:35:55.12Z".parse().unwrap(),
-            }])
-
-            .unwrap();
-
-        assert_eq!(dec[0].name, "Test item");
-    }
 
     fn test_cipher() -> Cipher {
         Cipher {
@@ -201,6 +172,84 @@ mod tests {
             size: Some("65".to_string()),
             size_name: Some("65 Bytes".to_string()),
         }
+    }
+
+    #[tokio::test]
+    async fn test_decrypt_list() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let dec = client
+            .vault()
+            .ciphers()
+            .decrypt_list(vec![Cipher {
+                id: Some("a1569f46-0797-4d3f-b859-b181009e2e49".parse().unwrap()),
+                organization_id: Some("1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap()),
+                folder_id: None,
+                collection_ids: vec!["66c5ca57-0868-4c7e-902f-b181009709c0".parse().unwrap()],
+                key: None,
+                name: "2.RTdUGVWYl/OZHUMoy68CMg==|sCaT5qHx8i0rIvzVrtJKww==|jB8DsRws6bXBtXNfNXUmFJ0JLDlB6GON6Y87q0jgJ+0=".parse().unwrap(),
+                notes: None,
+                r#type: CipherType::Login,
+                login: Some(Login{
+                    username: Some("2.ouEYEk+SViUtqncesfe9Ag==|iXzEJq1zBeNdDbumFO1dUA==|RqMoo9soSwz/yB99g6YPqk8+ASWRcSdXsKjbwWzyy9U=".parse().unwrap()),
+                    password: Some("2.6yXnOz31o20Z2kiYDnXueA==|rBxTb6NK9lkbfdhrArmacw==|ogZir8Z8nLgiqlaLjHH+8qweAtItS4P2iPv1TELo5a0=".parse().unwrap()),
+                    password_revision_date: None, uris:None, totp: None, autofill_on_page_load: None, fido2_credentials: None }),
+                identity: None,
+                card: None,
+                secure_note: None,
+                ssh_key: None,
+                favorite: false,
+                reprompt: CipherRepromptType::None,
+                organization_use_totp: true,
+                edit: true,
+                permissions: None,
+                view_password: true,
+                local_data: None,
+                attachments: None,
+                fields:  None,
+                password_history: None,
+                creation_date: "2024-05-31T09:35:55.12Z".parse().unwrap(),
+                deleted_date: None,
+                revision_date: "2024-05-31T09:35:55.12Z".parse().unwrap(),
+            }])
+
+            .unwrap();
+
+        assert_eq!(dec[0].name, "Test item");
+    }
+
+    #[tokio::test]
+    async fn test_decrypt_list_with_failures_all_success() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let valid_cipher = test_cipher();
+
+        let result = client
+            .vault()
+            .ciphers()
+            .decrypt_list_with_failures(vec![valid_cipher]);
+
+        assert_eq!(result.successes.len(), 1);
+        assert!(result.failures.is_empty());
+        assert_eq!(result.successes[0].name, "234234");
+    }
+
+    #[tokio::test]
+    async fn test_decrypt_list_with_failures_mixed_results() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let valid_cipher = test_cipher();
+        let mut invalid_cipher = test_cipher();
+        // Set an invalid encryptedkey to cause decryption failure
+        invalid_cipher.key = Some("2.Gg8yCM4IIgykCZyq0O4+cA==|GJLBtfvSJTDJh/F7X4cJPkzI6ccnzJm5DYl3yxOW2iUn7DgkkmzoOe61sUhC5dgVdV0kFqsZPcQ0yehlN1DDsFIFtrb4x7LwzJNIkMgxNyg=|1rGkGJ8zcM5o5D0aIIwAyLsjMLrPsP3EWm3CctBO3Fw=".parse().unwrap());
+
+        let ciphers = vec![valid_cipher, invalid_cipher.clone()];
+
+        let result = client.vault().ciphers().decrypt_list_with_failures(ciphers);
+
+        assert_eq!(result.successes.len(), 1);
+        assert_eq!(result.failures.len(), 1);
+
+        assert_eq!(result.successes[0].name, "234234");
     }
 
     #[tokio::test]
