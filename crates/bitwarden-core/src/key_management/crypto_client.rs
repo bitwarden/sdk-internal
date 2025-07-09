@@ -19,7 +19,7 @@ use crate::{
     client::encryption_settings::EncryptionSettingsError,
     key_management::crypto::{
         get_v2_rotated_account_keys, make_keys_for_user_crypto_v2, CryptoClientError,
-        EnrollUserCryptoV2Response, RotateUserKeysResponse,
+        RotateUserKeysResponse, UserCryptoV2Response,
     },
     Client,
 };
@@ -67,7 +67,7 @@ impl CryptoClient {
     }
 
     /// Makes a new signing key pair and signs the public key for the user
-    pub fn make_keys_for_user_crypto_v2(&self) -> Result<EnrollUserCryptoV2Response, CryptoError> {
+    pub fn make_keys_for_user_crypto_v2(&self) -> Result<UserCryptoV2Response, CryptoError> {
         make_keys_for_user_crypto_v2(&self.client)
     }
 

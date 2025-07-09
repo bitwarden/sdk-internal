@@ -74,6 +74,7 @@ impl EncryptionSettings {
     pub(crate) fn new_decrypted_key(
         encryption_keys: AccountEncryptionKeys,
         store: &KeyStore<KeyIds>,
+        security_state: &RwLock<Arc<SignedSecurityState>>,
     ) -> Result<(), EncryptionSettingsError> {
         // This is an all-or-nothing check. The server cannot pretend a signing key or security
         // state to be missing, because they are *always* present when the user key is an
@@ -92,7 +93,14 @@ impl EncryptionSettings {
                 signing_key,
                 security_state,
             } => {
-                Self::init_v2(user_key, private_key, signing_key, security_state, store)?;
+                Self::init_v2(
+                    user_key,
+                    private_key,
+                    signing_key,
+                    security_state,
+                    store,
+                    security_state,
+                )?;
             }
         }
 
@@ -144,6 +152,7 @@ impl EncryptionSettings {
         signing_key: EncString,
         security_state: SignedSecurityState,
         store: &KeyStore<KeyIds>,
+        sdk_security_state: &RwLock<Arc<SignedSecurityState>>,
     ) -> Result<(), EncryptionSettingsError> {
         use crate::key_management::SecurityState;
 
@@ -159,9 +168,13 @@ impl EncryptionSettings {
             .map_err(|_| EncryptionSettingsError::InvalidPrivateKey)?;
         // This is not used further currently, but we still need to verify that it decrypts properly
         // and is valid.
-        let _security_state: SecurityState = security_state
+        let security_state: SecurityState = security_state
             .verify_and_unwrap(&signing_key.to_verifying_key())
             .map_err(|_| EncryptionSettingsError::InvalidSecurityState)?;
+        sdk_security_state
+            .write()
+            .map_err(|_| EncryptionSettingsError::VaultLocked)?
+            .replace(Arc::new(security_state));
 
         #[allow(deprecated)]
         {

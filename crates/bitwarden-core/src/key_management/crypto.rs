@@ -589,7 +589,7 @@ pub(super) fn verify_asymmetric_keys(
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct EnrollUserCryptoV2Response {
+pub struct UserCryptoV2Response {
     /// User key
     user_key: String,
 
@@ -616,7 +616,7 @@ pub struct EnrollUserCryptoV2Response {
 /// re-used.
 pub(crate) fn make_keys_for_user_crypto_v2(
     client: &Client,
-) -> Result<EnrollUserCryptoV2Response, CryptoError> {
+) -> Result<UserCryptoV2Response, CryptoError> {
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context();
 
@@ -656,7 +656,7 @@ pub(crate) fn make_keys_for_user_crypto_v2(
     );
     let signed_security_state = security_state.sign(temporary_signing_key_id, &mut ctx)?;
 
-    Ok(EnrollUserCryptoV2Response {
+    Ok(UserCryptoV2Response {
         user_key: user_key.to_base64(),
 
         private_key: private_key.to_der()?.encrypt_with_key(&user_key)?,
@@ -671,54 +671,22 @@ pub(crate) fn make_keys_for_user_crypto_v2(
     })
 }
 
-/// A rotated set of account keys for a user
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct RotateUserKeysResponse {
-    /// The verifying key
-    pub verifying_key: String,
-    /// Signing key, encrypted with a symmetric key (user key, org key)
-    pub signing_key: EncString,
-    /// The user's public key, signed by the signing key
-    pub signed_public_key: String,
-    /// The user's public key, without signature
-    pub public_key: String,
-    /// The user's private key, encrypted with the user key
-    pub private_key: EncString,
-}
-
-impl From<RotatedUserKeys> for RotateUserKeysResponse {
-    fn from(rotated: RotatedUserKeys) -> Self {
-        RotateUserKeysResponse {
-            verifying_key: STANDARD.encode(rotated.verifying_key.to_vec()),
-            signing_key: rotated.signing_key,
-            signed_public_key: STANDARD.encode(rotated.signed_public_key.to_vec()),
-            public_key: STANDARD.encode(rotated.public_key.to_vec()),
-            private_key: rotated.private_key,
-        }
-    }
-}
-
 /// Gets a set of new wrapped account keys for a user, given a new user key.
 ///
 /// In the current implementation, it just re-encrypts any existing keys. This function expects a
 /// user to be a v2 user; that is, they have a signing key, a cose user-key, and a private key
 pub(crate) fn get_v2_rotated_account_keys(
     client: &Client,
-    user_key: String,
-) -> Result<RotateUserKeysResponse, CryptoError> {
+) -> Result<UserCryptoV2Response, CryptoError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
+    let security_state = client.internal.security_state.read().unwrap().unwrap();
 
-    dangerous_get_v2_rotated_account_keys(
-        &SymmetricCryptoKey::try_from(user_key)?,
-        AsymmetricKeyId::UserPrivateKey,
+    let rotated_keys = dangerous_get_v2_rotated_account_keys(
+        SymmetricKeyId::UserPrivateKey,
         SigningKeyId::UserSigningKey,
         &ctx,
-    )
-    .map(Into::into)
+    );
 }
 
 #[cfg(test)]

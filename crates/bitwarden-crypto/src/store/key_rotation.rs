@@ -5,6 +5,8 @@ use crate::{
 
 /// Rotated set of account keys
 pub struct RotatedUserKeys {
+    /// The user's user key
+    pub user_key: SymmetricCryptoKey,
     /// The verifying key
     pub verifying_key: CoseKeyBytes,
     /// Signing key, encrypted with a symmetric key (user key, org key)
@@ -19,11 +21,12 @@ pub struct RotatedUserKeys {
 
 /// Re-encrypts the user's keys with the provided symmetric key for a v2 user.
 pub fn dangerous_get_v2_rotated_account_keys<Ids: KeyIds>(
-    new_user_key: &SymmetricCryptoKey,
     current_user_private_key_id: Ids::Asymmetric,
     current_user_signing_key_id: Ids::Signing,
     ctx: &KeyStoreContext<Ids>,
 ) -> Result<RotatedUserKeys, CryptoError> {
+    let user_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+
     let current_private_key = ctx.get_asymmetric_key(current_user_private_key_id)?;
     let current_signing_key = ctx.get_signing_key(current_user_signing_key_id)?;
 
@@ -31,15 +34,12 @@ pub fn dangerous_get_v2_rotated_account_keys<Ids: KeyIds>(
         SignedPublicKeyMessage::from_public_key(&current_private_key.to_public_key())?
             .sign(current_signing_key)?;
     Ok(RotatedUserKeys {
+        user_key: user_key.clone(),
         verifying_key: current_signing_key.to_verifying_key().to_cose(),
-        signing_key: current_signing_key
-            .to_cose()
-            .encrypt_with_key(new_user_key)?,
+        signing_key: current_signing_key.to_cose().encrypt_with_key(&user_key)?,
         signed_public_key: signed_public_key.into(),
         public_key: current_private_key.to_public_key().to_der()?,
-        private_key: current_private_key
-            .to_der()?
-            .encrypt_with_key(new_user_key)?,
+        private_key: current_private_key.to_der()?.encrypt_with_key(&user_key)?,
     })
 }
 

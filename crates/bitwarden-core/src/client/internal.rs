@@ -84,6 +84,7 @@ pub struct InternalClient {
     pub(crate) external_client: reqwest::Client,
 
     pub(super) key_store: KeyStore<KeyIds>,
+    pub(crate) security_state: RwLock<Arc<Option<SignedSecurityState>>>,
 
     #[cfg(feature = "internal")]
     pub(crate) repository_map: StateRegistry,
@@ -248,6 +249,7 @@ impl InternalClient {
                         private_key,
                     },
                     &self.key_store,
+                    &self.security_state,
                 )?;
             }
             SymmetricCryptoKey::XChaCha20Poly1305Key(ref user_key) => {
@@ -261,6 +263,7 @@ impl InternalClient {
                             .ok_or(EncryptionSettingsError::InvalidSecurityState)?,
                     },
                     &self.key_store,
+                    &self.security_state,
                 )?;
             }
             _ => {
