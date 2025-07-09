@@ -16,7 +16,11 @@ uniffi = [
     "bitwarden-crypto/uniffi",
     "dep:uniffi"
 ] # Uniffi bindings
-wasm = ["dep:tsify-next", "dep:wasm-bindgen"] # WASM support
+wasm = [
+    "bitwarden-core/wasm",
+    "dep:tsify-next",
+    "dep:wasm-bindgen"
+] # WASM support
 
 [dependencies]
 bitwarden-api-api = { workspace = true }

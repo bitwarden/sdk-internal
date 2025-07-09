@@ -40,6 +40,7 @@ pub struct NodeItem<T: TreeItem> {
     pub item: T,
     pub parent: Option<T>,
     pub children: Vec<T>,
+    pub ancestors: HashMap<Uuid, String>
 }
 
 #[allow(missing_docs)]
@@ -146,10 +147,25 @@ impl<T: TreeItem> Tree<T> {
             .map(|i| i.data.clone())
             .collect();
 
+        // Get names and ids of ancestors
+        let ancestors = std::iter::successors(node.parent_idx, |&parent_id| {
+            self.nodes
+                .get(parent_id)
+                .and_then(|node| node.parent_idx)
+        })
+            .filter_map(|parent_id| {
+                self.nodes
+                    .get(parent_id)
+                    .and_then(|parent_node| self.items.get(&parent_node.item_id))
+                    .map(|parent_item| (parent_item.data.id(), parent_item.data.short_name().to_string()))
+            })
+            .collect();
+
         Some(NodeItem {
             item: item.data.clone(),
             parent,
             children,
+            ancestors,
         })
     }
 
@@ -164,7 +180,7 @@ impl<T: TreeItem> Tree<T> {
 
     /// Returns a flat list of all items in the tree with relationships.
     pub fn get_flat_items(&self) -> Vec<NodeItem<T>> {
-        self.items.values().into_iter().filter_map(|i| self.get_relatives(i)).collect()
+        self.items.values().filter_map(|i| self.get_relatives(i)).collect()
     }
 }
 
@@ -225,12 +241,14 @@ mod tests {
         let item = node.item;
         let parent = node.parent;
         let children = node.children;
+        let ancestors = node.ancestors;
 
         assert_eq!(children.len(), 2);
         assert_eq!(item.id(), parent_id);
         assert_eq!(item.short_name(), "parent");
         assert_eq!(item.path(), ["parent"]);
         assert!(parent.is_none());
+        assert!(ancestors.is_empty());
     }
 
     #[test]
@@ -260,12 +278,15 @@ mod tests {
         let item = node.item;
         let parent = node.parent;
         let children = node.children;
+        let ancestors = node.ancestors;
 
         assert_eq!(children.len(), 0);
         assert_eq!(item.id(), child_1_id);
         assert_eq!(item.short_name(), "child1");
         assert_eq!(item.path(), ["parent", "child1"]);
         assert_eq!(parent.unwrap().id, parent_id);
+        assert_eq!(ancestors.len(), 1);
+        assert_eq!(ancestors.get(&parent_id).unwrap(), "parent");
     }
 
     #[test]
@@ -295,11 +316,54 @@ mod tests {
         let item = node.item;
         let parent = node.parent;
         let children = node.children;
+        let ancestors = node.ancestors;
 
         assert_eq!(children.len(), 0);
         assert_eq!(item.id(), child_1_id);
         assert_eq!(item.short_name(), "child1");
         assert_eq!(item.path(), ["grandparent", "parent", "child1"]);
         assert!(parent.is_none());
+        assert_eq!(ancestors.len(), 1);
+        assert_eq!(ancestors.get(&grandparent_id).unwrap(), "grandparent");
+    }
+
+    #[test]
+    fn given_collection_with_child_who_has_parent_and_grandparent_returns_correct_ancestors(
+    ) {
+        let child_1_id = Uuid::new_v4();
+        let parent_id = Uuid::new_v4();
+        let grandparent_id = Uuid::new_v4();
+        let items = vec![
+            TestItem {
+                id: child_1_id,
+                name: "grandparent/parent/child".to_string(),
+            },
+            TestItem {
+                id: parent_id,
+                name: "grandparent/parent".to_string(),
+            },
+            TestItem {
+                id: grandparent_id,
+                name: "grandparent".to_string(),
+            },
+        ];
+
+        let node = Tree::from_items(items)
+            .get_item_by_id(child_1_id)
+            .expect("Node not found");
+
+        let item = node.item;
+        let parent = node.parent;
+        let children = node.children;
+        let ancestors = node.ancestors;
+
+        assert_eq!(children.len(), 0);
+        assert_eq!(item.id(), child_1_id);
+        assert_eq!(item.short_name(), "child");
+        assert_eq!(item.path(), ["grandparent", "parent", "child"]);
+        assert_eq!(parent.unwrap().id, parent_id);
+        assert_eq!(ancestors.len(), 2);
+        assert_eq!(ancestors.get(&parent_id).unwrap(), "parent");
+        assert_eq!(ancestors.get(&grandparent_id).unwrap(), "grandparent");
     }
 }

@@ -62,11 +62,11 @@ impl CollectionViewNodeItem {
     }
 
     pub fn get_parent(&self) -> Option<CollectionView> {
-        self.node_item.parent.clone().map(|n| n)
+        self.node_item.parent.clone()
     }
 
     pub fn get_children(&self) -> Vec<CollectionView> {
-        self.node_item.children.iter().map(|n| n.clone()).collect()
+        self.node_item.children.clone()
     }
 }
 
