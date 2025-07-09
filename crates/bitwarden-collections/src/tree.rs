@@ -40,7 +40,7 @@ pub struct NodeItem<T: TreeItem> {
     pub item: T,
     pub parent: Option<T>,
     pub children: Vec<T>,
-    pub ancestors: HashMap<Uuid, String>
+    pub ancestors: HashMap<Uuid, String>,
 }
 
 #[allow(missing_docs)]
@@ -124,7 +124,7 @@ impl<T: TreeItem> Tree<T> {
     /// This contains the item, its children (or an empty vector), and its parent (if it has one)
     pub fn get_item_by_id(&self, tree_item_id: Uuid) -> Option<NodeItem<T>> {
         let item = self.items.get(&tree_item_id)?;
-        
+
         self.get_relatives(item)
     }
 
@@ -149,17 +149,20 @@ impl<T: TreeItem> Tree<T> {
 
         // Get names and ids of ancestors
         let ancestors = std::iter::successors(node.parent_idx, |&parent_id| {
+            self.nodes.get(parent_id).and_then(|node| node.parent_idx)
+        })
+        .filter_map(|parent_id| {
             self.nodes
                 .get(parent_id)
-                .and_then(|node| node.parent_idx)
+                .and_then(|parent_node| self.items.get(&parent_node.item_id))
+                .map(|parent_item| {
+                    (
+                        parent_item.data.id(),
+                        parent_item.data.short_name().to_string(),
+                    )
+                })
         })
-            .filter_map(|parent_id| {
-                self.nodes
-                    .get(parent_id)
-                    .and_then(|parent_node| self.items.get(&parent_node.item_id))
-                    .map(|parent_item| (parent_item.data.id(), parent_item.data.short_name().to_string()))
-            })
-            .collect();
+        .collect();
 
         Some(NodeItem {
             item: item.data.clone(),
@@ -180,7 +183,10 @@ impl<T: TreeItem> Tree<T> {
 
     /// Returns a flat list of all items in the tree with relationships.
     pub fn get_flat_items(&self) -> Vec<NodeItem<T>> {
-        self.items.values().filter_map(|i| self.get_relatives(i)).collect()
+        self.items
+            .values()
+            .filter_map(|i| self.get_relatives(i))
+            .collect()
     }
 }
 
@@ -328,8 +334,7 @@ mod tests {
     }
 
     #[test]
-    fn given_collection_with_child_who_has_parent_and_grandparent_returns_correct_ancestors(
-    ) {
+    fn given_collection_with_child_who_has_parent_and_grandparent_returns_correct_ancestors() {
         let child_1_id = Uuid::new_v4();
         let parent_id = Uuid::new_v4();
         let grandparent_id = Uuid::new_v4();

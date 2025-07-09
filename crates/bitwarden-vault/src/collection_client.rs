@@ -1,7 +1,6 @@
-use bitwarden_collections::tree::NodeItem;
 use bitwarden_collections::{
     collection::{Collection, CollectionView},
-    tree::Tree,
+    tree::{NodeItem, Tree},
 };
 use bitwarden_core::Client;
 use wasm_bindgen::prelude::wasm_bindgen;

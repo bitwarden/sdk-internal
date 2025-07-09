@@ -6,9 +6,10 @@ use bitwarden_core::{
 use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::{error::CollectionsParseError, tree::TreeItem};
 #[cfg(feature = "wasm")]
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
+
+use crate::{error::CollectionsParseError, tree::TreeItem};
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
