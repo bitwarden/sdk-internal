@@ -1,5 +1,5 @@
 use bitwarden_core::{Client, OrganizationId};
-use bitwarden_crypto::{CompositeEncryptable, IdentifyKey};
+use bitwarden_crypto::IdentifyKey;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
