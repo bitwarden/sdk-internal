@@ -50,7 +50,7 @@ mod tests {
     use crate::{
         traits::tests::{TestAsymmKey, TestIds, TestSigningKey, TestSymmKey},
         AsymmetricCryptoKey, KeyDecryptable, KeyStore, Pkcs8PrivateKeyBytes,
-        PublicKeyEncryptionAlgorithm, SignedPublicKey, SigningKey,
+        PublicKeyEncryptionAlgorithm, SigningKey,
     };
 
     #[test]
@@ -120,7 +120,7 @@ mod tests {
         );
 
         // Signed Public Key
-        let signed_public_key = SignedPublicKey::try_from(rotated_keys.signed_public_key).unwrap();
+        let signed_public_key = rotated_keys.signed_public_key;
         let unwrapped_key = signed_public_key
             .verify_and_unwrap(
                 &ctx.get_signing_key(current_user_signing_key_id)
