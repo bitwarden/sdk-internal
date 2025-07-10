@@ -29,7 +29,7 @@ bitwarden-generators = { workspace = true, features = ["uniffi"] }
 bitwarden-send = { workspace = true, features = ["uniffi"] }
 bitwarden-ssh = { workspace = true, features = ["uniffi"] }
 bitwarden-state = { workspace = true, features = ["uniffi"] }
-bitwarden-vault = { workspace = true, features = ["uniffi"] }
+bitwarden-vault = { workspace = true, features = ["uniffi", "wasm"] }
 chrono = { workspace = true, features = ["std"] }
 env_logger = "0.11.1"
 log = { workspace = true }
