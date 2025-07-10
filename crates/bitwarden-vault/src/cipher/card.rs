@@ -1,6 +1,9 @@
 use bitwarden_api_api::models::CipherCardModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{
+    CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
+    PrimitiveEncryptable,
+};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
@@ -63,8 +66,8 @@ pub enum CardBrand {
     Other,
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Card> for CardView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Card> for CardView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -170,20 +173,21 @@ fn build_subtitle_card(brand: Option<String>, number: Option<String>) -> String 
     }
 
     if let Some(number) = number {
-        let number_len = number.len();
+        let number_chars: Vec<_> = number.chars().collect();
+        let number_len = number_chars.len();
         if number_len > 4 {
             if !subtitle.is_empty() {
                 subtitle.push_str(", ");
             }
 
             // On AMEX cards we show 5 digits instead of 4
-            let digit_count = match &number[0..2] {
-                "34" | "37" => 5,
+            let digit_count = match number_chars[0..2] {
+                ['3', '4'] | ['3', '7'] => 5,
                 _ => 4,
             };
 
             subtitle.push('*');
-            subtitle.push_str(&number[(number_len - digit_count)..]);
+            subtitle.extend(number_chars.iter().skip(number_len - digit_count));
         }
     }
 
@@ -264,6 +268,15 @@ mod tests {
             copyable_fields,
             vec![CopyableCipherFields::CardSecurityCode]
         );
+    }
+
+    #[test]
+    fn test_build_subtitle_card_unicode() {
+        let brand = Some("Visa".to_owned());
+        let number = Some("•••• 3278".to_owned());
+
+        let subtitle = build_subtitle_card(brand, number);
+        assert_eq!(subtitle, "Visa, *3278");
     }
 
     #[test]

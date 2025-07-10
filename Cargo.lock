@@ -357,11 +357,13 @@ dependencies = [
 name = "bitwarden-core"
 version = "1.0.0"
 dependencies = [
+ "async-trait",
  "base64",
  "bitwarden-api-api",
  "bitwarden-api-identity",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-state",
  "bitwarden-uuid",
  "chrono",
  "getrandom 0.2.16",
@@ -530,8 +532,10 @@ dependencies = [
 name = "bitwarden-ipc"
 version = "1.0.0"
 dependencies = [
+ "async-trait",
  "bitwarden-error",
  "bitwarden-threading",
+ "erased-serde",
  "js-sys",
  "log",
  "serde",
@@ -539,6 +543,7 @@ dependencies = [
  "thiserror 2.0.12",
  "tokio",
  "tsify",
+ "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
@@ -600,6 +605,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-state"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
 name = "bitwarden-threading"
 version = "1.0.0"
 dependencies = [
@@ -633,6 +647,7 @@ dependencies = [
  "bitwarden-generators",
  "bitwarden-send",
  "bitwarden-ssh",
+ "bitwarden-state",
  "bitwarden-vault",
  "chrono",
  "env_logger",
@@ -675,6 +690,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-state",
  "chrono",
  "data-encoding",
  "hmac",
@@ -697,6 +713,7 @@ dependencies = [
 name = "bitwarden-wasm-internal"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "base64",
  "bitwarden-core",
  "bitwarden-crypto",
@@ -705,10 +722,14 @@ dependencies = [
  "bitwarden-generators",
  "bitwarden-ipc",
  "bitwarden-ssh",
+ "bitwarden-state",
+ "bitwarden-threading",
  "bitwarden-vault",
  "console_error_panic_hook",
  "console_log",
  "log",
+ "serde",
+ "tsify",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
@@ -1534,6 +1555,16 @@ name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
+
+[[package]]
+name = "erased-serde"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e004d887f51fcb9fef17317a2f3525c887d8aa3f4f50fed920816a688284a5b7"
+dependencies = [
+ "serde",
+ "typeid",
+]
 
 [[package]]
 name = "errno"
@@ -3351,9 +3382,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-platform-verifier"
-version = "0.5.3"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19787cda76408ec5404443dc8b31795c87cd8fec49762dc75fa727740d34acc1"
+checksum = "eda84358ed17f1f354cf4b1909ad346e6c7bc2513e8c40eb08e0157aa13a9070"
 dependencies = [
  "core-foundation",
  "core-foundation-sys",
@@ -3366,7 +3397,7 @@ dependencies = [
  "rustls-webpki",
  "security-framework",
  "security-framework-sys",
- "webpki-root-certs 0.26.11",
+ "webpki-root-certs",
  "windows-sys 0.59.0",
 ]
 
@@ -4351,6 +4382,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "typeid"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc7d623258602320d5c55d1bc22793b57daff0ec7efc270ea7d55ce1d5f5471c"
+
+[[package]]
 name = "typenum"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4766,15 +4803,6 @@ checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "webpki-root-certs"
-version = "0.26.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75c7f0ef91146ebfb530314f5f1d24528d7f0767efbfd31dce919275413e393e"
-dependencies = [
- "webpki-root-certs 1.0.1",
 ]
 
 [[package]]

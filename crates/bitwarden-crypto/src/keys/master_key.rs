@@ -4,7 +4,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use generic_array::GenericArray;
 use rand::Rng;
 use typenum::U32;
-use zeroize::{Zeroize, Zeroizing};
+use zeroize::Zeroize;
 
 use super::{
     kdf::{Kdf, KdfDerivedKeyMaterial},
@@ -12,7 +12,8 @@ use super::{
 };
 use crate::{
     util::{self},
-    CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey,
+    BitwardenLegacyKeyBytes, CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey,
+    UserKey,
 };
 
 #[allow(missing_docs)]
@@ -129,8 +130,8 @@ pub(super) fn encrypt_user_key(
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
     let stretched_master_key = stretch_key(master_key)?;
-    let user_key_bytes = Zeroizing::new(user_key.to_encoded());
-    EncString::encrypt_aes256_hmac(&user_key_bytes, &stretched_master_key)
+    let user_key_bytes = user_key.to_encoded();
+    EncString::encrypt_aes256_hmac(user_key_bytes.as_ref(), &stretched_master_key)
 }
 
 /// Helper function to decrypt a user key with a master or pin key or key-connector-key.
@@ -138,7 +139,7 @@ pub(super) fn decrypt_user_key(
     key: &Pin<Box<GenericArray<u8, U32>>>,
     user_key: EncString,
 ) -> Result<SymmetricCryptoKey> {
-    let mut dec: Vec<u8> = match user_key {
+    let dec: Vec<u8> = match user_key {
         // Legacy. user_keys were encrypted using `Aes256Cbc_B64` a long time ago. We've since
         // moved to using `Aes256Cbc_HmacSha256_B64`. However, we still need to support
         // decrypting these old keys.
@@ -159,7 +160,7 @@ pub(super) fn decrypt_user_key(
         }
     };
 
-    SymmetricCryptoKey::try_from(dec.as_mut_slice())
+    SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(dec))
 }
 
 /// Generate a new random user key and encrypt it with the master key.

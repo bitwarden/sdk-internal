@@ -13,6 +13,8 @@
 static ALLOC: ZeroizingAllocator<std::alloc::System> = ZeroizingAllocator(std::alloc::System);
 
 mod aes;
+mod content_format;
+pub use content_format::*;
 mod enc_string;
 pub use enc_string::{EncString, UnsignedSharedKey};
 mod error;
@@ -29,14 +31,18 @@ pub use util::{generate_random_alphanumeric, generate_random_bytes, pbkdf2};
 mod wordlist;
 pub use wordlist::EFF_LONG_WORD_LIST;
 mod store;
-pub use store::{KeyStore, KeyStoreContext};
+pub use store::{
+    dangerous_get_v2_rotated_account_keys, KeyStore, KeyStoreContext, RotatedUserKeys,
+};
 mod cose;
 pub use cose::CoseSerializable;
 mod signing;
 pub use signing::*;
 mod traits;
 mod xchacha20;
-pub use traits::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
+pub use traits::{
+    CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds, PrimitiveEncryptable,
+};
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
 
 #[cfg(feature = "uniffi")]

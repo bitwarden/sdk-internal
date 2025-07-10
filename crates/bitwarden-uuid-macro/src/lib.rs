@@ -16,8 +16,8 @@ pub fn uuid(input: TokenStream) -> TokenStream {
     let vis = input.vis;
     let name_str = ident.to_string();
 
-    let tsify_type = format!("Tagged<Uuid, \"{}\">", name_str);
-    let doc_string = format!(" NewType wrapper for `{}`", name_str);
+    let tsify_type = format!("Tagged<Uuid, \"{name_str}\">");
+    let doc_string = format!(" NewType wrapper for `{name_str}`");
 
     let expanded = quote! {
         #[doc = #doc_string]

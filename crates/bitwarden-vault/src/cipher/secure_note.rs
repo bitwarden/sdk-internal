@@ -3,7 +3,7 @@ use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
-use bitwarden_crypto::{CryptoError, Decryptable, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{CompositeEncryptable, CryptoError, Decryptable, KeyStoreContext};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
@@ -42,8 +42,8 @@ pub struct SecureNoteView {
     pub r#type: SecureNoteType,
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, SecureNote> for SecureNoteView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, SecureNote> for SecureNoteView {
+    fn encrypt_composite(
         &self,
         _ctx: &mut KeyStoreContext<KeyIds>,
         _key: SymmetricKeyId,

@@ -4,7 +4,8 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
+    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
+    PrimitiveEncryptable,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -47,8 +48,8 @@ impl IdentifyKey<SymmetricKeyId> for FolderView {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Folder> for FolderView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Folder> for FolderView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,

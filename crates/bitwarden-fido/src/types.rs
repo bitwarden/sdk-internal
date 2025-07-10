@@ -449,7 +449,7 @@ impl TryFrom<Origin> for passkey::client::Origin<'_> {
     fn try_from(value: Origin) -> Result<Self, Self::Error> {
         Ok(match value {
             Origin::Web(url) => {
-                let url = Url::parse(&url).map_err(|e| InvalidOriginError(format!("{}", e)))?;
+                let url = Url::parse(&url).map_err(|e| InvalidOriginError(format!("{e}")))?;
                 passkey::client::Origin::Web(Cow::Owned(url))
             }
             Origin::Android(link) => passkey::client::Origin::Android(link.try_into()?),
@@ -462,7 +462,7 @@ impl TryFrom<UnverifiedAssetLink> for passkey::client::UnverifiedAssetLink<'_> {
 
     fn try_from(value: UnverifiedAssetLink) -> Result<Self, Self::Error> {
         let asset_link_url = match value.asset_link_url {
-            Some(url) => Some(Url::parse(&url).map_err(|e| InvalidOriginError(format!("{}", e)))?),
+            Some(url) => Some(Url::parse(&url).map_err(|e| InvalidOriginError(format!("{e}")))?),
             None => None,
         };
 
@@ -472,7 +472,7 @@ impl TryFrom<UnverifiedAssetLink> for passkey::client::UnverifiedAssetLink<'_> {
             Cow::from(value.host),
             asset_link_url,
         )
-        .map_err(|e| InvalidOriginError(format!("{:?}", e)))
+        .map_err(|e| InvalidOriginError(format!("{e:?}")))
     }
 }
 

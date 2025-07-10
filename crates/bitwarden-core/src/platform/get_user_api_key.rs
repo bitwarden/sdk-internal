@@ -50,7 +50,7 @@ pub(crate) async fn get_user_api_key(
     input: &SecretVerificationRequest,
 ) -> Result<UserApiKeyResponse, UserApiKeyError> {
     info!("Getting Api Key");
-    debug!("{:?}", input);
+    debug!("{input:?}");
 
     let auth_settings = get_login_method(client)?;
     let config = client.internal.get_api_configurations().await;
@@ -63,14 +63,10 @@ pub(crate) async fn get_user_api_key(
 }
 
 fn get_login_method(client: &Client) -> Result<Arc<LoginMethod>, NotAuthenticatedError> {
-    if client.internal.is_authed() {
-        client
-            .internal
-            .get_login_method()
-            .ok_or(NotAuthenticatedError)
-    } else {
-        Err(NotAuthenticatedError)
-    }
+    client
+        .internal
+        .get_login_method()
+        .ok_or(NotAuthenticatedError)
 }
 
 /// Build the secret verification request.

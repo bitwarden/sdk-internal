@@ -73,7 +73,7 @@ where
     where
         E: serde::de::Error,
     {
-        T::from_str(v).map_err(|e| E::custom(format!("{:?}", e)))
+        T::from_str(v).map_err(|e| E::custom(format!("{e:?}")))
     }
 }
 

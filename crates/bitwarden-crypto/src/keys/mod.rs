@@ -1,4 +1,5 @@
 mod key_encryptable;
+pub(crate) use key_encryptable::KeyEncryptableWithContentType;
 pub use key_encryptable::{CryptoKey, KeyContainer, KeyDecryptable, KeyEncryptable};
 mod master_key;
 pub use master_key::{HashPurpose, MasterKey};
@@ -24,10 +25,12 @@ pub use device_key::{DeviceKey, TrustDeviceResponse};
 mod pin_key;
 pub use pin_key::PinKey;
 mod kdf;
+#[allow(deprecated)]
+pub use kdf::dangerous_derive_kdf_material;
 mod key_id;
 pub use kdf::{
     default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
     default_pbkdf2_iterations, Kdf,
 };
 pub(crate) use key_id::{KeyId, KEY_ID_SIZE};
-mod utils;
+pub(crate) mod utils;
