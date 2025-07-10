@@ -3,9 +3,10 @@ use bitwarden_collections::{
     tree::{NodeItem, Tree},
 };
 use bitwarden_core::Client;
+use bitwarden_error::js_sys::Map;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
-use bitwarden_error::js_sys::Map;
+
 use crate::DecryptError;
 
 #[allow(missing_docs)]

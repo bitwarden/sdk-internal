@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use bitwarden_collections::{
     collection::{Collection, CollectionView},
@@ -60,5 +60,24 @@ impl CollectionViewTree {
             .filter(|n| n.parent_idx.is_none())
             .filter_map(|n| self.get_item_by_id(n.item_id))
             .collect()
+    }
+}
+
+#[uniffi::export]
+impl CollectionViewNodeItem {
+    pub fn get_item(&self) -> CollectionView {
+        self.node_item.item.clone()
+    }
+
+    pub fn get_parent(&self) -> Option<CollectionView> {
+        self.node_item.parent.clone()
+    }
+
+    pub fn get_children(&self) -> Vec<CollectionView> {
+        self.node_item.children.clone()
+    }
+
+    pub fn get_ancestors(&self) -> HashMap<Uuid, String> {
+        self.node_item.ancestors.clone()
     }
 }
