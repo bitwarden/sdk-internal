@@ -70,7 +70,8 @@ impl CollectionViewNodeItem {
     }
 
     pub fn get_ancestors(&self) -> Map {
-        self.node_item.ancestors
+        self.node_item
+            .ancestors
             .iter()
             .fold(Map::new(), |map, (id, name)| {
                 map.set(&id.to_string().into(), &name.into());
