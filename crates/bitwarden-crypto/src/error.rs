@@ -80,8 +80,8 @@ pub enum UnsupportedOperation {
     EncryptionNotImplementedForKey,
 }
 
-/// Signifies that the state is invalid from a cryptographic perspective, such as a required security value missing, or being
-/// invalid
+/// Signifies that the state is invalid from a cryptographic perspective, such as a required
+/// security value missing, or being invalid
 #[derive(Debug, Error)]
 pub enum CryptoStateError {
     /// The security state is not present, but required for this user. V2 users must always

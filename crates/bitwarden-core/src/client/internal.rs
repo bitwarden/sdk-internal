@@ -14,10 +14,12 @@ use uuid::Uuid;
 use crate::client::encryption_settings::EncryptionSettings;
 #[cfg(feature = "secrets")]
 use crate::client::login_method::ServiceAccountLoginMethod;
-use crate::key_management::SecurityState;
 use crate::{
-    auth::renew::renew_token, client::login_method::LoginMethod, error::UserIdAlreadySetError,
-    key_management::KeyIds, DeviceType,
+    auth::renew::renew_token,
+    client::login_method::LoginMethod,
+    error::UserIdAlreadySetError,
+    key_management::{KeyIds, SecurityState},
+    DeviceType,
 };
 #[cfg(feature = "internal")]
 use crate::{
@@ -85,6 +87,7 @@ pub struct InternalClient {
     pub(crate) external_client: reqwest::Client,
 
     pub(super) key_store: KeyStore<KeyIds>,
+    #[cfg(feature = "internal")]
     pub(crate) security_state: RwLock<Arc<Option<SecurityState>>>,
 
     #[cfg(feature = "internal")]
