@@ -49,7 +49,7 @@ mod tests {
     use super::*;
     use crate::{
         traits::tests::{TestAsymmKey, TestIds, TestSigningKey, TestSymmKey},
-        AsymmetricCryptoKey, Decryptable, KeyStore, Pkcs8PrivateKeyBytes,
+        AsymmetricCryptoKey, Decryptable, KeyDecryptable, KeyStore, Pkcs8PrivateKeyBytes,
         PublicKeyEncryptionAlgorithm, SigningKey,
     };
 
@@ -91,7 +91,7 @@ mod tests {
         );
         let decrypted_private_key: Vec<u8> = rotated_keys
             .private_key
-            .decrypt(&mut ctx, TestSymmKey::A(0))
+            .decrypt_with_key(&rotated_keys.user_key)
             .unwrap();
         let private_key =
             AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(decrypted_private_key))
@@ -107,7 +107,7 @@ mod tests {
         // Signing Key
         let decrypted_signing_key: Vec<u8> = rotated_keys
             .signing_key
-            .decrypt(&mut ctx, TestSymmKey::A(0))
+            .decrypt_with_key(&rotated_keys.user_key)
             .unwrap();
         let signing_key =
             SigningKey::from_cose(&CoseKeyBytes::from(decrypted_signing_key)).unwrap();
