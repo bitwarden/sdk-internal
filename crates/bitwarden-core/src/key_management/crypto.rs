@@ -649,7 +649,7 @@ pub(crate) fn make_keys_for_user_crypto_v2(
 
     // Initialize security state for the user
     let security_state = SecurityState::initialize_for_user(client.internal.get_user_id().ok_or(
-        CryptoError::CryptoStateError(CryptoStateError::MissingSecurityState.into()),
+        CryptoError::CryptoStateError(CryptoStateError::MissingSecurityState),
     )?);
     let signed_security_state = security_state.sign(temporary_signing_key_id, &mut ctx)?;
 
@@ -703,7 +703,7 @@ pub(crate) fn get_v2_rotated_account_keys(
 
         private_key: rotated_keys.private_key,
         public_key: STANDARD.encode(rotated_keys.public_key),
-        signed_public_key: SignedPublicKey::from(rotated_keys.signed_public_key),
+        signed_public_key: rotated_keys.signed_public_key,
 
         signing_key: rotated_keys.signing_key,
         verifying_key: STANDARD.encode(rotated_keys.verifying_key),

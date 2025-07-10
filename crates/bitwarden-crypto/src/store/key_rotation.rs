@@ -38,7 +38,7 @@ pub fn dangerous_get_v2_rotated_account_keys<Ids: KeyIds>(
         user_key: user_key.clone(),
         verifying_key: current_signing_key.to_verifying_key().to_cose(),
         signing_key: current_signing_key.to_cose().encrypt_with_key(&user_key)?,
-        signed_public_key: signed_public_key,
+        signed_public_key,
         public_key: current_private_key.to_public_key().to_der()?,
         private_key: current_private_key.to_der()?.encrypt_with_key(&user_key)?,
     })
