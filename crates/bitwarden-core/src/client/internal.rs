@@ -14,12 +14,11 @@ use uuid::Uuid;
 use crate::client::encryption_settings::EncryptionSettings;
 #[cfg(feature = "secrets")]
 use crate::client::login_method::ServiceAccountLoginMethod;
+#[cfg(feature = "internal")]
+use crate::key_management::SecurityState;
 use crate::{
-    auth::renew::renew_token,
-    client::login_method::LoginMethod,
-    error::UserIdAlreadySetError,
-    key_management::{KeyIds, SecurityState},
-    DeviceType,
+    auth::renew::renew_token, client::login_method::LoginMethod, error::UserIdAlreadySetError,
+    key_management::KeyIds, DeviceType,
 };
 #[cfg(feature = "internal")]
 use crate::{
