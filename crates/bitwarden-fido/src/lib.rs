@@ -91,6 +91,9 @@ pub enum Fido2Error {
 
     #[error("No Fido2 credentials found")]
     NoFido2CredentialsFound,
+
+    #[error("Invalid counter")]
+    InvalidCounter,
 }
 
 impl TryFrom<CipherViewContainer> for Passkey {
@@ -107,7 +110,10 @@ impl TryFrom<CipherViewContainer> for Passkey {
 }
 
 fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passkey, Fido2Error> {
-    let counter: u32 = value.counter.parse().expect("Invalid counter");
+    let counter: u32 = value
+        .counter
+        .parse()
+        .map_err(|_| Fido2Error::InvalidCounter)?;
     let counter = (counter != 0).then_some(counter);
     let key_value = URL_SAFE_NO_PAD.decode(value.key_value)?;
     let user_handle = value
@@ -256,7 +262,7 @@ pub struct UnknownEnum;
 
 // Some utilities to convert back and forth between enums and strings
 fn get_enum_from_string_name<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, UnknownEnum> {
-    let serialized = format!(r#""{}""#, s);
+    let serialized = format!(r#""{s}""#);
     let deserialized: T = serde_json::from_str(&serialized).map_err(|_| UnknownEnum)?;
     Ok(deserialized)
 }

@@ -4,7 +4,8 @@ use bitwarden_core::{
     require, MissingFieldError, VaultLockedError,
 };
 use bitwarden_crypto::{
-    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
+    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
+    PrimitiveEncryptable,
 };
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
@@ -135,6 +136,8 @@ pub struct Cipher {
     pub revision_date: DateTime<Utc>,
 }
 
+bitwarden_state::register_repository_item!(Cipher, "Cipher");
+
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -249,6 +252,22 @@ pub struct CipherListView {
     pub local_data: Option<LocalDataView>,
 }
 
+/// Represents the result of decrypting a list of ciphers.
+///
+/// This struct contains two vectors: `successes` and `failures`.
+/// `successes` contains the decrypted `CipherListView` objects,
+/// while `failures` contains the original `Cipher` objects that failed to decrypt.
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct DecryptCipherListResult {
+    /// The decrypted `CipherListView` objects.
+    pub successes: Vec<CipherListView>,
+    /// The original `Cipher` objects that failed to decrypt.
+    pub failures: Vec<Cipher>,
+}
+
 impl CipherListView {
     pub(crate) fn get_totp_key(
         self,
@@ -268,8 +287,8 @@ impl CipherListView {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -292,20 +311,26 @@ impl Encryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             name: cipher_view.name.encrypt(ctx, ciphers_key)?,
             notes: cipher_view.notes.encrypt(ctx, ciphers_key)?,
             r#type: cipher_view.r#type,
-            login: cipher_view.login.encrypt(ctx, ciphers_key)?,
-            identity: cipher_view.identity.encrypt(ctx, ciphers_key)?,
-            card: cipher_view.card.encrypt(ctx, ciphers_key)?,
-            secure_note: cipher_view.secure_note.encrypt(ctx, ciphers_key)?,
-            ssh_key: cipher_view.ssh_key.encrypt(ctx, ciphers_key)?,
+            login: cipher_view.login.encrypt_composite(ctx, ciphers_key)?,
+            identity: cipher_view.identity.encrypt_composite(ctx, ciphers_key)?,
+            card: cipher_view.card.encrypt_composite(ctx, ciphers_key)?,
+            secure_note: cipher_view
+                .secure_note
+                .encrypt_composite(ctx, ciphers_key)?,
+            ssh_key: cipher_view.ssh_key.encrypt_composite(ctx, ciphers_key)?,
             favorite: cipher_view.favorite,
             reprompt: cipher_view.reprompt,
             organization_use_totp: cipher_view.organization_use_totp,
             edit: cipher_view.edit,
             view_password: cipher_view.view_password,
-            local_data: cipher_view.local_data.encrypt(ctx, ciphers_key)?,
-            attachments: cipher_view.attachments.encrypt(ctx, ciphers_key)?,
-            fields: cipher_view.fields.encrypt(ctx, ciphers_key)?,
-            password_history: cipher_view.password_history.encrypt(ctx, ciphers_key)?,
+            local_data: cipher_view.local_data.encrypt_composite(ctx, ciphers_key)?,
+            attachments: cipher_view
+                .attachments
+                .encrypt_composite(ctx, ciphers_key)?,
+            fields: cipher_view.fields.encrypt_composite(ctx, ciphers_key)?,
+            password_history: cipher_view
+                .password_history
+                .encrypt_composite(ctx, ciphers_key)?,
             creation_date: cipher_view.creation_date,
             deleted_date: cipher_view.deleted_date,
             revision_date: cipher_view.revision_date,
@@ -463,8 +488,9 @@ impl CipherView {
         if let Some(attachments) = &mut self.attachments {
             for attachment in attachments {
                 if let Some(attachment_key) = &mut attachment.key {
-                    let dec_attachment_key: Vec<u8> = attachment_key.decrypt(ctx, old_key)?;
-                    *attachment_key = dec_attachment_key.encrypt(ctx, new_key)?;
+                    let tmp_attachment_key_id = SymmetricKeyId::Local("attachment_key");
+                    ctx.unwrap_symmetric_key(old_key, tmp_attachment_key_id, attachment_key)?;
+                    *attachment_key = ctx.wrap_symmetric_key(new_key, tmp_attachment_key_id)?;
                 }
             }
         }
@@ -498,7 +524,7 @@ impl CipherView {
             if let Some(fido2_credentials) = &mut login.fido2_credentials {
                 let dec_fido2_credentials: Vec<Fido2CredentialFullView> =
                     fido2_credentials.decrypt(ctx, old_key)?;
-                *fido2_credentials = dec_fido2_credentials.encrypt(ctx, new_key)?;
+                *fido2_credentials = dec_fido2_credentials.encrypt_composite(ctx, new_key)?;
             }
         }
         Ok(())
@@ -520,8 +546,9 @@ impl CipherView {
 
         // If the cipher has a key, we need to re-encrypt it with the new organization key
         if let Some(cipher_key) = &mut self.key {
-            let dec_cipher_key: Vec<u8> = cipher_key.decrypt(ctx, old_key)?;
-            *cipher_key = dec_cipher_key.encrypt(ctx, new_key)?;
+            let tmp_cipher_key_id = SymmetricKeyId::Local("cipher_key");
+            ctx.unwrap_symmetric_key(old_key, tmp_cipher_key_id, cipher_key)?;
+            *cipher_key = ctx.wrap_symmetric_key(new_key, tmp_cipher_key_id)?;
         } else {
             // If the cipher does not have a key, we need to reencrypt all attachment keys
             self.reencrypt_attachment_keys(ctx, old_key, new_key)?;
@@ -542,7 +569,8 @@ impl CipherView {
 
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
-        require!(self.login.as_mut()).fido2_credentials = Some(creds.encrypt(ctx, ciphers_key)?);
+        require!(self.login.as_mut()).fido2_credentials =
+            Some(creds.encrypt_composite(ctx, ciphers_key)?);
 
         Ok(())
     }
@@ -942,11 +970,14 @@ mod tests {
             .unwrap();
 
         // Make sure that the cipher key is decryptable
-        let _: Vec<u8> = original_cipher
-            .key
-            .unwrap()
-            .decrypt(&mut key_store.context(), SymmetricKeyId::User)
-            .unwrap();
+        let wrapped_key = original_cipher.key.unwrap();
+        let mut ctx = key_store.context();
+        ctx.unwrap_symmetric_key(
+            SymmetricKeyId::User,
+            SymmetricKeyId::Local("test_cipher_key"),
+            &wrapped_key,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -962,6 +993,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: None,
+            decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
 
@@ -1031,6 +1063,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: None,
+            decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
 
@@ -1074,6 +1107,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: Some(attachment_key_enc),
+            decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
         let cred = generate_fido2(&mut key_store.context(), SymmetricKeyId::User);
@@ -1088,12 +1122,20 @@ mod tests {
         // Check that the attachment key has been re-encrypted with the org key,
         // and the value matches with the original attachment key
         let new_attachment_key = cipher.attachments.unwrap()[0].key.clone().unwrap();
-        let new_attachment_key_dec: Vec<_> = new_attachment_key
-            .decrypt(&mut key_store.context(), org_key)
+        let mut ctx = key_store.context();
+        let new_attachment_key_id = ctx
+            .unwrap_symmetric_key(
+                org_key,
+                SymmetricKeyId::Local("test_attachment_key"),
+                &new_attachment_key,
+            )
             .unwrap();
-        let new_attachment_key_dec: SymmetricCryptoKey = new_attachment_key_dec.try_into().unwrap();
+        #[allow(deprecated)]
+        let new_attachment_key_dec = ctx
+            .dangerous_get_symmetric_key(new_attachment_key_id)
+            .unwrap();
 
-        assert_eq!(new_attachment_key_dec, attachment_key_val);
+        assert_eq!(*new_attachment_key_dec, attachment_key_val);
 
         let cred2: Fido2CredentialFullView = cipher
             .login
@@ -1141,6 +1183,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: Some(attachment_key_enc.clone()),
+            decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
 
@@ -1150,19 +1193,20 @@ mod tests {
         cipher.move_to_organization(&mut ctx, org).unwrap();
 
         // Check that the cipher key has been re-encrypted with the org key,
-        let new_cipher_key_dec: Vec<_> = cipher
-            .key
-            .clone()
-            .unwrap()
-            .decrypt(&mut ctx, org_key)
+        let wrapped_new_cipher_key = cipher.key.clone().unwrap();
+        let new_cipher_key_dec = ctx
+            .unwrap_symmetric_key(
+                org_key,
+                SymmetricKeyId::Local("test_cipher_key"),
+                &wrapped_new_cipher_key,
+            )
             .unwrap();
-
-        let new_cipher_key_dec: SymmetricCryptoKey = new_cipher_key_dec.try_into().unwrap();
-
+        #[allow(deprecated)]
+        let new_cipher_key_dec = ctx.dangerous_get_symmetric_key(new_cipher_key_dec).unwrap();
         #[allow(deprecated)]
         let cipher_key_val = ctx.dangerous_get_symmetric_key(cipher_key).unwrap();
 
-        assert_eq!(new_cipher_key_dec, *cipher_key_val);
+        assert_eq!(new_cipher_key_dec, cipher_key_val);
 
         // Check that the attachment key hasn't changed
         assert_eq!(

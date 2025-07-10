@@ -3,19 +3,30 @@
 //! unless there is a a clear benefit, such as a clear cryptographic benefit, which MUST
 //! be documented publicly.
 
-use coset::{iana, CborSerializable, Label};
+use coset::{
+    iana::{self, CoapContentFormat},
+    CborSerializable, ContentType, Label,
+};
 use generic_array::GenericArray;
 use typenum::U32;
 
 use crate::{
+    content_format::{Bytes, ConstContentFormat, CoseContentFormat},
     error::{EncStringParseError, EncodingError},
-    xchacha20, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    xchacha20, ContentFormat, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
 };
 
 /// XChaCha20 <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03> is used over ChaCha20
 /// to be able to randomly generate nonces, and to not have to worry about key wearout. Since
 /// the draft was never published as an RFC, we use a private-use value for the algorithm.
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
+const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
+
+// Note: These are in the "unregistered" tree: https://datatracker.ietf.org/doc/html/rfc6838#section-3.4
+// These are only used within Bitwarden, and not meant for exchange with other systems.
+const CONTENT_TYPE_PADDED_UTF8: &str = "application/x.bitwarden.utf8-padded";
+const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
+const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-key";
 
 // Labels
 //
@@ -26,19 +37,26 @@ pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
 pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext: &[u8],
     key: &crate::XChaCha20Poly1305Key,
+    content_format: ContentFormat,
 ) -> Result<Vec<u8>, CryptoError> {
-    let mut protected_header = coset::HeaderBuilder::new()
-        .key_id(key.key_id.to_vec())
-        .build();
+    let mut plaintext = plaintext.to_vec();
+
+    let header_builder: coset::HeaderBuilder = content_format.into();
+    let mut protected_header = header_builder.key_id(key.key_id.to_vec()).build();
     // This should be adjusted to use the builder pattern once implemented in coset.
     // The related coset upstream issue is:
     // https://github.com/google/coset/issues/105
     protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
 
+    if should_pad_content(&content_format) {
+        // Pad the data to a block size in order to hide plaintext length
+        crate::keys::utils::pad_bytes(&mut plaintext, XCHACHA20_TEXT_PAD_BLOCK_SIZE);
+    }
+
     let mut nonce = [0u8; xchacha20::NONCE_SIZE];
     let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
         .protected(protected_header)
-        .create_ciphertext(plaintext, &[], |data, aad| {
+        .create_ciphertext(&plaintext, &[], |data, aad| {
             let ciphertext =
                 crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
             nonce = ciphertext.nonce();
@@ -56,17 +74,23 @@ pub(crate) fn encrypt_xchacha20_poly1305(
 pub(crate) fn decrypt_xchacha20_poly1305(
     cose_encrypt0_message: &[u8],
     key: &crate::XChaCha20Poly1305Key,
-) -> Result<Vec<u8>, CryptoError> {
+) -> Result<(Vec<u8>, ContentFormat), CryptoError> {
     let msg = coset::CoseEncrypt0::from_slice(cose_encrypt0_message)
         .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))?;
+
     let Some(ref alg) = msg.protected.header.alg else {
         return Err(CryptoError::EncString(
             EncStringParseError::CoseMissingAlgorithm,
         ));
     };
+
     if *alg != coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) {
         return Err(CryptoError::WrongKeyType);
     }
+
+    let content_format = ContentFormat::try_from(&msg.protected.header)
+        .map_err(|_| CryptoError::EncString(EncStringParseError::CoseMissingContentType))?;
+
     if key.key_id != *msg.protected.header.key_id {
         return Err(CryptoError::WrongCoseKeyId);
     }
@@ -82,7 +106,14 @@ pub(crate) fn decrypt_xchacha20_poly1305(
             aad,
         )
     })?;
-    Ok(decrypted_message)
+
+    if should_pad_content(&content_format) {
+        // Unpad the data to get the original plaintext
+        let data = crate::keys::utils::unpad_bytes(&decrypted_message)?;
+        return Ok((data.to_vec(), content_format));
+    }
+
+    Ok((decrypted_message, content_format))
 }
 
 const SYMMETRIC_KEY: Label = Label::Int(iana::SymmetricKeyParameter::K as i64);
@@ -123,12 +154,70 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
     }
 }
 
+impl From<ContentFormat> for coset::HeaderBuilder {
+    fn from(format: ContentFormat) -> Self {
+        let header_builder = coset::HeaderBuilder::new();
+
+        match format {
+            ContentFormat::Utf8 => {
+                header_builder.content_type(CONTENT_TYPE_PADDED_UTF8.to_string())
+            }
+            ContentFormat::Pkcs8PrivateKey => {
+                header_builder.content_format(CoapContentFormat::Pkcs8)
+            }
+            ContentFormat::SPKIPublicKeyDer => {
+                header_builder.content_type(CONTENT_TYPE_SPKI_PUBLIC_KEY.to_string())
+            }
+            ContentFormat::CoseSign1 => header_builder.content_format(CoapContentFormat::CoseSign1),
+            ContentFormat::CoseKey => header_builder.content_format(CoapContentFormat::CoseKey),
+            ContentFormat::BitwardenLegacyKey => {
+                header_builder.content_type(CONTENT_TYPE_BITWARDEN_LEGACY_KEY.to_string())
+            }
+            ContentFormat::OctetStream => {
+                header_builder.content_format(CoapContentFormat::OctetStream)
+            }
+        }
+    }
+}
+
+impl TryFrom<&coset::Header> for ContentFormat {
+    type Error = CryptoError;
+
+    fn try_from(header: &coset::Header) -> Result<Self, Self::Error> {
+        match header.content_type.as_ref() {
+            Some(ContentType::Text(format)) if format == CONTENT_TYPE_PADDED_UTF8 => {
+                Ok(ContentFormat::Utf8)
+            }
+            Some(ContentType::Text(format)) if format == CONTENT_TYPE_BITWARDEN_LEGACY_KEY => {
+                Ok(ContentFormat::BitwardenLegacyKey)
+            }
+            Some(ContentType::Text(format)) if format == CONTENT_TYPE_SPKI_PUBLIC_KEY => {
+                Ok(ContentFormat::SPKIPublicKeyDer)
+            }
+            Some(ContentType::Assigned(CoapContentFormat::Pkcs8)) => {
+                Ok(ContentFormat::Pkcs8PrivateKey)
+            }
+            Some(ContentType::Assigned(CoapContentFormat::CoseKey)) => Ok(ContentFormat::CoseKey),
+            Some(ContentType::Assigned(CoapContentFormat::OctetStream)) => {
+                Ok(ContentFormat::OctetStream)
+            }
+            _ => Err(CryptoError::EncString(
+                EncStringParseError::CoseMissingContentType,
+            )),
+        }
+    }
+}
+
+fn should_pad_content(format: &ContentFormat) -> bool {
+    matches!(format, ContentFormat::Utf8)
+}
+
 /// Trait for structs that are serializable to COSE objects.
-pub trait CoseSerializable {
+pub trait CoseSerializable<T: CoseContentFormat + ConstContentFormat> {
     /// Serializes the struct to COSE serialization
-    fn to_cose(&self) -> Vec<u8>;
+    fn to_cose(&self) -> Bytes<T>;
     /// Deserializes a serialized COSE object to a struct
-    fn from_cose(bytes: &[u8]) -> Result<Self, EncodingError>
+    fn from_cose(bytes: &Bytes<T>) -> Result<Self, EncodingError>
     where
         Self: Sized;
 }
@@ -144,15 +233,15 @@ mod test {
     ];
     const TEST_VECTOR_PLAINTEXT: &[u8] = b"Message test vector";
     const TEST_VECTOR_COSE_ENCRYPT0: &[u8] = &[
-        131, 88, 25, 162, 1, 58, 0, 1, 17, 111, 4, 80, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
-        13, 14, 15, 161, 5, 88, 24, 39, 48, 159, 48, 215, 77, 21, 100, 241, 209, 216, 65, 99, 221,
-        83, 63, 118, 204, 200, 175, 126, 202, 53, 33, 88, 35, 218, 136, 132, 223, 131, 246, 169,
-        120, 134, 49, 56, 173, 169, 133, 232, 109, 248, 101, 59, 226, 90, 97, 210, 181, 76, 68,
-        158, 159, 94, 65, 67, 23, 112, 253, 83,
+        131, 88, 28, 163, 1, 58, 0, 1, 17, 111, 3, 24, 42, 4, 80, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        11, 12, 13, 14, 15, 161, 5, 88, 24, 78, 20, 28, 157, 180, 246, 131, 220, 82, 104, 72, 73,
+        75, 43, 69, 139, 216, 167, 145, 220, 67, 168, 144, 173, 88, 35, 127, 234, 194, 83, 189,
+        172, 65, 29, 156, 73, 98, 87, 231, 87, 129, 15, 235, 127, 125, 97, 211, 51, 212, 211, 2,
+        13, 36, 123, 53, 12, 31, 191, 40, 13, 175,
     ];
 
     #[test]
-    fn test_encrypt_decrypt_roundtrip() {
+    fn test_encrypt_decrypt_roundtrip_octetstream() {
         let SymmetricCryptoKey::XChaCha20Poly1305Key(ref key) =
             SymmetricCryptoKey::make_xchacha20_poly1305_key()
         else {
@@ -160,9 +249,56 @@ mod test {
         };
 
         let plaintext = b"Hello, world!";
-        let encrypted = encrypt_xchacha20_poly1305(plaintext, key).unwrap();
+        let encrypted =
+            encrypt_xchacha20_poly1305(plaintext, key, ContentFormat::OctetStream).unwrap();
         let decrypted = decrypt_xchacha20_poly1305(&encrypted, key).unwrap();
-        assert_eq!(decrypted, plaintext);
+        assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::OctetStream));
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_roundtrip_utf8() {
+        let SymmetricCryptoKey::XChaCha20Poly1305Key(ref key) =
+            SymmetricCryptoKey::make_xchacha20_poly1305_key()
+        else {
+            panic!("Failed to create XChaCha20Poly1305Key");
+        };
+
+        let plaintext = b"Hello, world!";
+        let encrypted = encrypt_xchacha20_poly1305(plaintext, key, ContentFormat::Utf8).unwrap();
+        let decrypted = decrypt_xchacha20_poly1305(&encrypted, key).unwrap();
+        assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::Utf8));
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_roundtrip_pkcs8() {
+        let SymmetricCryptoKey::XChaCha20Poly1305Key(ref key) =
+            SymmetricCryptoKey::make_xchacha20_poly1305_key()
+        else {
+            panic!("Failed to create XChaCha20Poly1305Key");
+        };
+
+        let plaintext = b"Hello, world!";
+        let encrypted =
+            encrypt_xchacha20_poly1305(plaintext, key, ContentFormat::Pkcs8PrivateKey).unwrap();
+        let decrypted = decrypt_xchacha20_poly1305(&encrypted, key).unwrap();
+        assert_eq!(
+            decrypted,
+            (plaintext.to_vec(), ContentFormat::Pkcs8PrivateKey)
+        );
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_roundtrip_cosekey() {
+        let SymmetricCryptoKey::XChaCha20Poly1305Key(ref key) =
+            SymmetricCryptoKey::make_xchacha20_poly1305_key()
+        else {
+            panic!("Failed to create XChaCha20Poly1305Key");
+        };
+
+        let plaintext = b"Hello, world!";
+        let encrypted = encrypt_xchacha20_poly1305(plaintext, key, ContentFormat::CoseKey).unwrap();
+        let decrypted = decrypt_xchacha20_poly1305(&encrypted, key).unwrap();
+        assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::CoseKey));
     }
 
     #[test]
@@ -172,7 +308,10 @@ mod test {
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
         };
         let decrypted = decrypt_xchacha20_poly1305(TEST_VECTOR_COSE_ENCRYPT0, &key).unwrap();
-        assert_eq!(decrypted, TEST_VECTOR_PLAINTEXT);
+        assert_eq!(
+            decrypted,
+            (TEST_VECTOR_PLAINTEXT.to_vec(), ContentFormat::OctetStream)
+        );
     }
 
     #[test]

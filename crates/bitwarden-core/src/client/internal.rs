@@ -5,12 +5,15 @@ use bitwarden_crypto::KeyStore;
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
+#[cfg(feature = "internal")]
+use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
 use uuid::Uuid;
 
-use super::encryption_settings::EncryptionSettings;
+#[cfg(any(feature = "internal", feature = "secrets"))]
+use crate::client::encryption_settings::EncryptionSettings;
 #[cfg(feature = "secrets")]
-use super::login_method::ServiceAccountLoginMethod;
+use crate::client::login_method::ServiceAccountLoginMethod;
 use crate::{
     auth::renew::renew_token, client::login_method::LoginMethod, error::UserIdAlreadySetError,
     key_management::KeyIds, DeviceType,
@@ -30,11 +33,26 @@ pub struct ApiConfigurations {
     pub device_type: DeviceType,
 }
 
+/// Access and refresh tokens used for authentication and authorization.
+#[derive(Debug, Clone)]
+pub(crate) enum Tokens {
+    SdkManaged(SdkManagedTokens),
+    ClientManaged(Arc<dyn ClientManagedTokens>),
+}
+
+/// Access tokens managed by client applications, such as the web or mobile apps.
+#[async_trait::async_trait]
+pub trait ClientManagedTokens: std::fmt::Debug + Send + Sync {
+    /// Returns the access token, if available.
+    async fn get_access_token(&self) -> Option<String>;
+}
+
+/// Tokens managed by the SDK, the SDK will automatically handle token renewal.
 #[derive(Debug, Default, Clone)]
-pub(crate) struct Tokens {
+pub(crate) struct SdkManagedTokens {
     // These two fields are always written to, but they are not read
     // from the secrets manager SDK.
-    #[cfg_attr(not(feature = "internal"), allow(dead_code))]
+    #[allow(dead_code)]
     access_token: Option<String>,
     pub(crate) expires_on: Option<i64>,
 
@@ -62,6 +80,9 @@ pub struct InternalClient {
     pub(crate) external_client: reqwest::Client,
 
     pub(super) key_store: KeyStore<KeyIds>,
+
+    #[cfg(feature = "internal")]
+    pub(crate) repository_map: StateRegistry,
 }
 
 impl InternalClient {
@@ -106,16 +127,22 @@ impl InternalClient {
     pub(crate) fn set_login_method(&self, login_method: LoginMethod) {
         use log::debug;
 
-        debug! {"setting login method: {:#?}", login_method}
+        debug! {"setting login method: {login_method:#?}"}
         *self.login_method.write().expect("RwLock is not poisoned") = Some(Arc::new(login_method));
     }
 
     pub(crate) fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64) {
-        *self.tokens.write().expect("RwLock is not poisoned") = Tokens {
-            access_token: Some(token.clone()),
-            expires_on: Some(Utc::now().timestamp() + expires_in as i64),
-            refresh_token,
-        };
+        *self.tokens.write().expect("RwLock is not poisoned") =
+            Tokens::SdkManaged(SdkManagedTokens {
+                access_token: Some(token.clone()),
+                expires_on: Some(Utc::now().timestamp() + expires_in as i64),
+                refresh_token,
+            });
+        self.set_api_tokens_internal(token);
+    }
+
+    /// Sets api tokens for only internal API clients, use `set_tokens` for SdkManagedTokens.
+    pub(crate) fn set_api_tokens_internal(&self, token: String) {
         let mut guard = self
             .__api_configurations
             .write()
@@ -124,24 +151,6 @@ impl InternalClient {
         let inner = Arc::make_mut(&mut guard);
         inner.identity.oauth_access_token = Some(token.clone());
         inner.api.oauth_access_token = Some(token);
-    }
-
-    #[allow(missing_docs)]
-    #[cfg(feature = "internal")]
-    pub fn is_authed(&self) -> bool {
-        let is_token_set = self
-            .tokens
-            .read()
-            .expect("RwLock is not poisoned")
-            .access_token
-            .is_some();
-        let is_login_method_set = self
-            .login_method
-            .read()
-            .expect("RwLock is not poisoned")
-            .is_some();
-
-        is_token_set || is_login_method_set
     }
 
     #[allow(missing_docs)]
@@ -184,7 +193,16 @@ impl InternalClient {
 
     #[allow(missing_docs)]
     pub fn init_user_id(&self, user_id: Uuid) -> Result<(), UserIdAlreadySetError> {
-        self.user_id.set(user_id).map_err(|_| UserIdAlreadySetError)
+        let set_uuid = self.user_id.get_or_init(|| user_id);
+
+        // Only return an error if the user_id is already set to a different value,
+        // as we want an SDK client to be tied to a single user_id.
+        // If it's the same value, we can just do nothing.
+        if *set_uuid != user_id {
+            Err(UserIdAlreadySetError)
+        } else {
+            Ok(())
+        }
     }
 
     #[allow(missing_docs)]
@@ -246,5 +264,29 @@ impl InternalClient {
         org_keys: Vec<(Uuid, UnsignedSharedKey)>,
     ) -> Result<(), EncryptionSettingsError> {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Client;
+
+    #[test]
+    fn initializing_user_multiple_times() {
+        use super::*;
+
+        let client = Client::new(None);
+        let user_id = Uuid::new_v4();
+
+        // Setting the user ID for the first time should work.
+        assert!(client.internal.init_user_id(user_id).is_ok());
+        assert_eq!(client.internal.get_user_id(), Some(user_id));
+
+        // Trying to set the same user_id again should not return an error.
+        assert!(client.internal.init_user_id(user_id).is_ok());
+
+        // Trying to set a different user_id should return an error.
+        let different_user_id = Uuid::new_v4();
+        assert!(client.internal.init_user_id(different_user_id).is_err());
     }
 }

@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricPublicCryptoKey, DeviceKey, EncString, Kdf, SymmetricCryptoKey, TrustDeviceResponse,
-    UnsignedSharedKey, UserKey,
+    AsymmetricPublicCryptoKey, DeviceKey, EncString, Kdf, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    TrustDeviceResponse, UnsignedSharedKey, UserKey,
 };
 
 use crate::{client::encryption_settings::EncryptionSettingsError, Client};
@@ -15,7 +15,9 @@ pub(super) fn make_register_tde_keys(
     org_public_key: String,
     remember_device: bool,
 ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
-    let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(org_public_key)?)?;
+    let public_key = AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
+        STANDARD.decode(org_public_key)?,
+    ))?;
 
     let user_key = UserKey::new(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
     let key_pair = user_key.make_key_pair()?;

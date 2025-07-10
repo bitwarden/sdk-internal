@@ -8,7 +8,7 @@ pub mod wasm {
 
     #[wasm_bindgen]
     extern "C" {
-        #[wasm_bindgen]
+        #[wasm_bindgen(typescript_type = AbortController)]
         #[derive(Clone)]
         pub type AbortController;
 
@@ -21,7 +21,7 @@ pub mod wasm {
         #[wasm_bindgen(method, js_name = abort)]
         pub fn abort(this: &AbortController, reason: JsValue);
 
-        #[wasm_bindgen]
+        #[wasm_bindgen(typescript_type = AbortSignal)]
         pub type AbortSignal;
 
         #[wasm_bindgen(method, getter)]
