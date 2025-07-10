@@ -49,7 +49,7 @@ mod tests {
     use super::*;
     use crate::{
         traits::tests::{TestAsymmKey, TestIds, TestSigningKey, TestSymmKey},
-        AsymmetricCryptoKey, Decryptable, KeyDecryptable, KeyStore, Pkcs8PrivateKeyBytes,
+        AsymmetricCryptoKey, KeyDecryptable, KeyStore, Pkcs8PrivateKeyBytes,
         PublicKeyEncryptionAlgorithm, SigningKey,
     };
 
