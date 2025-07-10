@@ -589,7 +589,7 @@ pub(super) fn verify_asymmetric_keys(
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct UserCryptoV2Response {
+pub struct UserCryptoV2KeysResponse {
     /// User key
     user_key: String,
 
@@ -616,7 +616,7 @@ pub struct UserCryptoV2Response {
 /// re-used.
 pub(crate) fn make_keys_for_user_crypto_v2(
     client: &Client,
-) -> Result<UserCryptoV2Response, CryptoError> {
+) -> Result<UserCryptoV2KeysResponse, CryptoError> {
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context();
 
@@ -653,7 +653,7 @@ pub(crate) fn make_keys_for_user_crypto_v2(
     )?);
     let signed_security_state = security_state.sign(temporary_signing_key_id, &mut ctx)?;
 
-    Ok(UserCryptoV2Response {
+    Ok(UserCryptoV2KeysResponse {
         user_key: user_key.to_base64(),
 
         private_key: private_key.to_der()?.encrypt_with_key(&user_key)?,
@@ -674,7 +674,7 @@ pub(crate) fn make_keys_for_user_crypto_v2(
 /// user to be a v2 user; that is, they have a signing key, a cose user-key, and a private key
 pub(crate) fn get_v2_rotated_account_keys(
     client: &Client,
-) -> Result<UserCryptoV2Response, CryptoError> {
+) -> Result<UserCryptoV2KeysResponse, CryptoError> {
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context();
 
@@ -698,7 +698,7 @@ pub(crate) fn get_v2_rotated_account_keys(
         &ctx,
     )?;
 
-    Ok(UserCryptoV2Response {
+    Ok(UserCryptoV2KeysResponse {
         user_key: rotated_keys.user_key.to_base64(),
 
         private_key: rotated_keys.private_key,
