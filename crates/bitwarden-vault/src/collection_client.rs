@@ -3,6 +3,7 @@ use bitwarden_collections::{
     tree::{NodeItem, Tree},
 };
 use bitwarden_core::Client;
+#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::DecryptError;
