@@ -5,7 +5,7 @@ use bitwarden_collections::{
 use bitwarden_core::Client;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
-
+use bitwarden_error::js_sys::Map;
 use crate::DecryptError;
 
 #[allow(missing_docs)]
@@ -67,6 +67,15 @@ impl CollectionViewNodeItem {
 
     pub fn get_children(&self) -> Vec<CollectionView> {
         self.node_item.children.clone()
+    }
+
+    pub fn get_ancestors(&self) -> Map {
+        self.node_item.ancestors
+            .iter()
+            .fold(Map::new(), |map, (id, name)| {
+                map.set(&id.to_string().into(), &name.into());
+                map
+            })
     }
 }
 
