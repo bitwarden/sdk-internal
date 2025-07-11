@@ -20,7 +20,7 @@ pub struct RotatedUserKeys {
     pub private_key: EncString,
 }
 
-/// Re-encrypts the user's keys with the provided symmetric key for a v2 user.
+/// Generates a new user key and re-encrypts the current private and signing keys with it.
 pub fn dangerous_get_v2_rotated_account_keys<Ids: KeyIds>(
     current_user_private_key_id: Ids::Asymmetric,
     current_user_signing_key_id: Ids::Signing,
