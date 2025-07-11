@@ -144,6 +144,7 @@ pub struct Fido2CredentialView {
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Fido2CredentialFullView {
     pub credential_id: String,
     pub key_type: String,
