@@ -1128,4 +1128,27 @@ mod tests {
         assert!(response.private_key_decryptable);
         assert!(!response.valid_private_key);
     }
+
+    #[test]
+    fn test_get_v2_rotated_account_keys_non_v2_user() {
+        let client = Client::new(None);
+        #[allow(deprecated)]
+        client
+            .internal
+            .get_key_store()
+            .context_mut()
+            .set_symmetric_key(
+                SymmetricKeyId::User,
+                SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            )
+            .unwrap();
+
+        let result = get_v2_rotated_account_keys(&client);
+        assert!(matches!(
+            result,
+            Err(CryptoError::CryptoStateError(
+                CryptoStateError::MissingSecurityState
+            ))
+        ));
+    }
 }
