@@ -39,6 +39,7 @@ pub struct FolderView {
     pub revision_date: DateTime<Utc>,
 }
 
+#[cfg(feature = "wasm")]
 impl wasm_bindgen::__rt::VectorIntoJsValue for FolderView {
     fn vector_into_jsvalue(
         vector: wasm_bindgen::__rt::std::boxed::Box<[Self]>,
