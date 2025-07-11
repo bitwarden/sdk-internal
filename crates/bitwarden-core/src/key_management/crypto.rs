@@ -611,7 +611,8 @@ pub struct UserCryptoV2KeysResponse {
     security_version: u64,
 }
 
-/// Initializes the user's cryptographic state for v2 users.
+/// Creates the user's cryptographic state for v2 users. This includes ensuring signature keypair is present,
+/// a signed public key is present, a security state is present and signed, and the user key is a Cose key.
 /// If the client already contains a v1 user, then this user's private-key will be
 /// re-used.
 pub(crate) fn make_keys_for_user_crypto_v2(
