@@ -82,6 +82,10 @@ impl SecurityState {
     }
 }
 
+/// A signed and serialized `SecurityState` object.
+#[derive(Clone, Debug)]
+pub struct SignedSecurityState(pub(crate) SignedObject);
+
 impl SignedSecurityState {
     /// Verifies the signature of the `SignedSecurityState` using the provided `VerifyingKey`.
     pub fn verify_and_unwrap(
@@ -92,10 +96,6 @@ impl SignedSecurityState {
             .verify_and_unwrap(verifying_key, &SigningNamespace::SecurityState)
     }
 }
-
-/// A signed and serialized `SecurityState` object.
-#[derive(Clone, Debug)]
-pub struct SignedSecurityState(pub(crate) SignedObject);
 
 impl From<SignedSecurityState> for CoseSign1Bytes {
     fn from(val: SignedSecurityState) -> Self {
