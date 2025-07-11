@@ -11,7 +11,7 @@ use crate::{Folder, FolderView, ItemNotFoundError};
 #[derive(Debug, Error)]
 pub enum GetFolderError {
     #[error(transparent)]
-    ItemDoesNotExist(#[from] ItemNotFoundError),
+    ItemNotFound(#[from] ItemNotFoundError),
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error(transparent)]
