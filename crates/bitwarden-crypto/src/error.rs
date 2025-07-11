@@ -70,8 +70,8 @@ pub enum CryptoError {
     #[error("Encoding error, {0}")]
     EncodingError(#[from] EncodingError),
 
-    #[error("Uninitialized error")]
-    CryptoStateError(CryptoStateError),
+    #[error("Crypto state error, {0}")]
+    CryptoStateError(#[from] CryptoStateError),
 }
 
 #[derive(Debug, Error)]
@@ -86,7 +86,7 @@ pub enum UnsupportedOperation {
 pub enum CryptoStateError {
     /// The security state is not present, but required for this user. V2 users must always
     /// have a security state, V1 users cannot have a security state.
-    #[error("Security state is not set to state")]
+    #[error("Security state is required, but missing")]
     MissingSecurityState,
 }
 
