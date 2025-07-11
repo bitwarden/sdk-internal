@@ -87,7 +87,7 @@ pub struct InternalClient {
 
     pub(super) key_store: KeyStore<KeyIds>,
     #[cfg(feature = "internal")]
-    pub(crate) security_state: RwLock<Arc<Option<SecurityState>>>,
+    pub(crate) security_state: RwLock<Option<SecurityState>>,
 
     #[cfg(feature = "internal")]
     pub(crate) repository_map: StateRegistry,

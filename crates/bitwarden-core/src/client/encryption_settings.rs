@@ -77,7 +77,7 @@ impl EncryptionSettings {
     pub(crate) fn new_decrypted_key(
         encryption_keys: AccountEncryptionKeys,
         store: &KeyStore<KeyIds>,
-        security_state_rwlock: &RwLock<Arc<Option<SecurityState>>>,
+        security_state_rwlock: &RwLock<Option<SecurityState>>,
     ) -> Result<(), EncryptionSettingsError> {
         // This is an all-or-nothing check. The server cannot pretend a signing key or security
         // state to be missing, because they are *always* present when the user key is an
@@ -155,7 +155,7 @@ impl EncryptionSettings {
         signing_key: EncString,
         security_state: SignedSecurityState,
         store: &KeyStore<KeyIds>,
-        sdk_security_state: &RwLock<Arc<Option<SecurityState>>>,
+        sdk_security_state: &RwLock<Option<SecurityState>>,
     ) -> Result<(), EncryptionSettingsError> {
         use crate::key_management::SecurityState;
 
@@ -173,7 +173,7 @@ impl EncryptionSettings {
         let security_state: SecurityState = security_state
             .verify_and_unwrap(&signing_key.to_verifying_key())
             .map_err(|_| EncryptionSettingsError::InvalidSecurityState)?;
-        *sdk_security_state.write().expect("RwLock not poisoned") = Arc::new(Some(security_state));
+        *sdk_security_state.write().expect("RwLock not poisoned") = Some(security_state);
 
         #[allow(deprecated)]
         {
