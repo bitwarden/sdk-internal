@@ -7,19 +7,14 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{Folder, FolderAddEditRequest, FolderView, VaultParseError};
-
-/// Item does not already exist error.
-#[derive(Debug, thiserror::Error)]
-#[error("Item does not already exist")]
-pub struct ItemDoesNotExistError;
+use crate::{Folder, FolderAddEditRequest, FolderView, ItemNotFoundError, VaultParseError};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum EditFolderError {
     #[error(transparent)]
-    ItemDoesNotExist(#[from] ItemDoesNotExistError),
+    ItemNotFound(#[from] ItemNotFoundError),
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error(transparent)]
@@ -45,7 +40,7 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
     repository
         .get(folder_id.to_owned())
         .await?
-        .ok_or(ItemDoesNotExistError)?;
+        .ok_or(ItemNotFoundError)?;
 
     let folder_request = key_store.encrypt(request)?;
 
@@ -172,7 +167,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            EditFolderError::ItemDoesNotExist(_)
+            EditFolderError::ItemNotFound(_)
         ));
     }
 

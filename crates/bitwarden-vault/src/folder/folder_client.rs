@@ -7,8 +7,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     error::{DecryptError, EncryptError},
-    folder::{create_folder, edit_folder},
-    CreateFolderError, EditFolderError, Folder, FolderAddEditRequest, FolderView,
+    folder::{create_folder, edit_folder, get_folder, list_folders},
+    CreateFolderError, EditFolderError, Folder, FolderAddEditRequest, FolderView, GetFolderError,
 };
 
 /// Wrapper for folder specific functionality.
@@ -38,6 +38,22 @@ impl FoldersClient {
         let key_store = self.client.internal.get_key_store();
         let views = key_store.decrypt_list(&folders)?;
         Ok(views)
+    }
+
+    /// Get all folders from state and decrypt them to a list of [FolderView].
+    pub async fn list(&self) -> Result<Vec<FolderView>, GetFolderError> {
+        let key_store = self.client.internal.get_key_store();
+        let repository = self.get_repository()?;
+
+        list_folders(key_store, repository.as_ref()).await
+    }
+
+    /// Get a specific [Folder] by its ID from state and decrypt it to a [FolderView].
+    pub async fn get(&self, folder_id: &str) -> Result<FolderView, GetFolderError> {
+        let key_store = self.client.internal.get_key_store();
+        let repository = self.get_repository()?;
+
+        get_folder(key_store, repository.as_ref(), folder_id).await
     }
 
     /// Create a new [Folder] and save it to the server.
