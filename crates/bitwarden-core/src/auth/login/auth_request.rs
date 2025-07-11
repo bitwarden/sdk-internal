@@ -121,6 +121,7 @@ pub(crate) async fn complete_auth_request(
                 email: auth_req.email,
                 private_key: require!(r.private_key).parse()?,
                 signing_key: None,
+                security_state: None,
                 method: InitUserCryptoMethod::AuthRequest {
                     request_private_key: auth_req.private_key,
                     method,

@@ -69,12 +69,25 @@ pub enum CryptoError {
 
     #[error("Encoding error, {0}")]
     EncodingError(#[from] EncodingError),
+
+    #[error("Crypto state error, {0}")]
+    CryptoStateError(#[from] CryptoStateError),
 }
 
 #[derive(Debug, Error)]
 pub enum UnsupportedOperation {
     #[error("Encryption is not implemented for key")]
     EncryptionNotImplementedForKey,
+}
+
+/// Signifies that the state is invalid from a cryptographic perspective, such as a required
+/// security value missing, or being invalid
+#[derive(Debug, Error)]
+pub enum CryptoStateError {
+    /// The security state is not present, but required for this user. V2 users must always
+    /// have a security state, V1 users cannot have a security state.
+    #[error("Security state is required, but missing")]
+    MissingSecurityState,
 }
 
 #[derive(Debug, Error)]
@@ -115,16 +128,25 @@ pub enum SignatureError {
     InvalidNamespace,
 }
 
+/// Error type issues en- or de-coding values
 #[derive(Debug, Error)]
 pub enum EncodingError {
+    /// An error occurred while serializing or deserializing a value using COSE
     #[error("Invalid cose encoding")]
     InvalidCoseEncoding,
+    /// An error occurred while serializing or deserializing a value using CBOR
     #[error("Cbor serialization error")]
     InvalidCborSerialization,
+    /// An error occurred while serializing or deserializing a value using Base64
+    #[error("Invalid base64 encoding")]
+    InvalidBase64Encoding,
+    /// A required value is missing from the serialized message
     #[error("Missing value {0}")]
     MissingValue(&'static str),
+    /// A value is invalid / outside the expected range
     #[error("Invalid value {0}")]
     InvalidValue(&'static str),
+    /// A value is unsupported but may be valid
     #[error("Unsupported value {0}")]
     UnsupportedValue(&'static str),
 }
