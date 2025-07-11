@@ -31,16 +31,17 @@ pub fn dangerous_get_v2_rotated_account_keys<Ids: KeyIds>(
     let current_private_key = ctx.get_asymmetric_key(current_user_private_key_id)?;
     let current_signing_key = ctx.get_signing_key(current_user_signing_key_id)?;
 
+    let current_public_key = &current_private_key.to_public_key();
     let signed_public_key =
-        SignedPublicKeyMessage::from_public_key(&current_private_key.to_public_key())?
-            .sign(current_signing_key)?;
+        SignedPublicKeyMessage::from_public_key(current_public_key)?.sign(current_signing_key)?;
+
     Ok(RotatedUserKeys {
-        user_key: user_key.clone(),
         verifying_key: current_signing_key.to_verifying_key().to_cose(),
         signing_key: current_signing_key.to_cose().encrypt_with_key(&user_key)?,
         signed_public_key,
-        public_key: current_private_key.to_public_key().to_der()?,
+        public_key: current_public_key.to_der()?,
         private_key: current_private_key.to_der()?.encrypt_with_key(&user_key)?,
+        user_key,
     })
 }
 
