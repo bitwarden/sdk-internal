@@ -105,7 +105,7 @@ impl Client {
                 external_client,
                 key_store: KeyStore::default(),
                 #[cfg(feature = "internal")]
-                security_state: RwLock::new(Arc::new(None)),
+                security_state: RwLock::new(None),
                 #[cfg(feature = "internal")]
                 repository_map: StateRegistry::new(),
             }),

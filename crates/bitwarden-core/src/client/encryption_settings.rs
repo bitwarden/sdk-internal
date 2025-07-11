@@ -1,5 +1,5 @@
 #[cfg(feature = "internal")]
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{
