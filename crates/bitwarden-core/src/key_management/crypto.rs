@@ -678,11 +678,12 @@ pub(crate) fn get_v2_rotated_account_keys(
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context();
 
-    let signed_security_state = client
+    let security_state = client
         .internal
         .security_state
         .read()
         .expect("RwLock is not poisoned")
+        .as_ref()
         .to_owned()
         .ok_or(CryptoError::CryptoStateError(
             CryptoStateError::MissingSecurityState,
