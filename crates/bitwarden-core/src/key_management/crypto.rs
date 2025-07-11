@@ -683,7 +683,6 @@ pub(crate) fn get_v2_rotated_account_keys(
         .security_state
         .read()
         .expect("RwLock is not poisoned")
-        .as_ref()
         .to_owned()
         .ok_or(CryptoError::CryptoStateError(
             CryptoStateError::MissingSecurityState,
