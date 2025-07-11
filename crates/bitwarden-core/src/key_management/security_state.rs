@@ -123,7 +123,7 @@ impl FromStr for SignedSecurityState {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let bytes = STANDARD
             .decode(s)
-            .map_err(|_| EncodingError::InvalidCborSerialization)?;
+            .map_err(|_| EncodingError::InvalidBase64Encoding)?;
         Self::try_from(&CoseSign1Bytes::from(bytes))
     }
 }

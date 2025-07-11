@@ -137,6 +137,9 @@ pub enum EncodingError {
     /// An error occurred while serializing or deserializing a value using CBOR
     #[error("Cbor serialization error")]
     InvalidCborSerialization,
+    /// An error occurred while serializing or deserializing a value using Base64
+    #[error("Invalid base64 encoding")]
+    InvalidBase64Encoding,
     /// A required value is missing from the serialized message
     #[error("Missing value {0}")]
     MissingValue(&'static str),
