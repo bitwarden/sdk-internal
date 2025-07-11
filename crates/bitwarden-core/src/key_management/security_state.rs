@@ -147,16 +147,6 @@ impl serde::Serialize for SignedSecurityState {
     }
 }
 
-impl schemars::JsonSchema for SignedSecurityState {
-    fn schema_name() -> String {
-        "SecurityState".to_string()
-    }
-
-    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
-        generator.subschema_for::<String>()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use bitwarden_crypto::{KeyStore, SignatureAlgorithm, SigningKey};

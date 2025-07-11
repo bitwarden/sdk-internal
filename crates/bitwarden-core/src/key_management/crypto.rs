@@ -585,7 +585,7 @@ pub(super) fn verify_asymmetric_keys(
 }
 
 /// Response for the `make_keys_for_user_crypto_v2`, containing a set of keys for a user
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
