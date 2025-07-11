@@ -45,7 +45,7 @@ where
         receiver: &Com::Receiver,
         communication: &Com,
         sessions: &Ses,
-    ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>> + Send + Sync;
+    ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>> + Send;
 }
 
 pub struct NoEncryptionCryptoProvider;
