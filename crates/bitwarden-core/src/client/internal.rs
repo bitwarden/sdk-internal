@@ -31,6 +31,13 @@ use crate::{
     error::NotAuthenticatedError,
 };
 
+/// Represents the user's keys, that are encrypted by the user key, and the signed security state.
+pub(crate) struct UserKeyState {
+    pub(crate) private_key: EncString,
+    pub(crate) signing_key: Option<EncString>,
+    pub(crate) security_state: Option<SignedSecurityState>,
+}
+
 #[allow(missing_docs)]
 #[derive(Debug, Clone)]
 pub struct ApiConfigurations {
@@ -223,33 +230,24 @@ impl InternalClient {
         &self,
         master_key: MasterKey,
         user_key: EncString,
-        private_key: EncString,
-        signing_key: Option<EncString>,
-        security_state: Option<SignedSecurityState>,
+        key_state: UserKeyState,
     ) -> Result<(), EncryptionSettingsError> {
         let user_key = master_key.decrypt_user_key(user_key)?;
-        self.initialize_user_crypto_decrypted_key(
-            user_key,
-            private_key,
-            signing_key,
-            security_state,
-        )
+        self.initialize_user_crypto_decrypted_key(user_key, key_state)
     }
 
     #[cfg(feature = "internal")]
     pub(crate) fn initialize_user_crypto_decrypted_key(
         &self,
         user_key: SymmetricCryptoKey,
-        private_key: EncString,
-        signing_key: Option<EncString>,
-        security_state: Option<SignedSecurityState>,
+        key_state: UserKeyState,
     ) -> Result<(), EncryptionSettingsError> {
         match user_key {
             SymmetricCryptoKey::Aes256CbcHmacKey(ref user_key) => {
                 EncryptionSettings::new_decrypted_key(
                     AccountEncryptionKeys::V1 {
                         user_key: user_key.clone(),
-                        private_key,
+                        private_key: key_state.private_key,
                     },
                     &self.key_store,
                     &self.security_state,
@@ -259,10 +257,12 @@ impl InternalClient {
                 EncryptionSettings::new_decrypted_key(
                     AccountEncryptionKeys::V2 {
                         user_key: user_key.clone(),
-                        private_key,
-                        signing_key: signing_key
+                        private_key: key_state.private_key,
+                        signing_key: key_state
+                            .signing_key
                             .ok_or(EncryptionSettingsError::InvalidSigningKey)?,
-                        security_state: security_state
+                        security_state: key_state
+                            .security_state
                             .ok_or(EncryptionSettingsError::InvalidSecurityState)?,
                     },
                     &self.key_store,
@@ -282,17 +282,10 @@ impl InternalClient {
         &self,
         pin_key: PinKey,
         pin_protected_user_key: EncString,
-        private_key: EncString,
-        signing_key: Option<EncString>,
-        security_state: Option<SignedSecurityState>,
+        key_state: UserKeyState,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = pin_key.decrypt_user_key(pin_protected_user_key)?;
-        self.initialize_user_crypto_decrypted_key(
-            decrypted_user_key,
-            private_key,
-            signing_key,
-            security_state,
-        )
+        self.initialize_user_crypto_decrypted_key(decrypted_user_key, key_state)
     }
 
     #[cfg(feature = "secrets")]

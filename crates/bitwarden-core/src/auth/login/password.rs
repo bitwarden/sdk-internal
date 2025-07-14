@@ -34,6 +34,8 @@ pub(crate) async fn login_password(
     let response = request_identity_tokens(client, input, &password_hash).await?;
 
     if let IdentityTokenResponse::Authenticated(r) = &response {
+        use crate::client::internal::UserKeyState;
+
         client.internal.set_tokens(
             r.access_token.clone(),
             r.refresh_token.clone(),
@@ -53,9 +55,11 @@ pub(crate) async fn login_password(
         client.internal.initialize_user_crypto_master_key(
             master_key,
             user_key,
-            private_key,
-            None,
-            None,
+            UserKeyState {
+                private_key,
+                signing_key: None,
+                security_state: None,
+            },
         )?;
     }
 
