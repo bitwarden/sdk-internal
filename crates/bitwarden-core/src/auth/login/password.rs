@@ -23,7 +23,10 @@ pub(crate) async fn login_password(
 ) -> Result<PasswordLoginResponse, LoginError> {
     use bitwarden_crypto::{EncString, HashPurpose, MasterKey};
 
-    use crate::{client::UserLoginMethod, require};
+    use crate::{
+        client::{internal::UserKeyState, UserLoginMethod},
+        require,
+    };
 
     info!("password logging in");
 
@@ -34,8 +37,6 @@ pub(crate) async fn login_password(
     let response = request_identity_tokens(client, input, &password_hash).await?;
 
     if let IdentityTokenResponse::Authenticated(r) = &response {
-        use crate::client::internal::UserKeyState;
-
         client.internal.set_tokens(
             r.access_token.clone(),
             r.refresh_token.clone(),
