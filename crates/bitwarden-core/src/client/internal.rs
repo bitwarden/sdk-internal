@@ -14,8 +14,6 @@ use uuid::Uuid;
 use crate::client::encryption_settings::EncryptionSettings;
 #[cfg(feature = "secrets")]
 use crate::client::login_method::ServiceAccountLoginMethod;
-#[cfg(feature = "internal")]
-use crate::key_management::SecurityState;
 use crate::{
     auth::renew::renew_token,
     client::login_method::LoginMethod,
@@ -31,7 +29,7 @@ use crate::{
         login_method::UserLoginMethod,
     },
     error::NotAuthenticatedError,
-    key_management::SignedSecurityState,
+    key_management::{SecurityState, SignedSecurityState},
 };
 
 /// Represents the user's keys, that are encrypted by the user key, and the signed security state.
