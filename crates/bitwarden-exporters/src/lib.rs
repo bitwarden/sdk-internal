@@ -29,7 +29,7 @@ pub use error::ExportError;
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(
     feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify_next::Tsify),
+    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
 pub enum ExportFormat {

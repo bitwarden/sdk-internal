@@ -25,7 +25,7 @@ wasm = [
     "bitwarden-error/wasm",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
-    "dep:tsify-next"
+    "dep:tsify"
 ] # WASM support
 
 [dependencies]
@@ -49,7 +49,7 @@ serde_json = { workspace = true }
 serde_qs = { workspace = true }
 serde_repr = { workspace = true }
 thiserror = { workspace = true }
-tsify-next = { workspace = true, optional = true }
+tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true, features = ["tokio"] }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }

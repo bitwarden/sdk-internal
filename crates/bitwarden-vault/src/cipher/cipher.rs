@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use tsify_next::Tsify;
+use tsify::Tsify;
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -250,6 +250,22 @@ pub struct CipherListView {
     pub copyable_fields: Vec<CopyableCipherFields>,
 
     pub local_data: Option<LocalDataView>,
+}
+
+/// Represents the result of decrypting a list of ciphers.
+///
+/// This struct contains two vectors: `successes` and `failures`.
+/// `successes` contains the decrypted `CipherListView` objects,
+/// while `failures` contains the original `Cipher` objects that failed to decrypt.
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct DecryptCipherListResult {
+    /// The decrypted `CipherListView` objects.
+    pub successes: Vec<CipherListView>,
+    /// The original `Cipher` objects that failed to decrypt.
+    pub failures: Vec<Cipher>,
 }
 
 impl CipherListView {
@@ -977,6 +993,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: None,
+            decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
 
@@ -1046,6 +1063,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: None,
+            decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
 
@@ -1089,6 +1107,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: Some(attachment_key_enc),
+            decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
         let cred = generate_fido2(&mut key_store.context(), SymmetricKeyId::User);
@@ -1164,6 +1183,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: Some(attachment_key_enc.clone()),
+            decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
 

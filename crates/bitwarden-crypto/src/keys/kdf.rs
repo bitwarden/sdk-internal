@@ -5,7 +5,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 #[cfg(feature = "wasm")]
-use tsify_next::Tsify;
+use tsify::Tsify;
 use typenum::U32;
 use zeroize::Zeroize;
 
@@ -96,6 +96,22 @@ impl KdfDerivedKeyMaterial {
             kdf,
         )
     }
+}
+
+#[deprecated(
+    note = "This function is only meant as a temporary stop-gap to expose KDF derivation in PureCrypto until the higher-level consumers are moved to the SDK directly. DO NOT USE THIS OUTSIDE OF PureCrypto!"
+)]
+/// Derives KDF material given a password, salt and kdf configuration. This function is
+/// a stop-gap solution and should not be used outside of PureCrypto.
+///
+/// The clean-up ticket is tracked here:
+/// `https://bitwarden.atlassian.net/browse/PM-23168`
+pub fn dangerous_derive_kdf_material(
+    password: &[u8],
+    salt: &[u8],
+    kdf: &Kdf,
+) -> Result<Vec<u8>, CryptoError> {
+    KdfDerivedKeyMaterial::derive_kdf_key(password, salt, kdf).map(|kdf_key| kdf_key.0.to_vec())
 }
 
 /// Key Derivation Function for Bitwarden Account
