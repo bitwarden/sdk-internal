@@ -28,7 +28,7 @@ use bitwarden_crypto::{
     KeyStoreContext, SignedObject, SigningNamespace, VerifyingKey,
 };
 use serde::{Deserialize, Serialize};
-use serde_bytes::ByteBuf;
+use uuid::Uuid;
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
@@ -46,7 +46,7 @@ export type SignedSecurityState = string;
 pub struct SecurityState {
     /// The entity ID is a permanent, unchangeable, unique identifier for the object this security
     /// state applies to. For users, this is the user ID, which never changes.
-    entity_id: ByteBuf,
+    entity_id: Uuid,
     /// The version of the security state gates feature availability. It can only ever be
     /// incremented. Components can use it to gate format support of specific formats (like
     /// item url hashes).
@@ -58,7 +58,7 @@ impl SecurityState {
     /// The user needs to be a v2 encryption user.
     pub fn initialize_for_user(user_id: uuid::Uuid) -> Self {
         SecurityState {
-            entity_id: user_id.as_bytes().to_vec().into(),
+            entity_id: user_id,
             version: 2,
         }
     }
@@ -174,16 +174,7 @@ mod tests {
             .verify_and_unwrap(&verifying_key)
             .unwrap();
 
-        assert_eq!(
-            uuid::Uuid::from_bytes(
-                verified_security_state
-                    .entity_id
-                    .as_ref()
-                    .try_into()
-                    .unwrap()
-            ),
-            user_id
-        );
+        assert_eq!(verified_security_state.entity_id, user_id);
         assert_eq!(verified_security_state.version(), 2);
     }
 }
