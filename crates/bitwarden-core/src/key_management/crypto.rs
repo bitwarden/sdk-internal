@@ -20,10 +20,7 @@ use serde::{Deserialize, Serialize};
 use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
-    client::{
-        encryption_settings::EncryptionSettingsError, internal::UserKeyState, LoginMethod,
-        UserLoginMethod,
-    },
+    client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
     key_management::{
         AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
     },
@@ -63,16 +60,6 @@ pub struct InitUserCryptoRequest {
     pub security_state: Option<SignedSecurityState>,
     /// The initialization method to use
     pub method: InitUserCryptoMethod,
-}
-
-impl From<&InitUserCryptoRequest> for UserKeyState {
-    fn from(req: &InitUserCryptoRequest) -> Self {
-        UserKeyState {
-            private_key: req.private_key.clone(),
-            signing_key: req.signing_key.clone(),
-            security_state: req.security_state.clone(),
-        }
-    }
 }
 
 /// The crypto method used to initialize the user cryptographic state.
@@ -713,7 +700,7 @@ mod tests {
     use bitwarden_crypto::RsaKeyPair;
 
     use super::*;
-    use crate::Client;
+    use crate::{client::internal::UserKeyState, Client};
 
     #[tokio::test]
     async fn test_update_password() {

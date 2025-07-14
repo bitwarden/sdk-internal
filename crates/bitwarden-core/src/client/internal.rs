@@ -17,8 +17,11 @@ use crate::client::login_method::ServiceAccountLoginMethod;
 #[cfg(feature = "internal")]
 use crate::key_management::SecurityState;
 use crate::{
-    auth::renew::renew_token, client::login_method::LoginMethod, error::UserIdAlreadySetError,
-    key_management::KeyIds, DeviceType,
+    auth::renew::renew_token,
+    client::login_method::LoginMethod,
+    error::UserIdAlreadySetError,
+    key_management::{crypto::InitUserCryptoRequest, KeyIds},
+    DeviceType,
 };
 #[cfg(feature = "internal")]
 use crate::{
@@ -37,6 +40,16 @@ pub(crate) struct UserKeyState {
     pub(crate) private_key: EncString,
     pub(crate) signing_key: Option<EncString>,
     pub(crate) security_state: Option<SignedSecurityState>,
+}
+#[cfg(feature = "internal")]
+impl From<&InitUserCryptoRequest> for UserKeyState {
+    fn from(req: &InitUserCryptoRequest) -> Self {
+        UserKeyState {
+            private_key: req.private_key.clone(),
+            signing_key: req.signing_key.clone(),
+            security_state: req.security_state.clone(),
+        }
+    }
 }
 
 #[allow(missing_docs)]
