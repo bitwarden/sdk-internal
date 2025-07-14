@@ -32,6 +32,7 @@ use crate::{
 };
 
 /// Represents the user's keys, that are encrypted by the user key, and the signed security state.
+#[cfg(feature = "internal")]
 pub(crate) struct UserKeyState {
     pub(crate) private_key: EncString,
     pub(crate) signing_key: Option<EncString>,
