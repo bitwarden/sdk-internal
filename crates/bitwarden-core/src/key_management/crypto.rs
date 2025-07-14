@@ -9,9 +9,9 @@ use std::collections::HashMap;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     dangerous_get_v2_rotated_account_keys, AsymmetricCryptoKey, CoseSerializable, CryptoError,
-    CryptoStateError, EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey,
-    Pkcs8PrivateKeyBytes, SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes,
-    SymmetricCryptoKey, UnsignedSharedKey, UserKey,
+    EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes,
+    SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    UnsignedSharedKey, UserKey,
 };
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
@@ -21,6 +21,7 @@ use {tsify_next::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
+    error::StatefulCryptoError,
     key_management::{
         AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
     },
@@ -599,7 +600,7 @@ pub struct UserCryptoV2KeysResponse {
 /// key is a Cose key.
 pub(crate) fn make_v2_keys_for_v1_user(
     client: &Client,
-) -> Result<UserCryptoV2KeysResponse, CryptoError> {
+) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context();
 
@@ -610,19 +611,19 @@ pub(crate) fn make_v2_keys_for_v1_user(
 
     // Ensure that the function is only called for a V1 user.
     if client.internal.get_security_version() != 1 {
-        return Err(CryptoError::CryptoStateError(
-            CryptoStateError::WrongAccountCryptoVersion {
-                expected: "1".to_string(),
-                got: 2,
-            },
-        ));
+        return Err(StatefulCryptoError::WrongAccountCryptoVersion {
+            expected: "1".to_string(),
+            got: 2,
+        });
     }
 
     // Ensure the user has a private key.
     // V1 user must have a private key to upgrade. This should be ensured by the client before
     // calling the upgrade function.
     if !ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey) {
-        return Err(CryptoError::MissingKeyId("UserPrivateKey".to_string()));
+        return Err(StatefulCryptoError::CryptoError(CryptoError::MissingKeyId(
+            "UserPrivateKey".to_string(),
+        )));
     }
 
     #[allow(deprecated)]
@@ -643,9 +644,12 @@ pub(crate) fn make_v2_keys_for_v1_user(
     let public_key = private_key.to_public_key();
 
     // Initialize security state for the user
-    let security_state = SecurityState::initialize_for_user(client.internal.get_user_id().ok_or(
-        CryptoError::CryptoStateError(CryptoStateError::MissingSecurityState),
-    )?);
+    let security_state = SecurityState::initialize_for_user(
+        client
+            .internal
+            .get_user_id()
+            .ok_or(StatefulCryptoError::MissingSecurityState)?,
+    );
     let signed_security_state = security_state.sign(temporary_signing_key_id, &mut ctx)?;
 
     Ok(UserCryptoV2KeysResponse {
@@ -669,19 +673,17 @@ pub(crate) fn make_v2_keys_for_v1_user(
 /// user to be a v2 user; that is, they have a signing key, a cose user-key, and a private key
 pub(crate) fn get_v2_rotated_account_keys(
     client: &Client,
-) -> Result<UserCryptoV2KeysResponse, CryptoError> {
+) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context();
 
     // Ensure that the function is only called for a V2 user.
     // V2 users have a security version 2 or higher.
     if client.internal.get_security_version() == 1 {
-        return Err(CryptoError::CryptoStateError(
-            CryptoStateError::WrongAccountCryptoVersion {
-                expected: "2+".to_string(),
-                got: 1,
-            },
-        ));
+        return Err(StatefulCryptoError::WrongAccountCryptoVersion {
+            expected: "2+".to_string(),
+            got: 1,
+        });
     }
 
     let security_state = client
@@ -692,9 +694,7 @@ pub(crate) fn get_v2_rotated_account_keys(
         .to_owned()
         // This cannot occur since the security version check above already ensures that the
         // security state is present.
-        .ok_or(CryptoError::CryptoStateError(
-            CryptoStateError::MissingSecurityState,
-        ))?;
+        .ok_or(StatefulCryptoError::MissingSecurityState)?;
 
     let rotated_keys = dangerous_get_v2_rotated_account_keys(
         AsymmetricKeyId::UserPrivateKey,
@@ -1192,12 +1192,10 @@ mod tests {
         let result = make_v2_keys_for_v1_user(&client);
         assert!(matches!(
             result,
-            Err(CryptoError::CryptoStateError(
-                CryptoStateError::WrongAccountCryptoVersion {
-                    expected: _,
-                    got: _
-                }
-            ))
+            Err(StatefulCryptoError::WrongAccountCryptoVersion {
+                expected: _,
+                got: _
+            })
         ));
     }
 
@@ -1218,12 +1216,10 @@ mod tests {
         let result = get_v2_rotated_account_keys(&client);
         assert!(matches!(
             result,
-            Err(CryptoError::CryptoStateError(
-                CryptoStateError::WrongAccountCryptoVersion {
-                    expected: _,
-                    got: _
-                }
-            ))
+            Err(StatefulCryptoError::WrongAccountCryptoVersion {
+                expected: _,
+                got: _
+            })
         ));
     }
 

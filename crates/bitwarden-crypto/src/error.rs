@@ -69,33 +69,12 @@ pub enum CryptoError {
 
     #[error("Encoding error, {0}")]
     EncodingError(#[from] EncodingError),
-
-    #[error("Crypto state error, {0}")]
-    CryptoStateError(#[from] CryptoStateError),
 }
 
 #[derive(Debug, Error)]
 pub enum UnsupportedOperation {
     #[error("Encryption is not implemented for key")]
     EncryptionNotImplementedForKey,
-}
-
-/// Signifies that the state is invalid from a cryptographic perspective, such as a required
-/// security value missing, or being invalid
-#[derive(Debug, Error)]
-pub enum CryptoStateError {
-    /// The security state is not present, but required for this user. V2 users must always
-    /// have a security state, V1 users cannot have a security state.
-    #[error("Security state is required, but missing")]
-    MissingSecurityState,
-    /// The function expected a user in a account cryptography version, but got a different one.
-    #[error("Expected user in account cryptography version {expected}, but got {got}")]
-    WrongAccountCryptoVersion {
-        /// The expected account cryptography version. This can include a range, such as `2+`.
-        expected: String,
-        /// The actual account cryptography version.
-        got: u32,
-    },
 }
 
 #[derive(Debug, Error)]
