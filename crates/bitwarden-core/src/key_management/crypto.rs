@@ -594,8 +594,8 @@ pub struct UserCryptoV2KeysResponse {
     security_version: u64,
 }
 
-/// Creates the user's cryptographic state for v2 users. This includes ensuring signature key pair is
-/// present, a signed public key is present, a security state is present and signed, and the user
+/// Creates the user's cryptographic state for v2 users. This includes ensuring signature key pair
+/// is present, a signed public key is present, a security state is present and signed, and the user
 /// key is a Cose key.
 pub(crate) fn make_v2_keys_for_v1_user(
     client: &Client,
@@ -619,7 +619,8 @@ pub(crate) fn make_v2_keys_for_v1_user(
     }
 
     // Ensure the user has a private key.
-    // V1 user must have a private key to upgrade. This should be ensured by the client before calling the upgrade function.
+    // V1 user must have a private key to upgrade. This should be ensured by the client before
+    // calling the upgrade function.
     if !ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey) {
         return Err(CryptoError::MissingKeyId("UserPrivateKey".to_string()));
     }
@@ -689,7 +690,8 @@ pub(crate) fn get_v2_rotated_account_keys(
         .read()
         .expect("RwLock is not poisoned")
         .to_owned()
-        // This cannot occur since the security version check above already ensures that the security state is present.
+        // This cannot occur since the security version check above already ensures that the
+        // security state is present.
         .ok_or(CryptoError::CryptoStateError(
             CryptoStateError::MissingSecurityState,
         ))?;
