@@ -46,7 +46,7 @@ pub(super) fn make_register_tde_keys(
         user_key.0,
         UserKeyState {
             private_key: key_pair.private.clone(),
-            // Note: Signing keys are not supported on registration yet. This needs to be changed as
+            // TODO (https://bitwarden.atlassian.net/browse/PM-21771) Signing keys are not supported on registration yet. This needs to be changed as
             // soon as registration is supported.
             signing_key: None,
             security_state: None,
