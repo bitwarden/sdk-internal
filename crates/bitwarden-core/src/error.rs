@@ -4,6 +4,7 @@ use std::fmt::Debug;
 
 use bitwarden_api_api::apis::Error as ApiApisError;
 use bitwarden_api_identity::apis::Error as IdentityError;
+#[cfg(feature = "internal")]
 use bitwarden_error::bitwarden_error;
 use reqwest::StatusCode;
 use thiserror::Error;
