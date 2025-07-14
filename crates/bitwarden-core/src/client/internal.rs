@@ -215,6 +215,18 @@ impl InternalClient {
         &self.key_store
     }
 
+    /// Returns the security version of the user.
+    /// `1` is returned for V1 users that do not have a signed security state.
+    /// `2` or greater is returned for V2 users that have a signed security state.
+    #[cfg(feature = "internal")]
+    pub fn get_security_version(&self) -> u64 {
+        self.security_state
+            .read()
+            .expect("RwLock is not poisoned")
+            .as_ref()
+            .map_or(1, |state| state.version())
+    }
+
     #[allow(missing_docs)]
     pub fn init_user_id(&self, user_id: Uuid) -> Result<(), UserIdAlreadySetError> {
         let set_uuid = self.user_id.get_or_init(|| user_id);

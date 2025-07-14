@@ -88,6 +88,14 @@ pub enum CryptoStateError {
     /// have a security state, V1 users cannot have a security state.
     #[error("Security state is required, but missing")]
     MissingSecurityState,
+    /// The function expected a user in a account cryptography version, but got a different one.
+    #[error("Expected user in account cryptography version {expected}, but got {got}")]
+    WrongAccountCryptoVersion {
+        /// The expected account cryptography version. This can include a range, such as `2+`.
+        expected: String,
+        /// The actual account cryptography version.
+        got: u32,
+    },
 }
 
 #[derive(Debug, Error)]
