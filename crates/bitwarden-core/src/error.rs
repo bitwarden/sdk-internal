@@ -76,6 +76,7 @@ pub struct MissingPrivateKeyError;
 
 /// Signifies that the state is invalid from a cryptographic perspective, such as a required
 /// security value missing, or being invalid
+#[cfg(feature = "internal")]
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub enum StatefulCryptoError {
