@@ -25,13 +25,13 @@ use crate::{
 };
 #[cfg(feature = "internal")]
 use crate::{
-    client::encryption_settings::AccountEncryptionKeys, key_management::SignedSecurityState,
-};
-#[cfg(feature = "internal")]
-use crate::{
-    client::encryption_settings::EncryptionSettingsError,
-    client::{flags::Flags, login_method::UserLoginMethod},
+    client::{
+        encryption_settings::{AccountEncryptionKeys, EncryptionSettingsError},
+        flags::Flags,
+        login_method::UserLoginMethod,
+    },
     error::NotAuthenticatedError,
+    key_management::SignedSecurityState,
 };
 
 /// Represents the user's keys, that are encrypted by the user key, and the signed security state.
