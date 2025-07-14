@@ -44,7 +44,7 @@ pub use message::SerializedMessage;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use {tsify_next::Tsify, wasm_bindgen::prelude::*};
+use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 /// The type of key / signature scheme used for signing and verifying.
 #[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq)]

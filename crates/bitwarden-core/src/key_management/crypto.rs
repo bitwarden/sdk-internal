@@ -17,7 +17,7 @@ use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use {tsify_next::Tsify, wasm_bindgen::prelude::*};
+use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},

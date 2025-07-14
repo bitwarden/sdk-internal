@@ -10,7 +10,7 @@ use bitwarden_crypto::{
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
-use tsify_next::Tsify;
+use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
