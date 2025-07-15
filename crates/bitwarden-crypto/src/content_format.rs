@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    traits::PrimitiveEncryptableWithContentType, CryptoError, EncString, KeyEncryptable,
-    KeyEncryptableWithContentType, KeyIds, KeyStoreContext, PrimitiveEncryptable,
-    SymmetricCryptoKey,
+    CryptoError, EncString, KeyEncryptable, KeyEncryptableWithContentType, KeyIds, KeyStoreContext,
+    PrimitiveEncryptable, PrimitiveEncryptableWithContentType, SymmetricCryptoKey,
 };
 
 /// The content format describes the format of the contained bytes. Message encryption always

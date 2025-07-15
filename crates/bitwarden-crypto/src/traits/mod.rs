@@ -1,9 +1,3 @@
-mod encryptable;
-pub(crate) use encryptable::PrimitiveEncryptableWithContentType;
-pub use encryptable::{CompositeEncryptable, PrimitiveEncryptable};
-mod decryptable;
-pub use decryptable::Decryptable;
-
 pub(crate) mod key_id;
 pub use key_id::{KeyId, KeyIds};
 

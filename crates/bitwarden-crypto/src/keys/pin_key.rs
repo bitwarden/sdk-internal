@@ -3,9 +3,7 @@ use super::{
     master_key::decrypt_user_key,
     utils::stretch_key,
 };
-use crate::{
-    keys::key_encryptable::CryptoKey, EncString, KeyEncryptable, Result, SymmetricCryptoKey,
-};
+use crate::{CryptoKey, EncString, KeyEncryptable, Result, SymmetricCryptoKey};
 
 /// Pin Key.
 ///

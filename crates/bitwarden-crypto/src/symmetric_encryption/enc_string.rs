@@ -4,9 +4,9 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use coset::CborSerializable;
 use serde::Deserialize;
 
-use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
+    symmetric_encryption::util::{check_length, from_b64, from_b64_vec, split_enc_string},
     util::FromStrVisitor,
     Aes256CbcHmacKey, ContentFormat, KeyDecryptable, KeyEncryptable, KeyEncryptableWithContentType,
     SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
@@ -256,7 +256,7 @@ impl EncString {
         key: &Aes256CbcHmacKey,
     ) -> Result<EncString> {
         let (iv, mac, data) =
-            crate::aes::encrypt_aes256_hmac(data_dec, &key.mac_key, &key.enc_key)?;
+            super::hazmat::aes::encrypt_aes256_hmac(data_dec, &key.mac_key, &key.enc_key)?;
         Ok(EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data })
     }
 
@@ -265,7 +265,7 @@ impl EncString {
         key: &XChaCha20Poly1305Key,
         content_format: ContentFormat,
     ) -> Result<EncString> {
-        let data = crate::cose::encrypt_xchacha20_poly1305(data_dec, key, content_format)?;
+        let data = super::cose::encrypt_xchacha20_poly1305(data_dec, key, content_format)?;
         Ok(EncString::Cose_Encrypt0_B64 { data })
     }
 
@@ -301,18 +301,24 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
         match (self, key) {
             (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
-                crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
+                super::hazmat::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
             }
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
+            ) => super::hazmat::aes::decrypt_aes256_hmac(
+                iv,
+                mac,
+                data.clone(),
+                &key.mac_key,
+                &key.enc_key,
+            ),
             (
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
                 let (decrypted_message, _) =
-                    crate::cose::decrypt_xchacha20_poly1305(data.as_slice(), key)?;
+                    super::cose::decrypt_xchacha20_poly1305(data.as_slice(), key)?;
                 Ok(decrypted_message)
             }
             _ => Err(CryptoError::WrongKeyType),
@@ -357,8 +363,8 @@ mod tests {
 
     use super::EncString;
     use crate::{
-        derive_symmetric_key, CryptoError, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
-        KEY_ID_SIZE,
+        symmetric_encryption::symmetric_crypto_key::derive_symmetric_key, CryptoError,
+        KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, KEY_ID_SIZE,
     };
 
     #[test]
