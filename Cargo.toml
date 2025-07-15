@@ -31,10 +31,11 @@ bitwarden-fido = { path = "crates/bitwarden-fido", version = "=1.0.0" }
 bitwarden-generators = { path = "crates/bitwarden-generators", version = "=1.0.0" }
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=1.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=1.0.0" }
-bitwarden-state = { path = "crates/bitwarden-state", version = "=1.0.0" }
-bitwarden-threading = { path = "crates/bitwarden-threading", version = "=1.0.0" }
 bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=1.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=1.0.0" }
+bitwarden-state = { path = "crates/bitwarden-state", version = "=1.0.0" }
+bitwarden-test = { path = "crates/bitwarden-test", version = "=1.0.0" }
+bitwarden-threading = { path = "crates/bitwarden-threading", version = "=1.0.0" }
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=1.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=1.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=1.0.0" }
@@ -61,6 +62,7 @@ serde_bytes = { version = ">=0.11.17, <0.12.0" }
 serde_json = ">=1.0.96, <2.0"
 serde_qs = ">=0.12.0, <0.16"
 serde_repr = ">=0.1.12, <0.2"
+serde-wasm-bindgen = ">=0.6.0, <0.7"
 syn = ">=2.0.87, <3"
 thiserror = ">=1.0.40, <3"
 tokio = { version = "1.36.0", features = ["macros"] }
@@ -73,7 +75,7 @@ validator = { version = ">=0.18.1, <0.21", features = ["derive"] }
 wasm-bindgen = { version = ">=0.2.91, <0.3", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4.41"
 wasm-bindgen-test = "0.3.45"
-serde-wasm-bindgen = ">=0.6.0, <0.7"
+wiremock = ">=0.6.0, <0.7"
 
 # There is an incompatibility when using pkcs5 and chacha20 on wasm builds. This can be removed once a new
 # rustcrypto-formats crate version is released since the fix has been upstreamed.
