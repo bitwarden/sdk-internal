@@ -363,7 +363,7 @@ dependencies = [
  "bitwarden-error",
  "serde",
  "thiserror 1.0.69",
- "tsify-next",
+ "tsify",
  "uniffi",
  "uuid",
  "wasm-bindgen",
