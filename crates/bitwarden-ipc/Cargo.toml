@@ -23,11 +23,15 @@ wasm = [
 async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-threading = { workspace = true }
+ciborium = "0.2.2"
 erased-serde = ">=0.4.6, <0.5"
+hex = "0.4.3"
 js-sys = { workspace = true, optional = true }
 log = { workspace = true }
 serde = { workspace = true }
+serde_bytes = "0.11.17"
 serde_json = { workspace = true }
+snow = "0.9.6"
 thiserror = { workspace = true }
 tokio = { features = ["sync", "time", "rt"], workspace = true }
 tsify = { workspace = true, optional = true }

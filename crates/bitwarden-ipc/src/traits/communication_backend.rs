@@ -29,7 +29,7 @@ pub trait CommunicationBackend: Send + Sync + 'static {
     ///     - Multiple concurrent receivers may be created.
     ///     - All concurrent receivers will receive the same messages.
     ///      - Multiple concurrent receivers and senders can coexist.
-    fn subscribe(&self) -> impl std::future::Future<Output = Self::Receiver> + Send + Sync;
+    fn subscribe(&self) -> impl std::future::Future<Output = Self::Receiver> + Send;
 }
 
 /// This trait defines the interface for receiving messages from the communication backend.
@@ -50,7 +50,7 @@ pub trait CommunicationBackendReceiver: Send + Sync + 'static {
     /// to create one receiver per thread.
     fn receive(
         &self,
-    ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>> + Send + Sync;
+    ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>> + Send;
 }
 
 #[cfg(test)]
@@ -58,8 +58,7 @@ pub mod tests {
     use std::sync::Arc;
 
     use tokio::sync::{
-        broadcast::{self, Receiver, Sender},
-        RwLock,
+        broadcast::{self, Receiver, Sender}, Mutex, RwLock,
     };
 
     use super::*;
@@ -139,6 +138,70 @@ pub mod tests {
                 .recv()
                 .await
                 .expect("Failed to receive incoming message"))
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct TestTwoWayCommunicationBackend {
+        outgoing: broadcast::Sender<OutgoingMessage>,
+        receiver: TestTwoWayCommunicationBackendReceiver,
+    }
+
+    #[derive(Clone)]
+    pub struct TestTwoWayCommunicationBackendReceiver {
+        incoming: Arc<Mutex<broadcast::Receiver<OutgoingMessage>>>,
+    }
+
+    impl CommunicationBackendReceiver for TestTwoWayCommunicationBackendReceiver {
+        type ReceiveError = ();
+
+        async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
+            let mut incoming = self.incoming.lock().await;
+            let message = incoming.recv().await.unwrap();
+            Ok(IncomingMessage {
+                payload: message.payload,
+                destination: message.destination,
+                source: crate::endpoint::Endpoint::DesktopMain,
+                topic: message.topic,
+            })
+        }
+    }
+
+    impl TestTwoWayCommunicationBackend {
+        pub fn new() -> (Self, Self) {
+            let (outgoing0, incoming0) = broadcast::channel(128);
+            let (outgoing1, incoming1) = broadcast::channel(128);
+            let one = TestTwoWayCommunicationBackend {
+                outgoing: outgoing0,
+                receiver: TestTwoWayCommunicationBackendReceiver {
+                    incoming: Arc::new(Mutex::new(incoming1)),
+                },
+            };
+            let two = TestTwoWayCommunicationBackend {
+                outgoing: outgoing1,
+                receiver: TestTwoWayCommunicationBackendReceiver {
+                    incoming: Arc::new(Mutex::new(incoming0)),
+                },
+            };
+            (one, two)
+        }
+    }
+
+    impl CommunicationBackend for TestTwoWayCommunicationBackend {
+        type SendError = ();
+        type Receiver = TestTwoWayCommunicationBackendReceiver;
+
+        async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
+            self.outgoing.send(message).unwrap();
+            Ok(())
+        }
+
+        async fn subscribe(&self) -> Self::Receiver {
+            TestTwoWayCommunicationBackendReceiver {
+                incoming: Arc::new(Mutex::new(
+                    self.receiver.incoming.lock().await.resubscribe(),
+                )),
+            }
         }
     }
 }
