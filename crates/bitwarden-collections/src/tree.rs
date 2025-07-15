@@ -295,44 +295,6 @@ mod tests {
         assert_eq!(ancestors.get(&parent_id).unwrap(), "parent");
     }
 
-    // #[test]
-    // fn given_collection_with_two_children_where_their_parent_node_does_not_exist_children_are_returned_correctly(
-    // ) {
-    //     let child_1_id = Uuid::new_v4();
-    //     let grandparent_id = Uuid::new_v4();
-    //     let items = vec![
-    //         TestItem {
-    //             id: child_1_id,
-    //             name: "grandparent/parent/child1".to_string(),
-    //         },
-    //         TestItem {
-    //             id: Uuid::new_v4(),
-    //             name: "grandparent/parent/child2".to_string(),
-    //         },
-    //         TestItem {
-    //             id: grandparent_id,
-    //             name: "grandparent".to_string(),
-    //         },
-    //     ];
-    //
-    //     let node = Tree::from_items(items)
-    //         .get_item_by_id(child_1_id)
-    //         .expect("Node not found");
-    //
-    //     let item = node.item;
-    //     let parent = node.parent;
-    //     let children = node.children;
-    //     let ancestors = node.ancestors;
-    //
-    //     assert_eq!(children.len(), 0);
-    //     assert_eq!(item.id(), child_1_id);
-    //     assert_eq!(item.short_name(), "child1");
-    //     assert_eq!(item.path(), ["grandparent", "parent", "child1"]);
-    //     assert!(parent.is_none());
-    //     assert_eq!(ancestors.len(), 1);
-    //     assert_eq!(ancestors.get(&grandparent_id).unwrap(), "grandparent");
-    //}
-
     #[test]
     fn given_collection_with_child_who_has_parent_and_grandparent_returns_correct_ancestors() {
         let child_1_id = Uuid::new_v4();
