@@ -18,7 +18,7 @@ uniffi = [
 ] # Uniffi bindings
 wasm = [
     "bitwarden-core/wasm",
-    "dep:tsify-next",
+    "dep:tsify",
     "dep:wasm-bindgen"
 ] # WASM support
 
@@ -29,7 +29,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
-tsify-next = { workspace = true, optional = true }
+tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
