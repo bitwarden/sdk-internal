@@ -23,7 +23,10 @@ pub(crate) async fn login_password(
 ) -> Result<PasswordLoginResponse, LoginError> {
     use bitwarden_crypto::{EncString, HashPurpose, MasterKey};
 
-    use crate::{client::UserLoginMethod, require};
+    use crate::{
+        client::{internal::UserKeyState, UserLoginMethod},
+        require,
+    };
 
     info!("password logging in");
 
@@ -53,8 +56,11 @@ pub(crate) async fn login_password(
         client.internal.initialize_user_crypto_master_key(
             master_key,
             user_key,
-            private_key,
-            None,
+            UserKeyState {
+                private_key,
+                signing_key: None,
+                security_state: None,
+            },
         )?;
     }
 

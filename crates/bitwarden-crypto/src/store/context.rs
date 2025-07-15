@@ -10,8 +10,9 @@ use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
-    KeyIds, Result, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
-    SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
+    KeyIds, PublicKeyEncryptionAlgorithm, Result, RotatedUserKeys, Signature, SignatureAlgorithm,
+    SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey,
+    UnsignedSharedKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -308,6 +309,15 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(key_id)
     }
 
+    /// Makes a new asymmetric encryption key using the current default algorithm, and stores it in
+    /// the context
+    pub fn make_asymmetric_key(&mut self, key_id: Ids::Asymmetric) -> Result<Ids::Asymmetric> {
+        let key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        #[allow(deprecated)]
+        self.set_asymmetric_key(key_id, key)?;
+        Ok(key_id)
+    }
+
     /// Generate a new signature key using the current default algorithm, and store it in the
     /// context
     pub fn make_signing_key(&mut self, key_id: Ids::Signing) -> Result<Ids::Signing> {
@@ -493,8 +503,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Signs the given data using the specified signing key, for the given
     /// [crate::SigningNamespace] and returns the signature and the serialized message. See
     /// [crate::SigningKey::sign]
-    #[allow(unused)]
-    pub(crate) fn sign<Message: Serialize>(
+    pub fn sign<Message: Serialize>(
         &self,
         key: Ids::Signing,
         message: &Message,
@@ -515,6 +524,19 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ) -> Result<(Signature, signing::SerializedMessage)> {
         self.get_signing_key(key)?.sign_detached(message, namespace)
     }
+
+    /// Re-encrypts the user's keys with the provided symmetric key for a v2 user.
+    pub fn dangerous_get_v2_rotated_account_keys(
+        &self,
+        current_user_private_key_id: Ids::Asymmetric,
+        current_user_signing_key_id: Ids::Signing,
+    ) -> Result<RotatedUserKeys> {
+        crate::dangerous_get_v2_rotated_account_keys(
+            current_user_private_key_id,
+            current_user_signing_key_id,
+            self,
+        )
+    }
 }
 
 #[cfg(test)]
@@ -527,9 +549,11 @@ mod tests {
             tests::{Data, DataView},
             KeyStore,
         },
-        traits::tests::{TestIds, TestSigningKey, TestSymmKey},
-        CompositeEncryptable, CryptoError, Decryptable, SignatureAlgorithm, SigningKey,
-        SigningNamespace, SymmetricCryptoKey,
+        traits::tests::{TestAsymmKey, TestIds, TestSigningKey, TestSymmKey},
+        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes,
+        CoseSerializable, CryptoError, Decryptable, KeyDecryptable, Pkcs8PrivateKeyBytes,
+        PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SigningKey, SigningNamespace,
+        SymmetricCryptoKey,
     };
 
     #[test]
@@ -718,5 +742,91 @@ mod tests {
             &verifying_key,
             &SigningNamespace::ExampleNamespace
         ))
+    }
+
+    #[test]
+    fn test_account_key_rotation() {
+        let store: KeyStore<TestIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        // Generate a new user key
+        let current_user_private_key_id = TestAsymmKey::A(0);
+        let current_user_signing_key_id = TestSigningKey::A(0);
+
+        // Make the keys
+        ctx.generate_symmetric_key(TestSymmKey::A(0)).unwrap();
+        ctx.make_signing_key(current_user_signing_key_id).unwrap();
+        ctx.set_asymmetric_key(
+            current_user_private_key_id,
+            AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1),
+        )
+        .unwrap();
+
+        // Get the rotated account keys
+        let rotated_keys = ctx
+            .dangerous_get_v2_rotated_account_keys(
+                current_user_private_key_id,
+                current_user_signing_key_id,
+            )
+            .unwrap();
+
+        // Public/Private key
+        assert_eq!(
+            AsymmetricPublicCryptoKey::from_der(&rotated_keys.public_key)
+                .unwrap()
+                .to_der()
+                .unwrap(),
+            ctx.get_asymmetric_key(current_user_private_key_id)
+                .unwrap()
+                .to_public_key()
+                .to_der()
+                .unwrap()
+        );
+        let decrypted_private_key: Vec<u8> = rotated_keys
+            .private_key
+            .decrypt_with_key(&rotated_keys.user_key)
+            .unwrap();
+        let private_key =
+            AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(decrypted_private_key))
+                .unwrap();
+        assert_eq!(
+            private_key.to_der().unwrap(),
+            ctx.get_asymmetric_key(current_user_private_key_id)
+                .unwrap()
+                .to_der()
+                .unwrap()
+        );
+
+        // Signing Key
+        let decrypted_signing_key: Vec<u8> = rotated_keys
+            .signing_key
+            .decrypt_with_key(&rotated_keys.user_key)
+            .unwrap();
+        let signing_key =
+            SigningKey::from_cose(&CoseKeyBytes::from(decrypted_signing_key)).unwrap();
+        assert_eq!(
+            signing_key.to_cose(),
+            ctx.get_signing_key(current_user_signing_key_id)
+                .unwrap()
+                .to_cose(),
+        );
+
+        // Signed Public Key
+        let signed_public_key = rotated_keys.signed_public_key;
+        let unwrapped_key = signed_public_key
+            .verify_and_unwrap(
+                &ctx.get_signing_key(current_user_signing_key_id)
+                    .unwrap()
+                    .to_verifying_key(),
+            )
+            .unwrap();
+        assert_eq!(
+            unwrapped_key.to_der().unwrap(),
+            ctx.get_asymmetric_key(current_user_private_key_id)
+                .unwrap()
+                .to_public_key()
+                .to_der()
+                .unwrap()
+        );
     }
 }

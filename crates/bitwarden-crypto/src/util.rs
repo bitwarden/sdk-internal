@@ -53,9 +53,16 @@ pub fn pbkdf2(password: &[u8], salt: &[u8], rounds: u32) -> [u8; PBKDF_SHA256_HM
         .expect("hash is a valid fixed size")
 }
 
-pub(crate) struct FromStrVisitor<T>(std::marker::PhantomData<T>);
+/// A serde visitor that converts a string to a type that implements `FromStr`.
+pub struct FromStrVisitor<T>(std::marker::PhantomData<T>);
 impl<T> FromStrVisitor<T> {
-    pub(crate) fn new() -> Self {
+    /// Create a new `FromStrVisitor` for the given type.
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+impl<T> Default for FromStrVisitor<T> {
+    fn default() -> Self {
         Self(Default::default())
     }
 }
