@@ -7,7 +7,7 @@ use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStor
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
-use {tsify_next::Tsify, wasm_bindgen::prelude::*};
+use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{error::CollectionsParseError, tree::TreeItem};
 
