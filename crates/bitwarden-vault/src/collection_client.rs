@@ -50,7 +50,6 @@ pub struct CollectionViewTree {
     tree: Tree<CollectionView>,
 }
 
-#[allow(unused)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CollectionViewNodeItem {
     node_item: NodeItem<CollectionView>,
