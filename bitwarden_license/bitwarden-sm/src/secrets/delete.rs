@@ -21,9 +21,11 @@ pub(crate) async fn delete_secrets(
     input: SecretsDeleteRequest,
 ) -> Result<SecretsDeleteResponse, SecretsManagerError> {
     let config = client.internal.get_api_configurations().await;
-    let res =
-        bitwarden_api_api::apis::secrets_api::secrets_delete_post(&config.api, Some(input.ids))
-            .await?;
+    let res = config
+        .api_client
+        .secrets_api()
+        .secrets_delete_post(Some(input.ids))
+        .await?;
 
     SecretsDeleteResponse::process_response(res)
 }
