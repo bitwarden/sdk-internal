@@ -28,7 +28,7 @@ use super::{
     secure_note, ssh_key,
 };
 use crate::{
-    password_history, Fido2CredentialFullView, Fido2CredentialView, Login, LoginView,
+    password_history, EncryptError, Fido2CredentialFullView, Fido2CredentialView, Login, LoginView,
     VaultParseError,
 };
 
@@ -42,6 +42,8 @@ pub enum CipherError {
     VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     CryptoError(#[from] CryptoError),
+    #[error(transparent)]
+    EncryptError(#[from] EncryptError),
     #[error("This cipher contains attachments without keys. Those attachments will need to be reuploaded to complete the operation")]
     AttachmentsWithoutKeys,
 }
@@ -456,6 +458,36 @@ impl CipherView {
         self.reencrypt_fido2_credentials(ctx, old_ciphers_key, new_key)?;
 
         self.key = Some(ctx.wrap_symmetric_key(key, new_key)?);
+        Ok(())
+    }
+
+    /// Re-encrypt the cipher using a new wrapping key.
+    ///
+    /// # Arguments
+    /// * `ctx` - The key store context where the cipher key will be re-encrypted
+    /// * `new_wrapping_key` - The key used to encrypt the cipher key(s) after decryption
+    pub fn reencrypt_cipher_keys(
+        &mut self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        new_wrapping_key: SymmetricKeyId,
+    ) -> Result<(), CryptoError> {
+        let old_key = self.key_identifier();
+
+        // If the cipher has a key, reencrypt it with the new wrapping key
+        if self.key.is_some() {
+            // Decrypt the current cipher key using the existing wrapping key
+            let cipher_key = Cipher::decrypt_cipher_key(ctx, old_key, &self.key)?;
+
+            // Wrap the cipher key with the new wrapping key
+            self.key = Some(ctx.wrap_symmetric_key(new_wrapping_key, cipher_key)?);
+            return Ok(());
+        }
+
+        // The cipher does not have a key, we must reencrypt all attachment keys and FIDO2
+        // credentials individually
+        self.reencrypt_attachment_keys(ctx, old_key, new_wrapping_key)?;
+        self.reencrypt_fido2_credentials(ctx, old_key, new_wrapping_key)?;
+
         Ok(())
     }
 
@@ -997,6 +1029,48 @@ mod tests {
             .generate_cipher_key(&mut key_store.context(), cipher.key_identifier())
             .unwrap();
         assert!(cipher.attachments.unwrap()[0].key.is_none());
+    }
+
+    #[test]
+    fn test_reencrypt_cipher_key() {
+        let old_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let new_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key_store = create_test_crypto_with_user_key(old_key);
+        let mut ctx = key_store.context_mut();
+
+        let mut cipher = generate_cipher();
+        cipher
+            .generate_cipher_key(&mut ctx, cipher.key_identifier())
+            .unwrap();
+
+        // Re-encrypt the cipher key with a new wrapping key
+        let new_key_id: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
+        #[allow(deprecated)]
+        ctx.set_symmetric_key(new_key_id, new_key).unwrap();
+
+        cipher.reencrypt_cipher_keys(&mut ctx, new_key_id).unwrap();
+
+        // Check that the cipher key can be unwrapped with the new key
+        assert!(cipher.key.is_some());
+        assert!(ctx
+            .unwrap_symmetric_key(new_key_id, new_key_id, &cipher.key.unwrap())
+            .is_ok());
+    }
+
+    #[test]
+    fn test_reencrypt_cipher_key_ignores_missing_key() {
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key_store = create_test_crypto_with_user_key(key);
+        let mut ctx = key_store.context_mut();
+        let mut cipher = generate_cipher();
+
+        // The cipher does not have a key, so re-encryption should not add one
+        cipher
+            .reencrypt_cipher_keys(&mut ctx, SymmetricKeyId::Local("new_cipher_key"))
+            .unwrap();
+
+        // Check that the cipher key is still None
+        assert!(cipher.key.is_none());
     }
 
     #[test]
