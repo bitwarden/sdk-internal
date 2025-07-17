@@ -50,7 +50,7 @@ impl CiphersClient {
     /// keys in the Web client.
     ///
     /// Until key rotation is fully implemented in the SDK, this method must be provided the new
-    /// symmetric key in base64 format. See https://bitwarden.atlassian.net/browse/PM-23084
+    /// symmetric key in base64 format. See PM-23084
     ///
     /// If the cipher has a CipherKey, it will be re-encrypted with the new key.
     /// If the cipher does not have a CipherKey and CipherKeyEncryption is enabled, one will be
