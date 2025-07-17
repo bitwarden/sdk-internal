@@ -461,7 +461,10 @@ impl CipherView {
         Ok(())
     }
 
-    /// Re-encrypt the cipher using a new wrapping key.
+    /// Re-encrypt the cipher key(s) using a new wrapping key.
+    /// 
+    /// If the cipher has a cipher key, it will be re-encrypted with the new wrapping key.
+    /// Otherwise, the cipher will re-encrypt all attachment keys and FIDO2 credential keys
     ///
     /// # Arguments
     /// * `ctx` - The key store context where the cipher key will be re-encrypted
