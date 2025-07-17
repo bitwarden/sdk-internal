@@ -1,7 +1,9 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-/// TODO: Add a trait to this enum to allow for serialization and deserialization of the enum values.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Debug)]
+// untagged allows for different variants to be serialized without a type tag
+// example: { "password_hash": "example_hash" } instead of { "Password": { "password_hash": "example_hash" } }
+#[serde(untagged)]
 pub enum SendAccessTokenPayloadVariant {
     /// Uses inline variant syntax for these as we don't need to reference them as independent types elsewhere.
     Password {

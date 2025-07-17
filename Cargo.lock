@@ -730,6 +730,7 @@ dependencies = [
  "console_log",
  "log",
  "serde",
+ "serde_json",
  "tsify",
  "wasm-bindgen",
  "wasm-bindgen-futures",
