@@ -462,7 +462,7 @@ impl CipherView {
     }
 
     /// Re-encrypt the cipher key(s) using a new wrapping key.
-    /// 
+    ///
     /// If the cipher has a cipher key, it will be re-encrypted with the new wrapping key.
     /// Otherwise, the cipher will re-encrypt all attachment keys and FIDO2 credential keys
     ///
