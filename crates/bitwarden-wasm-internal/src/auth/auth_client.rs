@@ -1,19 +1,19 @@
-use crate::Client;
+use crate::BitwardenClient;
 
 /// Provides anonymous authentication / authorization methods.
 pub struct AuthClient {
     /// The underlying client that this [`AuthClient`] uses.
     /// pub(crate) dictates that the client is only accessible within the crate.
-    pub(crate) client: crate::Client,
+    pub(crate) client: bitwarden_core::Client,
 }
 
-impl Client {
-    /// Convenience method on [`Client`] to access the [`AuthClient`].
+impl BitwardenClient {
+    /// Convenience method on [`BitwardenClient`] to access the [`AuthClient`].
     ///
     /// # Example of usage
     ///
     /// ```rust
-    /// let client = Client::new(None);
+    /// let client = BitwardenClient::new(None);
     /// let auth_client = client.auth();
     /// ```
     ///
@@ -28,10 +28,7 @@ impl Client {
     /// A new instance of [`AuthClient`].
     pub fn auth(&self) -> AuthClient {
         AuthClient {
-            client: self.clone(),
+            client: self.0.clone(),
         }
     }
 }
-
-/// Break down impl by scope / access
-/// I.e., public methods, internal methods, and private methods.

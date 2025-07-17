@@ -30,9 +30,12 @@ bitwarden-threading = { workspace = true }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
 console_error_panic_hook = "0.1.7"
 console_log = { version = "1.0.0", features = ["color"] }
+chrono = { workspace = true }
 log = "0.4.20"
+reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_qs = { workspace = true }
 tsify = { workspace = true }
 # When upgrading wasm-bindgen, make sure to update the version in the workflows!
 wasm-bindgen = { version = "=0.2.100", features = ["serde-serialize"] }
