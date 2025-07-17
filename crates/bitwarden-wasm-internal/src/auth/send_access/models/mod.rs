@@ -1,0 +1,3 @@
+mod send_access_token_payload_struct;
+
+pub use send_access_token_payload_struct::SendAccessTokenPayload;

@@ -32,3 +32,6 @@ impl Client {
         }
     }
 }
+
+/// Break down impl by scope / access
+/// I.e., public methods, internal methods, and private methods.
