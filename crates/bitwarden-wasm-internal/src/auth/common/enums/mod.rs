@@ -1,5 +1,5 @@
-mod grant_type_enum;
-mod scope_enum;
+mod grant_type;
+mod scope;
 
-pub use grant_type_enum::GrantType;
-pub use scope_enum::Scope;
+pub use grant_type::GrantType;
+pub use scope::Scope;
