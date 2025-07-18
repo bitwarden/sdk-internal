@@ -90,12 +90,6 @@ impl SendTokenApiService {
             // return Err(bitwarden_core::ApiError::SendTokenApiError(error_enum));
         }
 
-        // TODO: Would need to handle 200 response
-        // response.status()
-        // if 200 can do response.json to get type SendAccessTokenResponse
-        // if not 200, handle error response convert into error type
-        // Will have to create error enum
-
         todo!("Implement the request logic using reqwest or similar library");
     }
 }
