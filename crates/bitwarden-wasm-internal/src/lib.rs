@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod auth;
 mod client;
 mod custom_types;
 mod init;
