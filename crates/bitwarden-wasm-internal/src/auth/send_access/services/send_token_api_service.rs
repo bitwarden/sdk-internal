@@ -1,7 +1,7 @@
 use crate::auth::{
     send_access::{
-        models::{SendAccessToken, SendAccessTokenPayload},
-        requests::SendAccessTokenRequest,
+        models::SendAccessToken,
+        requests::{SendAccessTokenPayload, SendAccessTokenRequest},
         responses::{SendAccessTokenErrorResponse, SendAccessTokenResponse},
     },
     AuthClient,
