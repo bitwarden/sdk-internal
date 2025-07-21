@@ -1,8 +1,11 @@
 use crate::auth::send_access::responses::SendAccessTokenResponse;
 
+/// A send access token which can be used to access a send.
 pub struct SendAccessToken {
-    token: String,
-    expires_at: i64, // timestamp in milliseconds
+    /// The actual token string.
+    pub token: String,
+    /// The timestamp in milliseconds when the token expires.
+    pub expires_at: i64,
 }
 
 // Traits
