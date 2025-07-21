@@ -71,14 +71,14 @@ fn to_uris(scope: &CredentialScope) -> Vec<LoginUri> {
 /// This is used for non-login credentials.
 pub(crate) fn to_fields(scope: &CredentialScope) -> Vec<Field> {
     let urls = scope.urls.iter().enumerate().map(|(i, u)| Field {
-        name: Some(format!("url_{}", i)),
+        name: Some(format!("Url {}", i + 1)),
         value: Some(u.clone()),
         r#type: FieldType::Text as u8,
         linked_id: None,
     });
 
     let android_apps = scope.android_apps.iter().enumerate().map(|(i, a)| Field {
-        name: Some(format!("android_app_{}", i)),
+        name: Some(format!("Android App {}", i + 1)),
         value: Some(a.bundle_id.clone()),
         r#type: FieldType::Text as u8,
         linked_id: None,
@@ -441,30 +441,31 @@ mod tests {
                 },
             ],
         };
+
         let fields = to_fields(&scope);
         assert_eq!(
             fields,
             vec![
                 Field {
-                    name: Some("url_0".to_string()),
+                    name: Some("Url 1".to_string()),
                     value: Some("https://vault.bitwarden.com".to_string()),
                     r#type: FieldType::Text as u8,
                     linked_id: None,
                 },
                 Field {
-                    name: Some("url_1".to_string()),
+                    name: Some("Url 2".to_string()),
                     value: Some("https://bitwarden.com".to_string()),
                     r#type: FieldType::Text as u8,
                     linked_id: None,
                 },
                 Field {
-                    name: Some("android_app_0".to_string()),
+                    name: Some("Android App 1".to_string()),
                     value: Some("com.bitwarden.app".to_string()),
                     r#type: FieldType::Text as u8,
                     linked_id: None,
                 },
                 Field {
-                    name: Some("android_app_1".to_string()),
+                    name: Some("Android App 2".to_string()),
                     value: Some("com.example.app".to_string()),
                     r#type: FieldType::Text as u8,
                     linked_id: None,
