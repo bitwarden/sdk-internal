@@ -7,16 +7,29 @@ use super::super::super::common::enums::{GrantType, Scope};
 
 use serde::Serialize;
 
+/// Represents the actual request payload for requesting a send access token.
+/// It converts the `SendAccessTokenRequest` into a format suitable for sending to the API.
 #[derive(Serialize, Debug)]
 pub struct SendAccessTokenPayload {
     // Standard OAuth2 fields
+    /// The client ID for the send access client.
     pub client_id: SendAccessClientType,
+
+    /// The grant type for the send access token request.
+    /// SendAccess is a custom grant type for send access tokens.
+    /// It is used to differentiate send access requests from other OAuth2 flows.
     pub grant_type: GrantType,
+
+    /// The scope for the send access token request.
+    /// This is set to "api.send" to indicate that the token is for send access.
+    /// It allows the token to be used for accessing send-related resources.
     pub scope: Scope,
 
     // Custom fields
+    /// The ID of the send for which the access token is being requested.
     pub send_id: String,
-    // This allows us to serialize the variant directly into the payload without a wrapper
+
+    // Flatten allows us to serialize the variant directly into the payload without a wrapper
     // example: { "password_hash": "example_hash" } instead of { "variant": { "password_hash": "example_hash" } }
     #[serde(flatten)]
     pub variant: SendAccessTokenPayloadVariant,
