@@ -4,7 +4,7 @@ use crate::BitwardenClient;
 pub struct AuthClient {
     /// The underlying client that this [`AuthClient`] uses.
     /// pub(crate) dictates that the client is only accessible within the crate.
-    pub(crate) client: bitwarden_core::Client,
+    pub client: bitwarden_core::Client,
 }
 
 impl BitwardenClient {

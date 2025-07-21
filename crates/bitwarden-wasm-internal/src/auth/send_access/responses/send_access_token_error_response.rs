@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::auth::send_access::enums::{SendAccessTokenError, SendAccessTokenErrorDescription};
+use crate::auth::send_access::responses::enums::{SendAccessTokenError, SendAccessTokenErrorDescription};
 
 // TODO: add enums underneath responses / requests / etc  and keep top level enums as needed
 // consider moving enums to common if used outside of send access
