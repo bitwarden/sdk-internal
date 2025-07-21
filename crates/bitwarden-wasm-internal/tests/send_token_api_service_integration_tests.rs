@@ -2,7 +2,8 @@
 use bitwarden_core::{Client as CoreClient, ClientSettings, DeviceType};
 use bitwarden_wasm_internal::auth::{
     send_access::{
-        requests::SendAccessTokenRequest, responses::SendAccessTokenResponse,
+        requests::{SendAccessTokenPayload, SendAccessTokenRequest},
+        responses::SendAccessTokenResponse,
         services::SendTokenApiService,
     },
     AuthClient,
@@ -37,6 +38,8 @@ async fn request_send_access_token_success() {
         send_access_credentials: None, // No credentials for this test
     };
 
+    let json_req: SendAccessTokenPayload = req.clone().into();
+
     // Create a mock success response
     let fake_response = SendAccessTokenResponse {
         access_token: "token".into(),
@@ -47,19 +50,19 @@ async fn request_send_access_token_success() {
 
     // Register the mock for the request
     let mock = Mock::given(matchers::method("POST"))
-        .and(matchers::path("/connect/token"))
+        .and(matchers::path("identity/connect/token"))
         .and(matchers::header(
             "Content-Type",
             "application/x-www-form-urlencoded; charset=utf-8",
         ))
-        .and(matchers::body_json(&req))
+        .and(matchers::body_string(
+            serde_urlencoded::to_string(&json_req).expect("Serialize should be infallible"),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(fake_response));
     mock_server.register(mock).await;
 
     // Call the service method
-    let result = service.request_send_access_token(req).await;
-    assert!(result.is_ok());
-    let token = result.unwrap();
+    let token = service.request_send_access_token(req).await.unwrap();
 
     assert_eq!(token.token, "token");
     assert!(token.expires_at > 0);
