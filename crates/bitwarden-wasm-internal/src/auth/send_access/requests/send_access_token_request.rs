@@ -7,6 +7,7 @@ use super::super::requests::enums::SendAccessCredentials;
 // to the typescript layer.
 // Note: deny_unknown_fields instructs serde to error if any unknown fields are present in the JSON.
 // #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[derive(serde::Serialize)]
 pub struct SendAccessTokenRequest {
     /// The id of the send for which the access token is requested.
     pub send_id: String,
