@@ -1,5 +1,5 @@
 use crate::auth::send_access::requests::{
-    enums::{SendAccessClientType, SendAccessTokenPayloadVariant},
+    enums::{SendAccessClientType, SendAccessTokenPayloadCredentials},
     SendAccessTokenRequest,
 };
 
@@ -29,10 +29,12 @@ pub struct SendAccessTokenPayload {
     /// The ID of the send for which the access token is being requested.
     pub send_id: String,
 
+    /// The credentials used for the send access request.
+    /// This can be password, email, email OTP, or anonymous.
     // Flatten allows us to serialize the variant directly into the payload without a wrapper
     // example: { "password_hash": "example_hash" } instead of { "variant": { "password_hash": "example_hash" } }
     #[serde(flatten)]
-    pub variant: SendAccessTokenPayloadVariant,
+    pub credentials: SendAccessTokenPayloadCredentials,
 }
 
 const SEND_ACCESS_CLIENT_ID: SendAccessClientType = SendAccessClientType::Send;
@@ -51,7 +53,7 @@ impl From<SendAccessTokenRequest> for SendAccessTokenPayload {
             grant_type: SEND_ACCESS_GRANT_TYPE,
             scope: SEND_ACCESS_SCOPE,
             send_id: request.send_id,
-            variant: request.send_access_credentials.into(),
+            credentials: request.send_access_credentials.into(),
         }
     }
 }
@@ -69,7 +71,7 @@ mod tests {
             grant_type: GrantType::SendAccess,
             scope: Scope::Send,
             send_id: "example_send_id".into(),
-            variant: SendAccessTokenPayloadVariant::Password {
+            credentials: SendAccessTokenPayloadCredentials::Password {
                 password_hash: "example_hash".into(),
             },
         };
