@@ -16,7 +16,7 @@ use thiserror::Error;
 use crate::{Fido2Credential, Field, Login, LoginUri};
 
 /// Prefix that indicates the URL is an Android app scheme.
-const ANDROID_APP_SCHEME: &str = "androidapp";
+const ANDROID_APP_SCHEME: &str = "androidapp://";
 
 pub(super) fn to_login(
     creation_date: DateTime<Utc>,
@@ -59,7 +59,7 @@ fn to_uris(scope: &CredentialScope) -> Vec<LoginUri> {
     });
 
     let android_apps = scope.android_apps.iter().map(|a| LoginUri {
-        uri: Some(format!("{}://{}", ANDROID_APP_SCHEME, a.bundle_id)),
+        uri: Some(format!("{ANDROID_APP_SCHEME}{}", a.bundle_id)),
         r#match: None,
     });
 
@@ -102,12 +102,12 @@ impl From<Login> for CredentialScope {
             .login_uris
             .into_iter()
             .filter_map(|u| u.uri)
-            .partition(|uri| uri.starts_with(&format!("{}://", ANDROID_APP_SCHEME)));
+            .partition(|uri| uri.starts_with(ANDROID_APP_SCHEME));
 
         let android_apps = android_uris
             .into_iter()
             .map(|uri| {
-                let rest = uri.trim_start_matches(&format!("{}://", ANDROID_APP_SCHEME));
+                let rest = uri.trim_start_matches(ANDROID_APP_SCHEME);
                 AndroidAppIdCredential {
                     bundle_id: rest.to_string(),
                     certificate: None,
