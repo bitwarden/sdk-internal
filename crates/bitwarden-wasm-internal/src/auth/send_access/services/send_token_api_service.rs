@@ -36,7 +36,7 @@ impl SendTokenApiService {
             .get_api_configurations()
             .await;
 
-        let mut request = configurations
+        let request = configurations
             .identity
             .client
             .post(format!(
