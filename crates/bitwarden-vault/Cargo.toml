@@ -22,8 +22,9 @@ uniffi = [
 ] # Uniffi bindings
 wasm = [
     "bitwarden-core/wasm",
-    "dep:tsify-next",
-    "dep:wasm-bindgen"
+    "dep:tsify",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures"
 ] # WASM support
 
 [dependencies]
@@ -44,13 +45,16 @@ serde_repr = { workspace = true }
 sha1 = ">=0.10.5, <0.11"
 sha2 = ">=0.10.6, <0.11"
 thiserror = { workspace = true }
-tsify-next = { workspace = true, optional = true }
+tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
+bitwarden-test = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
+wiremock = { workspace = true }
 
 [lints]
 workspace = true
