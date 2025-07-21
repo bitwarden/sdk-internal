@@ -1,10 +1,12 @@
-// TODO: do more to figure out test suite.
-
-use crate::auth::send_access::{
-    requests::SendAccessTokenRequest, responses::SendAccessTokenResponse, SendTokenApiService,
-};
-use crate::auth::AuthClient;
+//! Integration tests for send access feature
 use bitwarden_core::{Client as CoreClient, ClientSettings, DeviceType};
+use bitwarden_wasm_internal::auth::{
+    send_access::{
+        requests::SendAccessTokenRequest, responses::SendAccessTokenResponse,
+        services::SendTokenApiService,
+    },
+    AuthClient,
+};
 use tokio;
 use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
 
@@ -31,9 +33,8 @@ async fn request_send_access_token_success() {
 
     // Construct the real Request type
     let req = SendAccessTokenRequest {
-        client_id: "test_client_id".into(),
-        client_secret: "test_client_secret".into(),
-        grant_type: "client_credentials".into(),
+        send_id: "test_send_id".into(),
+        send_access_credentials: None, // No credentials for this test
     };
 
     // Create a mock success response
@@ -41,6 +42,7 @@ async fn request_send_access_token_success() {
         access_token: "token".into(),
         token_type: "bearer".into(),
         expires_in: 3600,
+        scope: "TEST".into(),
     };
 
     // Register the mock for the request
@@ -58,7 +60,7 @@ async fn request_send_access_token_success() {
     let result = service.request_send_access_token(req).await;
     assert!(result.is_ok());
     let token = result.unwrap();
-    assert_eq!(token.access_token, "token");
-    assert_eq!(token.token_type, "bearer");
-    assert_eq!(token.expires_in, 3600);
+
+    assert_eq!(token.token, "token");
+    assert!(token.expires_at > 0);
 }
