@@ -212,7 +212,7 @@ pub struct Login {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LoginUri {
     pub uri: Option<String>,
     pub r#match: Option<u8>,
