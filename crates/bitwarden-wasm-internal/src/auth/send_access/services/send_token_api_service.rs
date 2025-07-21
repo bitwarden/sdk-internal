@@ -8,7 +8,7 @@ use crate::auth::{
 };
 
 pub struct SendTokenApiService {
-    pub(crate) auth_client: AuthClient,
+    pub auth_client: AuthClient,
 }
 
 // see send_identity_connect_request for example
