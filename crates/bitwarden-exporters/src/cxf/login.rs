@@ -6,13 +6,14 @@
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::MissingFieldError;
 use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
+use bitwarden_vault::FieldType;
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     AndroidAppIdCredential, BasicAuthCredential, CredentialScope, PasskeyCredential,
 };
 use thiserror::Error;
 
-use crate::{Fido2Credential, Login, LoginUri};
+use crate::{Fido2Credential, Field, Login, LoginUri};
 
 /// Prefix that indicates the URL is an Android app scheme.
 const ANDROID_APP_SCHEME: &str = "androidapp";
@@ -21,12 +22,12 @@ pub(super) fn to_login(
     creation_date: DateTime<Utc>,
     basic_auth: Option<&BasicAuthCredential>,
     passkey: Option<&PasskeyCredential>,
-    scope: Option<CredentialScope>,
+    scope: Option<&CredentialScope>,
 ) -> Login {
     Login {
         username: basic_auth.and_then(|v| v.username.clone().map(|v| v.into())),
         password: basic_auth.and_then(|v| v.password.clone().map(|u| u.into())),
-        login_uris: scope.map(|s| to_uris(&s)).unwrap_or_default(),
+        login_uris: scope.map(to_uris).unwrap_or_default(),
         totp: None,
         fido2_credentials: passkey.map(|p| {
             vec![Fido2Credential {
@@ -48,6 +49,9 @@ pub(super) fn to_login(
     }
 }
 
+/// Converts a `CredentialScope` to a vector of `LoginUri` objects.
+///
+/// This is used for login credentials.
 fn to_uris(scope: &CredentialScope) -> Vec<LoginUri> {
     let urls = scope.urls.iter().map(|u| LoginUri {
         uri: Some(u.clone()),
@@ -57,6 +61,27 @@ fn to_uris(scope: &CredentialScope) -> Vec<LoginUri> {
     let android_apps = scope.android_apps.iter().map(|a| LoginUri {
         uri: Some(format!("{}://{}", ANDROID_APP_SCHEME, a.bundle_id)),
         r#match: None,
+    });
+
+    urls.chain(android_apps).collect()
+}
+
+/// Converts a `CredentialScope` to a vector of `Field` objects.
+///
+/// This is used for non-login credentials.
+pub(crate) fn to_fields(scope: &CredentialScope) -> Vec<Field> {
+    let urls = scope.urls.iter().enumerate().map(|(i, u)| Field {
+        name: Some(format!("url_{}", i)),
+        value: Some(u.clone()),
+        r#type: FieldType::Text as u8,
+        linked_id: None,
+    });
+
+    let android_apps = scope.android_apps.iter().enumerate().map(|(i, a)| Field {
+        name: Some(format!("android_app_{}", i)),
+        value: Some(a.bundle_id.clone()),
+        r#type: FieldType::Text as u8,
+        linked_id: None,
     });
 
     urls.chain(android_apps).collect()
@@ -394,5 +419,57 @@ mod tests {
         assert_eq!(scope.android_apps.len(), 2);
         assert_eq!(scope.android_apps[0].bundle_id, "com.bitwarden.app");
         assert_eq!(scope.android_apps[1].bundle_id, "com.example.app");
+    }
+
+    #[test]
+    fn test_to_fields() {
+        let scope = CredentialScope {
+            urls: vec![
+                "https://vault.bitwarden.com".to_string(),
+                "https://bitwarden.com".to_string(),
+            ],
+            android_apps: vec![
+                credential_exchange_format::AndroidAppIdCredential {
+                    bundle_id: "com.bitwarden.app".to_string(),
+                    certificate: None,
+                    name: None,
+                },
+                credential_exchange_format::AndroidAppIdCredential {
+                    bundle_id: "com.example.app".to_string(),
+                    certificate: None,
+                    name: None,
+                },
+            ],
+        };
+        let fields = to_fields(&scope);
+        assert_eq!(
+            fields,
+            vec![
+                Field {
+                    name: Some("url_0".to_string()),
+                    value: Some("https://vault.bitwarden.com".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("url_1".to_string()),
+                    value: Some("https://bitwarden.com".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("android_app_0".to_string()),
+                    value: Some("com.bitwarden.app".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("android_app_1".to_string()),
+                    value: Some("com.example.app".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
+            ]
+        );
     }
 }

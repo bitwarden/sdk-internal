@@ -5,7 +5,10 @@ use credential_exchange_format::{
 };
 
 use crate::{
-    cxf::{login::to_login, CxfError},
+    cxf::{
+        login::{to_fields, to_login},
+        CxfError,
+    },
     CipherType, ImportingCipher,
 };
 
@@ -33,12 +36,14 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
 
     let mut output = vec![];
 
+    let scope = value.scope.as_ref();
+
     // Login credentials
     if !grouped.basic_auth.is_empty() || !grouped.passkey.is_empty() {
         let basic_auth = grouped.basic_auth.first();
         let passkey = grouped.passkey.first();
 
-        let login = to_login(creation_date, basic_auth, passkey, value.scope);
+        let login = to_login(creation_date, basic_auth, passkey, scope);
 
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
@@ -67,7 +72,7 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
             r#type: CipherType::Card(Box::new(credit_card.into())),
             favorite: false,
             reprompt: 0,
-            fields: vec![],
+            fields: scope.map(to_fields).unwrap_or_default(),
             revision_date,
             creation_date,
             deleted_date: None,
