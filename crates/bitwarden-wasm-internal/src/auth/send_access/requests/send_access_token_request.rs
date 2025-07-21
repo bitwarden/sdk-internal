@@ -1,5 +1,5 @@
 /// Go to parent and import the necessary modules.
-use super::super::enums::SendAccessCredentials;
+use super::super::requests::enums::SendAccessCredentials;
 
 /// A request structure for requesting a send access token from the API.
 

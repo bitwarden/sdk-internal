@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::auth::send_access::enums::SendAccessCredentials;
+use crate::auth::send_access::requests::enums::SendAccessCredentials;
 
 #[derive(Serialize, Debug)]
 // untagged allows for different variants to be serialized without a type tag

@@ -1,8 +1,10 @@
-use crate::auth::send_access::requests::SendAccessTokenRequest;
+use crate::auth::send_access::requests::{
+    enums::{SendAccessClientType, SendAccessTokenPayloadVariant},
+    SendAccessTokenRequest,
+};
 
 use super::super::super::common::enums::{GrantType, Scope};
-use super::super::enums::SendAccessClientType;
-use super::super::enums::SendAccessTokenPayloadVariant;
+
 use serde::Serialize;
 
 #[derive(Serialize, Debug)]
