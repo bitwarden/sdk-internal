@@ -7,7 +7,10 @@ use crate::auth::{
     AuthClient,
 };
 
+/// Service responsible for obtaining send access tokens from the API.
 pub struct SendTokenApiService {
+    /// The authentication client which is used to access the internal SDK client in order
+    /// to get the API configurations which are used to make requests.
     pub auth_client: AuthClient,
 }
 
@@ -90,7 +93,7 @@ impl SendTokenApiService {
             // return Err(bitwarden_core::ApiError::SendTokenApiError(error_enum));
         }
 
-        todo!("Implement the request logic using reqwest or similar library");
+        todo!("Implement error handling");
     }
 }
 
