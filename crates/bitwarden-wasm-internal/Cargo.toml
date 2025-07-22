@@ -18,6 +18,7 @@ crate-type = ["cdylib"]
 [dependencies]
 async-trait = { workspace = true }
 base64 = ">=0.22.1, <0.23.0"
+bitwarden-auth = { workspace = true, features = ["wasm"] }
 bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
 bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }

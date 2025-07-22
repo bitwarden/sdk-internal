@@ -21,6 +21,7 @@ keywords = ["bitwarden"]
 bitwarden = { path = "crates/bitwarden", version = "=1.0.0" }
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=1.0.0" }
 bitwarden-api-identity = { path = "crates/bitwarden-api-identity", version = "=1.0.0" }
+bitwarden-auth = { path = "crates/bitwarden-auth", version = "=1.0.0" }
 bitwarden-cli = { path = "crates/bitwarden-cli", version = "=1.0.0" }
 bitwarden-core = { path = "crates/bitwarden-core", version = "=1.0.0" }
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=1.0.0" }
