@@ -567,7 +567,7 @@ impl CipherView {
 
     /// Moves the cipher to an organization by re-encrypting the cipher keys with the organization
     /// key and assigning the organization ID to the cipher.
-    /// 
+    ///
     /// # Arguments
     /// * `ctx` - The key store context where the cipher keys will be re-encrypted
     /// * `organization_id` - The ID of the organization to move the cipher to
