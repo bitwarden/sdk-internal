@@ -15,10 +15,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-uniffi = [
-    "bitwarden-core/uniffi",
-    "dep:uniffi"
-] # Uniffi bindings
+uniffi = ["bitwarden-core/uniffi", "dep:uniffi"] # Uniffi bindings
 wasm = [
     "bitwarden-core/wasm",
     "dep:tsify",
