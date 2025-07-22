@@ -1,5 +1,7 @@
 mod send_access_token_error;
-mod send_access_token_error_description;
+mod send_access_token_invalid_grant_error;
+mod send_access_token_invalid_request_error;
 
 pub use send_access_token_error::SendAccessTokenError;
-pub use send_access_token_error_description::SendAccessTokenErrorDescription;
+pub use send_access_token_invalid_grant_error::SendAccessTokenInvalidGrantError;
+pub use send_access_token_invalid_request_error::SendAccessTokenInvalidRequestError;

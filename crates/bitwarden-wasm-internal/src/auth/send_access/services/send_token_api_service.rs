@@ -2,7 +2,8 @@ use crate::auth::{
     send_access::{
         models::SendAccessToken,
         requests::{SendAccessTokenPayload, SendAccessTokenRequest},
-        responses::{SendAccessTokenErrorResponse, SendAccessTokenResponse},
+        responses::enums::SendAccessTokenError,
+        responses::SendAccessTokenResponse,
     },
     AuthClient,
 };
@@ -74,7 +75,7 @@ impl SendTokenApiService {
 
         // If the response is not successful, we should handle the error.
         if response.status().is_client_error() || response.status().is_server_error() {
-            let error: SendAccessTokenErrorResponse = response
+            let error: SendAccessTokenError = response
                 .json()
                 .await
                 .map_err(bitwarden_core::ApiError::from)?;
