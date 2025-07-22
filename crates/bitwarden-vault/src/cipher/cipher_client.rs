@@ -77,7 +77,7 @@ impl CiphersClient {
         let mut ctx = key_store.context();
 
         // Set the new key in the key store context
-        const NEW_KEY_ID: SymmetricKeyId = SymmetricKeyId::Local("new_key");
+        const NEW_KEY_ID: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
         #[allow(deprecated)]
         ctx.set_symmetric_key(NEW_KEY_ID, new_key)?;
 
