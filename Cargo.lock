@@ -610,8 +610,19 @@ name = "bitwarden-state"
 version = "1.0.0"
 dependencies = [
  "async-trait",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
+]
+
+[[package]]
+name = "bitwarden-test"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "bitwarden-api-api",
+ "bitwarden-state",
+ "reqwest",
+ "wiremock",
 ]
 
 [[package]]
@@ -692,6 +703,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-state",
+ "bitwarden-test",
  "chrono",
  "data-encoding",
  "hmac",
@@ -708,6 +720,8 @@ dependencies = [
  "uniffi",
  "uuid",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wiremock",
 ]
 
 [[package]]
