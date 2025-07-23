@@ -1,6 +1,7 @@
 extern crate console_error_panic_hook;
 use std::{fmt::Display, sync::Arc};
 
+use bitwarden_auth::{AuthClient, AuthClientExt};
 use bitwarden_core::{key_management::CryptoClient, Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
 use bitwarden_exporters::ExporterClientExt;
@@ -47,6 +48,11 @@ impl BitwardenClient {
         let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
 
         res.text().await.map_err(|e| e.to_string())
+    }
+
+    /// Auth related operations.
+    pub fn auth(&self) -> AuthClient {
+        self.0.auth_new()
     }
 
     #[allow(missing_docs)]
