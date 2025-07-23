@@ -56,10 +56,6 @@ impl CiphersClient {
     /// If the cipher does not have a CipherKey and CipherKeyEncryption is enabled, one will be
     /// generated using the new key. Otherwise, the cipher's data will be encrypted with the new
     /// key directly.
-    ///
-    /// # Arguments
-    /// * `cipher_view` - The cipher view to encrypt.
-    /// * `new_key_b64` - The base64 encoded symmetric key to use for encryption.
     #[cfg(feature = "wasm")]
     pub fn encrypt_cipher_for_rotation(
         &self,
