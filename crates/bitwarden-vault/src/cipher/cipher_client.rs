@@ -61,7 +61,7 @@ impl CiphersClient {
     /// * `cipher_view` - The cipher view to encrypt.
     /// * `new_key_b64` - The base64 encoded symmetric key to use for encryption.
     #[cfg(feature = "wasm")]
-    pub fn encrypt_with_key(
+    pub fn encrypt_cipher_for_rotation(
         &self,
         mut cipher_view: CipherView,
         new_key_b64: String,
@@ -515,7 +515,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_encrypt_with_key() {
+    async fn test_encrypt_cipher_for_rotation() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
         let new_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
@@ -526,7 +526,7 @@ mod tests {
         let ctx = client
             .vault()
             .ciphers()
-            .encrypt_with_key(cipher_view, new_key_b64)
+            .encrypt_cipher_for_rotation(cipher_view, new_key_b64)
             .unwrap();
 
         assert!(ctx.cipher.key.is_some());
