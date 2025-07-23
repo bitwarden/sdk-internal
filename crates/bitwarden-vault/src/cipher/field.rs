@@ -17,14 +17,19 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use super::linked_id::LinkedIdType;
 use crate::VaultParseError;
 
+/// Represents the type of a [FieldView].
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum FieldType {
+    /// Text field
     Text = 0,
+    /// Hidden text field
     Hidden = 1,
+    /// Boolean field
     Boolean = 2,
+    /// Linked field
     Linked = 3,
 }
 
