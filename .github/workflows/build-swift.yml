@@ -13,6 +13,8 @@ jobs:
   version:
     name: Get Version
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     outputs:
       package_version: ${{ steps.retrieve-version.outputs.package_version }}
     steps:
@@ -29,6 +31,8 @@ jobs:
     name: Build
     runs-on: macos-14
     needs: version
+    permissions:
+      contents: read
     env:
       _VERSION: ${{ needs.version.outputs.package_version }}
     steps:
@@ -95,11 +99,16 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     needs: build
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - name: Login to Azure - CI Subscription
-        uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
+      - name: Log in to Azure
+        uses: bitwarden/gh-actions/azure-login@main
         with:
-          creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Retrieve github PAT secrets
         id: retrieve-secret-pat
@@ -107,6 +116,9 @@ jobs:
         with:
           keyvault: "bitwarden-ci"
           secrets: "github-pat-bitwarden-devops-bot-repo-scope"
+
+      - name: Log out from Azure
+        uses: bitwarden/gh-actions/azure-logout@main
 
       - name: Trigger Swift release
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1

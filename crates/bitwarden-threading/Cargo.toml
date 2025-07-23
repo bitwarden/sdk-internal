@@ -39,7 +39,7 @@ async-trait = { workspace = true }
 console_error_panic_hook = "0.1.7"
 js-sys = { workspace = true }
 tokio-test = "0.4.4"
-tsify-next = { workspace = true }
+tsify = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 wasm-bindgen-test = { workspace = true }
