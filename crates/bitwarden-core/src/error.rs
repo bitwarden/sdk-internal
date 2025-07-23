@@ -30,6 +30,7 @@ macro_rules! impl_bitwarden_error {
 /// Errors from performing network requests.
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[bitwarden_error(flat)]
 pub enum ApiError {
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),

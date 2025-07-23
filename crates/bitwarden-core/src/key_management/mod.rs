@@ -17,6 +17,10 @@ pub mod crypto;
 mod crypto_client;
 #[cfg(feature = "internal")]
 pub use crypto_client::CryptoClient;
+#[cfg(feature = "internal")]
+mod km_api_client;
+#[cfg(feature = "internal")]
+pub use km_api_client::KeyManagementApiClient;
 
 #[cfg(feature = "internal")]
 mod security_state;
