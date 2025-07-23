@@ -50,3 +50,9 @@ uniffi::setup_scaffolding!();
 
 #[cfg(feature = "uniffi")]
 mod uniffi_support;
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_CUSTOM_TYPES: &'static str = r#"
+declare const tag: unique symbol;
+"#;
