@@ -461,43 +461,6 @@ impl CipherView {
         Ok(())
     }
 
-    /// Re-encrypt the cipher key(s) using a new wrapping key.
-    ///
-    /// If the cipher has a cipher key, it will be re-encrypted with the new wrapping key.
-    /// Otherwise, the cipher will re-encrypt all attachment keys and FIDO2 credential keys
-    ///
-    /// # Arguments
-    /// * `ctx` - The key store context where the cipher key will be re-encrypted
-    /// * `new_wrapping_key` - The key used to encrypt the cipher key(s) after decryption
-    pub fn reencrypt_cipher_keys(
-        &mut self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        new_wrapping_key: SymmetricKeyId,
-    ) -> Result<(), CipherError> {
-        let old_key = self.key_identifier();
-
-        // If any attachment is missing a key we can't reencrypt the attachment keys
-        if self.attachments.iter().flatten().any(|a| a.key.is_none()) {
-            return Err(CipherError::AttachmentsWithoutKeys);
-        }
-
-        // If the cipher has a key, reencrypt it with the new wrapping key
-        if self.key.is_some() {
-            // Decrypt the current cipher key using the existing wrapping key
-            let cipher_key = Cipher::decrypt_cipher_key(ctx, old_key, &self.key)?;
-
-            // Wrap the cipher key with the new wrapping key
-            self.key = Some(ctx.wrap_symmetric_key(new_wrapping_key, cipher_key)?);
-        } else {
-            // The cipher does not have a key, we must reencrypt all attachment keys and FIDO2
-            // credentials individually
-            self.reencrypt_attachment_keys(ctx, old_key, new_wrapping_key)?;
-            self.reencrypt_fido2_credentials(ctx, old_key, new_wrapping_key)?;
-        }
-
-        Ok(())
-    }
-
     #[allow(missing_docs)]
     pub fn generate_checksums(&mut self) {
         if let Some(uris) = self.login.as_mut().and_then(|l| l.uris.as_mut()) {
@@ -580,6 +543,39 @@ impl CipherView {
 
         self.reencrypt_cipher_keys(ctx, new_key)?;
         self.organization_id = Some(organization_id);
+
+        Ok(())
+    }
+
+    /// Re-encrypt the cipher key(s) using a new wrapping key.
+    ///
+    /// If the cipher has a cipher key, it will be re-encrypted with the new wrapping key.
+    /// Otherwise, the cipher will re-encrypt all attachment keys and FIDO2 credential keys
+    pub fn reencrypt_cipher_keys(
+        &mut self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        new_wrapping_key: SymmetricKeyId,
+    ) -> Result<(), CipherError> {
+        let old_key = self.key_identifier();
+
+        // If any attachment is missing a key we can't reencrypt the attachment keys
+        if self.attachments.iter().flatten().any(|a| a.key.is_none()) {
+            return Err(CipherError::AttachmentsWithoutKeys);
+        }
+
+        // If the cipher has a key, reencrypt it with the new wrapping key
+        if self.key.is_some() {
+            // Decrypt the current cipher key using the existing wrapping key
+            let cipher_key = Cipher::decrypt_cipher_key(ctx, old_key, &self.key)?;
+
+            // Wrap the cipher key with the new wrapping key
+            self.key = Some(ctx.wrap_symmetric_key(new_wrapping_key, cipher_key)?);
+        } else {
+            // The cipher does not have a key, we must reencrypt all attachment keys and FIDO2
+            // credentials individually
+            self.reencrypt_attachment_keys(ctx, old_key, new_wrapping_key)?;
+            self.reencrypt_fido2_credentials(ctx, old_key, new_wrapping_key)?;
+        }
 
         Ok(())
     }
