@@ -47,7 +47,6 @@ publishing {
     publications {
         maven(MavenPublication) {
             groupId = 'com.bitwarden'
-            artifactId = 'sdk-android-temp'
 
             if (findProperty('version') == 'unspecified') {
                 // Determine the version from the git history.
@@ -56,6 +55,8 @@ publishing {
                 // Main: Grab it from `crates/bitwarden/Cargo.toml`
 
                 def branchName = 'git branch --show-current'.execute().text.trim()
+                def shortCommitHash = 'git rev-parse --short HEAD'.execute().text.trim()
+                def workflowRunNumber = System.getenv('GITHUB_RUN_NUMBER')
 
                 if (branchName == 'main') {
                     def content = ['grep', '-o', '^version = ".*"', rootDir.toString() + '/../../../Cargo.toml'].execute().text.trim()
@@ -63,10 +64,17 @@ publishing {
                     def matcher = match.matcher(content)
                     matcher.find()
 
-                    version = "${matcher.group(1)}-SNAPSHOT"
+                    //main branch → 1.0.0-{workflow_run_number}-{short_commit_hash} → 1.0.0-12-h48319
+                    version = "${matcher.group(1)}-${workflowRunNumber}-${shortCommitHash}"
+
+                    //main branch
+                    artifactId = 'sdk-android-temp'
                 } else {
-                    // branchName-SNAPSHOT
-                    version = "${branchName.replaceAll('/', '-')}-SNAPSHOT"
+                    //other branches → 1.0.0-{workflow_run_number}-{branch_name} → 1.0.0-14-feat-something
+                    version = "${matcher.group(1)}-${workflowRunNumber}-${branchName.replaceAll('/', '-')}"
+
+                    //other branches 
+                    artifactId = 'sdk-android-temp.dev'
                 }
             }
 
