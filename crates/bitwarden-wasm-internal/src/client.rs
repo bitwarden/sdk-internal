@@ -1,7 +1,10 @@
 extern crate console_error_panic_hook;
 use std::{fmt::Display, sync::Arc};
 
-use bitwarden_core::{key_management::CryptoClient, Client, ClientSettings};
+use bitwarden_core::{
+    key_management::{CryptoClient, KeyManagementApiClient},
+    Client, ClientSettings,
+};
 use bitwarden_error::bitwarden_error;
 use bitwarden_exporters::ExporterClientExt;
 use bitwarden_generators::GeneratorClientsExt;
@@ -72,6 +75,10 @@ impl BitwardenClient {
     #[allow(missing_docs)]
     pub fn exporters(&self) -> bitwarden_exporters::ExporterClient {
         self.0.exporters()
+    }
+
+    pub fn km_api(&self) -> KeyManagementApiClient {
+        self.0.km_api()
     }
 }
 
