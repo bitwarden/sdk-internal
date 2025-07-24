@@ -80,9 +80,8 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         })
     }
 
-    // Wifi -> Note
-    if !grouped.wifi.is_empty() {
-        let wifi = grouped.wifi.first().expect("Wifi is not empty");
+    // WiFi credentials -> Secure Notes
+    if let Some(wifi) = grouped.wifi.first() {
         let note = wifi_to_notes(wifi);
 
         output.push(ImportingCipher {
