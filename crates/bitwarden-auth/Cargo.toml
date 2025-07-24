@@ -26,6 +26,7 @@ wasm = [
 [dependencies]
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-error = { workspace = true }
+chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_qs = { workspace = true }

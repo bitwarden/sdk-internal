@@ -349,6 +349,7 @@ version = "1.0.0"
 dependencies = [
  "bitwarden-core",
  "bitwarden-error",
+ "chrono",
  "serde",
  "serde_json",
  "serde_qs",

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 /// The server response for successful send access token request.
-pub struct SendAccessTokenSuccessResponse {
+pub struct SendAccessTokenApiSuccessResponse {
     /// The access token string.
     pub access_token: String,
     /// The duration in seconds until the token expires.
