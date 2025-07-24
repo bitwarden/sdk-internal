@@ -1,8 +1,5 @@
 use credential_exchange_format::WifiCredential;
 
-// ALTERNATIVE APPROACHES:
-
-// Option 1: Simple imperative approach - most readable and changeable
 pub fn wifi_to_notes(wifi: &WifiCredential) -> String {
     let mut lines = Vec::new();
 
