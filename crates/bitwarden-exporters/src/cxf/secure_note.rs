@@ -1,14 +1,32 @@
+use crate::Field;
+use bitwarden_vault::FieldType;
 use credential_exchange_format::WifiCredential;
 
-pub fn wifi_to_notes(wifi: &WifiCredential) -> String {
-    let mut lines = Vec::new();
+/// Convert WiFi credentials to custom fields following the CXF mapping convention
+pub fn wifi_to_fields(wifi: &WifiCredential) -> Vec<Field> {
+    let mut fields = Vec::new();
 
+    // SSID: Text field
     if let Some(ssid) = &wifi.ssid {
-        lines.push(format!("ssid: {}", ssid.value.0));
+        fields.push(Field {
+            name: Some("SSID".to_string()),
+            value: Some(ssid.value.0.clone()),
+            r#type: FieldType::Text as u8,
+            linked_id: None,
+        });
     }
+
+    // Passphrase: Hidden field (concealed-string)
     if let Some(passphrase) = &wifi.passphrase {
-        lines.push(format!("passphrase: {}", passphrase.value.0));
+        fields.push(Field {
+            name: Some("Passphrase".to_string()),
+            value: Some(passphrase.value.0.clone()),
+            r#type: FieldType::Hidden as u8,
+            linked_id: None,
+        });
     }
+
+    // Network Security Type: Text field
     if let Some(security) = &wifi.network_security_type {
         let security_str = match &security.value {
             credential_exchange_format::EditableFieldWifiNetworkSecurityType::Unsecured => {
@@ -26,20 +44,30 @@ pub fn wifi_to_notes(wifi: &WifiCredential) -> String {
             credential_exchange_format::EditableFieldWifiNetworkSecurityType::Wep => "WEP",
             credential_exchange_format::EditableFieldWifiNetworkSecurityType::Other(s) => s,
         };
-        lines.push(format!("network_security_type: {}", security_str));
-    }
-    if let Some(hidden) = &wifi.hidden {
-        lines.push(format!(
-            "hidden: {}",
-            if hidden.value.0 { "true" } else { "false" }
-        ));
+        fields.push(Field {
+            name: Some("Network Security Type".to_string()),
+            value: Some(security_str.to_string()),
+            r#type: FieldType::Text as u8,
+            linked_id: None,
+        });
     }
 
-    lines.join("\n")
+    // Hidden: Boolean field
+    if let Some(hidden) = &wifi.hidden {
+        fields.push(Field {
+            name: Some("Hidden".to_string()),
+            value: Some(if hidden.value.0 { "true" } else { "false" }.to_string()),
+            r#type: FieldType::Boolean as u8,
+            linked_id: None,
+        });
+    }
+
+    fields
 }
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_vault::FieldType;
     use credential_exchange_format::{
         EditableField, EditableFieldBoolean, EditableFieldConcealedString, EditableFieldString,
         EditableFieldWifiNetworkSecurityType,
@@ -82,7 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wifi_to_notes_all_fields() {
+    fn test_wifi_to_fields_all_fields() {
         let wifi = create_wifi_credential(
             Some("MyWiFi"),
             Some("secret123"),
@@ -90,127 +118,49 @@ mod tests {
             Some(false),
         );
 
-        let result = wifi_to_notes(&wifi);
-        let expected = "ssid: MyWiFi\npassphrase: secret123\nnetwork_security_type: WPA2 Personal\nhidden: false";
+        let fields = wifi_to_fields(&wifi);
 
-        assert_eq!(result, expected);
+        assert_eq!(fields.len(), 4);
+
+        // SSID field
+        assert_eq!(fields[0].name, Some("SSID".to_string()));
+        assert_eq!(fields[0].value, Some("MyWiFi".to_string()));
+        assert_eq!(fields[0].r#type, FieldType::Text as u8);
+
+        // Passphrase field
+        assert_eq!(fields[1].name, Some("Passphrase".to_string()));
+        assert_eq!(fields[1].value, Some("secret123".to_string()));
+        assert_eq!(fields[1].r#type, FieldType::Hidden as u8);
+
+        // Security type field
+        assert_eq!(fields[2].name, Some("Network Security Type".to_string()));
+        assert_eq!(fields[2].value, Some("WPA2 Personal".to_string()));
+        assert_eq!(fields[2].r#type, FieldType::Text as u8);
+
+        // Hidden field
+        assert_eq!(fields[3].name, Some("Hidden".to_string()));
+        assert_eq!(fields[3].value, Some("false".to_string()));
+        assert_eq!(fields[3].r#type, FieldType::Boolean as u8);
     }
 
     #[test]
-    fn test_wifi_to_notes_minimal_fields() {
+    fn test_wifi_to_fields_minimal() {
         let wifi = create_wifi_credential(Some("BasicWiFi"), None, None, None);
 
-        let result = wifi_to_notes(&wifi);
-        let expected = "ssid: BasicWiFi";
+        let fields = wifi_to_fields(&wifi);
 
-        assert_eq!(result, expected);
+        assert_eq!(fields.len(), 1);
+        assert_eq!(fields[0].name, Some("SSID".to_string()));
+        assert_eq!(fields[0].value, Some("BasicWiFi".to_string()));
+        assert_eq!(fields[0].r#type, FieldType::Text as u8);
     }
 
     #[test]
-    fn test_wifi_to_notes_empty_wifi() {
+    fn test_wifi_to_fields_empty() {
         let wifi = create_wifi_credential(None, None, None, None);
 
-        let result = wifi_to_notes(&wifi);
+        let fields = wifi_to_fields(&wifi);
 
-        assert_eq!(result, "");
-    }
-
-    #[test]
-    fn test_wifi_to_notes_hidden_true() {
-        let wifi = create_wifi_credential(
-            Some("HiddenNetwork"),
-            Some("password"),
-            Some(EditableFieldWifiNetworkSecurityType::WpaPersonal),
-            Some(true),
-        );
-
-        let result = wifi_to_notes(&wifi);
-        let expected = "ssid: HiddenNetwork\npassphrase: password\nnetwork_security_type: WPA Personal\nhidden: true";
-
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_wifi_to_notes_all_security_types() {
-        let security_types = vec![
-            (EditableFieldWifiNetworkSecurityType::Unsecured, "Unsecured"),
-            (
-                EditableFieldWifiNetworkSecurityType::WpaPersonal,
-                "WPA Personal",
-            ),
-            (
-                EditableFieldWifiNetworkSecurityType::Wpa2Personal,
-                "WPA2 Personal",
-            ),
-            (
-                EditableFieldWifiNetworkSecurityType::Wpa3Personal,
-                "WPA3 Personal",
-            ),
-            (EditableFieldWifiNetworkSecurityType::Wep, "WEP"),
-            (
-                EditableFieldWifiNetworkSecurityType::Other("Custom".to_string()),
-                "Custom",
-            ),
-        ];
-
-        for (security_type, expected_str) in security_types {
-            let wifi = create_wifi_credential(Some("TestNet"), None, Some(security_type), None);
-
-            let result = wifi_to_notes(&wifi);
-            let expected = format!("ssid: TestNet\nnetwork_security_type: {}", expected_str);
-
-            assert_eq!(
-                result, expected,
-                "Failed for security type: {:?}",
-                expected_str
-            );
-        }
-    }
-
-    #[test]
-    fn test_wifi_to_notes_special_characters() {
-        let wifi = create_wifi_credential(
-            Some("WiFi with spaces & symbols!"),
-            Some("p@ssw0rd#123"),
-            Some(EditableFieldWifiNetworkSecurityType::Other(
-                "Custom-WPA".to_string(),
-            )),
-            Some(false),
-        );
-
-        let result = wifi_to_notes(&wifi);
-        let expected = "ssid: WiFi with spaces & symbols!\npassphrase: p@ssw0rd#123\nnetwork_security_type: Custom-WPA\nhidden: false";
-
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_wifi_to_notes_only_passphrase() {
-        let wifi = create_wifi_credential(None, Some("onlypassword"), None, None);
-
-        let result = wifi_to_notes(&wifi);
-        let expected = "passphrase: onlypassword";
-
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_wifi_to_notes_only_hidden() {
-        let wifi = create_wifi_credential(None, None, None, Some(true));
-
-        let result = wifi_to_notes(&wifi);
-        let expected = "hidden: true";
-
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_wifi_to_notes_empty() {
-        let wifi = create_wifi_credential(None, None, None, None);
-
-        let result = wifi_to_notes(&wifi);
-        let expected = "";
-
-        assert_eq!(result, expected);
+        assert_eq!(fields.len(), 0);
     }
 }

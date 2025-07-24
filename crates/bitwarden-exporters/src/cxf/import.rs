@@ -7,7 +7,7 @@ use credential_exchange_format::{
 use crate::{
     cxf::{
         login::{to_fields, to_login},
-        secure_note::wifi_to_notes,
+        secure_note::wifi_to_fields,
         CxfError,
     },
     CipherType, ImportingCipher, SecureNote, SecureNoteType,
@@ -82,18 +82,18 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
 
     // WiFi credentials -> Secure Notes
     if let Some(wifi) = grouped.wifi.first() {
-        let note = wifi_to_notes(wifi);
+        let fields = wifi_to_fields(wifi);
 
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
             name: value.title.clone(),
-            notes: Some(note),
+            notes: None,
             r#type: CipherType::SecureNote(Box::new(SecureNote {
                 r#type: SecureNoteType::Generic,
             })),
             favorite: false,
             reprompt: 0,
-            fields: vec![],
+            fields: fields,
             revision_date,
             creation_date,
             deleted_date: None,
