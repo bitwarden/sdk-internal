@@ -1,15 +1,16 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     Account as CxfAccount, BasicAuthCredential, Credential, CreditCardCredential, Item,
-    PasskeyCredential,
+    PasskeyCredential, WifiCredential,
 };
 
 use crate::{
     cxf::{
         login::{to_fields, to_login},
+        secure_note::wifi_to_notes,
         CxfError,
     },
-    CipherType, ImportingCipher,
+    CipherType, ImportingCipher, SecureNote, SecureNoteType,
 };
 
 pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfError> {
@@ -79,6 +80,27 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         })
     }
 
+    // Wifi -> Note
+    if !grouped.wifi.is_empty() {
+        let wifi = grouped.wifi.first().expect("Wifi is not empty");
+        let note = wifi_to_notes(wifi);
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: Some(note),
+            r#type: CipherType::SecureNote(Box::new(SecureNote {
+                r#type: SecureNoteType::Generic,
+            })),
+            favorite: false,
+            reprompt: 0,
+            fields: vec![],
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
+    }
+
     output
 }
 
@@ -112,6 +134,10 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
             Credential::CreditCard(credit_card) => Some(credit_card.as_ref()),
             _ => None,
         }),
+        wifi: filter_credentials(&credentials, |c| match c {
+            Credential::Wifi(wifi) => Some(wifi.as_ref()),
+            _ => None,
+        }),
     }
 }
 
@@ -119,6 +145,7 @@ struct GroupedCredentials {
     basic_auth: Vec<BasicAuthCredential>,
     passkey: Vec<PasskeyCredential>,
     credit_card: Vec<CreditCardCredential>,
+    wifi: Vec<WifiCredential>,
 }
 
 #[cfg(test)]
