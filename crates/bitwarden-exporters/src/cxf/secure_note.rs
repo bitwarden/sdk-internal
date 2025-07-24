@@ -206,6 +206,7 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[test]
     fn test_wifi_to_notes_empty() {
         let wifi = create_wifi_credential(None, None, None, None);
 
