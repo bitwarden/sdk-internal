@@ -80,7 +80,7 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         })
     }
 
-    // WiFi credentials -> Secure Notes
+    // WiFi credentials -> Secure Note
     if let Some(wifi) = grouped.wifi.first() {
         let fields = wifi_to_fields(wifi);
 
