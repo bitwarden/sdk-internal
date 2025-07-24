@@ -40,11 +40,12 @@ pub fn wifi_to_notes(wifi: &WifiCredential) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use credential_exchange_format::{
         EditableField, EditableFieldBoolean, EditableFieldConcealedString, EditableFieldString,
         EditableFieldWifiNetworkSecurityType,
     };
+
+    use super::*;
 
     fn create_wifi_credential(
         ssid: Option<&str>,
