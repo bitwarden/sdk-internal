@@ -93,7 +93,7 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
             })),
             favorite: false,
             reprompt: 0,
-            fields: fields,
+            fields,
             revision_date,
             creation_date,
             deleted_date: None,
