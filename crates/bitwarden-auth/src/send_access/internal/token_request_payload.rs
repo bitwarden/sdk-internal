@@ -59,7 +59,7 @@ pub enum SendAccessClientType {
 /// Represents the actual request payload for requesting a send access token.
 /// It converts the `SendAccessTokenRequest` into a format suitable for sending to the API.
 #[derive(Serialize, Debug)]
-pub struct SendAccessTokenPayload {
+pub struct SendAccessTokenRequestPayload {
     // Standard OAuth2 fields
     /// The client ID for the send access client.
     pub client_id: SendAccessClientType,
@@ -91,11 +91,11 @@ const SEND_ACCESS_GRANT_TYPE: GrantType = GrantType::SendAccess;
 const SEND_ACCESS_SCOPE: Scope = Scope::Send;
 
 /// Implement a way to convert from our request model to the payload model
-impl From<SendAccessTokenRequest> for SendAccessTokenPayload {
+impl From<SendAccessTokenRequest> for SendAccessTokenRequestPayload {
     fn from(request: SendAccessTokenRequest) -> Self {
         // Returns a new instance of `SendAccessTokenPayload` based on the provided `SendAccessTokenRequest`.
         // It extracts the necessary fields from the request and matches on the credentials to determine the variant
-        SendAccessTokenPayload {
+        SendAccessTokenRequestPayload {
             client_id: SEND_ACCESS_CLIENT_ID,
             grant_type: SEND_ACCESS_GRANT_TYPE,
             scope: SEND_ACCESS_SCOPE,
@@ -115,7 +115,7 @@ mod tests {
         use super::*;
         #[test]
         fn test_serialize_send_access_token_payload() {
-            let payload = SendAccessTokenPayload {
+            let payload = SendAccessTokenRequestPayload {
                 client_id: SendAccessClientType::Send,
                 grant_type: GrantType::SendAccess,
                 scope: Scope::Send,

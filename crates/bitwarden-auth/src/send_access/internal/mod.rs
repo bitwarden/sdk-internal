@@ -9,4 +9,6 @@ pub(crate) use token_api_error_response::{
     SendAccessTokenInvalidRequestError,
 };
 pub(crate) use token_api_success_response::SendAccessTokenApiSuccessResponse;
-pub(crate) use token_request_payload::{SendAccessTokenPayload, SendAccessTokenPayloadCredentials};
+pub(crate) use token_request_payload::{
+    SendAccessTokenPayloadCredentials, SendAccessTokenRequestPayload,
+};
