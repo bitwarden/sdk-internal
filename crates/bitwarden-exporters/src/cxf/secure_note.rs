@@ -1,6 +1,7 @@
-use crate::Field;
 use bitwarden_vault::FieldType;
 use credential_exchange_format::WifiCredential;
+
+use crate::Field;
 
 /// Convert WiFi credentials to custom fields following the CXF mapping convention
 pub fn wifi_to_fields(wifi: &WifiCredential) -> Vec<Field> {
