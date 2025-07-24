@@ -1,4 +1,5 @@
 mod token_api_error_response;
+mod token_api_success_response;
 mod token_request_payload;
 
 // Note: for code to be only internal to the crate,
@@ -7,3 +8,5 @@ pub(crate) use token_api_error_response::{
     SendAccessTokenError, SendAccessTokenInvalidGrantError, SendAccessTokenInvalidRequestError,
 };
 pub(crate) use token_request_payload::{SendAccessTokenPayload, SendAccessTokenPayloadCredentials};
+
+pub(crate) use token_api_success_response::SendAccessTokenSuccessResponse;
