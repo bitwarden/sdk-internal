@@ -27,8 +27,10 @@ wasm = [
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-error = { workspace = true }
 chrono = { workspace = true }
+reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_urlencoded = "0.7.1"
 serde_qs = { workspace = true }
 thiserror = { workspace = true }
 tsify = { workspace = true, optional = true }
