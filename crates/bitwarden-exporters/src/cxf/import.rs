@@ -1,8 +1,9 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
-    Account as CxfAccount, BasicAuthCredential, Credential, CreditCardCredential, Item,
-    PasskeyCredential, WifiCredential,
+    BasicAuthCredential, Credential, CreditCardCredential, Header, Item, PasskeyCredential,
+    WifiCredential,
 };
+use serde_json;
 
 use crate::{
     cxf::{
@@ -14,9 +15,13 @@ use crate::{
 };
 
 pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfError> {
-    let account: CxfAccount = serde_json::from_str(&payload)?;
+    let header: Header = serde_json::from_str(&payload)?;
 
-    let items: Vec<ImportingCipher> = account.items.into_iter().flat_map(parse_item).collect();
+    let items: Vec<ImportingCipher> = header
+        .accounts
+        .into_iter()
+        .flat_map(|account| account.items.into_iter().flat_map(parse_item))
+        .collect();
 
     Ok(items)
 }
@@ -150,10 +155,33 @@ struct GroupedCredentials {
 #[cfg(test)]
 mod tests {
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+    use bitwarden_vault::FieldType;
     use chrono::{Duration, Month};
     use credential_exchange_format::{CreditCardCredential, EditableFieldYearMonth};
 
     use super::*;
+
+    fn load_sample_cxf() -> Result<Vec<ImportingCipher>, CxfError> {
+        use std::fs;
+
+        // Read the actual CXF example file
+        let cxf_data = fs::read_to_string("resources/cxf_example.json")
+            .expect("Should be able to read cxf_example.json");
+
+        // Workaround for library bug: the example file has "integrityHash" but the library expects
+        // "integrationHash"
+        let fixed_cxf_data = cxf_data.replace("\"integrityHash\":", "\"integrationHash\":");
+
+        let header: Header = serde_json::from_str(&fixed_cxf_data)?;
+
+        let items: Vec<ImportingCipher> = header
+            .accounts
+            .into_iter()
+            .flat_map(|account| account.items.into_iter().flat_map(parse_item))
+            .collect();
+
+        Ok(items)
+    }
 
     #[test]
     fn test_convert_date() {
@@ -319,5 +347,73 @@ mod tests {
         assert_eq!(card.code, Some("123".to_string()));
         assert_eq!(card.brand, Some("Mastercard".to_string()));
         assert_eq!(card.number, Some("1234 5678 9012 3456".to_string()));
+    }
+
+    #[test]
+    fn test_wifi_credential_from_cxf_example() {
+        let ciphers = load_sample_cxf().expect("Should load sample CXF data successfully");
+
+        // Find the WiFi cipher - it should be the one with title "Wifi"
+        let wifi_cipher = ciphers
+            .iter()
+            .find(|c| c.name == "Wifi")
+            .expect("Should find WiFi cipher in parsed data");
+
+        // Verify it's stored as a SecureNote with custom fields
+        match &wifi_cipher.r#type {
+            CipherType::SecureNote(_) => {
+                // Expected - WiFi credentials are stored as SecureNotes with custom fields
+            }
+            _ => panic!("WiFi credential should be stored as SecureNote"),
+        }
+
+        // Verify the custom fields are properly mapped
+        assert_eq!(
+            wifi_cipher.fields.len(),
+            4,
+            "WiFi credential should have 4 custom fields"
+        );
+
+        // SSID field
+        let ssid_field = wifi_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_ref() == Some(&"SSID".to_string()))
+            .expect("SSID field should exist");
+        assert_eq!(ssid_field.value, Some("Home_Network".to_string()));
+        assert_eq!(ssid_field.r#type, FieldType::Text as u8);
+
+        // Passphrase field (should be hidden)
+        let passphrase_field = wifi_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_ref() == Some(&"Passphrase".to_string()))
+            .expect("Passphrase field should exist");
+        assert_eq!(passphrase_field.value, Some("mypassword123".to_string()));
+        assert_eq!(passphrase_field.r#type, FieldType::Hidden as u8);
+
+        // Network Security Type field - "WPA2" in JSON should map to Other("WPA2")
+        let security_field = wifi_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_ref() == Some(&"Network Security Type".to_string()))
+            .expect("Network Security Type field should exist");
+        assert_eq!(security_field.value, Some("WPA2".to_string()));
+        assert_eq!(security_field.r#type, FieldType::Text as u8);
+
+        // Hidden field (should be boolean)
+        let hidden_field = wifi_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_ref() == Some(&"Hidden".to_string()))
+            .expect("Hidden field should exist");
+        assert_eq!(hidden_field.value, Some("false".to_string()));
+        assert_eq!(hidden_field.r#type, FieldType::Boolean as u8);
+
+        // Verify basic cipher properties
+        assert_eq!(wifi_cipher.name, "Wifi");
+        assert_eq!(wifi_cipher.notes, None); // Notes should be None since we're using custom fields
+        assert_eq!(wifi_cipher.favorite, false);
+        assert_eq!(wifi_cipher.folder_id, None);
     }
 }
