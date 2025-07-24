@@ -43,39 +43,61 @@ android {
     }
 }
 
+String composeDescription() {
+    def fullCommit = 'git rev-parse HEAD'.execute().text.trim()
+    def changelog = 'git log -1 --oneline'.execute().text.trim()
+    def workflowRunId = System.getenv('GITHUB_RUN_ID') ?: "local"
+
+    def workflowRunUrl = workflowRunId == "local" ? "local" : "https://github.com/bitwarden/sdk-internal/actions/runs/${workflowRunId}"
+
+    return """Full commit hash: ${fullCommit}
+Workflow run link: ${workflowRunUrl}
+Changelog: ${changelog}"""
+}
+
+String composeVersion(String branchName){
+    // Determine the version from the git history.
+    //
+    // PRs: use the branch name.
+    // Main: Grab it from `crates/bitwarden/Cargo.toml`
+    def shortCommitHash = 'git rev-parse --short HEAD'.execute().text.trim()
+    def workflowRunNumber = System.getenv('GITHUB_RUN_NUMBER') ?: "local"
+
+    def content = ['grep', '-o', '^version = ".*"', rootDir.toString() + '/../../../Cargo.toml'].execute().text.trim()
+    def match = ~/version = "(.*)"/
+    def matcher = match.matcher(content)
+    matcher.find()
+
+   return branchName == 'main'
+        //main branch → 1.0.0-{workflow_run_number}-{short_commit_hash} → 1.0.0-12-h48319
+        ? "${matcher.group(1)}-${workflowRunNumber}-${shortCommitHash}"
+        //other branches → 1.0.0-{workflow_run_number}-{branch_name} → 1.0.0-14-feat-something
+        : "${matcher.group(1)}-${workflowRunNumber}-${branchName.replaceAll('/', '-')}"
+}
+
 publishing {
     publications {
         maven(MavenPublication) {
+            def branchName = 'git branch --show-current'.execute().text.trim()
             groupId = 'com.bitwarden'
+            
+            artifactId = branchName == 'main' 
+                //main branch: sdk-android
+                ? 'sdk-android' 
+                //other branches: sdk-android.dev
+                : 'sdk-android.dev'
+
+            def aboutThisPackage = composeDescription()
 
             if (findProperty('version') == 'unspecified') {
-                // Determine the version from the git history.
-                //
-                // PRs: use the branch name.
-                // Main: Grab it from `crates/bitwarden/Cargo.toml`
+                version = composeVersion(branchName)
+            }
 
-                def branchName = 'git branch --show-current'.execute().text.trim()
-                def shortCommitHash = 'git rev-parse --short HEAD'.execute().text.trim()
-                def workflowRunNumber = System.getenv('GITHUB_RUN_NUMBER')
-
-                if (branchName == 'main') {
-                    def content = ['grep', '-o', '^version = ".*"', rootDir.toString() + '/../../../Cargo.toml'].execute().text.trim()
-                    def match = ~/version = "(.*)"/
-                    def matcher = match.matcher(content)
-                    matcher.find()
-
-                    //main branch → 1.0.0-{workflow_run_number}-{short_commit_hash} → 1.0.0-12-h48319
-                    version = "${matcher.group(1)}-${workflowRunNumber}-${shortCommitHash}"
-
-                    //main branch
-                    artifactId = 'sdk-android-temp'
-                } else {
-                    //other branches → 1.0.0-{workflow_run_number}-{branch_name} → 1.0.0-14-feat-something
-                    version = "${matcher.group(1)}-${workflowRunNumber}-${branchName.replaceAll('/', '-')}"
-
-                    //other branches 
-                    artifactId = 'sdk-android-temp.dev'
-                }
+            // changelog, full commit hash, workflow run link
+            pom {
+                name.set("Bitwarden SDK for Android")
+                description.set(aboutThisPackage)
+                url.set("https://github.com/bitwarden/sdk-internal")
             }
 
             afterEvaluate {
@@ -83,6 +105,7 @@ publishing {
             }
         }
     }
+    
     repositories {
         maven {
             name = 'GitHubPackages'
