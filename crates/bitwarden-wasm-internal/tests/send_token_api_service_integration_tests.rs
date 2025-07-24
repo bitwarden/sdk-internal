@@ -1,3 +1,4 @@
+// TODO: move this to bw-auth
 //! Integration tests for send access feature
 use bitwarden_core::{Client as CoreClient, ClientSettings, DeviceType};
 use bitwarden_wasm_internal::auth::{

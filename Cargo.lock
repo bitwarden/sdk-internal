@@ -356,10 +356,13 @@ dependencies = [
  "serde_qs",
  "serde_urlencoded",
  "thiserror 1.0.69",
+ "tokio",
  "tsify",
  "uniffi",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wiremock",
+ "zeroize",
 ]
 
 [[package]]
@@ -760,21 +763,13 @@ dependencies = [
  "bitwarden-state",
  "bitwarden-threading",
  "bitwarden-vault",
- "chrono",
  "console_error_panic_hook",
  "console_log",
  "log",
- "reqwest",
  "serde",
- "serde_json",
- "serde_qs",
- "serde_urlencoded",
- "tokio",
  "tsify",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wiremock",
- "zeroize",
 ]
 
 [[package]]
