@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     Account as CxfAccount, AddressCredential, ApiKeyCredential, BasicAuthCredential, Credential,
-    CreditCardCredential, DriversLicenseCredential, Header, Item, PasskeyCredential,
-    PassportCredential, PersonNameCredential, WifiCredential,
+    CreditCardCredential, DriversLicenseCredential, Header, IdentityDocumentCredential, Item,
+    PasskeyCredential, PassportCredential, PersonNameCredential, WifiCredential,
 };
 
 use crate::{
@@ -10,8 +10,8 @@ use crate::{
         address::address_to_identity,
         api_key::api_key_to_fields,
         identity::{
-            address_to_identity, drivers_license_to_identity, passport_to_identity,
-            person_name_to_identity,
+            address_to_identity, drivers_license_to_identity, identity_document_to_identity,
+            passport_to_identity, person_name_to_identity,
         },
         login::{to_fields, to_login},
         wifi::wifi_to_fields,
@@ -216,6 +216,24 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         })
     }
 
+    // Identity document credentials
+    if let Some(identity_document) = grouped.identity_document.first() {
+        let (identity, custom_fields) = identity_document_to_identity(identity_document);
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: None,
+            r#type: CipherType::Identity(Box::new(identity)),
+            favorite: false,
+            reprompt: 0,
+            fields: custom_fields,
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
+    }
+
     output
 }
 
@@ -273,6 +291,10 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
             Credential::DriversLicense(drivers_license) => Some(drivers_license.as_ref()),
             _ => None,
         }),
+        identity_document: filter_credentials(&credentials, |c| match c {
+            Credential::IdentityDocument(identity_document) => Some(identity_document.as_ref()),
+            _ => None,
+        }),
     }
 }
 
@@ -286,6 +308,7 @@ struct GroupedCredentials {
     passport: Vec<PassportCredential>,
     person_name: Vec<PersonNameCredential>,
     drivers_license: Vec<DriversLicenseCredential>,
+    identity_document: Vec<IdentityDocumentCredential>,
 }
 
 #[cfg(test)]
