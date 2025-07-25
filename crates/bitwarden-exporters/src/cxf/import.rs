@@ -10,7 +10,7 @@ use crate::{
         login::{to_fields, to_login},
         CxfError,
     },
-    CipherType, ImportingCipher,
+    CipherType, ImportingCipher, SecureNote, SecureNoteType,
 };
 
 pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfError> {

@@ -80,10 +80,10 @@ pub fn api_key_to_fields(api_key: &ApiKeyCredential) -> Vec<Field> {
 #[cfg(test)]
 mod tests {
     use bitwarden_vault::FieldType;
+    use chrono::NaiveDate;
     use credential_exchange_format::{
         EditableField, EditableFieldConcealedString, EditableFieldDate, EditableFieldString,
     };
-    use chrono::NaiveDate;
 
     use super::*;
 
@@ -186,14 +186,7 @@ mod tests {
 
     #[test]
     fn test_api_key_to_fields_minimal() {
-        let api_key = create_api_key_credential(
-            Some("test-api-key"),
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
+        let api_key = create_api_key_credential(Some("test-api-key"), None, None, None, None, None);
 
         let fields = api_key_to_fields(&api_key);
 
@@ -228,10 +221,7 @@ mod tests {
         assert_eq!(fields.len(), 3);
 
         // Check that we have the expected fields
-        let field_names: Vec<String> = fields
-            .iter()
-            .filter_map(|f| f.name.clone())
-            .collect();
+        let field_names: Vec<String> = fields.iter().filter_map(|f| f.name.clone()).collect();
 
         assert!(field_names.contains(&"API Key".to_string()));
         assert!(field_names.contains(&"Username".to_string()));
