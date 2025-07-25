@@ -8,7 +8,7 @@ use crate::send_access::{
         SendAccessTokenApiErrorResponse, SendAccessTokenApiSuccessResponse,
         SendAccessTokenRequestPayload,
     },
-    SendAccessTokenRequest, SendAccessTokenResponse,
+    SendAccessTokenError, SendAccessTokenRequest, SendAccessTokenResponse,
 };
 
 #[derive(Clone)]
@@ -32,14 +32,15 @@ impl SendAccessClient {
     pub async fn request_send_access_token(
         &self,
         request: SendAccessTokenRequest,
-    ) -> Result<SendAccessTokenResponse, bitwarden_core::ApiError> {
+    ) -> Result<SendAccessTokenResponse, SendAccessTokenError> {
         // Convert the request to the appropriate format for sending.
         let payload: SendAccessTokenRequestPayload = request.into();
 
-        // When building other identity token requests, we used to send credentials: "include" on non-web clients or if the
-        // env had a base URL. See client's apiService.getCredentials() for example. However, it doesn't
-        // seem necessary for this request, so we are not including it here.
-        // If needed, we can revisit this and add it back in.
+        // When building other identity token requests, we used to send credentials: "include" on
+        // non-web clients or if the env had a base URL. See client's
+        // apiService.getCredentials() for example. However, it doesn't seem necessary for
+        // this request, so we are not including it here. If needed, we can revisit this and
+        // add it back in.
 
         let configurations = self.client.internal.get_api_configurations().await;
 
@@ -66,27 +67,19 @@ impl SendAccessClient {
         // handle success and error responses
         // If the response is 200, we can deserialize it into SendAccessToken
         if response.status().is_success() {
-            let send_access_token: SendAccessTokenApiSuccessResponse = response
-                .json()
-                .await
-                // the ? try operator here will return and propagate the error if it occurs
-                // this narrows from Result<SendAccessTokenResponse, reqwest::Error> to
-                // Result<SendAccessTokenResponse, bitwarden_core::ApiError>
-                .map_err(bitwarden_core::ApiError::from)?;
+            let send_access_token: SendAccessTokenApiSuccessResponse = response.json().await?;
             return Ok(send_access_token.into());
         }
 
         // If the response is not successful, we should handle the error.
         if response.status().is_client_error() || response.status().is_server_error() {
-            let error: SendAccessTokenApiErrorResponse = response
-                .json()
-                .await
-                .map_err(bitwarden_core::ApiError::from)?;
+            let error: SendAccessTokenApiErrorResponse = response.json().await?;
 
-            // If we want to create a custom error to return we can map the error response to our own error type
-            // by building the error type and then adding a from trait implementation for it.
-            // The way that we do this typically is by creating a new enum that
-            // represents the bitwarden_core::ApiError and my new error type.
+            // If we want to create a custom error to return we can map the error response to our
+            // own error type by building the error type and then adding a from trait
+            // implementation for it. The way that we do this typically is by creating a
+            // new enum that represents the bitwarden_core::ApiError and my new error
+            // type.
 
             // Map the error description to our enum
             // let error_enum: SendTokenApiErrorDescription =
