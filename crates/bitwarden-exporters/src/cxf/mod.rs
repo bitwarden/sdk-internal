@@ -14,4 +14,4 @@ mod import;
 pub(crate) use import::parse_cxf;
 mod card;
 mod login;
-mod secure_note;
+mod wifi;

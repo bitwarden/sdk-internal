@@ -7,7 +7,7 @@ use credential_exchange_format::{
 use crate::{
     cxf::{
         login::{to_fields, to_login},
-        secure_note::wifi_to_fields,
+        wifi::wifi_to_fields,
         CxfError,
     },
     CipherType, ImportingCipher, SecureNote, SecureNoteType,
