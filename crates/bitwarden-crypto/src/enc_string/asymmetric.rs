@@ -20,7 +20,7 @@ mod internal {
     #[cfg(feature = "wasm")]
     #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
     const TS_CUSTOM_TYPES: &'static str = r#"
-    export type UnsignedSharedKey = string;
+    export type UnsignedSharedKey = Tagged<string, "UnsignedSharedKey">;
     "#;
 
     /// # Encrypted string primitive
