@@ -1,6 +1,9 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 
-#[derive(Deserialize, PartialEq, Eq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 /// Invalid request errors - typically due to missing parameters.
 pub enum SendAccessTokenInvalidRequestError {
     #[serde(rename = "send_id is required.")]
@@ -22,7 +25,8 @@ pub enum SendAccessTokenInvalidRequestError {
     EmailAndOtpRequiredOtpSent,
 }
 
-#[derive(Deserialize, PartialEq, Eq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 /// Invalid grant errors - typically due to invalid credentials.
 pub enum SendAccessTokenInvalidGrantError {
     #[allow(missing_docs)]
@@ -38,7 +42,8 @@ pub enum SendAccessTokenInvalidGrantError {
     InvalidOtp,
 }
 
-#[derive(Deserialize, PartialEq, Eq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(tag = "error", content = "error_description")]
 // ^ "error" becomes the variant discriminator which matches against the rename annotations; "error_description" is the payload for that variant which can be optional.
 /// Represents the possible errors that can occur when requesting a send access token.
