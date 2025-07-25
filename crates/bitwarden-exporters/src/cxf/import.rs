@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
-    Account as CxfAccount, BasicAuthCredential, Credential, CreditCardCredential, Item,
-    PasskeyCredential,
+    BasicAuthCredential, Credential, CreditCardCredential, Header, Item, PasskeyCredential,
 };
+use serde_json;
 
 use crate::{
     cxf::{
@@ -13,9 +13,13 @@ use crate::{
 };
 
 pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfError> {
-    let account: CxfAccount = serde_json::from_str(&payload)?;
+    let header: Header = serde_json::from_str(&payload)?;
 
-    let items: Vec<ImportingCipher> = account.items.into_iter().flat_map(parse_item).collect();
+    let items: Vec<ImportingCipher> = header
+        .accounts
+        .into_iter()
+        .flat_map(|account| account.items.into_iter().flat_map(parse_item))
+        .collect();
 
     Ok(items)
 }
@@ -125,9 +129,37 @@ struct GroupedCredentials {
 mod tests {
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
     use chrono::{Duration, Month};
-    use credential_exchange_format::{CreditCardCredential, EditableFieldYearMonth};
+    use credential_exchange_format::{CreditCardCredential, EditableFieldYearMonth, Header};
 
     use super::*;
+
+    fn load_sample_cxf() -> Result<Vec<ImportingCipher>, CxfError> {
+        use std::fs;
+
+        // Read the actual CXF example file
+        let cxf_data = fs::read_to_string("resources/cxf_example.json")
+            .expect("Should be able to read cxf_example.json");
+
+        // Workaround for library bug: the example file has "integrityHash" but the library expects
+        // "integrationHash"
+        let fixed_cxf_data = cxf_data.replace("\"integrityHash\":", "\"integrationHash\":");
+
+        let header: Header = serde_json::from_str(&fixed_cxf_data)?;
+
+        let items: Vec<ImportingCipher> = header
+            .accounts
+            .into_iter()
+            .flat_map(|account| account.items.into_iter().flat_map(parse_item))
+            .collect();
+
+        Ok(items)
+    }
+
+    #[test]
+    fn test_load_cxf_example_without_crashing() {
+        let result = load_sample_cxf();
+        assert!(result.is_ok());
+    }
 
     #[test]
     fn test_convert_date() {
