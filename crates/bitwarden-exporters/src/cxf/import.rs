@@ -413,7 +413,7 @@ mod tests {
         // Verify basic cipher properties
         assert_eq!(wifi_cipher.name, "Wifi");
         assert_eq!(wifi_cipher.notes, None); // Notes should be None since we're using custom fields
-        assert_eq!(wifi_cipher.favorite, false);
+        assert!(wifi_cipher.favorite, "{}", false);
         assert_eq!(wifi_cipher.folder_id, None);
     }
 }
