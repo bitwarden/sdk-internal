@@ -1,11 +1,12 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
-    BasicAuthCredential, Credential, CreditCardCredential, Header, Item, PasskeyCredential,
+    AddressCredential, BasicAuthCredential, Credential, CreditCardCredential, Header, Item,
+    PasskeyCredential,
 };
-use serde_json;
 
 use crate::{
     cxf::{
+        address::address_to_identity,
         login::{to_fields, to_login},
         CxfError,
     },
@@ -83,6 +84,26 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         })
     }
 
+    // Address credentials
+    if !grouped.address.is_empty() {
+        let address = grouped.address.first().expect("Address is not empty");
+
+        let identity = address_to_identity(address);
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: None,
+            r#type: CipherType::Identity(Box::new(identity)),
+            favorite: false,
+            reprompt: 0,
+            fields: vec![],
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
+    }
+
     output
 }
 
@@ -116,6 +137,10 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
             Credential::CreditCard(credit_card) => Some(credit_card.as_ref()),
             _ => None,
         }),
+        address: filter_credentials(&credentials, |c| match c {
+            Credential::Address(address) => Some(address.as_ref()),
+            _ => None,
+        }),
     }
 }
 
@@ -123,6 +148,7 @@ struct GroupedCredentials {
     basic_auth: Vec<BasicAuthCredential>,
     passkey: Vec<PasskeyCredential>,
     credit_card: Vec<CreditCardCredential>,
+    address: Vec<AddressCredential>,
 }
 
 #[cfg(test)]
@@ -276,6 +302,41 @@ mod tests {
             passkey.creation_date,
             "2024-11-21T09:39:46Z".parse::<DateTime<Utc>>().unwrap()
         );
+    }
+
+    #[test]
+    fn test_address_integration() {
+        let result = load_sample_cxf();
+        assert!(result.is_ok());
+
+        let ciphers = result.unwrap();
+
+        // Find the address cipher - should be titled "House Address"
+        let address_cipher = ciphers
+            .iter()
+            .find(|c| c.name == "House Address")
+            .expect("Should find House Address item");
+
+        // Verify it's an Identity cipher
+        let identity = match &address_cipher.r#type {
+            CipherType::Identity(identity) => identity,
+            _ => panic!("Expected Identity cipher for address"),
+        };
+
+        // Verify the address mapping
+        assert_eq!(identity.address1, Some("123 Main Street".to_string()));
+        assert_eq!(identity.city, Some("Springfield".to_string()));
+        assert_eq!(identity.state, Some("CA".to_string()));
+        assert_eq!(identity.country, Some("US".to_string()));
+        assert_eq!(identity.phone, Some("+1-555-123-4567".to_string()));
+        assert_eq!(identity.postal_code, Some("12345".to_string()));
+
+        // Verify unmapped fields are None
+        assert_eq!(identity.title, None);
+        assert_eq!(identity.first_name, None);
+        assert_eq!(identity.last_name, None);
+        assert_eq!(identity.company, None);
+        assert_eq!(identity.email, None);
     }
 
     #[test]
