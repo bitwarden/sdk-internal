@@ -1,15 +1,15 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     AddressCredential, BasicAuthCredential, Credential, CreditCardCredential,
-    DriversLicenseCredential, Header, Item, PasskeyCredential, PassportCredential,
-    PersonNameCredential,
+    DriversLicenseCredential, Header, IdentityDocumentCredential, Item, PasskeyCredential,
+    PassportCredential, PersonNameCredential,
 };
 
 use crate::{
     cxf::{
         identity::{
-            address_to_identity, drivers_license_to_identity, passport_to_identity,
-            person_name_to_identity,
+            address_to_identity, drivers_license_to_identity, identity_document_to_identity,
+            passport_to_identity, person_name_to_identity,
         },
         login::{to_fields, to_login},
         CxfError,
@@ -155,6 +155,24 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         })
     }
 
+    // Identity document credentials
+    if let Some(identity_document) = grouped.identity_document.first() {
+        let (identity, custom_fields) = identity_document_to_identity(identity_document);
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: None,
+            r#type: CipherType::Identity(Box::new(identity)),
+            favorite: false,
+            reprompt: 0,
+            fields: custom_fields,
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
+    }
+
     output
 }
 
@@ -204,6 +222,10 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
             Credential::DriversLicense(drivers_license) => Some(drivers_license.as_ref()),
             _ => None,
         }),
+        identity_document: filter_credentials(&credentials, |c| match c {
+            Credential::IdentityDocument(identity_document) => Some(identity_document.as_ref()),
+            _ => None,
+        }),
     }
 }
 
@@ -215,6 +237,7 @@ struct GroupedCredentials {
     passport: Vec<PassportCredential>,
     person_name: Vec<PersonNameCredential>,
     drivers_license: Vec<DriversLicenseCredential>,
+    identity_document: Vec<IdentityDocumentCredential>,
 }
 
 #[cfg(test)]
@@ -370,13 +393,6 @@ mod tests {
         );
     }
 
-
-
-
-
-
-
-
     #[test]
     fn test_credit_card() {
         let item = Item {
@@ -431,7 +447,10 @@ mod tests {
         let result = load_sample_cxf();
         assert!(result.is_ok());
         let ciphers = result.unwrap();
-        let passport_cipher = ciphers.iter().find(|c| c.name == "Passport").expect("Should find Passport item");
+        let passport_cipher = ciphers
+            .iter()
+            .find(|c| c.name == "Passport")
+            .expect("Should find Passport item");
         let identity = match &passport_cipher.r#type {
             CipherType::Identity(identity) => identity,
             _ => panic!("Expected Identity cipher"),
@@ -445,10 +464,21 @@ mod tests {
         assert_eq!(identity.country, None); // Now custom field
 
         // Verify custom fields preserve all other data
-        assert!(passport_cipher.fields.len() >= 4, "Should have multiple custom fields");
-        let issuing_country = passport_cipher.fields.iter().find(|f| f.name.as_deref() == Some("Issuing Country")).expect("Should have Issuing Country");
+        assert!(
+            passport_cipher.fields.len() >= 4,
+            "Should have multiple custom fields"
+        );
+        let issuing_country = passport_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("Issuing Country"))
+            .expect("Should have Issuing Country");
         assert_eq!(issuing_country.value, Some("US".to_string()));
-        let nationality = passport_cipher.fields.iter().find(|f| f.name.as_deref() == Some("Nationality")).expect("Should have Nationality");
+        let nationality = passport_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("Nationality"))
+            .expect("Should have Nationality");
         assert_eq!(nationality.value, Some("American".to_string()));
     }
 
@@ -457,7 +487,10 @@ mod tests {
         let result = load_sample_cxf();
         assert!(result.is_ok());
         let ciphers = result.unwrap();
-        let drivers_license_cipher = ciphers.iter().find(|c| c.name == "Driver License").expect("Should find Driver License item");
+        let drivers_license_cipher = ciphers
+            .iter()
+            .find(|c| c.name == "Driver License")
+            .expect("Should find Driver License item");
         let identity = match &drivers_license_cipher.r#type {
             CipherType::Identity(identity) => identity,
             _ => panic!("Expected Identity cipher"),
@@ -472,10 +505,24 @@ mod tests {
         assert_eq!(identity.company, None); // Now custom field
 
         // Verify custom fields preserve all other data
-        assert!(drivers_license_cipher.fields.len() >= 3, "Should have multiple custom fields");
-        let issuing_authority = drivers_license_cipher.fields.iter().find(|f| f.name.as_deref() == Some("Issuing Authority")).expect("Should have Issuing Authority");
-        assert_eq!(issuing_authority.value, Some("Department of Motor Vehicles".to_string()));
-        let license_class = drivers_license_cipher.fields.iter().find(|f| f.name.as_deref() == Some("License Class")).expect("Should have License Class");
+        assert!(
+            drivers_license_cipher.fields.len() >= 3,
+            "Should have multiple custom fields"
+        );
+        let issuing_authority = drivers_license_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("Issuing Authority"))
+            .expect("Should have Issuing Authority");
+        assert_eq!(
+            issuing_authority.value,
+            Some("Department of Motor Vehicles".to_string())
+        );
+        let license_class = drivers_license_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("License Class"))
+            .expect("Should have License Class");
         assert_eq!(license_class.value, Some("C".to_string()));
     }
 
@@ -484,7 +531,10 @@ mod tests {
         let result = load_sample_cxf();
         assert!(result.is_ok());
         let ciphers = result.unwrap();
-        let person_name_cipher = ciphers.iter().find(|c| c.name == "John Doe").expect("Should find John Doe item");
+        let person_name_cipher = ciphers
+            .iter()
+            .find(|c| c.name == "John Doe")
+            .expect("Should find John Doe item");
         let identity = match &person_name_cipher.r#type {
             CipherType::Identity(identity) => identity,
             _ => panic!("Expected Identity cipher"),
@@ -498,10 +548,21 @@ mod tests {
         assert_eq!(identity.company, Some("PhD".to_string()));
 
         // Verify custom fields preserve unmapped data
-        assert!(person_name_cipher.fields.len() >= 2, "Should have custom fields");
-        let informal_given = person_name_cipher.fields.iter().find(|f| f.name.as_deref() == Some("Informal Given Name")).expect("Should have Informal Given Name");
+        assert!(
+            person_name_cipher.fields.len() >= 2,
+            "Should have custom fields"
+        );
+        let informal_given = person_name_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("Informal Given Name"))
+            .expect("Should have Informal Given Name");
         assert_eq!(informal_given.value, Some("Johnny".to_string()));
-        let generation = person_name_cipher.fields.iter().find(|f| f.name.as_deref() == Some("Generation")).expect("Should have Generation");
+        let generation = person_name_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("Generation"))
+            .expect("Should have Generation");
         assert_eq!(generation.value, Some("III".to_string()));
     }
 }

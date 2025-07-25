@@ -1,7 +1,8 @@
 use bitwarden_vault::FieldType;
 use credential_exchange_format::{
     AddressCredential, DriversLicenseCredential, EditableField, EditableFieldCountryCode,
-    EditableFieldDate, EditableFieldString, PassportCredential, PersonNameCredential,
+    EditableFieldDate, EditableFieldString, IdentityDocumentCredential, PassportCredential,
+    PersonNameCredential,
 };
 
 use crate::{Field, Identity};
@@ -310,6 +311,103 @@ pub fn drivers_license_to_identity(
     (identity, custom_fields)
 }
 
+/// Convert identity document credentials to Identity and custom fields
+/// According to CXF mapping document: IdentityDocument ↔︎ Identity
+/// Fields are mapped similarly to passport but for general identity documents
+/// - documentNumber: EditableField<"string"> → Identity::passport_number (reusing for general
+///   document number)
+/// - identificationNumber: EditableField<"string"> → Identity::ssn
+/// - fullName: EditableField<"string"> → Identity::first_name + last_name (split)
+/// - All other fields → CustomFields
+pub fn identity_document_to_identity(
+    identity_document: &IdentityDocumentCredential,
+) -> (Identity, Vec<Field>) {
+    // Split full name into first and last name if available
+    let (first_name, last_name) = if let Some(full_name) = &identity_document.full_name {
+        let name_parts: Vec<&str> = full_name.value.0.split_whitespace().collect();
+        match name_parts.len() {
+            0 => (None, None),
+            1 => (Some(name_parts[0].to_string()), None),
+            _ => {
+                let first = name_parts[0].to_string();
+                let last = name_parts[1..].join(" ");
+                (Some(first), Some(last))
+            }
+        }
+    } else {
+        (None, None)
+    };
+
+    let identity = Identity {
+        title: None,
+        first_name,
+        middle_name: None,
+        last_name,
+        address1: None,
+        address2: None,
+        address3: None,
+        city: None,
+        state: None,
+        postal_code: None,
+        country: None, // issuingCountry goes to custom fields
+        company: None,
+        email: None,
+        phone: None,
+        // Map identificationNumber to ssn
+        ssn: identity_document
+            .identification_number
+            .as_ref()
+            .map(|n| n.value.0.clone()),
+        username: None,
+        // Map documentNumber to passport_number (reusing for document number)
+        passport_number: identity_document
+            .document_number
+            .as_ref()
+            .map(|d| d.value.0.clone()),
+        license_number: None,
+    };
+
+    // Create custom fields for unmapped data according to CXF mapping document
+    let mut custom_fields = Vec::new();
+
+    if let Some(field) = create_custom_field(
+        identity_document.issuing_country.as_ref(),
+        "Issuing Country",
+    ) {
+        custom_fields.push(field);
+    }
+    if let Some(field) = create_custom_field(identity_document.nationality.as_ref(), "Nationality")
+    {
+        custom_fields.push(field);
+    }
+    if let Some(field) = create_custom_field(identity_document.birth_date.as_ref(), "Birth Date") {
+        custom_fields.push(field);
+    }
+    if let Some(field) = create_custom_field(identity_document.birth_place.as_ref(), "Birth Place")
+    {
+        custom_fields.push(field);
+    }
+    if let Some(field) = create_custom_field(identity_document.sex.as_ref(), "Sex") {
+        custom_fields.push(field);
+    }
+    if let Some(field) = create_custom_field(identity_document.issue_date.as_ref(), "Issue Date") {
+        custom_fields.push(field);
+    }
+    if let Some(field) = create_custom_field(identity_document.expiry_date.as_ref(), "Expiry Date")
+    {
+        custom_fields.push(field);
+    }
+    if let Some(field) = create_custom_field(
+        identity_document.issuing_authority.as_ref(),
+        "Issuing Authority",
+    ) {
+        custom_fields.push(field);
+    }
+    // Note: identity-document doesn't have a document_type field in the CXF example
+
+    (identity, custom_fields)
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -523,5 +621,76 @@ mod tests {
         assert_eq!(identity.title, None);
         assert_eq!(identity.address1, None);
         assert_eq!(identity.passport_number, None);
+    }
+
+    #[test]
+    fn test_identity_document_complete_mapping() {
+        // Test both unit logic and real data integration
+        let result = load_sample_cxf();
+        assert!(result.is_ok());
+        let ciphers = result.unwrap();
+
+        // Find the identity document cipher from cxf_example.json
+        let identity_document_cipher = ciphers
+            .iter()
+            .find(|c| c.name == "ID card")
+            .expect("Should find ID card item");
+
+        // Verify it's an Identity cipher
+        let identity = match &identity_document_cipher.r#type {
+            crate::CipherType::Identity(identity) => identity,
+            _ => panic!("Expected Identity cipher for identity document"),
+        };
+
+        // Verify Identity field mappings from cxf_example.json
+        assert_eq!(identity.passport_number, Some("123456789".to_string())); // documentNumber → passport_number
+        assert_eq!(identity.first_name, Some("Jane".to_string())); // fullName split
+        assert_eq!(identity.last_name, Some("Doe".to_string())); // fullName split
+        assert_eq!(identity.ssn, Some("ID123456789".to_string())); // identificationNumber → ssn
+        assert_eq!(identity.country, None); // issuingCountry goes to custom fields
+
+        // Verify custom fields preserve unmapped data
+        assert!(
+            identity_document_cipher.fields.len() >= 6,
+            "Should have multiple custom fields"
+        );
+
+        // Check specific custom fields
+        let issuing_country = identity_document_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("Issuing Country"))
+            .expect("Should have Issuing Country");
+        assert_eq!(issuing_country.value, Some("US".to_string()));
+
+        let nationality = identity_document_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("Nationality"))
+            .expect("Should have Nationality");
+        assert_eq!(nationality.value, Some("American".to_string()));
+
+        let birth_place = identity_document_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("Birth Place"))
+            .expect("Should have Birth Place");
+        assert_eq!(birth_place.value, Some("New York, USA".to_string()));
+
+        let issuing_authority = identity_document_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("Issuing Authority"))
+            .expect("Should have Issuing Authority");
+        assert_eq!(
+            issuing_authority.value,
+            Some("Department of State".to_string())
+        );
+
+        // Verify unused Identity fields remain None
+        assert_eq!(identity.title, None);
+        assert_eq!(identity.address1, None);
+        assert_eq!(identity.license_number, None);
+        assert_eq!(identity.company, None);
     }
 }
