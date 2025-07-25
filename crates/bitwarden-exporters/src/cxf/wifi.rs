@@ -3,6 +3,18 @@ use credential_exchange_format::{EditableFieldWifiNetworkSecurityType, WifiCrede
 
 use crate::Field;
 
+/// Convert WiFi security type enum to human-readable string
+fn security_type_to_string(security_type: &EditableFieldWifiNetworkSecurityType) -> &str {
+    match security_type {
+        EditableFieldWifiNetworkSecurityType::Unsecured => "Unsecured",
+        EditableFieldWifiNetworkSecurityType::WpaPersonal => "WPA Personal",
+        EditableFieldWifiNetworkSecurityType::Wpa2Personal => "WPA2 Personal",
+        EditableFieldWifiNetworkSecurityType::Wpa3Personal => "WPA3 Personal",
+        EditableFieldWifiNetworkSecurityType::Wep => "WEP",
+        EditableFieldWifiNetworkSecurityType::Other(s) => s,
+    }
+}
+
 /// Implement From for (name, value, field_type) tuples to make Field creation cleaner
 impl From<(&str, String, FieldType)> for Field {
     fn from((name, value, field_type): (&str, String, FieldType)) -> Self {
@@ -28,17 +40,9 @@ pub fn wifi_to_fields(wifi: &WifiCredential) -> Vec<Field> {
             .map(|passphrase| ("Passphrase", passphrase.value.0.clone(), FieldType::Hidden).into()),
         // Network Security Type: Text field
         wifi.network_security_type.as_ref().map(|security| {
-            let security_str = match &security.value {
-                EditableFieldWifiNetworkSecurityType::Unsecured => "Unsecured",
-                EditableFieldWifiNetworkSecurityType::WpaPersonal => "WPA Personal",
-                EditableFieldWifiNetworkSecurityType::Wpa2Personal => "WPA2 Personal",
-                EditableFieldWifiNetworkSecurityType::Wpa3Personal => "WPA3 Personal",
-                EditableFieldWifiNetworkSecurityType::Wep => "WEP",
-                EditableFieldWifiNetworkSecurityType::Other(s) => s,
-            };
             (
                 "Network Security Type",
-                security_str.to_string(),
+                security_type_to_string(&security.value).to_string(),
                 FieldType::Text,
             )
                 .into()
@@ -192,6 +196,38 @@ mod tests {
                 create_field("Passphrase", "wepkey123", FieldType::Hidden),
                 create_field("Network Security Type", "WEP", FieldType::Text),
             ]
+        );
+    }
+
+    #[test]
+    fn test_security_type_to_string() {
+        assert_eq!(
+            security_type_to_string(&EditableFieldWifiNetworkSecurityType::Unsecured),
+            "Unsecured"
+        );
+        assert_eq!(
+            security_type_to_string(&EditableFieldWifiNetworkSecurityType::WpaPersonal),
+            "WPA Personal"
+        );
+        assert_eq!(
+            security_type_to_string(&EditableFieldWifiNetworkSecurityType::Wpa2Personal),
+            "WPA2 Personal"
+        );
+        assert_eq!(
+            security_type_to_string(&EditableFieldWifiNetworkSecurityType::Wpa3Personal),
+            "WPA3 Personal"
+        );
+        assert_eq!(
+            security_type_to_string(&EditableFieldWifiNetworkSecurityType::Wep),
+            "WEP"
+        );
+
+        let custom_security = "WPA2 Enterprise";
+        assert_eq!(
+            security_type_to_string(&EditableFieldWifiNetworkSecurityType::Other(
+                custom_security.to_string()
+            )),
+            custom_security
         );
     }
 }
