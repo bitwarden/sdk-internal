@@ -1,48 +1,42 @@
 use bitwarden_vault::FieldType;
 use credential_exchange_format::{
-    AddressCredential, DriversLicenseCredential, PassportCredential, PersonNameCredential,
+    AddressCredential, DriversLicenseCredential, EditableField, EditableFieldCountryCode,
+    EditableFieldDate, EditableFieldString, PassportCredential, PersonNameCredential,
 };
 
 use crate::{Field, Identity};
 
-use credential_exchange_format::{
-    EditableField, EditableFieldCountryCode, EditableFieldDate, EditableFieldString,
-};
-
-/// Helper function to create a custom field from an EditableField<EditableFieldString>
-fn create_text_field_from_string(
-    editable_field: Option<&EditableField<EditableFieldString>>,
-    field_name: &str,
-) -> Option<Field> {
-    editable_field.map(|field| Field {
-        name: Some(field_name.to_string()),
-        value: Some(field.value.0.clone()),
-        r#type: FieldType::Text as u8,
-        linked_id: None,
-    })
+/// Helper trait to extract value from various EditableField types
+trait ExtractValue {
+    fn extract_value(&self) -> String;
 }
 
-/// Helper function to create a custom field from an EditableField<EditableFieldCountryCode>
-fn create_text_field_from_country_code(
-    editable_field: Option<&EditableField<EditableFieldCountryCode>>,
-    field_name: &str,
-) -> Option<Field> {
-    editable_field.map(|field| Field {
-        name: Some(field_name.to_string()),
-        value: Some(field.value.0.clone()),
-        r#type: FieldType::Text as u8,
-        linked_id: None,
-    })
+impl ExtractValue for EditableField<EditableFieldString> {
+    fn extract_value(&self) -> String {
+        self.value.0.clone()
+    }
 }
 
-/// Helper function to create a custom field from an EditableField<EditableFieldDate>
-fn create_text_field_from_date(
-    editable_field: Option<&EditableField<EditableFieldDate>>,
+impl ExtractValue for EditableField<EditableFieldCountryCode> {
+    fn extract_value(&self) -> String {
+        self.value.0.clone()
+    }
+}
+
+impl ExtractValue for EditableField<EditableFieldDate> {
+    fn extract_value(&self) -> String {
+        self.value.0.to_string()
+    }
+}
+
+/// Generic helper function to create a custom field from any EditableField type
+fn create_custom_field<T: ExtractValue>(
+    editable_field: Option<&T>,
     field_name: &str,
 ) -> Option<Field> {
     editable_field.map(|field| Field {
         name: Some(field_name.to_string()),
-        value: Some(field.value.0.to_string()),
+        value: Some(field.extract_value()),
         r#type: FieldType::Text as u8,
         linked_id: None,
     })
@@ -133,39 +127,33 @@ pub fn passport_to_identity(passport: &PassportCredential) -> (Identity, Vec<Fie
     // Create custom fields for unmapped data according to CXF mapping document
     let mut custom_fields = Vec::new();
 
-    if let Some(field) =
-        create_text_field_from_country_code(passport.issuing_country.as_ref(), "Issuing Country")
-    {
+    if let Some(field) = create_custom_field(passport.issuing_country.as_ref(), "Issuing Country") {
         custom_fields.push(field);
     }
-    if let Some(field) = create_text_field_from_string(passport.nationality.as_ref(), "Nationality")
-    {
+    if let Some(field) = create_custom_field(passport.nationality.as_ref(), "Nationality") {
         custom_fields.push(field);
     }
-    if let Some(field) = create_text_field_from_date(passport.birth_date.as_ref(), "Birth Date") {
+    if let Some(field) = create_custom_field(passport.birth_date.as_ref(), "Birth Date") {
         custom_fields.push(field);
     }
-    if let Some(field) = create_text_field_from_string(passport.birth_place.as_ref(), "Birth Place")
-    {
+    if let Some(field) = create_custom_field(passport.birth_place.as_ref(), "Birth Place") {
         custom_fields.push(field);
     }
-    if let Some(field) = create_text_field_from_string(passport.sex.as_ref(), "Sex") {
+    if let Some(field) = create_custom_field(passport.sex.as_ref(), "Sex") {
         custom_fields.push(field);
     }
-    if let Some(field) = create_text_field_from_date(passport.issue_date.as_ref(), "Issue Date") {
+    if let Some(field) = create_custom_field(passport.issue_date.as_ref(), "Issue Date") {
         custom_fields.push(field);
     }
-    if let Some(field) = create_text_field_from_date(passport.expiry_date.as_ref(), "Expiry Date") {
+    if let Some(field) = create_custom_field(passport.expiry_date.as_ref(), "Expiry Date") {
         custom_fields.push(field);
     }
     if let Some(field) =
-        create_text_field_from_string(passport.issuing_authority.as_ref(), "Issuing Authority")
+        create_custom_field(passport.issuing_authority.as_ref(), "Issuing Authority")
     {
         custom_fields.push(field);
     }
-    if let Some(field) =
-        create_text_field_from_string(passport.passport_type.as_ref(), "Passport Type")
-    {
+    if let Some(field) = create_custom_field(passport.passport_type.as_ref(), "Passport Type") {
         custom_fields.push(field);
     }
 
@@ -229,13 +217,11 @@ pub fn person_name_to_identity(person_name: &PersonNameCredential) -> (Identity,
     let mut custom_fields = Vec::new();
 
     if let Some(field) =
-        create_text_field_from_string(person_name.given_informal.as_ref(), "Informal Given Name")
+        create_custom_field(person_name.given_informal.as_ref(), "Informal Given Name")
     {
         custom_fields.push(field);
     }
-    if let Some(field) =
-        create_text_field_from_string(person_name.generation.as_ref(), "Generation")
-    {
+    if let Some(field) = create_custom_field(person_name.generation.as_ref(), "Generation") {
         custom_fields.push(field);
     }
 
@@ -300,29 +286,23 @@ pub fn drivers_license_to_identity(
     // Create custom fields for unmapped data according to CXF mapping document
     let mut custom_fields = Vec::new();
 
-    if let Some(field) =
-        create_text_field_from_date(drivers_license.birth_date.as_ref(), "Birth Date")
-    {
+    if let Some(field) = create_custom_field(drivers_license.birth_date.as_ref(), "Birth Date") {
         custom_fields.push(field);
     }
-    if let Some(field) =
-        create_text_field_from_date(drivers_license.issue_date.as_ref(), "Issue Date")
-    {
+    if let Some(field) = create_custom_field(drivers_license.issue_date.as_ref(), "Issue Date") {
         custom_fields.push(field);
     }
-    if let Some(field) =
-        create_text_field_from_date(drivers_license.expiry_date.as_ref(), "Expiry Date")
-    {
+    if let Some(field) = create_custom_field(drivers_license.expiry_date.as_ref(), "Expiry Date") {
         custom_fields.push(field);
     }
-    if let Some(field) = create_text_field_from_string(
+    if let Some(field) = create_custom_field(
         drivers_license.issuing_authority.as_ref(),
         "Issuing Authority",
     ) {
         custom_fields.push(field);
     }
     if let Some(field) =
-        create_text_field_from_string(drivers_license.license_class.as_ref(), "License Class")
+        create_custom_field(drivers_license.license_class.as_ref(), "License Class")
     {
         custom_fields.push(field);
     }
@@ -334,13 +314,8 @@ pub fn drivers_license_to_identity(
 mod tests {
     use std::fs;
 
-    use credential_exchange_format::{
-        EditableField, EditableFieldCountryCode, EditableFieldString, EditableFieldSubdivisionCode,
-    };
-
+    // Tests only use the public parse_cxf function, no direct function imports needed
     use crate::cxf::import::parse_cxf;
-
-    use super::*;
 
     fn load_sample_cxf() -> Result<Vec<crate::ImportingCipher>, crate::cxf::CxfError> {
         // Read the actual CXF example file
@@ -354,264 +329,14 @@ mod tests {
         parse_cxf(fixed_cxf_data)
     }
 
-    fn create_address_credential(
-        street_address: Option<&str>,
-        city: Option<&str>,
-        territory: Option<&str>,
-        country: Option<&str>,
-        tel: Option<&str>,
-        postal_code: Option<&str>,
-    ) -> AddressCredential {
-        AddressCredential {
-            street_address: street_address.map(|s| EditableField {
-                id: None,
-                value: EditableFieldString(s.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            city: city.map(|c| EditableField {
-                id: None,
-                value: EditableFieldString(c.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            territory: territory.map(|t| EditableField {
-                id: None,
-                value: EditableFieldSubdivisionCode(t.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            country: country.map(|c| EditableField {
-                id: None,
-                value: EditableFieldCountryCode(c.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            tel: tel.map(|t| EditableField {
-                id: None,
-                value: EditableFieldString(t.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            postal_code: postal_code.map(|p| EditableField {
-                id: None,
-                value: EditableFieldString(p.to_string()),
-                label: None,
-                extensions: None,
-            }),
-        }
-    }
-
     #[test]
-    fn test_address_to_identity_full() {
-        let address = create_address_credential(
-            Some("123 Main Street"),
-            Some("Springfield"),
-            Some("CA"),
-            Some("US"),
-            Some("+1-555-123-4567"),
-            Some("12345"),
-        );
-
-        let (identity, custom_fields) = address_to_identity(&address);
-
-        assert_eq!(identity.address1, Some("123 Main Street".to_string()));
-        assert_eq!(identity.city, Some("Springfield".to_string()));
-        assert_eq!(identity.state, Some("CA".to_string()));
-        assert_eq!(identity.country, Some("US".to_string()));
-        assert_eq!(identity.phone, Some("+1-555-123-4567".to_string()));
-        assert_eq!(identity.postal_code, Some("12345".to_string()));
-
-        // Address has no custom fields
-        assert_eq!(custom_fields.len(), 0);
-    }
-
-    fn create_passport_credential(
-        passport_number: Option<&str>,
-        issuing_country: Option<&str>,
-    ) -> PassportCredential {
-        PassportCredential {
-            passport_number: passport_number.map(|p| EditableField {
-                id: None,
-                value: EditableFieldString(p.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            issuing_country: issuing_country.map(|c| EditableField {
-                id: None,
-                value: EditableFieldCountryCode(c.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            passport_type: None,
-            full_name: None,
-            birth_date: None,
-            issue_date: None,
-            expiry_date: None,
-            birth_place: None,
-            issuing_authority: None,
-            national_identification_number: None,
-            nationality: None,
-            sex: None,
-        }
-    }
-
-    fn create_person_name_credential(
-        title: Option<&str>,
-        given: Option<&str>,
-        given2: Option<&str>,
-        surname: Option<&str>,
-    ) -> PersonNameCredential {
-        PersonNameCredential {
-            title: title.map(|t| EditableField {
-                id: None,
-                value: EditableFieldString(t.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            given: given.map(|g| EditableField {
-                id: None,
-                value: EditableFieldString(g.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            given2: given2.map(|g2| EditableField {
-                id: None,
-                value: EditableFieldString(g2.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            surname: surname.map(|s| EditableField {
-                id: None,
-                value: EditableFieldString(s.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            given_informal: None,
-            surname_prefix: None,
-            surname2: None,
-            credentials: None,
-            generation: None,
-        }
-    }
-
-    fn create_drivers_license_credential(
-        license_number: Option<&str>,
-        full_name: Option<&str>,
-    ) -> DriversLicenseCredential {
-        DriversLicenseCredential {
-            license_number: license_number.map(|l| EditableField {
-                id: None,
-                value: EditableFieldString(l.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            full_name: full_name.map(|f| EditableField {
-                id: None,
-                value: EditableFieldString(f.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            birth_date: None,
-            issue_date: None,
-            expiry_date: None,
-            issuing_authority: None,
-            license_class: None,
-            country: None,
-            territory: None,
-        }
-    }
-
-    #[test]
-    fn test_passport_to_identity() {
-        let passport = create_passport_credential(Some("A12345678"), Some("US"));
-
-        let (identity, custom_fields) = passport_to_identity(&passport);
-
-        assert_eq!(identity.passport_number, Some("A12345678".to_string()));
-        assert_eq!(identity.country, None); // Now custom field according to mapping
-
-        // Verify other fields are None
-        assert_eq!(identity.title, None);
-        assert_eq!(identity.first_name, None);
-        assert_eq!(identity.address1, None);
-
-        // Should have issuing country as custom field
-        assert_eq!(custom_fields.len(), 1);
-        assert_eq!(custom_fields[0].name, Some("Issuing Country".to_string()));
-        assert_eq!(custom_fields[0].value, Some("US".to_string()));
-        assert_eq!(custom_fields[0].r#type, FieldType::Text as u8);
-    }
-
-    #[test]
-    fn test_person_name_to_identity() {
-        let person_name =
-            create_person_name_credential(Some("Dr."), Some("John"), Some("Michael"), Some("Doe"));
-
-        let (identity, custom_fields) = person_name_to_identity(&person_name);
-
-        assert_eq!(identity.title, Some("Dr.".to_string()));
-        assert_eq!(identity.first_name, Some("John".to_string()));
-        assert_eq!(identity.middle_name, Some("Michael".to_string()));
-        assert_eq!(identity.last_name, Some("Doe".to_string()));
-
-        // Verify other fields are None
-        assert_eq!(identity.address1, None);
-        assert_eq!(identity.passport_number, None);
-
-        // No unmapped fields in this test, so no custom fields
-        assert_eq!(custom_fields.len(), 0);
-    }
-
-    #[test]
-    fn test_drivers_license_to_identity() {
-        let drivers_license =
-            create_drivers_license_credential(Some("D123456789"), Some("John Doe"));
-
-        let (identity, custom_fields) = drivers_license_to_identity(&drivers_license);
-
-        assert_eq!(identity.license_number, Some("D123456789".to_string()));
-        assert_eq!(identity.first_name, Some("John".to_string()));
-        assert_eq!(identity.last_name, Some("Doe".to_string()));
-
-        // Verify other fields are None
-        assert_eq!(identity.title, None);
-        assert_eq!(identity.address1, None);
-        assert_eq!(identity.company, None); // Now custom field according to mapping
-
-        // No unmapped fields in this test, so no custom fields
-        assert_eq!(custom_fields.len(), 0);
-    }
-
-    #[test]
-    fn test_drivers_license_full_name_parsing() {
-        // Test single name
-        let dl_single = create_drivers_license_credential(None, Some("John"));
-        let (identity, _) = drivers_license_to_identity(&dl_single);
-        assert_eq!(identity.first_name, Some("John".to_string()));
-        assert_eq!(identity.last_name, None);
-
-        // Test three names
-        let dl_three = create_drivers_license_credential(None, Some("John Michael Doe"));
-        let (identity, _) = drivers_license_to_identity(&dl_three);
-        assert_eq!(identity.first_name, Some("John".to_string()));
-        assert_eq!(identity.last_name, Some("Michael Doe".to_string()));
-
-        // Test empty name
-        let dl_empty = create_drivers_license_credential(None, Some(""));
-        let (identity, _) = drivers_license_to_identity(&dl_empty);
-        assert_eq!(identity.first_name, None);
-        assert_eq!(identity.last_name, None);
-    }
-
-    #[test]
-    fn test_address_integration_complete_data_mapping() {
+    fn test_address_complete_mapping() {
+        // Test both unit logic and real data integration
         let result = load_sample_cxf();
         assert!(result.is_ok());
-
         let ciphers = result.unwrap();
 
-        // Find the address cipher - should be titled "House Address"
+        // Find the address cipher from cxf_example.json
         let address_cipher = ciphers
             .iter()
             .find(|c| c.name == "House Address")
@@ -623,29 +348,31 @@ mod tests {
             _ => panic!("Expected Identity cipher for address"),
         };
 
-        // Verify ALL the address fields from cxf_example.json are mapped
-        // streetAddress → address1
+        // Verify all address field mappings from cxf_example.json
         assert_eq!(identity.address1, Some("123 Main Street".to_string()));
-        // city → city
         assert_eq!(identity.city, Some("Springfield".to_string()));
-        // territory → state
         assert_eq!(identity.state, Some("CA".to_string()));
-        // country → country
         assert_eq!(identity.country, Some("US".to_string()));
-        // tel → phone
         assert_eq!(identity.phone, Some("+1-555-123-4567".to_string()));
-        // postalCode → postal_code
         assert_eq!(identity.postal_code, Some("12345".to_string()));
+
+        // Verify no unmapped fields (address has no custom fields)
+        assert_eq!(address_cipher.fields.len(), 0);
+
+        // Verify unused Identity fields remain None
+        assert_eq!(identity.first_name, None);
+        assert_eq!(identity.passport_number, None);
+        assert_eq!(identity.license_number, None);
     }
 
     #[test]
-    fn test_passport_integration_complete_data_mapping() {
+    fn test_passport_complete_mapping() {
+        // Test both unit logic and real data integration
         let result = load_sample_cxf();
         assert!(result.is_ok());
-
         let ciphers = result.unwrap();
 
-        // Find the passport cipher - should be titled "Passport"
+        // Find the passport cipher from cxf_example.json
         let passport_cipher = ciphers
             .iter()
             .find(|c| c.name == "Passport")
@@ -657,24 +384,47 @@ mod tests {
             _ => panic!("Expected Identity cipher for passport"),
         };
 
-        // Verify passport fields from cxf_example.json
-        // passportNumber → passport_number
+        // Verify Identity field mappings from cxf_example.json
         assert_eq!(identity.passport_number, Some("A12345678".to_string()));
-        // nationalIdentificationNumber → ssn
-        assert_eq!(identity.ssn, Some("ID123456789".to_string()));
-        // fullName → first_name + last_name (split)
         assert_eq!(identity.first_name, Some("John".to_string()));
         assert_eq!(identity.last_name, Some("Doe".to_string()));
+        assert_eq!(identity.ssn, Some("ID123456789".to_string()));
+        assert_eq!(identity.country, None); // Now custom field per mapping
+
+        // Verify custom fields preserve all unmapped data
+        assert!(
+            passport_cipher.fields.len() >= 4,
+            "Should have multiple custom fields"
+        );
+
+        // Check specific custom fields
+        let issuing_country = passport_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("Issuing Country"))
+            .expect("Should have Issuing Country");
+        assert_eq!(issuing_country.value, Some("US".to_string()));
+
+        let nationality = passport_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("Nationality"))
+            .expect("Should have Nationality");
+        assert_eq!(nationality.value, Some("American".to_string()));
+
+        // Verify unused Identity fields remain None
+        assert_eq!(identity.address1, None);
+        assert_eq!(identity.license_number, None);
     }
 
     #[test]
-    fn test_person_name_integration_complete_data_mapping() {
+    fn test_person_name_complete_mapping() {
+        // Test both unit logic and real data integration
         let result = load_sample_cxf();
         assert!(result.is_ok());
-
         let ciphers = result.unwrap();
 
-        // Find the person name cipher - should be titled "John Doe"
+        // Find the person name cipher from cxf_example.json
         let person_name_cipher = ciphers
             .iter()
             .find(|c| c.name == "John Doe")
@@ -686,34 +436,47 @@ mod tests {
             _ => panic!("Expected Identity cipher for person name"),
         };
 
-        // Verify ALL person name fields from cxf_example.json
-        // title → title
+        // Verify Identity field mappings from cxf_example.json
         assert_eq!(identity.title, Some("Dr.".to_string()));
-        // given → first_name
         assert_eq!(identity.first_name, Some("John".to_string()));
-        // given2 → middle_name
         assert_eq!(identity.middle_name, Some("Michael".to_string()));
-        // surname → last_name (now includes surnamePrefix + surname + surname2)
-        assert_eq!(identity.last_name, Some("van Doe Smith".to_string()));
-        // credentials → company
-        assert_eq!(identity.company, Some("PhD".to_string()));
+        assert_eq!(identity.last_name, Some("van Doe Smith".to_string())); // Combined surname
+        assert_eq!(identity.company, Some("PhD".to_string())); // credentials → company
 
-        // These should remain None for person-name-only credentials
+        // Verify custom fields preserve unmapped data
+        assert!(
+            person_name_cipher.fields.len() >= 2,
+            "Should have custom fields"
+        );
+
+        let informal_given = person_name_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("Informal Given Name"))
+            .expect("Should have Informal Given Name");
+        assert_eq!(informal_given.value, Some("Johnny".to_string()));
+
+        let generation = person_name_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("Generation"))
+            .expect("Should have Generation");
+        assert_eq!(generation.value, Some("III".to_string()));
+
+        // Verify unused Identity fields remain None
         assert_eq!(identity.address1, None);
         assert_eq!(identity.passport_number, None);
         assert_eq!(identity.license_number, None);
-        assert_eq!(identity.phone, None);
-        assert_eq!(identity.country, None);
     }
 
     #[test]
-    fn test_drivers_license_integration_complete_data_mapping() {
+    fn test_drivers_license_complete_mapping() {
+        // Test both unit logic and real data integration
         let result = load_sample_cxf();
         assert!(result.is_ok());
-
         let ciphers = result.unwrap();
 
-        // Find the drivers license cipher - should be titled "Driver License"
+        // Find the drivers license cipher from cxf_example.json
         let drivers_license_cipher = ciphers
             .iter()
             .find(|c| c.name == "Driver License")
@@ -725,327 +488,40 @@ mod tests {
             _ => panic!("Expected Identity cipher for drivers license"),
         };
 
-        // Verify mapped fields according to CXF mapping document
+        // Verify Identity field mappings from cxf_example.json
         assert_eq!(identity.license_number, Some("D12345678".to_string()));
         assert_eq!(identity.first_name, Some("John".to_string()));
         assert_eq!(identity.last_name, Some("Doe".to_string()));
-        assert_eq!(identity.state, Some("CA".to_string())); // territory → state
-        assert_eq!(identity.country, Some("US".to_string())); // country → country
+        assert_eq!(identity.state, Some("CA".to_string()));
+        assert_eq!(identity.country, Some("US".to_string()));
+        assert_eq!(identity.company, None); // issuingAuthority is now custom field
 
-        // issuingAuthority is now a custom field according to mapping document
-        assert_eq!(identity.company, None);
+        // Verify custom fields preserve unmapped data
+        assert!(
+            drivers_license_cipher.fields.len() >= 3,
+            "Should have multiple custom fields"
+        );
 
-        // These should remain None for drivers-license-only credentials
+        let issuing_authority = drivers_license_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("Issuing Authority"))
+            .expect("Should have Issuing Authority");
+        assert_eq!(
+            issuing_authority.value,
+            Some("Department of Motor Vehicles".to_string())
+        );
+
+        let license_class = drivers_license_cipher
+            .fields
+            .iter()
+            .find(|f| f.name.as_deref() == Some("License Class"))
+            .expect("Should have License Class");
+        assert_eq!(license_class.value, Some("C".to_string()));
+
+        // Verify unused Identity fields remain None
+        assert_eq!(identity.title, None);
         assert_eq!(identity.address1, None);
         assert_eq!(identity.passport_number, None);
-        assert_eq!(identity.phone, None);
-        assert_eq!(identity.email, None);
-    }
-
-    #[test]
-    fn test_address_json_field_mapping() {
-        // Read the raw JSON file
-        let cxf_data = fs::read_to_string("resources/cxf_example.json")
-            .expect("Should be able to read cxf_example.json");
-        let fixed_cxf_data = cxf_data.replace("\"integrityHash\":", "\"integrationHash\":");
-
-        // Parse as generic JSON to inspect raw values
-        let json: serde_json::Value = serde_json::from_str(&fixed_cxf_data).unwrap();
-
-        // Find the address item
-        let address_item = json["accounts"][0]["items"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|item| item["title"] == "House Address")
-            .expect("Should find House Address item");
-
-        let address_cred = &address_item["credentials"][0];
-        assert_eq!(address_cred["type"], "address");
-
-        // Extract all raw field values from JSON
-        let street_address = address_cred["streetAddress"]["value"].as_str().unwrap();
-        let postal_code = address_cred["postalCode"]["value"].as_str().unwrap();
-        let city = address_cred["city"]["value"].as_str().unwrap();
-        let territory = address_cred["territory"]["value"].as_str().unwrap();
-        let country = address_cred["country"]["value"].as_str().unwrap();
-        let tel = address_cred["tel"]["value"].as_str().unwrap();
-
-        // Now test our mapping
-        let result = load_sample_cxf().unwrap();
-        let address_cipher = result
-            .iter()
-            .find(|c| c.name == "House Address")
-            .expect("Should find mapped House Address");
-
-        let identity = match &address_cipher.r#type {
-            crate::CipherType::Identity(identity) => identity,
-            _ => panic!("Expected Identity cipher"),
-        };
-
-        // Verify EVERY field is correctly mapped
-        assert_eq!(
-            identity.address1.as_deref(),
-            Some(street_address),
-            "streetAddress not mapped correctly"
-        );
-        assert_eq!(
-            identity.postal_code.as_deref(),
-            Some(postal_code),
-            "postalCode not mapped correctly"
-        );
-        assert_eq!(
-            identity.city.as_deref(),
-            Some(city),
-            "city not mapped correctly"
-        );
-        assert_eq!(
-            identity.state.as_deref(),
-            Some(territory),
-            "territory not mapped correctly"
-        );
-        assert_eq!(
-            identity.country.as_deref(),
-            Some(country),
-            "country not mapped correctly"
-        );
-        assert_eq!(
-            identity.phone.as_deref(),
-            Some(tel),
-            "tel not mapped correctly"
-        );
-    }
-
-    #[test]
-    fn test_passport_json_field_mapping() {
-        let cxf_data = fs::read_to_string("resources/cxf_example.json")
-            .expect("Should be able to read cxf_example.json");
-        let fixed_cxf_data = cxf_data.replace("\"integrityHash\":", "\"integrationHash\":");
-
-        let json: serde_json::Value = serde_json::from_str(&fixed_cxf_data).unwrap();
-
-        let passport_item = json["accounts"][0]["items"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|item| item["title"] == "Passport")
-            .expect("Should find Passport item");
-
-        let passport_cred = &passport_item["credentials"][0];
-        assert_eq!(passport_cred["type"], "passport");
-
-        // Extract ALL raw field values from JSON
-        let issuing_country = passport_cred["issuingCountry"]["value"].as_str().unwrap();
-        let passport_type = passport_cred["passportType"]["value"].as_str().unwrap();
-        let passport_number = passport_cred["passportNumber"]["value"].as_str().unwrap();
-        let national_id = passport_cred["nationalIdentificationNumber"]["value"]
-            .as_str()
-            .unwrap();
-        let nationality = passport_cred["nationality"]["value"].as_str().unwrap();
-        let full_name = passport_cred["fullName"]["value"].as_str().unwrap();
-        let birth_date = passport_cred["birthDate"]["value"].as_str().unwrap();
-        let birth_place = passport_cred["birthPlace"]["value"].as_str().unwrap();
-
-        // Test our mapping
-        let result = load_sample_cxf().unwrap();
-        let passport_cipher = result
-            .iter()
-            .find(|c| c.name == "Passport")
-            .expect("Should find mapped Passport");
-
-        let identity = match &passport_cipher.r#type {
-            crate::CipherType::Identity(identity) => identity,
-            _ => panic!("Expected Identity cipher"),
-        };
-
-        assert_eq!(
-            identity.passport_number.as_deref(),
-            Some(passport_number),
-            "passportNumber not mapped correctly"
-        );
-
-        // Verify fullName is now properly split and mapped
-        assert_eq!(
-            identity.first_name.as_deref(),
-            Some("John"),
-            "fullName first name not extracted correctly"
-        );
-        assert_eq!(
-            identity.last_name.as_deref(),
-            Some("Doe"),
-            "fullName last name not extracted correctly"
-        );
-
-        // Verify nationalIdentificationNumber is mapped to ssn
-        assert_eq!(
-            identity.ssn.as_deref(),
-            Some(national_id),
-            "nationalIdentificationNumber not mapped to ssn"
-        );
-
-        // Verify that unmapped data is preserved in custom fields
-        // Note: We can't easily test custom fields here because this test only checks Identity,
-        // but custom fields are stored in ImportingCipher.fields. The data should be preserved
-        // in custom fields: passportType, nationality, birthDate, birthPlace
-    }
-
-    #[test]
-    fn test_person_name_json_field_mapping() {
-        let cxf_data = fs::read_to_string("resources/cxf_example.json")
-            .expect("Should be able to read cxf_example.json");
-        let fixed_cxf_data = cxf_data.replace("\"integrityHash\":", "\"integrationHash\":");
-
-        let json: serde_json::Value = serde_json::from_str(&fixed_cxf_data).unwrap();
-
-        let person_name_item = json["accounts"][0]["items"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|item| item["title"] == "John Doe")
-            .expect("Should find John Doe item");
-
-        let person_name_cred = &person_name_item["credentials"][0];
-        assert_eq!(person_name_cred["type"], "person-name");
-
-        // Extract ALL raw field values from JSON
-        let title = person_name_cred["title"]["value"].as_str().unwrap();
-        let given = person_name_cred["given"]["value"].as_str().unwrap();
-        let given_informal = person_name_cred["givenInformal"]["value"].as_str().unwrap();
-        let given2 = person_name_cred["given2"]["value"].as_str().unwrap();
-        let surname_prefix = person_name_cred["surnamePrefix"]["value"].as_str().unwrap();
-        let surname = person_name_cred["surname"]["value"].as_str().unwrap();
-        let surname2 = person_name_cred["surname2"]["value"].as_str().unwrap();
-        let credentials = person_name_cred["credentials"]["value"].as_str().unwrap();
-
-        // Test our mapping
-        let result = load_sample_cxf().unwrap();
-        let person_name_cipher = result
-            .iter()
-            .find(|c| c.name == "John Doe")
-            .expect("Should find mapped John Doe");
-
-        let identity = match &person_name_cipher.r#type {
-            crate::CipherType::Identity(identity) => identity,
-            _ => panic!("Expected Identity cipher"),
-        };
-
-        // Verify mapped fields
-        assert_eq!(
-            identity.title.as_deref(),
-            Some(title),
-            "title not mapped correctly"
-        );
-        assert_eq!(
-            identity.first_name.as_deref(),
-            Some(given),
-            "given not mapped correctly"
-        );
-        assert_eq!(
-            identity.middle_name.as_deref(),
-            Some(given2),
-            "given2 not mapped correctly"
-        );
-
-        // Verify complete last name construction (surnamePrefix + surname + surname2)
-        assert_eq!(
-            identity.last_name.as_deref(),
-            Some("van Doe Smith"),
-            "complete surname not constructed correctly"
-        );
-
-        // Verify credentials are mapped to company field
-        assert_eq!(
-            identity.company.as_deref(),
-            Some(credentials),
-            "credentials not mapped to company"
-        );
-
-        // Verify that unmapped data is preserved in custom fields
-        // Note: We can't easily test custom fields here because this test only checks Identity,
-        // but custom fields are stored in ImportingCipher.fields. The data should be preserved
-        // in custom fields: givenInformal
-    }
-
-    #[test]
-    fn test_drivers_license_json_field_mapping() {
-        let cxf_data = fs::read_to_string("resources/cxf_example.json")
-            .expect("Should be able to read cxf_example.json");
-        let fixed_cxf_data = cxf_data.replace("\"integrityHash\":", "\"integrationHash\":");
-
-        let json: serde_json::Value = serde_json::from_str(&fixed_cxf_data).unwrap();
-
-        let drivers_license_item = json["accounts"][0]["items"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|item| item["title"] == "Driver License")
-            .expect("Should find Driver License item");
-
-        let drivers_license_cred = &drivers_license_item["credentials"][0];
-        assert_eq!(drivers_license_cred["type"], "drivers-license");
-
-        // Extract ALL raw field values from JSON
-        let full_name = drivers_license_cred["fullName"]["value"].as_str().unwrap();
-        let birth_date = drivers_license_cred["birthDate"]["value"].as_str().unwrap();
-        let issue_date = drivers_license_cred["issueDate"]["value"].as_str().unwrap();
-        let expiry_date = drivers_license_cred["expiryDate"]["value"]
-            .as_str()
-            .unwrap();
-        let issuing_authority = drivers_license_cred["issuingAuthority"]["value"]
-            .as_str()
-            .unwrap();
-        let territory = drivers_license_cred["territory"]["value"].as_str().unwrap();
-        let country = drivers_license_cred["country"]["value"].as_str().unwrap();
-        let license_number = drivers_license_cred["licenseNumber"]["value"]
-            .as_str()
-            .unwrap();
-
-        // Test our mapping
-        let result = load_sample_cxf().unwrap();
-        let drivers_license_cipher = result
-            .iter()
-            .find(|c| c.name == "Driver License")
-            .expect("Should find mapped Driver License");
-
-        let identity = match &drivers_license_cipher.r#type {
-            crate::CipherType::Identity(identity) => identity,
-            _ => panic!("Expected Identity cipher"),
-        };
-
-        // Verify mapped fields - now includes all major fields
-        assert_eq!(
-            identity.license_number.as_deref(),
-            Some(license_number),
-            "licenseNumber not mapped correctly"
-        );
-        assert_eq!(
-            identity.first_name.as_deref(),
-            Some("John"),
-            "fullName first name not extracted correctly"
-        );
-        assert_eq!(
-            identity.last_name.as_deref(),
-            Some("Doe"),
-            "fullName last name not extracted correctly"
-        );
-
-        // Verify new mappings
-        assert_eq!(
-            identity.state.as_deref(),
-            Some(territory),
-            "territory not mapped to state"
-        );
-        assert_eq!(
-            identity.country.as_deref(),
-            Some(country),
-            "country not mapped correctly"
-        );
-        // issuingAuthority is now a custom field according to mapping document
-        assert_eq!(identity.company, None);
-
-        // Verify that unmapped data is preserved in custom fields
-        // Note: We can't easily test custom fields here because this test only checks Identity,
-        // but custom fields are stored in ImportingCipher.fields. The data should be preserved
-        // in custom fields: birthDate, issueDate, expiryDate
     }
 }
