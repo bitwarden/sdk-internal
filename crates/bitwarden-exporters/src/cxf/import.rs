@@ -2,7 +2,6 @@ use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     BasicAuthCredential, Credential, CreditCardCredential, Header, Item, PasskeyCredential,
 };
-use serde_json;
 
 use crate::{
     cxf::{
