@@ -4,10 +4,10 @@
     clippy::empty_docs,
     clippy::to_string_in_format_args,
     clippy::needless_return,
-    clippy::uninlined_format_args
+    clippy::uninlined_format_args,
+    clippy::new_without_default
 )]
 
-extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
 extern crate serde_repr;
