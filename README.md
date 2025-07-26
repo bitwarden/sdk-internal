@@ -52,22 +52,20 @@ You can also browse the latest published documentation:
 The project is structured as a monorepo using cargo workspaces. Some of the more noteworthy crates
 are:
 
-- [`bitwarden-api-api`](./crates/bitwarden-api-api/): Auto-generated API bindings for the API
-  server.
-- [`bitwarden-api-identity`](./crates/bitwarden-api-identity/): Auto-generated API bindings for the
+- [`bitwarden-api-api`](./crates/bitwarden-api-api): Auto-generated API bindings for the API server.
+- [`bitwarden-api-identity`](./crates/bitwarden-api-identity): Auto-generated API bindings for the
   Identity server.
-- [`bitwarden-core`](./crates/bitwarden-core/): The core functionality consumed by the other crates.
-- [`bitwarden-crypto`](./crates/bitwarden-crypto/): Crypto library.
-- [`bitwarden-wasm-internal`](./crates/bitwarden-wasm-internal/): WASM bindings for the internal
-  SDK.
-- [`bitwarden-uniffi`](./crates/bitwarden-uniffi/): Mobile bindings for swift and kotlin using
+- [`bitwarden-core`](./crates/bitwarden-core): The core functionality consumed by the other crates.
+- [`bitwarden-crypto`](./crates/bitwarden-crypto): Crypto library.
+- [`bitwarden-wasm-internal`](./crates/bitwarden-wasm-internal): WASM bindings for the internal SDK.
+- [`bitwarden-uniffi`](./crates/bitwarden-uniffi): Mobile bindings for swift and kotlin using
   [UniFFI](https://github.com/mozilla/uniffi-rs/).
 
 ## API Bindings
 
-We autogenerate the server bindings using
-[openapi-generator](https://github.com/OpenAPITools/openapi-generator). To do this we first need to
-build the internal swagger documentation.
+We autogenerate the server bindings
+using[openapi-generator](https://github.com/OpenAPITools/openapi-generator). To do this, we first
+need to build the internal swagger documentation.
 
 ### Swagger generation
 
@@ -83,15 +81,16 @@ ASPNETCORE_ENVIRONMENT=development dotnet swagger tofile --output ../../identity
 
 ### OpenApi Generator
 
-To generate a new version of the bindings run the following script from the root of the SDK project.
+To generate a new version of the bindings, run the following script from the root of the SDK
+project.
 
 ```bash
 ./support/build-api.sh
 ```
 
-This project uses customized templates which lives in the `support/openapi-templates` directory.
-These templates resolves some outstanding issues we've experienced with the rust generator. But we
-strive towards modifying the templates as little as possible to ease future upgrades.
+This project uses customized templates that live in the `support/openapi-templates` directory. These
+templates resolve some outstanding issues we've experienced with the rust generator. But we strive
+towards modifying the templates as little as possible to ease future upgrades.
 
 ### Note
 
@@ -102,9 +101,9 @@ strive towards modifying the templates as little as possible to ease future upgr
 
 ## Developer tools
 
-This project recommends the use of certain developer tools, and also includes configurations for
-them to make developers lives easier. The use of these tools is optional and they might require a
-separate installation step.
+This project recommends the use of certain developer tools and includes configurations for them to
+make developers' lives easier. The use of these tools is optional, and they might require a separate
+installation step.
 
 The list of developer tools is:
 
@@ -122,11 +121,11 @@ The list of developer tools is:
 ## Formatting & Linting
 
 This repository uses various tools to check formatting and linting before it's merged. It's
-recommended to run the checks prior to submitting a PR.
+recommended to run the checks before submitting a PR.
 
 ### Installation
 
-Please see the [lint.yml](./.github/workflows/lint.yml) file for example installation commands &
+Please see the [lint.yml](./.github/workflows/lint.yml) file, for example, installation commands and
 versions. Here are the cli tools we use:
 
 - Nightly [cargo fmt](https://github.com/rust-lang/rustfmt) and
