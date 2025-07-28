@@ -34,14 +34,18 @@ impl KdfDerivedKeyMaterial {
         salt: &[u8],
         kdf: &Kdf,
     ) -> Result<Self, CryptoError> {
-        let mut hash = match kdf {
+        match kdf {
             Kdf::PBKDF2 { iterations } => {
                 let iterations = iterations.get();
                 if iterations < PBKDF2_MIN_ITERATIONS {
                     return Err(CryptoError::InsufficientKdfParameters);
                 }
 
-                crate::util::pbkdf2(secret, salt, iterations)
+                let mut hash = crate::util::pbkdf2(secret, salt, iterations);
+
+                let key_material = Box::pin(hash.into());
+                hash.zeroize();
+                Ok(KdfDerivedKeyMaterial(key_material))
             }
             Kdf::Argon2id {
                 iterations,
@@ -59,15 +63,14 @@ impl KdfDerivedKeyMaterial {
                     return Err(CryptoError::InsufficientKdfParameters);
                 }
 
-                use argon2::*;
-
-                let params = Params::new(memory, iterations, parallelism, Some(32))?;
-                let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-
                 let salt_sha = sha2::Sha256::new().chain_update(salt).finalize();
 
-                let mut hash = [0u8; 32];
-                argon.hash_password_into(secret, &salt_sha, &mut hash)?;
+                let mut hash = Box::pin(GenericArray::<u8, U32>::default());
+
+                use argon2::*;
+                let params = Params::new(memory, iterations, parallelism, Some(32))?;
+                let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+                argon.hash_password_into(secret, &salt_sha, hash.as_mut_slice())?;
 
                 // Argon2 is using some stack memory that is not zeroed. Eventually some function
                 // will overwrite the stack, but we use this trick to force the used
@@ -78,12 +81,9 @@ impl KdfDerivedKeyMaterial {
                 }
                 clear_stack();
 
-                hash
+                Ok(KdfDerivedKeyMaterial(hash))
             }
-        };
-        let key_material = Box::pin(GenericArray::clone_from_slice(&hash));
-        hash.zeroize();
-        Ok(KdfDerivedKeyMaterial(key_material))
+        }
     }
 
     /// Derives a users master key from their password, email and KDF.
