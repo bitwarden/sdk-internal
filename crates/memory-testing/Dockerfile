@@ -1,12 +1,15 @@
 ###############################################
 #                 Build stage                 #
 ###############################################
-FROM rust:1.85 AS base
+FROM rust:1.85-alpine AS base
 WORKDIR /app
 
 # Make sure the correct rust toolchain is installed only once
 COPY rust-toolchain.toml /app/
 RUN rustup show
+
+# Install build dependencies for Alpine
+RUN apk add --no-cache build-base linux-headers musl-dev libc-dev
 
 # Install cargo-chef, to cache dependency builds
 RUN cargo install cargo-chef --version 0.1.71 --locked
@@ -28,12 +31,12 @@ RUN cargo build -p memory-testing --release
 ###############################################
 #                  App stage                  #
 ###############################################
-FROM debian:bookworm-slim
+FROM alpine:3.22
 
 # This specifically needs to run as root to be able to capture core dumps
 USER root
 
-RUN apt-get update && apt-get install -y --no-install-recommends gdb=13.1-3 && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache gdb=15.2-r0
 
 # Copy built project from the build stage and the cases.json file
 COPY --from=build /app/target/release/memory-testing /app/target/release/capture-dumps ./
