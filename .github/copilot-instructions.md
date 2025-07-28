@@ -111,12 +111,12 @@ pub struct ExampleStruct {
 
 Use the following commands to build and test the SDK:
 
-- `cargo check` to quickly verify code is valid.
-- `cargo test` to run tests
+- `cargo check --all-features` to quickly verify code is valid.
+- `cargo test --workspace --all-features` to run tests
 
 ### Formatting & Linting
 
 Before committing code, ensure it is formatted and linted:
 
-- `cargo +nightly fmt` for formatting
-- `cargo clippy` for linting
+- `cargo +nightly fmt --workspace` for formatting
+- `cargo clippy --workspace` for linting
