@@ -1,0 +1,52 @@
+[package]
+name = "bitwarden-server-relay"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[features]
+wasm = [
+    "dep:tsify",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+    "dep:js-sys",
+    "bitwarden-error/wasm",
+] # WASM support
+
+[[bin]]
+name = "initiator"
+path = "src/initiator.rs"
+
+[[bin]]
+name = "responder"
+path = "src/responder.rs"
+
+[dependencies]
+bitwarden-error = { workspace = true }
+bitwarden-uuid = { workspace = true }
+ciborium = "0.2"
+futures-util = "0.3.31"
+serde = { workspace = true }
+snow = "0.9.6"
+tokio = { workspace = true, features = ["rt", "sync"] }
+tokio-tungstenite-wasm = { version = "0.6.0", features = ["__rustls-tls", "rustls-tls-native-roots"] }
+tsify = { workspace = true, optional = true }
+js-sys = { workspace = true, optional = true }
+uuid = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+
+
+
+[lints]
+workspace = true

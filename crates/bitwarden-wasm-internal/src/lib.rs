@@ -8,5 +8,6 @@ mod pure_crypto;
 mod ssh;
 
 pub use bitwarden_ipc::wasm::*;
+pub use bitwarden_server_relay::*;
 pub use client::BitwardenClient;
 pub use init::init_sdk;
