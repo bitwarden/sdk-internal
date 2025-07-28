@@ -1,10 +1,16 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
-    BasicAuthCredential, Credential, CreditCardCredential, Header, Item, PasskeyCredential,
+    AddressCredential, BasicAuthCredential, Credential, CreditCardCredential,
+    DriversLicenseCredential, Header, IdentityDocumentCredential, Item, PasskeyCredential,
+    PassportCredential, PersonNameCredential,
 };
 
 use crate::{
     cxf::{
+        identity::{
+            address_to_identity, drivers_license_to_identity, identity_document_to_identity,
+            passport_to_identity, person_name_to_identity,
+        },
         login::{to_fields, to_login},
         CxfError,
     },
@@ -62,12 +68,7 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         })
     }
 
-    if !grouped.credit_card.is_empty() {
-        let credit_card = grouped
-            .credit_card
-            .first()
-            .expect("Credit card is not empty");
-
+    if let Some(credit_card) = grouped.credit_card.first() {
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
             name: value.title.clone(),
@@ -76,6 +77,96 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
             favorite: false,
             reprompt: 0,
             fields: scope.map(to_fields).unwrap_or_default(),
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
+    }
+
+    // Address credentials
+    if let Some(address) = grouped.address.first() {
+        let (identity, custom_fields) = address_to_identity(address);
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: None,
+            r#type: CipherType::Identity(Box::new(identity)),
+            favorite: false,
+            reprompt: 0,
+            fields: custom_fields,
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
+    }
+
+    // Passport credentials
+    if let Some(passport) = grouped.passport.first() {
+        let (identity, custom_fields) = passport_to_identity(passport);
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: None,
+            r#type: CipherType::Identity(Box::new(identity)),
+            favorite: false,
+            reprompt: 0,
+            fields: custom_fields,
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
+    }
+
+    // Person name credentials
+    if let Some(person_name) = grouped.person_name.first() {
+        let (identity, custom_fields) = person_name_to_identity(person_name);
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: None,
+            r#type: CipherType::Identity(Box::new(identity)),
+            favorite: false,
+            reprompt: 0,
+            fields: custom_fields,
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
+    }
+
+    // Drivers license credentials
+    if let Some(drivers_license) = grouped.drivers_license.first() {
+        let (identity, custom_fields) = drivers_license_to_identity(drivers_license);
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: None,
+            r#type: CipherType::Identity(Box::new(identity)),
+            favorite: false,
+            reprompt: 0,
+            fields: custom_fields,
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
+    }
+
+    // Identity document credentials
+    if let Some(identity_document) = grouped.identity_document.first() {
+        let (identity, custom_fields) = identity_document_to_identity(identity_document);
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: None,
+            r#type: CipherType::Identity(Box::new(identity)),
+            favorite: false,
+            reprompt: 0,
+            fields: custom_fields,
             revision_date,
             creation_date,
             deleted_date: None,
@@ -115,6 +206,26 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
             Credential::CreditCard(credit_card) => Some(credit_card.as_ref()),
             _ => None,
         }),
+        address: filter_credentials(&credentials, |c| match c {
+            Credential::Address(address) => Some(address.as_ref()),
+            _ => None,
+        }),
+        passport: filter_credentials(&credentials, |c| match c {
+            Credential::Passport(passport) => Some(passport.as_ref()),
+            _ => None,
+        }),
+        person_name: filter_credentials(&credentials, |c| match c {
+            Credential::PersonName(person_name) => Some(person_name.as_ref()),
+            _ => None,
+        }),
+        drivers_license: filter_credentials(&credentials, |c| match c {
+            Credential::DriversLicense(drivers_license) => Some(drivers_license.as_ref()),
+            _ => None,
+        }),
+        identity_document: filter_credentials(&credentials, |c| match c {
+            Credential::IdentityDocument(identity_document) => Some(identity_document.as_ref()),
+            _ => None,
+        }),
     }
 }
 
@@ -122,6 +233,11 @@ struct GroupedCredentials {
     basic_auth: Vec<BasicAuthCredential>,
     passkey: Vec<PasskeyCredential>,
     credit_card: Vec<CreditCardCredential>,
+    address: Vec<AddressCredential>,
+    passport: Vec<PassportCredential>,
+    person_name: Vec<PersonNameCredential>,
+    drivers_license: Vec<DriversLicenseCredential>,
+    identity_document: Vec<IdentityDocumentCredential>,
 }
 
 #[cfg(test)]

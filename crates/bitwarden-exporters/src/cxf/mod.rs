@@ -13,4 +13,5 @@ pub use export::Account;
 mod import;
 pub(crate) use import::parse_cxf;
 mod card;
+mod identity;
 mod login;
