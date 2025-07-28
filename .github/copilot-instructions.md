@@ -111,7 +111,7 @@ pub struct ExampleStruct {
 
 Use the following commands to build and test the SDK:
 
-- `cargo check --all-features` to quickly verify code is valid.
+- `cargo check --all-features --all-targets` to quickly verify code is valid.
 - `cargo test --workspace --all-features` to run tests
 
 ### Formatting & Linting
