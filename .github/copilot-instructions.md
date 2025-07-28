@@ -42,12 +42,12 @@ that implements the core business logic for the domain.
 ```rust
 /// Generator extension for the Client struct
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-pub struct ClientGenerator {
+pub struct GeneratorClient {
     client: Client,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-impl ClientGenerator {
+impl GeneratorClient {
     fn new(client: &'a Client) -> Self {
         Self { client }
     }
@@ -60,13 +60,13 @@ impl ClientGenerator {
 }
 
 // Extension which exposes `generator` method on the `Client` struct.
-pub trait ClientGeneratorExt {
-    fn generator(self) -> ClientGenerator;
+pub trait GeneratorClientExt {
+    fn generator(self) -> GeneratorClient;
 }
 
-impl ClientGeneratorExt for Client {
-    fn generator(self) -> ClientGenerator {
-        ClientGenerator::new(self)
+impl GeneratorClientExt for Client {
+    fn generator(self) -> GeneratorClient {
+        GeneratorClient::new(self)
     }
 }
 ```
