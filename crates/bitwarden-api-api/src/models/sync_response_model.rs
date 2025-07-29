@@ -30,6 +30,8 @@ pub struct SyncResponseModel {
     pub policies: Option<Vec<models::PolicyResponseModel>>,
     #[serde(rename = "sends", skip_serializing_if = "Option::is_none")]
     pub sends: Option<Vec<models::SendResponseModel>>,
+    #[serde(rename = "userDecryption", skip_serializing_if = "Option::is_none")]
+    pub user_decryption: Option<Box<models::UserDecryptionResponseModel>>,
 }
 
 impl SyncResponseModel {
@@ -43,6 +45,7 @@ impl SyncResponseModel {
             domains: None,
             policies: None,
             sends: None,
+            user_decryption: None,
         }
     }
 }
