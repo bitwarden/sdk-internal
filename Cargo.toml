@@ -109,6 +109,12 @@ codegen-units = 1
 lto = true
 opt-level = "z"
 
+# Enable optimization for the bitwarden-crypto crate. This will increase the binary size slightly (~0.1MB),
+# but it will more aggressively inline functions. This will help us avoid extra stack copies of keys and
+# other sensitive values being left behind without cleanup.
+[profile.release.package.bitwarden-crypto]
+opt-level = 3
+
 # Stripping the binary reduces the size by ~30%, but the stacktraces won't be usable anymore.
 # This is fine as long as we don't have any unhandled panics, but let's keep it disabled for now
 # strip = true
