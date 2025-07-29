@@ -123,7 +123,8 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
     ) -> Result<Ids::Symmetric, PasswordProtectedKeyEnvelopeError> {
         let key = self.unseal_ref(password)?;
         #[allow(deprecated)]
-        ctx.set_symmetric_key(target_keyslot, key).unwrap();
+        ctx.set_symmetric_key(target_keyslot, key)
+            .map_err(|_| PasswordProtectedKeyEnvelopeError::KeyStoreError)?;
         Ok(target_keyslot)
     }
 
@@ -156,16 +157,20 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
             })?;
         let envelope_key = derive_key(&kdf_settings, password)
             .map_err(|_| PasswordProtectedKeyEnvelopeError::KdfError)?;
+        let nonce: [u8; 24] = self
+            .cose_encrypt
+            .unprotected
+            .iv
+            .clone()
+            .try_into()
+            .map_err(|_| {
+                PasswordProtectedKeyEnvelopeError::ParsingError("Invalid IV".to_string())
+            })?;
 
         let key_bytes = self
             .cose_encrypt
             .decrypt(&[], |data, aad| {
-                xchacha20::decrypt_xchacha20_poly1305(
-                    &self.cose_encrypt.unprotected.iv.clone().try_into().unwrap(),
-                    &envelope_key,
-                    data,
-                    aad,
-                )
+                xchacha20::decrypt_xchacha20_poly1305(&nonce, &envelope_key, data, aad)
             })
             // If decryption fails, the envelope-key is incorrect and thus the password is incorrect
             // since the KDF parameters & salt are guaranteed to be correct
@@ -263,13 +268,16 @@ impl Argon2RawSettings {
     }
 }
 
-impl Into<Header> for &Argon2RawSettings {
-    fn into(self) -> Header {
+impl From<&Argon2RawSettings> for Header {
+    fn from(settings: &Argon2RawSettings) -> Header {
         let builder = HeaderBuilder::new()
-            .value(ARGON2_ITERATIONS, Integer::from(self.iterations).into())
-            .value(ARGON2_MEMORY, Integer::from(self.memory).into())
-            .value(ARGON2_PARALLELISM, Integer::from(self.parallelism).into())
-            .value(ARGON2_SALT, Value::from(self.salt.to_vec()));
+            .value(ARGON2_ITERATIONS, Integer::from(settings.iterations).into())
+            .value(ARGON2_MEMORY, Integer::from(settings.memory).into())
+            .value(
+                ARGON2_PARALLELISM,
+                Integer::from(settings.parallelism).into(),
+            )
+            .value(ARGON2_SALT, Value::from(settings.salt.to_vec()));
 
         let mut header = builder.build();
         header.alg = Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13));
@@ -345,6 +353,9 @@ pub enum PasswordProtectedKeyEnvelopeError {
     /// There is no key for the provided key id in the key store
     #[error("Key missing error")]
     KeyMissingError,
+    /// The key store could not be written to, for example due to being read-only
+    #[error("Could not write to key store")]
+    KeyStoreError,
 }
 
 impl From<CoseExtractError> for PasswordProtectedKeyEnvelopeError {
