@@ -1,9 +1,8 @@
-use crate::ApiError;
-use bitwarden_crypto::{
-    CryptoError, EncString, HashPurpose, Kdf, MasterKey, RsaKeyPair,
-};
+use bitwarden_crypto::{CryptoError, EncString, HashPurpose, Kdf, MasterKey, RsaKeyPair};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+use crate::ApiError;
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]

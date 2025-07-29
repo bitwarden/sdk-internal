@@ -22,12 +22,14 @@ use crate::{
         pin::validate_pin,
         register::make_register_keys,
         tde::{make_register_tde_keys, RegisterTdeKeyResponse},
-        AuthRequestResponse, AuthValidateError, RegisterKeyResponse
-        ,
+        AuthRequestResponse, AuthValidateError, RegisterKeyResponse,
     },
     client::encryption_settings::EncryptionSettingsError,
 };
-use crate::{auth::{login::LoginError, renew::renew_token}, Client};
+use crate::{
+    auth::{login::LoginError, renew::renew_token},
+    Client,
+};
 
 #[allow(missing_docs)]
 pub struct AuthClient {

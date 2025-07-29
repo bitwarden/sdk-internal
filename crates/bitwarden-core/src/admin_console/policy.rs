@@ -97,7 +97,7 @@ impl From<bitwarden_api_api::models::PolicyType> for PolicyType {
             }
             bitwarden_api_api::models::PolicyType::RemoveUnlockWithPin => {
                 PolicyType::RemoveUnlockWithPin
-            },
+            }
             bitwarden_api_api::models::PolicyType::RestrictedItemTypesPolicy => {
                 PolicyType::RestrictedItemTypesPolicy
             }
