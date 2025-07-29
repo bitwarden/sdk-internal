@@ -170,7 +170,7 @@ impl From<LoginUri> for bitwarden_vault::LoginUriView {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Field {
     pub name: Option<String>,
     pub value: Option<String>,
@@ -212,7 +212,7 @@ pub struct Login {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LoginUri {
     pub uri: Option<String>,
     pub r#match: Option<u8>,

@@ -344,6 +344,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-auth"
+version = "1.0.0"
+dependencies = [
+ "bitwarden-core",
+ "bitwarden-error",
+ "serde",
+ "serde_json",
+ "serde_qs",
+ "thiserror 1.0.69",
+ "tsify",
+ "uniffi",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-cli"
 version = "1.0.0"
 dependencies = [
@@ -627,8 +643,19 @@ name = "bitwarden-state"
 version = "1.0.0"
 dependencies = [
  "async-trait",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
+]
+
+[[package]]
+name = "bitwarden-test"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "bitwarden-api-api",
+ "bitwarden-state",
+ "reqwest",
+ "wiremock",
 ]
 
 [[package]]
@@ -711,6 +738,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-state",
+ "bitwarden-test",
  "chrono",
  "data-encoding",
  "hmac",
@@ -727,6 +755,8 @@ dependencies = [
  "uniffi",
  "uuid",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wiremock",
 ]
 
 [[package]]
@@ -735,6 +765,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "base64",
+ "bitwarden-auth",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
