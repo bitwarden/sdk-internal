@@ -4,7 +4,7 @@ use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
+use bitwarden_crypto::{CryptoError, EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
@@ -20,10 +20,32 @@ use crate::{
 };
 #[cfg(feature = "internal")]
 use crate::{
-    client::encryption_settings::EncryptionSettingsError,
-    client::{flags::Flags, login_method::UserLoginMethod},
+    client::{
+        encryption_settings::{AccountEncryptionKeys, EncryptionSettingsError},
+        flags::Flags,
+        login_method::UserLoginMethod,
+    },
     error::NotAuthenticatedError,
+    key_management::{crypto::InitUserCryptoRequest, SecurityState, SignedSecurityState},
 };
+
+/// Represents the user's keys, that are encrypted by the user key, and the signed security state.
+#[cfg(feature = "internal")]
+pub(crate) struct UserKeyState {
+    pub(crate) private_key: EncString,
+    pub(crate) signing_key: Option<EncString>,
+    pub(crate) security_state: Option<SignedSecurityState>,
+}
+#[cfg(feature = "internal")]
+impl From<&InitUserCryptoRequest> for UserKeyState {
+    fn from(req: &InitUserCryptoRequest) -> Self {
+        UserKeyState {
+            private_key: req.private_key.clone(),
+            signing_key: req.signing_key.clone(),
+            security_state: req.security_state.clone(),
+        }
+    }
+}
 
 #[allow(missing_docs)]
 #[derive(Debug, Clone)]
@@ -80,6 +102,8 @@ pub struct InternalClient {
     pub(crate) external_client: reqwest::Client,
 
     pub(super) key_store: KeyStore<KeyIds>,
+    #[cfg(feature = "internal")]
+    pub(crate) security_state: RwLock<Option<SecurityState>>,
 
     #[cfg(feature = "internal")]
     pub(crate) repository_map: StateRegistry,
@@ -191,6 +215,18 @@ impl InternalClient {
         &self.key_store
     }
 
+    /// Returns the security version of the user.
+    /// `1` is returned for V1 users that do not have a signed security state.
+    /// `2` or greater is returned for V2 users that have a signed security state.
+    #[cfg(feature = "internal")]
+    pub fn get_security_version(&self) -> u64 {
+        self.security_state
+            .read()
+            .expect("RwLock is not poisoned")
+            .as_ref()
+            .map_or(1, |state| state.version())
+    }
+
     #[allow(missing_docs)]
     pub fn init_user_id(&self, user_id: Uuid) -> Result<(), UserIdAlreadySetError> {
         let set_uuid = self.user_id.get_or_init(|| user_id);
@@ -215,23 +251,49 @@ impl InternalClient {
         &self,
         master_key: MasterKey,
         user_key: EncString,
-        private_key: EncString,
-        signing_key: Option<EncString>,
+        key_state: UserKeyState,
     ) -> Result<(), EncryptionSettingsError> {
         let user_key = master_key.decrypt_user_key(user_key)?;
-        EncryptionSettings::new_decrypted_key(user_key, private_key, signing_key, &self.key_store)?;
-
-        Ok(())
+        self.initialize_user_crypto_decrypted_key(user_key, key_state)
     }
 
     #[cfg(feature = "internal")]
     pub(crate) fn initialize_user_crypto_decrypted_key(
         &self,
         user_key: SymmetricCryptoKey,
-        private_key: EncString,
-        signing_key: Option<EncString>,
+        key_state: UserKeyState,
     ) -> Result<(), EncryptionSettingsError> {
-        EncryptionSettings::new_decrypted_key(user_key, private_key, signing_key, &self.key_store)?;
+        match user_key {
+            SymmetricCryptoKey::Aes256CbcHmacKey(ref user_key) => {
+                EncryptionSettings::new_decrypted_key(
+                    AccountEncryptionKeys::V1 {
+                        user_key: user_key.clone(),
+                        private_key: key_state.private_key,
+                    },
+                    &self.key_store,
+                    &self.security_state,
+                )?;
+            }
+            SymmetricCryptoKey::XChaCha20Poly1305Key(ref user_key) => {
+                EncryptionSettings::new_decrypted_key(
+                    AccountEncryptionKeys::V2 {
+                        user_key: user_key.clone(),
+                        private_key: key_state.private_key,
+                        signing_key: key_state
+                            .signing_key
+                            .ok_or(EncryptionSettingsError::InvalidSigningKey)?,
+                        security_state: key_state
+                            .security_state
+                            .ok_or(EncryptionSettingsError::InvalidSecurityState)?,
+                    },
+                    &self.key_store,
+                    &self.security_state,
+                )?;
+            }
+            _ => {
+                return Err(CryptoError::InvalidKey.into());
+            }
+        }
 
         Ok(())
     }
@@ -241,11 +303,10 @@ impl InternalClient {
         &self,
         pin_key: PinKey,
         pin_protected_user_key: EncString,
-        private_key: EncString,
-        signing_key: Option<EncString>,
+        key_state: UserKeyState,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = pin_key.decrypt_user_key(pin_protected_user_key)?;
-        self.initialize_user_crypto_decrypted_key(decrypted_user_key, private_key, signing_key)
+        self.initialize_user_crypto_decrypted_key(decrypted_user_key, key_state)
     }
 
     #[cfg(feature = "secrets")]

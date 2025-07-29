@@ -194,6 +194,7 @@ struct ContentView: View {
                 email: EMAIL,
                 privateKey: loginData.PrivateKey,
                 signingKey: nil,
+                securityState: nil,
                 method: InitUserCryptoMethod.password(
                     password: PASSWORD,
                     userKey: loginData.Key
@@ -253,6 +254,7 @@ struct ContentView: View {
             email: EMAIL,
             privateKey: privateKey,
             signingKey: nil,
+            securityState: nil,
             method: InitUserCryptoMethod.decryptedKey(
                 decryptedUserKey: key
             )
@@ -281,6 +283,7 @@ struct ContentView: View {
             email: EMAIL,
             privateKey: privateKey,
             signingKey: nil,
+            securityState: nil,
             method: InitUserCryptoMethod.pin(pin: PIN, pinProtectedUserKey: pinProtectedUserKey)
         ))
     }
