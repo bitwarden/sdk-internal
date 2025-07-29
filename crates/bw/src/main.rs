@@ -150,31 +150,34 @@ async fn process_commands() -> Result<()> {
         return Ok(());
     };
 
-    if let Commands::Login(args) = command.clone() {
-        let settings = args.server.map(|server| ClientSettings {
-            api_url: format!("{server}/api"),
-            identity_url: format!("{server}/identity"),
-            ..Default::default()
-        });
-        let client = bitwarden_core::Client::new(settings);
+    match command.clone() {
+        Commands::Login(args) => {
+            let settings = args.server.map(|server| ClientSettings {
+                api_url: format!("{server}/api"),
+                identity_url: format!("{server}/identity"),
+                ..Default::default()
+            });
+            let client = bitwarden_core::Client::new(settings);
 
-        match args.command {
-            // FIXME: Rust CLI will not support password login!
-            LoginCommands::Password { email } => {
-                auth::login_password(client, email).await?;
+            match args.command {
+                // FIXME: Rust CLI will not support password login!
+                LoginCommands::Password { email } => {
+                    auth::login_password(client, email).await?;
+                }
+                LoginCommands::ApiKey {
+                    client_id,
+                    client_secret,
+                } => auth::login_api_key(client, client_id, client_secret).await?,
+                LoginCommands::Device {
+                    email,
+                    device_identifier,
+                } => {
+                    auth::login_device(client, email, device_identifier).await?;
+                }
             }
-            LoginCommands::ApiKey {
-                client_id,
-                client_secret,
-            } => auth::login_api_key(client, client_id, client_secret).await?,
-            LoginCommands::Device {
-                email,
-                device_identifier,
-            } => {
-                auth::login_device(client, email, device_identifier).await?;
-            }
+            return Ok(());
         }
-        return Ok(());
+        _ => {}
     }
 
     // Not login, assuming we have a config
