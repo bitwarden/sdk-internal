@@ -2,8 +2,9 @@
 //! [PasswordProtectedKeyEnvelope].
 
 use bitwarden_crypto::{
-    key_ids, KeyStore, KeyStoreContext, PasswordProtectedKeyEnvelope,
-    PasswordProtectedKeyEnvelopeError,
+    key_ids,
+    safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError},
+    KeyStore, KeyStoreContext,
 };
 
 fn main() {

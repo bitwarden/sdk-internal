@@ -15,6 +15,7 @@
     "encryptable",
     "Hkdf",
     "Hmac",
+    "keyslot",
     "Maybeable",
     "Oaep",
     "Pbkdf",

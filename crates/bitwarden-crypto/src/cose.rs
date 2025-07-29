@@ -5,9 +5,10 @@
 
 use coset::{
     iana::{self, CoapContentFormat},
-    CborSerializable, ContentType, Label,
+    CborSerializable, ContentType, Header, Label,
 };
 use generic_array::GenericArray;
+use thiserror::Error;
 use typenum::U32;
 
 use crate::{
@@ -227,6 +228,52 @@ pub trait CoseSerializable<T: CoseContentFormat + ConstContentFormat> {
     where
         Self: Sized;
 }
+
+pub(crate) fn extract_integer(
+    header: &Header,
+    target_label: i64,
+    value_name: &str,
+) -> Result<i128, CoseExtractError> {
+    Ok(header
+        .rest
+        .iter()
+        .find_map(|(label, value)| match (label, value) {
+            (Label::Int(label_value), ciborium::Value::Integer(int_value))
+                if *label_value == target_label =>
+            {
+                Some(*int_value)
+            }
+            _ => None,
+        })
+        .ok_or(CoseExtractError::MissingValue(value_name.to_string()))?
+        .into())
+}
+
+pub(crate) fn extract_bytes(
+    header: &Header,
+    target_label: i64,
+    value_name: &str,
+) -> Result<Vec<u8>, CoseExtractError> {
+    header
+        .rest
+        .iter()
+        .find_map(|(label, value)| match (label, value) {
+            (Label::Int(label_value), ciborium::Value::Bytes(byte_value))
+                if *label_value == target_label =>
+            {
+                Some(byte_value.clone())
+            }
+            _ => None,
+        })
+        .ok_or(CoseExtractError::MissingValue(value_name.to_string()))
+}
+
+#[derive(Debug, Error)]
+pub(crate) enum CoseExtractError {
+    #[error("Missing value {0}")]
+    MissingValue(String),
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
