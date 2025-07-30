@@ -51,3 +51,5 @@ jobs:
       contents: read
       pull-requests: write
       id-token: write
+    with:
+      sonar-exclusions: "crates/bitwarden-uniffi/kotlin/**,crates/bitwarden-uniffi/swift/**"
