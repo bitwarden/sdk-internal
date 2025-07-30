@@ -177,6 +177,14 @@ async fn process_commands() -> Result<()> {
             }
             return Ok(());
         }
+        Commands::Register {
+            email: _,
+            name: _,
+            password_hint: _,
+            server: _,
+        } => {
+            unimplemented!()
+        }
         _ => {}
     }
 
