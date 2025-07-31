@@ -110,6 +110,7 @@ impl CollectionViewTree {
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_collections::collection::CollectionType;
     use bitwarden_core::client::test_accounts::test_bitwarden_com_account;
 
     use super::*;
@@ -127,7 +128,8 @@ mod tests {
             hide_passwords: false,
             read_only: false,
             manage: false,
-            default_user_collection_email: None
+            default_user_collection_email: None,
+            r#type: CollectionType::SharedCollection,
         }]).unwrap();
 
         assert_eq!(dec[0].name, "Default collection");
@@ -145,7 +147,8 @@ mod tests {
             hide_passwords: false,
             read_only: false,
             manage: false,
-            default_user_collection_email: None
+            default_user_collection_email: None,
+            r#type: CollectionType::SharedCollection,
         }).unwrap();
 
         assert_eq!(dec.name, "Default collection");

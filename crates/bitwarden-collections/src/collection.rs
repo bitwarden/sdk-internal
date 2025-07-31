@@ -5,6 +5,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
@@ -25,6 +26,7 @@ pub struct Collection {
     pub read_only: bool,
     pub manage: bool,
     pub default_user_collection_email: Option<EncString>,
+    pub r#type: CollectionType,
 }
 
 #[allow(missing_docs)]
@@ -40,6 +42,24 @@ pub struct CollectionView {
     pub hide_passwords: bool,
     pub read_only: bool,
     pub manage: bool,
+    pub r#type: CollectionType,
+}
+
+/// Type of collection
+#[derive(Serialize_repr, Deserialize_repr, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[repr(u8)]
+pub enum CollectionType {
+    /// Default collection type. Can be assigned by an organization to user(s) or group(s)
+    SharedCollection = 0,
+    /// Default collection assigned to a user for an organization that has
+    /// OrganizationDataOwnership (formerly PersonalOwnership) policy enabled.
+    DefaultUserCollection = 1,
 }
 
 #[allow(missing_docs)]
@@ -49,7 +69,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, CollectionView> for Collection {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<CollectionView, CryptoError> {
-        let name = self.default_user_collection_email
+        let name = self
+            .default_user_collection_email
             .as_ref()
             .unwrap_or(&self.name)
             .decrypt(ctx, key)
@@ -64,6 +85,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CollectionView> for Collection {
             hide_passwords: self.hide_passwords,
             read_only: self.read_only,
             manage: self.manage,
+            r#type: self.r#type.clone(),
         })
     }
 }
@@ -82,8 +104,9 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
             read_only: collection.read_only.unwrap_or(false),
             manage: collection.manage.unwrap_or(false),
             default_user_collection_email: EncString::try_from_optional(
-                collection.default_user_collection_email
+                collection.default_user_collection_email,
             )?,
+            r#type: require!(collection.r#type).into(),
         })
     }
 }
@@ -115,12 +138,24 @@ impl TreeItem for CollectionView {
     const DELIMITER: char = '/';
 }
 
+impl From<bitwarden_api_api::models::CollectionType> for CollectionType {
+    fn from(collection_type: bitwarden_api_api::models::CollectionType) -> Self {
+        match collection_type {
+            bitwarden_api_api::models::CollectionType::SharedCollection => Self::SharedCollection,
+            bitwarden_api_api::models::CollectionType::DefaultUserCollection => {
+                Self::DefaultUserCollection
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
     use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
     use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
     use uuid::Uuid;
+
+    use super::*;
 
     const ORGANIZATION_ID: &str = "12345678-1234-1234-1234-123456789012";
     const COLLECTION_ID: &str = "87654321-4321-4321-4321-210987654321";
@@ -158,17 +193,12 @@ mod tests {
             read_only: false,
             manage: true,
             default_user_collection_email: None,
+            r#type: CollectionType::SharedCollection,
         };
 
         let decrypted = collection.decrypt(&mut ctx, key).unwrap();
 
-        assert_eq!(decrypted.id, collection.id);
-        assert_eq!(decrypted.organization_id, collection.organization_id);
         assert_eq!(decrypted.name, collection_name);
-        assert_eq!(decrypted.external_id, collection.external_id);
-        assert_eq!(decrypted.hide_passwords, collection.hide_passwords);
-        assert_eq!(decrypted.read_only, collection.read_only);
-        assert_eq!(decrypted.manage, collection.manage);
     }
 
     #[test]
@@ -189,19 +219,18 @@ mod tests {
             hide_passwords: false,
             read_only: true,
             manage: false,
-            default_user_collection_email: Some(default_user_collection_email.encrypt(&mut ctx, key).unwrap()), // Different encrypted value
+            default_user_collection_email: Some(
+                default_user_collection_email
+                    .encrypt(&mut ctx, key)
+                    .unwrap(),
+            ), // Different encrypted value
+            r#type: CollectionType::SharedCollection,
         };
 
         let decrypted = collection.decrypt(&mut ctx, key).unwrap();
 
-        assert_eq!(decrypted.id, collection.id);
-        assert_eq!(decrypted.organization_id, collection.organization_id);
         assert_ne!(decrypted.name, collection_name);
         assert_eq!(decrypted.name, default_user_collection_email);
-        assert_eq!(decrypted.external_id, collection.external_id);
-        assert_eq!(decrypted.hide_passwords, collection.hide_passwords);
-        assert_eq!(decrypted.read_only, collection.read_only);
-        assert_eq!(decrypted.manage, collection.manage);
     }
 
     #[test]
@@ -214,6 +243,7 @@ mod tests {
         let collection_id = Some(Uuid::parse_str(COLLECTION_ID).unwrap());
         let external_id = Some("external-test-id".to_string());
         let collection_name: &str = "Collection Name";
+        let collection_type = CollectionType::SharedCollection;
 
         let collection = Collection {
             id: collection_id,
@@ -224,17 +254,19 @@ mod tests {
             read_only: true,
             manage: true,
             default_user_collection_email: None,
+            r#type: collection_type.clone(),
         };
 
         let decrypted = collection.decrypt(&mut ctx, key).unwrap();
 
         // Verify all fields are correctly transferred
-        assert_eq!(decrypted.id, collection_id);
-        assert_eq!(decrypted.organization_id, org_id);
+        assert_eq!(decrypted.id, collection.id);
+        assert_eq!(decrypted.organization_id, collection.organization_id);
         assert_eq!(decrypted.name, collection_name);
         assert_eq!(decrypted.external_id, external_id);
-        assert!(decrypted.hide_passwords);
-        assert!(decrypted.read_only);
-        assert!(decrypted.manage);
+        assert_eq!(decrypted.hide_passwords, collection.hide_passwords);
+        assert_eq!(decrypted.read_only, collection.read_only);
+        assert_eq!(decrypted.manage, collection.manage);
+        assert_eq!(decrypted.r#type, collection_type);
     }
 }
