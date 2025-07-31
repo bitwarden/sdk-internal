@@ -4,13 +4,15 @@
 use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 
 use crate::key_management::KeyIds;
 
 /// A non-generic wrapper around `bitwarden-crypto`'s `PasswordProtectedKeyEnvelope`.
-#[derive(Serialize, Deserialize, tsify::Tsify)]
+#[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-#[tsify(into_wasm_abi, from_wasm_abi)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PasswordProtectedKeyEnvelope(
     #[tsify(type = r#"Tagged<string, "PasswordProtectedKeyEnvelope">"#)]
     pub(crate)  bitwarden_crypto::safe::PasswordProtectedKeyEnvelope<KeyIds>,

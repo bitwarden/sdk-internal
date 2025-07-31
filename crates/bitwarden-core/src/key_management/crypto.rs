@@ -772,7 +772,7 @@ pub(crate) fn get_v2_rotated_account_keys(
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZeroU32;
+    use std::{num::NonZeroU32, str::FromStr};
 
     use bitwarden_crypto::RsaKeyPair;
 
@@ -988,6 +988,41 @@ mod tests {
         };
 
         assert_eq!(client_key, client3_key);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_crypto_pin_envelope() {
+        let client = Client::new(None);
+
+        let pin_envelope = "hFgmoQN4ImFwcGxpY2F0aW9uL3guYml0d2FyZGVuLmxlZ2FjeS1rZXmhBVgYQBLoIbhFaeXLNCgT5HnoUgb9kddjBFiVWFAQBEhSokeC1t4TYRwXUgreczzQR7KAhIGtE5R3W0ibMayLBEfRWm7vtJYX1YYiNDsbKFZW4TE/J9vFo1qSzM1dpsdJSHYkCyN8YNGdS0UYWoGDR6EBOgABFVelAToAARVXOgABFVkDOgABFVoaAAEAADoAARVbBDoAARVYWCBZ+N8GiRSgnYuT6/Gij1JU3YUND8/9BxFgS1Af8fG/YfY=";
+        let user_key = "5yKAZ4TSSEGje54MV5lc5ty6crkqUz4xvl+8Dm/piNLKf6OgRi2H0uzttNTXl9z6ILhkmuIXzGpAVc2YdorHgQ==";
+        let private_key = make_key_pair(user_key.to_string()).unwrap();
+        let priv_key: EncString = private_key.user_key_encrypted_private_key;
+
+        initialize_user_crypto(
+            &client,
+            InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 100_000.try_into().unwrap(),
+                },
+                email: "test@bitwarden.com".into(),
+                private_key: priv_key.to_owned(),
+                signing_key: None,
+                security_state: None,
+                method: InitUserCryptoMethod::PinEnvelope {
+                    pin: "test_password".into(),
+                    pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope(
+                        bitwarden_crypto::safe::PasswordProtectedKeyEnvelope::from_str(
+                            pin_envelope,
+                        )
+                        .unwrap(),
+                    ),
+                },
+            },
+        )
+        .await
+        .unwrap();
     }
 
     #[test]
