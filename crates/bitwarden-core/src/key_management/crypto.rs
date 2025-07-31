@@ -1018,6 +1018,7 @@ mod tests {
         .unwrap();
 
         let enroll_response = client1.crypto().enroll_pin(test_pin.to_string()).unwrap();
+
         let client1 = Client::new(None);
         initialize_user_crypto(
             &client1,
