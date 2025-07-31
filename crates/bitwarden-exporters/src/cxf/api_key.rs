@@ -1,150 +1,59 @@
-use bitwarden_vault::FieldType;
 use credential_exchange_format::ApiKeyCredential;
 
-use crate::Field;
+use crate::{cxf::editable_field::create_field, Field};
 
-/// Convert API key credentials to custom fields following the CXF mapping convention
-/// According to the mapping specification:
-/// - key: EditableField<"concealed-string"> → CustomField, hidden
-/// - username: EditableField<"string"> → Login::username / CustomField
-/// - keyType: EditableField<"string"> → CustomField
-/// - url: EditableField<"string"> → Login::uris / CustomField
-/// - validFrom: EditableField<"date"> → CustomField
-/// - expiryDate: EditableField<"date"> → CustomField
+/// Convert API key credentials to custom fields
 pub fn api_key_to_fields(api_key: &ApiKeyCredential) -> Vec<Field> {
-    let mut fields = Vec::new();
-
-    // Key: Hidden field (concealed-string)
-    if let Some(key) = &api_key.key {
-        fields.push(Field {
-            name: Some("API Key".to_string()),
-            value: Some(key.value.0.clone()),
-            r#type: FieldType::Hidden as u8,
-            linked_id: None,
-        });
-    }
-
-    // Username: Text field
-    if let Some(username) = &api_key.username {
-        fields.push(Field {
-            name: Some("Username".to_string()),
-            value: Some(username.value.0.clone()),
-            r#type: FieldType::Text as u8,
-            linked_id: None,
-        });
-    }
-
-    // Key Type: Text field
-    if let Some(key_type) = &api_key.key_type {
-        fields.push(Field {
-            name: Some("Key Type".to_string()),
-            value: Some(key_type.value.0.clone()),
-            r#type: FieldType::Text as u8,
-            linked_id: None,
-        });
-    }
-
-    // URL: Text field
-    if let Some(url) = &api_key.url {
-        fields.push(Field {
-            name: Some("URL".to_string()),
-            value: Some(url.value.0.clone()),
-            r#type: FieldType::Text as u8,
-            linked_id: None,
-        });
-    }
-
-    // Valid From: Text field (date stored as string)
-    if let Some(valid_from) = &api_key.valid_from {
-        fields.push(Field {
-            name: Some("Valid From".to_string()),
-            value: Some(valid_from.value.0.to_string()),
-            r#type: FieldType::Text as u8,
-            linked_id: None,
-        });
-    }
-
-    // Expiry Date: Text field (date stored as string)
-    if let Some(expiry_date) = &api_key.expiry_date {
-        fields.push(Field {
-            name: Some("Expiry Date".to_string()),
-            value: Some(expiry_date.value.0.to_string()),
-            r#type: FieldType::Text as u8,
-            linked_id: None,
-        });
-    }
-
-    fields
+    [
+        api_key.key.as_ref().map(|key| create_field("API Key", key)),
+        api_key
+            .username
+            .as_ref()
+            .map(|username| create_field("Username", username)),
+        api_key
+            .key_type
+            .as_ref()
+            .map(|key_type| create_field("Key Type", key_type)),
+        api_key.url.as_ref().map(|url| create_field("URL", url)),
+        api_key
+            .valid_from
+            .as_ref()
+            .map(|valid_from| create_field("Valid From", valid_from)),
+        api_key
+            .expiry_date
+            .as_ref()
+            .map(|expiry_date| create_field("Expiry Date", expiry_date)),
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use bitwarden_vault::FieldType;
     use chrono::NaiveDate;
-    use credential_exchange_format::{
-        EditableField, EditableFieldConcealedString, EditableFieldDate, EditableFieldString,
-    };
+    use credential_exchange_format::{EditableFieldConcealedString, EditableFieldDate};
 
     use super::*;
 
-    fn create_api_key_credential(
-        key: Option<&str>,
-        username: Option<&str>,
-        key_type: Option<&str>,
-        url: Option<&str>,
-        valid_from: Option<&str>,
-        expiry_date: Option<&str>,
-    ) -> ApiKeyCredential {
-        ApiKeyCredential {
-            key: key.map(|k| EditableField {
-                id: None,
-                value: EditableFieldConcealedString(k.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            username: username.map(|u| EditableField {
-                id: None,
-                value: EditableFieldString(u.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            key_type: key_type.map(|kt| EditableField {
-                id: None,
-                value: EditableFieldString(kt.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            url: url.map(|u| EditableField {
-                id: None,
-                value: EditableFieldString(u.to_string()),
-                label: None,
-                extensions: None,
-            }),
-            valid_from: valid_from.map(|vf| EditableField {
-                id: None,
-                value: EditableFieldDate(NaiveDate::parse_from_str(vf, "%Y-%m-%d").unwrap()),
-                label: None,
-                extensions: None,
-            }),
-            expiry_date: expiry_date.map(|ed| EditableField {
-                id: None,
-                value: EditableFieldDate(NaiveDate::parse_from_str(ed, "%Y-%m-%d").unwrap()),
-                label: None,
-                extensions: None,
-            }),
-        }
-    }
-
     #[test]
     fn test_api_key_to_fields_all_fields() {
-        let api_key = create_api_key_credential(
-            Some("AIzaSyAyRofL-VJHZofHc-qOSkqVOdhvgQoJADk"),
-            Some("john_doe"),
-            Some("Bearer"),
-            Some("https://api.example.com"),
-            Some("2025-01-01"),
-            Some("2026-01-01"),
-        );
+        let api_key = ApiKeyCredential {
+            key: Some(
+                EditableFieldConcealedString("AIzaSyAyRofL-VJHZofHc-qOSkqVOdhvgQoJADk".to_string())
+                    .into(),
+            ),
+            username: Some("john_doe".to_string().into()),
+            key_type: Some("Bearer".to_string().into()),
+            url: Some("https://api.example.com".to_string().into()),
+            valid_from: Some(
+                EditableFieldDate(NaiveDate::from_ymd_opt(2025, 1, 1).unwrap()).into(),
+            ),
+            expiry_date: Some(
+                EditableFieldDate(NaiveDate::from_ymd_opt(2026, 1, 1).unwrap()).into(),
+            ),
+        };
 
         let fields = api_key_to_fields(&api_key);
 
@@ -186,7 +95,14 @@ mod tests {
 
     #[test]
     fn test_api_key_to_fields_minimal() {
-        let api_key = create_api_key_credential(Some("test-api-key"), None, None, None, None, None);
+        let api_key = ApiKeyCredential {
+            key: Some("test-api-key".to_string().into()),
+            username: None,
+            key_type: None,
+            url: None,
+            valid_from: None,
+            expiry_date: None,
+        };
 
         let fields = api_key_to_fields(&api_key);
 
@@ -198,7 +114,14 @@ mod tests {
 
     #[test]
     fn test_api_key_to_fields_empty() {
-        let api_key = create_api_key_credential(None, None, None, None, None, None);
+        let api_key = ApiKeyCredential {
+            key: None,
+            username: None,
+            key_type: None,
+            url: None,
+            valid_from: None,
+            expiry_date: None,
+        };
 
         let fields = api_key_to_fields(&api_key);
 
@@ -207,14 +130,14 @@ mod tests {
 
     #[test]
     fn test_api_key_to_fields_partial() {
-        let api_key = create_api_key_credential(
-            Some("secret-key"),
-            Some("test_user"),
-            Some("API_KEY"),
-            None,
-            None,
-            None,
-        );
+        let api_key = ApiKeyCredential {
+            key: Some("secret-key".to_string().into()),
+            username: Some("test_user".to_string().into()),
+            key_type: Some("API_KEY".to_string().into()),
+            url: None,
+            valid_from: None,
+            expiry_date: None,
+        };
 
         let fields = api_key_to_fields(&api_key);
 

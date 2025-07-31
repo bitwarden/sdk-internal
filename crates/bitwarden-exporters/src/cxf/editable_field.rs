@@ -1,7 +1,7 @@
 use bitwarden_vault::FieldType;
 use credential_exchange_format::{
-    EditableField, EditableFieldBoolean, EditableFieldConcealedString, EditableFieldString,
-    EditableFieldWifiNetworkSecurityType,
+    EditableField, EditableFieldBoolean, EditableFieldConcealedString, EditableFieldDate,
+    EditableFieldString, EditableFieldWifiNetworkSecurityType,
 };
 
 use crate::Field;
@@ -55,6 +55,14 @@ impl EditableFieldToField for EditableField<EditableFieldWifiNetworkSecurityType
 
     fn field_value(&self) -> String {
         security_type_to_string(&self.value).to_string()
+    }
+}
+
+impl EditableFieldToField for EditableField<EditableFieldDate> {
+    const FIELD_TYPE: FieldType = FieldType::Text;
+
+    fn field_value(&self) -> String {
+        self.value.0.to_string()
     }
 }
 
@@ -214,6 +222,30 @@ mod tests {
                 custom_security.to_string()
             )),
             custom_security
+        );
+    }
+
+    #[test]
+    fn test_create_field_date() {
+        use chrono::NaiveDate;
+
+        let editable_field = EditableField {
+            id: None,
+            label: None,
+            value: EditableFieldDate(NaiveDate::from_ymd_opt(2025, 1, 15).unwrap()),
+            extensions: None,
+        };
+
+        let field = create_field("Expiry Date".to_string(), &editable_field);
+
+        assert_eq!(
+            field,
+            Field {
+                name: Some("Expiry Date".to_string()),
+                value: Some("2025-01-15".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            }
         );
     }
 }
