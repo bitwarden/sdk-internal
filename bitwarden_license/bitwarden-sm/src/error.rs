@@ -84,8 +84,8 @@ impl From<ValidationErrors> for SecretsManagerError {
     }
 }
 
-impl<T> From<ApiApisError<T>> for SecretsManagerError {
-    fn from(e: bitwarden_api_api::apis::Error<T>) -> Self {
+impl From<ApiApisError> for SecretsManagerError {
+    fn from(e: bitwarden_api_api::apis::Error) -> Self {
         SecretsManagerError::ApiError(e.into())
     }
 }
