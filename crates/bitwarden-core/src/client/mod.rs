@@ -14,11 +14,12 @@ pub mod login_method;
 #[cfg(feature = "secrets")]
 pub(crate) use login_method::ServiceAccountLoginMethod;
 pub(crate) use login_method::{LoginMethod, UserLoginMethod};
-#[allow(missing_docs)]
-pub mod flags;
+#[cfg(feature = "internal")]
+mod flags;
 
 pub use client::Client;
 pub use client_settings::{ClientSettings, DeviceType};
+#[cfg(feature = "internal")]
 pub use flags::Flags;
 
 #[allow(missing_docs)]
