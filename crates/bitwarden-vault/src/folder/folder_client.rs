@@ -66,7 +66,7 @@ impl FoldersClient {
         let config = self.client.internal.get_api_configurations().await;
         let repository = self.get_repository()?;
 
-        create_folder(key_store, &config.api, repository.as_ref(), request).await
+        create_folder(key_store, &config.api_client, repository.as_ref(), request).await
     }
 
     /// Edit the [Folder] and save it to the server.
@@ -81,7 +81,7 @@ impl FoldersClient {
 
         edit_folder(
             key_store,
-            &config.api,
+            &config.api_client,
             repository.as_ref(),
             folder_id,
             request,
