@@ -1,6 +1,6 @@
 {{>partial_header}}
 
-use async_trait::async_trait;
+//use async_trait::async_trait;
 {{#mockall}}
 #[cfg(feature = "mockall")]
 use mockall::automock;
@@ -12,6 +12,7 @@ use crate::{apis::ResponseContent, models};
 use super::{Error, configuration};
 use crate::apis::ContentType;
 
+/*
 {{#mockall}}
 #[cfg_attr(feature = "mockall", automock)]
 {{/mockall}}
@@ -34,20 +35,18 @@ pub trait {{{classname}}}: Send + Sync {
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Error Type
-    }}, Error<{{{operationIdCamelCase}}}Error>>;
+    }}, Error>;
 {{/vendorExtensions.x-group-parameters}}
 {{^vendorExtensions.x-group-parameters}}
     async fn {{{operationId}}}{{!
-    ### Lifetimes
-    }}<{{#allParams}}'{{#lambda.lifetimeName}}{{{paramName}}}{{/lambda.lifetimeName}}{{^-last}}, {{/-last}}{{/allParams}}>{{!
     ### Function parameter names
     }}(&self, {{#allParams}}{{{paramName}}}: {{!
     ### Option Start
     }}{{^required}}Option<{{/required}}{{#required}}{{#isNullable}}Option<{{/isNullable}}{{/required}}{{!
     ### &str and Vec<&str>
-    }}{{#isString}}{{#isArray}}Vec<{{/isArray}}{{^isUuid}}&'{{#lambda.lifetimeName}}{{{paramName}}}{{/lambda.lifetimeName}} str{{/isUuid}}{{#isArray}}>{{/isArray}}{{/isString}}{{!
+    }}{{#isString}}{{#isArray}}Vec<{{/isArray}}{{^isUuid}}&str{{/isUuid}}{{#isArray}}>{{/isArray}}{{/isString}}{{!
     ### UUIDs
-    }}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}&str{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
+    }}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}uuid::Uuid{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
     ### Models and primative types
     }}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}models::{{/isContainer}}{{/isPrimitiveType}}{{{dataType}}}{{/isUuid}}{{/isString}}{{!
     ### Option End
@@ -61,11 +60,12 @@ pub trait {{{classname}}}: Send + Sync {
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Error Type
-    }}, Error<{{{operationIdCamelCase}}}Error>>;
+    }}, Error>;
 {{/vendorExtensions.x-group-parameters}}
 {{/operation}}
 {{/operations}}
 }
+*/
 
 pub struct {{{classname}}}Client {
     configuration: Arc<configuration::Configuration>
@@ -99,7 +99,7 @@ pub struct {{{operationIdCamelCase}}}Params {
     ### &str and Vec<&str>
     }}{{^isUuid}}{{#isString}}{{#isArray}}Vec<{{/isArray}}String{{#isArray}}>{{/isArray}}{{/isString}}{{/isUuid}}{{!
     ### UUIDs
-    }}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}String{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
+    }}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}uuid::Uuid{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
     ### Models and primative types
     }}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}models::{{/isContainer}}{{/isPrimitiveType}}{{{dataType}}}{{/isUuid}}{{/isString}}{{!
     ### Option End
@@ -115,8 +115,8 @@ pub struct {{{operationIdCamelCase}}}Params {
 {{/operation}}
 {{/operations}}
 
-#[async_trait]
-impl {{classname}} for {{classname}}Client {
+// #[async_trait]
+impl {{classname}}Client {
     {{#operations}}
     {{#operation}}
     {{#description}}
@@ -126,7 +126,7 @@ impl {{classname}} for {{classname}}Client {
     /// {{{.}}}
     {{/notes}}
     {{#vendorExtensions.x-group-parameters}}
-    async fn {{{operationId}}}(&self, {{#allParams}}{{#-first}} params: {{{operationIdCamelCase}}}Params {{/-first}}{{/allParams}}{{!
+    pub async fn {{{operationId}}}(&self, {{#allParams}}{{#-first}} params: {{{operationIdCamelCase}}}Params {{/-first}}{{/allParams}}{{!
     ### Function return type
     }}) -> Result<{{!
     ### Multi response support
@@ -134,7 +134,7 @@ impl {{classname}} for {{classname}}Client {
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Error Type
-    }}, Error<{{{operationIdCamelCase}}}Error>> {
+    }}, Error> {
         {{#allParams}}{{#-first}}
         let {{{operationIdCamelCase}}}Params {
             {{#allParams}}
@@ -145,17 +145,15 @@ impl {{classname}} for {{classname}}Client {
 
     {{/vendorExtensions.x-group-parameters}}
     {{^vendorExtensions.x-group-parameters}}
-    async fn {{{operationId}}}{{!
-    ### Lifetimes
-    }}<{{#allParams}}'{{#lambda.lifetimeName}}{{{paramName}}}{{/lambda.lifetimeName}}{{^-last}}, {{/-last}}{{/allParams}}>{{!
+    pub async fn {{{operationId}}}{{!
     ### Function parameter names
     }}(&self, {{#allParams}}{{{paramName}}}: {{!
     ### Option Start
     }}{{^required}}Option<{{/required}}{{#required}}{{#isNullable}}Option<{{/isNullable}}{{/required}}{{!
     ### &str and Vec<&str>
-    }}{{#isString}}{{#isArray}}Vec<{{/isArray}}{{^isUuid}}&'{{#lambda.lifetimeName}}{{{paramName}}}{{/lambda.lifetimeName}} str{{/isUuid}}{{#isArray}}>{{/isArray}}{{/isString}}{{!
+    }}{{#isString}}{{#isArray}}Vec<{{/isArray}}{{^isUuid}}&str{{/isUuid}}{{#isArray}}>{{/isArray}}{{/isString}}{{!
     ### UUIDs
-    }}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}&str{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
+    }}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}uuid::Uuid{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
     ### Models and primative types
     }}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}models::{{/isContainer}}{{/isPrimitiveType}}{{{dataType}}}{{/isUuid}}{{/isString}}{{!
     ### Option End
@@ -169,13 +167,12 @@ impl {{classname}} for {{classname}}Client {
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Regular return type
-    }}, Error<{{{operationIdCamelCase}}}Error>> {
+    }}, Error> {
     {{/vendorExtensions.x-group-parameters}}
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!("{}{{{path}}}", local_var_configuration.base_path{{#pathParams}}, {{{baseName}}}={{#isString}}crate::apis::urlencode({{/isString}}{{{paramName}}}{{^required}}.unwrap(){{/required}}{{#required}}{{#isNullable}}.unwrap(){{/isNullable}}{{/required}}{{#isArray}}.join(",").as_ref(){{/isArray}}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}.to_string(){{/isContainer}}{{/isPrimitiveType}}{{/isUuid}}{{/isString}}{{#isString}}){{/isString}}{{/pathParams}});
+        let local_var_uri_str = format!("{}{{{path}}}", local_var_configuration.base_path{{#pathParams}}, {{{baseName}}}={{#isString}}{{^isUuid}}crate::apis::urlencode({{/isUuid}}{{/isString}}{{{paramName}}}{{^required}}.unwrap(){{/required}}{{#required}}{{#isNullable}}.unwrap(){{/isNullable}}{{/required}}{{#isArray}}.join(",").as_ref(){{/isArray}}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}.to_string(){{/isContainer}}{{/isPrimitiveType}}{{/isUuid}}{{/isString}}{{#isString}}{{^isUuid}}){{/isUuid}}{{/isString}}{{/pathParams}});
         let mut local_var_req_builder = local_var_client.request(reqwest::Method::{{{httpMethod}}}, local_var_uri_str.as_str());
 
         {{#queryParams}}
@@ -321,9 +318,10 @@ impl {{classname}} for {{classname}}Client {
         }
         {{/withAWSV4Signature}}
         {{/hasAuthMethods}}
+        {{! We set the user-agent to the reqwest client by default
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
+        } }}
         {{#hasHeaderParams}}
         {{#headerParams}}
         {{#required}}
@@ -505,7 +503,7 @@ impl {{classname}} for {{classname}}Client {
             Ok(local_var_result)
             {{/supportMultipleResponses}}
         } else {
-            let local_var_entity: Option<{{{operationIdCamelCase}}}Error> = serde_json::from_str(&local_var_content).ok();
+            let local_var_entity: Option<serde_json::Value> = serde_json::from_str(&local_var_content).ok();
             let local_var_error = ResponseContent { status: local_var_status, content: local_var_content, entity: local_var_entity };
             Err(Error::ResponseError(local_var_error))
         }
@@ -536,25 +534,3 @@ pub enum {{{operationIdCamelCase}}}Success {
 {{/operation}}
 {{/operations}}
 {{/supportMultipleResponses}}
-{{#operations}}
-{{#operation}}
-/// struct for typed errors of method [`{{{classname}}}::{{operationId}}`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum {{{operationIdCamelCase}}}Error {
-    {{#responses}}
-    {{#is4xx}}
-    Status{{code}}({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/is4xx}}
-    {{#is5xx}}
-    Status{{code}}({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/is5xx}}
-    {{#isDefault}}
-    DefaultResponse({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/isDefault}}
-    {{/responses}}
-    UnknownValue(serde_json::Value),
-}
-
-{{/operation}}
-{{/operations}}
