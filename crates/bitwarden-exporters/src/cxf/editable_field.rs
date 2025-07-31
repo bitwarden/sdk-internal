@@ -7,73 +7,67 @@ use credential_exchange_format::{
 use crate::Field;
 
 /// Helper function to create a Field from any EditableField type
-pub(super) fn create_field<T>(name: String, field: &T) -> Field
+pub(super) fn create_field<T>(name: impl Into<String>, field: &T) -> Field
 where
     T: EditableFieldToField,
 {
     Field {
-        name: Some(name),
+        name: Some(name.into()),
         value: Some(field.field_value()),
-        r#type: field.field_type() as u8,
+        r#type: T::FIELD_TYPE as u8,
         linked_id: None,
     }
 }
 
 /// Trait to convert EditableField types to Field values and types
 pub(super) trait EditableFieldToField {
+    const FIELD_TYPE: FieldType;
+
     fn field_value(&self) -> String;
-    fn field_type(&self) -> FieldType;
 }
 
 impl EditableFieldToField for EditableField<EditableFieldString> {
+    const FIELD_TYPE: FieldType = FieldType::Text;
+
     fn field_value(&self) -> String {
         self.value.0.clone()
-    }
-
-    fn field_type(&self) -> FieldType {
-        FieldType::Text
     }
 }
 
 impl EditableFieldToField for EditableField<EditableFieldConcealedString> {
+    const FIELD_TYPE: FieldType = FieldType::Hidden;
+
     fn field_value(&self) -> String {
         self.value.0.clone()
-    }
-
-    fn field_type(&self) -> FieldType {
-        FieldType::Hidden
     }
 }
 
 impl EditableFieldToField for EditableField<EditableFieldBoolean> {
-    fn field_value(&self) -> String {
-        if self.value.0 { "true" } else { "false" }.to_string()
-    }
+    const FIELD_TYPE: FieldType = FieldType::Boolean;
 
-    fn field_type(&self) -> FieldType {
-        FieldType::Boolean
+    fn field_value(&self) -> String {
+        self.value.0.to_string()
     }
 }
 
 impl EditableFieldToField for EditableField<EditableFieldWifiNetworkSecurityType> {
+    const FIELD_TYPE: FieldType = FieldType::Text;
+
     fn field_value(&self) -> String {
         security_type_to_string(&self.value).to_string()
-    }
-
-    fn field_type(&self) -> FieldType {
-        FieldType::Text
     }
 }
 
 /// Convert WiFi security type enum to human-readable string
 fn security_type_to_string(security_type: &EditableFieldWifiNetworkSecurityType) -> &str {
+    use EditableFieldWifiNetworkSecurityType::*;
     match security_type {
-        EditableFieldWifiNetworkSecurityType::Unsecured => "Unsecured",
-        EditableFieldWifiNetworkSecurityType::WpaPersonal => "WPA Personal",
-        EditableFieldWifiNetworkSecurityType::Wpa2Personal => "WPA2 Personal",
-        EditableFieldWifiNetworkSecurityType::Wpa3Personal => "WPA3 Personal",
-        EditableFieldWifiNetworkSecurityType::Wep => "WEP",
-        EditableFieldWifiNetworkSecurityType::Other(s) => s,
+        Unsecured => "Unsecured",
+        WpaPersonal => "WPA Personal",
+        Wpa2Personal => "WPA2 Personal",
+        Wpa3Personal => "WPA3 Personal",
+        Wep => "WEP",
+        Other(s) => s,
     }
 }
 
@@ -90,7 +84,7 @@ mod tests {
             extensions: None,
         };
 
-        let field = create_field("Test Name".to_string(), &editable_field);
+        let field = create_field("Test Name", &editable_field);
 
         assert_eq!(
             field,
@@ -112,7 +106,7 @@ mod tests {
             extensions: None,
         };
 
-        let field = create_field("Password".to_string(), &editable_field);
+        let field = create_field("Password", &editable_field);
 
         assert_eq!(
             field,
@@ -134,7 +128,7 @@ mod tests {
             extensions: None,
         };
 
-        let field = create_field("Is Enabled".to_string(), &editable_field);
+        let field = create_field("Is Enabled", &editable_field);
 
         assert_eq!(
             field,
@@ -156,7 +150,7 @@ mod tests {
             extensions: None,
         };
 
-        let field = create_field("Is Hidden".to_string(), &editable_field);
+        let field = create_field("Is Hidden", &editable_field);
 
         assert_eq!(
             field,
@@ -178,7 +172,7 @@ mod tests {
             extensions: None,
         };
 
-        let field = create_field("WiFi Security".to_string(), &editable_field);
+        let field = create_field("WiFi Security", &editable_field);
 
         assert_eq!(
             field,
