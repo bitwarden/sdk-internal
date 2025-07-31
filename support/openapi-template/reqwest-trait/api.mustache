@@ -15,39 +15,39 @@ use crate::apis::ContentType;
 {{#mockall}}
 #[cfg_attr(feature = "mockall", automock)]
 {{/mockall}}
-#[async_trait]
+#[async_trait(?Send)]
 pub trait {{{classname}}}: Send + Sync {
 {{#operations}}
 {{#operation}}
+{{^isDeprecated}}
 
     /// {{{httpMethod}}} {{{path}}}
     {{^notes.empty}}
-    ///
     /// {{{notes}}}
     {{/notes.empty}}
 {{#vendorExtensions.x-group-parameters}}
-    async fn {{{operationId}}}(&self, {{#allParams}}{{#-first}} params: {{{operationIdCamelCase}}}Params {{/-first}}{{/allParams}}{{!
+    async fn {{{vendorExtensions.x-action-name-snake-case}}}(&self, {{#allParams}}{{#-first}} params: {{{vendorExtensions.x-action-name}}}Params {{/-first}}{{/allParams}}{{!
     ### Function return type
     }}) -> Result<{{!
     ### Multi response support
-    }}{{#supportMultipleResponses}}ResponseContent<{{{operationIdCamelCase}}}Success>{{/supportMultipleResponses}}{{!
+    }}{{#supportMultipleResponses}}ResponseContent<{{{vendorExtensions.x-action-name}}}Success>{{/supportMultipleResponses}}{{!
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Error Type
-    }}, Error<{{{operationIdCamelCase}}}Error>>;
+    }}, Error>;
 {{/vendorExtensions.x-group-parameters}}
 {{^vendorExtensions.x-group-parameters}}
-    async fn {{{operationId}}}{{!
+    async fn {{{vendorExtensions.x-action-name-snake-case}}}{{!
     ### Lifetimes
-    }}<{{#allParams}}'{{#lambda.lifetimeName}}{{{paramName}}}{{/lambda.lifetimeName}}{{^-last}}, {{/-last}}{{/allParams}}>{{!
+    }}{{#hasParams}}<'a>{{/hasParams}}{{!
     ### Function parameter names
     }}(&self, {{#allParams}}{{{paramName}}}: {{!
     ### Option Start
     }}{{^required}}Option<{{/required}}{{#required}}{{#isNullable}}Option<{{/isNullable}}{{/required}}{{!
     ### &str and Vec<&str>
-    }}{{#isString}}{{#isArray}}Vec<{{/isArray}}{{^isUuid}}&'{{#lambda.lifetimeName}}{{{paramName}}}{{/lambda.lifetimeName}} str{{/isUuid}}{{#isArray}}>{{/isArray}}{{/isString}}{{!
+    }}{{#isString}}{{#isArray}}Vec<{{/isArray}}{{^isUuid}}&'a str{{/isUuid}}{{#isArray}}>{{/isArray}}{{/isString}}{{!
     ### UUIDs
-    }}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}&str{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
+    }}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}uuid::Uuid{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
     ### Models and primative types
     }}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}models::{{/isContainer}}{{/isPrimitiveType}}{{{dataType}}}{{/isUuid}}{{/isString}}{{!
     ### Option End
@@ -57,12 +57,13 @@ pub trait {{{classname}}}: Send + Sync {
     ### Function return type
     }}) -> Result<{{!
     ### Multi response support
-    }}{{#supportMultipleResponses}}ResponseContent<{{{operationIdCamelCase}}}Success>{{/supportMultipleResponses}}{{!
+    }}{{#supportMultipleResponses}}ResponseContent<{{{vendorExtensions.x-action-name}}}Success>{{/supportMultipleResponses}}{{!
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Error Type
-    }}, Error<{{{operationIdCamelCase}}}Error>>;
+    }}, Error<{{{vendorExtensions.x-action-name}}}Error>>;
 {{/vendorExtensions.x-group-parameters}}
+{{/isDeprecated}}
 {{/operation}}
 {{/operations}}
 }
@@ -80,15 +81,16 @@ impl {{classname}}Client {
 
 {{#operations}}
 {{#operation}}
+{{^isDeprecated}}
 {{#vendorExtensions.x-group-parameters}}
 {{#allParams}}
 {{#-first}}
-/// struct for passing parameters to the method [`{{{classname}}}::{{operationId}}`]
+/// struct for passing parameters to the method [`{{{classname}}}::{{vendorExtensions.x-action-name-snake-case}}`]
 #[derive(Clone, Debug)]
 {{#useBonBuilder}}
 #[cfg_attr(feature = "bon", derive(::bon::Builder))]
 {{/useBonBuilder}}
-pub struct {{{operationIdCamelCase}}}Params {
+pub struct {{{vendorExtensions.x-action-name}}}Params {
 {{/-first}}
     {{#description}}
     /// {{{.}}}
@@ -99,7 +101,7 @@ pub struct {{{operationIdCamelCase}}}Params {
     ### &str and Vec<&str>
     }}{{^isUuid}}{{#isString}}{{#isArray}}Vec<{{/isArray}}String{{#isArray}}>{{/isArray}}{{/isString}}{{/isUuid}}{{!
     ### UUIDs
-    }}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}String{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
+    }}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}uuid::Uuid{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
     ### Models and primative types
     }}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}models::{{/isContainer}}{{/isPrimitiveType}}{{{dataType}}}{{/isUuid}}{{/isString}}{{!
     ### Option End
@@ -112,13 +114,16 @@ pub struct {{{operationIdCamelCase}}}Params {
 {{/-last}}
 {{/allParams}}
 {{/vendorExtensions.x-group-parameters}}
+{{/isDeprecated}}
 {{/operation}}
 {{/operations}}
 
-#[async_trait]
+#[async_trait(?Send)]
 impl {{classname}} for {{classname}}Client {
     {{#operations}}
     {{#operation}}
+    {{^isDeprecated}}
+
     {{#description}}
     /// {{{.}}}
     {{/description}}
@@ -126,17 +131,17 @@ impl {{classname}} for {{classname}}Client {
     /// {{{.}}}
     {{/notes}}
     {{#vendorExtensions.x-group-parameters}}
-    async fn {{{operationId}}}(&self, {{#allParams}}{{#-first}} params: {{{operationIdCamelCase}}}Params {{/-first}}{{/allParams}}{{!
+    pub async fn {{{vendorExtensions.x-action-name-snake-case}}}(&self, {{#allParams}}{{#-first}} params: {{{vendorExtensions.x-action-name}}}Params {{/-first}}{{/allParams}}{{!
     ### Function return type
     }}) -> Result<{{!
     ### Multi response support
-    }}{{#supportMultipleResponses}}ResponseContent<{{{operationIdCamelCase}}}Success>{{/supportMultipleResponses}}{{!
+    }}{{#supportMultipleResponses}}ResponseContent<{{{vendorExtensions.x-action-name}}}Success>{{/supportMultipleResponses}}{{!
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Error Type
-    }}, Error<{{{operationIdCamelCase}}}Error>> {
+    }}, Error<{{{vendorExtensions.x-action-name}}}Error>> {
         {{#allParams}}{{#-first}}
-        let {{{operationIdCamelCase}}}Params {
+        let {{{vendorExtensions.x-action-name}}}Params {
             {{#allParams}}
             {{{paramName}}},
             {{/allParams}}
@@ -145,17 +150,17 @@ impl {{classname}} for {{classname}}Client {
 
     {{/vendorExtensions.x-group-parameters}}
     {{^vendorExtensions.x-group-parameters}}
-    async fn {{{operationId}}}{{!
+    async fn {{{vendorExtensions.x-action-name-snake-case}}}{{!
     ### Lifetimes
-    }}<{{#allParams}}'{{#lambda.lifetimeName}}{{{paramName}}}{{/lambda.lifetimeName}}{{^-last}}, {{/-last}}{{/allParams}}>{{!
+    }}{{#hasParams}}<'a>{{/hasParams}}{{!
     ### Function parameter names
     }}(&self, {{#allParams}}{{{paramName}}}: {{!
     ### Option Start
     }}{{^required}}Option<{{/required}}{{#required}}{{#isNullable}}Option<{{/isNullable}}{{/required}}{{!
     ### &str and Vec<&str>
-    }}{{#isString}}{{#isArray}}Vec<{{/isArray}}{{^isUuid}}&'{{#lambda.lifetimeName}}{{{paramName}}}{{/lambda.lifetimeName}} str{{/isUuid}}{{#isArray}}>{{/isArray}}{{/isString}}{{!
+    }}{{#isString}}{{#isArray}}Vec<{{/isArray}}{{^isUuid}}&'a str{{/isUuid}}{{#isArray}}>{{/isArray}}{{/isString}}{{!
     ### UUIDs
-    }}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}&str{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
+    }}{{#isUuid}}{{#isArray}}Vec<{{/isArray}}uuid::Uuid{{#isArray}}>{{/isArray}}{{/isUuid}}{{!
     ### Models and primative types
     }}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}models::{{/isContainer}}{{/isPrimitiveType}}{{{dataType}}}{{/isUuid}}{{/isString}}{{!
     ### Option End
@@ -165,17 +170,17 @@ impl {{classname}} for {{classname}}Client {
     ### Function return type
     }}) -> Result<{{!
     ### Multi response support
-    }}{{#supportMultipleResponses}}ResponseContent<{{{operationIdCamelCase}}}Success>{{/supportMultipleResponses}}{{!
+    }}{{#supportMultipleResponses}}ResponseContent<{{{vendorExtensions.x-action-name}}}Success>{{/supportMultipleResponses}}{{!
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Regular return type
-    }}, Error<{{{operationIdCamelCase}}}Error>> {
+    }}, Error<{{{vendorExtensions.x-action-name}}}Error>> {
     {{/vendorExtensions.x-group-parameters}}
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
-        let local_var_uri_str = format!("{}{{{path}}}", local_var_configuration.base_path{{#pathParams}}, {{{baseName}}}={{#isString}}crate::apis::urlencode({{/isString}}{{{paramName}}}{{^required}}.unwrap(){{/required}}{{#required}}{{#isNullable}}.unwrap(){{/isNullable}}{{/required}}{{#isArray}}.join(",").as_ref(){{/isArray}}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}.to_string(){{/isContainer}}{{/isPrimitiveType}}{{/isUuid}}{{/isString}}{{#isString}}){{/isString}}{{/pathParams}});
+        let local_var_uri_str = format!("{}{{{path}}}", local_var_configuration.base_path{{#pathParams}}, {{{baseName}}}={{#isString}}{{^isUuid}}crate::apis::urlencode({{/isUuid}}{{/isString}}{{{paramName}}}{{^required}}.unwrap(){{/required}}{{#required}}{{#isNullable}}.unwrap(){{/isNullable}}{{/required}}{{#isArray}}.join(",").as_ref(){{/isArray}}{{^isString}}{{^isUuid}}{{^isPrimitiveType}}{{^isContainer}}.to_string(){{/isContainer}}{{/isPrimitiveType}}{{/isUuid}}{{/isString}}{{#isString}}{{^isUuid}}){{/isUuid}}{{/isString}}{{/pathParams}});
         let mut local_var_req_builder = local_var_client.request(reqwest::Method::{{{httpMethod}}}, local_var_uri_str.as_str());
 
         {{#queryParams}}
@@ -500,17 +505,17 @@ impl {{classname}} for {{classname}}Client {
             {{/returnType}}
             {{/supportMultipleResponses}}
             {{#supportMultipleResponses}}
-            let local_var_entity: Option<{{{operationIdCamelCase}}}Success> = serde_json::from_str(&local_var_content).ok();
+            let local_var_entity: Option<{{{vendorExtensions.x-action-name}}}Success> = serde_json::from_str(&local_var_content).ok();
             let local_var_result = ResponseContent { status: local_var_status, content: local_var_content, entity: local_var_entity };
             Ok(local_var_result)
             {{/supportMultipleResponses}}
         } else {
-            let local_var_entity: Option<{{{operationIdCamelCase}}}Error> = serde_json::from_str(&local_var_content).ok();
+            let local_var_entity: Option<{{{vendorExtensions.x-action-name}}}Error> = serde_json::from_str(&local_var_content).ok();
             let local_var_error = ResponseContent { status: local_var_status, content: local_var_content, entity: local_var_entity };
             Err(Error::ResponseError(local_var_error))
         }
     }
-
+    {{/isDeprecated}}
     {{/operation}}
     {{/operations}}
 }
@@ -518,10 +523,11 @@ impl {{classname}} for {{classname}}Client {
 {{#supportMultipleResponses}}
 {{#operations}}
 {{#operation}}
-/// struct for typed successes of method [`{{{classname}}}::{{operationId}}`]
+{{^isDeprecated}}
+/// struct for typed successes of method [`{{{classname}}}::{{vendorExtensions.x-action-name-snake-case}}`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum {{{operationIdCamelCase}}}Success {
+pub enum {{{vendorExtensions.x-action-name}}}Success {
     {{#responses}}
     {{#is2xx}}
     Status{{code}}({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
@@ -533,15 +539,17 @@ pub enum {{{operationIdCamelCase}}}Success {
     UnknownValue(serde_json::Value),
 }
 
+{{/isDeprecated}}
 {{/operation}}
 {{/operations}}
 {{/supportMultipleResponses}}
 {{#operations}}
 {{#operation}}
-/// struct for typed errors of method [`{{{classname}}}::{{operationId}}`]
+{{^isDeprecated}}
+/// struct for typed errors of method [`{{{classname}}}::{{vendorExtensions.x-action-name-snake-case}}`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum {{{operationIdCamelCase}}}Error {
+pub enum {{{vendorExtensions.x-action-name}}}Error {
     {{#responses}}
     {{#is4xx}}
     Status{{code}}({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
@@ -555,6 +563,6 @@ pub enum {{{operationIdCamelCase}}}Error {
     {{/responses}}
     UnknownValue(serde_json::Value),
 }
-
+{{/isDeprecated}}
 {{/operation}}
 {{/operations}}
