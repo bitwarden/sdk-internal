@@ -128,7 +128,7 @@ mod tests {
     // Helper function to create a test key store with a symmetric key
     fn create_test_key_store() -> KeyStore<KeyIds> {
         let store = KeyStore::<KeyIds>::default();
-        let key = SymmetricCryptoKey::try_from("sJnO8rVi0dTwND43n0T9x7665s8mVUYNAaJ4nm7gx1iia1I7947URL60nwfIHaf9QJePO4VkNN0oT9jh4iC6aA==".to_string()).unwrap();
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_id = Uuid::parse_str(ORGANIZATION_ID).unwrap();
 
         #[allow(deprecated)]
