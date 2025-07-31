@@ -34,71 +34,84 @@ mod tests {
 
     use super::*;
 
-    /// Helper function to create a Field for testing
-    fn create_field(name: &str, value: &str, field_type: FieldType) -> Field {
-        Field {
-            name: Some(name.to_string()),
-            value: Some(value.to_string()),
-            r#type: field_type as u8,
-            linked_id: None,
-        }
-    }
-
-    fn create_wifi_credential(
-        ssid: Option<&str>,
-        passphrase: Option<&str>,
-        security_type: Option<EditableFieldWifiNetworkSecurityType>,
-        hidden: Option<bool>,
-    ) -> WifiCredential {
+    #[test]
+    fn test_wifi_to_fields_all_fields() {
         use credential_exchange_format::{
             EditableFieldBoolean, EditableFieldConcealedString, EditableFieldString,
         };
 
-        WifiCredential {
-            ssid: ssid.map(|s| EditableFieldString(s.to_string()).into()),
-            passphrase: passphrase.map(|p| EditableFieldConcealedString(p.to_string()).into()),
-            network_security_type: security_type.map(|st| st.into()),
-            hidden: hidden.map(|h| EditableFieldBoolean(h).into()),
-        }
-    }
-
-    #[test]
-    fn test_wifi_to_fields_all_fields() {
-        let wifi = create_wifi_credential(
-            Some("MyWiFi"),
-            Some("secret123"),
-            Some(EditableFieldWifiNetworkSecurityType::Wpa2Personal),
-            Some(false),
-        );
+        let wifi = WifiCredential {
+            ssid: Some(EditableFieldString("MyWiFi".to_string()).into()),
+            passphrase: Some(EditableFieldConcealedString("secret123".to_string()).into()),
+            network_security_type: Some(EditableFieldWifiNetworkSecurityType::Wpa2Personal.into()),
+            hidden: Some(EditableFieldBoolean(false).into()),
+        };
 
         let fields = wifi_to_fields(&wifi);
 
         assert_eq!(
             fields,
             vec![
-                create_field("SSID", "MyWiFi", FieldType::Text),
-                create_field("Passphrase", "secret123", FieldType::Hidden),
-                create_field("Network Security Type", "WPA2 Personal", FieldType::Text),
-                create_field("Hidden", "false", FieldType::Boolean),
+                Field {
+                    name: Some("SSID".to_string()),
+                    value: Some("MyWiFi".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("Passphrase".to_string()),
+                    value: Some("secret123".to_string()),
+                    r#type: FieldType::Hidden as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("Network Security Type".to_string()),
+                    value: Some("WPA2 Personal".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("Hidden".to_string()),
+                    value: Some("false".to_string()),
+                    r#type: FieldType::Boolean as u8,
+                    linked_id: None,
+                },
             ]
         );
     }
 
     #[test]
     fn test_wifi_to_fields_minimal() {
-        let wifi = create_wifi_credential(Some("BasicWiFi"), None, None, None);
+        use credential_exchange_format::EditableFieldString;
+
+        let wifi = WifiCredential {
+            ssid: Some(EditableFieldString("BasicWiFi".to_string()).into()),
+            passphrase: None,
+            network_security_type: None,
+            hidden: None,
+        };
 
         let fields = wifi_to_fields(&wifi);
 
         assert_eq!(
             fields,
-            vec![create_field("SSID", "BasicWiFi", FieldType::Text)]
+            vec![Field {
+                name: Some("SSID".to_string()),
+                value: Some("BasicWiFi".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            }]
         );
     }
 
     #[test]
     fn test_wifi_to_fields_empty() {
-        let wifi = create_wifi_credential(None, None, None, None);
+        let wifi = WifiCredential {
+            ssid: None,
+            passphrase: None,
+            network_security_type: None,
+            hidden: None,
+        };
 
         let fields = wifi_to_fields(&wifi);
 
@@ -107,63 +120,116 @@ mod tests {
 
     #[test]
     fn test_wifi_to_fields_wpa3_security() {
-        let wifi = create_wifi_credential(
-            Some("SecureWiFi"),
-            Some("password123"),
-            Some(EditableFieldWifiNetworkSecurityType::Wpa3Personal),
-            Some(true),
-        );
+        use credential_exchange_format::{
+            EditableFieldBoolean, EditableFieldConcealedString, EditableFieldString,
+        };
+
+        let wifi = WifiCredential {
+            ssid: Some(EditableFieldString("SecureWiFi".to_string()).into()),
+            passphrase: Some(EditableFieldConcealedString("password123".to_string()).into()),
+            network_security_type: Some(EditableFieldWifiNetworkSecurityType::Wpa3Personal.into()),
+            hidden: Some(EditableFieldBoolean(true).into()),
+        };
 
         let fields = wifi_to_fields(&wifi);
 
         assert_eq!(
             fields,
             vec![
-                create_field("SSID", "SecureWiFi", FieldType::Text),
-                create_field("Passphrase", "password123", FieldType::Hidden),
-                create_field("Network Security Type", "WPA3 Personal", FieldType::Text),
-                create_field("Hidden", "true", FieldType::Boolean),
+                Field {
+                    name: Some("SSID".to_string()),
+                    value: Some("SecureWiFi".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("Passphrase".to_string()),
+                    value: Some("password123".to_string()),
+                    r#type: FieldType::Hidden as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("Network Security Type".to_string()),
+                    value: Some("WPA3 Personal".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("Hidden".to_string()),
+                    value: Some("true".to_string()),
+                    r#type: FieldType::Boolean as u8,
+                    linked_id: None,
+                },
             ]
         );
     }
 
     #[test]
     fn test_wifi_to_fields_unsecured() {
-        let wifi = create_wifi_credential(
-            Some("OpenWiFi"),
-            None,
-            Some(EditableFieldWifiNetworkSecurityType::Unsecured),
-            None,
-        );
+        use credential_exchange_format::EditableFieldString;
+
+        let wifi = WifiCredential {
+            ssid: Some(EditableFieldString("OpenWiFi".to_string()).into()),
+            passphrase: None,
+            network_security_type: Some(EditableFieldWifiNetworkSecurityType::Unsecured.into()),
+            hidden: None,
+        };
 
         let fields = wifi_to_fields(&wifi);
 
         assert_eq!(
             fields,
             vec![
-                create_field("SSID", "OpenWiFi", FieldType::Text),
-                create_field("Network Security Type", "Unsecured", FieldType::Text),
+                Field {
+                    name: Some("SSID".to_string()),
+                    value: Some("OpenWiFi".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("Network Security Type".to_string()),
+                    value: Some("Unsecured".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
             ]
         );
     }
 
     #[test]
     fn test_wifi_to_fields_wep_security() {
-        let wifi = create_wifi_credential(
-            Some("LegacyWiFi"),
-            Some("wepkey123"),
-            Some(EditableFieldWifiNetworkSecurityType::Wep),
-            None,
-        );
+        use credential_exchange_format::{EditableFieldConcealedString, EditableFieldString};
+
+        let wifi = WifiCredential {
+            ssid: Some(EditableFieldString("LegacyWiFi".to_string()).into()),
+            passphrase: Some(EditableFieldConcealedString("wepkey123".to_string()).into()),
+            network_security_type: Some(EditableFieldWifiNetworkSecurityType::Wep.into()),
+            hidden: None,
+        };
 
         let fields = wifi_to_fields(&wifi);
 
         assert_eq!(
             fields,
             vec![
-                create_field("SSID", "LegacyWiFi", FieldType::Text),
-                create_field("Passphrase", "wepkey123", FieldType::Hidden),
-                create_field("Network Security Type", "WEP", FieldType::Text),
+                Field {
+                    name: Some("SSID".to_string()),
+                    value: Some("LegacyWiFi".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("Passphrase".to_string()),
+                    value: Some("wepkey123".to_string()),
+                    r#type: FieldType::Hidden as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("Network Security Type".to_string()),
+                    value: Some("WEP".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
             ]
         );
     }
