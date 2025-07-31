@@ -21,7 +21,6 @@ pub mod vault;
 #[cfg(target_os = "android")]
 mod android_support;
 
-use bitwarden_crypto::EncString;
 use bitwarden_exporters::ExporterClientExt;
 use bitwarden_generators::GeneratorClientsExt;
 use bitwarden_send::SendClientExt;
