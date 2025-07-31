@@ -24,6 +24,7 @@ pub struct Collection {
     pub hide_passwords: bool,
     pub read_only: bool,
     pub manage: bool,
+    pub default_user_collection_email: Option<EncString>,
 }
 
 #[allow(missing_docs)]
@@ -48,10 +49,17 @@ impl Decryptable<KeyIds, SymmetricKeyId, CollectionView> for Collection {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<CollectionView, CryptoError> {
+        let name = self.default_user_collection_email
+            .as_ref()
+            .unwrap_or(&self.name)
+            .decrypt(ctx, key)
+            .ok()
+            .unwrap_or_default();
+
         Ok(CollectionView {
             id: self.id,
             organization_id: self.organization_id,
-            name: self.name.decrypt(ctx, key).ok().unwrap_or_default(),
+            name,
             external_id: self.external_id.clone(),
             hide_passwords: self.hide_passwords,
             read_only: self.read_only,
@@ -73,6 +81,9 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
             hide_passwords: collection.hide_passwords.unwrap_or(false),
             read_only: collection.read_only.unwrap_or(false),
             manage: collection.manage.unwrap_or(false),
+            default_user_collection_email: EncString::try_from_optional(
+                collection.default_user_collection_email
+            )?,
         })
     }
 }
@@ -102,4 +113,128 @@ impl TreeItem for CollectionView {
     }
 
     const DELIMITER: char = '/';
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+    use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
+    use uuid::Uuid;
+
+    const ORGANIZATION_ID: &str = "12345678-1234-1234-1234-123456789012";
+    const COLLECTION_ID: &str = "87654321-4321-4321-4321-210987654321";
+
+    // Helper function to create a test key store with a symmetric key
+    fn create_test_key_store() -> KeyStore<KeyIds> {
+        let store = KeyStore::<KeyIds>::default();
+        let key = SymmetricCryptoKey::try_from("sJnO8rVi0dTwND43n0T9x7665s8mVUYNAaJ4nm7gx1iia1I7947URL60nwfIHaf9QJePO4VkNN0oT9jh4iC6aA==".to_string()).unwrap();
+        let org_id = Uuid::parse_str(ORGANIZATION_ID).unwrap();
+
+        #[allow(deprecated)]
+        store
+            .context_mut()
+            .set_symmetric_key(SymmetricKeyId::Organization(org_id), key)
+            .unwrap();
+
+        store
+    }
+
+    #[test]
+    fn test_decrypt_with_name_only() {
+        let store = create_test_key_store();
+        let mut ctx = store.context();
+        let org_id = Uuid::parse_str(ORGANIZATION_ID).unwrap();
+        let key = SymmetricKeyId::Organization(org_id);
+
+        let collection_name: &str = "Collection Name";
+
+        let collection = Collection {
+            id: Some(Uuid::parse_str(COLLECTION_ID).unwrap()),
+            organization_id: org_id,
+            name: collection_name.encrypt(&mut ctx, key).unwrap(),
+            external_id: Some("external-id".to_string()),
+            hide_passwords: true,
+            read_only: false,
+            manage: true,
+            default_user_collection_email: None,
+        };
+
+        let decrypted = collection.decrypt(&mut ctx, key).unwrap();
+
+        assert_eq!(decrypted.id, collection.id);
+        assert_eq!(decrypted.organization_id, collection.organization_id);
+        assert_eq!(decrypted.name, collection_name);
+        assert_eq!(decrypted.external_id, collection.external_id);
+        assert_eq!(decrypted.hide_passwords, collection.hide_passwords);
+        assert_eq!(decrypted.read_only, collection.read_only);
+        assert_eq!(decrypted.manage, collection.manage);
+    }
+
+    #[test]
+    fn test_decrypt_with_default_user_collection_email() {
+        let store = create_test_key_store();
+        let mut ctx = store.context();
+        let org_id = Uuid::parse_str(ORGANIZATION_ID).unwrap();
+        let key = SymmetricKeyId::Organization(org_id);
+
+        let collection_name: &str = "Collection Name";
+        let default_user_collection_email: &str = "test-user@bitwarden.com";
+
+        let collection = Collection {
+            id: Some(Uuid::parse_str(COLLECTION_ID).unwrap()),
+            organization_id: org_id,
+            name: collection_name.encrypt(&mut ctx, key).unwrap(),
+            external_id: None,
+            hide_passwords: false,
+            read_only: true,
+            manage: false,
+            default_user_collection_email: Some(default_user_collection_email.encrypt(&mut ctx, key).unwrap()), // Different encrypted value
+        };
+
+        let decrypted = collection.decrypt(&mut ctx, key).unwrap();
+
+        assert_eq!(decrypted.id, collection.id);
+        assert_eq!(decrypted.organization_id, collection.organization_id);
+        assert_ne!(decrypted.name, collection_name);
+        assert_eq!(decrypted.name, default_user_collection_email);
+        assert_eq!(decrypted.external_id, collection.external_id);
+        assert_eq!(decrypted.hide_passwords, collection.hide_passwords);
+        assert_eq!(decrypted.read_only, collection.read_only);
+        assert_eq!(decrypted.manage, collection.manage);
+    }
+
+    #[test]
+    fn test_decrypt_all_fields_preserved() {
+        let store = create_test_key_store();
+        let mut ctx = store.context();
+        let org_id = Uuid::parse_str(ORGANIZATION_ID).unwrap();
+        let key = SymmetricKeyId::Organization(org_id);
+
+        let collection_id = Some(Uuid::parse_str(COLLECTION_ID).unwrap());
+        let external_id = Some("external-test-id".to_string());
+        let collection_name: &str = "Collection Name";
+
+        let collection = Collection {
+            id: collection_id,
+            organization_id: org_id,
+            name: collection_name.encrypt(&mut ctx, key).unwrap(),
+            external_id: external_id.clone(),
+            hide_passwords: true,
+            read_only: true,
+            manage: true,
+            default_user_collection_email: None,
+        };
+
+        let decrypted = collection.decrypt(&mut ctx, key).unwrap();
+
+        // Verify all fields are correctly transferred
+        assert_eq!(decrypted.id, collection_id);
+        assert_eq!(decrypted.organization_id, org_id);
+        assert_eq!(decrypted.name, collection_name);
+        assert_eq!(decrypted.external_id, external_id);
+        assert!(decrypted.hide_passwords);
+        assert!(decrypted.read_only);
+        assert!(decrypted.manage);
+    }
 }
