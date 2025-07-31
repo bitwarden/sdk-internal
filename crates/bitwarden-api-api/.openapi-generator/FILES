@@ -1,5 +1,3 @@
-.gitignore
-Cargo.toml
 README.md
 src/apis/access_policies_api.rs
 src/apis/account_billing_v_next_api.rs

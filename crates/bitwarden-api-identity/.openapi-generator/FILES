@@ -1,5 +1,3 @@
-.gitignore
-Cargo.toml
 README.md
 src/apis/accounts_api.rs
 src/apis/configuration.rs
