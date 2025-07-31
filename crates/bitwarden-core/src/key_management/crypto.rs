@@ -10,8 +10,8 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     dangerous_get_v2_rotated_account_keys, AsymmetricCryptoKey, CoseSerializable, CryptoError,
     EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes,
-    SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
-    UnsignedSharedKey, UserKey,
+    PrimitiveEncryptable, SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes,
+    SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
@@ -23,7 +23,8 @@ use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
     error::StatefulCryptoError,
     key_management::{
-        AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
+        non_generic_wrappers::PasswordProtectedKeyEnvelope, AsymmetricKeyId, SecurityState,
+        SignedSecurityState, SigningKeyId, SymmetricKeyId,
     },
     Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
 };
@@ -88,6 +89,13 @@ pub enum InitUserCryptoMethod {
         /// The user's symmetric crypto key, encrypted with the PIN. Use `derive_pin_key` to obtain
         /// this.
         pin_protected_user_key: EncString,
+    },
+    /// PIN
+    PinEnvelope {
+        /// The user's PIN
+        pin: String,
+        /// The user's symmetric crypto key, encrypted with the PIN-protected key envelope.
+        pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
     },
     /// Auth request
     AuthRequest {
@@ -170,6 +178,16 @@ pub(super) async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_pin(
                 pin_key,
                 pin_protected_user_key,
+                key_state,
+            )?;
+        }
+        InitUserCryptoMethod::PinEnvelope {
+            pin,
+            pin_protected_user_key_envelope,
+        } => {
+            client.internal.initialize_user_crypto_pin_envelope(
+                pin,
+                pin_protected_user_key_envelope,
                 key_state,
             )?;
         }
@@ -312,6 +330,40 @@ pub(super) fn update_password(
     Ok(UpdatePasswordResponse {
         password_hash,
         new_key,
+    })
+}
+
+/// Request for deriving a pin protected user key
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct EnrollPinResponse {
+    /// [UserKey] protected by PIN
+    pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
+    /// PIN protected by [UserKey]
+    user_key_encrypted_pin: EncString,
+}
+
+pub(super) fn enroll_pin(
+    client: &Client,
+    pin: String,
+) -> Result<EnrollPinResponse, CryptoClientError> {
+    let key_store = client.internal.get_key_store();
+    let mut ctx = key_store.context_mut();
+
+    let key_envelope = PasswordProtectedKeyEnvelope(
+        bitwarden_crypto::safe::PasswordProtectedKeyEnvelope::seal(
+            SymmetricKeyId::User,
+            &pin,
+            &ctx,
+        )
+        .map_err(|e| CryptoError::PasswordProtectedKeyEnvelopeError(e))?,
+    );
+    let encrypted_pin = pin.encrypt(&mut ctx, SymmetricKeyId::User)?;
+    Ok(EnrollPinResponse {
+        pin_protected_user_key_envelope: key_envelope,
+        user_key_encrypted_pin: encrypted_pin,
     })
 }
 

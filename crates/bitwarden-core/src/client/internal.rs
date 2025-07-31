@@ -26,7 +26,10 @@ use crate::{
         login_method::UserLoginMethod,
     },
     error::NotAuthenticatedError,
-    key_management::{crypto::InitUserCryptoRequest, SecurityState, SignedSecurityState},
+    key_management::{
+        crypto::InitUserCryptoRequest, PasswordProtectedKeyEnvelope, SecurityState,
+        SignedSecurityState,
+    },
 };
 
 /// Represents the user's keys, that are encrypted by the user key, and the signed security state.
@@ -306,6 +309,34 @@ impl InternalClient {
         key_state: UserKeyState,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = pin_key.decrypt_user_key(pin_protected_user_key)?;
+        self.initialize_user_crypto_decrypted_key(decrypted_user_key, key_state)
+    }
+
+    #[cfg(feature = "internal")]
+    pub(crate) fn initialize_user_crypto_pin_envelope(
+        &self,
+        pin: String,
+        pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
+        key_state: UserKeyState,
+    ) -> Result<(), EncryptionSettingsError> {
+        use crate::key_management::SymmetricKeyId;
+        let decrypted_user_key_id = pin_protected_user_key_envelope
+            .unseal(
+                SymmetricKeyId::Local("tmp_unlock_pin"),
+                &pin,
+                &mut self.key_store.context_mut(),
+            )
+            .map_err(|_| EncryptionSettingsError::WrongPin)?;
+
+        // Allowing deprecated here, until a refactor to pass the Local key ids to
+        // `initialized_user_crypto_decrypted_key`
+        #[allow(deprecated)]
+        let decrypted_user_key = self
+            .key_store
+            .context()
+            .dangerous_get_symmetric_key(decrypted_user_key_id)?
+            .clone();
+
         self.initialize_user_crypto_decrypted_key(decrypted_user_key, key_state)
     }
 

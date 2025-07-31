@@ -1,11 +1,13 @@
-use std::{marker::PhantomData, num::TryFromIntError};
+use std::{marker::PhantomData, num::TryFromIntError, str::FromStr};
 
 use argon2::Params;
+use base64::{engine::general_purpose::STANDARD, Engine};
 use ciborium::{value::Integer, Value};
 use coset::{
     iana::CoapContentFormat, CborSerializable, ContentType, CoseError, Header, HeaderBuilder,
 };
 use rand::RngCore;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
@@ -13,8 +15,8 @@ use crate::{
         extract_bytes, extract_integer, CoseExtractError, ALG_ARGON2ID13, ARGON2_ITERATIONS,
         ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT, CONTENT_TYPE_BITWARDEN_LEGACY_KEY,
     },
-    xchacha20, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds,
-    KeyStoreContext, SymmetricCryptoKey,
+    xchacha20, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey,
+    FromStrVisitor, KeyIds, KeyStoreContext, SymmetricCryptoKey,
 };
 
 /// A password-protected key envelope can seal a symmetric key, and protect it with a password. It
@@ -209,11 +211,12 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
     }
 }
 
-impl<Ids: KeyIds> TryInto<Vec<u8>> for &PasswordProtectedKeyEnvelope<Ids> {
-    type Error = CoseError;
-
-    fn try_into(self) -> Result<Vec<u8>, Self::Error> {
-        self.cose_encrypt.clone().to_vec()
+impl<Ids: KeyIds> Into<Vec<u8>> for &PasswordProtectedKeyEnvelope<Ids> {
+    fn into(self) -> Vec<u8> {
+        self.cose_encrypt
+            .clone()
+            .to_vec()
+            .expect("Serialization to cose should not fail")
     }
 }
 
@@ -226,6 +229,57 @@ impl<Ids: KeyIds> TryFrom<&Vec<u8>> for PasswordProtectedKeyEnvelope<Ids> {
             _phantom: PhantomData,
             cose_encrypt,
         })
+    }
+}
+
+impl<Ids: KeyIds> std::fmt::Debug for PasswordProtectedKeyEnvelope<Ids> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PasswordProtectedKeyEnvelope")
+            .field("cose_encrypt", &self.cose_encrypt)
+            .finish()
+    }
+}
+
+impl<Ids: KeyIds> FromStr for PasswordProtectedKeyEnvelope<Ids> {
+    type Err = PasswordProtectedKeyEnvelopeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let data = STANDARD.decode(s).map_err(|_| {
+            PasswordProtectedKeyEnvelopeError::ParsingError(
+                "Invalid PasswordProtectedKeyEnvelope Base64 encoding".to_string(),
+            )
+        })?;
+        Ok(Self::try_from(&data).map_err(|_| {
+            PasswordProtectedKeyEnvelopeError::ParsingError(
+                "Failed to parse PasswordProtectedKeyEnvelope".to_string(),
+            )
+        })?)
+    }
+}
+
+impl<Ids: KeyIds> Into<String> for PasswordProtectedKeyEnvelope<Ids> {
+    fn into(self) -> String {
+        let serialized: Vec<u8> = (&self).into();
+        STANDARD.encode(serialized)
+    }
+}
+
+impl<'de, Ids: KeyIds> Deserialize<'de> for PasswordProtectedKeyEnvelope<Ids> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(FromStrVisitor::new())
+    }
+}
+
+impl<Ids: KeyIds> Serialize for PasswordProtectedKeyEnvelope<Ids> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let serialized: Vec<u8> = self.into();
+        serializer.serialize_str(&STANDARD.encode(serialized))
     }
 }
 

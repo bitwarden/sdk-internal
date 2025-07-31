@@ -18,9 +18,12 @@ use crate::key_management::crypto::{
 use crate::{
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
-    key_management::crypto::{
-        get_v2_rotated_account_keys, make_v2_keys_for_v1_user, CryptoClientError,
-        UserCryptoV2KeysResponse,
+    key_management::{
+        crypto::{
+            enroll_pin, get_v2_rotated_account_keys, make_v2_keys_for_v1_user, CryptoClientError,
+            EnrollPinResponse, UserCryptoV2KeysResponse,
+        },
+        PasswordProtectedKeyEnvelope, SymmetricKeyId,
     },
     Client,
 };
@@ -79,6 +82,30 @@ impl CryptoClient {
         &self,
     ) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
         get_v2_rotated_account_keys(&self.client)
+    }
+
+    /// Protects the current user key with the provided PIN. The result can be stored and later
+    /// used to initialize another client instance by using the PIN and the PIN key with
+    /// `initialize_user_crypto`.
+    pub fn enroll_pin(&self, pin: String) -> Result<EnrollPinResponse, CryptoClientError> {
+        enroll_pin(&self.client, pin)
+    }
+
+    /// Decrypts a `PasswordProtectedKeyEnvelope`, returning the user key, if successful.
+    /// This is a stop-gap solution, until initialization of the SDK is used.
+    pub fn unseal_password_protected_key_envelope(
+        &self,
+        pin: String,
+        envelope: PasswordProtectedKeyEnvelope,
+    ) -> Result<Vec<u8>, CryptoClientError> {
+        let mut ctx = self.client.internal.get_key_store().context_mut();
+        let key_slot = SymmetricKeyId::Local("unseal_password_protected_key_envelope");
+        envelope
+            .unseal(key_slot, pin.as_str(), &mut ctx)
+            .map_err(|err| CryptoError::PasswordProtectedKeyEnvelopeError(err))?;
+        #[allow(deprecated)]
+        let key = ctx.dangerous_get_symmetric_key(key_slot)?;
+        Ok(key.to_encoded().to_vec())
     }
 }
 
