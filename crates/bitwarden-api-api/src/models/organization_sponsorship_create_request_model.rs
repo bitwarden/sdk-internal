@@ -20,6 +20,10 @@ pub struct OrganizationSponsorshipCreateRequestModel {
     pub sponsored_email: String,
     #[serde(rename = "friendlyName", skip_serializing_if = "Option::is_none")]
     pub friendly_name: Option<String>,
+    #[serde(rename = "isAdminInitiated", skip_serializing_if = "Option::is_none")]
+    pub is_admin_initiated: Option<bool>,
+    #[serde(rename = "notes", skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
 }
 
 impl OrganizationSponsorshipCreateRequestModel {
@@ -31,6 +35,8 @@ impl OrganizationSponsorshipCreateRequestModel {
             plan_sponsorship_type,
             sponsored_email,
             friendly_name: None,
+            is_admin_initiated: None,
+            notes: None,
         }
     }
 }

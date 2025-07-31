@@ -16,10 +16,18 @@ use crate::models;
 pub struct OrganizationUserConfirmRequestModel {
     #[serde(rename = "key")]
     pub key: String,
+    #[serde(
+        rename = "defaultUserCollectionName",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_user_collection_name: Option<String>,
 }
 
 impl OrganizationUserConfirmRequestModel {
     pub fn new(key: String) -> OrganizationUserConfirmRequestModel {
-        OrganizationUserConfirmRequestModel { key }
+        OrganizationUserConfirmRequestModel {
+            key,
+            default_user_collection_name: None,
+        }
     }
 }
