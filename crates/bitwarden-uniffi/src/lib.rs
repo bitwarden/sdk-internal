@@ -21,6 +21,7 @@ pub mod vault;
 #[cfg(target_os = "android")]
 mod android_support;
 
+use bitwarden_crypto::EncString;
 use bitwarden_exporters::ExporterClientExt;
 use bitwarden_generators::GeneratorClientsExt;
 use bitwarden_send::SendClientExt;
@@ -41,6 +42,7 @@ impl Client {
     #[uniffi::constructor]
     pub fn new(settings: Option<ClientSettings>) -> Self {
         init_logger();
+        setup_error_converter();
 
         #[cfg(target_os = "android")]
         android_support::init();
@@ -122,4 +124,12 @@ fn init_logger() {
             .with_tag("com.bitwarden.sdk")
             .with_max_level(log::LevelFilter::Info),
     );
+}
+
+/// Setup the error converter to ensure conversion errors don't cause panics
+/// Check [`bitwarden_uniffi_error`] for more details
+fn setup_error_converter() {
+    bitwarden_uniffi_error::set_error_to_uniffi_error(|e| {
+        crate::error::BitwardenError::ConversionError(e).into()
+    });
 }
