@@ -127,6 +127,7 @@ mod tests {
             hide_passwords: false,
             read_only: false,
             manage: false,
+            default_user_collection_email: None
         }]).unwrap();
 
         assert_eq!(dec[0].name, "Default collection");
@@ -144,6 +145,7 @@ mod tests {
             hide_passwords: false,
             read_only: false,
             manage: false,
+            default_user_collection_email: None
         }).unwrap();
 
         assert_eq!(dec.name, "Default collection");
