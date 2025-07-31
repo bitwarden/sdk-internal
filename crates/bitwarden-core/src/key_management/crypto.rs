@@ -69,6 +69,7 @@ pub struct InitUserCryptoRequest {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[allow(clippy::large_enum_variant)]
 pub enum InitUserCryptoMethod {
     /// Password
     Password {
@@ -91,7 +92,6 @@ pub enum InitUserCryptoMethod {
         pin_protected_user_key: EncString,
     },
     /// PIN Envelope
-    #[allow(clippy::large_enum_variant)]
     PinEnvelope {
         /// The user's PIN
         pin: String,
