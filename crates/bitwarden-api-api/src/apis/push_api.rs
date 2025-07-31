@@ -199,10 +199,10 @@ pub async fn push_register_post(
 
 pub async fn push_send_post(
     configuration: &configuration::Configuration,
-    push_send_request_model: Option<models::PushSendRequestModel>,
+    json_element_push_send_request_model: Option<models::JsonElementPushSendRequestModel>,
 ) -> Result<(), Error<PushSendPostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
-    let p_push_send_request_model = push_send_request_model;
+    let p_json_element_push_send_request_model = json_element_push_send_request_model;
 
     let uri_str = format!("{}/push/send", configuration.base_path);
     let mut req_builder = configuration
@@ -215,7 +215,7 @@ pub async fn push_send_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_push_send_request_model);
+    req_builder = req_builder.json(&p_json_element_push_send_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;

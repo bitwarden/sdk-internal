@@ -20,10 +20,9 @@ use crate::{
             MasterPasswordPolicyOptions,
         },
         pin::validate_pin,
-        register::{make_register_keys, register},
+        register::make_register_keys,
         tde::{make_register_tde_keys, RegisterTdeKeyResponse},
-        AuthRequestResponse, AuthValidateError, RegisterError, RegisterKeyResponse,
-        RegisterRequest,
+        AuthRequestResponse, AuthValidateError, RegisterKeyResponse,
     },
     client::encryption_settings::EncryptionSettingsError,
 };
@@ -99,11 +98,6 @@ impl AuthClient {
     pub fn make_key_connector_keys(&self) -> Result<KeyConnectorResponse, CryptoError> {
         let mut rng = rand::thread_rng();
         make_key_connector_keys(&mut rng)
-    }
-
-    #[allow(missing_docs)]
-    pub async fn register(&self, input: &RegisterRequest) -> Result<(), RegisterError> {
-        register(&self.client, input).await
     }
 
     #[allow(missing_docs)]

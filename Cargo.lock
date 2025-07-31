@@ -370,6 +370,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-collections"
+version = "1.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-error",
+ "serde",
+ "thiserror 1.0.69",
+ "tsify",
+ "uniffi",
+ "uuid",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "bitwarden-core"
 version = "1.0.0"
 dependencies = [
@@ -482,6 +498,7 @@ name = "bitwarden-exporters"
 version = "1.0.0"
 dependencies = [
  "base64",
+ "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
@@ -668,6 +685,7 @@ version = "0.1.0"
 dependencies = [
  "android_logger",
  "async-trait",
+ "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-exporters",
@@ -715,6 +733,7 @@ version = "1.0.0"
 dependencies = [
  "base64",
  "bitwarden-api-api",
+ "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",

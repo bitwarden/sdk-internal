@@ -6,8 +6,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{
-    api::response::IdentityTokenResponse,
-    login::response::{captcha_response::CaptchaResponse, two_factor::TwoFactorProviders},
+    api::response::IdentityTokenResponse, login::response::two_factor::TwoFactorProviders,
 };
 #[cfg(feature = "internal")]
 use crate::{
@@ -114,9 +113,6 @@ pub struct PasswordLoginResponse {
     /// The available two factor authentication options. Present only when authentication fails due
     /// to requiring a second authentication factor.
     pub two_factor: Option<TwoFactorProviders>,
-    /// The information required to present the user with a captcha challenge. Only present when
-    /// authentication fails due to requiring validation of a captcha challenge.
-    pub captcha: Option<CaptchaResponse>,
 }
 
 impl PasswordLoginResponse {
@@ -127,28 +123,18 @@ impl PasswordLoginResponse {
                 reset_master_password: success.reset_master_password,
                 force_password_reset: success.force_password_reset,
                 two_factor: None,
-                captcha: None,
             },
             IdentityTokenResponse::Payload(_) => PasswordLoginResponse {
                 authenticated: true,
                 reset_master_password: false,
                 force_password_reset: false,
                 two_factor: None,
-                captcha: None,
             },
             IdentityTokenResponse::TwoFactorRequired(two_factor) => PasswordLoginResponse {
                 authenticated: false,
                 reset_master_password: false,
                 force_password_reset: false,
                 two_factor: Some(two_factor.two_factor_providers.into()),
-                captcha: two_factor.captcha_token.map(Into::into),
-            },
-            IdentityTokenResponse::CaptchaRequired(captcha) => PasswordLoginResponse {
-                authenticated: false,
-                reset_master_password: false,
-                force_password_reset: false,
-                two_factor: None,
-                captcha: Some(captcha.site_key.into()),
             },
             IdentityTokenResponse::Refreshed(_) => {
                 unreachable!("Got a `refresh_token` answer to a login request")
