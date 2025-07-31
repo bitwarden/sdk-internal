@@ -36,15 +36,11 @@ mod tests {
 
     #[test]
     fn test_wifi_to_fields_all_fields() {
-        use credential_exchange_format::{
-            EditableFieldBoolean, EditableFieldConcealedString, EditableFieldString,
-        };
-
         let wifi = WifiCredential {
-            ssid: Some(EditableFieldString("MyWiFi".to_string()).into()),
-            passphrase: Some(EditableFieldConcealedString("secret123".to_string()).into()),
+            ssid: Some("MyWiFi".to_owned().into()),
+            passphrase: Some("secret123".to_owned().into()),
             network_security_type: Some(EditableFieldWifiNetworkSecurityType::Wpa2Personal.into()),
-            hidden: Some(EditableFieldBoolean(false).into()),
+            hidden: Some(false.into()),
         };
 
         let fields = wifi_to_fields(&wifi);
@@ -82,10 +78,8 @@ mod tests {
 
     #[test]
     fn test_wifi_to_fields_minimal() {
-        use credential_exchange_format::EditableFieldString;
-
         let wifi = WifiCredential {
-            ssid: Some(EditableFieldString("BasicWiFi".to_string()).into()),
+            ssid: Some("BasicWiFi".to_owned().into()),
             passphrase: None,
             network_security_type: None,
             hidden: None,
@@ -120,15 +114,11 @@ mod tests {
 
     #[test]
     fn test_wifi_to_fields_wpa3_security() {
-        use credential_exchange_format::{
-            EditableFieldBoolean, EditableFieldConcealedString, EditableFieldString,
-        };
-
         let wifi = WifiCredential {
-            ssid: Some(EditableFieldString("SecureWiFi".to_string()).into()),
-            passphrase: Some(EditableFieldConcealedString("password123".to_string()).into()),
+            ssid: Some("SecureWiFi".to_owned().into()),
+            passphrase: Some("password123".to_owned().into()),
             network_security_type: Some(EditableFieldWifiNetworkSecurityType::Wpa3Personal.into()),
-            hidden: Some(EditableFieldBoolean(true).into()),
+            hidden: Some(true.into()),
         };
 
         let fields = wifi_to_fields(&wifi);
@@ -166,10 +156,8 @@ mod tests {
 
     #[test]
     fn test_wifi_to_fields_unsecured() {
-        use credential_exchange_format::EditableFieldString;
-
         let wifi = WifiCredential {
-            ssid: Some(EditableFieldString("OpenWiFi".to_string()).into()),
+            ssid: Some("OpenWiFi".to_owned().into()),
             passphrase: None,
             network_security_type: Some(EditableFieldWifiNetworkSecurityType::Unsecured.into()),
             hidden: None,
@@ -198,11 +186,9 @@ mod tests {
 
     #[test]
     fn test_wifi_to_fields_wep_security() {
-        use credential_exchange_format::{EditableFieldConcealedString, EditableFieldString};
-
         let wifi = WifiCredential {
-            ssid: Some(EditableFieldString("LegacyWiFi".to_string()).into()),
-            passphrase: Some(EditableFieldConcealedString("wepkey123".to_string()).into()),
+            ssid: Some("LegacyWiFi".to_owned().into()),
+            passphrase: Some("wepkey123".to_owned().into()),
             network_security_type: Some(EditableFieldWifiNetworkSecurityType::Wep.into()),
             hidden: None,
         };
