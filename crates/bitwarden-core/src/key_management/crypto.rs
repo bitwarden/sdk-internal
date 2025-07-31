@@ -772,7 +772,7 @@ pub(crate) fn get_v2_rotated_account_keys(
 
 #[cfg(test)]
 mod tests {
-    use std::{num::NonZeroU32, str::FromStr};
+    use std::num::NonZeroU32;
 
     use bitwarden_crypto::RsaKeyPair;
 
@@ -992,32 +992,52 @@ mod tests {
 
     #[tokio::test]
     async fn test_initialize_user_crypto_pin_envelope() {
-        let client = Client::new(None);
-
-        let pin_envelope = "hFgmoQN4ImFwcGxpY2F0aW9uL3guYml0d2FyZGVuLmxlZ2FjeS1rZXmhBVgYQBLoIbhFaeXLNCgT5HnoUgb9kddjBFiVWFAQBEhSokeC1t4TYRwXUgreczzQR7KAhIGtE5R3W0ibMayLBEfRWm7vtJYX1YYiNDsbKFZW4TE/J9vFo1qSzM1dpsdJSHYkCyN8YNGdS0UYWoGDR6EBOgABFVelAToAARVXOgABFVkDOgABFVoaAAEAADoAARVbBDoAARVYWCBZ+N8GiRSgnYuT6/Gij1JU3YUND8/9BxFgS1Af8fG/YfY=";
         let user_key = "5yKAZ4TSSEGje54MV5lc5ty6crkqUz4xvl+8Dm/piNLKf6OgRi2H0uzttNTXl9z6ILhkmuIXzGpAVc2YdorHgQ==";
-        let private_key = make_key_pair(user_key.to_string()).unwrap();
-        let priv_key: EncString = private_key.user_key_encrypted_private_key;
+        let test_pin = "1234";
 
+        let client1 = Client::new(None);
         initialize_user_crypto(
-            &client,
+            &client1,
             InitUserCryptoRequest {
                 user_id: Some(uuid::Uuid::new_v4()),
                 kdf_params: Kdf::PBKDF2 {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                private_key: priv_key.to_owned(),
+                private_key: make_key_pair(user_key.to_string())
+                    .unwrap()
+                    .user_key_encrypted_private_key,
+                signing_key: None,
+                security_state: None,
+                method: InitUserCryptoMethod::DecryptedKey {
+                    decrypted_user_key: user_key.to_string(),
+                },
+            },
+        )
+        .await
+        .unwrap();
+
+        let enroll_response = client1.crypto().enroll_pin(test_pin.to_string()).unwrap();
+        let client1 = Client::new(None);
+        initialize_user_crypto(
+            &client1,
+            InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
+                // NOTE: THIS CHANGES KDF SETTINGS. We ensure in this test that even with different
+                // KDF settings the pin can unlock the user key.
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 600_000.try_into().unwrap(),
+                },
+                email: "test@bitwarden.com".into(),
+                private_key: make_key_pair(user_key.to_string())
+                    .unwrap()
+                    .user_key_encrypted_private_key,
                 signing_key: None,
                 security_state: None,
                 method: InitUserCryptoMethod::PinEnvelope {
-                    pin: "test_password".into(),
-                    pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope(
-                        bitwarden_crypto::safe::PasswordProtectedKeyEnvelope::from_str(
-                            pin_envelope,
-                        )
-                        .unwrap(),
-                    ),
+                    pin: test_pin.to_string(),
+                    pin_protected_user_key_envelope: enroll_response
+                        .pin_protected_user_key_envelope,
                 },
             },
         )

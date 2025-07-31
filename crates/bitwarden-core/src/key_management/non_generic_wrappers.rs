@@ -14,8 +14,11 @@ use crate::key_management::KeyIds;
 #[serde(transparent)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PasswordProtectedKeyEnvelope(
-    #[tsify(type = r#"Tagged<string, "PasswordProtectedKeyEnvelope">"#)]
-    pub(crate)  bitwarden_crypto::safe::PasswordProtectedKeyEnvelope<KeyIds>,
+    #[cfg_attr(
+        feature = "wasm",
+        tsify(type = r#"Tagged<string, "PasswordProtectedKeyEnvelope">"#)
+    )]
+    pub(crate) bitwarden_crypto::safe::PasswordProtectedKeyEnvelope<KeyIds>,
 );
 
 impl Deref for PasswordProtectedKeyEnvelope {
