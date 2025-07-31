@@ -19,7 +19,7 @@ where
     }
 }
 
-/// Trait to convert EditableField types to Field values and types
+/// Trait to convert CXP EditableField types to Bitwarden Field values and types
 pub(super) trait EditableFieldToField {
     const FIELD_TYPE: FieldType;
 
