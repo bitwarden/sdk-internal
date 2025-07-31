@@ -44,6 +44,7 @@ pub enum DeviceType {
     WindowsCLI = 23,
     MacOsCLI = 24,
     LinuxCLI = 25,
+    DuckDuckGoBrowser = 26,
 }
 
 impl std::fmt::Display for DeviceType {
@@ -78,6 +79,7 @@ impl std::fmt::Display for DeviceType {
                 Self::WindowsCLI => "23",
                 Self::MacOsCLI => "24",
                 Self::LinuxCLI => "25",
+                Self::DuckDuckGoBrowser => "26",
             }
         )
     }
