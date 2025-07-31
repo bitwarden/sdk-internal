@@ -1,6 +1,10 @@
 use bitwarden_api_identity::{
-    apis::accounts_api::accounts_register_post,
-    models::{KeysRequestModel, RegisterRequestModel},
+    apis::accounts_api::{
+        accounts_register_finish_post, accounts_register_send_verification_email_post,
+    },
+    models::{
+        KeysRequestModel, RegisterFinishRequestModel, RegisterSendVerificationEmailRequestModel,
+    },
 };
 use bitwarden_crypto::{
     default_pbkdf2_iterations, CryptoError, EncString, HashPurpose, Kdf, MasterKey, RsaKeyPair,
@@ -37,26 +41,40 @@ pub(super) async fn register(client: &Client, req: &RegisterRequest) -> Result<(
 
     let keys = make_register_keys(req.email.to_owned(), req.password.to_owned(), kdf)?;
 
-    accounts_register_post(
+    let registration_token = accounts_register_send_verification_email_post(
         &config.identity,
-        Some(RegisterRequestModel {
+        Some(RegisterSendVerificationEmailRequestModel {
             name: req.name.to_owned(),
-            email: req.email.to_owned(),
-            master_password_hash: keys.master_password_hash,
+            email: Some(req.email.to_owned()),
+            receive_marketing_emails: None,
+        }),
+    )
+    .await
+    .map_err(ApiError::from)?;
+
+    accounts_register_finish_post(
+        &config.identity,
+        Some(RegisterFinishRequestModel {
+            email: Some(req.email.to_owned()),
+            master_password_hash: Some(keys.master_password_hash),
             master_password_hint: req.password_hint.to_owned(),
-            captcha_response: None, // TODO: Add
-            key: Some(keys.encrypted_user_key.to_string()),
-            keys: Some(Box::new(KeysRequestModel {
+            user_symmetric_key: Some(keys.encrypted_user_key.to_string()),
+            user_asymmetric_keys: Box::new(KeysRequestModel {
                 public_key: keys.keys.public,
                 encrypted_private_key: keys.keys.private.to_string(),
-            })),
-            token: None,
+            }),
+            email_verification_token: Some(registration_token),
             organization_user_id: None,
-            kdf: Some(bitwarden_api_identity::models::KdfType::PBKDF2_SHA256),
-            kdf_iterations: Some(default_pbkdf2_iterations().get() as i32),
+            org_invite_token: None,
+            org_sponsored_free_family_plan_token: None,
+            accept_emergency_access_invite_token: None,
+            accept_emergency_access_id: None,
+            provider_invite_token: None,
+            kdf: bitwarden_api_identity::models::KdfType::PBKDF2_SHA256,
+            kdf_iterations: default_pbkdf2_iterations().get() as i32,
             kdf_memory: None,
             kdf_parallelism: None,
-            reference_data: None, // TODO: Add
+            provider_user_id: None,
         }),
     )
     .await

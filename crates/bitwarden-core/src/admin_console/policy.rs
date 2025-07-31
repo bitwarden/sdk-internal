@@ -31,7 +31,7 @@ pub enum PolicyType {
     /// Requires users to authenticate with SSO
     RequireSso = 4,
     /// Disables personal vault ownership for adding/cloning items
-    PersonalOwnership = 5,
+    OrganizationDataOwnership = 5,
     /// Disables the ability to create and edit Bitwarden Sends
     DisableSend = 6,
     /// Sets restrictions or defaults for Bitwarden Sends
@@ -47,6 +47,7 @@ pub enum PolicyType {
     AutomaticAppLogIn = 12,
     FreeFamiliesSponsorshipPolicy = 13,
     RemoveUnlockWithPin = 14,
+    RestrictedItemTypesPolicy = 15,
 }
 
 impl TryFrom<PolicyResponseModel> for Policy {
@@ -75,8 +76,8 @@ impl From<bitwarden_api_api::models::PolicyType> for PolicyType {
             }
             bitwarden_api_api::models::PolicyType::SingleOrg => PolicyType::SingleOrg,
             bitwarden_api_api::models::PolicyType::RequireSso => PolicyType::RequireSso,
-            bitwarden_api_api::models::PolicyType::PersonalOwnership => {
-                PolicyType::PersonalOwnership
+            bitwarden_api_api::models::PolicyType::OrganizationDataOwnership => {
+                PolicyType::OrganizationDataOwnership
             }
             bitwarden_api_api::models::PolicyType::DisableSend => PolicyType::DisableSend,
             bitwarden_api_api::models::PolicyType::SendOptions => PolicyType::SendOptions,
@@ -96,6 +97,9 @@ impl From<bitwarden_api_api::models::PolicyType> for PolicyType {
             }
             bitwarden_api_api::models::PolicyType::RemoveUnlockWithPin => {
                 PolicyType::RemoveUnlockWithPin
+            }
+            bitwarden_api_api::models::PolicyType::RestrictedItemTypesPolicy => {
+                PolicyType::RestrictedItemTypesPolicy
             }
         }
     }
