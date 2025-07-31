@@ -57,40 +57,46 @@ mod tests {
 
         let fields = api_key_to_fields(&api_key);
 
-        assert_eq!(fields.len(), 6);
+        let expected_fields = vec![
+            Field {
+                name: Some("API Key".to_string()),
+                value: Some("AIzaSyAyRofL-VJHZofHc-qOSkqVOdhvgQoJADk".to_string()),
+                r#type: FieldType::Hidden as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Username".to_string()),
+                value: Some("john_doe".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Key Type".to_string()),
+                value: Some("Bearer".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("URL".to_string()),
+                value: Some("https://api.example.com".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Valid From".to_string()),
+                value: Some("2025-01-01".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Expiry Date".to_string()),
+                value: Some("2026-01-01".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+        ];
 
-        // API Key field (should be hidden)
-        assert_eq!(fields[0].name, Some("API Key".to_string()));
-        assert_eq!(
-            fields[0].value,
-            Some("AIzaSyAyRofL-VJHZofHc-qOSkqVOdhvgQoJADk".to_string())
-        );
-        assert_eq!(fields[0].r#type, FieldType::Hidden as u8);
-
-        // Username field
-        assert_eq!(fields[1].name, Some("Username".to_string()));
-        assert_eq!(fields[1].value, Some("john_doe".to_string()));
-        assert_eq!(fields[1].r#type, FieldType::Text as u8);
-
-        // Key Type field
-        assert_eq!(fields[2].name, Some("Key Type".to_string()));
-        assert_eq!(fields[2].value, Some("Bearer".to_string()));
-        assert_eq!(fields[2].r#type, FieldType::Text as u8);
-
-        // URL field
-        assert_eq!(fields[3].name, Some("URL".to_string()));
-        assert_eq!(fields[3].value, Some("https://api.example.com".to_string()));
-        assert_eq!(fields[3].r#type, FieldType::Text as u8);
-
-        // Valid From field
-        assert_eq!(fields[4].name, Some("Valid From".to_string()));
-        assert_eq!(fields[4].value, Some("2025-01-01".to_string()));
-        assert_eq!(fields[4].r#type, FieldType::Text as u8);
-
-        // Expiry Date field
-        assert_eq!(fields[5].name, Some("Expiry Date".to_string()));
-        assert_eq!(fields[5].value, Some("2026-01-01".to_string()));
-        assert_eq!(fields[5].r#type, FieldType::Text as u8);
+        assert_eq!(fields, expected_fields);
     }
 
     #[test]
@@ -106,10 +112,14 @@ mod tests {
 
         let fields = api_key_to_fields(&api_key);
 
-        assert_eq!(fields.len(), 1);
-        assert_eq!(fields[0].name, Some("API Key".to_string()));
-        assert_eq!(fields[0].value, Some("test-api-key".to_string()));
-        assert_eq!(fields[0].r#type, FieldType::Hidden as u8);
+        let expected_fields = vec![Field {
+            name: Some("API Key".to_string()),
+            value: Some("test-api-key".to_string()),
+            r#type: FieldType::Hidden as u8,
+            linked_id: None,
+        }];
+
+        assert_eq!(fields, expected_fields);
     }
 
     #[test]
@@ -125,7 +135,7 @@ mod tests {
 
         let fields = api_key_to_fields(&api_key);
 
-        assert_eq!(fields.len(), 0);
+        assert_eq!(fields, vec![]);
     }
 
     #[test]
@@ -141,13 +151,27 @@ mod tests {
 
         let fields = api_key_to_fields(&api_key);
 
-        assert_eq!(fields.len(), 3);
+        let expected_fields = vec![
+            Field {
+                name: Some("API Key".to_string()),
+                value: Some("secret-key".to_string()),
+                r#type: FieldType::Hidden as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Username".to_string()),
+                value: Some("test_user".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Key Type".to_string()),
+                value: Some("API_KEY".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+        ];
 
-        // Check that we have the expected fields
-        let field_names: Vec<String> = fields.iter().filter_map(|f| f.name.clone()).collect();
-
-        assert!(field_names.contains(&"API Key".to_string()));
-        assert!(field_names.contains(&"Username".to_string()));
-        assert!(field_names.contains(&"Key Type".to_string()));
+        assert_eq!(fields, expected_fields);
     }
 }
