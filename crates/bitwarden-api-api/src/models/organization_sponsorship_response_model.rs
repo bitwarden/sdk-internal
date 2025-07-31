@@ -39,6 +39,8 @@ pub struct OrganizationSponsorshipResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub cloud_sponsorship_removed: Option<bool>,
+    #[serde(rename = "isAdminInitiated", skip_serializing_if = "Option::is_none")]
+    pub is_admin_initiated: Option<bool>,
 }
 
 impl OrganizationSponsorshipResponseModel {
@@ -52,6 +54,7 @@ impl OrganizationSponsorshipResponseModel {
             valid_until: None,
             to_delete: None,
             cloud_sponsorship_removed: None,
+            is_admin_initiated: None,
         }
     }
 }
