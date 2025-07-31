@@ -22,9 +22,11 @@ pub(crate) async fn get_secrets_by_ids(
 
     let config = client.internal.get_api_configurations().await;
 
-    let res =
-        bitwarden_api_api::apis::secrets_api::secrets_get_secrets_by_ids(&config.api, request)
-            .await?;
+    let res = config
+        .api_client
+        .secrets_api()
+        .get_secrets_by_ids(request)
+        .await?;
 
     let key_store = client.internal.get_key_store();
 

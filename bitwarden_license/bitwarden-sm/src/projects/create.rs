@@ -40,12 +40,11 @@ pub(crate) async fn create_project(
     });
 
     let config = client.internal.get_api_configurations().await;
-    let res = bitwarden_api_api::apis::projects_api::projects_create(
-        &config.api,
-        input.organization_id,
-        project,
-    )
-    .await?;
+    let res = config
+        .api_client
+        .projects_api()
+        .create(input.organization_id, project)
+        .await?;
 
     ProjectResponse::process_response(res, &mut key_store.context())
 }

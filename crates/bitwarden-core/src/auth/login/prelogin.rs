@@ -1,7 +1,4 @@
-use bitwarden_api_identity::{
-    apis::accounts_api::accounts_post_prelogin,
-    models::{PreloginRequestModel, PreloginResponseModel},
-};
+use bitwarden_api_identity::models::{PreloginRequestModel, PreloginResponseModel};
 use bitwarden_crypto::Kdf;
 use thiserror::Error;
 
@@ -19,7 +16,10 @@ pub enum PreloginError {
 pub(crate) async fn prelogin(client: &Client, email: String) -> Result<Kdf, PreloginError> {
     let request_model = PreloginRequestModel::new(email);
     let config = client.internal.get_api_configurations().await;
-    let result = accounts_post_prelogin(&config.identity, Some(request_model))
+    let result = config
+        .identity_client
+        .accounts_api()
+        .post_prelogin(Some(request_model))
         .await
         .map_err(ApiError::from)?;
 
