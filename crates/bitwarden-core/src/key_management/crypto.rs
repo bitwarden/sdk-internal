@@ -10,8 +10,8 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     dangerous_get_v2_rotated_account_keys, AsymmetricCryptoKey, CoseSerializable, CryptoError,
     EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes,
-    SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
-    UnsignedSharedKey, UserKey,
+    PrimitiveEncryptable, SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes,
+    SymmetricCryptoKey, UnsignedSharedKey, UserKey,
 };
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
@@ -23,7 +23,8 @@ use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
     error::StatefulCryptoError,
     key_management::{
-        AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
+        non_generic_wrappers::PasswordProtectedKeyEnvelope, AsymmetricKeyId, SecurityState,
+        SignedSecurityState, SigningKeyId, SymmetricKeyId,
     },
     Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
 };
@@ -68,6 +69,7 @@ pub struct InitUserCryptoRequest {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[allow(clippy::large_enum_variant)]
 pub enum InitUserCryptoMethod {
     /// Password
     Password {
@@ -88,6 +90,13 @@ pub enum InitUserCryptoMethod {
         /// The user's symmetric crypto key, encrypted with the PIN. Use `derive_pin_key` to obtain
         /// this.
         pin_protected_user_key: EncString,
+    },
+    /// PIN Envelope
+    PinEnvelope {
+        /// The user's PIN
+        pin: String,
+        /// The user's symmetric crypto key, encrypted with the PIN-protected key envelope.
+        pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
     },
     /// Auth request
     AuthRequest {
@@ -170,6 +179,16 @@ pub(super) async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_pin(
                 pin_key,
                 pin_protected_user_key,
+                key_state,
+            )?;
+        }
+        InitUserCryptoMethod::PinEnvelope {
+            pin,
+            pin_protected_user_key_envelope,
+        } => {
+            client.internal.initialize_user_crypto_pin_envelope(
+                pin,
+                pin_protected_user_key_envelope,
                 key_state,
             )?;
         }
@@ -312,6 +331,40 @@ pub(super) fn update_password(
     Ok(UpdatePasswordResponse {
         password_hash,
         new_key,
+    })
+}
+
+/// Request for deriving a pin protected user key
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct EnrollPinResponse {
+    /// [UserKey] protected by PIN
+    pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
+    /// PIN protected by [UserKey]
+    user_key_encrypted_pin: EncString,
+}
+
+pub(super) fn enroll_pin(
+    client: &Client,
+    pin: String,
+) -> Result<EnrollPinResponse, CryptoClientError> {
+    let key_store = client.internal.get_key_store();
+    let mut ctx = key_store.context_mut();
+
+    let key_envelope = PasswordProtectedKeyEnvelope(
+        bitwarden_crypto::safe::PasswordProtectedKeyEnvelope::seal(
+            SymmetricKeyId::User,
+            &pin,
+            &ctx,
+        )
+        .map_err(CryptoError::PasswordProtectedKeyEnvelopeError)?,
+    );
+    let encrypted_pin = pin.encrypt(&mut ctx, SymmetricKeyId::User)?;
+    Ok(EnrollPinResponse {
+        pin_protected_user_key_envelope: key_envelope,
+        user_key_encrypted_pin: encrypted_pin,
     })
 }
 
@@ -935,6 +988,62 @@ mod tests {
         };
 
         assert_eq!(client_key, client3_key);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_crypto_pin_envelope() {
+        let user_key = "5yKAZ4TSSEGje54MV5lc5ty6crkqUz4xvl+8Dm/piNLKf6OgRi2H0uzttNTXl9z6ILhkmuIXzGpAVc2YdorHgQ==";
+        let test_pin = "1234";
+
+        let client1 = Client::new(None);
+        initialize_user_crypto(
+            &client1,
+            InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 100_000.try_into().unwrap(),
+                },
+                email: "test@bitwarden.com".into(),
+                private_key: make_key_pair(user_key.to_string())
+                    .unwrap()
+                    .user_key_encrypted_private_key,
+                signing_key: None,
+                security_state: None,
+                method: InitUserCryptoMethod::DecryptedKey {
+                    decrypted_user_key: user_key.to_string(),
+                },
+            },
+        )
+        .await
+        .unwrap();
+
+        let enroll_response = client1.crypto().enroll_pin(test_pin.to_string()).unwrap();
+
+        let client1 = Client::new(None);
+        initialize_user_crypto(
+            &client1,
+            InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
+                // NOTE: THIS CHANGES KDF SETTINGS. We ensure in this test that even with different
+                // KDF settings the pin can unlock the user key.
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 600_000.try_into().unwrap(),
+                },
+                email: "test@bitwarden.com".into(),
+                private_key: make_key_pair(user_key.to_string())
+                    .unwrap()
+                    .user_key_encrypted_private_key,
+                signing_key: None,
+                security_state: None,
+                method: InitUserCryptoMethod::PinEnvelope {
+                    pin: test_pin.to_string(),
+                    pin_protected_user_key_envelope: enroll_response
+                        .pin_protected_user_key_envelope,
+                },
+            },
+        )
+        .await
+        .unwrap();
     }
 
     #[test]
