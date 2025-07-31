@@ -90,7 +90,8 @@ pub enum InitUserCryptoMethod {
         /// this.
         pin_protected_user_key: EncString,
     },
-    /// PIN
+    /// PIN Envelope
+    #[allow(clippy::large_enum_variant)]
     PinEnvelope {
         /// The user's PIN
         pin: String,
@@ -358,7 +359,7 @@ pub(super) fn enroll_pin(
             &pin,
             &ctx,
         )
-        .map_err(|e| CryptoError::PasswordProtectedKeyEnvelopeError(e))?,
+        .map_err(CryptoError::PasswordProtectedKeyEnvelopeError)?,
     );
     let encrypted_pin = pin.encrypt(&mut ctx, SymmetricKeyId::User)?;
     Ok(EnrollPinResponse {

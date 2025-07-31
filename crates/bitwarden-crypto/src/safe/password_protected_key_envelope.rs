@@ -211,9 +211,9 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
     }
 }
 
-impl<Ids: KeyIds> Into<Vec<u8>> for &PasswordProtectedKeyEnvelope<Ids> {
-    fn into(self) -> Vec<u8> {
-        self.cose_encrypt
+impl<Ids: KeyIds> From<&PasswordProtectedKeyEnvelope<Ids>> for Vec<u8> {
+    fn from(val: &PasswordProtectedKeyEnvelope<Ids>) -> Self {
+        val.cose_encrypt
             .clone()
             .to_vec()
             .expect("Serialization to cose should not fail")
@@ -249,17 +249,17 @@ impl<Ids: KeyIds> FromStr for PasswordProtectedKeyEnvelope<Ids> {
                 "Invalid PasswordProtectedKeyEnvelope Base64 encoding".to_string(),
             )
         })?;
-        Ok(Self::try_from(&data).map_err(|_| {
+        Self::try_from(&data).map_err(|_| {
             PasswordProtectedKeyEnvelopeError::ParsingError(
                 "Failed to parse PasswordProtectedKeyEnvelope".to_string(),
             )
-        })?)
+        })
     }
 }
 
-impl<Ids: KeyIds> Into<String> for PasswordProtectedKeyEnvelope<Ids> {
-    fn into(self) -> String {
-        let serialized: Vec<u8> = (&self).into();
+impl<Ids: KeyIds> From<PasswordProtectedKeyEnvelope<Ids>> for String {
+    fn from(val: PasswordProtectedKeyEnvelope<Ids>) -> Self {
+        let serialized: Vec<u8> = (&val).into();
         STANDARD.encode(serialized)
     }
 }
@@ -525,7 +525,7 @@ mod tests {
 
         // Seal the key with a password
         let envelope = PasswordProtectedKeyEnvelope::seal(test_key, password, &ctx).unwrap();
-        let serialized: Vec<u8> = (&envelope).try_into().unwrap();
+        let serialized: Vec<u8> = (&envelope).into();
 
         // Unseal the key from the envelope
         let deserialized: PasswordProtectedKeyEnvelope<TestIds> =
@@ -558,7 +558,7 @@ mod tests {
 
         // Seal the key with a password
         let envelope = PasswordProtectedKeyEnvelope::seal(test_key, password, &ctx).unwrap();
-        let serialized: Vec<u8> = (&envelope).try_into().unwrap();
+        let serialized: Vec<u8> = (&envelope).into();
 
         // Unseal the key from the envelope
         let deserialized: PasswordProtectedKeyEnvelope<TestIds> =
@@ -617,7 +617,7 @@ mod tests {
 
         // Attempt to unseal with the wrong password
         let deserialized: PasswordProtectedKeyEnvelope<TestIds> =
-            PasswordProtectedKeyEnvelope::try_from(&(&envelope).try_into().unwrap()).unwrap();
+            PasswordProtectedKeyEnvelope::try_from(&(&envelope).into()).unwrap();
         assert!(matches!(
             deserialized.unseal(TestSymmKey::A(1), wrong_password, &mut ctx),
             Err(PasswordProtectedKeyEnvelopeError::WrongPassword)

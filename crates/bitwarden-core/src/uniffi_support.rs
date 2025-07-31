@@ -22,7 +22,7 @@ uniffi::custom_type!(PasswordProtectedKeyEnvelope, String, {
     remote,
     try_lift: |val| bitwarden_crypto::safe::PasswordProtectedKeyEnvelope::from_str(val.as_str())
         .map_err(|e| e.into())
-        .map(|envelope| PasswordProtectedKeyEnvelope(envelope)),
+        .map(PasswordProtectedKeyEnvelope),
     lower: |obj| obj.0.into(),
 });
 

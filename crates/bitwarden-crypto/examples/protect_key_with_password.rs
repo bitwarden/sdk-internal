@@ -32,7 +32,7 @@ fn main() {
         PasswordProtectedKeyEnvelope::seal(vault_key, pin, &ctx).expect("Sealing should work");
     disk.save(
         "vault_key_envelope",
-        (&envelope).try_into().expect("Saving envelope should work"),
+        (&envelope).into(),
     );
 
     // Wipe the context to simulate new session
@@ -56,7 +56,7 @@ fn main() {
         .expect("The password should be valid");
     disk.save(
         "vault_key_envelope",
-        (&envelope).try_into().expect("Saving envelope should work"),
+        (&envelope).into(),
     );
 
     // Alice wants to change the protected key. This requires creating a new envelope
@@ -66,7 +66,7 @@ fn main() {
         .expect("Sealing should work");
     disk.save(
         "vault_key_envelope",
-        (&envelope).try_into().expect("Saving envelope should work"),
+        (&envelope).into(),
     );
 
     // Alice tries the password but it is wrong

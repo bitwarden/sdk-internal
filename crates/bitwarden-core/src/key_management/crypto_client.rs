@@ -102,7 +102,7 @@ impl CryptoClient {
         let key_slot = SymmetricKeyId::Local("unseal_password_protected_key_envelope");
         envelope
             .unseal(key_slot, pin.as_str(), &mut ctx)
-            .map_err(|err| CryptoError::PasswordProtectedKeyEnvelopeError(err))?;
+            .map_err(CryptoError::PasswordProtectedKeyEnvelopeError)?;
         #[allow(deprecated)]
         let key = ctx.dangerous_get_symmetric_key(key_slot)?;
         Ok(key.to_encoded().to_vec())
