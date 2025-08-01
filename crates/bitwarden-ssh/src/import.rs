@@ -32,25 +32,11 @@ pub fn import_key(
     }
 }
 
-fn import_pkcs8_key(
-    encoded_key: String,
-    password: Option<String>,
-) -> Result<SshKeyView, SshKeyImportError> {
-    let doc = if let Some(password) = password {
-        SecretDocument::from_pkcs8_encrypted_pem(&encoded_key, password.as_bytes()).map_err(
-            |err| match err {
-                pkcs8::Error::EncryptedPrivateKey(pkcs5::Error::DecryptFailed) => {
-                    SshKeyImportError::WrongPassword
-                }
-                _ => SshKeyImportError::ParsingError,
-            },
-        )?
-    } else {
-        SecretDocument::from_pkcs8_pem(&encoded_key).map_err(|_| SshKeyImportError::ParsingError)?
-    };
-
+/// Import a DER encoded private key, and returns a decoded [SshKeyView]. This is primarily used for
+/// importing SSH keys from other Credential Managers through Credential Exchange.
+pub fn import_der_key(encoded_key: &[u8]) -> Result<SshKeyView, SshKeyImportError> {
     let private_key_info =
-        PrivateKeyInfo::from_der(doc.as_bytes()).map_err(|_| SshKeyImportError::ParsingError)?;
+        PrivateKeyInfo::from_der(encoded_key).map_err(|_| SshKeyImportError::ParsingError)?;
 
     let private_key = match private_key_info.algorithm.oid {
         ed25519::pkcs8::ALGORITHM_OID => {
@@ -73,6 +59,26 @@ fn import_pkcs8_key(
     };
 
     ssh_private_key_to_view(private_key).map_err(|_| SshKeyImportError::ParsingError)
+}
+
+fn import_pkcs8_key(
+    encoded_key: String,
+    password: Option<String>,
+) -> Result<SshKeyView, SshKeyImportError> {
+    let doc = if let Some(password) = password {
+        SecretDocument::from_pkcs8_encrypted_pem(&encoded_key, password.as_bytes()).map_err(
+            |err| match err {
+                pkcs8::Error::EncryptedPrivateKey(pkcs5::Error::DecryptFailed) => {
+                    SshKeyImportError::WrongPassword
+                }
+                _ => SshKeyImportError::ParsingError,
+            },
+        )?
+    } else {
+        SecretDocument::from_pkcs8_pem(&encoded_key).map_err(|_| SshKeyImportError::ParsingError)?
+    };
+
+    import_der_key(doc.as_bytes())
 }
 
 fn import_openssh_key(

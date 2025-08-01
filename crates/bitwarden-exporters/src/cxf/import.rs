@@ -1,13 +1,14 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     Account as CxfAccount, ApiKeyCredential, BasicAuthCredential, Credential, CreditCardCredential,
-    Item, PasskeyCredential, WifiCredential,
+    Item, PasskeyCredential, SshKeyCredential, WifiCredential,
 };
 
 use crate::{
     cxf::{
         api_key::api_key_to_fields,
         login::{to_fields, to_login},
+        ssh::to_ssh,
         wifi::wifi_to_fields,
         CxfError,
     },
@@ -121,6 +122,24 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         })
     }
 
+    // SSH Key credentials
+    if let Some(ssh) = grouped.ssh.first() {
+        let (ssh_key, fields) = to_ssh(ssh);
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: None,
+            r#type: CipherType::SshKey(Box::new(ssh_key)),
+            favorite: false,
+            reprompt: 0,
+            fields: [fields, scope.map(to_fields).unwrap_or_default()].concat(),
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
+    }
+
     output
 }
 
@@ -150,12 +169,16 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
             Credential::BasicAuth(basic_auth) => Some(basic_auth.as_ref()),
             _ => None,
         }),
+        credit_card: filter_credentials(&credentials, |c| match c {
+            Credential::CreditCard(credit_card) => Some(credit_card.as_ref()),
+            _ => None,
+        }),
         passkey: filter_credentials(&credentials, |c| match c {
             Credential::Passkey(passkey) => Some(passkey.as_ref()),
             _ => None,
         }),
-        credit_card: filter_credentials(&credentials, |c| match c {
-            Credential::CreditCard(credit_card) => Some(credit_card.as_ref()),
+        ssh: filter_credentials(&credentials, |c| match c {
+            Credential::SshKey(ssh) => Some(ssh.as_ref()),
             _ => None,
         }),
         wifi: filter_credentials(&credentials, |c| match c {
@@ -168,8 +191,9 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
 struct GroupedCredentials {
     api_key: Vec<ApiKeyCredential>,
     basic_auth: Vec<BasicAuthCredential>,
-    passkey: Vec<PasskeyCredential>,
     credit_card: Vec<CreditCardCredential>,
+    passkey: Vec<PasskeyCredential>,
+    ssh: Vec<SshKeyCredential>,
     wifi: Vec<WifiCredential>,
 }
 

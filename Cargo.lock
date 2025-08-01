@@ -503,6 +503,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-fido",
+ "bitwarden-ssh",
  "bitwarden-vault",
  "chrono",
  "credential-exchange-format",
