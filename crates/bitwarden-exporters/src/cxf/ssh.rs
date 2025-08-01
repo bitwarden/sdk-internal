@@ -1,13 +1,16 @@
-use bitwarden_ssh::import::import_der_key;
+use bitwarden_ssh::{error::SshKeyImportError, import::import_der_key};
 use bitwarden_vault::FieldType;
 use credential_exchange_format::SshKeyCredential;
 
 use crate::{cxf::editable_field::create_field, Field, SshKey};
 
-pub(super) fn to_ssh(credential: &SshKeyCredential) -> (SshKey, Vec<Field>) {
+/// Convert SSH key credentials to SshKey and custom fields
+pub(super) fn to_ssh(
+    credential: &SshKeyCredential,
+) -> Result<(SshKey, Vec<Field>), SshKeyImportError> {
     // Convert to OpenSSH format
     let encoded_key: Vec<u8> = credential.private_key.as_ref().into();
-    let encoded_key = import_der_key(&encoded_key).expect("valid SSH key format");
+    let encoded_key = import_der_key(&encoded_key)?;
 
     let ssh = SshKey {
         private_key: encoded_key.private_key,
@@ -39,7 +42,7 @@ pub(super) fn to_ssh(credential: &SshKeyCredential) -> (SshKey, Vec<Field>) {
     .flatten()
     .collect();
 
-    (ssh, fields)
+    Ok((ssh, fields))
 }
 
 #[cfg(test)]
@@ -67,7 +70,7 @@ mod tests {
             key_generation_source: Some("Generated using OpenSSH".to_owned().into()),
         };
 
-        let (ssh, fields) = to_ssh(&credential);
+        let (ssh, fields) = to_ssh(&credential).unwrap();
 
         assert_eq!(ssh.private_key, "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACDQiCIk4t4YPC6bOSb7CLzac/vC+ZudqhYqY00cxqr8zAAAAIilFVdupRVX\nbgAAAAtzc2gtZWQyNTUxOQAAACDQiCIk4t4YPC6bOSb7CLzac/vC+ZudqhYqY00cxqr8zA\nAAAEA/lPVWpGrjuBbL+G/856Qx3HWIO+FOvLImY51iz5+0NdCIIiTi3hg8Lps5JvsIvNpz\n+8L5m52qFipjTRzGqvzMAAAAAAECAwQF\n-----END OPENSSH PRIVATE KEY-----\n");
         assert_eq!(

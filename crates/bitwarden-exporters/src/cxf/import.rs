@@ -124,20 +124,25 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
 
     // SSH Key credentials
     if let Some(ssh) = grouped.ssh.first() {
-        let (ssh_key, fields) = to_ssh(ssh);
-
-        output.push(ImportingCipher {
-            folder_id: None, // TODO: Handle folders
-            name: value.title.clone(),
-            notes: None,
-            r#type: CipherType::SshKey(Box::new(ssh_key)),
-            favorite: false,
-            reprompt: 0,
-            fields: [fields, scope.map(to_fields).unwrap_or_default()].concat(),
-            revision_date,
-            creation_date,
-            deleted_date: None,
-        })
+        match to_ssh(ssh) {
+            Ok((ssh_key, fields)) => {
+                output.push(ImportingCipher {
+                    folder_id: None, // TODO: Handle folders
+                    name: value.title.clone(),
+                    notes: None,
+                    r#type: CipherType::SshKey(Box::new(ssh_key)),
+                    favorite: false,
+                    reprompt: 0,
+                    fields: [fields, scope.map(to_fields).unwrap_or_default()].concat(),
+                    revision_date,
+                    creation_date,
+                    deleted_date: None,
+                })
+            }
+            Err(_) => {
+                // Include information about the failed items, or import as note?
+            }
+        }
     }
 
     output
