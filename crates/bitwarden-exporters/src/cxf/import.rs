@@ -7,6 +7,7 @@ use credential_exchange_format::{
 use crate::{
     cxf::{
         api_key::api_key_to_fields,
+        card::to_card,
         login::{to_fields, to_login},
         wifi::wifi_to_fields,
         CxfError,
@@ -67,14 +68,16 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
             .first()
             .expect("Credit card is not empty");
 
+        let (card, fields) = to_card(credit_card);
+
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
             name: value.title.clone(),
             notes: None,
-            r#type: CipherType::Card(Box::new(credit_card.into())),
+            r#type: CipherType::Card(Box::new(card)),
             favorite: false,
             reprompt: 0,
-            fields: scope.map(to_fields).unwrap_or_default(),
+            fields: [fields, scope.map(to_fields).unwrap_or_default()].concat(),
             revision_date,
             creation_date,
             deleted_date: None,
