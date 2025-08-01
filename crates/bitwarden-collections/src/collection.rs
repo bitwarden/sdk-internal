@@ -205,7 +205,7 @@ mod tests {
         let key = SymmetricKeyId::Organization(org_id);
 
         let collection_name: &str = "Collection Name";
-        let default_user_collection_email= String::from("test-user@bitwarden.com");
+        let default_user_collection_email = String::from("test-user@bitwarden.com");
 
         let collection = Collection {
             id: Some(Uuid::parse_str(COLLECTION_ID).unwrap()),
