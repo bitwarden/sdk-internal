@@ -1,7 +1,7 @@
 use bitwarden_vault::FieldType;
 use credential_exchange_format::{
     EditableField, EditableFieldBoolean, EditableFieldConcealedString, EditableFieldDate,
-    EditableFieldString, EditableFieldWifiNetworkSecurityType,
+    EditableFieldString, EditableFieldWifiNetworkSecurityType, EditableFieldYearMonth,
 };
 
 use crate::Field;
@@ -63,6 +63,18 @@ impl EditableFieldToField for EditableField<EditableFieldDate> {
 
     fn field_value(&self) -> String {
         self.value.0.to_string()
+    }
+}
+
+impl EditableFieldToField for EditableField<EditableFieldYearMonth> {
+    const FIELD_TYPE: FieldType = FieldType::Text;
+
+    fn field_value(&self) -> String {
+        format!(
+            "{:04}-{:02}",
+            self.value.year,
+            self.value.month.number_from_month()
+        )
     }
 }
 
@@ -243,6 +255,33 @@ mod tests {
             Field {
                 name: Some("Expiry Date".to_string()),
                 value: Some("2025-01-15".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_create_field_year_month() {
+        use chrono::Month;
+
+        let editable_field = EditableField {
+            id: None,
+            label: None,
+            value: EditableFieldYearMonth {
+                year: 2025,
+                month: Month::December,
+            },
+            extensions: None,
+        };
+
+        let field = create_field("Card Expiry", &editable_field);
+
+        assert_eq!(
+            field,
+            Field {
+                name: Some("Card Expiry".to_string()),
+                value: Some("2025-12".to_string()),
                 r#type: FieldType::Text as u8,
                 linked_id: None,
             }
