@@ -25,7 +25,7 @@ pub struct Collection {
     pub hide_passwords: bool,
     pub read_only: bool,
     pub manage: bool,
-    pub default_user_collection_email: Option<EncString>,
+    pub default_user_collection_email: Option<String>,
     pub r#type: CollectionType,
 }
 
@@ -72,10 +72,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, CollectionView> for Collection {
         let name = self
             .default_user_collection_email
             .as_ref()
-            .unwrap_or(&self.name)
-            .decrypt(ctx, key)
-            .ok()
-            .unwrap_or_default();
+            .unwrap_or(&self.name.decrypt(ctx, key)?)
+            .clone();
 
         Ok(CollectionView {
             id: self.id,
@@ -103,9 +101,7 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
             hide_passwords: collection.hide_passwords.unwrap_or(false),
             read_only: collection.read_only.unwrap_or(false),
             manage: collection.manage.unwrap_or(false),
-            default_user_collection_email: EncString::try_from_optional(
-                collection.default_user_collection_email,
-            )?,
+            default_user_collection_email: collection.default_user_collection_email,
             r#type: require!(collection.r#type).into(),
         })
     }
@@ -209,7 +205,7 @@ mod tests {
         let key = SymmetricKeyId::Organization(org_id);
 
         let collection_name: &str = "Collection Name";
-        let default_user_collection_email: &str = "test-user@bitwarden.com";
+        let default_user_collection_email= String::from("test-user@bitwarden.com");
 
         let collection = Collection {
             id: Some(Uuid::parse_str(COLLECTION_ID).unwrap()),
@@ -219,11 +215,7 @@ mod tests {
             hide_passwords: false,
             read_only: true,
             manage: false,
-            default_user_collection_email: Some(
-                default_user_collection_email
-                    .encrypt(&mut ctx, key)
-                    .unwrap(),
-            ), // Different encrypted value
+            default_user_collection_email: Some(default_user_collection_email.clone()),
             r#type: CollectionType::SharedCollection,
         };
 
