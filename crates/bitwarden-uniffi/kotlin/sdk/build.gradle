@@ -92,7 +92,7 @@ publishing {
                     artifactId = 'sdk-android'
                     break
                 default:
-                    artifactId = 'sdk-android.dev'
+                    artifactId = 'sdk-android'
                     break
             }
 
