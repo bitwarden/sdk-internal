@@ -1,10 +1,18 @@
-#[derive(Debug, Default, Clone, serde::Deserialize)]
+/// Feature flags for the Bitwarden SDK client.
+#[derive(Debug, Default, Clone, serde::Deserialize, serde::Serialize)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 pub struct Flags {
+    /// Enable cipher key encryption within the `CipherClient`
     #[serde(default, rename = "enableCipherKeyEncryption")]
     pub enable_cipher_key_encryption: bool,
 }
 
 impl Flags {
+    /// Create a new `Flags` instance from a map of flag names and values.
     pub fn load_from_map(map: std::collections::HashMap<String, bool>) -> Self {
         let map = map
             .into_iter()

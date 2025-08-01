@@ -118,6 +118,12 @@ impl InternalClient {
 
     #[allow(missing_docs)]
     #[cfg(feature = "internal")]
+    pub fn set_flags(&self, flags: &Flags) {
+        *self.flags.write().expect("RwLock is not poisoned") = flags.clone();
+    }
+
+    #[allow(missing_docs)]
+    #[cfg(feature = "internal")]
     pub fn get_flags(&self) -> Flags {
         self.flags.read().expect("RwLock is not poisoned").clone()
     }

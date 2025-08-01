@@ -1,6 +1,6 @@
-use bitwarden_core::Client;
+use bitwarden_core::{Client, Flags};
 use bitwarden_vault::{Cipher, Folder};
-use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::prelude::*;
 
 mod repository;
 pub mod token_provider;
@@ -18,6 +18,12 @@ impl PlatformClient {
 impl PlatformClient {
     pub fn state(&self) -> StateClient {
         StateClient::new(self.0.clone())
+    }
+
+    /// Load feature flags into the client
+    pub fn load_flags(&self, flags: Flags) -> Result<(), JsValue> {
+        self.0.internal.set_flags(&flags);
+        Ok(())
     }
 }
 
