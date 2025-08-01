@@ -309,6 +309,18 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(key_id)
     }
 
+    /// Generate a new random xchacha20-poly1305 symmetric key and store it in the context
+    #[cfg(test)]
+    pub(crate) fn make_cose_symmetric_key(
+        &mut self,
+        key_id: Ids::Symmetric,
+    ) -> Result<Ids::Symmetric> {
+        let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        #[allow(deprecated)]
+        self.set_symmetric_key(key_id, key)?;
+        Ok(key_id)
+    }
+
     /// Makes a new asymmetric encryption key using the current default algorithm, and stores it in
     /// the context
     pub fn make_asymmetric_key(&mut self, key_id: Ids::Asymmetric) -> Result<Ids::Asymmetric> {
