@@ -33,7 +33,7 @@ pub struct MasterPasswordUnlockData {
 }
 
 impl MasterPasswordUnlockData {
-    pub(crate) fn process_response(
+    pub fn process_response(
         response: MasterPasswordUnlockResponseModel,
     ) -> Result<MasterPasswordUnlockData, MasterPasswordError> {
         let kdf = match response.kdf.kdf_type {
