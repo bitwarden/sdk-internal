@@ -3,6 +3,7 @@ use std::{collections::HashMap, num::NonZeroU32};
 use bitwarden_api_identity::models::KdfType;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use bitwarden_api_api::models::UserDecryptionResponseModel;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct IdentityTokenSuccessResponse {
@@ -35,6 +36,9 @@ pub struct IdentityTokenSuccessResponse {
     #[serde(rename = "keyConnectorUrl", alias = "KeyConnectorUrl")]
     key_connector_url: Option<String>,
 
+    #[serde(rename = "userDecryptionOptions", alias = "UserDecryptionOptions")]
+    pub user_decryption_options: Option<UserDecryptionResponseModel>,
+
     /// Stores unknown api response fields
     extra: Option<HashMap<String, Value>>,
 }
@@ -61,6 +65,7 @@ mod test {
                 force_password_reset: Default::default(),
                 api_use_key_connector: Default::default(),
                 key_connector_url: Default::default(),
+                user_decryption_options: Default::default(),
                 extra: Default::default(),
             }
         }

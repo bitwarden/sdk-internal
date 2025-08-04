@@ -12,6 +12,7 @@ use crate::auth::{
 use crate::{
     auth::{api::request::PasswordTokenRequest, login::LoginError, login::TwoFactorRequest},
     client::LoginMethod,
+    key_management::master_password::MasterPasswordUnlockData,
     Client,
 };
 
@@ -36,6 +37,29 @@ pub(crate) async fn login_password(
     let response = request_identity_tokens(client, input, &password_hash).await?;
 
     if let IdentityTokenResponse::Authenticated(r) = &response {
+        // Users who have master password will use the master_password_unlock data
+        let (kdf, user_key) = match r
+            .user_decryption_options
+            .as_ref()
+            .and_then(|opts| opts.master_password_unlock.as_ref())
+        {
+            Some(master_password_unlock) => {
+                let master_password_unlock_data = MasterPasswordUnlockData::process_response(
+                    master_password_unlock.as_ref().clone(),
+                )?;
+
+                (
+                    master_password_unlock_data.kdf,
+                    master_password_unlock_data.master_key_wrapped_user_key,
+                )
+            }
+            None => {
+                // TODO backward compatibility, should be removed in the future and return error
+                let user_key: EncString = require!(r.key.as_deref()).parse()?;
+                (input.kdf.clone(), user_key)
+            }
+        };
+
         client.internal.set_tokens(
             r.access_token.clone(),
             r.refresh_token.clone(),
@@ -46,10 +70,9 @@ pub(crate) async fn login_password(
             .set_login_method(LoginMethod::User(UserLoginMethod::Username {
                 client_id: "web".to_owned(),
                 email: input.email.to_owned(),
-                kdf: input.kdf.to_owned(),
+                kdf: kdf.clone(),
             }));
 
-        let user_key: EncString = require!(r.key.as_deref()).parse()?;
         let private_key: EncString = require!(r.private_key.as_deref()).parse()?;
 
         client.internal.initialize_user_crypto_master_key(

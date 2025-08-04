@@ -1,11 +1,5 @@
-use bitwarden_api_api::{
-    apis::auth_requests_api::{auth_requests_id_response_get, auth_requests_post},
-    models::{AuthRequestCreateRequestModel, AuthRequestType},
-};
-use bitwarden_crypto::Kdf;
-use uuid::Uuid;
-
 use super::LoginError;
+use crate::key_management::master_password::MasterPasswordUnlockData;
 use crate::{
     auth::{
         api::{request::AuthRequestTokenRequest, response::IdentityTokenResponse},
@@ -15,6 +9,12 @@ use crate::{
     key_management::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
     require, ApiError, Client,
 };
+use bitwarden_api_api::{
+    apis::auth_requests_api::{auth_requests_id_response_get, auth_requests_post},
+    models::{AuthRequestCreateRequestModel, AuthRequestType},
+};
+use bitwarden_crypto::Kdf;
+use uuid::Uuid;
 
 #[allow(missing_docs)]
 pub struct NewAuthRequestResponse {
@@ -88,7 +88,36 @@ pub(crate) async fn complete_auth_request(
     .await?;
 
     if let IdentityTokenResponse::Authenticated(r) = response {
-        let kdf = Kdf::default();
+        let (kdf, method) = match (res.master_password_hash, r.user_decryption_options) {
+            (Some(_), Some(options)) => match options.master_password_unlock {
+                Some(master_password) => {
+                    let master_password_unlock_data = MasterPasswordUnlockData::process_response(
+                        master_password.as_ref().clone(),
+                    )?;
+                    let kdf = master_password_unlock_data.kdf.clone();
+                    let method = AuthRequestMethod::MasterKey {
+                        protected_master_key: require!(res.key).parse()?,
+                        auth_request_key: master_password_unlock_data.master_key_wrapped_user_key,
+                    };
+                    (kdf, method)
+                }
+                None => {
+                    // TODO backward compatibility, should be removed in the future and return error
+                    let method = AuthRequestMethod::MasterKey {
+                        protected_master_key: require!(res.key).parse()?,
+                        auth_request_key: require!(r.key).parse()?,
+                    };
+                    (Kdf::default(), method)
+                }
+            },
+            (None, _) => {
+                let method = AuthRequestMethod::UserKey {
+                    protected_user_key: require!(res.key).parse()?,
+                };
+                (Kdf::default(), method)
+            }
+            (_, _) => return Err(LoginError::InvalidResponse),
+        };
 
         client.internal.set_tokens(
             r.access_token.clone(),
@@ -102,16 +131,6 @@ pub(crate) async fn complete_auth_request(
                 email: auth_req.email.to_owned(),
                 kdf: kdf.clone(),
             }));
-
-        let method = match res.master_password_hash {
-            Some(_) => AuthRequestMethod::MasterKey {
-                protected_master_key: require!(res.key).parse()?,
-                auth_request_key: require!(r.key).parse()?,
-            },
-            None => AuthRequestMethod::UserKey {
-                protected_user_key: require!(res.key).parse()?,
-            },
-        };
 
         client
             .crypto()

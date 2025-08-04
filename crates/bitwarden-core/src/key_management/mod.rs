@@ -21,6 +21,9 @@ pub use crypto_client::CryptoClient;
 #[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]
+pub mod master_password;
+
+#[cfg(feature = "internal")]
 pub use security_state::{SecurityState, SignedSecurityState};
 
 key_ids! {
