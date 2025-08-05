@@ -3,9 +3,9 @@ use bitwarden_api_api::models::{
 };
 use bitwarden_collections::{collection::Collection, error::CollectionsParseError};
 use bitwarden_core::{
-    client::encryption_settings::EncryptionSettingsError, 
-    key_management::master_password::MasterPasswordUnlockData,
-    require, Client, MissingFieldError, NotAuthenticatedError,
+    client::encryption_settings::EncryptionSettingsError,
+    key_management::master_password::MasterPasswordUnlockData, require, Client, MissingFieldError,
+    NotAuthenticatedError,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -61,7 +61,7 @@ pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncRes
             let master_password_data = MasterPasswordUnlockData::process_response(
                 master_password_unlock.as_ref().clone(),
             )?;
-            
+
             // Set the new KDF settings
             client.internal.set_kdf(master_password_data.kdf)?;
         }

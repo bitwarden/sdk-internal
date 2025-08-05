@@ -1,9 +1,9 @@
 use std::{collections::HashMap, num::NonZeroU32};
 
+use bitwarden_api_api::models::UserDecryptionResponseModel;
 use bitwarden_api_identity::models::KdfType;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use bitwarden_api_api::models::UserDecryptionResponseModel;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct IdentityTokenSuccessResponse {

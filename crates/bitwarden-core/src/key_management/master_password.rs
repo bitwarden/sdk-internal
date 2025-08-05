@@ -1,13 +1,15 @@
 #![allow(missing_docs)]
 
-use crate::{require, MissingFieldError};
-use bitwarden_api_api::models::master_password_unlock_response_model::MasterPasswordUnlockResponseModel;
-use bitwarden_api_api::models::KdfType;
+use std::{num::NonZeroU32, str::FromStr};
+
+use bitwarden_api_api::models::{
+    master_password_unlock_response_model::MasterPasswordUnlockResponseModel, KdfType,
+};
 use bitwarden_crypto::{CryptoError, EncString, Kdf};
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroU32;
-use std::str::FromStr;
+
+use crate::{require, MissingFieldError};
 
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]

@@ -5,15 +5,15 @@ use log::info;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::auth::{
-    api::response::IdentityTokenResponse, login::response::two_factor::TwoFactorProviders,
-};
-use crate::key_management::crypto::{InitUserCryptoMethod, InitUserCryptoRequest};
 #[cfg(feature = "internal")]
 use crate::{
     auth::{api::request::PasswordTokenRequest, login::LoginError, login::TwoFactorRequest},
     key_management::master_password::MasterPasswordUnlockData,
     Client,
+};
+use crate::{
+    auth::{api::response::IdentityTokenResponse, login::response::two_factor::TwoFactorProviders},
+    key_management::crypto::{InitUserCryptoMethod, InitUserCryptoRequest},
 };
 
 #[cfg(feature = "internal")]

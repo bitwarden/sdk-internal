@@ -1,19 +1,22 @@
-use super::LoginError;
-use crate::key_management::master_password::MasterPasswordUnlockData;
-use crate::{
-    auth::{
-        api::{request::AuthRequestTokenRequest, response::IdentityTokenResponse},
-        auth_request::new_auth_request,
-    },
-    key_management::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
-    require, ApiError, Client,
-};
 use bitwarden_api_api::{
     apis::auth_requests_api::{auth_requests_id_response_get, auth_requests_post},
     models::{AuthRequestCreateRequestModel, AuthRequestType},
 };
 use bitwarden_crypto::Kdf;
 use uuid::Uuid;
+
+use super::LoginError;
+use crate::{
+    auth::{
+        api::{request::AuthRequestTokenRequest, response::IdentityTokenResponse},
+        auth_request::new_auth_request,
+    },
+    key_management::{
+        crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
+        master_password::MasterPasswordUnlockData,
+    },
+    require, ApiError, Client,
+};
 
 #[allow(missing_docs)]
 pub struct NewAuthRequestResponse {

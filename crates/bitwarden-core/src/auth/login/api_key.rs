@@ -2,7 +2,6 @@ use bitwarden_crypto::EncString;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::key_management::crypto::{InitUserCryptoMethod, InitUserCryptoRequest};
 use crate::{
     auth::{
         api::{request::ApiTokenRequest, response::IdentityTokenResponse},
@@ -10,7 +9,10 @@ use crate::{
         JwtToken,
     },
     client::{LoginMethod, UserLoginMethod},
-    key_management::master_password::MasterPasswordUnlockData,
+    key_management::{
+        crypto::{InitUserCryptoMethod, InitUserCryptoRequest},
+        master_password::MasterPasswordUnlockData,
+    },
     require, Client,
 };
 
