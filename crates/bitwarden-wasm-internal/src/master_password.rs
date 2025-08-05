@@ -63,7 +63,42 @@ pub fn process_master_password_unlock_response(
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_core::MissingFieldError;
+
     use super::*;
+
+    const TEST_USER_KEY: &str = "2.Dh7AFLXR+LXcxUaO5cRjpg==|uXyhubjAoNH8lTdy/zgJDQ==|cHEMboj0MYsU5yDRQ1rLCgxcjNbKRc1PWKuv8bpU5pM=";
+    const TEST_SALT: &str = "test@example.com";
+
+    #[test]
+    fn test_process_master_password_unlock_response_success_pbkdf2() {
+        let response = MasterPasswordUnlockResponseModel {
+            kdf: MasterPasswordUnlockKdfResponseModel {
+                kdf_type: KdfType::PBKDF2_SHA256,
+                iterations: 600_000,
+                memory: None,
+                parallelism: None,
+            },
+            master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
+            salt: Some(TEST_SALT.to_string()),
+        };
+
+        let result = process_master_password_unlock_response(response);
+        assert!(result.is_ok());
+        let data = result.unwrap();
+
+        // Verify the KDF data
+        match data.kdf {
+            bitwarden_crypto::Kdf::PBKDF2 { iterations } => {
+                assert_eq!(iterations.get(), 600_000);
+            }
+            _ => panic!("Expected PBKDF2 KDF"),
+        }
+
+        // Verify salt and encrypted user key
+        assert_eq!(data.salt, TEST_SALT);
+        assert_eq!(data.master_key_wrapped_user_key.to_string(), TEST_USER_KEY);
+    }
 
     #[test]
     fn test_process_master_password_unlock_response_success_argon2() {
@@ -74,12 +109,31 @@ mod tests {
                 memory: Some(64),
                 parallelism: Some(4),
             },
-            master_key_encrypted_user_key: Some("2.Dh7AFLXR+LXcxUaO5cRjpg==|uXyhubjAoNH8lTdy/zgJDQ==|cHEMboj0MYsU5yDRQ1rLCgxcjNbKRc1PWKuv8bpU5pM=".to_string()),
-            salt: Some("test@example.com".to_string()),
+            master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
+            salt: Some(TEST_SALT.to_string()),
         };
 
         let result = process_master_password_unlock_response(response);
         assert!(result.is_ok());
+        let data = result.unwrap();
+
+        // Verify the KDF data
+        match data.kdf {
+            bitwarden_crypto::Kdf::Argon2id {
+                iterations,
+                memory,
+                parallelism,
+            } => {
+                assert_eq!(iterations.get(), 3);
+                assert_eq!(memory.get(), 64);
+                assert_eq!(parallelism.get(), 4);
+            }
+            _ => panic!("Expected Argon2id KDF"),
+        }
+
+        // Verify salt and encrypted user key
+        assert_eq!(data.salt, TEST_SALT);
+        assert_eq!(data.master_key_wrapped_user_key.to_string(), TEST_USER_KEY);
     }
 
     #[test]
@@ -91,11 +145,16 @@ mod tests {
                 memory: Some(64),
                 parallelism: Some(4),
             },
-            master_key_encrypted_user_key: Some("2.Dh7AFLXR+LXcxUaO5cRjpg==|uXyhubjAoNH8lTdy/zgJDQ==|cHEMboj0MYsU5yDRQ1rLCgxcjNbKRc1PWKuv8bpU5pM=".to_string()),
+            master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
             salt: None,
         };
 
         let result = process_master_password_unlock_response(response);
-        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(MasterPasswordError::MissingField(MissingFieldError(
+                "response.salt"
+            )))
+        ));
     }
 }
