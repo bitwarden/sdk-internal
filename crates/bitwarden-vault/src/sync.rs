@@ -3,9 +3,7 @@ use bitwarden_api_api::models::{
 };
 use bitwarden_collections::{collection::Collection, error::CollectionsParseError};
 use bitwarden_core::{
-    client::encryption_settings::EncryptionSettingsError,
-    key_management::master_password::MasterPasswordUnlockData, require, Client, MissingFieldError,
-    NotAuthenticatedError,
+    client::encryption_settings::EncryptionSettingsError, require, Client, MissingFieldError,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -25,10 +23,6 @@ pub enum SyncError {
     CollectionParse(#[from] CollectionsParseError),
     #[error(transparent)]
     EncryptionSettings(#[from] EncryptionSettingsError),
-    #[error(transparent)]
-    MasterPassword(#[from] bitwarden_core::key_management::master_password::MasterPasswordError),
-    #[error(transparent)]
-    NotAuthenticated(#[from] NotAuthenticatedError),
 }
 
 #[allow(missing_docs)]
@@ -54,18 +48,6 @@ pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncRes
         .collect();
 
     client.internal.initialize_org_crypto(org_keys)?;
-
-    // Handle user decryption options to update KDF settings
-    if let Some(user_decryption) = &sync.user_decryption {
-        if let Some(master_password_unlock) = &user_decryption.master_password_unlock {
-            let master_password_data = MasterPasswordUnlockData::process_response(
-                master_password_unlock.as_ref().clone(),
-            )?;
-
-            // Set the new KDF settings
-            client.internal.set_kdf(master_password_data.kdf)?;
-        }
-    }
 
     SyncResponse::process_response(sync)
 }

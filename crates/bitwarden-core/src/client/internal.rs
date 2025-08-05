@@ -194,47 +194,6 @@ impl InternalClient {
     }
 
     #[allow(missing_docs)]
-    #[cfg(feature = "internal")]
-    pub fn set_kdf(&self, kdf: Kdf) -> Result<(), NotAuthenticatedError> {
-        match self
-            .login_method
-            .read()
-            .expect("RwLock is not poisoned")
-            .as_deref()
-        {
-            Some(LoginMethod::User(e)) => {
-                match e {
-                    UserLoginMethod::Username {
-                        client_id, email, ..
-                    } => {
-                        self.set_login_method(LoginMethod::User(UserLoginMethod::Username {
-                            client_id: client_id.clone(),
-                            email: email.clone(),
-                            kdf: kdf.clone(),
-                        }));
-                    }
-                    UserLoginMethod::ApiKey {
-                        client_id,
-                        client_secret,
-                        email,
-                        ..
-                    } => {
-                        self.set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
-                            client_id: client_id.clone(),
-                            client_secret: client_secret.clone(),
-                            email: email.clone(),
-                            kdf: kdf.clone(),
-                        }));
-                    }
-                }
-
-                Ok(())
-            }
-            _ => Err(NotAuthenticatedError),
-        }
-    }
-
-    #[allow(missing_docs)]
     pub async fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
         // At the moment we ignore the error result from the token renewal, if it fails,
         // the token will end up expiring and the next operation is going to fail anyway.

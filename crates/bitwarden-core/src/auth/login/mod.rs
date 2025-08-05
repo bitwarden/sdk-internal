@@ -45,8 +45,6 @@ pub enum LoginError {
 
     #[error(transparent)]
     MissingField(#[from] crate::MissingFieldError),
-    #[error(transparent)]
-    MasterPassword(#[from] crate::key_management::master_password::MasterPasswordError),
 
     #[error(transparent)]
     JwtTokenParse(#[from] super::JwtTokenParseError),
