@@ -19,6 +19,8 @@ mod flags;
 
 pub use client::Client;
 pub use client_settings::{ClientSettings, DeviceType};
+#[cfg(feature = "internal")]
+pub use flags::Flags;
 
 #[allow(missing_docs)]
 #[cfg(feature = "internal")]
