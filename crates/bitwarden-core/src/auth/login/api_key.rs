@@ -2,13 +2,14 @@ use bitwarden_crypto::{EncString, MasterKey};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::key_management::crypto::{InitUserCryptoMethod, InitUserCryptoRequest};
 use crate::{
     auth::{
         api::{request::ApiTokenRequest, response::IdentityTokenResponse},
         login::{response::two_factor::TwoFactorProviders, LoginError, PasswordLoginResponse},
         JwtToken,
     },
-    client::{internal::UserKeyState, LoginMethod, UserLoginMethod},
+    client::{LoginMethod, UserLoginMethod},
     key_management::master_password::MasterPasswordUnlockData,
     require, Client,
 };
@@ -59,7 +60,23 @@ pub(crate) async fn login_api_key(
             r.expires_in,
         );
 
-        let master_key = MasterKey::derive(&input.password, &email, &kdf)?;
+        let private_key: EncString = require!(r.private_key.as_deref()).parse()?;
+
+        client
+            .crypto()
+            .initialize_user_crypto(InitUserCryptoRequest {
+                user_id: None,
+                kdf_params: kdf.clone(),
+                email: email.clone(),
+                private_key,
+                signing_key: None,
+                security_state: None,
+                method: InitUserCryptoMethod::Password {
+                    password: input.password.to_owned(),
+                    user_key,
+                },
+            })
+            .await?;
 
         client
             .internal
@@ -69,17 +86,6 @@ pub(crate) async fn login_api_key(
                 email,
                 kdf,
             }));
-        let private_key: EncString = require!(r.private_key.as_deref()).parse()?;
-
-        client.internal.initialize_user_crypto_master_key(
-            master_key,
-            user_key,
-            UserKeyState {
-                private_key,
-                signing_key: None,
-                security_state: None,
-            },
-        )?;
     }
 
     Ok(ApiKeyLoginResponse::process_response(response))

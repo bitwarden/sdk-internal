@@ -5,7 +5,6 @@ use crate::{
         api::{request::AuthRequestTokenRequest, response::IdentityTokenResponse},
         auth_request::new_auth_request,
     },
-    client::{LoginMethod, UserLoginMethod},
     key_management::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
     require, ApiError, Client,
 };
@@ -124,13 +123,6 @@ pub(crate) async fn complete_auth_request(
             r.refresh_token.clone(),
             r.expires_in,
         );
-        client
-            .internal
-            .set_login_method(LoginMethod::User(UserLoginMethod::Username {
-                client_id: "web".to_owned(),
-                email: auth_req.email.to_owned(),
-                kdf: kdf.clone(),
-            }));
 
         client
             .crypto()

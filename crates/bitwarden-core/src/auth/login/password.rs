@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 use crate::auth::{
     api::response::IdentityTokenResponse, login::response::two_factor::TwoFactorProviders,
 };
+use crate::key_management::crypto::{InitUserCryptoMethod, InitUserCryptoRequest};
 #[cfg(feature = "internal")]
 use crate::{
     auth::{api::request::PasswordTokenRequest, login::LoginError, login::TwoFactorRequest},
-    client::LoginMethod,
     key_management::master_password::MasterPasswordUnlockData,
     Client,
 };
@@ -23,10 +23,7 @@ pub(crate) async fn login_password(
 ) -> Result<PasswordLoginResponse, LoginError> {
     use bitwarden_crypto::{EncString, HashPurpose, MasterKey};
 
-    use crate::{
-        client::{internal::UserKeyState, UserLoginMethod},
-        require,
-    };
+    use crate::require;
 
     info!("password logging in");
 
@@ -65,25 +62,24 @@ pub(crate) async fn login_password(
             r.refresh_token.clone(),
             r.expires_in,
         );
-        client
-            .internal
-            .set_login_method(LoginMethod::User(UserLoginMethod::Username {
-                client_id: "web".to_owned(),
-                email: input.email.to_owned(),
-                kdf: kdf.clone(),
-            }));
 
         let private_key: EncString = require!(r.private_key.as_deref()).parse()?;
 
-        client.internal.initialize_user_crypto_master_key(
-            master_key,
-            user_key,
-            UserKeyState {
+        client
+            .crypto()
+            .initialize_user_crypto(InitUserCryptoRequest {
+                user_id: None,
+                kdf_params: kdf.clone(),
+                email: input.email.to_owned(),
                 private_key,
                 signing_key: None,
                 security_state: None,
-            },
-        )?;
+                method: InitUserCryptoMethod::Password {
+                    password: input.password.to_owned(),
+                    user_key,
+                },
+            })
+            .await?;
     }
 
     Ok(PasswordLoginResponse::process_response(response))
