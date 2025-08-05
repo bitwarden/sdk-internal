@@ -3,6 +3,7 @@
 mod client;
 mod custom_types;
 mod init;
+mod master_password;
 mod platform;
 mod pure_crypto;
 mod ssh;
@@ -10,3 +11,4 @@ mod ssh;
 pub use bitwarden_ipc::wasm::*;
 pub use client::BitwardenClient;
 pub use init::init_sdk;
+pub use master_password::*;
