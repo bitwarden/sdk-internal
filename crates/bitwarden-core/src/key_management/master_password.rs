@@ -38,12 +38,16 @@ impl MasterPasswordUnlockData {
     ) -> Result<MasterPasswordUnlockData, MasterPasswordError> {
         let kdf = match response.kdf.kdf_type {
             KdfType::PBKDF2_SHA256 => Kdf::PBKDF2 {
-                iterations: NonZeroU32::new(response.kdf.iterations as u32).unwrap(),
+                iterations: NonZeroU32::new(response.kdf.iterations as u32)
+                    .ok_or(MissingFieldError("kdf.iterations"))?,
             },
             KdfType::Argon2id => Kdf::Argon2id {
-                iterations: NonZeroU32::new(response.kdf.iterations as u32).unwrap(),
-                memory: NonZeroU32::new(require!(response.kdf.memory) as u32).unwrap(),
-                parallelism: NonZeroU32::new(require!(response.kdf.parallelism) as u32).unwrap(),
+                iterations: NonZeroU32::new(response.kdf.iterations as u32)
+                    .ok_or(MissingFieldError("kdf.iterations"))?,
+                memory: NonZeroU32::new(require!(response.kdf.memory) as u32)
+                    .ok_or(MissingFieldError("kdf.memory"))?,
+                parallelism: NonZeroU32::new(require!(response.kdf.parallelism) as u32)
+                    .ok_or(MissingFieldError("kdf.parallelism"))?,
             },
         };
 
@@ -60,10 +64,4 @@ impl MasterPasswordUnlockData {
             salt,
         })
     }
-}
-
-#[allow(missing_docs)]
-#[cfg(test)]
-mod test {
-    // TODO
 }

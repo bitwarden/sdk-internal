@@ -1,4 +1,4 @@
-use bitwarden_crypto::{EncString, MasterKey};
+use bitwarden_crypto::EncString;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
