@@ -1,9 +1,13 @@
+use std::sync::Arc;
+
 use bitwarden_api_api::apis::configuration::Configuration;
 
 /// Helper for testing the Bitwarden API using wiremock.
 ///
 /// Warning: when using `Mock::expected` ensure `server` is not dropped before the test completes,
-pub async fn start_api_mock(mocks: Vec<wiremock::Mock>) -> (wiremock::MockServer, Configuration) {
+pub async fn start_api_mock(
+    mocks: Vec<wiremock::Mock>,
+) -> (wiremock::MockServer, bitwarden_api_api::apis::ApiClient) {
     let server = wiremock::MockServer::start().await;
 
     for mock in mocks {
@@ -20,5 +24,7 @@ pub async fn start_api_mock(mocks: Vec<wiremock::Mock>) -> (wiremock::MockServer
         api_key: None,
     };
 
-    (server, config)
+    let api_client = bitwarden_api_api::apis::ApiClient::new(Arc::new(config));
+
+    (server, api_client)
 }

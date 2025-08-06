@@ -1,4 +1,4 @@
-use bitwarden_api_api::{apis::folders_api, models::FolderRequestModel};
+use bitwarden_api_api::models::FolderRequestModel;
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require, ApiError, MissingFieldError,
@@ -63,12 +63,15 @@ pub enum CreateFolderError {
 
 pub(super) async fn create_folder<R: Repository<Folder> + ?Sized>(
     key_store: &KeyStore<KeyIds>,
-    api_config: &bitwarden_api_api::apis::configuration::Configuration,
+    api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     request: FolderAddEditRequest,
 ) -> Result<FolderView, CreateFolderError> {
     let folder_request = key_store.encrypt(request)?;
-    let resp = folders_api::folders_post(api_config, Some(folder_request))
+
+    let resp = api_client
+        .folders_api()
+        .folders_post(Some(folder_request))
         .await
         .map_err(ApiError::from)?;
 
@@ -102,7 +105,7 @@ mod tests {
 
         let folder_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
 
-        let (_server, api_config) = start_api_mock(vec![Mock::given(matchers::path("/folders"))
+        let (_server, api_client) = start_api_mock(vec![Mock::given(matchers::path("/folders"))
             .respond_with(move |req: &Request| {
                 let body: FolderRequestModel = req.body_json().unwrap();
                 ResponseTemplate::new(201).set_body_json(FolderResponseModel {
@@ -119,7 +122,7 @@ mod tests {
 
         let result = create_folder(
             &store,
-            &api_config,
+            &api_client,
             &repository,
             FolderAddEditRequest {
                 name: "test".to_string(),
@@ -161,7 +164,7 @@ mod tests {
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 
-        let (_server, api_config) = start_api_mock(vec![
+        let (_server, api_client) = start_api_mock(vec![
             Mock::given(matchers::path("/folders")).respond_with(ResponseTemplate::new(500))
         ])
         .await;
@@ -170,7 +173,7 @@ mod tests {
 
         let result = create_folder(
             &store,
-            &api_config,
+            &api_client,
             &repository,
             FolderAddEditRequest {
                 name: "test".to_string(),

@@ -11,7 +11,7 @@ client.
 
 - API version: v1
 - Package version: 1.0.0
-- Generator version: 7.13.0
+- Generator version: 7.14.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
 ## Installation
@@ -25,7 +25,7 @@ bitwarden-api-identity = { path = "./bitwarden-api-identity" }
 
 ## Documentation for API Endpoints
 
-All URIs are relative to _http://localhost_
+All URIs are relative to *https://identity.bitwarden.com*
 
 | Class         | Method                                                                                                                         | HTTP request                                           | Description |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ----------- |
