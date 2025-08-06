@@ -36,6 +36,7 @@ pub use store::{
 };
 mod cose;
 pub use cose::CoseSerializable;
+pub mod safe;
 mod signing;
 pub use signing::*;
 mod traits;
