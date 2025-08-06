@@ -3,7 +3,7 @@ use credential_exchange_format::ApiKeyCredential;
 use crate::{cxf::editable_field::create_field, Field};
 
 /// Convert API key credentials to custom fields
-pub fn api_key_to_fields(api_key: &ApiKeyCredential) -> Vec<Field> {
+pub(super) fn api_key_to_fields(api_key: &ApiKeyCredential) -> Vec<Field> {
     [
         api_key.key.as_ref().map(|key| create_field("API Key", key)),
         api_key
