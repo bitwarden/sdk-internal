@@ -9,6 +9,7 @@ use bitwarden_generators::{PassphraseError, PasswordError, UsernameError};
 #[uniffi(flat_error)]
 pub enum BitwardenError {
     E(Error),
+    ConversionError(Box<dyn std::error::Error + Send + Sync>),
 }
 
 impl From<Error> for BitwardenError {
@@ -21,6 +22,7 @@ impl Display for BitwardenError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::E(e) => Display::fmt(e, f),
+            Self::ConversionError(e) => Display::fmt(e, f),
         }
     }
 }
@@ -29,6 +31,7 @@ impl std::error::Error for BitwardenError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             BitwardenError::E(e) => Some(e),
+            BitwardenError::ConversionError(e) => Some(e.as_ref()),
         }
     }
 }
