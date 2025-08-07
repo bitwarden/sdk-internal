@@ -1,8 +1,8 @@
 use bitwarden_api_api::models::{MasterPasswordUnlockResponseModel, UserDecryptionResponseModel};
-use bitwarden_core::key_management::master_password::{
-    MasterPasswordError, MasterPasswordUnlockData,
+use bitwarden_core::key_management::{
+    master_password::{MasterPasswordError, MasterPasswordUnlockData},
+    user_decryption::{UserDecryptionData, UserDecryptionError},
 };
-use bitwarden_core::key_management::user_decryption::{UserDecryptionData, UserDecryptionError};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
