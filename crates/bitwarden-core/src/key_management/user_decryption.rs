@@ -53,7 +53,7 @@ mod tests {
     const TEST_SALT: &str = "test@example.com";
 
     #[test]
-    fn test_process_response_master_password_unlock_some() {
+    fn test_try_from_user_decryption_response_model_success() {
         let response = UserDecryptionResponseModel {
             master_password_unlock: Some(Box::new(MasterPasswordUnlockResponseModel {
                 kdf: Box::new(
@@ -64,12 +64,12 @@ mod tests {
                         parallelism: Some(4),
                     },
                 ),
-                master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
-                salt: Some(TEST_SALT.to_string()),
+                master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
+                salt: TEST_SALT.to_string(),
             })),
         };
 
-        let result = UserDecryptionData::process_response(response);
+        let result = UserDecryptionData::try_from(response);
         assert!(result.is_ok());
 
         let user_decryption_data = result.unwrap();
@@ -101,12 +101,12 @@ mod tests {
     }
 
     #[test]
-    fn test_process_response_missing_master_password_unlock() {
+    fn test_try_from_user_decryption_response_model_master_password_unlock_none_success() {
         let response = UserDecryptionResponseModel {
             master_password_unlock: None,
         };
 
-        let result = UserDecryptionData::process_response(response);
+        let result = UserDecryptionData::try_from(response);
         assert!(result.is_ok());
 
         let user_decryption_data = result.unwrap();
@@ -115,23 +115,23 @@ mod tests {
     }
 
     #[test]
-    fn test_process_response_missing_master_password_unlock_salt() {
+    fn test_try_from_user_decryption_response_model_missing_field_error() {
         let response = UserDecryptionResponseModel {
             master_password_unlock: Some(Box::new(MasterPasswordUnlockResponseModel {
                 kdf: Box::new(
                     bitwarden_api_api::models::MasterPasswordUnlockKdfResponseModel {
                         kdf_type: KdfType::Argon2id,
                         iterations: 3,
-                        memory: Some(64),
-                        parallelism: Some(4),
+                        memory: None,
+                        parallelism: None,
                     },
                 ),
-                master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
-                salt: None,
+                master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
+                salt: TEST_SALT.to_string(),
             })),
         };
 
-        let result = UserDecryptionData::process_response(response);
+        let result = UserDecryptionData::try_from(response);
         assert!(matches!(
             result,
             Err(UserDecryptionError::MasterPasswordError(

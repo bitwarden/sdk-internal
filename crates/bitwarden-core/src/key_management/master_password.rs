@@ -91,79 +91,52 @@ mod tests {
     const TEST_INVALID_USER_KEY: &str = "-1.8UClLa8IPE1iZT7chy5wzQ==|6PVfHnVk5S3XqEtQemnM5yb4JodxmPkkWzmDRdfyHtjORmvxqlLX40tBJZ+CKxQWmS8tpEB5w39rbgHg/gqs0haGdZG4cPbywsgGzxZ7uNI=";
     const TEST_SALT: &str = "test@example.com";
 
-    fn create_pbkdf2_response(
-        iterations: i32,
-        encrypted_user_key: Option<String>,
-        salt: Option<String>,
-    ) -> MasterPasswordUnlockResponseModel {
-        MasterPasswordUnlockResponseModel {
+    #[test]
+    fn test_try_from_master_password_unlock_response_model_pbkdf2_success() {
+        let response = MasterPasswordUnlockResponseModel {
             kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
                 kdf_type: KdfType::PBKDF2_SHA256,
-                iterations,
+                iterations: 600_000,
                 memory: None,
                 parallelism: None,
             }),
-            master_key_encrypted_user_key: encrypted_user_key,
-            salt,
-        }
-    }
+            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
+            salt: TEST_SALT.to_string(),
+        };
 
-    fn create_argon2id_response(
-        iterations: i32,
-        memory: Option<i32>,
-        parallelism: Option<i32>,
-        encrypted_user_key: Option<String>,
-        salt: Option<String>,
-    ) -> MasterPasswordUnlockResponseModel {
-        MasterPasswordUnlockResponseModel {
-            kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
-                kdf_type: KdfType::Argon2id,
-                iterations,
-                memory,
-                parallelism,
-            }),
-            master_key_encrypted_user_key: encrypted_user_key,
-            salt,
-        }
-    }
+        let result = MasterPasswordUnlockData::try_from(response);
+        assert!(result.is_ok());
+        let data = result.unwrap();
 
-    #[test]
-    fn test_process_response_pbkdf2_success() {
-        let response = create_pbkdf2_response(
-            600_000,
-            Some(TEST_USER_KEY.to_string()),
-            Some(TEST_SALT.to_string()),
-        );
-
-        let result = MasterPasswordUnlockData::process_response(response).unwrap();
-
-        match result.kdf {
+        match data.kdf {
             Kdf::PBKDF2 { iterations } => {
                 assert_eq!(iterations.get(), 600_000);
             }
             _ => panic!("Expected PBKDF2 KDF"),
         }
 
-        assert_eq!(result.salt, TEST_SALT);
-        assert_eq!(
-            result.master_key_wrapped_user_key.to_string(),
-            TEST_USER_KEY
-        );
+        assert_eq!(data.salt, TEST_SALT);
+        assert_eq!(data.master_key_wrapped_user_key.to_string(), TEST_USER_KEY);
     }
 
     #[test]
-    fn test_process_response_argon2id_success() {
-        let response = create_argon2id_response(
-            3,
-            Some(64),
-            Some(4),
-            Some(TEST_USER_KEY.to_string()),
-            Some(TEST_SALT.to_string()),
-        );
+    fn test_try_from_master_password_unlock_response_model_argon2id_success() {
+        let response = MasterPasswordUnlockResponseModel {
+            kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
+                kdf_type: KdfType::Argon2id,
+                iterations: 3,
+                memory: Some(64),
+                parallelism: Some(4),
+            }),
+            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
+            salt: TEST_SALT.to_string(),
+        };
 
-        let result = MasterPasswordUnlockData::process_response(response).unwrap();
+        let result = MasterPasswordUnlockData::try_from(response);
+        assert!(result.is_ok());
+        let data = result.unwrap();
 
-        match result.kdf {
+        match data.kdf {
             Kdf::Argon2id {
                 iterations,
                 memory,
@@ -176,62 +149,41 @@ mod tests {
             _ => panic!("Expected Argon2id KDF"),
         }
 
-        assert_eq!(result.salt, TEST_SALT);
-        assert_eq!(
-            result.master_key_wrapped_user_key.to_string(),
-            TEST_USER_KEY
-        );
+        assert_eq!(data.salt, TEST_SALT);
+        assert_eq!(data.master_key_wrapped_user_key.to_string(), TEST_USER_KEY);
     }
 
     #[test]
-    fn test_process_response_invalid_user_key_crypto_error() {
-        let response = create_pbkdf2_response(
-            600_000,
-            Some(TEST_INVALID_USER_KEY.to_string()),
-            Some(TEST_SALT.to_string()),
-        );
+    fn test_try_from_master_password_unlock_response_model_invalid_user_key_crypto_error() {
+        let response = MasterPasswordUnlockResponseModel {
+            kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
+                kdf_type: KdfType::PBKDF2_SHA256,
+                iterations: 600_000,
+                memory: None,
+                parallelism: None,
+            }),
+            master_key_encrypted_user_key: TEST_INVALID_USER_KEY.to_string(),
+            salt: TEST_SALT.to_string(),
+        };
 
-        let result = MasterPasswordUnlockData::process_response(response);
+        let result = MasterPasswordUnlockData::try_from(response);
         assert!(matches!(result, Err(MasterPasswordError::Crypto(_))));
     }
 
     #[test]
-    fn test_process_response_missing_encrypted_user_key() {
-        let response = create_pbkdf2_response(600_000, None, Some(TEST_SALT.to_string()));
+    fn test_try_from_master_password_unlock_response_model_argon2id_memory_none_error() {
+        let response = MasterPasswordUnlockResponseModel {
+            kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
+                kdf_type: KdfType::Argon2id,
+                iterations: 3,
+                memory: None,
+                parallelism: Some(4),
+            }),
+            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
+            salt: TEST_SALT.to_string(),
+        };
 
-        let result = MasterPasswordUnlockData::process_response(response);
-        assert!(matches!(
-            result,
-            Err(MasterPasswordError::MissingField(MissingFieldError(
-                "response.master_key_encrypted_user_key"
-            )))
-        ));
-    }
-
-    #[test]
-    fn test_process_response_missing_salt() {
-        let response = create_pbkdf2_response(600_000, Some(TEST_USER_KEY.to_string()), None);
-
-        let result = MasterPasswordUnlockData::process_response(response);
-        assert!(matches!(
-            result,
-            Err(MasterPasswordError::MissingField(MissingFieldError(
-                "response.salt"
-            )))
-        ));
-    }
-
-    #[test]
-    fn test_process_response_argon2id_missing_memory() {
-        let response = create_argon2id_response(
-            3,
-            None,
-            Some(4),
-            Some(TEST_USER_KEY.to_string()),
-            Some(TEST_SALT.to_string()),
-        );
-
-        let result = MasterPasswordUnlockData::process_response(response);
+        let result = MasterPasswordUnlockData::try_from(response);
         assert!(matches!(
             result,
             Err(MasterPasswordError::MissingField(MissingFieldError(
@@ -241,16 +193,41 @@ mod tests {
     }
 
     #[test]
-    fn test_process_response_argon2id_missing_parallelism() {
-        let response = create_argon2id_response(
-            3,
-            Some(64),
-            None,
-            Some(TEST_USER_KEY.to_string()),
-            Some(TEST_SALT.to_string()),
-        );
+    fn test_try_from_master_password_unlock_response_model_argon2id_memory_zero_error() {
+        let response = MasterPasswordUnlockResponseModel {
+            kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
+                kdf_type: KdfType::Argon2id,
+                iterations: 3,
+                memory: Some(0),
+                parallelism: Some(4),
+            }),
+            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
+            salt: TEST_SALT.to_string(),
+        };
 
-        let result = MasterPasswordUnlockData::process_response(response);
+        let result = MasterPasswordUnlockData::try_from(response);
+        assert!(matches!(
+            result,
+            Err(MasterPasswordError::MissingField(MissingFieldError(
+                "response.kdf.memory"
+            )))
+        ));
+    }
+
+    #[test]
+    fn test_try_from_master_password_unlock_response_model_argon2id_parallelism_none_error() {
+        let response = MasterPasswordUnlockResponseModel {
+            kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
+                kdf_type: KdfType::Argon2id,
+                iterations: 3,
+                memory: Some(64),
+                parallelism: None,
+            }),
+            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
+            salt: TEST_SALT.to_string(),
+        };
+
+        let result = MasterPasswordUnlockData::try_from(response);
         assert!(matches!(
             result,
             Err(MasterPasswordError::MissingField(MissingFieldError(
@@ -260,14 +237,41 @@ mod tests {
     }
 
     #[test]
-    fn test_process_response_zero_iterations_pbkdf2() {
-        let response = create_pbkdf2_response(
-            0,
-            Some(TEST_USER_KEY.to_string()),
-            Some(TEST_SALT.to_string()),
-        );
+    fn test_try_from_master_password_unlock_response_model_argon2id_parallelism_zero_error() {
+        let response = MasterPasswordUnlockResponseModel {
+            kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
+                kdf_type: KdfType::Argon2id,
+                iterations: 3,
+                memory: Some(64),
+                parallelism: Some(0),
+            }),
+            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
+            salt: TEST_SALT.to_string(),
+        };
 
-        let result = MasterPasswordUnlockData::process_response(response);
+        let result = MasterPasswordUnlockData::try_from(response);
+        assert!(matches!(
+            result,
+            Err(MasterPasswordError::MissingField(MissingFieldError(
+                "response.kdf.parallelism"
+            )))
+        ));
+    }
+
+    #[test]
+    fn test_try_from_master_password_unlock_response_model_pbkdf2_iterations_zero_error() {
+        let response = MasterPasswordUnlockResponseModel {
+            kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
+                kdf_type: KdfType::PBKDF2_SHA256,
+                iterations: 0,
+                memory: None,
+                parallelism: None,
+            }),
+            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
+            salt: TEST_SALT.to_string(),
+        };
+
+        let result = MasterPasswordUnlockData::try_from(response);
         assert!(matches!(
             result,
             Err(MasterPasswordError::MissingField(MissingFieldError(
@@ -277,16 +281,19 @@ mod tests {
     }
 
     #[test]
-    fn test_process_response_zero_iterations_argon2id() {
-        let response = create_argon2id_response(
-            0,
-            Some(0),
-            Some(0),
-            Some(TEST_USER_KEY.to_string()),
-            Some(TEST_SALT.to_string()),
-        );
+    fn test_try_from_master_password_unlock_response_model_argon2id_iterations_zero_error() {
+        let response = MasterPasswordUnlockResponseModel {
+            kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
+                kdf_type: KdfType::Argon2id,
+                iterations: 0,
+                memory: Some(64),
+                parallelism: Some(4),
+            }),
+            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
+            salt: TEST_SALT.to_string(),
+        };
 
-        let result = MasterPasswordUnlockData::process_response(response);
+        let result = MasterPasswordUnlockData::try_from(response);
         assert!(matches!(
             result,
             Err(MasterPasswordError::MissingField(MissingFieldError(
