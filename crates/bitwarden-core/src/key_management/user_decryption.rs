@@ -3,6 +3,8 @@
 use bitwarden_api_api::models::UserDecryptionResponseModel;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::key_management::master_password::{MasterPasswordError, MasterPasswordUnlockData};
 
@@ -25,16 +27,14 @@ pub struct UserDecryptionData {
     pub master_password_unlock: Option<MasterPasswordUnlockData>,
 }
 
-impl UserDecryptionData {
-    pub fn process_response(
-        response: UserDecryptionResponseModel,
-    ) -> Result<UserDecryptionData, UserDecryptionError> {
-        let master_password_unlock = match response.master_password_unlock {
-            Some(master_password_unlock) => Some(MasterPasswordUnlockData::process_response(
-                master_password_unlock.as_ref().clone(),
-            )?),
-            None => None,
-        };
+impl TryFrom<UserDecryptionResponseModel> for UserDecryptionData {
+    type Error = UserDecryptionError;
+
+    fn try_from(response: UserDecryptionResponseModel) -> Result<Self, Self::Error> {
+        let master_password_unlock = response
+            .master_password_unlock
+            .map(|response| MasterPasswordUnlockData::try_from(*response))
+            .transpose()?;
 
         Ok(UserDecryptionData {
             master_password_unlock,

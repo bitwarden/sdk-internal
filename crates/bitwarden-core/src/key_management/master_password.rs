@@ -1,6 +1,6 @@
 #![allow(missing_docs)]
 
-use std::{num::NonZeroU32, str::FromStr};
+use std::num::NonZeroU32;
 
 use bitwarden_api_api::models::{
     master_password_unlock_response_model::MasterPasswordUnlockResponseModel, KdfType,
@@ -8,6 +8,8 @@ use bitwarden_api_api::models::{
 use bitwarden_crypto::{CryptoError, EncString, Kdf};
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::{require, MissingFieldError};
 
@@ -34,38 +36,49 @@ pub struct MasterPasswordUnlockData {
     pub salt: String,
 }
 
-impl MasterPasswordUnlockData {
-    pub fn process_response(
-        response: MasterPasswordUnlockResponseModel,
-    ) -> Result<MasterPasswordUnlockData, MasterPasswordError> {
+impl TryFrom<MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
+    type Error = MasterPasswordError;
+
+    fn try_from(response: MasterPasswordUnlockResponseModel) -> Result<Self, Self::Error> {
         let kdf = match response.kdf.kdf_type {
             KdfType::PBKDF2_SHA256 => Kdf::PBKDF2 {
-                iterations: NonZeroU32::new(response.kdf.iterations as u32)
-                    .ok_or(MissingFieldError(stringify!(response.kdf.iterations)))?,
+                iterations: parse_nonzero_u32(
+                    response.kdf.iterations,
+                    stringify!(response.kdf.iterations),
+                )?,
             },
             KdfType::Argon2id => Kdf::Argon2id {
-                iterations: NonZeroU32::new(response.kdf.iterations as u32)
-                    .ok_or(MissingFieldError(stringify!(response.kdf.iterations)))?,
-                memory: NonZeroU32::new(require!(response.kdf.memory) as u32)
-                    .ok_or(MissingFieldError(stringify!(response.kdf.memory)))?,
-                parallelism: NonZeroU32::new(require!(response.kdf.parallelism) as u32)
-                    .ok_or(MissingFieldError(stringify!(response.kdf.parallelism)))?,
+                iterations: parse_nonzero_u32(
+                    response.kdf.iterations,
+                    stringify!(response.kdf.iterations),
+                )?,
+                memory: parse_nonzero_u32(
+                    require!(response.kdf.memory),
+                    stringify!(response.kdf.memory),
+                )?,
+                parallelism: parse_nonzero_u32(
+                    require!(response.kdf.parallelism),
+                    stringify!(response.kdf.parallelism),
+                )?,
             },
         };
 
-        let master_key_encrypted_user_key = require!(response.master_key_encrypted_user_key);
-        let master_key_wrapped_user_key =
-            EncString::from_str(master_key_encrypted_user_key.as_str())
-                .map_err(|e: CryptoError| MasterPasswordError::from(e))?;
-
-        let salt = require!(response.salt);
-
         Ok(MasterPasswordUnlockData {
             kdf,
-            master_key_wrapped_user_key,
-            salt,
+            master_key_wrapped_user_key: response.master_key_encrypted_user_key.as_str().parse()?,
+            salt: response.salt,
         })
     }
+}
+
+fn parse_nonzero_u32(
+    value: impl TryInto<u32>,
+    field_name: &'static str,
+) -> Result<NonZeroU32, MissingFieldError> {
+    let num: u32 = value
+        .try_into()
+        .map_err(|_| MissingFieldError(field_name))?;
+    NonZeroU32::new(num).ok_or(MissingFieldError(field_name))
 }
 
 #[cfg(test)]

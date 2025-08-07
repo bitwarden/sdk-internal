@@ -10,12 +10,19 @@
 
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::models;
 ///
 #[repr(i64)]
 #[derive(
     Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
+)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
 )]
 pub enum KdfType {
     PBKDF2_SHA256 = 0,
