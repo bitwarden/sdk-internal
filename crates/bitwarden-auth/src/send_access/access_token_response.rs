@@ -60,6 +60,7 @@ impl From<reqwest::Error> for SendAccessTokenError {
 
 #[derive(Debug)]
 pub struct AuthApiError(reqwest::Error);
+
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
