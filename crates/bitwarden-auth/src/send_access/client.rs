@@ -4,7 +4,6 @@ use bitwarden_core::Client;
 use wasm_bindgen::prelude::*;
 
 use crate::send_access::{
-    access_token_response::AuthApiError,
     internal::{
         SendAccessTokenApiErrorResponse, SendAccessTokenApiSuccessResponse,
         SendAccessTokenRequestPayload,
@@ -72,22 +71,10 @@ impl SendAccessClient {
             return Ok(send_access_token.into());
         }
 
-        // // If the response is not successful, we should handle the error.
-        // if response.status().is_client_error() || response.status().is_server_error() {
-        //     let error: SendAccessTokenApiErrorResponse = response.json().await?;
-
-        //     return Err(SendAccessTokenError::Response(error));
-        // }
-
-        // // If we reach here, it means we received an unexpected response.
-        // Err(SendAccessTokenError::UnexpectedStatus(response.status()))
-
-        let err_response = response.json::<SendAccessTokenApiErrorResponse>().await?;
+        // If the response is not 200, we can deserialize it into SendAccessTokenApiErrorResponse
+        //and then convert it into SendAccessTokenError since we have implemented the required traits to do
+        // that conversion automatically.
+        let err_response: SendAccessTokenApiErrorResponse = response.json().await?;
         Err(SendAccessTokenError::Response(err_response))
-
-        // match response.json::<SendAccessTokenApiErrorResponse>().await {
-        //     Ok(err) => Err(SendAccessTokenError::Response(err)),
-        //     Err(e) => Err(SendAccessTokenError::Api(AuthApiError(e))),
-        // }
     }
 }
