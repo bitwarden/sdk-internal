@@ -26,7 +26,7 @@ serde_with = { version = ">=3.8, <4", default-features = false, features = [
     "std",
     "macros",
 ] }
+tsify = { workspace = true, optional = true, features = ["js"], default-features = false }
 url = ">=2.5, <3"
 uuid = { workspace = true }
-tsify = { workspace = true, optional = true, features = ["js"], default-features = false }
 wasm-bindgen = { workspace = true, optional = true, features = ["serde-serialize"] }
