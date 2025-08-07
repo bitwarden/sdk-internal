@@ -4,6 +4,7 @@ use bitwarden_core::Client;
 use wasm_bindgen::prelude::*;
 
 use crate::send_access::{
+    access_token_response::AuthApiError,
     internal::{
         SendAccessTokenApiErrorResponse, SendAccessTokenApiSuccessResponse,
         SendAccessTokenRequestPayload,
@@ -71,25 +72,22 @@ impl SendAccessClient {
             return Ok(send_access_token.into());
         }
 
-        // If the response is not successful, we should handle the error.
-        if response.status().is_client_error() || response.status().is_server_error() {
-            let error: SendAccessTokenApiErrorResponse = response.json().await?;
+        // // If the response is not successful, we should handle the error.
+        // if response.status().is_client_error() || response.status().is_server_error() {
+        //     let error: SendAccessTokenApiErrorResponse = response.json().await?;
 
-            // If we want to create a custom error to return we can map the error response to our
-            // own error type by building the error type and then adding a from trait
-            // implementation for it. The way that we do this typically is by creating a
-            // new enum that represents the bitwarden_core::ApiError and my new error
-            // type.
+        //     return Err(SendAccessTokenError::Response(error));
+        // }
 
-            // Map the error description to our enum
-            // let error_enum: SendTokenApiErrorDescription =
-            //     serde_json::from_str(&error_description).unwrap_or_else(|_| {
-            //         SendTokenApiErrorDescription::UnknownError
-            //     });
+        // // If we reach here, it means we received an unexpected response.
+        // Err(SendAccessTokenError::UnexpectedStatus(response.status()))
 
-            // return Err(bitwarden_core::ApiError::SendTokenApiError(error_enum));
-        }
+        let err_response = response.json::<SendAccessTokenApiErrorResponse>().await?;
+        Err(SendAccessTokenError::Response(err_response))
 
-        todo!("Implement error handling");
+        // match response.json::<SendAccessTokenApiErrorResponse>().await {
+        //     Ok(err) => Err(SendAccessTokenError::Response(err)),
+        //     Err(e) => Err(SendAccessTokenError::Api(AuthApiError(e))),
+        // }
     }
 }
