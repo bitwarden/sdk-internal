@@ -18,7 +18,7 @@ keywords.workspace = true
 uniffi = ["dep:uniffi"] # Uniffi bindings
 wasm = [
     "bitwarden-core/wasm",
-    "dep:tsify-next",
+    "dep:tsify",
     "dep:wasm-bindgen"
 ] # WebAssembly bindings
 
@@ -32,14 +32,14 @@ schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-tsify-next = { workspace = true, optional = true }
+tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 rand_chacha = "0.3.1"
 tokio = { workspace = true, features = ["rt"] }
-wiremock = "0.6.0"
+wiremock = { workspace = true }
 
 [lints]
 workspace = true

@@ -52,14 +52,19 @@ pub struct OrganizationUserUserDetailsResponseModel {
     pub two_factor_enabled: Option<bool>,
     #[serde(rename = "ssoBound", skip_serializing_if = "Option::is_none")]
     pub sso_bound: Option<bool>,
-    /// Indicates if the organization manages the user. If a user is \"managed\" by an
-    /// organization,  the organization has greater control over their account, and some user
-    /// actions are restricted.
     #[serde(
         rename = "managedByOrganization",
         skip_serializing_if = "Option::is_none"
     )]
     pub managed_by_organization: Option<bool>,
+    /// Indicates if the organization claimed the user. If a user is \"claimed\" by an
+    /// organization, the organization has greater control over their account, and some user
+    /// actions are restricted.
+    #[serde(
+        rename = "claimedByOrganization",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub claimed_by_organization: Option<bool>,
     #[serde(rename = "collections", skip_serializing_if = "Option::is_none")]
     pub collections: Option<Vec<models::SelectionReadOnlyResponseModel>>,
     #[serde(rename = "groups", skip_serializing_if = "Option::is_none")]
@@ -86,6 +91,7 @@ impl OrganizationUserUserDetailsResponseModel {
             two_factor_enabled: None,
             sso_bound: None,
             managed_by_organization: None,
+            claimed_by_organization: None,
             collections: None,
             groups: None,
         }

@@ -23,6 +23,7 @@ pub enum ClientType {
     Browser = 2,
     Desktop = 3,
     Mobile = 4,
+    Cli = 5,
 }
 
 impl std::fmt::Display for ClientType {
@@ -36,6 +37,7 @@ impl std::fmt::Display for ClientType {
                 Self::Browser => "2",
                 Self::Desktop => "3",
                 Self::Mobile => "4",
+                Self::Cli => "5",
             }
         )
     }

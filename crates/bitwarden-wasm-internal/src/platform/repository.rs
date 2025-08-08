@@ -25,8 +25,8 @@
  *   concrete repository we define, but the implementation should be very straightforward.
  * - [WasmRepositoryChannel] struct, which wraps a [WasmRepository] in a [ThreadBoundRunner] and
  *   implements the [Repository] trait. This has a few special considerations:
- *   - It uses [tsify_next::serde_wasm_bindgen] to convert between [JsValue] and our types, so
- *     we can use the existing [Repository] trait.
+ *   - It uses [tsify::serde_wasm_bindgen] to convert between [JsValue] and our types, so we can
+ *     use the existing [Repository] trait.
  *   - It runs the calls in a thread-bound manner, so we can safely call the [WasmRepository]
  *     methods from any thread.
  * - The [create_wasm_repository] macro, defines the [::wasm_bindgen] interface and implements
@@ -52,7 +52,7 @@ pub(crate) trait WasmRepository<T> {
 
 /// This struct wraps a [WasmRepository] in a [ThreadBoundRunner] to allow it to be used as a
 /// [Repository] in a thread-safe manner. It implements the [Repository] trait directly, by
-/// converting the values as needed with [tsify_next::serde_wasm_bindgen].
+/// converting the values as needed with [tsify::serde_wasm_bindgen].
 pub(crate) struct WasmRepositoryChannel<T, R: WasmRepository<T> + 'static>(
     ThreadBoundRunner<R>,
     PhantomData<T>,
@@ -180,14 +180,14 @@ where
 }
 
 /// Converts a [Result<JsValue, JsValue>] to a typed [Result<T, RepositoryError>] using
-/// [tsify_next::serde_wasm_bindgen]
+/// [tsify::serde_wasm_bindgen]
 fn convert_result<T: serde::de::DeserializeOwned>(
     result: Result<JsValue, JsValue>,
 ) -> Result<T, RepositoryError> {
     result
         .map_err(|e| RepositoryError::Internal(format!("{e:?}")))
         .and_then(|value| {
-            ::tsify_next::serde_wasm_bindgen::from_value(value)
+            ::tsify::serde_wasm_bindgen::from_value(value)
                 .map_err(|e| RepositoryError::Internal(e.to_string()))
         })
 }

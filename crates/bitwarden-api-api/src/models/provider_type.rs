@@ -20,7 +20,7 @@ use crate::models;
 pub enum ProviderType {
     Msp = 0,
     Reseller = 1,
-    MultiOrganizationEnterprise = 2,
+    BusinessUnit = 2,
 }
 
 impl std::fmt::Display for ProviderType {
@@ -31,7 +31,7 @@ impl std::fmt::Display for ProviderType {
             match self {
                 Self::Msp => "0",
                 Self::Reseller => "1",
-                Self::MultiOrganizationEnterprise => "2",
+                Self::BusinessUnit => "2",
             }
         )
     }

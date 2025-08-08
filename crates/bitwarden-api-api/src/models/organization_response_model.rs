@@ -121,6 +121,16 @@ pub struct OrganizationResponseModel {
     pub allow_admin_access_to_all_collection_items: Option<bool>,
     #[serde(rename = "useRiskInsights", skip_serializing_if = "Option::is_none")]
     pub use_risk_insights: Option<bool>,
+    #[serde(
+        rename = "useOrganizationDomains",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_organization_domains: Option<bool>,
+    #[serde(
+        rename = "useAdminSponsoredFamilies",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_admin_sponsored_families: Option<bool>,
 }
 
 impl OrganizationResponseModel {
@@ -169,6 +179,8 @@ impl OrganizationResponseModel {
             limit_item_deletion: None,
             allow_admin_access_to_all_collection_items: None,
             use_risk_insights: None,
+            use_organization_domains: None,
+            use_admin_sponsored_families: None,
         }
     }
 }

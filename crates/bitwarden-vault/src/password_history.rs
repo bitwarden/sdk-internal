@@ -7,7 +7,7 @@ use bitwarden_crypto::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use tsify_next::Tsify;
+use tsify::Tsify;
 
 use crate::VaultParseError;
 

@@ -4,7 +4,10 @@ use bitwarden_crypto::{
     TrustDeviceResponse, UnsignedSharedKey, UserKey,
 };
 
-use crate::{client::encryption_settings::EncryptionSettingsError, Client};
+use crate::{
+    client::{encryption_settings::EncryptionSettingsError, internal::UserKeyState},
+    Client,
+};
 
 /// This function generates a new user key and key pair, initializes the client's crypto with the
 /// generated user key, and encrypts the user key with the organization public key for admin
@@ -41,10 +44,13 @@ pub(super) fn make_register_tde_keys(
         ));
     client.internal.initialize_user_crypto_decrypted_key(
         user_key.0,
-        key_pair.private.clone(),
-        // Note: Signing keys are not supported on registration yet. This needs to be changed as
-        // soon as registration is supported.
-        None,
+        UserKeyState {
+            private_key: key_pair.private.clone(),
+            // TODO (https://bitwarden.atlassian.net/browse/PM-21771) Signing keys are not supported on registration yet. This needs to be changed as
+            // soon as registration is supported.
+            signing_key: None,
+            security_state: None,
+        },
     )?;
 
     Ok(RegisterTdeKeyResponse {

@@ -13,16 +13,16 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct RegisterResponseModel {
+pub struct RegisterFinishResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
     #[serde(rename = "captchaBypassToken", skip_serializing_if = "Option::is_none")]
     pub captcha_bypass_token: Option<String>,
 }
 
-impl RegisterResponseModel {
-    pub fn new() -> RegisterResponseModel {
-        RegisterResponseModel {
+impl RegisterFinishResponseModel {
+    pub fn new() -> RegisterFinishResponseModel {
+        RegisterFinishResponseModel {
             object: None,
             captcha_bypass_token: None,
         }

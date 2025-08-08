@@ -28,10 +28,7 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
         })
         .await?;
 
-    if result.captcha.is_some() {
-        // TODO: We should build a web captcha solution
-        error!("Captcha required");
-    } else if let Some(two_factor) = result.two_factor {
+    if let Some(two_factor) = result.two_factor {
         error!("{two_factor:?}");
 
         let two_factor = if let Some(tf) = two_factor.authenticator {

@@ -28,6 +28,55 @@ pub enum ReportsMemberCipherDetailsOrgIdGetError {
     UnknownValue(serde_json::Value),
 }
 
+/// struct for typed errors of method [`reports_organization_report_summary_org_id_get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ReportsOrganizationReportSummaryOrgIdGetError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`reports_organization_report_summary_post`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ReportsOrganizationReportSummaryPostError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`reports_organization_report_summary_put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ReportsOrganizationReportSummaryPutError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`reports_organization_reports_delete`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ReportsOrganizationReportsDeleteError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`reports_organization_reports_latest_org_id_get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ReportsOrganizationReportsLatestOrgIdGetError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`reports_organization_reports_org_id_get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ReportsOrganizationReportsOrgIdGetError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`reports_organization_reports_post`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ReportsOrganizationReportsPostError {
+    UnknownValue(serde_json::Value),
+}
+
 /// struct for typed errors of method [`reports_password_health_report_application_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -59,7 +108,10 @@ pub enum ReportsPasswordHealthReportApplicationsPostError {
 pub async fn reports_member_access_org_id_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
-) -> Result<Vec<models::MemberAccessReportResponseModel>, Error<ReportsMemberAccessOrgIdGetError>> {
+) -> Result<
+    Vec<models::MemberAccessDetailReportResponseModel>,
+    Error<ReportsMemberAccessOrgIdGetError>,
+> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
 
@@ -92,8 +144,8 @@ pub async fn reports_member_access_org_id_get(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `Vec&lt;models::MemberAccessReportResponseModel&gt;`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `Vec&lt;models::MemberAccessReportResponseModel&gt;`")))),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `Vec&lt;models::MemberAccessDetailReportResponseModel&gt;`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `Vec&lt;models::MemberAccessDetailReportResponseModel&gt;`")))),
         }
     } else {
         let content = resp.text().await?;
@@ -151,6 +203,343 @@ pub async fn reports_member_cipher_details_org_id_get(
     } else {
         let content = resp.text().await?;
         let entity: Option<ReportsMemberCipherDetailsOrgIdGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn reports_organization_report_summary_org_id_get(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    from: Option<String>,
+    to: Option<String>,
+) -> Result<
+    Vec<models::OrganizationReportSummaryModel>,
+    Error<ReportsOrganizationReportSummaryOrgIdGetError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_from = from;
+    let p_to = to;
+
+    let uri_str = format!(
+        "{}/reports/organization-report-summary/{orgId}",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref param_value) = p_from {
+        req_builder = req_builder.query(&[("from", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_to {
+        req_builder = req_builder.query(&[("to", &param_value.to_string())]);
+    }
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `Vec&lt;models::OrganizationReportSummaryModel&gt;`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `Vec&lt;models::OrganizationReportSummaryModel&gt;`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ReportsOrganizationReportSummaryOrgIdGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn reports_organization_report_summary_post(
+    configuration: &configuration::Configuration,
+    organization_report_summary_model: Option<models::OrganizationReportSummaryModel>,
+) -> Result<(), Error<ReportsOrganizationReportSummaryPostError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_report_summary_model = organization_report_summary_model;
+
+    let uri_str = format!(
+        "{}/reports/organization-report-summary",
+        configuration.base_path
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_report_summary_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ReportsOrganizationReportSummaryPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn reports_organization_report_summary_put(
+    configuration: &configuration::Configuration,
+    organization_report_summary_model: Option<models::OrganizationReportSummaryModel>,
+) -> Result<(), Error<ReportsOrganizationReportSummaryPutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_report_summary_model = organization_report_summary_model;
+
+    let uri_str = format!(
+        "{}/reports/organization-report-summary",
+        configuration.base_path
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_report_summary_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ReportsOrganizationReportSummaryPutError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn reports_organization_reports_delete(
+    configuration: &configuration::Configuration,
+    drop_organization_report_request: Option<models::DropOrganizationReportRequest>,
+) -> Result<(), Error<ReportsOrganizationReportsDeleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_drop_organization_report_request = drop_organization_report_request;
+
+    let uri_str = format!("{}/reports/organization-reports", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_drop_organization_report_request);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ReportsOrganizationReportsDeleteError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn reports_organization_reports_latest_org_id_get(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+) -> Result<models::OrganizationReport, Error<ReportsOrganizationReportsLatestOrgIdGetError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+
+    let uri_str = format!(
+        "{}/reports/organization-reports/latest/{orgId}",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationReport`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationReport`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ReportsOrganizationReportsLatestOrgIdGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn reports_organization_reports_org_id_get(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+) -> Result<Vec<models::OrganizationReport>, Error<ReportsOrganizationReportsOrgIdGetError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+
+    let uri_str = format!(
+        "{}/reports/organization-reports/{orgId}",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `Vec&lt;models::OrganizationReport&gt;`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `Vec&lt;models::OrganizationReport&gt;`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ReportsOrganizationReportsOrgIdGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn reports_organization_reports_post(
+    configuration: &configuration::Configuration,
+    add_organization_report_request: Option<models::AddOrganizationReportRequest>,
+) -> Result<models::OrganizationReport, Error<ReportsOrganizationReportsPostError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_add_organization_report_request = add_organization_report_request;
+
+    let uri_str = format!("{}/reports/organization-reports", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_add_organization_report_request);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationReport`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationReport`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ReportsOrganizationReportsPostError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

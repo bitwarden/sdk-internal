@@ -59,6 +59,11 @@ pub struct PlanResponseModel {
     pub has_api: Option<bool>,
     #[serde(rename = "hasSso", skip_serializing_if = "Option::is_none")]
     pub has_sso: Option<bool>,
+    #[serde(
+        rename = "hasOrganizationDomains",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub has_organization_domains: Option<bool>,
     #[serde(rename = "hasResetPassword", skip_serializing_if = "Option::is_none")]
     pub has_reset_password: Option<bool>,
     #[serde(rename = "usersGetPremium", skip_serializing_if = "Option::is_none")]
@@ -98,6 +103,7 @@ impl PlanResponseModel {
             has2fa: None,
             has_api: None,
             has_sso: None,
+            has_organization_domains: None,
             has_reset_password: None,
             users_get_premium: None,
             upgrade_sort_order: None,

@@ -112,13 +112,6 @@ pub enum OrganizationsIdLicenseGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_id_payment_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdPaymentPostError {
-    UnknownValue(serde_json::Value),
-}
-
 /// struct for typed errors of method [`organizations_id_plan_type_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -801,7 +794,7 @@ pub async fn organizations_id_keys_get(
 
 pub async fn organizations_id_keys_post(
     configuration: &configuration::Configuration,
-    id: &str,
+    id: uuid::Uuid,
     organization_keys_request_model: Option<models::OrganizationKeysRequestModel>,
 ) -> Result<models::OrganizationKeysResponseModel, Error<OrganizationsIdKeysPostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
@@ -811,7 +804,7 @@ pub async fn organizations_id_keys_post(
     let uri_str = format!(
         "{}/organizations/{id}/keys",
         configuration.base_path,
-        id = crate::apis::urlencode(p_id)
+        id = crate::apis::urlencode(p_id.to_string())
     );
     let mut req_builder = configuration
         .client
@@ -942,50 +935,6 @@ pub async fn organizations_id_license_get(
     } else {
         let content = resp.text().await?;
         let entity: Option<OrganizationsIdLicenseGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_id_payment_post(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-    payment_request_model: Option<models::PaymentRequestModel>,
-) -> Result<(), Error<OrganizationsIdPaymentPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_payment_request_model = payment_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/payment",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_payment_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdPaymentPostError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

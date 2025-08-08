@@ -6,7 +6,7 @@ use bitwarden_crypto::{
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use tsify_next::Tsify;
+use tsify::Tsify;
 
 use super::cipher::CipherKind;
 use crate::{cipher::cipher::CopyableCipherFields, Cipher, VaultParseError};

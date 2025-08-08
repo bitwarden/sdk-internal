@@ -6,7 +6,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use tsify_next::Tsify;
+use tsify::Tsify;
 
 use crate::util::capitalize_first_letter;
 
@@ -42,7 +42,7 @@ pub enum AppendType {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(
     feature = "wasm",
-    derive(tsify_next::Tsify),
+    derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
 /// Configures the email forwarding service to use.
@@ -81,7 +81,7 @@ pub enum ForwarderServiceType {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(
     feature = "wasm",
-    derive(tsify_next::Tsify),
+    derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
 pub enum UsernameGeneratorRequest {

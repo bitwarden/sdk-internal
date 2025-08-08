@@ -70,14 +70,6 @@ pub enum OrganizationsOrgIdCollectionsIdDeletePostError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_org_id_collections_id_delete_user_org_user_id_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsIdDeleteUserOrgUserIdPostError {
-    UnknownValue(serde_json::Value),
-}
-
 /// struct for typed errors of method [`organizations_org_id_collections_id_details_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -106,25 +98,10 @@ pub enum OrganizationsOrgIdCollectionsIdPutError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_org_id_collections_id_user_org_user_id_delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsIdUserOrgUserIdDeleteError {
-    UnknownValue(serde_json::Value),
-}
-
 /// struct for typed errors of method [`organizations_org_id_collections_id_users_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum OrganizationsOrgIdCollectionsIdUsersGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_org_id_collections_id_users_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsIdUsersPutError {
     UnknownValue(serde_json::Value),
 }
 
@@ -510,54 +487,6 @@ pub async fn organizations_org_id_collections_id_delete_post(
     }
 }
 
-pub async fn organizations_org_id_collections_id_delete_user_org_user_id_post(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-    org_user_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdCollectionsIdDeleteUserOrgUserIdPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-    let p_org_user_id = org_user_id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/collections/{id}/delete-user/{orgUserId}",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string()),
-        orgUserId = crate::apis::urlencode(p_org_user_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsIdDeleteUserOrgUserIdPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
 pub async fn organizations_org_id_collections_id_details_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -785,54 +714,6 @@ pub async fn organizations_org_id_collections_id_put(
     }
 }
 
-pub async fn organizations_org_id_collections_id_user_org_user_id_delete(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-    org_user_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdCollectionsIdUserOrgUserIdDeleteError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-    let p_org_user_id = org_user_id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/collections/{id}/user/{orgUserId}",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string()),
-        orgUserId = crate::apis::urlencode(p_org_user_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsIdUserOrgUserIdDeleteError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
 pub async fn organizations_org_id_collections_id_users_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -881,52 +762,6 @@ pub async fn organizations_org_id_collections_id_users_get(
     } else {
         let content = resp.text().await?;
         let entity: Option<OrganizationsOrgIdCollectionsIdUsersGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_collections_id_users_put(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-    selection_read_only_request_model: Option<Vec<models::SelectionReadOnlyRequestModel>>,
-) -> Result<(), Error<OrganizationsOrgIdCollectionsIdUsersPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-    let p_selection_read_only_request_model = selection_read_only_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/collections/{id}/users",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_selection_read_only_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsIdUsersPutError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

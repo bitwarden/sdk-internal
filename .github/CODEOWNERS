@@ -7,6 +7,8 @@
 # Platform is the default owner for all files
 * @bitwarden/team-platform-dev
 
+crates/bitwarden-auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
+
 crates/bitwarden-vault/** @bitwarden/team-vault-dev @bitwarden/team-platform-dev
 
 # Temporarily owned by multiple teams

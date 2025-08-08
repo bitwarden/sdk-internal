@@ -12,7 +12,10 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-///
+/// OrganizationUserStatusType : Represents the different stages of a member's lifecycle in an
+/// organization. The Bit.Core.Entities.OrganizationUser object is populated differently depending
+/// on their Status. Represents the different stages of a member's lifecycle in an organization. The
+/// Bit.Core.Entities.OrganizationUser object is populated differently depending on their Status.
 #[repr(i64)]
 #[derive(
     Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,

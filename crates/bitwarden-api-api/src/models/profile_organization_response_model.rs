@@ -156,14 +156,34 @@ pub struct ProfileOrganizationResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub allow_admin_access_to_all_collection_items: Option<bool>,
-    /// Indicates if the organization manages the user.
+    /// Obsolete. See
+    /// Bit.Api.AdminConsole.Models.Response.ProfileOrganizationResponseModel.
+    /// UserIsClaimedByOrganization
     #[serde(
         rename = "userIsManagedByOrganization",
         skip_serializing_if = "Option::is_none"
     )]
     pub user_is_managed_by_organization: Option<bool>,
+    /// Indicates if the user is claimed by the organization.
+    #[serde(
+        rename = "userIsClaimedByOrganization",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub user_is_claimed_by_organization: Option<bool>,
     #[serde(rename = "useRiskInsights", skip_serializing_if = "Option::is_none")]
     pub use_risk_insights: Option<bool>,
+    #[serde(
+        rename = "useOrganizationDomains",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_organization_domains: Option<bool>,
+    #[serde(
+        rename = "useAdminSponsoredFamilies",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_admin_sponsored_families: Option<bool>,
+    #[serde(rename = "isAdminInitiated", skip_serializing_if = "Option::is_none")]
+    pub is_admin_initiated: Option<bool>,
 }
 
 impl ProfileOrganizationResponseModel {
@@ -220,7 +240,11 @@ impl ProfileOrganizationResponseModel {
             limit_item_deletion: None,
             allow_admin_access_to_all_collection_items: None,
             user_is_managed_by_organization: None,
+            user_is_claimed_by_organization: None,
             use_risk_insights: None,
+            use_organization_domains: None,
+            use_admin_sponsored_families: None,
+            is_admin_initiated: None,
         }
     }
 }

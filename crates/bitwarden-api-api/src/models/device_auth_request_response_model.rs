@@ -28,6 +28,10 @@ pub struct DeviceAuthRequestResponseModel {
     pub creation_date: Option<String>,
     #[serde(rename = "isTrusted", skip_serializing_if = "Option::is_none")]
     pub is_trusted: Option<bool>,
+    #[serde(rename = "encryptedUserKey", skip_serializing_if = "Option::is_none")]
+    pub encrypted_user_key: Option<String>,
+    #[serde(rename = "encryptedPublicKey", skip_serializing_if = "Option::is_none")]
+    pub encrypted_public_key: Option<String>,
     #[serde(
         rename = "devicePendingAuthRequest",
         skip_serializing_if = "Option::is_none"
@@ -45,6 +49,8 @@ impl DeviceAuthRequestResponseModel {
             identifier: None,
             creation_date: None,
             is_trusted: None,
+            encrypted_user_key: None,
+            encrypted_public_key: None,
             device_pending_auth_request: None,
         }
     }

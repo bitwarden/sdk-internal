@@ -3,9 +3,10 @@ use bitwarden_core::Client;
 use wasm_bindgen::prelude::*;
 
 use crate::{
+    collection_client::CollectionsClient,
     sync::{sync, SyncError},
-    AttachmentsClient, CiphersClient, CollectionsClient, FoldersClient, PasswordHistoryClient,
-    SyncRequest, SyncResponse, TotpClient,
+    AttachmentsClient, CiphersClient, FoldersClient, PasswordHistoryClient, SyncRequest,
+    SyncResponse, TotpClient,
 };
 
 #[allow(missing_docs)]
@@ -23,13 +24,6 @@ impl VaultClient {
     #[allow(missing_docs)]
     pub async fn sync(&self, input: &SyncRequest) -> Result<SyncResponse, SyncError> {
         sync(&self.client, input).await
-    }
-
-    /// Collection related operations.
-    pub fn collections(&self) -> CollectionsClient {
-        CollectionsClient {
-            client: self.client.clone(),
-        }
     }
 
     /// Password history related operations.
@@ -66,6 +60,13 @@ impl VaultClient {
     /// TOTP related operations.
     pub fn totp(&self) -> TotpClient {
         TotpClient {
+            client: self.client.clone(),
+        }
+    }
+
+    /// Collection related operations.
+    pub fn collections(&self) -> CollectionsClient {
+        CollectionsClient {
             client: self.client.clone(),
         }
     }
