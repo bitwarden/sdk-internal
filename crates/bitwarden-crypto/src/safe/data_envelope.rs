@@ -155,8 +155,6 @@ impl<Ids: KeyIds> DataEnvelope<Ids> {
             ))
         })?;
 
-        println!("Unsealing data envelope {:?}", msg);
-
         let Some(ref alg) = msg.protected.header.alg else {
             return Err(DataEnvelopeError::DecryptionError);
         };
