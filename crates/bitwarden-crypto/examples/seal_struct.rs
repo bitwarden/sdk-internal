@@ -8,7 +8,7 @@
 //!
 //! In general, if a struct of data should be protected, the `DataEnvelope` should be used.
 
-use bitwarden_crypto::{key_ids, SealableData};
+use bitwarden_crypto::{key_ids, safe::SealableData};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -28,7 +28,7 @@ fn main() {
         b: "Hello, World!".to_string(),
     };
     // Seal the item into an encrypted blob, and store the content-encryption-key in the context.
-    let sealed_item = bitwarden_crypto::DataEnvelope::<ExampleIds>::seal(
+    let sealed_item = bitwarden_crypto::safe::DataEnvelope::<ExampleIds>::seal(
         my_item,
         ExampleSymmetricKey::ItemKey,
         &mut ctx,
@@ -41,8 +41,8 @@ fn main() {
         .load("sealed_item")
         .expect("Failed to load sealed item")
         .clone();
-    let sealed_item: bitwarden_crypto::DataEnvelope<ExampleIds> =
-        bitwarden_crypto::DataEnvelope::from(sealed_item);
+    let sealed_item: bitwarden_crypto::safe::DataEnvelope<ExampleIds> =
+        bitwarden_crypto::safe::DataEnvelope::from(sealed_item);
 
     let my_item: MyItem = sealed_item
         .unseal(ExampleSymmetricKey::ItemKey, &mut ctx)
