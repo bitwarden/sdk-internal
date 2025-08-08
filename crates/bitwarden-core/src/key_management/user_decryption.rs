@@ -1,4 +1,6 @@
-#![allow(missing_docs)]
+//! Mobile specific user decryption operations
+//!
+//! This module contains the data structures and error handling for user decryption operations,
 
 use bitwarden_api_api::models::UserDecryptionResponseModel;
 use bitwarden_error::bitwarden_error;
@@ -8,6 +10,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::key_management::master_password::{MasterPasswordError, MasterPasswordUnlockData};
 
+/// Error for master user decryption related operations.
+#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub enum UserDecryptionError {
@@ -15,6 +19,9 @@ pub enum UserDecryptionError {
     MasterPasswordError(#[from] MasterPasswordError),
 }
 
+/// Represents data required to decrypt user's vault.
+/// Currently, this is only used for master password unlock.
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]

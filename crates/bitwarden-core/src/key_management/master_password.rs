@@ -1,4 +1,6 @@
-#![allow(missing_docs)]
+//! Mobile specific master password operations
+//!
+//! This module contains the data structures and error handling for master password unlock operations.
 
 use std::num::NonZeroU32;
 
@@ -13,6 +15,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::{require, MissingFieldError};
 
+/// Error for master password related operations.
+#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub enum MasterPasswordError {
@@ -22,6 +26,8 @@ pub enum MasterPasswordError {
     MissingField(#[from] MissingFieldError),
 }
 
+/// Represents the data required to unlock with the master password.
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
