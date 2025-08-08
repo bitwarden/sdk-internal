@@ -215,6 +215,9 @@ pub enum DataEnvelopeError {
     /// Indicates that there was an error parsing the DataEnvelope.
     #[error("Parsing error: {0}")]
     ParsingError(String),
+    /// Indicates that the data envelope namespace is invalid.
+    #[error("Invalid namespace")]
+    InvalidNamespace,
 }
 
 #[cfg(test)]
