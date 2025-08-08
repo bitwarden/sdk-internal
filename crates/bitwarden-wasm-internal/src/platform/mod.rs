@@ -2,6 +2,7 @@ use bitwarden_core::{Client, Flags};
 use bitwarden_vault::{Cipher, Folder};
 use wasm_bindgen::prelude::*;
 
+mod iter;
 mod repository;
 pub mod token_provider;
 
@@ -18,6 +19,10 @@ impl PlatformClient {
 impl PlatformClient {
     pub fn state(&self) -> StateClient {
         StateClient::new(self.0.clone())
+    }
+
+    pub fn iter(&self) -> iter::IteratorClient {
+        iter::IteratorClient::new(self.0.clone())
     }
 
     /// Load feature flags into the client
