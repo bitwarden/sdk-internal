@@ -1,12 +1,22 @@
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{EncString, UnsignedSharedKey};
+use std::sync::RwLock;
+
+#[cfg(feature = "internal")]
+use bitwarden_crypto::{
+    Aes256CbcHmacKey, AsymmetricCryptoKey, CoseKeyBytes, CoseSerializable, EncString,
+    KeyDecryptable, Pkcs8PrivateKeyBytes, SigningKey, UnsignedSharedKey, XChaCha20Poly1305Key,
+};
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
+#[cfg(feature = "internal")]
+use log::warn;
 use thiserror::Error;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use uuid::Uuid;
 
+#[cfg(feature = "internal")]
+use crate::key_management::{AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId};
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::key_management::{KeyIds, SymmetricKeyId};
 use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError, VaultLockedError};
@@ -30,11 +40,29 @@ pub enum EncryptionSettingsError {
     #[error("Invalid signing key")]
     InvalidSigningKey,
 
+    #[error("Invalid security state")]
+    InvalidSecurityState,
+
     #[error(transparent)]
     MissingPrivateKey(#[from] MissingPrivateKeyError),
 
     #[error(transparent)]
     UserIdAlreadySetError(#[from] UserIdAlreadySetError),
+}
+
+#[allow(clippy::large_enum_variant)]
+#[cfg(feature = "internal")]
+pub(crate) enum AccountEncryptionKeys {
+    V1 {
+        user_key: Aes256CbcHmacKey,
+        private_key: EncString,
+    },
+    V2 {
+        user_key: XChaCha20Poly1305Key,
+        private_key: EncString,
+        signing_key: EncString,
+        security_state: SignedSecurityState,
+    },
 }
 
 #[allow(missing_docs)]
@@ -47,21 +75,55 @@ impl EncryptionSettings {
     /// discouraged
     #[cfg(feature = "internal")]
     pub(crate) fn new_decrypted_key(
-        user_key: SymmetricCryptoKey,
+        encryption_keys: AccountEncryptionKeys,
+        store: &KeyStore<KeyIds>,
+        security_state_rwlock: &RwLock<Option<SecurityState>>,
+    ) -> Result<(), EncryptionSettingsError> {
+        // This is an all-or-nothing check. The server cannot pretend a signing key or security
+        // state to be missing, because they are *always* present when the user key is an
+        // XChaCha20Poly1305Key. Thus, the server or network cannot lie about the presence of these,
+        // because otherwise the entire user account will fail to decrypt.
+        match encryption_keys {
+            AccountEncryptionKeys::V1 {
+                user_key,
+                private_key,
+            } => {
+                Self::init_v1(user_key, private_key, store)?;
+            }
+            AccountEncryptionKeys::V2 {
+                user_key,
+                private_key,
+                signing_key,
+                security_state,
+            } => {
+                Self::init_v2(
+                    user_key,
+                    private_key,
+                    signing_key,
+                    security_state,
+                    store,
+                    security_state_rwlock,
+                )?;
+            }
+        }
+
+        Ok(())
+    }
+
+    #[cfg(feature = "internal")]
+    fn init_v1(
+        user_key: Aes256CbcHmacKey,
         private_key: EncString,
-        signing_key: Option<EncString>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
-        use bitwarden_crypto::{AsymmetricCryptoKey, CoseSerializable, KeyDecryptable, SigningKey};
-        use log::warn;
-
-        use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
+        let user_key = SymmetricCryptoKey::Aes256CbcHmacKey(user_key);
 
         let private_key = {
             let dec: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
-            // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a recovery
-            // process in place.
-            AsymmetricCryptoKey::from_der(&dec.into())
+
+            // FIXME: [PM-11690] - Temporarily ignore invalid private keys until we have a
+            // recovery process in place.
+            AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(dec))
                 .map_err(|_| {
                     warn!("Invalid private key");
                 })
@@ -72,14 +134,6 @@ impl EncryptionSettings {
             //         .map_err(|_| EncryptionSettingsError::InvalidPrivateKey)?,
             // )
         };
-        let signing_key = signing_key
-            .map(|key| {
-                use bitwarden_crypto::CryptoError;
-
-                let dec: Vec<u8> = key.decrypt_with_key(&user_key)?;
-                SigningKey::from_cose(&dec.into()).map_err(Into::<CryptoError>::into)
-            })
-            .transpose()?;
 
         // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
         #[allow(deprecated)]
@@ -89,10 +143,44 @@ impl EncryptionSettings {
             if let Some(private_key) = private_key {
                 ctx.set_asymmetric_key(AsymmetricKeyId::UserPrivateKey, private_key)?;
             }
+        }
 
-            if let Some(signing_key) = signing_key {
-                ctx.set_signing_key(SigningKeyId::UserSigningKey, signing_key)?;
-            }
+        Ok(())
+    }
+
+    #[cfg(feature = "internal")]
+    fn init_v2(
+        user_key: XChaCha20Poly1305Key,
+        private_key: EncString,
+        signing_key: EncString,
+        security_state: SignedSecurityState,
+        store: &KeyStore<KeyIds>,
+        sdk_security_state: &RwLock<Option<SecurityState>>,
+    ) -> Result<(), EncryptionSettingsError> {
+        use crate::key_management::SecurityState;
+
+        let user_key = SymmetricCryptoKey::XChaCha20Poly1305Key(user_key);
+
+        // For v2 users, we mandate the signing key and security state and the private key to be
+        // present and valid Everything MUST decrypt.
+        let signing_key: Vec<u8> = signing_key.decrypt_with_key(&user_key)?;
+        let signing_key = SigningKey::from_cose(&CoseKeyBytes::from(signing_key))
+            .map_err(|_| EncryptionSettingsError::InvalidSigningKey)?;
+        let private_key: Vec<u8> = private_key.decrypt_with_key(&user_key)?;
+        let private_key = AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key))
+            .map_err(|_| EncryptionSettingsError::InvalidPrivateKey)?;
+
+        let security_state: SecurityState = security_state
+            .verify_and_unwrap(&signing_key.to_verifying_key())
+            .map_err(|_| EncryptionSettingsError::InvalidSecurityState)?;
+        *sdk_security_state.write().expect("RwLock not poisoned") = Some(security_state);
+
+        #[allow(deprecated)]
+        {
+            let mut ctx = store.context_mut();
+            ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
+            ctx.set_asymmetric_key(AsymmetricKeyId::UserPrivateKey, private_key)?;
+            ctx.set_signing_key(SigningKeyId::UserSigningKey, signing_key)?;
         }
 
         Ok(())

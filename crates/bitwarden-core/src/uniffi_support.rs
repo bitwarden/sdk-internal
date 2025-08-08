@@ -2,9 +2,11 @@
 
 use std::{num::NonZeroU32, str::FromStr};
 
+use bitwarden_crypto::CryptoError;
 use uuid::Uuid;
 
 use crate::key_management::DataEnvelope;
+use crate::key_management::SignedSecurityState;
 
 uniffi::use_remote_type!(bitwarden_crypto::NonZeroU32);
 
@@ -32,4 +34,13 @@ uniffi::custom_type!(DataEnvelope, String, {
         .map_err(|e| e.into())
         .map(DataEnvelope),
     lower: |obj| obj.0.into(),
+});
+
+uniffi::custom_type!(SignedSecurityState, String, {
+    try_lift: |val| {
+        val.parse().map_err(|e| {
+            CryptoError::EncodingError(e).into()
+        })
+    },
+    lower: |obj| obj.into(),
 });

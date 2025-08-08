@@ -20,6 +20,11 @@ mod wrappers;
 pub use crypto_client::CryptoClient;
 pub use wrappers::DataEnvelope;
 
+#[cfg(feature = "internal")]
+mod security_state;
+#[cfg(feature = "internal")]
+pub use security_state::{SecurityState, SignedSecurityState};
+
 key_ids! {
     #[symmetric]
     pub enum SymmetricKeyId {

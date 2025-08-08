@@ -14,6 +14,14 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
+/// struct for typed errors of method
+/// [`organizations_organization_id_billing_change_frequency_post`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrganizationIdBillingChangeFrequencyPostError {
+    UnknownValue(serde_json::Value),
+}
+
 /// struct for typed errors of method [`organizations_organization_id_billing_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -72,6 +80,14 @@ pub enum OrganizationsOrganizationIdBillingRestartSubscriptionPostError {
     UnknownValue(serde_json::Value),
 }
 
+/// struct for typed errors of method
+/// [`organizations_organization_id_billing_setup_business_unit_post`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrganizationIdBillingSetupBusinessUnitPostError {
+    UnknownValue(serde_json::Value),
+}
+
 /// struct for typed errors of method [`organizations_organization_id_billing_tax_information_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -91,6 +107,58 @@ pub enum OrganizationsOrganizationIdBillingTaxInformationPutError {
 #[serde(untagged)]
 pub enum OrganizationsOrganizationIdBillingTransactionsGetError {
     UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_organization_id_billing_warnings_get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrganizationIdBillingWarningsGetError {
+    UnknownValue(serde_json::Value),
+}
+
+pub async fn organizations_organization_id_billing_change_frequency_post(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    change_plan_frequency_request: Option<models::ChangePlanFrequencyRequest>,
+) -> Result<(), Error<OrganizationsOrganizationIdBillingChangeFrequencyPostError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_change_plan_frequency_request = change_plan_frequency_request;
+
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/billing/change-frequency",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_change_plan_frequency_request);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrganizationIdBillingChangeFrequencyPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
 }
 
 pub async fn organizations_organization_id_billing_get(
@@ -437,6 +505,51 @@ pub async fn organizations_organization_id_billing_restart_subscription_post(
     }
 }
 
+pub async fn organizations_organization_id_billing_setup_business_unit_post(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    setup_business_unit_request_body: Option<models::SetupBusinessUnitRequestBody>,
+) -> Result<(), Error<OrganizationsOrganizationIdBillingSetupBusinessUnitPostError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_setup_business_unit_request_body = setup_business_unit_request_body;
+
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/billing/setup-business-unit",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_setup_business_unit_request_body);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrganizationIdBillingSetupBusinessUnitPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
 pub async fn organizations_organization_id_billing_tax_information_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -556,6 +669,46 @@ pub async fn organizations_organization_id_billing_transactions_get(
     } else {
         let content = resp.text().await?;
         let entity: Option<OrganizationsOrganizationIdBillingTransactionsGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_organization_id_billing_warnings_get(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+) -> Result<(), Error<OrganizationsOrganizationIdBillingWarningsGetError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/billing/warnings",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrganizationIdBillingWarningsGetError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
