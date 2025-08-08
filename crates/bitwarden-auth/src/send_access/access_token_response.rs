@@ -1,8 +1,6 @@
 use std::fmt::Debug;
 
-use crate::send_access::internal::{
-    SendAccessTokenApiErrorResponse, SendAccessTokenApiSuccessResponse,
-};
+use crate::send_access::api::{SendAccessTokenApiErrorResponse, SendAccessTokenApiSuccessResponse};
 
 /// A send access token which can be used to access a send.
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
