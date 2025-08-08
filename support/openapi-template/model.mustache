@@ -3,6 +3,10 @@ use crate::models;
 use serde::{Deserialize, Serialize};
 {{#models}}
 {{#model}}
+{{#vendorExtensions.x-sdk-wasm}}
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
+{{/vendorExtensions.x-sdk-wasm}}
 {{^isEnum}}{{#vendorExtensions.x-rust-has-byte-array}}
 use serde_with::serde_as;
 {{/vendorExtensions.x-rust-has-byte-array}}{{/isEnum}}
@@ -20,6 +24,13 @@ use serde_repr::{Serialize_repr,Deserialize_repr};
 /// {{{description}}}
 #[repr(i64)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr)]
+{{#vendorExtensions.x-sdk-wasm}}
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+{{/vendorExtensions.x-sdk-wasm}}
 pub enum {{{classname}}} {
 {{#allowableValues}}
 {{#enumVars}}
@@ -45,6 +56,13 @@ impl std::fmt::Display for {{{classname}}} {
 {{^isInteger}}
 /// {{{description}}}
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+{{#vendorExtensions.x-sdk-wasm}}
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+{{/vendorExtensions.x-sdk-wasm}}
 pub enum {{{classname}}} {
 {{#allowableValues}}
 {{#enumVars}}
@@ -78,6 +96,13 @@ impl Default for {{{classname}}} {
 {{#discriminator}}
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "{{{propertyBaseName}}}")]
+{{#vendorExtensions.x-sdk-wasm}}
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+{{/vendorExtensions.x-sdk-wasm}}
 pub enum {{{classname}}} {
     {{^oneOf}}
     {{#mappedModels}}
@@ -123,6 +148,13 @@ impl Default for {{classname}} {
 {{^discriminator}}
 {{#vendorExtensions.x-rust-has-byte-array}}#[serde_as]
 {{/vendorExtensions.x-rust-has-byte-array}}{{#oneOf.isEmpty}}#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+{{#vendorExtensions.x-sdk-wasm}}
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+{{/vendorExtensions.x-sdk-wasm}}
 pub struct {{{classname}}} {
 {{#vars}}
     {{#description}}
@@ -180,6 +212,13 @@ impl {{{classname}}} {
 {{/description}}
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+{{#vendorExtensions.x-sdk-wasm}}
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+{{/vendorExtensions.x-sdk-wasm}}
 pub enum {{classname}} {
 {{#composedSchemas.oneOf}}
     {{#description}}
@@ -202,6 +241,13 @@ impl Default for {{classname}} {
 {{#isEnum}}
 /// {{{description}}}
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+{{#vendorExtensions.x-sdk-wasm}}
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+{{/vendorExtensions.x-sdk-wasm}}
 pub enum {{{enumName}}} {
 {{#allowableValues}}
 {{#enumVars}}
