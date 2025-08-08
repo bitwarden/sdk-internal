@@ -10,7 +10,7 @@ pub enum SendAccessTokenInvalidRequestError {
     #[allow(missing_docs)]
     SendIdRequired,
 
-    #[serde(rename = "Password_hash is required.")]
+    #[serde(rename = "password_hash is required.")]
     #[allow(missing_docs)]
     PasswordHashRequired,
 

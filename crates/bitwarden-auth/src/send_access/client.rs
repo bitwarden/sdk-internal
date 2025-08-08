@@ -42,9 +42,9 @@ impl SendAccessClient {
         // this request, so we are not including it here. If needed, we can revisit this and
         // add it back in.
 
-        let configurations = self.client.internal.get_api_configurations().await;
+        let configurations: std::sync::Arc<bitwarden_core::client::ApiConfigurations> = self.client.internal.get_api_configurations().await;
 
-        let request = configurations
+        let request: reqwest::RequestBuilder = configurations
             .identity
             .client
             .post(format!(
@@ -62,7 +62,7 @@ impl SendAccessClient {
             // If we had nested structures, we have to use serde_qs::to_string instead.
             .body(serde_urlencoded::to_string(&payload).expect("Serialize should be infallible"));
 
-        let response = request.send().await?;
+        let response: reqwest::Response = request.send().await?;
 
         // handle success and error responses
         // If the response is 200, we can deserialize it into SendAccessToken

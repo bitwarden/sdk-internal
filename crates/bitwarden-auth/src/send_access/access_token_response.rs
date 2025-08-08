@@ -11,6 +11,7 @@ use crate::send_access::internal::{
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
+#[derive(Debug)]
 pub struct SendAccessTokenResponse {
     /// The actual token string.
     pub token: String,
