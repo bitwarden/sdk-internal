@@ -1,11 +1,11 @@
 //! This module contains custom type converters for Uniffi.
 
-use std::num::NonZeroU32;
+use std::{num::NonZeroU32, str::FromStr};
 
-use bitwarden_crypto::{CryptoError, DataEnvelope};
+use bitwarden_crypto::CryptoError;
 use uuid::Uuid;
 
-use crate::key_management::SignedSecurityState;
+use crate::key_management::{wrappers::DataEnvelope, SignedSecurityState};
 
 uniffi::use_remote_type!(bitwarden_crypto::NonZeroU32);
 

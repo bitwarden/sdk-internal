@@ -22,6 +22,7 @@ pub use crypto_client::CryptoClient;
 mod security_state;
 #[cfg(feature = "internal")]
 pub use security_state::{SecurityState, SignedSecurityState};
+/// A set of type-safe wrappers that can be exposed via FFI
 #[cfg(feature = "internal")]
 pub mod wrappers;
 

@@ -36,8 +36,8 @@ pub use store::{
 };
 mod cose;
 pub use cose::CoseSerializable;
+/// A set of safe-by-default cryptographic primitives
 pub mod safe;
-pub use safe::*;
 mod signing;
 pub use signing::*;
 mod traits;

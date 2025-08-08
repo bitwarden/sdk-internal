@@ -5,6 +5,7 @@ use tsify::Tsify;
 
 use crate::key_management::KeyIds;
 
+/// A non-generic wrapper around `bitwarden_crypto::safe::DataEnvelope` that can be used in FFI contexts.
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
