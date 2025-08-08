@@ -2,16 +2,17 @@ use std::{marker::PhantomData, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use ciborium::value::Integer;
+#[allow(unused_imports)]
 use coset::{iana::CoapContentFormat, CborSerializable, ProtectedHeader, RegisteredLabel};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    cose::{self, DATA_ENVELOPE_NAMESPACE, SIGNING_NAMESPACE, XCHACHA20_POLY1305},
+    cose::{DATA_ENVELOPE_NAMESPACE, XCHACHA20_POLY1305},
     error::EncStringParseError,
     safe::DataEnvelopeNamespace,
-    ContentFormat, CoseEncrypt0Bytes, CryptoError, FromStrVisitor, KeyIds, SerializedMessage,
-    SymmetricCryptoKey, XChaCha20Poly1305Key,
+    CoseEncrypt0Bytes, CryptoError, FromStrVisitor, KeyIds, SerializedMessage, SymmetricCryptoKey,
+    XChaCha20Poly1305Key,
 };
 
 use crate::xchacha20;
@@ -164,11 +165,14 @@ impl<Ids: KeyIds> DataEnvelope<Ids> {
             return Err(DataEnvelopeError::DecryptionError);
         }
 
-        let content_format = ContentFormat::try_from(&msg.protected.header)
-            .map_err(|_| DataEnvelopeError::UnsupportedContentFormat)?;
-
         if cek.key_id != *msg.protected.header.key_id {
             return Err(DataEnvelopeError::DecryptionError);
+        }
+
+        // Validate namespace
+        let envelope_namespace = extract_namespace(&msg.protected.header)?;
+        if envelope_namespace != *namespace {
+            return Err(DataEnvelopeError::InvalidNamespace);
         }
 
         let decrypted_message = msg
@@ -192,6 +196,33 @@ impl<Ids: KeyIds> DataEnvelope<Ids> {
         });
         return res;
     }
+}
+
+/// Helper function to extract the namespace from a `ProtectedHeader`. The namespace is stored
+/// as a custom header value using the DATA_ENVELOPE_NAMESPACE label.
+fn extract_namespace(header: &coset::Header) -> Result<DataEnvelopeNamespace, DataEnvelopeError> {
+    let namespace_value = header
+        .rest
+        .iter()
+        .find(|(label, _)| {
+            if let coset::Label::Int(label_int) = label {
+                *label_int == DATA_ENVELOPE_NAMESPACE
+            } else {
+                false
+            }
+        })
+        .map(|(_, value)| value)
+        .ok_or(DataEnvelopeError::InvalidNamespace)?;
+
+    let namespace_int = match namespace_value {
+        ciborium::Value::Integer(int) => {
+            let int_val: i128 = (*int).into();
+            int_val
+        }
+        _ => return Err(DataEnvelopeError::InvalidNamespace),
+    };
+
+    DataEnvelopeNamespace::try_from(namespace_int).map_err(|_| DataEnvelopeError::InvalidNamespace)
 }
 
 /// Helper function to extract the content type from a `ProtectedHeader`. The content type is a
@@ -337,5 +368,118 @@ mod tests {
 
         // Verify that the unsealed data matches the original data
         assert_eq!(unsealed_data, data);
+    }
+
+    #[test]
+    fn test_namespace_validation_success() {
+        let data = TestData { field2: 123 };
+
+        // Test with ExampleNamespace
+        let (envelope1, cek1) =
+            DataEnvelope::<TestIds>::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace)
+                .unwrap();
+        let unsealed_data1: TestData = envelope1
+            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek1)
+            .unwrap();
+        assert_eq!(unsealed_data1, data);
+
+        // Test with ExampleNamespace2
+        let (envelope2, cek2) =
+            DataEnvelope::<TestIds>::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace2)
+                .unwrap();
+        let unsealed_data2: TestData = envelope2
+            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace2, &cek2)
+            .unwrap();
+        assert_eq!(unsealed_data2, data);
+    }
+
+    #[test]
+    fn test_namespace_validation_failure() {
+        let data = TestData { field2: 456 };
+
+        // Seal with ExampleNamespace
+        let (envelope, cek) =
+            DataEnvelope::<TestIds>::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace)
+                .unwrap();
+
+        // Try to unseal with wrong namespace - should fail
+        let result: Result<TestData, DataEnvelopeError> =
+            envelope.unseal_ref(&DataEnvelopeNamespace::ExampleNamespace2, &cek);
+        assert!(matches!(result, Err(DataEnvelopeError::InvalidNamespace)));
+
+        // Verify correct namespace still works
+        let unsealed_data: TestData = envelope
+            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek)
+            .unwrap();
+        assert_eq!(unsealed_data, data);
+    }
+
+    #[test]
+    fn test_namespace_validation_with_keystore() {
+        let data = TestData { field2: 789 };
+        let key_store = crate::store::KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        // Seal with keystore using ExampleNamespace
+        let envelope = DataEnvelope::seal(
+            data,
+            &DataEnvelopeNamespace::ExampleNamespace,
+            crate::traits::tests::TestSymmKey::A(0),
+            &mut ctx,
+        )
+        .unwrap();
+
+        // Try to unseal with wrong namespace - should fail
+        let result: Result<TestData, DataEnvelopeError> = envelope.unseal(
+            &DataEnvelopeNamespace::ExampleNamespace2,
+            crate::traits::tests::TestSymmKey::A(0),
+            &mut ctx,
+        );
+        assert!(matches!(result, Err(DataEnvelopeError::InvalidNamespace)));
+
+        // Unseal with correct namespace - should succeed
+        let unsealed_data: TestData = envelope
+            .unseal(
+                &DataEnvelopeNamespace::ExampleNamespace,
+                crate::traits::tests::TestSymmKey::A(0),
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(unsealed_data.field2, 789);
+    }
+
+    #[test]
+    fn test_namespace_cross_contamination_protection() {
+        let data1 = TestData { field2: 111 };
+        let data2 = TestData { field2: 222 };
+
+        // Seal two different pieces of data with different namespaces
+        let (envelope1, cek1) =
+            DataEnvelope::<TestIds>::seal_ref(&data1, &DataEnvelopeNamespace::ExampleNamespace)
+                .unwrap();
+        let (envelope2, cek2) =
+            DataEnvelope::<TestIds>::seal_ref(&data2, &DataEnvelopeNamespace::ExampleNamespace2)
+                .unwrap();
+
+        // Verify each envelope only opens with its correct namespace
+        let unsealed1: TestData = envelope1
+            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek1)
+            .unwrap();
+        assert_eq!(unsealed1, data1);
+
+        let unsealed2: TestData = envelope2
+            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace2, &cek2)
+            .unwrap();
+        assert_eq!(unsealed2, data2);
+
+        // Cross-unsealing should fail
+        assert!(matches!(
+            envelope1.unseal_ref::<TestData>(&DataEnvelopeNamespace::ExampleNamespace2, &cek1),
+            Err(DataEnvelopeError::InvalidNamespace)
+        ));
+        assert!(matches!(
+            envelope2.unseal_ref::<TestData>(&DataEnvelopeNamespace::ExampleNamespace, &cek2),
+            Err(DataEnvelopeError::InvalidNamespace)
+        ));
     }
 }

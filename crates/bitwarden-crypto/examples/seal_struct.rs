@@ -30,6 +30,7 @@ fn main() {
     // Seal the item into an encrypted blob, and store the content-encryption-key in the context.
     let sealed_item = bitwarden_crypto::safe::DataEnvelope::<ExampleIds>::seal(
         my_item,
+        &bitwarden_crypto::safe::DataEnvelopeNamespace::VaultItem,
         ExampleSymmetricKey::ItemKey,
         &mut ctx,
     )
@@ -45,7 +46,11 @@ fn main() {
         bitwarden_crypto::safe::DataEnvelope::from(sealed_item);
 
     let my_item: MyItem = sealed_item
-        .unseal(ExampleSymmetricKey::ItemKey, &mut ctx)
+        .unseal(
+            &bitwarden_crypto::safe::DataEnvelopeNamespace::VaultItem,
+            ExampleSymmetricKey::ItemKey,
+            &mut ctx,
+        )
         .expect("Unsealing should work");
     assert!(my_item.a == 42);
     assert!(my_item.b == "Hello, World!");
