@@ -22,6 +22,8 @@ pub use crypto_client::CryptoClient;
 mod security_state;
 #[cfg(feature = "internal")]
 pub use security_state::{SecurityState, SignedSecurityState};
+#[cfg(feature = "internal")]
+pub mod wrappers;
 
 key_ids! {
     #[symmetric]

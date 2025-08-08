@@ -17,6 +17,7 @@ pub trait SealableData {}
 /// content-encryption-key must be provided again when unsealing the data. A content encryption key
 /// allows easy key-rotation of the encrypting-key, as now just the content-encryption-keys need to
 /// be re-uploaded, instead of all data.
+#[derive(Debug, Clone)]
 pub struct DataEnvelope<Ids: KeyIds> {
     envelope_data: CoseEncrypt0Bytes,
     _phantom: PhantomData<Ids>,
