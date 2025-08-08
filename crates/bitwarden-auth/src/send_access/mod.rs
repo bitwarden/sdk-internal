@@ -2,12 +2,8 @@ mod access_token_request;
 mod access_token_response;
 mod client;
 
-mod api;
-
-// pub use api::{
-//     SendAccessTokenApiErrorResponse, SendAccessTokenApiSuccessResponse,
-//     SendAccessTokenInvalidGrantError, SendAccessTokenInvalidRequestError,
-// };
+/// Submodule containing the Send Access API request and response types.
+pub mod api;
 
 pub use access_token_request::{
     SendAccessCredentials, SendAccessTokenRequest, SendEmailCredentials, SendEmailOtpCredentials,

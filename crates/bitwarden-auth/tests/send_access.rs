@@ -1,8 +1,11 @@
 //! Integration tests for send access feature
 
 use bitwarden_auth::{
-    AuthClientExt, SendAccessClient, SendAccessTokenError, SendAccessTokenRequest,
-    SendAccessTokenResponse,
+    send_access::{
+        api::{SendAccessTokenApiErrorResponse, SendAccessTokenInvalidRequestError},
+        SendAccessClient, SendAccessTokenError, SendAccessTokenRequest, SendAccessTokenResponse,
+    },
+    AuthClientExt,
 };
 use bitwarden_core::{Client as CoreClient, ClientSettings, DeviceType};
 use tokio;
@@ -112,7 +115,6 @@ async fn request_send_access_token_invalid_request_send_id_required_error() {
     assert!(result.is_err());
 
     let err = result.unwrap_err();
-    // TODO: talk with Andreas about whether we should expose the internal enums
     match err {
         SendAccessTokenError::Response(api_err) => {
             // Now assert the inner enum:
