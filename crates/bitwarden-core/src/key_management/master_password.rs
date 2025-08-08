@@ -1,6 +1,7 @@
 //! Mobile specific master password operations
 //!
-//! This module contains the data structures and error handling for master password unlock operations.
+//! This module contains the data structures and error handling for master password unlock
+//! operations.
 
 use std::num::NonZeroU32;
 
