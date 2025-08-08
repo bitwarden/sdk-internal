@@ -4,8 +4,8 @@ use bitwarden_core::{
     require, MissingFieldError, VaultLockedError,
 };
 use bitwarden_crypto::{
+    safe::{DataEnvelope, SealableData},
     CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
-    PrimitiveEncryptable,
 };
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
@@ -109,7 +109,12 @@ pub struct Cipher {
     /// Cipher.
     pub key: Option<EncString>,
 
-    pub name: EncString,
+    /// The encrypted blob of the cipher gets its own Content Encryption Key (CEK) - the blob key -
+    /// which is wrapped with the cipher key.
+    pub blob: Option<bitwarden_core::key_management::DataEnvelope>,
+    pub blob_key: Option<EncString>,
+
+    pub name: Option<EncString>,
     pub notes: Option<EncString>,
 
     pub r#type: CipherType,
@@ -137,6 +142,43 @@ pub struct Cipher {
 }
 
 bitwarden_state::register_repository_item!(Cipher, "Cipher");
+
+/// The CipherView has unrelated data that should not be encrypted. Therefore this is moved out.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct VaultItem {
+    name: String,
+    notes: String, // Empty note is ""
+    item: VaultItemVariant,
+}
+impl SealableData for VaultItem {}
+
+impl From<CipherView> for VaultItem {
+    fn from(cipher_view: CipherView) -> Self {
+        VaultItem {
+            name: cipher_view.name,
+            notes: cipher_view.notes.unwrap_or_default(),
+            item: match cipher_view.r#type {
+                CipherType::Login => VaultItemVariant::Login(cipher_view.login.unwrap()),
+                CipherType::SecureNote => {
+                    VaultItemVariant::SecureNote(cipher_view.secure_note.unwrap())
+                }
+                CipherType::Card => VaultItemVariant::Card(cipher_view.card.unwrap()),
+                CipherType::Identity => VaultItemVariant::Identity(cipher_view.identity.unwrap()),
+                CipherType::SshKey => VaultItemVariant::SshKey(cipher_view.ssh_key.unwrap()),
+            },
+        }
+    }
+}
+
+/// This represents the different variants of vault items that can be stored in the vault.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+enum VaultItemVariant {
+    Login(LoginView),
+    SecureNote(secure_note::SecureNoteView),
+    Card(card::CardView),
+    Identity(identity::IdentityView),
+    SshKey(ssh_key::SshKeyView),
+}
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -302,22 +344,28 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             cipher_view.generate_checksums();
         }
 
+        let blob_key = SymmetricKeyId::Local("cipher_blob_key");
+        let encrypted_cipher =
+            DataEnvelope::seal(VaultItem::from(cipher_view.clone()), blob_key, ctx)?;
+
         Ok(Cipher {
             id: cipher_view.id,
             organization_id: cipher_view.organization_id,
             folder_id: cipher_view.folder_id,
             collection_ids: cipher_view.collection_ids,
             key: cipher_view.key,
-            name: cipher_view.name.encrypt(ctx, ciphers_key)?,
-            notes: cipher_view.notes.encrypt(ctx, ciphers_key)?,
+            blob: Some(bitwarden_core::key_management::DataEnvelope::from(
+                encrypted_cipher,
+            )),
+            blob_key: Some(ctx.wrap_symmetric_key(ciphers_key, blob_key)?),
+            name: None,
+            notes: None,
             r#type: cipher_view.r#type,
-            login: cipher_view.login.encrypt_composite(ctx, ciphers_key)?,
-            identity: cipher_view.identity.encrypt_composite(ctx, ciphers_key)?,
-            card: cipher_view.card.encrypt_composite(ctx, ciphers_key)?,
-            secure_note: cipher_view
-                .secure_note
-                .encrypt_composite(ctx, ciphers_key)?,
-            ssh_key: cipher_view.ssh_key.encrypt_composite(ctx, ciphers_key)?,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
             favorite: cipher_view.favorite,
             reprompt: cipher_view.reprompt,
             organization_use_totp: cipher_view.organization_use_totp,
@@ -353,7 +401,12 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
             key: self.key.clone(),
-            name: self.name.decrypt(ctx, ciphers_key).ok().unwrap_or_default(),
+            name: self
+                .name
+                .decrypt(ctx, ciphers_key)
+                .ok()
+                .unwrap_or_default()
+                .expect("Name is required"),
             notes: self.notes.decrypt(ctx, ciphers_key).ok().flatten(),
             r#type: self.r#type,
             login: self.login.decrypt(ctx, ciphers_key).ok().flatten(),
@@ -615,7 +668,12 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
             key: self.key.clone(),
-            name: self.name.decrypt(ctx, ciphers_key).ok().unwrap_or_default(),
+            name: self
+                .name
+                .decrypt(ctx, ciphers_key)
+                .ok()
+                .unwrap_or_default()
+                .expect("Cipher name is required"),
             subtitle: self
                 .decrypt_subtitle(ctx, ciphers_key)
                 .ok()
@@ -700,13 +758,16 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             organization_id: cipher.organization_id,
             folder_id: cipher.folder_id,
             collection_ids: cipher.collection_ids.unwrap_or_default(),
-            name: require!(EncString::try_from_optional(cipher.name)?),
+            name: EncString::try_from_optional(cipher.name)?,
             notes: EncString::try_from_optional(cipher.notes)?,
             r#type: require!(cipher.r#type).into(),
             login: cipher.login.map(|l| (*l).try_into()).transpose()?,
             identity: cipher.identity.map(|i| (*i).try_into()).transpose()?,
             card: cipher.card.map(|c| (*c).try_into()).transpose()?,
             secure_note: cipher.secure_note.map(|s| (*s).try_into()).transpose()?,
+            // todo
+            blob: None,
+            blob_key: None,
             // TODO: add ssh_key when api bindings have been updated
             ssh_key: None,
             favorite: cipher.favorite.unwrap_or(false),
@@ -841,6 +902,8 @@ mod tests {
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
+            blob_key: None,
+            blob: None,
             key: None,
             name: "2.d3rzo0P8rxV9Hs1m1BmAjw==|JOwna6i0zs+K7ZghwrZRuw==|SJqKreLag1ID+g6H1OdmQr0T5zTrVWKzD6hGy3fDqB0=".parse().unwrap(),
             notes: None,

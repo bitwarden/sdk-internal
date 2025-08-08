@@ -15,8 +15,10 @@ use bitwarden_crypto::{key_ids, KeyStore, SymmetricCryptoKey};
 pub mod crypto;
 #[cfg(feature = "internal")]
 mod crypto_client;
+mod wrappers;
 #[cfg(feature = "internal")]
 pub use crypto_client::CryptoClient;
+pub use wrappers::DataEnvelope;
 
 key_ids! {
     #[symmetric]
