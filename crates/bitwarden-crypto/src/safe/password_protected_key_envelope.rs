@@ -1,15 +1,17 @@
-//! Password protected key envelope is a cryptographic building block that allows sealing a symmetric key
-//! with a low entropy secret (password, PIN, etc.).
+//! Password protected key envelope is a cryptographic building block that allows sealing a
+//! symmetric key with a low entropy secret (password, PIN, etc.).
 //!
-//! It is implemented by using a KDF (Argon2ID) combined with secret key encryption (XChaCha20-Poly1305).
-//! The KDF prevents brute-force by requiring work to be done to derive the key from the password.
+//! It is implemented by using a KDF (Argon2ID) combined with secret key encryption
+//! (XChaCha20-Poly1305). The KDF prevents brute-force by requiring work to be done to derive the
+//! key from the password.
 //!
-//! For the consumer, the output is an opaque blob that can be later unsealed with the same password. The
-//! KDF parameters and salt are contained in the envelope, and don't need to be provided for unsealing.
+//! For the consumer, the output is an opaque blob that can be later unsealed with the same
+//! password. The KDF parameters and salt are contained in the envelope, and don't need to be
+//! provided for unsealing.
 //!
-//! Internally, the envelope is a CoseEncrypt object. The KDF parameters / salt are placed in the single
-//! recipient's unprotected headers. The output from the KDF - "envelope key", is used to wrap the
-//! symmetric key, that is sealed by the envelope.
+//! Internally, the envelope is a CoseEncrypt object. The KDF parameters / salt are placed in the
+//! single recipient's unprotected headers. The output from the KDF - "envelope key", is used to
+//! wrap the symmetric key, that is sealed by the envelope.
 
 use std::{marker::PhantomData, num::TryFromIntError};
 
