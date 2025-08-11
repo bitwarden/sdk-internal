@@ -157,7 +157,7 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
             })?;
         let envelope_key = derive_key(&kdf_settings, password)
             .map_err(|_| PasswordProtectedKeyEnvelopeError::KdfError)?;
-        let nonce: [u8; 24] = self
+        let nonce: [u8; crate::xchacha20::NONCE_SIZE] = self
             .cose_encrypt
             .unprotected
             .iv
