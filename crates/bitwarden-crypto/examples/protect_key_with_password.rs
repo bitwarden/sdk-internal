@@ -19,7 +19,7 @@ fn main() {
     // - Protect a send with a URL fragment secret
     // For this, the `PasswordProtectedKeyEnvelope` is used.
 
-    // Alice has a vault protected with a symmetric key. She wants this protected with a PIN.
+    // Alice has a vault protected with a symmetric key. She wants the symmetric key protected with a PIN.
     let vault_key = ctx
         .generate_symmetric_key(ExampleSymmetricKey::VaultKey)
         .expect("Generating vault key should work");
