@@ -92,7 +92,7 @@ pub struct SendAccessTokenRequestPayload {
 
 const SEND_ACCESS_CLIENT_ID: SendAccessClientType = SendAccessClientType::Send;
 const SEND_ACCESS_GRANT_TYPE: GrantType = GrantType::SendAccess;
-const SEND_ACCESS_SCOPE: Scope = Scope::Send;
+const SEND_ACCESS_SCOPE: Scope = Scope::ApiSendAccess;
 
 /// Implement a way to convert from our request model to the payload model
 impl From<SendAccessTokenRequest> for SendAccessTokenRequestPayload {
@@ -124,7 +124,7 @@ mod tests {
             let payload = SendAccessTokenRequestPayload {
                 client_id: SendAccessClientType::Send,
                 grant_type: GrantType::SendAccess,
-                scope: Scope::Send,
+                scope: Scope::ApiSendAccess,
                 send_id: "example_send_id".into(),
                 credentials: SendAccessTokenPayloadCredentials::Password {
                     password_hash_b64: "example_hash".into(),
