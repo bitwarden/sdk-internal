@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 /// Instructs deserialization to map the string "send_access" to the `SendAccess` variant.
 #[serde(rename_all = "snake_case")]
 pub enum GrantType {
-    /// A custom extension grant type for requesting send access tokens outside the context of a Bitwarden user.
+    /// A custom extension grant type for requesting send access tokens outside the context of a
+    /// Bitwarden user.
     SendAccess,
     // TODO: Add other grant types as needed.
 }
