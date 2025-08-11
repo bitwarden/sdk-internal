@@ -8,7 +8,7 @@ use bitwarden_crypto::{
 };
 
 fn main() {
-    let key_story = KeyStore::<ExampleIds>::default();
+    let key_store = KeyStore::<ExampleIds>::default();
     let mut ctx: KeyStoreContext<'_, ExampleIds> = key_story.context_mut();
     let mut disk = MockDisk::new();
 
