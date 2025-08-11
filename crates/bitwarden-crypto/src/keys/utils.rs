@@ -31,7 +31,7 @@ pub(crate) fn pad_bytes(bytes: &mut Vec<u8>, min_length: usize) {
 /// For example, padded to size 4, the value 0,0 becomes 0,0,2,2.
 pub(crate) fn unpad_bytes(padded_bytes: &[u8]) -> Result<&[u8], CryptoError> {
     let pad_len = *padded_bytes.last().ok_or(CryptoError::InvalidPadding)? as usize;
-    if pad_len >= padded_bytes.len() {
+    if pad_len > padded_bytes.len() {
         return Err(CryptoError::InvalidPadding);
     }
     Ok(padded_bytes[..(padded_bytes.len() - pad_len)].as_ref())
@@ -79,5 +79,14 @@ mod tests {
         assert_eq!(encoded_bytes, cloned_bytes);
         let unpadded_bytes = unpad_bytes(&cloned_bytes).unwrap();
         assert_eq!(original_bytes, unpadded_bytes);
+    }
+
+    #[test]
+    fn test_pad_bytes_roundtrip_empty() {
+        let original_bytes = Vec::new();
+        let mut cloned_bytes = original_bytes.clone();
+        pad_bytes(&mut cloned_bytes, 32);
+        let unpadded = unpad_bytes(&cloned_bytes).unwrap();
+        assert_eq!(Vec::<u8>::new(), unpadded);
     }
 }

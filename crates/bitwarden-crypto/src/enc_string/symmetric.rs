@@ -388,6 +388,32 @@ mod tests {
     }
 
     #[test]
+    fn test_enc_roundtrip_xchacha20_empty() {
+        let key_id = [0u8; KEY_ID_SIZE];
+        let enc_key = [0u8; 32];
+        let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
+            key_id,
+            enc_key: Box::pin(enc_key.into()),
+        });
+
+        let test_string = "";
+        let cipher = test_string.to_owned().encrypt_with_key(&key).unwrap();
+        let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
+        assert_eq!(decrypted_str, test_string);
+    }
+
+    #[test]
+    fn test_enc_string_roundtrip_empty() {
+        let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
+
+        let test_string = "";
+        let cipher = test_string.to_string().encrypt_with_key(&key).unwrap();
+
+        let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
+        assert_eq!(decrypted_str, test_string);
+    }
+
+    #[test]
     fn test_enc_string_ref_roundtrip() {
         let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
 
@@ -397,7 +423,6 @@ mod tests {
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);
     }
-
     #[test]
     fn test_enc_string_serialization() {
         #[derive(serde::Serialize, serde::Deserialize)]
