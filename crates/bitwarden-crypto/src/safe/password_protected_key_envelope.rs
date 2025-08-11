@@ -1,3 +1,16 @@
+//! Password protected key envelope is a cryptographic building block that allows sealing a symmetric key
+//! with a low entropy secret (password, PIN, etc.).
+//!
+//! It is implemented by using a KDF (Argon2ID) combined with secret key encryption (XChaCha20-Poly1305).
+//! The KDF prevents brute-force by requiring work to be done to derive the key from the password.
+//!
+//! For the consumer, the output is an opaque blob that can be later unsealed with the same password. The
+//! KDF parameters and salt are contained in the envelope, and don't need to be provided for unsealing.
+//!
+//! Internally, the envelope is a CoseEncrypt object. The KDF parameters / salt are placed in the single
+//! recipient's unprotected headers. The output from the KDF - "envelope key", is used to wrap the
+//! symmetric key, that is sealed by the envelope.
+
 use std::{marker::PhantomData, num::TryFromIntError};
 
 use argon2::Params;
@@ -16,6 +29,12 @@ use crate::{
     xchacha20, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds,
     KeyStoreContext, SymmetricCryptoKey,
 };
+
+/// 16 is the RECOMMENDED salt size for all applications:
+/// https://datatracker.ietf.org/doc/rfc9106/
+const ENVELOPE_ARGON2_SALT_SIZE: usize = 16;
+/// 32 is chosen to match the size of an XChaCha20-Poly1305 key
+const ENVELOPE_ARGON2_OUTPUT_KEY_SIZE: usize = 32;
 
 /// A password-protected key envelope can seal a symmetric key, and protect it with a password. It
 /// does so by using a Key Derivation Function (KDF), to increase the difficulty of brute-forcing
@@ -237,7 +256,7 @@ struct Argon2RawSettings {
     /// Memory in KiB
     memory: u32,
     parallelism: u32,
-    salt: [u8; 32],
+    salt: [u8; ENVELOPE_ARGON2_SALT_SIZE],
 }
 
 impl Argon2RawSettings {
@@ -313,8 +332,8 @@ impl TryInto<Argon2RawSettings> for &Header {
     }
 }
 
-fn make_salt() -> [u8; 32] {
-    let mut salt = [0u8; 32];
+fn make_salt() -> [u8; ENVELOPE_ARGON2_SALT_SIZE] {
+    let mut salt = [0u8; ENVELOPE_ARGON2_SALT_SIZE];
     rand::thread_rng().fill_bytes(&mut salt);
     salt
 }
@@ -322,10 +341,10 @@ fn make_salt() -> [u8; 32] {
 fn derive_key(
     argon2_settings: &Argon2RawSettings,
     password: &str,
-) -> Result<[u8; 32], PasswordProtectedKeyEnvelopeError> {
+) -> Result<[u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE], PasswordProtectedKeyEnvelopeError> {
     use argon2::*;
 
-    let mut hash = [0u8; 32];
+    let mut hash = [0u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE];
     Argon2::new(
         Algorithm::Argon2id,
         Version::V0x13,
@@ -379,44 +398,41 @@ mod tests {
         KeyStore,
     };
 
-    const TESTVECTOR_COSEKEY_ENVELOPE: &[u8] = &[
-        132, 68, 161, 3, 24, 101, 161, 5, 88, 24, 173, 142, 229, 217, 156, 211, 58, 187, 48, 229,
-        94, 63, 201, 106, 223, 123, 129, 149, 111, 108, 216, 234, 114, 242, 88, 84, 7, 21, 43, 61,
-        136, 100, 166, 73, 66, 77, 244, 30, 110, 208, 228, 170, 69, 37, 144, 43, 124, 28, 63, 202,
-        233, 27, 49, 217, 144, 182, 88, 129, 128, 233, 209, 11, 89, 15, 138, 146, 163, 147, 198,
-        182, 151, 227, 147, 183, 28, 124, 183, 83, 47, 84, 223, 129, 131, 217, 203, 128, 180, 109,
-        45, 247, 181, 136, 8, 23, 30, 113, 229, 90, 121, 182, 162, 209, 249, 55, 17, 189, 200, 69,
-        4, 254, 129, 131, 71, 161, 1, 58, 0, 1, 21, 87, 165, 1, 58, 0, 1, 21, 87, 58, 0, 1, 21, 89,
-        3, 58, 0, 1, 21, 90, 26, 0, 1, 0, 0, 58, 0, 1, 21, 91, 4, 58, 0, 1, 21, 88, 88, 32, 168,
-        162, 100, 184, 10, 1, 169, 18, 176, 1, 201, 181, 212, 40, 154, 8, 81, 194, 251, 57, 226,
-        182, 247, 242, 237, 175, 189, 254, 89, 218, 226, 158, 246,
-    ];
     const TEST_UNSEALED_COSEKEY_ENCODED: &[u8] = &[
-        165, 1, 4, 2, 80, 80, 63, 72, 147, 13, 151, 69, 121, 184, 220, 160, 176, 227, 247, 83, 112,
-        3, 58, 0, 1, 17, 111, 4, 132, 3, 4, 5, 6, 32, 88, 32, 95, 169, 162, 129, 95, 51, 121, 95,
-        226, 3, 25, 67, 120, 143, 6, 169, 235, 157, 217, 6, 224, 25, 126, 237, 82, 169, 60, 245,
-        122, 3, 35, 250, 1,
+        165, 1, 4, 2, 80, 63, 208, 189, 183, 204, 37, 72, 170, 179, 236, 190, 208, 22, 65, 227,
+        183, 3, 58, 0, 1, 17, 111, 4, 132, 3, 4, 5, 6, 32, 88, 32, 88, 25, 68, 85, 205, 28, 133,
+        28, 90, 147, 160, 145, 48, 3, 178, 184, 30, 11, 122, 132, 64, 59, 51, 233, 191, 117, 159,
+        117, 23, 168, 248, 36, 1,
     ];
-
+    const TESTVECTOR_COSEKEY_ENVELOPE: &[u8] = &[
+        132, 68, 161, 3, 24, 101, 161, 5, 88, 24, 1, 31, 58, 230, 10, 92, 195, 233, 212, 7, 166,
+        252, 67, 115, 221, 58, 3, 191, 218, 188, 181, 192, 28, 11, 88, 84, 141, 183, 137, 167, 166,
+        161, 33, 82, 30, 255, 23, 10, 179, 149, 88, 24, 39, 60, 74, 232, 133, 44, 90, 98, 117, 31,
+        41, 69, 251, 76, 250, 141, 229, 83, 191, 6, 237, 107, 127, 93, 238, 110, 49, 125, 201, 37,
+        162, 120, 157, 32, 116, 195, 208, 143, 83, 254, 223, 93, 97, 158, 0, 24, 95, 197, 249, 35,
+        240, 3, 20, 71, 164, 97, 180, 29, 203, 69, 31, 151, 249, 244, 197, 91, 101, 174, 129, 131,
+        71, 161, 1, 58, 0, 1, 21, 87, 165, 1, 58, 0, 1, 21, 87, 58, 0, 1, 21, 89, 3, 58, 0, 1, 21,
+        90, 26, 0, 1, 0, 0, 58, 0, 1, 21, 91, 4, 58, 0, 1, 21, 88, 80, 165, 253, 56, 243, 255, 54,
+        246, 252, 231, 230, 33, 252, 49, 175, 1, 111, 246,
+    ];
+    const TEST_UNSEALED_LEGACYKEY_ENCODED: &[u8] = &[
+        135, 114, 97, 155, 115, 209, 215, 224, 175, 159, 231, 208, 15, 244, 40, 171, 239, 137, 57,
+        98, 207, 167, 231, 138, 145, 254, 28, 136, 236, 60, 23, 163, 4, 246, 219, 117, 104, 246,
+        86, 10, 152, 52, 90, 85, 58, 6, 70, 39, 111, 128, 93, 145, 143, 180, 77, 129, 178, 242, 82,
+        72, 57, 61, 192, 64,
+    ];
     const TESTVECTOR_LEGACYKEY_ENVELOPE: &[u8] = &[
         132, 88, 38, 161, 3, 120, 34, 97, 112, 112, 108, 105, 99, 97, 116, 105, 111, 110, 47, 120,
         46, 98, 105, 116, 119, 97, 114, 100, 101, 110, 46, 108, 101, 103, 97, 99, 121, 45, 107,
-        101, 121, 161, 5, 88, 24, 64, 18, 232, 33, 184, 69, 105, 229, 203, 52, 40, 19, 228, 121,
-        232, 82, 6, 253, 145, 215, 99, 4, 88, 149, 88, 80, 16, 4, 72, 82, 162, 71, 130, 214, 222,
-        19, 97, 28, 23, 82, 10, 222, 115, 60, 208, 71, 178, 128, 132, 129, 173, 19, 148, 119, 91,
-        72, 155, 49, 172, 139, 4, 71, 209, 90, 110, 239, 180, 150, 23, 213, 134, 34, 52, 59, 27,
-        40, 86, 86, 225, 49, 63, 39, 219, 197, 163, 90, 146, 204, 205, 93, 166, 199, 73, 72, 118,
-        36, 11, 35, 124, 96, 209, 157, 75, 69, 24, 90, 129, 131, 71, 161, 1, 58, 0, 1, 21, 87, 165,
-        1, 58, 0, 1, 21, 87, 58, 0, 1, 21, 89, 3, 58, 0, 1, 21, 90, 26, 0, 1, 0, 0, 58, 0, 1, 21,
-        91, 4, 58, 0, 1, 21, 88, 88, 32, 89, 248, 223, 6, 137, 20, 160, 157, 139, 147, 235, 241,
-        162, 143, 82, 84, 221, 133, 13, 15, 207, 253, 7, 17, 96, 75, 80, 31, 241, 241, 191, 97,
-        246,
-    ];
-    const TEST_UNSEALED_LEGACYKEY_ENCODED: &[u8] = &[
-        231, 34, 128, 103, 132, 210, 72, 65, 163, 123, 158, 12, 87, 153, 92, 230, 220, 186, 114,
-        185, 42, 83, 62, 49, 190, 95, 188, 14, 111, 233, 136, 210, 202, 127, 163, 160, 70, 45, 135,
-        210, 236, 237, 180, 212, 215, 151, 220, 250, 32, 184, 100, 154, 226, 23, 204, 106, 64, 85,
-        205, 152, 118, 138, 199, 129,
+        101, 121, 161, 5, 88, 24, 218, 72, 22, 79, 149, 30, 12, 36, 180, 212, 44, 21, 167, 208,
+        214, 221, 7, 91, 178, 12, 104, 17, 45, 219, 88, 80, 114, 38, 14, 165, 85, 229, 103, 108,
+        17, 175, 41, 43, 203, 175, 119, 125, 227, 127, 163, 214, 213, 138, 12, 216, 163, 204, 38,
+        222, 47, 11, 44, 231, 239, 170, 63, 8, 249, 56, 102, 18, 134, 34, 232, 193, 44, 19, 228,
+        17, 187, 199, 238, 187, 2, 13, 30, 112, 103, 110, 5, 31, 238, 58, 4, 24, 19, 239, 135, 57,
+        206, 190, 144, 83, 128, 204, 59, 155, 21, 80, 180, 34, 129, 131, 71, 161, 1, 58, 0, 1, 21,
+        87, 165, 1, 58, 0, 1, 21, 87, 58, 0, 1, 21, 89, 3, 58, 0, 1, 21, 90, 26, 0, 1, 0, 0, 58, 0,
+        1, 21, 91, 4, 58, 0, 1, 21, 88, 80, 212, 91, 185, 112, 92, 177, 108, 33, 182, 202, 26, 141,
+        11, 133, 95, 235, 246,
     ];
 
     const TESTVECTOR_PASSWORD: &str = "test_password";
