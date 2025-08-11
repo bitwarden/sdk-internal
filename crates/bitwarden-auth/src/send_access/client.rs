@@ -10,6 +10,7 @@ use crate::send_access::{
     SendAccessTokenError, SendAccessTokenRequest, SendAccessTokenResponse,
 };
 
+/// The `SendAccessClient` is used to interact with the Bitwarden API to get send access tokens.
 #[derive(Clone)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct SendAccessClient {
