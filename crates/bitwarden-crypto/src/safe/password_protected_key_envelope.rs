@@ -33,7 +33,7 @@ use crate::{
 };
 
 /// 16 is the RECOMMENDED salt size for all applications:
-/// https://datatracker.ietf.org/doc/rfc9106/
+/// <https://datatracker.ietf.org/doc/rfc9106/>
 const ENVELOPE_ARGON2_SALT_SIZE: usize = 16;
 /// 32 is chosen to match the size of an XChaCha20-Poly1305 key
 const ENVELOPE_ARGON2_OUTPUT_KEY_SIZE: usize = 32;
