@@ -8,13 +8,12 @@ use bitwarden_auth::{
     AuthClientExt,
 };
 use bitwarden_core::{Client as CoreClient, ClientSettings, DeviceType};
-use tokio;
 use wiremock::{
     matchers::{self, body_string_contains},
     Mock, MockServer, ResponseTemplate,
 };
 
-async fn make_send_client(mock_server: &MockServer) -> SendAccessClient {
+fn make_send_client(mock_server: &MockServer) -> SendAccessClient {
     let settings = ClientSettings {
         identity_url: format!("http://{}/identity", mock_server.address()),
         api_url: format!("http://{}/api", mock_server.address()),
@@ -31,7 +30,7 @@ async fn request_send_access_token_success() {
     let mock_server = MockServer::start().await;
 
     // Create a send access client
-    let send_access_client = make_send_client(&mock_server).await;
+    let send_access_client = make_send_client(&mock_server);
 
     // Construct the real Request type
     let req = SendAccessTokenRequest {
@@ -88,7 +87,7 @@ async fn request_send_access_token_invalid_request_send_id_required_error() {
     let mock_server = MockServer::start().await;
 
     // Create a send access client
-    let send_access_client = make_send_client(&mock_server).await;
+    let send_access_client = make_send_client(&mock_server);
 
     // Construct the request without a send_id to trigger an error
     let req = SendAccessTokenRequest {
