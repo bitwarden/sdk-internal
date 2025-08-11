@@ -21,10 +21,10 @@ use crate::{
 /// does so by using a Key Derivation Function (KDF), to increase the difficulty of brute-forcing
 /// the password.
 ///
-/// The KDF parameters such as iterations and salt are stored in the key-envelope and do not have to
+/// The KDF parameters such as iterations and salt are stored in the envelope and do not have to
 /// be provided.
 ///
-/// Internally, Argon2 as the KDF, and XChaCha20-Poly1305 are used to encrypt the message.
+/// Internally, Argon2 is used as the KDF and XChaCha20-Poly1305 is used to encrypt the key.
 pub struct PasswordProtectedKeyEnvelope<Ids: KeyIds> {
     _phantom: PhantomData<Ids>,
     cose_encrypt: coset::CoseEncrypt,
