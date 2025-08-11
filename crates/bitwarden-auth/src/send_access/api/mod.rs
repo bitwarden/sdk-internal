@@ -8,6 +8,4 @@ pub use token_api_error_response::{
 };
 pub use token_api_success_response::SendAccessTokenApiSuccessResponse;
 // Keep payload types internal to the crate
-pub(crate) use token_request_payload::{
-    SendAccessTokenPayloadCredentials, SendAccessTokenRequestPayload,
-};
+pub(crate) use token_request_payload::SendAccessTokenRequestPayload;
