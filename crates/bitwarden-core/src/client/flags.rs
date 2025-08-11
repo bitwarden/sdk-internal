@@ -1,10 +1,12 @@
 #[derive(Debug, Default, Clone, serde::Deserialize)]
 pub struct Flags {
+    /// Enable cipher key encryption.
     #[serde(default, rename = "enableCipherKeyEncryption")]
     pub enable_cipher_key_encryption: bool,
 }
 
 impl Flags {
+    /// Create a new `Flags` instance from a map of flag names and values.
     pub fn load_from_map(map: std::collections::HashMap<String, bool>) -> Self {
         let map = map
             .into_iter()
