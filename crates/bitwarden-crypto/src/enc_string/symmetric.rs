@@ -361,7 +361,9 @@ mod tests {
         KEY_ID_SIZE,
     };
 
-    /// XChaCha20Poly1305 encstrings should be padded in blocks of 32 bytes. This ensures that the encstring length does not reveal more than the 32-byte range of lengths that the contained string falls into.
+    /// XChaCha20Poly1305 encstrings should be padded in blocks of 32 bytes. This ensures that the
+    /// encstring length does not reveal more than the 32-byte range of lengths that the contained
+    /// string falls into.
     #[test]
     fn test_xchacha20_encstring_string_padding_block_sizes() {
         let key_id = [0u8; KEY_ID_SIZE];
@@ -371,8 +373,10 @@ mod tests {
             enc_key: Box::pin(enc_key.into()),
         });
 
-        // This test setup considers the minimum and maximum lengths of the first and second block, and the minimum length of the third block.
-        // We ensure that the minimum and maximum plaintext values map to the same ciphertext length, but the next block has a different ciphertext length.
+        // This test setup considers the minimum and maximum lengths of the first and second block,
+        // and the minimum length of the third block. We ensure that the minimum and maximum
+        // plaintext values map to the same ciphertext length, but the next block has a different
+        // ciphertext length.
         let empty_string = ""; // Padded to 32 bytes
         let empty_string_encrypted = empty_string
             .encrypt_with_key(&key)
