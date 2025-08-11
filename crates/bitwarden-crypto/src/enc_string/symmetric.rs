@@ -423,6 +423,7 @@ mod tests {
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);
     }
+
     #[test]
     fn test_enc_string_serialization() {
         #[derive(serde::Serialize, serde::Deserialize)]
