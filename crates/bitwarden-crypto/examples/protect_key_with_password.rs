@@ -26,7 +26,7 @@ fn main() {
 
     // Seal the key with the PIN
     // The KDF settings are chosen for you, and do not need to be separately tracked or synced
-    // Next, story this protected key envelope on disk.
+    // Next, store this protected key envelope on disk.
     let pin = "1234";
     let envelope =
         PasswordProtectedKeyEnvelope::seal(vault_key, pin, &ctx).expect("Sealing should work");
