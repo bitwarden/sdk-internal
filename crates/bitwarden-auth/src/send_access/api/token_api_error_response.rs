@@ -30,6 +30,10 @@ pub enum SendAccessTokenInvalidRequestError {
 /// Invalid grant errors - typically due to invalid credentials.
 pub enum SendAccessTokenInvalidGrantError {
     #[allow(missing_docs)]
+    #[serde(rename = "send_id is invalid.")]
+    InvalidSendId,
+
+    #[allow(missing_docs)]
     #[serde(rename = "Password_hash invalid.")]
     InvalidPasswordHash,
 
