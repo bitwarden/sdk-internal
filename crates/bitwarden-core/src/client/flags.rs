@@ -1,3 +1,7 @@
+/// Internal Feature flag representation for the Bitwarden SDK client.
+///
+/// **Note:** This struct while public, is intended for internal use and may change in future
+/// releases.
 #[derive(Debug, Default, Clone, serde::Deserialize)]
 pub struct Flags {
     /// Enable cipher key encryption.
