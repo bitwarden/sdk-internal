@@ -1,8 +1,6 @@
 # Bitwarden-crypto safe module
 
-The safe module contains a high-level set of tools used in building protocols and features involving
-cryptography. Whenever possible, a feature should be build with features from this module, before
-opting to build with any other, more lower-level primitives in the `bitwarden-crypto` crate.
+The safe module provides high-level cryptographic tools for building secure protocols and features. When developing new features, use this module first before considering lower-level primitives from other parts of `bitwarden-crypto`.
 
 ## Password-protected key envelope
 
