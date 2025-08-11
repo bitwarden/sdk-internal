@@ -45,7 +45,8 @@ pub enum SendAccessTokenInvalidGrantError {
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(tag = "error", content = "error_description")]
-// ^ "error" becomes the variant discriminator which matches against the rename annotations; "error_description" is the payload for that variant which can be optional.
+// ^ "error" becomes the variant discriminator which matches against the rename annotations;
+// "error_description" is the payload for that variant which can be optional.
 /// Represents the possible errors that can occur when requesting a send access token.
 pub enum SendAccessTokenApiErrorResponse {
     #[serde(rename = "invalid_request")]

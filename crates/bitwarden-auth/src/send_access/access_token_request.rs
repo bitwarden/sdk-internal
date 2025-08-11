@@ -2,7 +2,8 @@
 use tsify::Tsify;
 
 /// Credentials for sending password secured access requests.
-/// Clone auto implements the standard lib's Clone trait, allowing us to create copies of this struct.
+/// Clone auto implements the standard lib's Clone trait, allowing us to create copies of this
+/// struct.
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendPasswordCredentials {
@@ -61,8 +62,9 @@ mod tests {
     use super::*;
 
     mod send_access_credentials_tests {
-        use super::*;
         use serde_json;
+
+        use super::*;
 
         #[test]
         fn serialize_password_credentials() {

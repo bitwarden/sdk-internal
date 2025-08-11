@@ -1,5 +1,4 @@
 use bitwarden_core::Client;
-
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -73,8 +72,8 @@ impl SendAccessClient {
         }
 
         // If the response is not 200, we can deserialize it into SendAccessTokenApiErrorResponse
-        //and then convert it into SendAccessTokenError since we have implemented the required traits to do
-        // that conversion automatically.
+        //and then convert it into SendAccessTokenError since we have implemented the required
+        // traits to do that conversion automatically.
         let err_response: SendAccessTokenApiErrorResponse = response.json().await?;
         Err(SendAccessTokenError::Response(err_response))
     }

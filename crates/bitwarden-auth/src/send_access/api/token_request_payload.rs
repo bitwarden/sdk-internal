@@ -8,10 +8,12 @@ use crate::{
 /// Represents the shape of the credentials used in the send access token payload.
 #[derive(Serialize, Debug)]
 // untagged allows for different variants to be serialized without a type tag
-// example: { "password_hash": "example_hash" } instead of { "Password": { "password_hash": "example_hash" } }
+// example: { "password_hash": "example_hash" } instead of { "Password": { "password_hash":
+// "example_hash" } }
 #[serde(untagged)]
 pub enum SendAccessTokenPayloadCredentials {
-    /// Uses inline variant syntax for these as we don't need to reference them as independent types elsewhere.
+    /// Uses inline variant syntax for these as we don't need to reference them as independent
+    /// types elsewhere.
     #[allow(missing_docs)]
     Password { password_hash_b64: String },
     #[allow(missing_docs)]
@@ -51,7 +53,8 @@ impl From<Option<SendAccessCredentials>> for SendAccessTokenPayloadCredentials {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum SendAccessClientType {
     /// Represents a Send client.
-    /// This is a standalone client that lives within the BW web app, but has no context of a BW user.
+    /// This is a standalone client that lives within the BW web app, but has no context of a BW
+    /// user.
     #[serde(rename = "send")]
     Send,
 }
@@ -81,7 +84,8 @@ pub struct SendAccessTokenRequestPayload {
     /// The credentials used for the send access request.
     /// This can be password, email, email OTP, or anonymous.
     // Flatten allows us to serialize the variant directly into the payload without a wrapper
-    // example: { "password_hash": "example_hash" } instead of { "variant": { "password_hash": "example_hash" } }
+    // example: { "password_hash": "example_hash" } instead of { "variant": { "password_hash":
+    // "example_hash" } }
     #[serde(flatten)]
     pub credentials: SendAccessTokenPayloadCredentials,
 }
@@ -93,8 +97,9 @@ const SEND_ACCESS_SCOPE: Scope = Scope::Send;
 /// Implement a way to convert from our request model to the payload model
 impl From<SendAccessTokenRequest> for SendAccessTokenRequestPayload {
     fn from(request: SendAccessTokenRequest) -> Self {
-        // Returns a new instance of `SendAccessTokenPayload` based on the provided `SendAccessTokenRequest`.
-        // It extracts the necessary fields from the request and matches on the credentials to determine the variant
+        // Returns a new instance of `SendAccessTokenPayload` based on the provided
+        // `SendAccessTokenRequest`. It extracts the necessary fields from the request and
+        // matches on the credentials to determine the variant
         SendAccessTokenRequestPayload {
             client_id: SEND_ACCESS_CLIENT_ID,
             grant_type: SEND_ACCESS_GRANT_TYPE,
@@ -107,8 +112,9 @@ impl From<SendAccessTokenRequest> for SendAccessTokenRequestPayload {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json;
+
+    use super::*;
 
     /// Unit tests for `SendAccessTokenPayload` serialization
     mod send_access_token_payload_tests {
