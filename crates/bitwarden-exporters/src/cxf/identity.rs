@@ -88,35 +88,44 @@ pub fn passport_to_identity(passport: &PassportCredential) -> (Identity, Vec<Fie
     };
 
     // Create custom fields for unmapped data according to CXF mapping document
-    let mut custom_fields = Vec::new();
-
-    if let Some(issuing_country) = &passport.issuing_country {
-        custom_fields.push(create_field("Issuing Country", issuing_country));
-    }
-    if let Some(nationality) = &passport.nationality {
-        custom_fields.push(create_field("Nationality", nationality));
-    }
-    if let Some(birth_date) = &passport.birth_date {
-        custom_fields.push(create_field("Birth Date", birth_date));
-    }
-    if let Some(birth_place) = &passport.birth_place {
-        custom_fields.push(create_field("Birth Place", birth_place));
-    }
-    if let Some(sex) = &passport.sex {
-        custom_fields.push(create_field("Sex", sex));
-    }
-    if let Some(issue_date) = &passport.issue_date {
-        custom_fields.push(create_field("Issue Date", issue_date));
-    }
-    if let Some(expiry_date) = &passport.expiry_date {
-        custom_fields.push(create_field("Expiry Date", expiry_date));
-    }
-    if let Some(issuing_authority) = &passport.issuing_authority {
-        custom_fields.push(create_field("Issuing Authority", issuing_authority));
-    }
-    if let Some(passport_type) = &passport.passport_type {
-        custom_fields.push(create_field("Passport Type", passport_type));
-    }
+    let custom_fields = [
+        passport
+            .issuing_country
+            .as_ref()
+            .map(|issuing_country| create_field("Issuing Country", issuing_country)),
+        passport
+            .nationality
+            .as_ref()
+            .map(|nationality| create_field("Nationality", nationality)),
+        passport
+            .birth_date
+            .as_ref()
+            .map(|birth_date| create_field("Birth Date", birth_date)),
+        passport
+            .birth_place
+            .as_ref()
+            .map(|birth_place| create_field("Birth Place", birth_place)),
+        passport.sex.as_ref().map(|sex| create_field("Sex", sex)),
+        passport
+            .issue_date
+            .as_ref()
+            .map(|issue_date| create_field("Issue Date", issue_date)),
+        passport
+            .expiry_date
+            .as_ref()
+            .map(|expiry_date| create_field("Expiry Date", expiry_date)),
+        passport
+            .issuing_authority
+            .as_ref()
+            .map(|issuing_authority| create_field("Issuing Authority", issuing_authority)),
+        passport
+            .passport_type
+            .as_ref()
+            .map(|passport_type| create_field("Passport Type", passport_type)),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
 
     (identity, custom_fields)
 }
@@ -175,14 +184,19 @@ pub fn person_name_to_identity(person_name: &PersonNameCredential) -> (Identity,
     };
 
     // Create custom fields for unmapped data
-    let mut custom_fields = Vec::new();
-
-    if let Some(given_informal) = &person_name.given_informal {
-        custom_fields.push(create_field("Informal Given Name", given_informal));
-    }
-    if let Some(generation) = &person_name.generation {
-        custom_fields.push(create_field("Generation", generation));
-    }
+    let custom_fields = [
+        person_name
+            .given_informal
+            .as_ref()
+            .map(|given_informal| create_field("Informal Given Name", given_informal)),
+        person_name
+            .generation
+            .as_ref()
+            .map(|generation| create_field("Generation", generation)),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
 
     (identity, custom_fields)
 }
@@ -243,23 +257,31 @@ pub fn drivers_license_to_identity(
     };
 
     // Create custom fields for unmapped data according to CXF mapping document
-    let mut custom_fields = Vec::new();
-
-    if let Some(birth_date) = &drivers_license.birth_date {
-        custom_fields.push(create_field("Birth Date", birth_date));
-    }
-    if let Some(issue_date) = &drivers_license.issue_date {
-        custom_fields.push(create_field("Issue Date", issue_date));
-    }
-    if let Some(expiry_date) = &drivers_license.expiry_date {
-        custom_fields.push(create_field("Expiry Date", expiry_date));
-    }
-    if let Some(issuing_authority) = &drivers_license.issuing_authority {
-        custom_fields.push(create_field("Issuing Authority", issuing_authority));
-    }
-    if let Some(license_class) = &drivers_license.license_class {
-        custom_fields.push(create_field("License Class", license_class));
-    }
+    let custom_fields = [
+        drivers_license
+            .birth_date
+            .as_ref()
+            .map(|birth_date| create_field("Birth Date", birth_date)),
+        drivers_license
+            .issue_date
+            .as_ref()
+            .map(|issue_date| create_field("Issue Date", issue_date)),
+        drivers_license
+            .expiry_date
+            .as_ref()
+            .map(|expiry_date| create_field("Expiry Date", expiry_date)),
+        drivers_license
+            .issuing_authority
+            .as_ref()
+            .map(|issuing_authority| create_field("Issuing Authority", issuing_authority)),
+        drivers_license
+            .license_class
+            .as_ref()
+            .map(|license_class| create_field("License Class", license_class)),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
 
     (identity, custom_fields)
 }
@@ -321,32 +343,43 @@ pub fn identity_document_to_identity(
     };
 
     // Create custom fields for unmapped data according to CXF mapping document
-    let mut custom_fields = Vec::new();
-
-    if let Some(issuing_country) = &identity_document.issuing_country {
-        custom_fields.push(create_field("Issuing Country", issuing_country));
-    }
-    if let Some(nationality) = &identity_document.nationality {
-        custom_fields.push(create_field("Nationality", nationality));
-    }
-    if let Some(birth_date) = &identity_document.birth_date {
-        custom_fields.push(create_field("Birth Date", birth_date));
-    }
-    if let Some(birth_place) = &identity_document.birth_place {
-        custom_fields.push(create_field("Birth Place", birth_place));
-    }
-    if let Some(sex) = &identity_document.sex {
-        custom_fields.push(create_field("Sex", sex));
-    }
-    if let Some(issue_date) = &identity_document.issue_date {
-        custom_fields.push(create_field("Issue Date", issue_date));
-    }
-    if let Some(expiry_date) = &identity_document.expiry_date {
-        custom_fields.push(create_field("Expiry Date", expiry_date));
-    }
-    if let Some(issuing_authority) = &identity_document.issuing_authority {
-        custom_fields.push(create_field("Issuing Authority", issuing_authority));
-    }
+    let custom_fields = [
+        identity_document
+            .issuing_country
+            .as_ref()
+            .map(|issuing_country| create_field("Issuing Country", issuing_country)),
+        identity_document
+            .nationality
+            .as_ref()
+            .map(|nationality| create_field("Nationality", nationality)),
+        identity_document
+            .birth_date
+            .as_ref()
+            .map(|birth_date| create_field("Birth Date", birth_date)),
+        identity_document
+            .birth_place
+            .as_ref()
+            .map(|birth_place| create_field("Birth Place", birth_place)),
+        identity_document
+            .sex
+            .as_ref()
+            .map(|sex| create_field("Sex", sex)),
+        identity_document
+            .issue_date
+            .as_ref()
+            .map(|issue_date| create_field("Issue Date", issue_date)),
+        identity_document
+            .expiry_date
+            .as_ref()
+            .map(|expiry_date| create_field("Expiry Date", expiry_date)),
+        identity_document
+            .issuing_authority
+            .as_ref()
+            .map(|issuing_authority| create_field("Issuing Authority", issuing_authority)),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
     // Note: identity-document doesn't have a document_type field in the CXF example
 
     (identity, custom_fields)
