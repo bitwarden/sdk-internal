@@ -282,7 +282,7 @@
                         {
                             "type": "ssh-key",
                             "keyType": "ssh-rsa",
-                            "privateKey": "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2UUlCQUFBTk5La2hoaUc5d0JRVk5EUUtid2RuVTJwQlp0VkJRVWZBVVl0QkNRRkJRQkFOazFNVGtsWVpXOTZXanBDa1p6TnFwU1JVVkRMVUNPZEY5dVptODdabExPVm14T1ZNeE4wSHJibUpST0VOWlRVUk5iRjhrClJRUUFBQQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0t",
+                            "privateKey": "MC4CAQAwBQYDK2VwBCIEID-U9VakauO4Fsv4b_znpDHcdYg74U68siZjnWLPn7Q1",
                             "keyComment": "Work SSH Key",
                             "creationDate": {
                                 "fieldType": "date",
