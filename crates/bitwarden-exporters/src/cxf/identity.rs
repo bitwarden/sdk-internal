@@ -378,18 +378,14 @@ mod tests {
     use std::fs;
 
     // Tests only use the public parse_cxf function, no direct function imports needed
-    use crate::cxf::import::parse_cxf;
+    use crate::cxf::import::parse_cxf_spec;
 
     fn load_sample_cxf() -> Result<Vec<crate::ImportingCipher>, crate::cxf::CxfError> {
         // Read the actual CXF example file
         let cxf_data = fs::read_to_string("resources/cxf_example.json")
             .expect("Should be able to read cxf_example.json");
 
-        // Workaround for library bug: the example file has "integrityHash" but the library expects
-        // "integrationHash"
-        let fixed_cxf_data = cxf_data.replace("\"integrityHash\":", "\"integrationHash\":");
-
-        parse_cxf(fixed_cxf_data)
+        parse_cxf_spec(cxf_data)
     }
 
     #[test]
