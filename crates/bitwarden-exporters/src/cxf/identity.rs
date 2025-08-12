@@ -228,32 +228,20 @@ pub fn drivers_license_to_identity(
     };
 
     let identity = Identity {
-        title: None,
         first_name,
-        middle_name: None,
         last_name,
-        address1: None,
-        address2: None,
-        address3: None,
-        city: None,
         // Map territory (state/province) to state field
         state: drivers_license
             .territory
             .as_ref()
             .map(|t| t.value.0.clone()),
-        postal_code: None,
         // Map country to country field
         country: drivers_license.country.as_ref().map(|c| c.value.0.clone()),
-        company: None, // According to mapping doc, issuingAuthority should be CustomField
-        email: None,
-        phone: None,
-        ssn: None,
-        username: None,
-        passport_number: None,
         license_number: drivers_license
             .license_number
             .as_ref()
             .map(|l| l.value.0.clone()),
+        ..Default::default()
     };
 
     // Create custom fields for unmapped data according to CXF mapping document
