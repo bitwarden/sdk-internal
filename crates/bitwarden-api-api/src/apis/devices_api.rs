@@ -154,6 +154,13 @@ pub enum DevicesPostError {
     UnknownValue(serde_json::Value),
 }
 
+/// struct for typed errors of method [`devices_untrust_post`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DevicesUntrustPostError {
+    UnknownValue(serde_json::Value),
+}
+
 /// struct for typed errors of method [`devices_update_trust_post`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -863,11 +870,9 @@ pub async fn devices_identifier_keys_put(
 pub async fn devices_identifier_retrieve_keys_post(
     configuration: &configuration::Configuration,
     identifier: &str,
-    secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
 ) -> Result<models::ProtectedDeviceResponseModel, Error<DevicesIdentifierRetrieveKeysPostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_identifier = identifier;
-    let p_secret_verification_request_model = secret_verification_request_model;
 
     let uri_str = format!(
         "{}/devices/{identifier}/retrieve-keys",
@@ -884,7 +889,6 @@ pub async fn devices_identifier_retrieve_keys_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_secret_verification_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -1094,6 +1098,44 @@ pub async fn devices_post(
     } else {
         let content = resp.text().await?;
         let entity: Option<DevicesPostError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn devices_untrust_post(
+    configuration: &configuration::Configuration,
+    untrust_devices_request_model: Option<models::UntrustDevicesRequestModel>,
+) -> Result<(), Error<DevicesUntrustPostError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_untrust_devices_request_model = untrust_devices_request_model;
+
+    let uri_str = format!("{}/devices/untrust", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_untrust_devices_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesUntrustPostError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

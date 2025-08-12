@@ -42,13 +42,6 @@ pub enum AccountsCancelPostError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_convert_to_key_connector_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AccountsConvertToKeyConnectorPostError {
-    UnknownValue(serde_json::Value),
-}
-
 /// struct for typed errors of method [`accounts_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -95,13 +88,6 @@ pub enum AccountsEmailTokenPostError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AccountsKdfPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`accounts_key_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AccountsKeyPostError {
     UnknownValue(serde_json::Value),
 }
 
@@ -221,13 +207,6 @@ pub enum AccountsRotateApiKeyPostError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AccountsSecurityStampPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`accounts_set_key_connector_key_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AccountsSetKeyConnectorKeyPostError {
     UnknownValue(serde_json::Value),
 }
 
@@ -519,43 +498,6 @@ pub async fn accounts_cancel_post(
     }
 }
 
-pub async fn accounts_convert_to_key_connector_post(
-    configuration: &configuration::Configuration,
-) -> Result<(), Error<AccountsConvertToKeyConnectorPostError>> {
-    let uri_str = format!(
-        "{}/accounts/convert-to-key-connector",
-        configuration.base_path
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsConvertToKeyConnectorPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
 pub async fn accounts_delete(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
@@ -815,44 +757,6 @@ pub async fn accounts_kdf_post(
     } else {
         let content = resp.text().await?;
         let entity: Option<AccountsKdfPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_key_post(
-    configuration: &configuration::Configuration,
-    update_key_request_model: Option<models::UpdateKeyRequestModel>,
-) -> Result<(), Error<AccountsKeyPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_update_key_request_model = update_key_request_model;
-
-    let uri_str = format!("{}/accounts/key", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_key_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsKeyPostError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1592,45 +1496,6 @@ pub async fn accounts_security_stamp_post(
     } else {
         let content = resp.text().await?;
         let entity: Option<AccountsSecurityStampPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_set_key_connector_key_post(
-    configuration: &configuration::Configuration,
-    set_key_connector_key_request_model: Option<models::SetKeyConnectorKeyRequestModel>,
-) -> Result<(), Error<AccountsSetKeyConnectorKeyPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_set_key_connector_key_request_model = set_key_connector_key_request_model;
-
-    let uri_str = format!("{}/accounts/set-key-connector-key", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_set_key_connector_key_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsSetKeyConnectorKeyPostError> =
-            serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
