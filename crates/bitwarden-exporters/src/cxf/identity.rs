@@ -15,24 +15,13 @@ use crate::{cxf::editable_field::create_field, Field, Identity};
 /// - postalCode: EditableField<"string"> → Identity::postal_code
 pub fn address_to_identity(address: &AddressCredential) -> (Identity, Vec<Field>) {
     let identity = Identity {
-        title: None,
-        first_name: None,
-        middle_name: None,
-        last_name: None,
         address1: address.street_address.as_ref().map(|s| s.value.0.clone()),
-        address2: None,
-        address3: None,
         city: address.city.as_ref().map(|c| c.value.0.clone()),
         state: address.territory.as_ref().map(|t| t.value.0.clone()),
         postal_code: address.postal_code.as_ref().map(|p| p.value.0.clone()),
         country: address.country.as_ref().map(|c| c.value.0.clone()),
-        company: None,
-        email: None,
         phone: address.tel.as_ref().map(|t| t.value.0.clone()),
-        ssn: None,
-        username: None,
-        passport_number: None,
-        license_number: None,
+        ..Default::default()
     };
 
     // Address credentials don't have unmapped fields, so no custom fields needed
@@ -63,28 +52,15 @@ pub fn passport_to_identity(passport: &PassportCredential) -> (Identity, Vec<Fie
     };
 
     let identity = Identity {
-        title: None,
         first_name,
-        middle_name: None,
         last_name,
-        address1: None,
-        address2: None,
-        address3: None,
-        city: None,
-        state: None,
-        postal_code: None,
-        country: None, // According to mapping doc, issuingCountry should be CustomField
-        company: None,
-        email: None,
-        phone: None,
         // Map nationalIdentificationNumber to ssn as closest available field
         ssn: passport
             .national_identification_number
             .as_ref()
             .map(|n| n.value.0.clone()),
-        username: None,
         passport_number: passport.passport_number.as_ref().map(|p| p.value.0.clone()),
-        license_number: None,
+        ..Default::default()
     };
 
     // Create custom fields for unmapped data according to CXF mapping document
@@ -166,21 +142,9 @@ pub fn person_name_to_identity(person_name: &PersonNameCredential) -> (Identity,
         first_name: person_name.given.as_ref().map(|g| g.value.0.clone()),
         middle_name: person_name.given2.as_ref().map(|g2| g2.value.0.clone()),
         last_name,
-        address1: None,
-        address2: None,
-        address3: None,
-        city: None,
-        state: None,
-        postal_code: None,
-        country: None,
         // Map credentials (e.g., "PhD") to company field as professional qualifications
         company: person_name.credentials.as_ref().map(|c| c.value.0.clone()),
-        email: None,
-        phone: None,
-        ssn: None,
-        username: None,
-        passport_number: None,
-        license_number: None,
+        ..Default::default()
     };
 
     // Create custom fields for unmapped data
@@ -302,32 +266,19 @@ pub fn identity_document_to_identity(
     };
 
     let identity = Identity {
-        title: None,
         first_name,
-        middle_name: None,
         last_name,
-        address1: None,
-        address2: None,
-        address3: None,
-        city: None,
-        state: None,
-        postal_code: None,
-        country: None, // issuingCountry goes to custom fields
-        company: None,
-        email: None,
-        phone: None,
         // Map identificationNumber to ssn
         ssn: identity_document
             .identification_number
             .as_ref()
             .map(|n| n.value.0.clone()),
-        username: None,
         // Map documentNumber to passport_number (reusing for document number)
         passport_number: identity_document
             .document_number
             .as_ref()
             .map(|d| d.value.0.clone()),
-        license_number: None,
+        ..Default::default()
     };
 
     // Create custom fields for unmapped data according to CXF mapping document
