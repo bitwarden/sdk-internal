@@ -13,13 +13,13 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PushSendRequestModel {
+pub struct JsonElementPushSendRequestModel {
     #[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
-    pub user_id: Option<String>,
+    pub user_id: Option<uuid::Uuid>,
     #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
-    pub organization_id: Option<String>,
+    pub organization_id: Option<uuid::Uuid>,
     #[serde(rename = "deviceId", skip_serializing_if = "Option::is_none")]
-    pub device_id: Option<String>,
+    pub device_id: Option<uuid::Uuid>,
     #[serde(rename = "identifier", skip_serializing_if = "Option::is_none")]
     pub identifier: Option<String>,
     #[serde(rename = "type")]
@@ -29,15 +29,15 @@ pub struct PushSendRequestModel {
     #[serde(rename = "clientType", skip_serializing_if = "Option::is_none")]
     pub client_type: Option<models::ClientType>,
     #[serde(rename = "installationId", skip_serializing_if = "Option::is_none")]
-    pub installation_id: Option<String>,
+    pub installation_id: Option<uuid::Uuid>,
 }
 
-impl PushSendRequestModel {
+impl JsonElementPushSendRequestModel {
     pub fn new(
         r#type: models::PushType,
         payload: Option<serde_json::Value>,
-    ) -> PushSendRequestModel {
-        PushSendRequestModel {
+    ) -> JsonElementPushSendRequestModel {
+        JsonElementPushSendRequestModel {
             user_id: None,
             organization_id: None,
             device_id: None,

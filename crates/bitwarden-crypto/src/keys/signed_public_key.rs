@@ -19,7 +19,7 @@ use crate::{
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type SignedPublicKey = string;
+export type SignedPublicKey = Tagged<string, "SignedPublicKey">;
 "#;
 
 /// `PublicKeyFormat` defines the format of the public key in a `SignedAsymmetricPublicKeyMessage`.

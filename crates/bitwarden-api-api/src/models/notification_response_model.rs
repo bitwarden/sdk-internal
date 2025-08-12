@@ -26,6 +26,8 @@ pub struct NotificationResponseModel {
     pub body: Option<String>,
     #[serde(rename = "date", skip_serializing_if = "Option::is_none")]
     pub date: Option<String>,
+    #[serde(rename = "taskId", skip_serializing_if = "Option::is_none")]
+    pub task_id: Option<uuid::Uuid>,
     #[serde(rename = "readDate", skip_serializing_if = "Option::is_none")]
     pub read_date: Option<String>,
     #[serde(rename = "deletedDate", skip_serializing_if = "Option::is_none")]
@@ -41,6 +43,7 @@ impl NotificationResponseModel {
             title: None,
             body: None,
             date: None,
+            task_id: None,
             read_date: None,
             deleted_date: None,
         }
