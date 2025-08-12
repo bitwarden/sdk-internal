@@ -1,5 +1,5 @@
-use bitwarden_core::{Client, OrganizationId};
-use bitwarden_crypto::IdentifyKey;
+use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId};
+use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -40,6 +40,57 @@ impl CiphersClient {
         }
 
         let cipher = key_store.encrypt(cipher_view)?;
+        Ok(EncryptionContext {
+            cipher,
+            encrypted_for: user_id,
+        })
+    }
+
+    /// Encrypt a cipher with the provided key. This should only be used when rotating encryption
+    /// keys in the Web client.
+    ///
+    /// Until key rotation is fully implemented in the SDK, this method must be provided the new
+    /// symmetric key in base64 format. See PM-23084
+    ///
+    /// If the cipher has a CipherKey, it will be re-encrypted with the new key.
+    /// If the cipher does not have a CipherKey and CipherKeyEncryption is enabled, one will be
+    /// generated using the new key. Otherwise, the cipher's data will be encrypted with the new
+    /// key directly.
+    #[cfg(feature = "wasm")]
+    pub fn encrypt_cipher_for_rotation(
+        &self,
+        mut cipher_view: CipherView,
+        new_key_b64: String,
+    ) -> Result<EncryptionContext, CipherError> {
+        let new_key = SymmetricCryptoKey::try_from(new_key_b64)?;
+
+        let user_id = self
+            .client
+            .internal
+            .get_user_id()
+            .ok_or(EncryptError::MissingUserId)?;
+        let key_store = self.client.internal.get_key_store();
+        let mut ctx = key_store.context();
+
+        // Set the new key in the key store context
+        const NEW_KEY_ID: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
+        #[allow(deprecated)]
+        ctx.set_symmetric_key(NEW_KEY_ID, new_key)?;
+
+        if cipher_view.key.is_none()
+            && self
+                .client
+                .internal
+                .get_flags()
+                .enable_cipher_key_encryption
+        {
+            cipher_view.generate_cipher_key(&mut ctx, NEW_KEY_ID)?;
+        } else {
+            cipher_view.reencrypt_cipher_keys(&mut ctx, NEW_KEY_ID)?;
+        }
+
+        let cipher = cipher_view.encrypt_composite(&mut ctx, NEW_KEY_ID)?;
+
         Ok(EncryptionContext {
             cipher,
             encrypted_for: user_id,
@@ -127,9 +178,10 @@ impl CiphersClient {
 mod tests {
 
     use bitwarden_core::client::test_accounts::test_bitwarden_com_account;
+    use bitwarden_crypto::CryptoError;
 
     use super::*;
-    use crate::{Attachment, CipherRepromptType, CipherType, Login, VaultClientExt};
+    use crate::{Attachment, CipherRepromptType, CipherType, Login, LoginView, VaultClientExt};
 
     fn test_cipher() -> Cipher {
         Cipher {
@@ -167,6 +219,46 @@ mod tests {
             creation_date: "2024-05-31T11:20:58.4566667Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-05-31T11:20:58.4566667Z".parse().unwrap(),
+        }
+    }
+
+    fn test_cipher_view() -> CipherView {
+        let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
+        CipherView {
+            r#type: CipherType::Login,
+            login: Some(LoginView {
+                username: Some("test_username".to_string()),
+                password: Some("test_password".to_string()),
+                password_revision_date: None,
+                uris: None,
+                totp: None,
+                autofill_on_page_load: None,
+                fido2_credentials: None,
+            }),
+            id: Some(test_id),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: "My test login".to_string(),
+            notes: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: true,
+            edit: true,
+            permissions: None,
+            view_password: true,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
         }
     }
 
@@ -416,5 +508,29 @@ mod tests {
             .unwrap();
 
         assert_eq!(content, b"Hello");
+    }
+
+    #[tokio::test]
+    async fn test_encrypt_cipher_for_rotation() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let new_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+
+        let cipher_view = test_cipher_view();
+        let new_key_b64 = new_key.to_base64();
+
+        let ctx = client
+            .vault()
+            .ciphers()
+            .encrypt_cipher_for_rotation(cipher_view, new_key_b64)
+            .unwrap();
+
+        assert!(ctx.cipher.key.is_some());
+
+        // Decrypting the cipher "normally" will fail because it was encrypted with a new key
+        assert!(matches!(
+            client.vault().ciphers().decrypt(ctx.cipher).err(),
+            Some(DecryptError::Crypto(CryptoError::InvalidMac))
+        ));
     }
 }

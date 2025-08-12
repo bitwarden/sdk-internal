@@ -1,13 +1,12 @@
 #![doc = include_str!("../README.md")]
 
-use bitwarden_cli::{install_color_eyre, text_prompt_when_none, Color};
-use bitwarden_core::{auth::RegisterRequest, ClientSettings};
+use bitwarden_cli::{install_color_eyre, Color};
+use bitwarden_core::ClientSettings;
 use bitwarden_generators::{
     GeneratorClientsExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
 };
 use clap::{command, Args, CommandFactory, Parser, Subcommand};
 use color_eyre::eyre::Result;
-use inquire::Password;
 use render::Output;
 
 mod auth;
@@ -179,30 +178,12 @@ async fn process_commands() -> Result<()> {
             return Ok(());
         }
         Commands::Register {
-            email,
-            name,
-            password_hint,
-            server,
+            email: _,
+            name: _,
+            password_hint: _,
+            server: _,
         } => {
-            let settings = server.map(|server| ClientSettings {
-                api_url: format!("{server}/api"),
-                identity_url: format!("{server}/identity"),
-                ..Default::default()
-            });
-            let client = bitwarden_core::Client::new(settings);
-
-            let email = text_prompt_when_none("Email", email)?;
-            let password = Password::new("Password").prompt()?;
-
-            client
-                .auth()
-                .register(&RegisterRequest {
-                    email,
-                    name,
-                    password,
-                    password_hint,
-                })
-                .await?;
+            unimplemented!()
         }
         _ => {}
     }

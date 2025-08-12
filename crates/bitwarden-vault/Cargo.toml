@@ -30,6 +30,7 @@ wasm = [
 [dependencies]
 base64 = ">=0.22.1, <0.23"
 bitwarden-api-api = { workspace = true }
+bitwarden-collections = { workspace = true, features = ["wasm"] }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
