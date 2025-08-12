@@ -76,6 +76,7 @@ fn security_type_to_string(security_type: &EditableFieldWifiNetworkSecurityType)
         Wpa3Personal => "WPA3 Personal",
         Wep => "WEP",
         Other(s) => s,
+        _ => "Unknown",
     }
 }
 

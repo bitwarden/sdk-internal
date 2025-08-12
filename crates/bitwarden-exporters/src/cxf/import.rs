@@ -192,11 +192,7 @@ mod tests {
         let cxf_data = fs::read_to_string("resources/cxf_example.json")
             .expect("Should be able to read cxf_example.json");
 
-        // Workaround for library bug: the example file has "integrityHash" but the library expects
-        // "integrationHash"
-        let fixed_cxf_data = cxf_data.replace("\"integrityHash\":", "\"integrationHash\":");
-
-        let header: Header = serde_json::from_str(&fixed_cxf_data)?;
+        let header: Header = serde_json::from_str(&cxf_data)?;
 
         let items: Vec<ImportingCipher> = header
             .accounts
