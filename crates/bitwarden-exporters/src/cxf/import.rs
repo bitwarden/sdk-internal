@@ -1,13 +1,12 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
-    Account as CxfAccount, AddressCredential, ApiKeyCredential, BasicAuthCredential, Credential,
-    CreditCardCredential, DriversLicenseCredential, Header, IdentityDocumentCredential, Item,
-    PasskeyCredential, PassportCredential, PersonNameCredential, WifiCredential,
+    AddressCredential, ApiKeyCredential, BasicAuthCredential, Credential, CreditCardCredential,
+    DriversLicenseCredential, Header, IdentityDocumentCredential, Item, PasskeyCredential,
+    PassportCredential, PersonNameCredential, WifiCredential,
 };
 
 use crate::{
     cxf::{
-        address::address_to_identity,
         api_key::api_key_to_fields,
         identity::{
             address_to_identity, drivers_license_to_identity, identity_document_to_identity,
