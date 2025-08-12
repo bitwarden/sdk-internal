@@ -2,9 +2,12 @@
 
 use bitwarden_auth::{
     send_access::{
-        api::{SendAccessTokenApiErrorResponse, SendAccessTokenInvalidRequestError},
+        api::{
+            SendAccessTokenApiErrorResponse, SendAccessTokenInvalidGrantError,
+            SendAccessTokenInvalidRequestError,
+        },
         SendAccessClient, SendAccessCredentials, SendAccessTokenError, SendAccessTokenRequest,
-        SendAccessTokenResponse, SendEmailCredentials,
+        SendAccessTokenResponse, SendEmailCredentials, SendPasswordCredentials,
     },
     AuthClientExt,
 };
@@ -25,251 +28,464 @@ fn make_send_client(mock_server: &MockServer) -> SendAccessClient {
     core_client.auth_new().send_access()
 }
 
-#[tokio::test]
-async fn request_send_access_token_success() {
-    // spin up mock server
-    let mock_server = MockServer::start().await;
+mod request_send_access_token_success_tests {
+    use super::*;
 
-    // Create a send access client
-    let send_access_client = make_send_client(&mock_server);
+    #[tokio::test]
+    async fn request_send_access_token_success() {
+        // spin up mock server
+        let mock_server = MockServer::start().await;
 
-    // Construct the real Request type
-    let req = SendAccessTokenRequest {
-        send_id: "test_send_id".into(),
-        send_access_credentials: None, // No credentials for this test
-    };
+        // Create a send access client
+        let send_access_client = make_send_client(&mock_server);
 
-    // Create a mock success response
-    let raw_success = serde_json::json!({
-        "access_token": "token",
-        "token_type": "bearer",
-        "expires_in":   3600,
-        "scope": "api.send"
-    });
+        // Construct the real Request type
+        let req = SendAccessTokenRequest {
+            send_id: "test_send_id".into(),
+            send_access_credentials: None, // No credentials for this test
+        };
 
-    // Register the mock for the request
-    let mock = Mock::given(matchers::method("POST"))
-        .and(matchers::path("identity/connect/token"))
-        // expect the headers we set in the client
-        .and(matchers::header(
-            reqwest::header::CONTENT_TYPE.as_str(),
-            "application/x-www-form-urlencoded; charset=utf-8",
-        ))
-        .and(matchers::header(
-            reqwest::header::ACCEPT.as_str(),
-            "application/json",
-        ))
-        .and(matchers::header(
-            reqwest::header::CACHE_CONTROL.as_str(),
-            "no-store",
-        ))
-        // expect the body to contain the fields we set in our payload object
-        .and(body_string_contains("client_id=send"))
-        .and(body_string_contains("grant_type=send_access"))
-        .and(body_string_contains(format!("send_id={}", req.send_id)))
-        // respond with the mock success response
-        .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
+        // Create a mock success response
+        let raw_success = serde_json::json!({
+            "access_token": "token",
+            "token_type": "bearer",
+            "expires_in":   3600,
+            "scope": "api.send"
+        });
 
-    // Register the mock with the server
-    mock_server.register(mock).await;
+        // Register the mock for the request
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            // expect the headers we set in the client
+            .and(matchers::header(
+                reqwest::header::CONTENT_TYPE.as_str(),
+                "application/x-www-form-urlencoded; charset=utf-8",
+            ))
+            .and(matchers::header(
+                reqwest::header::ACCEPT.as_str(),
+                "application/json",
+            ))
+            .and(matchers::header(
+                reqwest::header::CACHE_CONTROL.as_str(),
+                "no-store",
+            ))
+            // expect the body to contain the fields we set in our payload object
+            .and(body_string_contains("client_id=send"))
+            .and(body_string_contains("grant_type=send_access"))
+            .and(body_string_contains(format!("send_id={}", req.send_id)))
+            // respond with the mock success response
+            .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
 
-    let token: SendAccessTokenResponse = send_access_client
-        .request_send_access_token(req)
-        .await
-        .unwrap();
+        // Register the mock with the server
+        mock_server.register(mock).await;
 
-    assert_eq!(token.token, "token");
-    assert!(token.expires_at > 0);
-}
+        let token: SendAccessTokenResponse = send_access_client
+            .request_send_access_token(req)
+            .await
+            .unwrap();
 
-#[tokio::test]
-async fn request_send_access_token_invalid_request_send_id_required_error() {
-    // spin up mock server
-    let mock_server = MockServer::start().await;
-
-    // Create a send access client
-    let send_access_client = make_send_client(&mock_server);
-
-    // Construct the request without a send_id to trigger an error
-    let req = SendAccessTokenRequest {
-        send_id: "".into(),
-        send_access_credentials: None, // No credentials for this test
-    };
-
-    // Create a mock error response
-    let raw_error = serde_json::json!({
-        "error": "invalid_request",
-        "error_description": "send_id is required."
-    });
-
-    // Register the mock for the request
-    let mock = Mock::given(matchers::method("POST"))
-        .and(matchers::path("identity/connect/token"))
-        .respond_with(ResponseTemplate::new(400).set_body_json(raw_error));
-
-    // Register the mock with the server
-    mock_server.register(mock).await;
-
-    let result = send_access_client.request_send_access_token(req).await;
-
-    assert!(result.is_err());
-
-    let err = result.unwrap_err();
-    match err {
-        SendAccessTokenError::Response(api_err) => {
-            // Now assert the inner enum:
-            assert_eq!(
-                api_err,
-                SendAccessTokenApiErrorResponse::InvalidRequest(Some(
-                    SendAccessTokenInvalidRequestError::SendIdRequired
-                ))
-            );
-        }
-        other => panic!("expected Response variant, got {:?}", other),
+        assert_eq!(token.token, "token");
+        assert!(token.expires_at > 0);
     }
 }
 
-#[tokio::test]
-async fn request_send_access_token_invalid_request_password_hash_required_error() {
-    // spin up mock server
-    let mock_server = MockServer::start().await;
+mod request_send_access_token_invalid_request_tests {
+    use super::*;
 
-    // Create a send access client
-    let send_access_client = make_send_client(&mock_server);
+    #[tokio::test]
+    async fn request_send_access_token_invalid_request_send_id_required_error() {
+        // spin up mock server
+        let mock_server = MockServer::start().await;
 
-    // Construct the request with a send_id but no credentials to trigger the error
-    let req = SendAccessTokenRequest {
-        send_id: "test_send_id".into(),
-        send_access_credentials: None, // No credentials for this test
-    };
+        // Create a send access client
+        let send_access_client = make_send_client(&mock_server);
 
-    // Create a mock error response
-    let raw_error = serde_json::json!({
-        "error": "invalid_request",
-        "error_description": "password_hash is required."
-    });
+        // Construct the request without a send_id to trigger an error
+        let req = SendAccessTokenRequest {
+            send_id: "".into(),
+            send_access_credentials: None, // No credentials for this test
+        };
 
-    // Register the mock for the request
-    let mock = Mock::given(matchers::method("POST"))
-        .and(matchers::path("identity/connect/token"))
-        .respond_with(ResponseTemplate::new(400).set_body_json(raw_error));
+        // Create a mock error response
+        let raw_error = serde_json::json!({
+            "error": "invalid_request",
+            "error_description": "send_id is required."
+        });
 
-    // Register the mock with the server
-    mock_server.register(mock).await;
+        // Register the mock for the request
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            .respond_with(ResponseTemplate::new(400).set_body_json(raw_error));
 
-    let result = send_access_client.request_send_access_token(req).await;
+        // Register the mock with the server
+        mock_server.register(mock).await;
 
-    assert!(result.is_err());
+        let result = send_access_client.request_send_access_token(req).await;
 
-    let err = result.unwrap_err();
-    match err {
-        SendAccessTokenError::Response(api_err) => {
-            // Now assert the inner enum:
-            assert_eq!(
-                api_err,
-                SendAccessTokenApiErrorResponse::InvalidRequest(Some(
-                    SendAccessTokenInvalidRequestError::PasswordHashRequired
-                ))
-            );
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match err {
+            SendAccessTokenError::Response(api_err) => {
+                // Now assert the inner enum:
+                assert_eq!(
+                    api_err,
+                    SendAccessTokenApiErrorResponse::InvalidRequest(Some(
+                        SendAccessTokenInvalidRequestError::SendIdRequired
+                    ))
+                );
+            }
+            other => panic!("expected Response variant, got {:?}", other),
         }
-        other => panic!("expected Response variant, got {:?}", other),
+    }
+
+    #[tokio::test]
+    async fn request_send_access_token_invalid_request_password_hash_required_error() {
+        // spin up mock server
+        let mock_server = MockServer::start().await;
+
+        // Create a send access client
+        let send_access_client = make_send_client(&mock_server);
+
+        // Construct the request with a send_id but no credentials to trigger the error
+        let req = SendAccessTokenRequest {
+            send_id: "test_send_id".into(),
+            send_access_credentials: None, // No credentials for this test
+        };
+
+        // Create a mock error response
+        let raw_error = serde_json::json!({
+            "error": "invalid_request",
+            "error_description": "password_hash_b64 is required."
+        });
+
+        // Register the mock for the request
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            .respond_with(ResponseTemplate::new(400).set_body_json(raw_error));
+
+        // Register the mock with the server
+        mock_server.register(mock).await;
+
+        let result = send_access_client.request_send_access_token(req).await;
+
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match err {
+            SendAccessTokenError::Response(api_err) => {
+                // Now assert the inner enum:
+                assert_eq!(
+                    api_err,
+                    SendAccessTokenApiErrorResponse::InvalidRequest(Some(
+                        SendAccessTokenInvalidRequestError::PasswordHashRequired
+                    ))
+                );
+            }
+            other => panic!("expected Response variant, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn request_send_access_token_invalid_request_email_required_error() {
+        // spin up mock server
+        let mock_server = MockServer::start().await;
+
+        // Create a send access client
+        let send_access_client = make_send_client(&mock_server);
+
+        // Construct the request with a send_id but no credentials to trigger the error
+        let req = SendAccessTokenRequest {
+            send_id: "test_send_id".into(),
+            send_access_credentials: None, // No credentials for this test
+        };
+
+        // Create a mock error response
+        let raw_error = serde_json::json!({
+            "error": "invalid_request",
+            "error_description": "email is required."
+        });
+
+        // Register the mock for the request
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            .respond_with(ResponseTemplate::new(400).set_body_json(raw_error));
+
+        // Register the mock with the server
+        mock_server.register(mock).await;
+
+        let result = send_access_client.request_send_access_token(req).await;
+
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match err {
+            SendAccessTokenError::Response(api_err) => {
+                // Now assert the inner enum:
+                assert_eq!(
+                    api_err,
+                    SendAccessTokenApiErrorResponse::InvalidRequest(Some(
+                        SendAccessTokenInvalidRequestError::EmailRequired
+                    ))
+                );
+            }
+            other => panic!("expected Response variant, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn request_send_access_token_invalid_request_email_otp_required_error() {
+        // spin up mock server
+        let mock_server = MockServer::start().await;
+
+        // Create a send access client
+        let send_access_client = make_send_client(&mock_server);
+
+        // Construct the request with a send_id and email credential
+        let email_credentials = SendEmailCredentials {
+            email: "test@example.com".into(),
+        };
+
+        let req = SendAccessTokenRequest {
+            send_id: "test_send_id".into(),
+            send_access_credentials: Some(SendAccessCredentials::Email(email_credentials)),
+        };
+
+        // Create a mock error response
+        let raw_error = serde_json::json!({
+            "error": "invalid_request",
+            "error_description": "email and otp are required. An OTP has been sent to the email address provided."
+        });
+
+        // Register the mock for the request
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            .respond_with(ResponseTemplate::new(400).set_body_json(raw_error));
+
+        // Register the mock with the server
+        mock_server.register(mock).await;
+
+        let result = send_access_client.request_send_access_token(req).await;
+
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match err {
+            SendAccessTokenError::Response(api_err) => {
+                // Now assert the inner enum:
+                assert_eq!(
+                    api_err,
+                    SendAccessTokenApiErrorResponse::InvalidRequest(Some(
+                        SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent
+                    ))
+                );
+            }
+            other => panic!("expected Response variant, got {:?}", other),
+        }
     }
 }
 
-#[tokio::test]
-async fn request_send_access_token_invalid_request_email_required_error() {
-    // spin up mock server
-    let mock_server = MockServer::start().await;
+mod request_send_access_token_invalid_grant_tests {
+    use bitwarden_auth::send_access::SendEmailOtpCredentials;
 
-    // Create a send access client
-    let send_access_client = make_send_client(&mock_server);
+    use super::*;
 
-    // Construct the request with a send_id but no credentials to trigger the error
-    let req = SendAccessTokenRequest {
-        send_id: "test_send_id".into(),
-        send_access_credentials: None, // No credentials for this test
-    };
+    #[tokio::test]
+    async fn request_send_access_token_invalid_grant_invalid_send_id_error() {
+        // spin up mock server
+        let mock_server = MockServer::start().await;
 
-    // Create a mock error response
-    let raw_error = serde_json::json!({
-        "error": "invalid_request",
-        "error_description": "Email is required."
-    });
+        // Create a send access client
+        let send_access_client = make_send_client(&mock_server);
 
-    // Register the mock for the request
-    let mock = Mock::given(matchers::method("POST"))
-        .and(matchers::path("identity/connect/token"))
-        .respond_with(ResponseTemplate::new(400).set_body_json(raw_error));
+        // Construct the request without a send_id to trigger an error
+        let req = SendAccessTokenRequest {
+            send_id: "invalid-send-id".into(),
+            send_access_credentials: None, // No credentials for this test
+        };
 
-    // Register the mock with the server
-    mock_server.register(mock).await;
+        // Create a mock error response
+        let raw_error = serde_json::json!({
+            "error": "invalid_grant",
+            "error_description": "send_id is invalid."
+        });
 
-    let result = send_access_client.request_send_access_token(req).await;
+        // Register the mock for the request
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            .respond_with(ResponseTemplate::new(400).set_body_json(raw_error));
 
-    assert!(result.is_err());
+        // Register the mock with the server
+        mock_server.register(mock).await;
 
-    let err = result.unwrap_err();
-    match err {
-        SendAccessTokenError::Response(api_err) => {
-            // Now assert the inner enum:
-            assert_eq!(
-                api_err,
-                SendAccessTokenApiErrorResponse::InvalidRequest(Some(
-                    SendAccessTokenInvalidRequestError::EmailRequired
-                ))
-            );
+        let result = send_access_client.request_send_access_token(req).await;
+
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match err {
+            SendAccessTokenError::Response(api_err) => {
+                // Now assert the inner enum:
+                assert_eq!(
+                    api_err,
+                    SendAccessTokenApiErrorResponse::InvalidGrant(Some(
+                        SendAccessTokenInvalidGrantError::InvalidSendId
+                    ))
+                );
+            }
+            other => panic!("expected Response variant, got {:?}", other),
         }
-        other => panic!("expected Response variant, got {:?}", other),
     }
-}
 
-#[tokio::test]
-async fn request_send_access_token_invalid_request_email_otp_required_error() {
-    // spin up mock server
-    let mock_server = MockServer::start().await;
+    #[tokio::test]
+    async fn request_send_access_token_invalid_grant_invalid_password_hash_error() {
+        // spin up mock server
+        let mock_server = MockServer::start().await;
 
-    // Create a send access client
-    let send_access_client = make_send_client(&mock_server);
+        // Create a send access client
+        let send_access_client = make_send_client(&mock_server);
 
-    // Construct the request with a send_id and email credential
-    let email_credentials = SendEmailCredentials {
-        email: "test@example.com".into(),
-    };
+        // Construct the request
+        let password_credentials = SendPasswordCredentials {
+            password_hash_b64: "invalid-hash".into(),
+        };
 
-    let req = SendAccessTokenRequest {
-        send_id: "test_send_id".into(),
-        send_access_credentials: Some(SendAccessCredentials::Email(email_credentials)),
-    };
+        let req = SendAccessTokenRequest {
+            send_id: "valid-send-id".into(),
+            send_access_credentials: Some(SendAccessCredentials::Password(password_credentials)),
+        };
 
-    // Create a mock error response
-    let raw_error = serde_json::json!({
-        "error": "invalid_request",
-        "error_description": "Email and OTP are required. An OTP has been sent to the email address provided."
-    });
+        // Create a mock error response
+        let raw_error = serde_json::json!({
+            "error": "invalid_grant",
+            "error_description": "password_hash_b64 is invalid."
+        });
 
-    // Register the mock for the request
-    let mock = Mock::given(matchers::method("POST"))
-        .and(matchers::path("identity/connect/token"))
-        .respond_with(ResponseTemplate::new(400).set_body_json(raw_error));
+        // Register the mock for the request
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            .respond_with(ResponseTemplate::new(400).set_body_json(raw_error));
 
-    // Register the mock with the server
-    mock_server.register(mock).await;
+        // Register the mock with the server
+        mock_server.register(mock).await;
 
-    let result = send_access_client.request_send_access_token(req).await;
+        let result = send_access_client.request_send_access_token(req).await;
 
-    assert!(result.is_err());
+        assert!(result.is_err());
 
-    let err = result.unwrap_err();
-    match err {
-        SendAccessTokenError::Response(api_err) => {
-            // Now assert the inner enum:
-            assert_eq!(
-                api_err,
-                SendAccessTokenApiErrorResponse::InvalidRequest(Some(
-                    SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent
-                ))
-            );
+        let err = result.unwrap_err();
+        match err {
+            SendAccessTokenError::Response(api_err) => {
+                // Now assert the inner enum:
+                assert_eq!(
+                    api_err,
+                    SendAccessTokenApiErrorResponse::InvalidGrant(Some(
+                        SendAccessTokenInvalidGrantError::InvalidPasswordHash
+                    ))
+                );
+            }
+            other => panic!("expected Response variant, got {:?}", other),
         }
-        other => panic!("expected Response variant, got {:?}", other),
+    }
+
+    #[tokio::test]
+    async fn request_send_access_token_invalid_grant_invalid_email_error() {
+        // spin up mock server
+        let mock_server = MockServer::start().await;
+
+        // Create a send access client
+        let send_access_client = make_send_client(&mock_server);
+
+        // Construct the request
+        let email_credentials = SendEmailCredentials {
+            email: "invalid-email".into(),
+        };
+        let req = SendAccessTokenRequest {
+            send_id: "valid-send-id".into(),
+            send_access_credentials: Some(SendAccessCredentials::Email(email_credentials)),
+        };
+
+        // Create a mock error response
+        let raw_error = serde_json::json!({
+            "error": "invalid_grant",
+            "error_description": "email is invalid."
+        });
+
+        // Register the mock for the request
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            .respond_with(ResponseTemplate::new(400).set_body_json(raw_error));
+
+        // Register the mock with the server
+        mock_server.register(mock).await;
+
+        let result = send_access_client.request_send_access_token(req).await;
+
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match err {
+            SendAccessTokenError::Response(api_err) => {
+                // Now assert the inner enum:
+                assert_eq!(
+                    api_err,
+                    SendAccessTokenApiErrorResponse::InvalidGrant(Some(
+                        SendAccessTokenInvalidGrantError::InvalidEmail
+                    ))
+                );
+            }
+            other => panic!("expected Response variant, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn request_send_access_token_invalid_grant_invalid_otp_error() {
+        // spin up mock server
+        let mock_server = MockServer::start().await;
+
+        // Create a send access client
+        let send_access_client = make_send_client(&mock_server);
+
+        // Construct the request
+        let email_otp_credentials = SendEmailOtpCredentials {
+            email: "valid@email.com".into(),
+            otp: "valid_otp".into(),
+        };
+        let req = SendAccessTokenRequest {
+            send_id: "valid-send-id".into(),
+            send_access_credentials: Some(SendAccessCredentials::EmailOtp(email_otp_credentials)),
+        };
+
+        // Create a mock error response
+        let raw_error = serde_json::json!({
+            "error": "invalid_grant",
+            "error_description": "otp is invalid."
+        });
+
+        // Register the mock for the request
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            .respond_with(ResponseTemplate::new(400).set_body_json(raw_error));
+
+        // Register the mock with the server
+        mock_server.register(mock).await;
+
+        let result = send_access_client.request_send_access_token(req).await;
+
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        match err {
+            SendAccessTokenError::Response(api_err) => {
+                // Now assert the inner enum:
+                assert_eq!(
+                    api_err,
+                    SendAccessTokenApiErrorResponse::InvalidGrant(Some(
+                        SendAccessTokenInvalidGrantError::InvalidOtp
+                    ))
+                );
+            }
+            other => panic!("expected Response variant, got {:?}", other),
+        }
     }
 }

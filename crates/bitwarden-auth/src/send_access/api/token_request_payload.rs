@@ -138,7 +138,7 @@ mod tests {
                 r#"{
   "client_id": "send",
   "grant_type": "send_access",
-  "scope": "api.send",
+  "scope": "api.send.access",
   "send_id": "example_send_id",
   "password_hash_b64": "example_hash"
 }"#

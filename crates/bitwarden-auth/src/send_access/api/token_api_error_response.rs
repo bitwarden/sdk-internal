@@ -10,16 +10,16 @@ pub enum SendAccessTokenInvalidRequestError {
     #[allow(missing_docs)]
     SendIdRequired,
 
-    #[serde(rename = "password_hash is required.")]
+    #[serde(rename = "password_hash_b64 is required.")]
     #[allow(missing_docs)]
     PasswordHashRequired,
 
-    #[serde(rename = "Email is required.")]
+    #[serde(rename = "email is required.")]
     #[allow(missing_docs)]
     EmailRequired,
 
     #[serde(
-        rename = "Email and OTP are required. An OTP has been sent to the email address provided."
+        rename = "email and otp are required. An OTP has been sent to the email address provided."
     )]
     #[allow(missing_docs)]
     EmailAndOtpRequiredOtpSent,
@@ -34,15 +34,15 @@ pub enum SendAccessTokenInvalidGrantError {
     InvalidSendId,
 
     #[allow(missing_docs)]
-    #[serde(rename = "Password_hash invalid.")]
+    #[serde(rename = "password_hash_b64 is invalid.")]
     InvalidPasswordHash,
 
     #[allow(missing_docs)]
-    #[serde(rename = "Email invalid.")]
+    #[serde(rename = "email is invalid.")]
     InvalidEmail,
 
     #[allow(missing_docs)]
-    #[serde(rename = "OTP invalid.")]
+    #[serde(rename = "otp is invalid.")]
     InvalidOtp,
 }
 
@@ -84,7 +84,7 @@ mod tests {
 
         #[test]
         fn test_deserialize_send_token_error_desc_password_hash_required() {
-            let error_desc: String = "\"Password_hash is required.\"".to_string();
+            let error_desc: String = "\"password_hash_b64 is required.\"".to_string();
             let result: SendAccessTokenInvalidRequestError =
                 serde_json::from_str(&error_desc).unwrap();
             assert_eq!(
@@ -95,7 +95,7 @@ mod tests {
 
         #[test]
         fn test_deserialize_send_token_error_desc_email_required() {
-            let error_desc: String = "\"Email is required.\"".to_string();
+            let error_desc: String = "\"email is required.\"".to_string();
             let result: SendAccessTokenInvalidRequestError =
                 serde_json::from_str(&error_desc).unwrap();
             assert_eq!(result, SendAccessTokenInvalidRequestError::EmailRequired);
@@ -104,7 +104,7 @@ mod tests {
         #[test]
         fn test_deserialize_send_token_error_desc_email_and_otp_required() {
             let error_desc: String =
-            "\"Email and OTP are required. An OTP has been sent to the email address provided.\""
+            "\"email and otp are required. An OTP has been sent to the email address provided.\""
                 .to_string();
             let result: SendAccessTokenInvalidRequestError =
                 serde_json::from_str(&error_desc).unwrap();
@@ -120,7 +120,7 @@ mod tests {
 
         #[test]
         fn test_deserialize_send_token_error_desc_invalid_password_hash() {
-            let error_desc: String = "\"Password_hash invalid.\"".to_string();
+            let error_desc: String = "\"password_hash_b64 is invalid.\"".to_string();
             let result: SendAccessTokenInvalidGrantError =
                 serde_json::from_str(&error_desc).unwrap();
             assert_eq!(
@@ -131,7 +131,7 @@ mod tests {
 
         #[test]
         fn test_deserialize_send_token_error_desc_invalid_email() {
-            let error_desc: String = "\"Email invalid.\"".to_string();
+            let error_desc: String = "\"email is invalid.\"".to_string();
             let result: SendAccessTokenInvalidGrantError =
                 serde_json::from_str(&error_desc).unwrap();
             assert_eq!(result, SendAccessTokenInvalidGrantError::InvalidEmail);
@@ -139,7 +139,7 @@ mod tests {
 
         #[test]
         fn test_deserialize_send_token_error_desc_invalid_otp() {
-            let error_desc: String = "\"OTP invalid.\"".to_string();
+            let error_desc: String = "\"otp is invalid.\"".to_string();
             let result: SendAccessTokenInvalidGrantError =
                 serde_json::from_str(&error_desc).unwrap();
             assert_eq!(result, SendAccessTokenInvalidGrantError::InvalidOtp);
@@ -181,8 +181,7 @@ mod tests {
 
         #[test]
         fn test_deserialize_send_access_token_error_invalid_grant_with_details() {
-            let obj =
-                r#"{ "error": "invalid_grant", "error_description": "Password_hash invalid." }"#;
+            let obj = r#"{ "error": "invalid_grant", "error_description": "password_hash_b64 is invalid." }"#;
             let result: SendAccessTokenApiErrorResponse = serde_json::from_str(obj).unwrap();
             assert_eq!(
                 result,
