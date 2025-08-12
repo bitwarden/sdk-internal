@@ -16,4 +16,5 @@ mod api_key;
 mod card;
 mod editable_field;
 mod login;
+mod totp;
 mod wifi;

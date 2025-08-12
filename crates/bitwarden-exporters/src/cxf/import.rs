@@ -1,13 +1,14 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     Account as CxfAccount, ApiKeyCredential, BasicAuthCredential, Credential, CreditCardCredential,
-    Item, PasskeyCredential, WifiCredential,
+    Item, PasskeyCredential, TotpCredential, WifiCredential,
 };
 
 use crate::{
     cxf::{
         api_key::api_key_to_fields,
         login::{to_fields, to_login},
+        totp::totp_to_login,
         wifi::wifi_to_fields,
         CxfError,
     },
@@ -62,12 +63,18 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
 
     let scope = value.scope.as_ref();
 
-    // Login credentials
-    if !grouped.basic_auth.is_empty() || !grouped.passkey.is_empty() {
+    // Login credentials (including TOTP)
+    if !grouped.basic_auth.is_empty() || !grouped.passkey.is_empty() || !grouped.totp.is_empty() {
         let basic_auth = grouped.basic_auth.first();
         let passkey = grouped.passkey.first();
 
-        let login = to_login(creation_date, basic_auth, passkey, scope);
+        let mut login = to_login(creation_date, basic_auth, passkey, scope);
+
+        // Add TOTP if present
+        if let Some(totp) = grouped.totp.first() {
+            let totp_login = totp_to_login(totp);
+            login.totp = totp_login.totp;
+        }
 
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
@@ -180,6 +187,10 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
             Credential::CreditCard(credit_card) => Some(credit_card.as_ref()),
             _ => None,
         }),
+        totp: filter_credentials(&credentials, |c| match c {
+            Credential::Totp(totp) => Some(totp.as_ref()),
+            _ => None,
+        }),
         wifi: filter_credentials(&credentials, |c| match c {
             Credential::Wifi(wifi) => Some(wifi.as_ref()),
             _ => None,
@@ -192,6 +203,7 @@ struct GroupedCredentials {
     basic_auth: Vec<BasicAuthCredential>,
     passkey: Vec<PasskeyCredential>,
     credit_card: Vec<CreditCardCredential>,
+    totp: Vec<TotpCredential>,
     wifi: Vec<WifiCredential>,
 }
 
@@ -385,5 +397,201 @@ mod tests {
         assert_eq!(card.code, Some("123".to_string()));
         assert_eq!(card.brand, Some("Mastercard".to_string()));
         assert_eq!(card.number, Some("1234 5678 9012 3456".to_string()));
+    }
+
+    #[test]
+    fn test_totp() {
+        use credential_exchange_format::{OTPHashAlgorithm, TotpCredential};
+
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "My TOTP".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![Credential::Totp(Box::new(TotpCredential {
+                secret: "Hello World!".as_bytes().to_vec().into(),
+                period: 30,
+                digits: 6,
+                username: Some("test@example.com".to_string()),
+                algorithm: OTPHashAlgorithm::Sha1,
+                issuer: Some("Example Service".to_string()),
+            }))],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        assert_eq!(cipher.folder_id, None);
+        assert_eq!(cipher.name, "My TOTP");
+        assert_eq!(cipher.notes, None);
+        assert!(!cipher.favorite);
+        assert_eq!(cipher.reprompt, 0);
+        assert_eq!(cipher.fields, vec![]);
+
+        let login = match &cipher.r#type {
+            CipherType::Login(login) => login,
+            _ => panic!("Expected login cipher for TOTP"),
+        };
+
+        // TOTP should be mapped to login.totp as otpauth URI
+        assert!(login.totp.is_some());
+        let otpauth = login.totp.as_ref().unwrap();
+
+        // Verify the otpauth URI format and content
+        assert!(
+            otpauth.starts_with("otpauth://totp/Example%20Service:test%40example%2Ecom?secret=")
+        );
+        assert!(otpauth.contains("&issuer=Example%20Service"));
+
+        // Default values should not be present in URI
+        assert!(!otpauth.contains("&period=30"));
+        assert!(!otpauth.contains("&digits=6"));
+        assert!(!otpauth.contains("&algorithm=SHA1"));
+
+        // Other login fields should be None since only TOTP was provided
+        assert_eq!(login.username, None);
+        assert_eq!(login.password, None);
+        assert_eq!(login.login_uris, vec![]);
+    }
+
+    #[test]
+    fn test_totp_with_custom_parameters() {
+        use credential_exchange_format::{OTPHashAlgorithm, TotpCredential};
+
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "Custom TOTP".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![Credential::Totp(Box::new(TotpCredential {
+                secret: "secret123".as_bytes().to_vec().into(),
+                period: 60,
+                digits: 8,
+                username: Some("user".to_string()),
+                algorithm: OTPHashAlgorithm::Sha256,
+                issuer: None,
+            }))],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        let login = match &cipher.r#type {
+            CipherType::Login(login) => login,
+            _ => panic!("Expected login cipher for TOTP"),
+        };
+
+        let otpauth = login.totp.as_ref().unwrap();
+
+        // Should have custom parameters
+        assert!(otpauth.contains("&period=60"));
+        assert!(otpauth.contains("&digits=8"));
+        assert!(otpauth.contains("&algorithm=SHA256"));
+
+        // Should not have issuer parameter since issuer is None
+        assert!(!otpauth.contains("&issuer="));
+
+        // Should have label with just username
+        assert!(otpauth.starts_with("otpauth://totp/user?secret="));
+    }
+
+    #[test]
+    fn test_totp_steam() {
+        use credential_exchange_format::{OTPHashAlgorithm, TotpCredential};
+
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "Steam TOTP".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![Credential::Totp(Box::new(TotpCredential {
+                secret: "steamkey".as_bytes().to_vec().into(),
+                period: 30,
+                digits: 5,
+                username: Some("steamuser".to_string()),
+                algorithm: OTPHashAlgorithm::Unknown("steam".to_string()),
+                issuer: Some("Steam".to_string()),
+            }))],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        let cipher = ciphers.first().unwrap();
+
+        let login = match &cipher.r#type {
+            CipherType::Login(login) => login,
+            _ => panic!("Expected login cipher for TOTP"),
+        };
+
+        let otpauth = login.totp.as_ref().unwrap();
+
+        // Steam should use special format
+        assert!(otpauth.starts_with("steam://"));
+        assert!(!otpauth.contains("otpauth://"));
+    }
+
+    #[test]
+    fn test_totp_combined_with_basic_auth() {
+        use credential_exchange_format::{BasicAuthCredential, OTPHashAlgorithm, TotpCredential};
+
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "Login with TOTP".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![
+                Credential::BasicAuth(Box::new(BasicAuthCredential {
+                    username: Some("myuser".to_string().into()),
+                    password: Some("mypass".to_string().into()),
+                })),
+                Credential::Totp(Box::new(TotpCredential {
+                    secret: "totpkey".as_bytes().to_vec().into(),
+                    period: 30,
+                    digits: 6,
+                    username: Some("totpuser".to_string()),
+                    algorithm: OTPHashAlgorithm::Sha1,
+                    issuer: Some("Service".to_string()),
+                })),
+            ],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        let login = match &cipher.r#type {
+            CipherType::Login(login) => login,
+            _ => panic!("Expected login cipher"),
+        };
+
+        // Should have both basic auth and TOTP
+        assert_eq!(login.username, Some("myuser".to_string()));
+        assert_eq!(login.password, Some("mypass".to_string()));
+        assert!(login.totp.is_some());
+
+        let otpauth = login.totp.as_ref().unwrap();
+        assert!(otpauth.starts_with("otpauth://totp/Service:totpuser?secret="));
+        assert!(otpauth.contains("&issuer=Service"));
     }
 }
