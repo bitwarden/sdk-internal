@@ -1,5 +1,5 @@
-use credential_exchange_format::{OTPHashAlgorithm, TotpCredential};
 use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine};
+use credential_exchange_format::{OTPHashAlgorithm, TotpCredential};
 
 use crate::Login;
 
@@ -7,9 +7,9 @@ use crate::Login;
 /// Maps all fields into a single OTPAUTH string according to the mapping document
 pub fn totp_to_login(totp: &TotpCredential) -> Login {
     let otpauth_uri = build_otpauth_uri(totp);
-    
+
     Login {
-        username: None,
+        username: totp.username.clone(), // we don't use this value in the import, but might as well map it.
         password: None,
         totp: Some(otpauth_uri),
         login_uris: vec![],
@@ -23,24 +23,24 @@ fn build_otpauth_uri(totp: &TotpCredential) -> String {
     // For now, use base64 encoding as a simple fallback since base32 libraries aren't available
     // In a full implementation, we would use proper base32 encoding
     let secret_b64 = STANDARD_NO_PAD.encode(&totp.secret);
-    
+
     // Build the label part: [issuer:][account]
     let label = build_label(&totp.issuer, &totp.username);
-    
+
     // Start building the URI
     let mut uri = format!("otpauth://totp/{label}?secret={secret_b64}");
-    
+
     // Add optional parameters
     if let Some(ref issuer) = totp.issuer {
         let encoded_issuer = url_encode(issuer);
         uri.push_str(&format!("&issuer={encoded_issuer}"));
     }
-    
+
     // Add period if not default (30 seconds)
     if totp.period != 30 {
         uri.push_str(&format!("&period={}", totp.period));
     }
-    
+
     // Add algorithm if not default (SHA1)
     match totp.algorithm {
         OTPHashAlgorithm::Sha256 => uri.push_str("&algorithm=SHA256"),
@@ -50,14 +50,15 @@ fn build_otpauth_uri(totp: &TotpCredential) -> String {
             return format!("steam://{secret_b64}");
         }
         OTPHashAlgorithm::Unknown(ref algo) => uri.push_str(&format!("&algorithm={algo}")),
-        OTPHashAlgorithm::Sha1 => {}, // Default, don't add parameter
+        OTPHashAlgorithm::Sha1 => {} // Default, don't add parameter
+        _ => {}                      // Handle any other unknown algorithms by not adding parameter
     }
-    
+
     // Add digits if not default (6)
     if totp.digits != 6 {
         uri.push_str(&format!("&digits={}", totp.digits));
     }
-    
+
     uri
 }
 
@@ -82,7 +83,7 @@ fn build_label(issuer: &Option<String>, account: &Option<String>) -> String {
     // Strip colons from issuer and account (as per Bitwarden's implementation)
     let clean_issuer = issuer.as_ref().map(|i| i.replace(':', ""));
     let clean_account = account.as_ref().map(|a| a.replace(':', ""));
-    
+
     match (&clean_issuer, &clean_account) {
         (Some(issuer), Some(account)) => {
             let encoded_issuer = url_encode(issuer);
@@ -112,11 +113,11 @@ mod tests {
 
         let login = totp_to_login(&totp);
 
-        assert_eq!(login.username, None);
+        assert_eq!(login.username, Some("test@example.com".to_string()));
         assert_eq!(login.password, None);
         assert_eq!(login.login_uris, vec![]);
         assert!(login.totp.is_some());
-        
+
         let otpauth = login.totp.unwrap();
         assert!(otpauth.starts_with("otpauth://totp/Example:test%40example%2Ecom?secret="));
         assert!(otpauth.contains("&issuer=Example"));
@@ -139,7 +140,7 @@ mod tests {
 
         let login = totp_to_login(&totp);
         let otpauth = login.totp.unwrap();
-        
+
         assert!(otpauth.contains("Custom%20Issuer:user"));
         assert!(otpauth.contains("&issuer=Custom%20Issuer"));
         assert!(otpauth.contains("&period=60"));
@@ -160,7 +161,7 @@ mod tests {
 
         let login = totp_to_login(&totp);
         let otpauth = login.totp.unwrap();
-        
+
         assert!(otpauth.starts_with("otpauth://totp/user?secret="));
         assert!(otpauth.contains("&algorithm=SHA512"));
         assert!(!otpauth.contains("&issuer="));
@@ -179,7 +180,7 @@ mod tests {
 
         let login = totp_to_login(&totp);
         let otpauth = login.totp.unwrap();
-        
+
         // Steam uses special format
         assert!(otpauth.starts_with("steam://"));
         assert!(!otpauth.contains("otpauth://"));
@@ -198,7 +199,7 @@ mod tests {
 
         let login = totp_to_login(&totp);
         let otpauth = login.totp.unwrap();
-        
+
         // Should have empty label but still be valid
         assert!(otpauth.starts_with("otpauth://totp/?secret="));
     }
@@ -216,7 +217,7 @@ mod tests {
 
         let login = totp_to_login(&totp);
         let otpauth = login.totp.unwrap();
-        
+
         // Colons should be stripped from label
         assert!(otpauth.contains("issuerwithcolons:userwithcolons"));
         // But issuer parameter should preserve original (encoded)
@@ -235,7 +236,7 @@ mod tests {
         };
 
         let uri = build_otpauth_uri(&totp);
-        
+
         // Since we're using base64 instead of base32, update the expected result
         let expected_b64 = STANDARD_NO_PAD.encode("Hello World!".as_bytes());
         let expected_uri = format!("otpauth://totp/Bitwarden:test%40bitwarden%2Ecom?secret={expected_b64}&issuer=Bitwarden");
@@ -245,28 +246,28 @@ mod tests {
     #[test]
     fn test_build_label() {
         assert_eq!(
-            build_label(&Some("Example".to_string()), &Some("user@test.com".to_string())),
+            build_label(
+                &Some("Example".to_string()),
+                &Some("user@test.com".to_string())
+            ),
             "Example:user%40test%2Ecom"
         );
-        
-        assert_eq!(
-            build_label(&Some("Example".to_string()), &None),
-            "Example"
-        );
-        
+
+        assert_eq!(build_label(&Some("Example".to_string()), &None), "Example");
+
         assert_eq!(
             build_label(&None, &Some("user@test.com".to_string())),
             "user%40test%2Ecom"
         );
-        
-        assert_eq!(
-            build_label(&None, &None),
-            ""
-        );
-        
+
+        assert_eq!(build_label(&None, &None), "");
+
         // Test colon stripping in label (but not in issuer parameter)
         assert_eq!(
-            build_label(&Some("Test:Issuer".to_string()), &Some("test:user".to_string())),
+            build_label(
+                &Some("Test:Issuer".to_string()),
+                &Some("test:user".to_string())
+            ),
             "TestIssuer:testuser"
         );
     }
