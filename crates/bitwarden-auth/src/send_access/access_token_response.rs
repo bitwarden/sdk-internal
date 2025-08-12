@@ -4,6 +4,7 @@ use crate::send_access::api::{SendAccessTokenApiErrorResponse, SendAccessTokenAp
 
 /// A send access token which can be used to access a send.
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(
     feature = "wasm",
     derive(tsify::Tsify),
