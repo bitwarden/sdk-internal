@@ -48,6 +48,7 @@ pub enum SendAccessCredentials {
 
 /// A request structure for requesting a send access token from the API.
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendAccessTokenRequest {
     /// The id of the send for which the access token is requested.
