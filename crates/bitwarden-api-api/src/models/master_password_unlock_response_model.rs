@@ -9,31 +9,24 @@
  */
 
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
 pub struct MasterPasswordUnlockResponseModel {
     #[serde(rename = "kdf")]
     pub kdf: Box<models::MasterPasswordUnlockKdfResponseModel>,
     #[serde(rename = "masterKeyEncryptedUserKey")]
-    pub master_key_encrypted_user_key: String,
+    pub master_key_encrypted_user_key: Option<String>,
     #[serde(rename = "salt")]
-    pub salt: String,
+    pub salt: Option<String>,
 }
 
 impl MasterPasswordUnlockResponseModel {
     pub fn new(
         kdf: models::MasterPasswordUnlockKdfResponseModel,
-        master_key_encrypted_user_key: String,
-        salt: String,
+        master_key_encrypted_user_key: Option<String>,
+        salt: Option<String>,
     ) -> MasterPasswordUnlockResponseModel {
         MasterPasswordUnlockResponseModel {
             kdf: Box::new(kdf),

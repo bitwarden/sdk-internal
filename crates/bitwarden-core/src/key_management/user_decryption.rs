@@ -1,12 +1,8 @@
-//! Mobile specific user decryption operations
-//!
-//! This module contains the data structures and error handling for user decryption operations,
+//! This module contains the data structures and error handling for user decryption operations.
 
 use bitwarden_api_api::models::UserDecryptionResponseModel;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::key_management::master_password::{MasterPasswordError, MasterPasswordUnlockData};
 
@@ -24,12 +20,6 @@ pub enum UserDecryptionError {
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
 pub struct UserDecryptionData {
     pub master_password_unlock: Option<MasterPasswordUnlockData>,
 }

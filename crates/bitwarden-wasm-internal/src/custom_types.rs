@@ -30,9 +30,4 @@ export type Utc = unknown;
  * An integer that is known not to equal zero.
  */
 export type NonZeroU32 = number;
-
-/**
- * An interger that is valid KdfType
- */
-export type KdfType = number;
 "#;

@@ -1,5 +1,3 @@
-//! Mobile specific master password operations
-//!
 //! This module contains the data structures and error handling for master password unlock
 //! operations.
 
@@ -11,8 +9,6 @@ use bitwarden_api_api::models::{
 use bitwarden_crypto::{CryptoError, EncString, Kdf};
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{require, MissingFieldError};
 
@@ -31,12 +27,6 @@ pub enum MasterPasswordError {
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
 pub struct MasterPasswordUnlockData {
     pub kdf: Kdf,
     pub master_key_wrapped_user_key: EncString,

@@ -14,24 +14,16 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
-[features]
-default = []
-wasm = ["dep:tsify", "dep:wasm-bindgen"] # WASM support
-
 [dependencies]
-serde = { workspace = true, features = ["derive"] }
+serde = { version = "^1.0", features = ["derive"] }
 {{#serdeWith}}
-serde_with = { version = ">=3.8, <4", default-features = false, features = [
-    "base64",
-    "std",
-    "macros"
-] }
+serde_with = { version = "^3.8", default-features = false, features = ["base64", "std", "macros"] }
 {{/serdeWith}}
-serde_json = { workspace = true }
-serde_repr = { workspace = true }
-url = ">=2.5, <3"
+serde_json = "^1.0"
+serde_repr = "^0.1"
+url = "^2.5"
 {{#hasUUIDs}}
-uuid = { workspace = true, features = ["serde", "v4", "js"] }
+uuid = { version = "^1.8", features = ["serde", "v4"] }
 {{/hasUUIDs}}
 {{#hyper}}
 {{#hyper0x}}
@@ -54,39 +46,27 @@ secrecy = "0.8.0"
 {{/withAWSV4Signature}}
 {{#reqwest}}
 {{^supportAsync}}
-reqwest = { workspace = true, features = [
-    "json",
-    "blocking",
-    "multipart",
-    "http2",
-], default-features = false }
+reqwest = { version = "^0.12", default-features = false, features = ["json", "blocking", "multipart", "http2"] }
 {{#supportMiddleware}}
 reqwest-middleware = { version = "^0.4", features = ["json", "blocking", "multipart"] }
 {{/supportMiddleware}}
 {{/supportAsync}}
 {{#supportAsync}}
-reqwest = { workspace = true, features = [
-    "json",
-    "multipart",
-    "http2",
-], default-features = false }
+reqwest = { version = "^0.12", default-features = false, features = ["json", "multipart", "http2"] }
 {{#supportMiddleware}}
 reqwest-middleware = { version = "^0.4", features = ["json", "multipart"] }
 {{/supportMiddleware}}
 {{#supportTokenSource}}
-async-trait = { workspace = true }
+async-trait = "^0.1"
 # TODO: propose to Yoshidan to externalize this as non google related crate, so that it can easily be extended for other cloud providers.
 google-cloud-token = "^0.1"
 {{/supportTokenSource}}
 {{/supportAsync}}
 {{/reqwest}}
 {{#reqwestTrait}}
-async-trait = { workspace = true }
-reqwest = { workspace = true, features = [
-    "json",
-    "multipart",
-    "http2",
-], default-features = false }{{#supportMiddleware}}
+async-trait = "^0.1"
+reqwest = { version = "^0.12", default-features = false, features = ["json", "multipart", "http2"] }
+{{#supportMiddleware}}
 reqwest-middleware = { version = "^0.4", features = ["json", "multipart"] }
 {{/supportMiddleware}}
 {{#supportTokenSource}}
@@ -110,5 +90,3 @@ mockall = ["dep:mockall"]
 bon = ["dep:bon"]
 {{/useBonBuilder}}
 {{/reqwestTrait}}
-tsify = { workspace = true, optional = true, features = ["js"], default-features = false }
-wasm-bindgen = { workspace = true, optional = true, features = ["serde-serialize"] }
