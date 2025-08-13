@@ -61,8 +61,8 @@ mod tests {
                         parallelism: Some(4),
                     },
                 ),
-                master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
-                salt: TEST_SALT.to_string(),
+                master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
+                salt: Some(TEST_SALT.to_string()),
             })),
         };
 
@@ -123,8 +123,8 @@ mod tests {
                         parallelism: None,
                     },
                 ),
-                master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
-                salt: TEST_SALT.to_string(),
+                master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
+                salt: Some(TEST_SALT.to_string()),
             })),
         };
 

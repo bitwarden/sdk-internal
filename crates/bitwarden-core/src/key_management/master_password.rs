@@ -60,10 +60,13 @@ impl TryFrom<MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
             },
         };
 
+        let master_key_encrypted_user_key = require!(response.master_key_encrypted_user_key);
+        let salt = require!(response.salt);
+
         Ok(MasterPasswordUnlockData {
             kdf,
-            master_key_wrapped_user_key: response.master_key_encrypted_user_key.as_str().parse()?,
-            salt: response.salt,
+            master_key_wrapped_user_key: master_key_encrypted_user_key.as_str().parse()?,
+            salt,
         })
     }
 }
@@ -97,8 +100,8 @@ mod tests {
                 memory: None,
                 parallelism: None,
             }),
-            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
-            salt: TEST_SALT.to_string(),
+            master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
+            salt: Some(TEST_SALT.to_string()),
         };
 
         let result = MasterPasswordUnlockData::try_from(response);
@@ -125,8 +128,8 @@ mod tests {
                 memory: Some(64),
                 parallelism: Some(4),
             }),
-            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
-            salt: TEST_SALT.to_string(),
+            master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
+            salt: Some(TEST_SALT.to_string()),
         };
 
         let result = MasterPasswordUnlockData::try_from(response);
@@ -159,12 +162,56 @@ mod tests {
                 memory: None,
                 parallelism: None,
             }),
-            master_key_encrypted_user_key: TEST_INVALID_USER_KEY.to_string(),
-            salt: TEST_SALT.to_string(),
+            master_key_encrypted_user_key: Some(TEST_INVALID_USER_KEY.to_string()),
+            salt: Some(TEST_SALT.to_string()),
         };
 
         let result = MasterPasswordUnlockData::try_from(response);
         assert!(matches!(result, Err(MasterPasswordError::Crypto(_))));
+    }
+
+    #[test]
+    fn test_try_from_master_password_unlock_response_model_user_key_none_error() {
+        let response = MasterPasswordUnlockResponseModel {
+            kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
+                kdf_type: KdfType::PBKDF2_SHA256,
+                iterations: 600_000,
+                memory: None,
+                parallelism: None,
+            }),
+            master_key_encrypted_user_key: None,
+            salt: Some(TEST_SALT.to_string()),
+        };
+
+        let result = MasterPasswordUnlockData::try_from(response);
+        assert!(matches!(
+            result,
+            Err(MasterPasswordError::MissingField(MissingFieldError(
+                "response.master_key_encrypted_user_key"
+            )))
+        ));
+    }
+
+    #[test]
+    fn test_try_from_master_password_unlock_response_model_salt_none_error() {
+        let response = MasterPasswordUnlockResponseModel {
+            kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
+                kdf_type: KdfType::PBKDF2_SHA256,
+                iterations: 600_000,
+                memory: None,
+                parallelism: None,
+            }),
+            master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
+            salt: None,
+        };
+
+        let result = MasterPasswordUnlockData::try_from(response);
+        assert!(matches!(
+            result,
+            Err(MasterPasswordError::MissingField(MissingFieldError(
+                "response.salt"
+            )))
+        ));
     }
 
     #[test]
@@ -176,8 +223,8 @@ mod tests {
                 memory: None,
                 parallelism: Some(4),
             }),
-            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
-            salt: TEST_SALT.to_string(),
+            master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
+            salt: Some(TEST_SALT.to_string()),
         };
 
         let result = MasterPasswordUnlockData::try_from(response);
@@ -198,8 +245,8 @@ mod tests {
                 memory: Some(0),
                 parallelism: Some(4),
             }),
-            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
-            salt: TEST_SALT.to_string(),
+            master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
+            salt: Some(TEST_SALT.to_string()),
         };
 
         let result = MasterPasswordUnlockData::try_from(response);
@@ -220,8 +267,8 @@ mod tests {
                 memory: Some(64),
                 parallelism: None,
             }),
-            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
-            salt: TEST_SALT.to_string(),
+            master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
+            salt: Some(TEST_SALT.to_string()),
         };
 
         let result = MasterPasswordUnlockData::try_from(response);
@@ -242,8 +289,8 @@ mod tests {
                 memory: Some(64),
                 parallelism: Some(0),
             }),
-            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
-            salt: TEST_SALT.to_string(),
+            master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
+            salt: Some(TEST_SALT.to_string()),
         };
 
         let result = MasterPasswordUnlockData::try_from(response);
@@ -264,8 +311,8 @@ mod tests {
                 memory: None,
                 parallelism: None,
             }),
-            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
-            salt: TEST_SALT.to_string(),
+            master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
+            salt: Some(TEST_SALT.to_string()),
         };
 
         let result = MasterPasswordUnlockData::try_from(response);
@@ -286,8 +333,8 @@ mod tests {
                 memory: Some(64),
                 parallelism: Some(4),
             }),
-            master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
-            salt: TEST_SALT.to_string(),
+            master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
+            salt: Some(TEST_SALT.to_string()),
         };
 
         let result = MasterPasswordUnlockData::try_from(response);
