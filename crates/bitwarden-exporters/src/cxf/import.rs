@@ -1,15 +1,17 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
-    Account as CxfAccount, BasicAuthCredential, Credential, CreditCardCredential, Item,
-    PasskeyCredential,
+    Account as CxfAccount, ApiKeyCredential, BasicAuthCredential, Credential, CreditCardCredential,
+    Item, PasskeyCredential, WifiCredential,
 };
 
 use crate::{
     cxf::{
+        api_key::api_key_to_fields,
         login::{to_fields, to_login},
+        wifi::wifi_to_fields,
         CxfError,
     },
-    CipherType, ImportingCipher,
+    CipherType, ImportingCipher, SecureNote, SecureNoteType,
 };
 
 pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfError> {
@@ -79,6 +81,46 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         })
     }
 
+    // API Key credentials -> Secure Note
+    if let Some(api_key) = grouped.api_key.first() {
+        let fields = api_key_to_fields(api_key);
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: None,
+            r#type: CipherType::SecureNote(Box::new(SecureNote {
+                r#type: SecureNoteType::Generic,
+            })),
+            favorite: false,
+            reprompt: 0,
+            fields,
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
+    }
+
+    // WiFi credentials -> Secure Note
+    if let Some(wifi) = grouped.wifi.first() {
+        let fields = wifi_to_fields(wifi);
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: None,
+            r#type: CipherType::SecureNote(Box::new(SecureNote {
+                r#type: SecureNoteType::Generic,
+            })),
+            favorite: false,
+            reprompt: 0,
+            fields,
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
+    }
+
     output
 }
 
@@ -100,6 +142,10 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
     }
 
     GroupedCredentials {
+        api_key: filter_credentials(&credentials, |c| match c {
+            Credential::ApiKey(api_key) => Some(api_key.as_ref()),
+            _ => None,
+        }),
         basic_auth: filter_credentials(&credentials, |c| match c {
             Credential::BasicAuth(basic_auth) => Some(basic_auth.as_ref()),
             _ => None,
@@ -112,13 +158,19 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
             Credential::CreditCard(credit_card) => Some(credit_card.as_ref()),
             _ => None,
         }),
+        wifi: filter_credentials(&credentials, |c| match c {
+            Credential::Wifi(wifi) => Some(wifi.as_ref()),
+            _ => None,
+        }),
     }
 }
 
 struct GroupedCredentials {
+    api_key: Vec<ApiKeyCredential>,
     basic_auth: Vec<BasicAuthCredential>,
     passkey: Vec<PasskeyCredential>,
     credit_card: Vec<CreditCardCredential>,
+    wifi: Vec<WifiCredential>,
 }
 
 #[cfg(test)]

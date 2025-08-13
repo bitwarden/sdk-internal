@@ -8,8 +8,8 @@ use bitwarden_crypto::{
 };
 
 fn main() {
-    let key_story = KeyStore::<ExampleIds>::default();
-    let mut ctx: KeyStoreContext<'_, ExampleIds> = key_story.context_mut();
+    let key_store = KeyStore::<ExampleIds>::default();
+    let mut ctx: KeyStoreContext<'_, ExampleIds> = key_store.context_mut();
     let mut disk = MockDisk::new();
 
     // Alice wants to protect a key with a password.
@@ -19,14 +19,15 @@ fn main() {
     // - Protect a send with a URL fragment secret
     // For this, the `PasswordProtectedKeyEnvelope` is used.
 
-    // Alice has a vault protected with a symmetric key. She wants this protected with a PIN.
+    // Alice has a vault protected with a symmetric key. She wants the symmetric key protected with
+    // a PIN.
     let vault_key = ctx
         .generate_symmetric_key(ExampleSymmetricKey::VaultKey)
         .expect("Generating vault key should work");
 
     // Seal the key with the PIN
     // The KDF settings are chosen for you, and do not need to be separately tracked or synced
-    // Next, story this protected key envelope on disk.
+    // Next, store this protected key envelope on disk.
     let pin = "1234";
     let envelope =
         PasswordProtectedKeyEnvelope::seal(vault_key, pin, &ctx).expect("Sealing should work");
