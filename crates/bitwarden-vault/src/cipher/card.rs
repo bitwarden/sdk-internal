@@ -1,3 +1,22 @@
+//! Credit card cipher implementation with formatting utilities.
+//! 
+//! This module provides data structures and formatting functions for credit card information
+//! stored in Bitwarden vaults. It includes both encrypted storage (`Card`) and decrypted view
+//! (`CardView`) representations.
+//!
+//! ## Formatting Features
+//! 
+//! The module provides two main formatting functions for credit card numbers:
+//! 
+//! - `format_number()`: Standard 4-4-4-4 digit formatting
+//! - `format_number_by_brand()`: Brand-specific formatting for better UX
+//!
+//! ### Supported Brand Formats
+//!
+//! - **American Express**: XXXX XXXXXX XXXXX (4-6-5)
+//! - **Diners Club**: XXXX XXXXXX XXXX (4-6-4) for 14-digit cards
+//! - **All others**: XXXX XXXX XXXX XXXX (4-4-4-4)
+
 use bitwarden_api_api::models::CipherCardModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
@@ -124,6 +143,171 @@ impl TryFrom<CipherCardModel> for Card {
             brand: EncString::try_from_optional(card.brand)?,
             number: EncString::try_from_optional(card.number)?,
         })
+    }
+}
+
+impl CardView {
+    /// Formats a credit card number in groups of 4 digits separated by spaces for display.
+    /// This should only be called when the card number should be unmasked for the user.
+    ///
+    /// Returns `None` if the card number is `None` or empty.
+    /// Strips all non-digit characters before formatting.
+    ///
+    /// # Examples
+    /// ```
+    /// use bitwarden_vault::CardView;
+    /// 
+    /// let card = CardView {
+    ///     number: Some("4111111111111111".to_string()),
+    ///     // ... other fields
+    ///     # cardholder_name: None,
+    ///     # exp_month: None,
+    ///     # exp_year: None,
+    ///     # code: None,
+    ///     # brand: None,
+    /// };
+    /// 
+    /// assert_eq!(card.format_number(), Some("4111 1111 1111 1111".to_string()));
+    /// ```
+    pub fn format_number(&self) -> Option<String> {
+        let number = self.number.as_ref()?;
+        
+        if number.is_empty() {
+            return None;
+        }
+        
+        // Extract only digits from the input
+        let digits: String = number.chars().filter(|c| c.is_ascii_digit()).collect();
+        
+        if digits.is_empty() {
+            return None;
+        }
+        
+        // Group digits into chunks of 4, separated by spaces
+        let formatted: String = digits
+            .chars()
+            .enumerate()
+            .flat_map(|(i, c)| {
+                if i > 0 && i % 4 == 0 {
+                    vec![' ', c]
+                } else {
+                    vec![c]
+                }
+            })
+            .collect();
+        
+        Some(formatted)
+    }
+
+    /// Formats a credit card number with brand-specific formatting for display.
+    /// This provides better UX by using the formatting conventions specific to each card brand.
+    /// Falls back to standard 4-4-4-4 formatting for unknown brands.
+    ///
+    /// Returns `None` if the card number is `None` or empty.
+    /// Strips all non-digit characters before formatting.
+    ///
+    /// # Brand-specific formats:
+    /// - **American Express**: XXXX XXXXXX XXXXX (4-6-5)
+    /// - **Diners Club**: XXXX XXXXXX XXXX (4-6-4) for 14-digit cards
+    /// - **All others**: XXXX XXXX XXXX XXXX (4-4-4-4)
+    ///
+    /// # Examples
+    /// ```
+    /// use bitwarden_vault::CardView;
+    /// 
+    /// // Amex card
+    /// let amex_card = CardView {
+    ///     number: Some("378282246310005".to_string()),
+    ///     brand: Some("Amex".to_string()),
+    ///     // ... other fields
+    ///     # cardholder_name: None,
+    ///     # exp_month: None,
+    ///     # exp_year: None,
+    ///     # code: None,
+    /// };
+    /// 
+    /// assert_eq!(amex_card.format_number_by_brand(), Some("3782 822463 10005".to_string()));
+    /// 
+    /// // Visa card
+    /// let visa_card = CardView {
+    ///     number: Some("4111111111111111".to_string()),
+    ///     brand: Some("Visa".to_string()),
+    ///     // ... other fields
+    ///     # cardholder_name: None,
+    ///     # exp_month: None,
+    ///     # exp_year: None,
+    ///     # code: None,
+    /// };
+    /// 
+    /// assert_eq!(visa_card.format_number_by_brand(), Some("4111 1111 1111 1111".to_string()));
+    /// ```
+    pub fn format_number_by_brand(&self) -> Option<String> {
+        let number = self.number.as_ref()?;
+        
+        if number.is_empty() {
+            return None;
+        }
+        
+        // Extract only digits from the input
+        let digits: String = number.chars().filter(|c| c.is_ascii_digit()).collect();
+        
+        if digits.is_empty() {
+            return None;
+        }
+
+        // Determine brand-specific formatting
+        let brand = self.brand.as_deref().unwrap_or("").to_lowercase();
+        
+        match brand.as_str() {
+            "amex" | "american express" => self.format_amex_style(&digits),
+            "diners club" | "dinersclub" | "diners" => self.format_diners_style(&digits),
+            _ => self.format_standard_style(&digits),
+        }
+    }
+
+    /// Format American Express cards as XXXX XXXXXX XXXXX (4-6-5)
+    fn format_amex_style(&self, digits: &str) -> Option<String> {
+        if digits.len() != 15 {
+            // Amex should be 15 digits, fall back to standard if not
+            return self.format_standard_style(digits);
+        }
+        
+        Some(format!("{} {} {}",
+            &digits[0..4],
+            &digits[4..10],
+            &digits[10..15]
+        ))
+    }
+
+    /// Format Diners Club cards as XXXX XXXXXX XXXX (4-6-4) for 14-digit cards
+    fn format_diners_style(&self, digits: &str) -> Option<String> {
+        if digits.len() == 14 {
+            Some(format!("{} {} {}",
+                &digits[0..4],
+                &digits[4..10],
+                &digits[10..14]
+            ))
+        } else {
+            // Fall back to standard formatting for non-14-digit Diners cards
+            self.format_standard_style(digits)
+        }
+    }
+
+    /// Format standard cards as XXXX XXXX XXXX XXXX (4-4-4-4)
+    fn format_standard_style(&self, digits: &str) -> Option<String> {
+        let formatted: String = digits
+            .chars()
+            .enumerate()
+            .flat_map(|(i, c)| {
+                if i > 0 && i % 4 == 0 {
+                    vec![' ', c]
+                } else {
+                    vec![c]
+                }
+            })
+            .collect();
+        
+        Some(formatted)
     }
 }
 
@@ -293,5 +477,341 @@ mod tests {
         let copyable_fields = card.get_copyable_fields(None);
 
         assert_eq!(copyable_fields, vec![CopyableCipherFields::CardNumber]);
+    }
+
+    #[test]
+    fn test_format_number_visa() {
+        let card = CardView {
+            number: Some("4111111111111111".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+            brand: None,
+        };
+
+        assert_eq!(card.format_number(), Some("4111 1111 1111 1111".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_amex() {
+        let card = CardView {
+            number: Some("378282246310005".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+            brand: None,
+        };
+
+        assert_eq!(card.format_number(), Some("3782 8224 6310 005".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_with_spaces() {
+        let card = CardView {
+            number: Some("4111 1111 1111 1111".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+            brand: None,
+        };
+
+        assert_eq!(card.format_number(), Some("4111 1111 1111 1111".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_with_dashes() {
+        let card = CardView {
+            number: Some("4111-1111-1111-1111".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+            brand: None,
+        };
+
+        assert_eq!(card.format_number(), Some("4111 1111 1111 1111".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_with_mixed_chars() {
+        let card = CardView {
+            number: Some("4111a1111b1111c1111".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+            brand: None,
+        };
+
+        assert_eq!(card.format_number(), Some("4111 1111 1111 1111".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_short_number() {
+        let card = CardView {
+            number: Some("123".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+            brand: None,
+        };
+
+        assert_eq!(card.format_number(), Some("123".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_none() {
+        let card = CardView {
+            number: None,
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+            brand: None,
+        };
+
+        assert_eq!(card.format_number(), None);
+    }
+
+    #[test]
+    fn test_format_number_empty() {
+        let card = CardView {
+            number: Some("".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+            brand: None,
+        };
+
+        assert_eq!(card.format_number(), None);
+    }
+
+    #[test]
+    fn test_format_number_no_digits() {
+        let card = CardView {
+            number: Some("abcd-efgh-ijkl".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+            brand: None,
+        };
+
+        assert_eq!(card.format_number(), None);
+    }
+
+    #[test]
+    fn test_format_number_by_brand_amex() {
+        let card = CardView {
+            number: Some("378282246310005".to_string()),
+            brand: Some("Amex".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+        };
+
+        assert_eq!(card.format_number_by_brand(), Some("3782 822463 10005".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_by_brand_amex_american_express() {
+        let card = CardView {
+            number: Some("378282246310005".to_string()),
+            brand: Some("American Express".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+        };
+
+        assert_eq!(card.format_number_by_brand(), Some("3782 822463 10005".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_by_brand_amex_wrong_length() {
+        let card = CardView {
+            number: Some("378282246310".to_string()), // Only 12 digits, should fall back
+            brand: Some("Amex".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+        };
+
+        assert_eq!(card.format_number_by_brand(), Some("3782 8224 6310".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_by_brand_diners_club() {
+        let card = CardView {
+            number: Some("30569309025904".to_string()),
+            brand: Some("Diners Club".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+        };
+
+        assert_eq!(card.format_number_by_brand(), Some("3056 930902 5904".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_by_brand_diners_club_alt_name() {
+        let card = CardView {
+            number: Some("30569309025904".to_string()),
+            brand: Some("DinersClub".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+        };
+
+        assert_eq!(card.format_number_by_brand(), Some("3056 930902 5904".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_by_brand_diners_short_name() {
+        let card = CardView {
+            number: Some("30569309025904".to_string()),
+            brand: Some("Diners".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+        };
+
+        assert_eq!(card.format_number_by_brand(), Some("3056 930902 5904".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_by_brand_diners_club_wrong_length() {
+        let card = CardView {
+            number: Some("30569309025".to_string()), // Only 11 digits, should fall back
+            brand: Some("Diners Club".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+        };
+
+        assert_eq!(card.format_number_by_brand(), Some("3056 9309 025".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_by_brand_visa() {
+        let card = CardView {
+            number: Some("4111111111111111".to_string()),
+            brand: Some("Visa".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+        };
+
+        assert_eq!(card.format_number_by_brand(), Some("4111 1111 1111 1111".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_by_brand_mastercard() {
+        let card = CardView {
+            number: Some("5555555555554444".to_string()),
+            brand: Some("Mastercard".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+        };
+
+        assert_eq!(card.format_number_by_brand(), Some("5555 5555 5555 4444".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_by_brand_unknown() {
+        let card = CardView {
+            number: Some("4111111111111111".to_string()),
+            brand: Some("Unknown Brand".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+        };
+
+        assert_eq!(card.format_number_by_brand(), Some("4111 1111 1111 1111".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_by_brand_no_brand() {
+        let card = CardView {
+            number: Some("4111111111111111".to_string()),
+            brand: None,
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+        };
+
+        assert_eq!(card.format_number_by_brand(), Some("4111 1111 1111 1111".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_by_brand_case_insensitive() {
+        let card = CardView {
+            number: Some("378282246310005".to_string()),
+            brand: Some("AMEX".to_string()), // Uppercase
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+        };
+
+        assert_eq!(card.format_number_by_brand(), Some("3782 822463 10005".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_by_brand_with_existing_formatting() {
+        let card = CardView {
+            number: Some("3782-822463-10005".to_string()), // With dashes
+            brand: Some("Amex".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+        };
+
+        assert_eq!(card.format_number_by_brand(), Some("3782 822463 10005".to_string()));
+    }
+
+    #[test]
+    fn test_format_number_by_brand_none() {
+        let card = CardView {
+            number: None,
+            brand: Some("Amex".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+        };
+
+        assert_eq!(card.format_number_by_brand(), None);
+    }
+
+    #[test]
+    fn test_format_number_by_brand_empty() {
+        let card = CardView {
+            number: Some("".to_string()),
+            brand: Some("Amex".to_string()),
+            cardholder_name: None,
+            exp_month: None,
+            exp_year: None,
+            code: None,
+        };
+
+        assert_eq!(card.format_number_by_brand(), None);
     }
 }
