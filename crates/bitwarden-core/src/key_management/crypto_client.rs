@@ -1,4 +1,4 @@
-use bitwarden_crypto::CryptoError;
+use bitwarden_crypto::{CryptoError, Kdf};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 #[cfg(feature = "wasm")]
@@ -19,8 +19,8 @@ use crate::{
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
     key_management::crypto::{
-        get_v2_rotated_account_keys, make_v2_keys_for_v1_user, CryptoClientError,
-        UserCryptoV2KeysResponse,
+        get_v2_rotated_account_keys, make_v2_keys_for_v1_user, update_kdf, CryptoClientError,
+        UpdateKdfResponse, UserCryptoV2KeysResponse,
     },
     Client,
 };
@@ -79,6 +79,16 @@ impl CryptoClient {
         &self,
     ) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
         get_v2_rotated_account_keys(&self.client)
+    }
+
+    /// Update the user's password, which will re-encrypt the user's encryption key with the new
+    /// password. This returns the new encrypted user key and the new password hash.
+    pub fn update_kdf(
+        &self,
+        password: String,
+        kdf: Kdf,
+    ) -> Result<UpdateKdfResponse, CryptoClientError> {
+        update_kdf(&self.client, &password, &kdf)
     }
 }
 

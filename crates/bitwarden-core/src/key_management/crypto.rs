@@ -23,6 +23,9 @@ use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
     error::StatefulCryptoError,
     key_management::{
+        master_password::{
+            MasterPasswordAuthenticationData, MasterPasswordError, MasterPasswordUnlockData,
+        },
         AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
     },
     Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
@@ -39,6 +42,8 @@ pub enum CryptoClientError {
     VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
+    #[error(transparent)]
+    MasterPassword(#[from] MasterPasswordError),
 }
 
 /// State used for initializing the user cryptographic state.
@@ -263,6 +268,60 @@ pub(super) async fn get_user_encryption_key(client: &Client) -> Result<String, C
     let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(user_key.to_base64())
+}
+
+/// Response from the `update_kdf` function
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct UpdateKdfResponse {
+    /// The authentication data for the new KDF setting
+    master_password_authentication_data: MasterPasswordAuthenticationData,
+    /// The unlock data for the new KDF setting
+    master_password_unlock_data: MasterPasswordUnlockData,
+    /// The authentication data for the prior to the KDF change
+    old_master_password_authentication_data: MasterPasswordAuthenticationData,
+}
+
+pub(super) fn update_kdf(
+    client: &Client,
+    password: &String,
+    new_kdf: &Kdf,
+) -> Result<UpdateKdfResponse, CryptoClientError> {
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+    // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
+    #[allow(deprecated)]
+    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+
+    let login_method = client
+        .internal
+        .get_login_method()
+        .ok_or(NotAuthenticatedError)?;
+    let email = match login_method.as_ref() {
+        LoginMethod::User(UserLoginMethod::Username { email, .. })
+        | LoginMethod::User(UserLoginMethod::ApiKey { email, .. }) => email,
+        #[cfg(feature = "secrets")]
+        LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
+    };
+
+    let authentication_data = MasterPasswordAuthenticationData::derive(password, new_kdf, email)
+        .map_err(CryptoClientError::MasterPassword)?;
+    let unlock_data = MasterPasswordUnlockData::derive(password, new_kdf, email, user_key)
+        .map_err(CryptoClientError::MasterPassword)?;
+    let old_authentication_data = MasterPasswordAuthenticationData::derive(
+        password,
+        &client.internal.get_kdf().unwrap(),
+        email,
+    )
+    .map_err(CryptoClientError::MasterPassword)?;
+
+    Ok(UpdateKdfResponse {
+        master_password_authentication_data: authentication_data,
+        master_password_unlock_data: unlock_data,
+        old_master_password_authentication_data: old_authentication_data,
+    })
 }
 
 /// Response from the `update_password` function
