@@ -78,8 +78,8 @@ mod tests {
     #[test]
     fn test_cxf_example_note_integration() {
         use std::fs;
-        use crate::cxf::import::parse_cxf_spec;
-        use crate::CipherType;
+
+        use crate::{cxf::import::parse_cxf_spec, CipherType};
 
         // Read the actual CXF example file
         let cxf_data = fs::read_to_string("resources/cxf_example.json")
@@ -117,8 +117,8 @@ mod tests {
     #[test]
     fn test_standalone_note_credential() {
         use credential_exchange_format::{Credential, Item};
-        use crate::cxf::import::parse_item;
-        use crate::{CipherType, ImportingCipher};
+
+        use crate::{cxf::import::parse_item, CipherType, ImportingCipher};
 
         let item = Item {
             id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
@@ -128,7 +128,10 @@ mod tests {
             subtitle: None,
             favorite: None,
             credentials: vec![Credential::Note(Box::new(NoteCredential {
-                content: "This is a standalone secure note with important information.\nLine 2\nLine 3".to_string().into(),
+                content:
+                    "This is a standalone secure note with important information.\nLine 2\nLine 3"
+                        .to_string()
+                        .into(),
             }))],
             tags: None,
             extensions: None,
@@ -143,7 +146,10 @@ mod tests {
         assert_eq!(cipher.name, "My Important Note");
         assert_eq!(
             cipher.notes,
-            Some("This is a standalone secure note with important information.\nLine 2\nLine 3".to_string())
+            Some(
+                "This is a standalone secure note with important information.\nLine 2\nLine 3"
+                    .to_string()
+            )
         );
 
         match &cipher.r#type {
@@ -157,8 +163,8 @@ mod tests {
     #[test]
     fn test_note_as_part_of_login() {
         use credential_exchange_format::{BasicAuthCredential, Credential, Item};
-        use crate::cxf::import::parse_item;
-        use crate::{CipherType, ImportingCipher};
+
+        use crate::{cxf::import::parse_item, CipherType, ImportingCipher};
 
         let item = Item {
             id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
@@ -173,8 +179,10 @@ mod tests {
                     password: Some("testpass".to_string().into()),
                 })),
                 Credential::Note(Box::new(NoteCredential {
-                    content: "This note should be added to the login cipher.".to_string().into(),
-                }))
+                    content: "This note should be added to the login cipher."
+                        .to_string()
+                        .into(),
+                })),
             ],
             tags: None,
             extensions: None,
@@ -200,8 +208,8 @@ mod tests {
     #[test]
     fn test_note_as_part_of_api_key() {
         use credential_exchange_format::{ApiKeyCredential, Credential, Item};
-        use crate::cxf::import::parse_item;
-        use crate::{CipherType, ImportingCipher};
+
+        use crate::{cxf::import::parse_item, CipherType, ImportingCipher};
 
         let item = Item {
             id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
@@ -220,8 +228,10 @@ mod tests {
                     expiry_date: None,
                 })),
                 Credential::Note(Box::new(NoteCredential {
-                    content: "This note should be added to the API key cipher.".to_string().into(),
-                }))
+                    content: "This note should be added to the API key cipher."
+                        .to_string()
+                        .into(),
+                })),
             ],
             tags: None,
             extensions: None,
