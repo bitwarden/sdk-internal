@@ -334,11 +334,9 @@ impl InternalClient {
         // Allowing deprecated here, until a refactor to pass the Local key ids to
         // `initialized_user_crypto_decrypted_key`
         #[allow(deprecated)]
-        let decrypted_user_key = ctx
-            .dangerous_get_symmetric_key(decrypted_user_key_id)?
-            .clone();
+        let decrypted_user_key = ctx.dangerous_get_symmetric_key(decrypted_user_key_id)?;
 
-        self.initialize_user_crypto_decrypted_key(decrypted_user_key, key_state)
+        self.initialize_user_crypto_decrypted_key(decrypted_user_key.clone(), key_state)
     }
 
     #[cfg(feature = "secrets")]
