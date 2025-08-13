@@ -66,7 +66,7 @@ pub struct IdentityTransportError(reqwest::Error);
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type AuthApiError = string;
+export type IdentityTransportError = string;
 "#;
 
 impl serde::Serialize for IdentityTransportError {
