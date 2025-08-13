@@ -128,6 +128,7 @@ pub async fn organizations_organization_id_billing_vnext_address_get(
     use_risk_insights: Option<bool>,
     use_organization_domains: Option<bool>,
     use_admin_sponsored_families: Option<bool>,
+    sync_seats: Option<bool>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextAddressGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
@@ -189,6 +190,7 @@ pub async fn organizations_organization_id_billing_vnext_address_get(
     let p_use_risk_insights = use_risk_insights;
     let p_use_organization_domains = use_organization_domains;
     let p_use_admin_sponsored_families = use_admin_sponsored_families;
+    let p_sync_seats = sync_seats;
 
     let uri_str = format!(
         "{}/organizations/{organizationId}/billing/vnext/address",
@@ -376,6 +378,9 @@ pub async fn organizations_organization_id_billing_vnext_address_get(
     if let Some(ref param_value) = p_use_admin_sponsored_families {
         req_builder = req_builder.query(&[("useAdminSponsoredFamilies", &param_value.to_string())]);
     }
+    if let Some(ref param_value) = p_sync_seats {
+        req_builder = req_builder.query(&[("syncSeats", &param_value.to_string())]);
+    }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
@@ -463,6 +468,7 @@ pub async fn organizations_organization_id_billing_vnext_address_put(
     use_risk_insights: Option<bool>,
     use_organization_domains: Option<bool>,
     use_admin_sponsored_families: Option<bool>,
+    sync_seats: Option<bool>,
     billing_address_request: Option<models::BillingAddressRequest>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextAddressPutError>> {
     // add a prefix to parameters to efficiently prevent name collisions
@@ -525,6 +531,7 @@ pub async fn organizations_organization_id_billing_vnext_address_put(
     let p_use_risk_insights = use_risk_insights;
     let p_use_organization_domains = use_organization_domains;
     let p_use_admin_sponsored_families = use_admin_sponsored_families;
+    let p_sync_seats = sync_seats;
     let p_billing_address_request = billing_address_request;
 
     let uri_str = format!(
@@ -713,6 +720,9 @@ pub async fn organizations_organization_id_billing_vnext_address_put(
     if let Some(ref param_value) = p_use_admin_sponsored_families {
         req_builder = req_builder.query(&[("useAdminSponsoredFamilies", &param_value.to_string())]);
     }
+    if let Some(ref param_value) = p_sync_seats {
+        req_builder = req_builder.query(&[("syncSeats", &param_value.to_string())]);
+    }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
@@ -801,6 +811,7 @@ pub async fn organizations_organization_id_billing_vnext_credit_bitpay_post(
     use_risk_insights: Option<bool>,
     use_organization_domains: Option<bool>,
     use_admin_sponsored_families: Option<bool>,
+    sync_seats: Option<bool>,
     bit_pay_credit_request: Option<models::BitPayCreditRequest>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextCreditBitpayPostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
@@ -863,6 +874,7 @@ pub async fn organizations_organization_id_billing_vnext_credit_bitpay_post(
     let p_use_risk_insights = use_risk_insights;
     let p_use_organization_domains = use_organization_domains;
     let p_use_admin_sponsored_families = use_admin_sponsored_families;
+    let p_sync_seats = sync_seats;
     let p_bit_pay_credit_request = bit_pay_credit_request;
 
     let uri_str = format!(
@@ -1053,6 +1065,9 @@ pub async fn organizations_organization_id_billing_vnext_credit_bitpay_post(
     if let Some(ref param_value) = p_use_admin_sponsored_families {
         req_builder = req_builder.query(&[("useAdminSponsoredFamilies", &param_value.to_string())]);
     }
+    if let Some(ref param_value) = p_sync_seats {
+        req_builder = req_builder.query(&[("syncSeats", &param_value.to_string())]);
+    }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
@@ -1141,6 +1156,7 @@ pub async fn organizations_organization_id_billing_vnext_credit_get(
     use_risk_insights: Option<bool>,
     use_organization_domains: Option<bool>,
     use_admin_sponsored_families: Option<bool>,
+    sync_seats: Option<bool>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextCreditGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
@@ -1202,6 +1218,7 @@ pub async fn organizations_organization_id_billing_vnext_credit_get(
     let p_use_risk_insights = use_risk_insights;
     let p_use_organization_domains = use_organization_domains;
     let p_use_admin_sponsored_families = use_admin_sponsored_families;
+    let p_sync_seats = sync_seats;
 
     let uri_str = format!(
         "{}/organizations/{organizationId}/billing/vnext/credit",
@@ -1389,6 +1406,9 @@ pub async fn organizations_organization_id_billing_vnext_credit_get(
     if let Some(ref param_value) = p_use_admin_sponsored_families {
         req_builder = req_builder.query(&[("useAdminSponsoredFamilies", &param_value.to_string())]);
     }
+    if let Some(ref param_value) = p_sync_seats {
+        req_builder = req_builder.query(&[("syncSeats", &param_value.to_string())]);
+    }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
@@ -1476,6 +1496,7 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_get(
     use_risk_insights: Option<bool>,
     use_organization_domains: Option<bool>,
     use_admin_sponsored_families: Option<bool>,
+    sync_seats: Option<bool>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextPaymentMethodGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
@@ -1537,6 +1558,7 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_get(
     let p_use_risk_insights = use_risk_insights;
     let p_use_organization_domains = use_organization_domains;
     let p_use_admin_sponsored_families = use_admin_sponsored_families;
+    let p_sync_seats = sync_seats;
 
     let uri_str = format!(
         "{}/organizations/{organizationId}/billing/vnext/payment-method",
@@ -1724,6 +1746,9 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_get(
     if let Some(ref param_value) = p_use_admin_sponsored_families {
         req_builder = req_builder.query(&[("useAdminSponsoredFamilies", &param_value.to_string())]);
     }
+    if let Some(ref param_value) = p_sync_seats {
+        req_builder = req_builder.query(&[("syncSeats", &param_value.to_string())]);
+    }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
@@ -1811,6 +1836,7 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_put(
     use_risk_insights: Option<bool>,
     use_organization_domains: Option<bool>,
     use_admin_sponsored_families: Option<bool>,
+    sync_seats: Option<bool>,
     tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextPaymentMethodPutError>> {
     // add a prefix to parameters to efficiently prevent name collisions
@@ -1873,6 +1899,7 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_put(
     let p_use_risk_insights = use_risk_insights;
     let p_use_organization_domains = use_organization_domains;
     let p_use_admin_sponsored_families = use_admin_sponsored_families;
+    let p_sync_seats = sync_seats;
     let p_tokenized_payment_method_request = tokenized_payment_method_request;
 
     let uri_str = format!(
@@ -2061,6 +2088,9 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_put(
     if let Some(ref param_value) = p_use_admin_sponsored_families {
         req_builder = req_builder.query(&[("useAdminSponsoredFamilies", &param_value.to_string())]);
     }
+    if let Some(ref param_value) = p_sync_seats {
+        req_builder = req_builder.query(&[("syncSeats", &param_value.to_string())]);
+    }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
@@ -2149,6 +2179,7 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_verify_b
     use_risk_insights: Option<bool>,
     use_organization_domains: Option<bool>,
     use_admin_sponsored_families: Option<bool>,
+    sync_seats: Option<bool>,
     verify_bank_account_request: Option<models::VerifyBankAccountRequest>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextPaymentMethodVerifyBankAccountPostError>>
 {
@@ -2212,6 +2243,7 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_verify_b
     let p_use_risk_insights = use_risk_insights;
     let p_use_organization_domains = use_organization_domains;
     let p_use_admin_sponsored_families = use_admin_sponsored_families;
+    let p_sync_seats = sync_seats;
     let p_verify_bank_account_request = verify_bank_account_request;
 
     let uri_str = format!(
@@ -2401,6 +2433,9 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_verify_b
     }
     if let Some(ref param_value) = p_use_admin_sponsored_families {
         req_builder = req_builder.query(&[("useAdminSponsoredFamilies", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_sync_seats {
+        req_builder = req_builder.query(&[("syncSeats", &param_value.to_string())]);
     }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
