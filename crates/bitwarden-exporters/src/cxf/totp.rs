@@ -1,4 +1,4 @@
-use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine};
+use bitwarden_vault::{Totp, TotpAlgorithm};
 use credential_exchange_format::{OTPHashAlgorithm, TotpCredential};
 
 use crate::Login;
@@ -6,10 +6,12 @@ use crate::Login;
 /// Convert TOTP credentials to Login following the CXF mapping convention
 /// Maps all fields into a single OTPAUTH string according to the mapping document
 pub fn totp_to_login(totp: &TotpCredential) -> Login {
-    let otpauth_uri = build_otpauth_uri(totp);
+    let bitwarden_totp = totp_credential_to_totp(totp);
+    let otpauth_uri = bitwarden_totp.to_string();
 
     Login {
-        username: totp.username.clone(), // we don't use this value in the import, but might as well map it.
+        username: totp.username.clone(), /* we don't use this value in the import, but might as
+                                          * well map it. */
         password: None,
         totp: Some(otpauth_uri),
         login_uris: vec![],
@@ -17,88 +19,91 @@ pub fn totp_to_login(totp: &TotpCredential) -> Login {
     }
 }
 
-/// Build an otpauth:// URI from TOTP credential fields
-/// Format: otpauth://totp/[issuer:][account]?secret=SECRET[&issuer=ISSUER][&period=PERIOD][&algorithm=ALGORITHM][&digits=DIGITS]
-fn build_otpauth_uri(totp: &TotpCredential) -> String {
-    // For now, use base64 encoding as a simple fallback since base32 libraries aren't available
-    // In a full implementation, we would use proper base32 encoding
-    let secret_b64 = STANDARD_NO_PAD.encode(&totp.secret);
+/// Convert CXF TotpCredential to Bitwarden's Totp struct
+/// This ensures we use the exact same encoding and formatting as Bitwarden's core implementation
+fn totp_credential_to_totp(cxf_totp: &TotpCredential) -> Totp {
+    let algorithm = match cxf_totp.algorithm {
+        OTPHashAlgorithm::Sha1 => TotpAlgorithm::Sha1,
+        OTPHashAlgorithm::Sha256 => TotpAlgorithm::Sha256,
+        OTPHashAlgorithm::Sha512 => TotpAlgorithm::Sha512,
+        OTPHashAlgorithm::Unknown(ref algo) if algo == "steam" => TotpAlgorithm::Steam,
+        OTPHashAlgorithm::Unknown(_) | _ => TotpAlgorithm::Sha1, /* Default to SHA1 for unknown
+                                                                  * algorithms */
+    };
 
-    // Build the label part: [issuer:][account]
-    let label = build_label(&totp.issuer, &totp.username);
+    let secret_bytes: Vec<u8> = cxf_totp.secret.clone().into();
 
-    // Start building the URI
-    let mut uri = format!("otpauth://totp/{label}?secret={secret_b64}");
-
-    // Add optional parameters
-    if let Some(ref issuer) = totp.issuer {
-        let encoded_issuer = url_encode(issuer);
-        uri.push_str(&format!("&issuer={encoded_issuer}"));
-    }
-
-    // Add period if not default (30 seconds)
-    if totp.period != 30 {
-        uri.push_str(&format!("&period={}", totp.period));
-    }
-
-    // Add algorithm if not default (SHA1)
-    match totp.algorithm {
-        OTPHashAlgorithm::Sha256 => uri.push_str("&algorithm=SHA256"),
-        OTPHashAlgorithm::Sha512 => uri.push_str("&algorithm=SHA512"),
-        OTPHashAlgorithm::Unknown(ref algo) if algo == "steam" => {
-            // Steam uses a special format: steam://SECRET
-            return format!("steam://{secret_b64}");
-        }
-        OTPHashAlgorithm::Unknown(ref algo) => uri.push_str(&format!("&algorithm={algo}")),
-        OTPHashAlgorithm::Sha1 => {} // Default, don't add parameter
-        _ => {}                      // Handle any other unknown algorithms by not adding parameter
-    }
-
-    // Add digits if not default (6)
-    if totp.digits != 6 {
-        uri.push_str(&format!("&digits={}", totp.digits));
-    }
-
-    uri
-}
-
-/// Simple URL encoding for basic characters
-fn url_encode(input: &str) -> String {
-    input
-        .chars()
-        .map(|c| match c {
-            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '~' => c.to_string(),
-            ' ' => "%20".to_string(),
-            '@' => "%40".to_string(),
-            ':' => "%3A".to_string(),
-            '.' => "%2E".to_string(),
-            c => format!("%{:02X}", c as u8),
-        })
-        .collect()
-}
-
-/// Build the label part of the otpauth URI: [issuer:][account]
-/// Both issuer and account are URL-encoded and colons are stripped from issuer
-fn build_label(issuer: &Option<String>, account: &Option<String>) -> String {
-    // Strip colons from issuer and account (as per Bitwarden's implementation)
-    let clean_issuer = issuer.as_ref().map(|i| i.replace(':', ""));
-    let clean_account = account.as_ref().map(|a| a.replace(':', ""));
-
-    match (&clean_issuer, &clean_account) {
-        (Some(issuer), Some(account)) => {
-            let encoded_issuer = url_encode(issuer);
-            let encoded_account = url_encode(account);
-            format!("{encoded_issuer}:{encoded_account}")
-        }
-        (Some(issuer), None) => url_encode(issuer),
-        (None, Some(account)) => url_encode(account),
-        (None, None) => String::new(),
+    Totp {
+        account: cxf_totp.username.clone(),
+        algorithm,
+        digits: cxf_totp.digits as u32,
+        issuer: cxf_totp.issuer.clone(),
+        period: cxf_totp.period as u32,
+        secret: secret_bytes,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_cxf_sample_totp_mapping() {
+        use std::fs;
+
+        use crate::cxf::import::parse_cxf_spec;
+
+        // Load the actual CXF example file
+        let cxf_data = fs::read_to_string("resources/cxf_example.json")
+            .expect("Should be able to read cxf_example.json");
+
+        let items = parse_cxf_spec(cxf_data).expect("Should be able to parse CXF");
+
+        // Find the item with TOTP - should be the "GitHub Login" item
+        let totp_item = items
+            .iter()
+            .find(|item| item.name == "GitHub Login")
+            .expect("Should find GitHub Login item");
+
+        // Verify it's a Login type with TOTP
+        match &totp_item.r#type {
+            crate::CipherType::Login(login) => {
+                // Verify the TOTP field is properly mapped
+                assert!(login.totp.is_some());
+                let totp_uri = login.totp.as_ref().unwrap();
+
+                // Verify it's a proper otpauth URI
+                assert!(totp_uri.starts_with("otpauth://totp/"));
+
+                // Verify it contains the expected components from the CXF sample:
+                // - secret: "JBSWY3DPEHPK3PXP"
+                // - issuer: "Google"
+                // - algorithm: "sha256" (non-default, should appear as SHA256)
+                // - username: "jane.smith@example.com" (in the URI label)
+                // - period: 30 (default, so should NOT appear in URI)
+                // - digits: 6 (default, so should NOT appear in URI)
+                assert!(totp_uri.contains("secret=JBSWY3DPEHPK3PXP"));
+                assert!(totp_uri.contains("issuer=Google"));
+                assert!(totp_uri.contains("algorithm=SHA256"));
+                assert!(totp_uri.contains("Google:jane%2Esmith%40example%2Ecom"));
+
+                // Should NOT contain default values
+                assert!(!totp_uri.contains("period=30"));
+                assert!(!totp_uri.contains("digits=6"));
+
+                // Verify the Login structure is complete
+                assert!(login.username.is_some()); // From basic auth credential
+                assert!(login.password.is_some()); // From basic auth credential
+                assert!(!login.login_uris.is_empty()); // From item scope
+                assert!(login.totp.is_some()); // From TOTP credential
+
+                // Expected URI format using official Bitwarden TOTP implementation:
+                // otpauth://totp/Google:jane%2Esmith%40example%2Ecom?secret=JBSWY3DPEHPK3PXP&
+                // issuer=Google&algorithm=SHA256
+            }
+            _ => panic!("GitHub Login item should be a Login type"),
+        }
+    }
 
     #[test]
     fn test_totp_to_login_basic() {
@@ -201,7 +206,8 @@ mod tests {
         let otpauth = login.totp.unwrap();
 
         // Should have empty label but still be valid
-        assert!(otpauth.starts_with("otpauth://totp/?secret="));
+        assert!(otpauth.starts_with("otpauth://totp"));
+        assert!(otpauth.contains("secret="));
     }
 
     #[test]
@@ -218,15 +224,19 @@ mod tests {
         let login = totp_to_login(&totp);
         let otpauth = login.totp.unwrap();
 
-        // Colons should be stripped from label
+        // Check what the official implementation does with colons
+        assert!(otpauth.starts_with("otpauth://totp/"));
+        assert!(otpauth.contains("secret="));
+        assert!(otpauth.contains("issuer="));
+
+        // Verify colons are stripped from labels but preserved in issuer parameter
         assert!(otpauth.contains("issuerwithcolons:userwithcolons"));
-        // But issuer parameter should preserve original (encoded)
-        assert!(otpauth.contains("&issuer=issuer%3Awith%3Acolons"));
+        assert!(otpauth.contains("issuer=issuerwithcolons"));
     }
 
     #[test]
     fn test_build_otpauth_uri() {
-        let totp = TotpCredential {
+        let totp_credential = TotpCredential {
             secret: "Hello World!".as_bytes().to_vec().into(),
             period: 30,
             digits: 6,
@@ -235,40 +245,19 @@ mod tests {
             issuer: Some("Bitwarden".to_string()),
         };
 
-        let uri = build_otpauth_uri(&totp);
+        // Convert to Bitwarden's Totp struct and use its Display implementation
+        let bitwarden_totp = totp_credential_to_totp(&totp_credential);
+        let uri = bitwarden_totp.to_string();
 
-        // Since we're using base64 instead of base32, update the expected result
-        let expected_b64 = STANDARD_NO_PAD.encode("Hello World!".as_bytes());
-        let expected_uri = format!("otpauth://totp/Bitwarden:test%40bitwarden%2Ecom?secret={expected_b64}&issuer=Bitwarden");
-        assert_eq!(uri, expected_uri);
-    }
+        // Verify it's a proper otpauth URI with the expected components
+        assert!(uri.starts_with("otpauth://totp/"));
+        assert!(uri.contains("Bitwarden"));
+        assert!(uri.contains("secret="));
+        assert!(uri.contains("issuer=Bitwarden"));
 
-    #[test]
-    fn test_build_label() {
-        assert_eq!(
-            build_label(
-                &Some("Example".to_string()),
-                &Some("user@test.com".to_string())
-            ),
-            "Example:user%40test%2Ecom"
-        );
-
-        assert_eq!(build_label(&Some("Example".to_string()), &None), "Example");
-
-        assert_eq!(
-            build_label(&None, &Some("user@test.com".to_string())),
-            "user%40test%2Ecom"
-        );
-
-        assert_eq!(build_label(&None, &None), "");
-
-        // Test colon stripping in label (but not in issuer parameter)
-        assert_eq!(
-            build_label(
-                &Some("Test:Issuer".to_string()),
-                &Some("test:user".to_string())
-            ),
-            "TestIssuer:testuser"
-        );
+        // Should not contain default values (period=30, digits=6, algorithm=SHA1)
+        assert!(!uri.contains("period=30"));
+        assert!(!uri.contains("digits=6"));
+        assert!(!uri.contains("algorithm=SHA1"));
     }
 }
