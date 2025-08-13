@@ -326,10 +326,8 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "serde_with",
- "tsify",
  "url",
  "uuid",
- "wasm-bindgen",
 ]
 
 [[package]]
