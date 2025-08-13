@@ -51,7 +51,7 @@ impl MasterPasswordUnlockData {
         user_key: &SymmetricCryptoKey,
     ) -> Result<Self, MasterPasswordError> {
         let master_key =
-            MasterKey::derive(&password, &salt, &kdf).map_err(MasterPasswordError::Crypto)?;
+            MasterKey::derive(password, salt, kdf).map_err(MasterPasswordError::Crypto)?;
         let master_key_wrapped_user_key = master_key
             .encrypt_user_key(user_key)
             .map_err(MasterPasswordError::Crypto)?;
@@ -132,7 +132,7 @@ impl MasterPasswordAuthenticationData {
         salt: &String,
     ) -> Result<Self, MasterPasswordError> {
         let master_key =
-            MasterKey::derive(password, &salt, &kdf).map_err(MasterPasswordError::Crypto)?;
+            MasterKey::derive(password, salt, kdf).map_err(MasterPasswordError::Crypto)?;
         let hash = master_key
             .derive_master_key_hash(
                 password.as_bytes(),
