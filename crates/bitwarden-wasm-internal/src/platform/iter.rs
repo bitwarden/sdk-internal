@@ -28,6 +28,11 @@ fn get_test_iteration() -> impl Iterator<Item = i32> {
 }
 
 #[wasm_bindgen]
+pub struct JsRustAsyncIterator {
+    iter: Box<futures::stream::Stream<Item = i32>>,
+}
+
+#[wasm_bindgen]
 /// An iterable that wraps a Rust iterator and can be used in JavaScript
 pub struct JsRustIterator {
     iter: Box<dyn Iterator<Item = i32>>,
