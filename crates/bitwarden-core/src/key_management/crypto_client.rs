@@ -93,6 +93,7 @@ impl CryptoClient {
 
     /// Decrypts a `PasswordProtectedKeyEnvelope`, returning the user key, if successful.
     /// This is a stop-gap solution, until initialization of the SDK is used.
+    #[cfg(feature = "wasm")]
     pub fn unseal_password_protected_key_envelope(
         &self,
         pin: String,
