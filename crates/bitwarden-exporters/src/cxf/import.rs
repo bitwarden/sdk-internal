@@ -1,13 +1,14 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     Account as CxfAccount, ApiKeyCredential, BasicAuthCredential, Credential, CreditCardCredential,
-    Item, PasskeyCredential, WifiCredential,
+    Item, NoteCredential, PasskeyCredential, WifiCredential,
 };
 
 use crate::{
     cxf::{
         api_key::api_key_to_fields,
         login::{to_fields, to_login},
+        note::extract_note_content,
         wifi::wifi_to_fields,
         CxfError,
     },
@@ -52,7 +53,7 @@ fn convert_date(ts: Option<u64>) -> DateTime<Utc> {
         .unwrap_or(Utc::now())
 }
 
-fn parse_item(value: Item) -> Vec<ImportingCipher> {
+pub(crate) fn parse_item(value: Item) -> Vec<ImportingCipher> {
     let grouped = group_credentials_by_type(value.credentials);
 
     let creation_date = convert_date(value.creation_at);
@@ -61,6 +62,9 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
     let mut output = vec![];
 
     let scope = value.scope.as_ref();
+
+    // Extract note content if present (to be added to parent cipher)
+    let note_content = grouped.note.first().map(extract_note_content);
 
     // Login credentials
     if !grouped.basic_auth.is_empty() || !grouped.passkey.is_empty() {
@@ -72,7 +76,7 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
             name: value.title.clone(),
-            notes: None,
+            notes: note_content.clone(),
             r#type: CipherType::Login(Box::new(login)),
             favorite: false,
             reprompt: 0,
@@ -92,7 +96,7 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
             name: value.title.clone(),
-            notes: None,
+            notes: note_content.clone(),
             r#type: CipherType::Card(Box::new(credit_card.into())),
             favorite: false,
             reprompt: 0,
@@ -110,7 +114,7 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
             name: value.title.clone(),
-            notes: None,
+            notes: note_content.clone(),
             r#type: CipherType::SecureNote(Box::new(SecureNote {
                 r#type: SecureNoteType::Generic,
             })),
@@ -130,13 +134,33 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
             name: value.title.clone(),
-            notes: None,
+            notes: note_content.clone(),
             r#type: CipherType::SecureNote(Box::new(SecureNote {
                 r#type: SecureNoteType::Generic,
             })),
             favorite: false,
             reprompt: 0,
             fields,
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
+    }
+
+    // Standalone Note credentials -> Secure Note (only if no other credentials exist)
+    if !grouped.note.is_empty() && output.is_empty() {
+        let note_content = grouped.note.first().map(extract_note_content);
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: note_content,
+            r#type: CipherType::SecureNote(Box::new(SecureNote {
+                r#type: SecureNoteType::Generic,
+            })),
+            favorite: false,
+            reprompt: 0,
+            fields: vec![],
             revision_date,
             creation_date,
             deleted_date: None,
@@ -184,6 +208,10 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
             Credential::Wifi(wifi) => Some(wifi.as_ref()),
             _ => None,
         }),
+        note: filter_credentials(&credentials, |c| match c {
+            Credential::Note(note) => Some(note.as_ref()),
+            _ => None,
+        }),
     }
 }
 
@@ -193,6 +221,7 @@ struct GroupedCredentials {
     passkey: Vec<PasskeyCredential>,
     credit_card: Vec<CreditCardCredential>,
     wifi: Vec<WifiCredential>,
+    note: Vec<NoteCredential>,
 }
 
 #[cfg(test)]
