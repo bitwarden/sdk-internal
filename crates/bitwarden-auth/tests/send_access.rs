@@ -126,7 +126,7 @@ mod request_send_access_token_invalid_request_tests {
 
         let err = result.unwrap_err();
         match err {
-            SendAccessTokenError::Response(api_err) => {
+            SendAccessTokenError::Expected(api_err) => {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,
@@ -173,7 +173,7 @@ mod request_send_access_token_invalid_request_tests {
 
         let err = result.unwrap_err();
         match err {
-            SendAccessTokenError::Response(api_err) => {
+            SendAccessTokenError::Expected(api_err) => {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,
@@ -220,7 +220,7 @@ mod request_send_access_token_invalid_request_tests {
 
         let err = result.unwrap_err();
         match err {
-            SendAccessTokenError::Response(api_err) => {
+            SendAccessTokenError::Expected(api_err) => {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,
@@ -271,7 +271,7 @@ mod request_send_access_token_invalid_request_tests {
 
         let err = result.unwrap_err();
         match err {
-            SendAccessTokenError::Response(api_err) => {
+            SendAccessTokenError::Expected(api_err) => {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,
@@ -324,7 +324,7 @@ mod request_send_access_token_invalid_grant_tests {
 
         let err = result.unwrap_err();
         match err {
-            SendAccessTokenError::Response(api_err) => {
+            SendAccessTokenError::Expected(api_err) => {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,
@@ -375,7 +375,7 @@ mod request_send_access_token_invalid_grant_tests {
 
         let err = result.unwrap_err();
         match err {
-            SendAccessTokenError::Response(api_err) => {
+            SendAccessTokenError::Expected(api_err) => {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,
@@ -425,7 +425,7 @@ mod request_send_access_token_invalid_grant_tests {
 
         let err = result.unwrap_err();
         match err {
-            SendAccessTokenError::Response(api_err) => {
+            SendAccessTokenError::Expected(api_err) => {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,
@@ -476,7 +476,7 @@ mod request_send_access_token_invalid_grant_tests {
 
         let err = result.unwrap_err();
         match err {
-            SendAccessTokenError::Response(api_err) => {
+            SendAccessTokenError::Expected(api_err) => {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,

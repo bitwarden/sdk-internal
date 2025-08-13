@@ -39,17 +39,17 @@ impl From<SendAccessTokenApiSuccessResponse> for SendAccessTokenResponse {
 #[bitwarden_error::bitwarden_error(full)]
 #[derive(Debug, thiserror::Error)]
 pub enum SendAccessTokenError {
-    #[error("API Error: {0:?}")]
-    Api(AuthApiError),
+    #[error("Unexpected Error response: {0:?}")]
+    Unexpected(IdentityTransportError),
 
-    #[error("Send access token error response")]
-    Response(SendAccessTokenApiErrorResponse),
+    #[error("Expected error response")]
+    Expected(SendAccessTokenApiErrorResponse),
 }
 
 // This is just a utility function so that the ? operator works correctly without manual mapping
 impl From<reqwest::Error> for SendAccessTokenError {
     fn from(value: reqwest::Error) -> Self {
-        Self::Api(AuthApiError(value))
+        Self::Unexpected(IdentityTransportError(value))
     }
 }
 
@@ -59,8 +59,9 @@ impl From<reqwest::Error> for SendAccessTokenError {
 // `Api` variant somehow so it gets serialized as a plain string.
 // As that is not the case, we have to implement it manually.
 
+/// Any transport-level error that occurs when making requests to identity.
 #[derive(Debug)]
-pub struct AuthApiError(reqwest::Error);
+pub struct IdentityTransportError(reqwest::Error);
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
@@ -68,7 +69,7 @@ const TS_CUSTOM_TYPES: &'static str = r#"
 export type AuthApiError = string;
 "#;
 
-impl serde::Serialize for AuthApiError {
+impl serde::Serialize for IdentityTransportError {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -77,7 +78,7 @@ impl serde::Serialize for AuthApiError {
     }
 }
 
-impl<'de> serde::Deserialize<'de> for AuthApiError {
+impl<'de> serde::Deserialize<'de> for IdentityTransportError {
     fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,

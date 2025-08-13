@@ -76,6 +76,6 @@ impl SendAccessClient {
         //and then convert it into SendAccessTokenError since we have implemented the required
         // traits to do that conversion automatically.
         let err_response: SendAccessTokenApiErrorResponse = response.json().await?;
-        Err(SendAccessTokenError::Response(err_response))
+        Err(SendAccessTokenError::Expected(err_response))
     }
 }
