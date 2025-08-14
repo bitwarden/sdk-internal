@@ -282,20 +282,14 @@ pub(super) fn identity_document_to_identity(
 fn split_name(
     full_name: &Option<EditableField<EditableFieldString>>,
 ) -> (Option<String>, Option<String>) {
-    if let Some(full_name) = full_name {
-        let name_parts: Vec<&str> = full_name.value.0.split_whitespace().collect();
-        match name_parts.len() {
-            0 => (None, None),
-            1 => (Some(name_parts[0].to_string()), None),
-            _ => {
-                let first = name_parts[0].to_string();
-                let last = name_parts[1..].join(" ");
-                (Some(first), Some(last))
-            }
+    full_name.as_ref().map_or((None, None), |name| {
+        let parts: Vec<&str> = name.value.0.split_whitespace().collect();
+        match parts.as_slice() {
+            [] => (None, None),
+            [first] => (Some(first.to_string()), None),
+            [first, rest @ ..] => (Some(first.to_string()), Some(rest.join(" "))),
         }
-    } else {
-        (None, None)
-    }
+    })
 }
 
 #[cfg(test)]
