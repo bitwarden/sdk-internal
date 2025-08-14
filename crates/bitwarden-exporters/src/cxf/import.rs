@@ -2,7 +2,8 @@ use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     Account as CxfAccount, AddressCredential, ApiKeyCredential, BasicAuthCredential, Credential,
     CreditCardCredential, DriversLicenseCredential, IdentityDocumentCredential, Item,
-    NoteCredential, PasskeyCredential, PassportCredential, PersonNameCredential, TotpCredential, WifiCredential,´´
+    NoteCredential, PasskeyCredential, PassportCredential, PersonNameCredential, TotpCredential,
+    WifiCredential,
 };
 
 use crate::{
