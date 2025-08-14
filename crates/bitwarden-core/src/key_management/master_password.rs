@@ -24,9 +24,15 @@ pub enum MasterPasswordError {
     /// The KDF data could not be parsed, because it is missing values or has an invalid value
     #[error("KDF is malformed")]
     KdfMalformed,
+    /// The KDF had an invalid configuration
+    #[error("Invalid KDF configuration")]
+    InvalidKdfConfiguration,
     /// The wrapped encryption key or salt fields are missing or KDF data is malformed
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
+    /// Generic crypto error
+    #[error(transparent)]
+    Crypto(#[from] bitwarden_crypto::CryptoError),
 }
 
 /// Represents the data required to unlock with the master password.
@@ -54,8 +60,8 @@ impl MasterPasswordUnlockData {
         salt: &str,
         user_key: &SymmetricCryptoKey,
     ) -> Result<Self, MasterPasswordError> {
-        let master_key =
-            MasterKey::derive(password, salt, kdf).map_err(MasterPasswordError::Crypto)?;
+        let master_key = MasterKey::derive(password, salt, kdf)
+            .map_err(|_| MasterPasswordError::InvalidKdfConfiguration)?;
         let master_key_wrapped_user_key = master_key
             .encrypt_user_key(user_key)
             .map_err(MasterPasswordError::Crypto)?;
@@ -136,14 +142,12 @@ impl MasterPasswordAuthenticationData {
         kdf: &Kdf,
         salt: &str,
     ) -> Result<Self, MasterPasswordError> {
-        let master_key =
-            MasterKey::derive(password, salt, kdf).map_err(MasterPasswordError::Crypto)?;
-        let hash = master_key
-            .derive_master_key_hash(
-                password.as_bytes(),
-                bitwarden_crypto::HashPurpose::ServerAuthorization,
-            )
-            .map_err(MasterPasswordError::Crypto)?;
+        let master_key = MasterKey::derive(password, salt, kdf)
+            .map_err(|_| MasterPasswordError::InvalidKdfConfiguration)?;
+        let hash = master_key.derive_master_key_hash(
+            password.as_bytes(),
+            bitwarden_crypto::HashPurpose::ServerAuthorization,
+        );
 
         Ok(Self {
             kdf: kdf.clone(),

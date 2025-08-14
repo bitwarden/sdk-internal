@@ -8,5 +8,5 @@ pub(super) async fn hash_password(
 ) -> Result<String, CryptoError> {
     let master_key = MasterKey::derive(&password, &email, &kdf_params)?;
 
-    master_key.derive_master_key_hash(password.as_bytes(), purpose)
+    Ok(master_key.derive_master_key_hash(password.as_bytes(), purpose))
 }

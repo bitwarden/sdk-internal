@@ -15,7 +15,7 @@ pub(crate) fn determine_password_hash(
     purpose: HashPurpose,
 ) -> Result<String, CryptoError> {
     let master_key = MasterKey::derive(password, email, kdf)?;
-    master_key.derive_master_key_hash(password.as_bytes(), purpose)
+    Ok(master_key.derive_master_key_hash(password.as_bytes(), purpose))
 }
 
 #[cfg(test)]

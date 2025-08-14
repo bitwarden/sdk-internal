@@ -31,7 +31,7 @@ pub(crate) async fn login_password(
 
     let master_key = MasterKey::derive(&input.password, &input.email, &input.kdf)?;
     let password_hash = master_key
-        .derive_master_key_hash(input.password.as_bytes(), HashPurpose::ServerAuthorization)?;
+        .derive_master_key_hash(input.password.as_bytes(), HashPurpose::ServerAuthorization);
 
     let response = request_identity_tokens(client, input, &password_hash).await?;
 

@@ -30,7 +30,7 @@ pub(super) fn make_register_keys(
 ) -> Result<RegisterKeyResponse, CryptoError> {
     let master_key = MasterKey::derive(&password, &email, &kdf)?;
     let master_password_hash =
-        master_key.derive_master_key_hash(password.as_bytes(), HashPurpose::ServerAuthorization)?;
+        master_key.derive_master_key_hash(password.as_bytes(), HashPurpose::ServerAuthorization);
     let (user_key, encrypted_user_key) = master_key.make_user_key()?;
     let keys = user_key.make_key_pair()?;
 

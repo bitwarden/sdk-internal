@@ -62,10 +62,12 @@ impl MasterKey {
     }
 
     /// Derive the master key hash, used for local and remote password validation.
-    pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> Result<String> {
-        let hash = util::pbkdf2(self.inner_bytes().as_slice(), password, purpose as u32);
-
-        Ok(STANDARD.encode(hash))
+    pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> String {
+        STANDARD.encode(util::pbkdf2(
+            self.inner_bytes().as_slice(),
+            password,
+            purpose as u32,
+        ))
     }
 
     /// Generate a new random user key and encrypt it with the master key.
@@ -211,7 +213,6 @@ mod tests {
                 "wmyadRMyBZOH7P/a/ucTCbSghKgdzDpPqUnu/DAVtSw=",
                 master_key
                     .derive_master_key_hash(password.as_bytes(), HashPurpose::ServerAuthorization)
-                    .unwrap(),
             );
         }
     }
@@ -234,7 +235,6 @@ mod tests {
             "PR6UjYmjmppTYcdyTiNbAhPJuQQOmynKbdEl1oyi/iQ=",
             master_key
                 .derive_master_key_hash(password.as_bytes(), HashPurpose::ServerAuthorization)
-                .unwrap(),
         );
     }
 

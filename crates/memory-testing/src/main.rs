@@ -44,8 +44,7 @@ fn main() {
                     .derive_master_key_hash(
                         password.as_bytes(),
                         bitwarden_crypto::HashPurpose::ServerAuthorization,
-                    )
-                    .unwrap();
+                    );
 
                 master_keys.push((key, hash));
             }

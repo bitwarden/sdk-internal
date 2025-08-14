@@ -369,7 +369,7 @@ pub(super) fn update_password(
     let password_hash = new_master_key.derive_master_key_hash(
         new_password.as_bytes(),
         bitwarden_crypto::HashPurpose::ServerAuthorization,
-    )?;
+    );
 
     Ok(UpdatePasswordResponse {
         password_hash,
