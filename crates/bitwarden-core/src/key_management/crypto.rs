@@ -286,7 +286,7 @@ pub struct UpdateKdfResponse {
 
 pub(super) fn update_kdf(
     client: &Client,
-    password: &String,
+    password: &str,
     new_kdf: &Kdf,
 ) -> Result<UpdateKdfResponse, CryptoClientError> {
     let key_store = client.internal.get_key_store();
