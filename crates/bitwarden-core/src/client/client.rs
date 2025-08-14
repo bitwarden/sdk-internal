@@ -66,13 +66,15 @@ impl Client {
             HeaderValue::from_str(&(settings.device_type as u8).to_string())
                 .expect("All numbers are valid ASCII"),
         );
-        let client_builder = new_client_builder().default_headers(headers);
+        let client_builder = new_client_builder()
+            .default_headers(headers)
+            .user_agent(settings.user_agent);
 
         let client = client_builder.build().expect("Build should not fail");
 
         let identity = bitwarden_api_identity::apis::configuration::Configuration {
             base_path: settings.identity_url,
-            user_agent: Some(settings.user_agent.clone()),
+            user_agent: None,
             client: client.clone(),
             basic_auth: None,
             oauth_access_token: None,
@@ -82,7 +84,7 @@ impl Client {
 
         let api = bitwarden_api_api::apis::configuration::Configuration {
             base_path: settings.api_url,
-            user_agent: Some(settings.user_agent),
+            user_agent: None,
             client,
             basic_auth: None,
             oauth_access_token: None,
@@ -97,11 +99,11 @@ impl Client {
                 login_method: RwLock::new(None),
                 #[cfg(feature = "internal")]
                 flags: RwLock::new(Flags::default()),
-                __api_configurations: RwLock::new(Arc::new(ApiConfigurations {
+                __api_configurations: RwLock::new(ApiConfigurations::new(
                     identity,
                     api,
-                    device_type: settings.device_type,
-                })),
+                    settings.device_type,
+                )),
                 external_client,
                 key_store: KeyStore::default(),
                 #[cfg(feature = "internal")]

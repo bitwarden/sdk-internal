@@ -25,3 +25,7 @@
 docs/*.md
 .travis.yml
 git_push.sh
+.gitignore
+
+# We handle dependency updates with renovate, so we don't want to overwrite Cargo.toml
+Cargo.toml
