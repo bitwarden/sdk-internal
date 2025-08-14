@@ -88,9 +88,11 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
     }
 
     // Helper for creating SecureNote cipher type
-    let secure_note_type = || CipherType::SecureNote(Box::new(SecureNote {
-        r#type: SecureNoteType::Generic,
-    }));
+    let secure_note_type = || {
+        CipherType::SecureNote(Box::new(SecureNote {
+            r#type: SecureNoteType::Generic,
+        }))
+    };
 
     // API Key credentials -> Secure Note
     if let Some(api_key) = grouped.api_key.first() {
@@ -106,11 +108,11 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
 
     // Identity credentials (address, passport, person name, drivers license, identity document)
     [
-        grouped.address.first().map(|addr| address_to_identity(addr)),
-        grouped.passport.first().map(|passport| passport_to_identity(passport)),
-        grouped.person_name.first().map(|person| person_name_to_identity(person)),
-        grouped.drivers_license.first().map(|license| drivers_license_to_identity(license)),
-        grouped.identity_document.first().map(|doc| identity_document_to_identity(doc)),
+        grouped.address.first().map(address_to_identity),
+        grouped.passport.first().map(passport_to_identity),
+        grouped.person_name.first().map(person_name_to_identity),
+        grouped.drivers_license.first().map(drivers_license_to_identity),
+        grouped.identity_document.first().map(identity_document_to_identity),
     ]
     .into_iter()
     .flatten()
@@ -974,8 +976,8 @@ mod tests {
 
     #[test]
     fn test_note_as_part_of_credit_card() {
-        use credential_exchange_format::{Credential, CreditCardCredential, Item, NoteCredential};
         use chrono::Month;
+        use credential_exchange_format::{Credential, CreditCardCredential, Item, NoteCredential};
 
         let item = Item {
             id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
@@ -1044,7 +1046,9 @@ mod tests {
                 Credential::Wifi(Box::new(WifiCredential {
                     ssid: Some("MyNetwork".to_string().into()),
                     passphrase: Some("password123".to_string().into()),
-                    network_security_type: Some(EditableFieldWifiNetworkSecurityType::Wpa3Personal.into()),
+                    network_security_type: Some(
+                        EditableFieldWifiNetworkSecurityType::Wpa3Personal.into(),
+                    ),
                     hidden: Some(false.into()),
                 })),
                 Credential::Note(Box::new(NoteCredential {

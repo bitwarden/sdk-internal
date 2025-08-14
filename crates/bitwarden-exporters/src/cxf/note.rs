@@ -120,5 +120,4 @@ mod tests {
 
         assert_eq!(cipher.fields.len(), 0); // Notes don't have custom fields
     }
-
 }
