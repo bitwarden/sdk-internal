@@ -6,11 +6,11 @@ use crate::migrations::registry::Migration;
 pub struct V1ToV2Migration;
 
 impl Migration for V1ToV2Migration {
-    fn from_version(&self) -> u32 {
+    fn source_version(&self) -> u32 {
         1
     }
 
-    fn to_version(&self) -> u32 {
+    fn target_version(&self) -> u32 {
         2
     }
 

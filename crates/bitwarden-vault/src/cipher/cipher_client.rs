@@ -181,7 +181,7 @@ impl CiphersClient {
         let mut migrated_responses = Vec::new();
 
         for mut cipher in ciphers {
-            let response_version = cipher.version.unwrap_or(1) as u32;
+            let response_version = cipher.version.unwrap_or(1);
 
             if response_version < CURRENT_CIPHER_VERSION {
                 let key_store = self.client.internal.get_key_store();
@@ -347,7 +347,7 @@ mod tests {
 
     fn test_cipher_v2() -> Cipher {
         let mut cipher = test_cipher();
-        cipher.version = Some(CURRENT_CIPHER_VERSION as u32);
+        cipher.version = Some(CURRENT_CIPHER_VERSION);
         cipher.data = Some(
             serde_json::to_string(&serde_json::json!({
                 "Username": "2.PE7g9afvjh9N57ORdUlCDQ==|d8C4kLo0CYAKfa9Gjp4mqg==|YmgGDxGWXtIzW+TJsjDW3CoS0k+U4NZSAwygzq6zV/0=",

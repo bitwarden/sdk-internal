@@ -7,8 +7,8 @@ use crate::{
 };
 
 pub trait Migration {
-    fn from_version(&self) -> u32;
-    fn to_version(&self) -> u32;
+    fn source_version(&self) -> u32;
+    fn target_version(&self) -> u32;
     fn migrate(
         &self,
         cipher_data: &mut serde_json::Value,
@@ -41,22 +41,22 @@ impl MigrationRegistry {
     pub fn migrate(
         &self,
         cipher_data: &mut serde_json::Value,
-        from_version: u32,
-        to_version: u32,
+        source_version: u32,
+        target_version: u32,
         mut ctx: Option<&mut KeyStoreContext<KeyIds>>,
         cipher_key: Option<SymmetricKeyId>,
     ) -> Result<(), CipherError> {
-        let mut current_version = from_version;
+        let mut current_version = source_version;
 
-        while current_version < to_version {
+        while current_version < target_version {
             let migration = self
                 .migrations
                 .iter()
-                .find(|m| m.from_version() == current_version)
-                .ok_or_else(|| CipherError::UnsupportedCipherVersion(current_version))?;
+                .find(|m| m.source_version() == current_version)
+                .ok_or(CipherError::UnsupportedCipherVersion(current_version))?;
 
-            migration.migrate(cipher_data, ctx.as_deref_mut(), cipher_key.clone())?;
-            current_version = migration.to_version();
+            migration.migrate(cipher_data, ctx.as_deref_mut(), cipher_key)?;
+            current_version = migration.target_version();
         }
 
         Ok(())

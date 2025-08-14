@@ -7,11 +7,11 @@ use crate::{migrations::registry::Migration, CipherError};
 pub struct V2ToV3Migration;
 
 impl Migration for V2ToV3Migration {
-    fn from_version(&self) -> u32 {
+    fn source_version(&self) -> u32 {
         2
     }
 
-    fn to_version(&self) -> u32 {
+    fn target_version(&self) -> u32 {
         3
     }
 
