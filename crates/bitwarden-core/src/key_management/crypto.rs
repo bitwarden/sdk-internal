@@ -830,7 +830,7 @@ mod tests {
         let new_kdf = Kdf::PBKDF2 {
             iterations: 600_000.try_into().unwrap(),
         };
-        let new_kdf_response = update_kdf(&client, &"123412341234".to_string(), &new_kdf).unwrap();
+        let new_kdf_response = update_kdf(&client, &"123412341234", &new_kdf).unwrap();
 
         let client2 = Client::new(None);
 
