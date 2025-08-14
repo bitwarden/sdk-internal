@@ -54,6 +54,8 @@ pub struct SendAccessTokenRequest {
     /// The id of the send for which the access token is requested.
     pub send_id: String,
 
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
     /// The optional send access credentials.
     pub send_access_credentials: Option<SendAccessCredentials>,
 }
