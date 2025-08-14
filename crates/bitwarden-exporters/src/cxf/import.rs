@@ -111,8 +111,14 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
         grouped.address.first().map(address_to_identity),
         grouped.passport.first().map(passport_to_identity),
         grouped.person_name.first().map(person_name_to_identity),
-        grouped.drivers_license.first().map(drivers_license_to_identity),
-        grouped.identity_document.first().map(identity_document_to_identity),
+        grouped
+            .drivers_license
+            .first()
+            .map(drivers_license_to_identity),
+        grouped
+            .identity_document
+            .first()
+            .map(identity_document_to_identity),
     ]
     .into_iter()
     .flatten()
