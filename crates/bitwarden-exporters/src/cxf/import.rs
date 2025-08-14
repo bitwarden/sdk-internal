@@ -143,94 +143,47 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         })
     }
 
-    // Address credentials
-    if let Some(address) = grouped.address.first() {
-        let (identity, custom_fields) = address_to_identity(address);
-
+	let mut add_item = |t: CipherType, fields: Vec<Field>| {
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
             name: value.title.clone(),
             notes: None,
-            r#type: CipherType::Identity(Box::new(identity)),
+            r#type: t,
             favorite: false,
             reprompt: 0,
-            fields: custom_fields,
+            fields,
             revision_date,
             creation_date,
             deleted_date: None,
         })
-    }
+    };
 
     // Passport credentials
     if let Some(passport) = grouped.passport.first() {
         let (identity, custom_fields) = passport_to_identity(passport);
 
-        output.push(ImportingCipher {
-            folder_id: None, // TODO: Handle folders
-            name: value.title.clone(),
-            notes: None,
-            r#type: CipherType::Identity(Box::new(identity)),
-            favorite: false,
-            reprompt: 0,
-            fields: custom_fields,
-            revision_date,
-            creation_date,
-            deleted_date: None,
-        })
+        add_item(CipherType::Identity(Box::new(identity)), custom_fields)
     }
 
     // Person name credentials
     if let Some(person_name) = grouped.person_name.first() {
         let (identity, custom_fields) = person_name_to_identity(person_name);
 
-        output.push(ImportingCipher {
-            folder_id: None, // TODO: Handle folders
-            name: value.title.clone(),
-            notes: None,
-            r#type: CipherType::Identity(Box::new(identity)),
-            favorite: false,
-            reprompt: 0,
-            fields: custom_fields,
-            revision_date,
-            creation_date,
-            deleted_date: None,
-        })
+        add_item(CipherType::Identity(Box::new(identity)), custom_fields);
     }
 
     // Drivers license credentials
     if let Some(drivers_license) = grouped.drivers_license.first() {
         let (identity, custom_fields) = drivers_license_to_identity(drivers_license);
 
-        output.push(ImportingCipher {
-            folder_id: None, // TODO: Handle folders
-            name: value.title.clone(),
-            notes: None,
-            r#type: CipherType::Identity(Box::new(identity)),
-            favorite: false,
-            reprompt: 0,
-            fields: custom_fields,
-            revision_date,
-            creation_date,
-            deleted_date: None,
-        })
+        add_item(CipherType::Identity(Box::new(identity)), custom_fields);
     }
 
     // Identity document credentials
     if let Some(identity_document) = grouped.identity_document.first() {
         let (identity, custom_fields) = identity_document_to_identity(identity_document);
 
-        output.push(ImportingCipher {
-            folder_id: None, // TODO: Handle folders
-            name: value.title.clone(),
-            notes: None,
-            r#type: CipherType::Identity(Box::new(identity)),
-            favorite: false,
-            reprompt: 0,
-            fields: custom_fields,
-            revision_date,
-            creation_date,
-            deleted_date: None,
-        })
+        add_item(CipherType::Identity(Box::new(identity)), custom_fields);
     }
 
     output
