@@ -55,7 +55,7 @@ pub enum SendAccessTokenInvalidGrantError {
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-#[serde(tag = "error", content = "error_description")]
+#[serde(tag = "error")]
 // ^ "error" becomes the variant discriminator which matches against the rename annotations;
 // "error_description" is the payload for that variant which can be optional.
 /// Represents the possible, expected errors that can occur when requesting a send access token.
@@ -63,14 +63,22 @@ pub enum SendAccessTokenApiErrorResponse {
     #[serde(rename = "invalid_request")]
     /// Invalid request error, typically due to missing parameters for a specific
     /// credential flow. Ex. `send_id` is required.
-    /// #[serde(default)] allows for inner error details to be optional.
-    InvalidRequest(#[serde(default)] Option<SendAccessTokenInvalidRequestError>),
+    InvalidRequest {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(feature = "wasm", tsify(optional))]
+        /// The optional error description for invalid request errors.
+        error_description: Option<SendAccessTokenInvalidRequestError>,
+    },
 
     /// Invalid grant error, typically due to invalid credentials.
     /// Ex. `Password_hash` is invalid.
-    /// #[serde(default)] allows for inner error details to be optional.
     #[serde(rename = "invalid_grant")]
-    InvalidGrant(#[serde(default)] Option<SendAccessTokenInvalidGrantError>),
+    InvalidGrant {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(feature = "wasm", tsify(optional))]
+        /// The optional error description for invalid grant errors.
+        error_description: Option<SendAccessTokenInvalidGrantError>,
+    },
 }
 
 #[cfg(test)]
@@ -282,7 +290,9 @@ mod tests {
             let result: SendAccessTokenApiErrorResponse = from_str(json).unwrap();
             assert_eq!(
                 result,
-                SendAccessTokenApiErrorResponse::InvalidRequest(None)
+                SendAccessTokenApiErrorResponse::InvalidRequest {
+                    error_description: None
+                }
             );
         }
 
@@ -290,7 +300,12 @@ mod tests {
         fn deserializes_invalid_grant_without_details() {
             let json = r#"{ "error": "invalid_grant" }"#;
             let result: SendAccessTokenApiErrorResponse = from_str(json).unwrap();
-            assert_eq!(result, SendAccessTokenApiErrorResponse::InvalidGrant(None));
+            assert_eq!(
+                result,
+                SendAccessTokenApiErrorResponse::InvalidGrant {
+                    error_description: None
+                }
+            );
         }
 
         // --- With details: ALIAS (sentence) -> enum
@@ -302,9 +317,9 @@ mod tests {
             let result: SendAccessTokenApiErrorResponse = from_str(json).unwrap();
             assert_eq!(
                 result,
-                SendAccessTokenApiErrorResponse::InvalidRequest(Some(
-                    SendAccessTokenInvalidRequestError::SendIdRequired
-                ))
+                SendAccessTokenApiErrorResponse::InvalidRequest {
+                    error_description: Some(SendAccessTokenInvalidRequestError::SendIdRequired)
+                }
             );
         }
 
@@ -314,9 +329,9 @@ mod tests {
             let result: SendAccessTokenApiErrorResponse = from_str(json).unwrap();
             assert_eq!(
                 result,
-                SendAccessTokenApiErrorResponse::InvalidGrant(Some(
-                    SendAccessTokenInvalidGrantError::InvalidPasswordHash
-                ))
+                SendAccessTokenApiErrorResponse::InvalidGrant {
+                    error_description: Some(SendAccessTokenInvalidGrantError::InvalidPasswordHash)
+                }
             );
         }
 
@@ -328,9 +343,9 @@ mod tests {
             let result: SendAccessTokenApiErrorResponse = from_str(json).unwrap();
             assert_eq!(
                 result,
-                SendAccessTokenApiErrorResponse::InvalidRequest(Some(
-                    SendAccessTokenInvalidRequestError::SendIdRequired
-                ))
+                SendAccessTokenApiErrorResponse::InvalidRequest {
+                    error_description: Some(SendAccessTokenInvalidRequestError::SendIdRequired)
+                }
             );
         }
 
@@ -341,9 +356,11 @@ mod tests {
             let result: SendAccessTokenApiErrorResponse = from_str(json).unwrap();
             assert_eq!(
                 result,
-                SendAccessTokenApiErrorResponse::InvalidRequest(Some(
-                    SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent
-                ))
+                SendAccessTokenApiErrorResponse::InvalidRequest {
+                    error_description: Some(
+                        SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent
+                    )
+                }
             );
         }
 
@@ -354,9 +371,9 @@ mod tests {
             let result: SendAccessTokenApiErrorResponse = from_str(json).unwrap();
             assert_eq!(
                 result,
-                SendAccessTokenApiErrorResponse::InvalidGrant(Some(
-                    SendAccessTokenInvalidGrantError::InvalidPasswordHash
-                ))
+                SendAccessTokenApiErrorResponse::InvalidGrant {
+                    error_description: Some(SendAccessTokenInvalidGrantError::InvalidPasswordHash)
+                }
             );
         }
 
@@ -364,9 +381,11 @@ mod tests {
 
         #[test]
         fn serializes_invalid_request_with_detail_emits_code() {
-            let e = SendAccessTokenApiErrorResponse::InvalidRequest(Some(
-                SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent,
-            ));
+            let e = SendAccessTokenApiErrorResponse::InvalidRequest {
+                error_description: Some(
+                    SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent,
+                ),
+            };
             let json = to_string(&e).unwrap();
             assert_eq!(
                 json,
@@ -376,9 +395,9 @@ mod tests {
 
         #[test]
         fn serializes_invalid_grant_with_detail_emits_code() {
-            let e = SendAccessTokenApiErrorResponse::InvalidGrant(Some(
-                SendAccessTokenInvalidGrantError::InvalidPasswordHash,
-            ));
+            let e = SendAccessTokenApiErrorResponse::InvalidGrant {
+                error_description: Some(SendAccessTokenInvalidGrantError::InvalidPasswordHash),
+            };
             let json = to_string(&e).unwrap();
             assert_eq!(
                 json,

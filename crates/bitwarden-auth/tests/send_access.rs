@@ -130,9 +130,9 @@ mod request_send_access_token_invalid_request_tests {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,
-                    SendAccessTokenApiErrorResponse::InvalidRequest(Some(
-                        SendAccessTokenInvalidRequestError::SendIdRequired
-                    ))
+                    SendAccessTokenApiErrorResponse::InvalidRequest {
+                        error_description: Some(SendAccessTokenInvalidRequestError::SendIdRequired)
+                    }
                 );
             }
             other => panic!("expected Response variant, got {:?}", other),
@@ -177,9 +177,11 @@ mod request_send_access_token_invalid_request_tests {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,
-                    SendAccessTokenApiErrorResponse::InvalidRequest(Some(
-                        SendAccessTokenInvalidRequestError::PasswordHashRequired
-                    ))
+                    SendAccessTokenApiErrorResponse::InvalidRequest {
+                        error_description: Some(
+                            SendAccessTokenInvalidRequestError::PasswordHashRequired
+                        )
+                    }
                 );
             }
             other => panic!("expected Response variant, got {:?}", other),
@@ -224,9 +226,9 @@ mod request_send_access_token_invalid_request_tests {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,
-                    SendAccessTokenApiErrorResponse::InvalidRequest(Some(
-                        SendAccessTokenInvalidRequestError::EmailRequired
-                    ))
+                    SendAccessTokenApiErrorResponse::InvalidRequest {
+                        error_description: Some(SendAccessTokenInvalidRequestError::EmailRequired)
+                    }
                 );
             }
             other => panic!("expected Response variant, got {:?}", other),
@@ -275,9 +277,11 @@ mod request_send_access_token_invalid_request_tests {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,
-                    SendAccessTokenApiErrorResponse::InvalidRequest(Some(
-                        SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent
-                    ))
+                    SendAccessTokenApiErrorResponse::InvalidRequest {
+                        error_description: Some(
+                            SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent
+                        )
+                    }
                 );
             }
             other => panic!("expected Response variant, got {:?}", other),
@@ -328,9 +332,9 @@ mod request_send_access_token_invalid_grant_tests {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,
-                    SendAccessTokenApiErrorResponse::InvalidGrant(Some(
-                        SendAccessTokenInvalidGrantError::InvalidSendId
-                    ))
+                    SendAccessTokenApiErrorResponse::InvalidGrant {
+                        error_description: Some(SendAccessTokenInvalidGrantError::InvalidSendId)
+                    }
                 );
             }
             other => panic!("expected Response variant, got {:?}", other),
@@ -379,9 +383,11 @@ mod request_send_access_token_invalid_grant_tests {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,
-                    SendAccessTokenApiErrorResponse::InvalidGrant(Some(
-                        SendAccessTokenInvalidGrantError::InvalidPasswordHash
-                    ))
+                    SendAccessTokenApiErrorResponse::InvalidGrant {
+                        error_description: Some(
+                            SendAccessTokenInvalidGrantError::InvalidPasswordHash
+                        )
+                    }
                 );
             }
             other => panic!("expected Response variant, got {:?}", other),
@@ -429,9 +435,9 @@ mod request_send_access_token_invalid_grant_tests {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,
-                    SendAccessTokenApiErrorResponse::InvalidGrant(Some(
-                        SendAccessTokenInvalidGrantError::InvalidEmail
-                    ))
+                    SendAccessTokenApiErrorResponse::InvalidGrant {
+                        error_description: Some(SendAccessTokenInvalidGrantError::InvalidEmail)
+                    }
                 );
             }
             other => panic!("expected Response variant, got {:?}", other),
@@ -480,9 +486,9 @@ mod request_send_access_token_invalid_grant_tests {
                 // Now assert the inner enum:
                 assert_eq!(
                     api_err,
-                    SendAccessTokenApiErrorResponse::InvalidGrant(Some(
-                        SendAccessTokenInvalidGrantError::InvalidOtp
-                    ))
+                    SendAccessTokenApiErrorResponse::InvalidGrant {
+                        error_description: Some(SendAccessTokenInvalidGrantError::InvalidOtp)
+                    }
                 );
             }
             other => panic!("expected Response variant, got {:?}", other),
