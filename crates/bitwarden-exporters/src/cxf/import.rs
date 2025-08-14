@@ -40,7 +40,7 @@ fn convert_date(ts: Option<u64>) -> DateTime<Utc> {
         .unwrap_or(Utc::now())
 }
 
-pub(crate) fn parse_item(value: Item) -> Vec<ImportingCipher> {
+pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
     let grouped = group_credentials_by_type(value.credentials);
 
     let creation_date = convert_date(value.creation_at);

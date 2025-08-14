@@ -274,7 +274,6 @@ pub(super) fn identity_document_to_identity(
     .into_iter()
     .flatten()
     .collect();
-    // Note: identity-document doesn't have a document_type field in the CXF example
 
     (identity, custom_fields)
 }
