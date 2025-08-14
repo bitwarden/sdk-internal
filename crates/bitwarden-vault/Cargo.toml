@@ -21,8 +21,8 @@ uniffi = [
     "dep:uniffi"
 ] # Uniffi bindings
 wasm = [
-    "bitwarden-core/wasm",
     "bitwarden-collections/wasm",
+    "bitwarden-core/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures"
