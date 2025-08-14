@@ -116,25 +116,17 @@ pub fn passport_to_identity(passport: &PassportCredential) -> (Identity, Vec<Fie
 /// - Other fields → CustomFields
 pub fn person_name_to_identity(person_name: &PersonNameCredential) -> (Identity, Vec<Field>) {
     // Construct complete last name from surnamePrefix, surname, and surname2
-    let last_name = {
-        let mut parts = Vec::new();
-
-        if let Some(prefix) = &person_name.surname_prefix {
-            parts.push(prefix.value.0.clone());
-        }
-        if let Some(surname) = &person_name.surname {
-            parts.push(surname.value.0.clone());
-        }
-        if let Some(surname2) = &person_name.surname2 {
-            parts.push(surname2.value.0.clone());
-        }
-
-        if parts.is_empty() {
-            None
-        } else {
-            Some(parts.join(" "))
-        }
-    };
+    let last_name = [
+        person_name.surname_prefix.as_ref(),
+        person_name.surname.as_ref(),
+        person_name.surname2.as_ref(),
+    ]
+    .into_iter()
+    .flatten()
+    .map(|field| field.value.0.clone())
+    .collect::<Vec<_>>()
+    .into_iter()
+    .reduce(|acc, part| format!("{} {}", acc, part));
 
     let identity = Identity {
         title: person_name.title.as_ref().map(|t| t.value.0.clone()),
