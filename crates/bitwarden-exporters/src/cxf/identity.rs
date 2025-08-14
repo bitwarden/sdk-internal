@@ -13,7 +13,7 @@ use crate::{cxf::editable_field::create_field, Field, Identity};
 /// - country: EditableField<"country-code"> → Identity::country
 /// - tel: EditableField<"string"> → Identity::phone
 /// - postalCode: EditableField<"string"> → Identity::postal_code
-pub fn address_to_identity(address: &AddressCredential) -> (Identity, Vec<Field>) {
+pub(super) fn address_to_identity(address: &AddressCredential) -> (Identity, Vec<Field>) {
     let identity = Identity {
         address1: address.street_address.as_ref().map(|s| s.value.0.clone()),
         city: address.city.as_ref().map(|c| c.value.0.clone()),
@@ -24,7 +24,6 @@ pub fn address_to_identity(address: &AddressCredential) -> (Identity, Vec<Field>
         ..Default::default()
     };
 
-    // Address credentials don't have unmapped fields, so no custom fields needed
     (identity, vec![])
 }
 
