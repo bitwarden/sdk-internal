@@ -1019,9 +1019,9 @@ mod tests {
 
         let enroll_response = client1.crypto().enroll_pin(test_pin.to_string()).unwrap();
 
-        let client1 = Client::new(None);
+        let client2 = Client::new(None);
         initialize_user_crypto(
-            &client1,
+            &client2,
             InitUserCryptoRequest {
                 user_id: Some(uuid::Uuid::new_v4()),
                 // NOTE: THIS CHANGES KDF SETTINGS. We ensure in this test that even with different
