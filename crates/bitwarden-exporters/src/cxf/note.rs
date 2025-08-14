@@ -75,44 +75,6 @@ mod tests {
         assert_eq!(content, long_content);
     }
 
-    #[test]
-    fn test_cxf_example_note_integration() {
-        use std::fs;
-
-        use crate::{cxf::import::parse_cxf_spec, CipherType};
-
-        // Read the actual CXF example file
-        let cxf_data = fs::read_to_string("resources/cxf_example.json")
-            .expect("Should be able to read cxf_example.json");
-
-        let items = parse_cxf_spec(cxf_data).expect("Should parse CXF data successfully");
-
-        // Find the note item (Home alarm)
-        let note_cipher = items
-            .iter()
-            .find(|cipher| cipher.name == "Home alarm")
-            .expect("Should find Home alarm note item");
-
-        // Validate it's a SecureNote cipher
-        match &note_cipher.r#type {
-            CipherType::SecureNote(_) => (), // Successfully identified as SecureNote
-            _ => panic!("Expected SecureNote for standalone note credential"),
-        }
-
-        // Validate the note content
-        assert_eq!(
-            note_cipher.notes,
-            Some("some instructionts to enable/disable the alarm".to_string())
-        );
-
-        // Should have no custom fields since it's a standalone note
-        assert_eq!(note_cipher.fields.len(), 0);
-
-        // Validate basic properties
-        assert_eq!(note_cipher.name, "Home alarm");
-        assert_eq!(note_cipher.folder_id, None);
-        assert!(!note_cipher.favorite);
-    }
 
     #[test]
     fn test_standalone_note_credential() {

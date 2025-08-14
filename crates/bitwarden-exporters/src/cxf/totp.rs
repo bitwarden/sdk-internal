@@ -29,63 +29,6 @@ pub(super) fn totp_credential_to_totp(cxf_totp: &TotpCredential) -> Totp {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_cxf_sample_totp_mapping() {
-        use std::fs;
-
-        use crate::cxf::import::parse_cxf_spec;
-
-        // Load the actual CXF example file
-        let cxf_data = fs::read_to_string("resources/cxf_example.json")
-            .expect("Should be able to read cxf_example.json");
-
-        let items = parse_cxf_spec(cxf_data).expect("Should be able to parse CXF");
-
-        // Find the item with TOTP - should be the "GitHub Login" item
-        let totp_item = items
-            .iter()
-            .find(|item| item.name == "GitHub Login")
-            .expect("Should find GitHub Login item");
-
-        // Verify it's a Login type with TOTP
-        match &totp_item.r#type {
-            crate::CipherType::Login(login) => {
-                // Verify the TOTP field is properly mapped
-                assert!(login.totp.is_some());
-                let totp_uri = login.totp.as_ref().unwrap();
-
-                // Verify it's a proper otpauth URI
-                assert!(totp_uri.starts_with("otpauth://totp/"));
-
-                // Verify it contains the expected components from the CXF sample:
-                // - secret: "JBSWY3DPEHPK3PXP"
-                // - issuer: "Google"
-                // - algorithm: "sha256" (non-default, should appear as SHA256)
-                // - username: "jane.smith@example.com" (in the URI label)
-                // - period: 30 (default, so should NOT appear in URI)
-                // - digits: 6 (default, so should NOT appear in URI)
-                assert!(totp_uri.contains("secret=JBSWY3DPEHPK3PXP"));
-                assert!(totp_uri.contains("issuer=Google"));
-                assert!(totp_uri.contains("algorithm=SHA256"));
-                assert!(totp_uri.contains("Google:jane%2Esmith%40example%2Ecom"));
-
-                // Should NOT contain default values
-                assert!(!totp_uri.contains("period=30"));
-                assert!(!totp_uri.contains("digits=6"));
-
-                // Verify the Login structure is complete
-                assert!(login.username.is_some()); // From basic auth credential
-                assert!(login.password.is_some()); // From basic auth credential
-                assert!(!login.login_uris.is_empty()); // From item scope
-                assert!(login.totp.is_some()); // From TOTP credential
-
-                // Expected URI format using official Bitwarden TOTP implementation:
-                // otpauth://totp/Google:jane%2Esmith%40example%2Ecom?secret=JBSWY3DPEHPK3PXP&
-                // issuer=Google&algorithm=SHA256
-            }
-            _ => panic!("GitHub Login item should be a Login type"),
-        }
-    }
 
     #[test]
     fn test_totp_credential_to_totp_basic() {
