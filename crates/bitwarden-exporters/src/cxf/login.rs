@@ -9,10 +9,11 @@ use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
 use bitwarden_vault::FieldType;
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
-    AndroidAppIdCredential, BasicAuthCredential, CredentialScope, PasskeyCredential,
+    AndroidAppIdCredential, BasicAuthCredential, CredentialScope, PasskeyCredential, TotpCredential,
 };
 use thiserror::Error;
 
+use super::totp::totp_credential_to_totp;
 use crate::{Fido2Credential, Field, Login, LoginUri};
 
 /// Prefix that indicates the URL is an Android app scheme.
@@ -22,13 +23,14 @@ pub(super) fn to_login(
     creation_date: DateTime<Utc>,
     basic_auth: Option<&BasicAuthCredential>,
     passkey: Option<&PasskeyCredential>,
+    totp: Option<&TotpCredential>,
     scope: Option<&CredentialScope>,
 ) -> Login {
     Login {
         username: basic_auth.and_then(|v| v.username.clone().map(|v| v.into())),
         password: basic_auth.and_then(|v| v.password.clone().map(|u| u.into())),
         login_uris: scope.map(to_uris).unwrap_or_default(),
-        totp: None,
+        totp: totp.map(|t| totp_credential_to_totp(t).to_string()),
         fido2_credentials: passkey.map(|p| {
             vec![Fido2Credential {
                 credential_id: format!("b64.{}", p.credential_id),

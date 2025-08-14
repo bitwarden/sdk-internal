@@ -1,27 +1,9 @@
 use bitwarden_vault::{Totp, TotpAlgorithm};
 use credential_exchange_format::{OTPHashAlgorithm, TotpCredential};
 
-use crate::Login;
-
-/// Convert TOTP credentials to Login following the CXF mapping convention
-/// Maps all fields into a single OTPAUTH string according to the mapping document
-pub fn totp_to_login(totp: &TotpCredential) -> Login {
-    let bitwarden_totp = totp_credential_to_totp(totp);
-    let otpauth_uri = bitwarden_totp.to_string();
-
-    Login {
-        username: totp.username.clone(), /* we don't use this value in the import, but might as
-                                          * well map it. */
-        password: None,
-        totp: Some(otpauth_uri),
-        login_uris: vec![],
-        fido2_credentials: None,
-    }
-}
-
 /// Convert CXF TotpCredential to Bitwarden's Totp struct
 /// This ensures we use the exact same encoding and formatting as Bitwarden's core implementation
-fn totp_credential_to_totp(cxf_totp: &TotpCredential) -> Totp {
+pub fn totp_credential_to_totp(cxf_totp: &TotpCredential) -> Totp {
     let algorithm = match cxf_totp.algorithm {
         OTPHashAlgorithm::Sha1 => TotpAlgorithm::Sha1,
         OTPHashAlgorithm::Sha256 => TotpAlgorithm::Sha256,
@@ -106,7 +88,7 @@ mod tests {
     }
 
     #[test]
-    fn test_totp_to_login_basic() {
+    fn test_totp_credential_to_totp_basic() {
         let totp = TotpCredential {
             secret: "Hello World!".as_bytes().to_vec().into(),
             period: 30,
@@ -116,14 +98,9 @@ mod tests {
             issuer: Some("Example".to_string()),
         };
 
-        let login = totp_to_login(&totp);
+        let bitwarden_totp = totp_credential_to_totp(&totp);
+        let otpauth = bitwarden_totp.to_string();
 
-        assert_eq!(login.username, Some("test@example.com".to_string()));
-        assert_eq!(login.password, None);
-        assert_eq!(login.login_uris, vec![]);
-        assert!(login.totp.is_some());
-
-        let otpauth = login.totp.unwrap();
         assert!(otpauth.starts_with("otpauth://totp/Example:test%40example%2Ecom?secret="));
         assert!(otpauth.contains("&issuer=Example"));
         // Default period (30) and digits (6) and algorithm (SHA1) should not be included
@@ -133,7 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn test_totp_to_login_custom_parameters() {
+    fn test_totp_credential_to_totp_custom_parameters() {
         let totp = TotpCredential {
             secret: "Hello World!".as_bytes().to_vec().into(),
             period: 60,
@@ -143,8 +120,8 @@ mod tests {
             issuer: Some("Custom Issuer".to_string()),
         };
 
-        let login = totp_to_login(&totp);
-        let otpauth = login.totp.unwrap();
+        let bitwarden_totp = totp_credential_to_totp(&totp);
+        let otpauth = bitwarden_totp.to_string();
 
         assert!(otpauth.contains("Custom%20Issuer:user"));
         assert!(otpauth.contains("&issuer=Custom%20Issuer"));
@@ -154,7 +131,7 @@ mod tests {
     }
 
     #[test]
-    fn test_totp_to_login_sha512() {
+    fn test_totp_credential_to_totp_sha512() {
         let totp = TotpCredential {
             secret: "secret123".as_bytes().to_vec().into(),
             period: 30,
@@ -164,8 +141,8 @@ mod tests {
             issuer: None,
         };
 
-        let login = totp_to_login(&totp);
-        let otpauth = login.totp.unwrap();
+        let bitwarden_totp = totp_credential_to_totp(&totp);
+        let otpauth = bitwarden_totp.to_string();
 
         assert!(otpauth.starts_with("otpauth://totp/user?secret="));
         assert!(otpauth.contains("&algorithm=SHA512"));
@@ -173,7 +150,7 @@ mod tests {
     }
 
     #[test]
-    fn test_totp_to_login_steam() {
+    fn test_totp_credential_to_totp_steam() {
         let totp = TotpCredential {
             secret: "secret123".as_bytes().to_vec().into(),
             period: 30,
@@ -183,8 +160,8 @@ mod tests {
             issuer: Some("Steam".to_string()),
         };
 
-        let login = totp_to_login(&totp);
-        let otpauth = login.totp.unwrap();
+        let bitwarden_totp = totp_credential_to_totp(&totp);
+        let otpauth = bitwarden_totp.to_string();
 
         // Steam uses special format
         assert!(otpauth.starts_with("steam://"));
@@ -192,7 +169,7 @@ mod tests {
     }
 
     #[test]
-    fn test_totp_to_login_no_username_no_issuer() {
+    fn test_totp_credential_to_totp_no_username_no_issuer() {
         let totp = TotpCredential {
             secret: "test".as_bytes().to_vec().into(),
             period: 30,
@@ -202,8 +179,8 @@ mod tests {
             issuer: None,
         };
 
-        let login = totp_to_login(&totp);
-        let otpauth = login.totp.unwrap();
+        let bitwarden_totp = totp_credential_to_totp(&totp);
+        let otpauth = bitwarden_totp.to_string();
 
         // Should have empty label but still be valid
         assert!(otpauth.starts_with("otpauth://totp"));
@@ -211,7 +188,7 @@ mod tests {
     }
 
     #[test]
-    fn test_totp_to_login_colon_stripping() {
+    fn test_totp_credential_to_totp_colon_stripping() {
         let totp = TotpCredential {
             secret: "test".as_bytes().to_vec().into(),
             period: 30,
@@ -221,8 +198,8 @@ mod tests {
             issuer: Some("issuer:with:colons".to_string()),
         };
 
-        let login = totp_to_login(&totp);
-        let otpauth = login.totp.unwrap();
+        let bitwarden_totp = totp_credential_to_totp(&totp);
+        let otpauth = bitwarden_totp.to_string();
 
         // Check what the official implementation does with colons
         assert!(otpauth.starts_with("otpauth://totp/"));

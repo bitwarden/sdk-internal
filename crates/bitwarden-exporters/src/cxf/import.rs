@@ -8,7 +8,6 @@ use crate::{
     cxf::{
         api_key::api_key_to_fields,
         login::{to_fields, to_login},
-        totp::totp_to_login,
         wifi::wifi_to_fields,
         CxfError,
     },
@@ -67,14 +66,9 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
     if !grouped.basic_auth.is_empty() || !grouped.passkey.is_empty() || !grouped.totp.is_empty() {
         let basic_auth = grouped.basic_auth.first();
         let passkey = grouped.passkey.first();
+        let totp = grouped.totp.first();
 
-        let mut login = to_login(creation_date, basic_auth, passkey, scope);
-
-        // Add TOTP if present
-        if let Some(totp) = grouped.totp.first() {
-            let totp_login = totp_to_login(totp);
-            login.totp = totp_login.totp;
-        }
+        let login = to_login(creation_date, basic_auth, passkey, totp, scope);
 
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
