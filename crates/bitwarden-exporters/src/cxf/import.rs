@@ -130,31 +130,12 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
         })
     }
 
-    // Standalone Note credentials -> Secure Note (only if no other credentials exist)
-    if !grouped.note.is_empty() && output.is_empty() {
-        let note_content = grouped.note.first().map(extract_note_content);
-
-        output.push(ImportingCipher {
-            folder_id: None, // TODO: Handle folders
-            name: value.title.clone(),
-            notes: note_content,
-            r#type: CipherType::SecureNote(Box::new(SecureNote {
-                r#type: SecureNoteType::Generic,
-            })),
-            favorite: false,
-            reprompt: 0,
-            fields: vec![],
-            revision_date,
-            creation_date,
-            deleted_date: None,
-        })
-    }
 
     let mut add_item = |t: CipherType, fields: Vec<Field>| {
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
             name: value.title.clone(),
-            notes: None,
+            notes: note_content.clone(),
             r#type: t,
             favorite: false,
             reprompt: 0,
@@ -197,6 +178,26 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
         let (identity, custom_fields) = identity_document_to_identity(identity_document);
 
         add_item(CipherType::Identity(Box::new(identity)), custom_fields);
+    }
+
+    // Standalone Note credentials -> Secure Note (only if no other credentials exist)
+    if !grouped.note.is_empty() && output.is_empty() {
+        let note_content = grouped.note.first().map(extract_note_content);
+
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: note_content,
+            r#type: CipherType::SecureNote(Box::new(SecureNote {
+                r#type: SecureNoteType::Generic,
+            })),
+            favorite: false,
+            reprompt: 0,
+            fields: vec![],
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
     }
 
     output
@@ -939,5 +940,252 @@ mod tests {
         assert_eq!(identity.address1, None);
         assert_eq!(identity.license_number, None);
         assert_eq!(identity.company, None);
+    }
+
+    // Note integration tests
+
+    #[test]
+    fn test_note_as_part_of_login() {
+        use credential_exchange_format::{BasicAuthCredential, Credential, Item, NoteCredential};
+
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "Login with Note".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![
+                Credential::BasicAuth(Box::new(BasicAuthCredential {
+                    username: Some("testuser".to_string().into()),
+                    password: Some("testpass".to_string().into()),
+                })),
+                Credential::Note(Box::new(NoteCredential {
+                    content: "This note should be added to the login cipher."
+                        .to_string()
+                        .into(),
+                })),
+            ],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1); // Should create only one cipher (Login with note content)
+        let cipher = ciphers.first().unwrap();
+
+        assert_eq!(cipher.name, "Login with Note");
+        assert_eq!(
+            cipher.notes,
+            Some("This note should be added to the login cipher.".to_string())
+        );
+
+        match &cipher.r#type {
+            CipherType::Login(_) => (), // Should be a Login cipher
+            _ => panic!("Expected Login cipher with note content"),
+        };
+    }
+
+    #[test]
+    fn test_note_as_part_of_api_key() {
+        use credential_exchange_format::{ApiKeyCredential, Credential, Item, NoteCredential};
+
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "API Key with Note".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![
+                Credential::ApiKey(Box::new(ApiKeyCredential {
+                    key: Some("api-key-12345".to_string().into()),
+                    username: Some("api-user".to_string().into()),
+                    key_type: Some("Bearer".to_string().into()),
+                    url: None,
+                    valid_from: None,
+                    expiry_date: None,
+                })),
+                Credential::Note(Box::new(NoteCredential {
+                    content: "This note should be added to the API key cipher."
+                        .to_string()
+                        .into(),
+                })),
+            ],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1); // Should create only one cipher (SecureNote with note content)
+        let cipher = ciphers.first().unwrap();
+
+        assert_eq!(cipher.name, "API Key with Note");
+        assert_eq!(
+            cipher.notes,
+            Some("This note should be added to the API key cipher.".to_string())
+        );
+
+        match &cipher.r#type {
+            CipherType::SecureNote(_) => (), // Should be a SecureNote cipher
+            _ => panic!("Expected SecureNote cipher with note content"),
+        };
+
+        // Should have API key fields
+        assert!(!cipher.fields.is_empty());
+    }
+
+    #[test]
+    fn test_note_as_part_of_credit_card() {
+        use credential_exchange_format::{Credential, CreditCardCredential, Item, NoteCredential};
+        use chrono::Month;
+
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "Credit Card with Note".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![
+                Credential::CreditCard(Box::new(CreditCardCredential {
+                    number: Some("1234 5678 9012 3456".to_string().into()),
+                    full_name: Some("John Doe".to_string().into()),
+                    card_type: Some("Visa".to_string().into()),
+                    verification_number: Some("123".to_string().into()),
+                    pin: None,
+                    expiry_date: Some(
+                        credential_exchange_format::EditableFieldYearMonth {
+                            year: 2026,
+                            month: Month::December,
+                        }
+                        .into(),
+                    ),
+                    valid_from: None,
+                })),
+                Credential::Note(Box::new(NoteCredential {
+                    content: "This note should be added to the credit card cipher."
+                        .to_string()
+                        .into(),
+                })),
+            ],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1); // Should create only one cipher (Card with note content)
+        let cipher = ciphers.first().unwrap();
+
+        assert_eq!(cipher.name, "Credit Card with Note");
+        assert_eq!(
+            cipher.notes,
+            Some("This note should be added to the credit card cipher.".to_string())
+        );
+
+        match &cipher.r#type {
+            CipherType::Card(_) => (), // Should be a Card cipher
+            _ => panic!("Expected Card cipher with note content"),
+        };
+    }
+
+    #[test]
+    fn test_note_as_part_of_wifi() {
+        use credential_exchange_format::{
+            Credential, EditableFieldWifiNetworkSecurityType, Item, NoteCredential, WifiCredential,
+        };
+
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "WiFi with Note".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![
+                Credential::Wifi(Box::new(WifiCredential {
+                    ssid: Some("MyNetwork".to_string().into()),
+                    passphrase: Some("password123".to_string().into()),
+                    network_security_type: Some(EditableFieldWifiNetworkSecurityType::Wpa3Personal.into()),
+                    hidden: Some(false.into()),
+                })),
+                Credential::Note(Box::new(NoteCredential {
+                    content: "This note should be added to the WiFi cipher."
+                        .to_string()
+                        .into(),
+                })),
+            ],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1); // Should create only one cipher (SecureNote with note content)
+        let cipher = ciphers.first().unwrap();
+
+        assert_eq!(cipher.name, "WiFi with Note");
+        assert_eq!(
+            cipher.notes,
+            Some("This note should be added to the WiFi cipher.".to_string())
+        );
+
+        match &cipher.r#type {
+            CipherType::SecureNote(_) => (), // Should be a SecureNote cipher
+            _ => panic!("Expected SecureNote cipher with note content"),
+        };
+
+        // Should have WiFi fields
+        assert!(!cipher.fields.is_empty());
+    }
+
+    #[test]
+    fn test_note_as_part_of_identity() {
+        use credential_exchange_format::{AddressCredential, Credential, Item, NoteCredential};
+
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "Address with Note".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![
+                Credential::Address(Box::new(AddressCredential {
+                    street_address: Some("123 Main St".to_string().into()),
+                    city: Some("Springfield".to_string().into()),
+                    territory: Some("CA".to_string().into()),
+                    postal_code: Some("12345".to_string().into()),
+                    country: Some("US".to_string().into()),
+                    tel: Some("+1-555-123-4567".to_string().into()),
+                })),
+                Credential::Note(Box::new(NoteCredential {
+                    content: "This note should be added to the address identity cipher."
+                        .to_string()
+                        .into(),
+                })),
+            ],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1); // Should create only one cipher (Identity with note content)
+        let cipher = ciphers.first().unwrap();
+
+        assert_eq!(cipher.name, "Address with Note");
+        assert_eq!(
+            cipher.notes,
+            Some("This note should be added to the address identity cipher.".to_string())
+        );
+
+        match &cipher.r#type {
+            CipherType::Identity(_) => (), // Should be an Identity cipher
+            _ => panic!("Expected Identity cipher"),
+        };
     }
 }
