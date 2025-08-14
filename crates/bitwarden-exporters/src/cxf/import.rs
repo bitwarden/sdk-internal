@@ -79,6 +79,7 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
         add_item(CipherType::Login(Box::new(login)), vec![]);
     }
 
+    // Credit Card credentials
     if let Some(credit_card) = grouped.credit_card.first() {
         add_item(
             CipherType::Card(Box::new(credit_card.into())),
@@ -86,61 +87,36 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
         );
     }
 
+    // Helper for creating SecureNote cipher type
+    let secure_note_type = || CipherType::SecureNote(Box::new(SecureNote {
+        r#type: SecureNoteType::Generic,
+    }));
+
     // API Key credentials -> Secure Note
     if let Some(api_key) = grouped.api_key.first() {
         let fields = api_key_to_fields(api_key);
-        add_item(
-            CipherType::SecureNote(Box::new(SecureNote {
-                r#type: SecureNoteType::Generic,
-            })),
-            fields,
-        );
+        add_item(secure_note_type(), fields);
     }
 
     // WiFi credentials -> Secure Note
     if let Some(wifi) = grouped.wifi.first() {
         let fields = wifi_to_fields(wifi);
-        add_item(
-            CipherType::SecureNote(Box::new(SecureNote {
-                r#type: SecureNoteType::Generic,
-            })),
-            fields,
-        );
+        add_item(secure_note_type(), fields);
     }
 
-    // Address credentials
-    if let Some(address) = grouped.address.first() {
-        let (identity, custom_fields) = address_to_identity(address);
+    // Identity credentials (address, passport, person name, drivers license, identity document)
+    [
+        grouped.address.first().map(|addr| address_to_identity(addr)),
+        grouped.passport.first().map(|passport| passport_to_identity(passport)),
+        grouped.person_name.first().map(|person| person_name_to_identity(person)),
+        grouped.drivers_license.first().map(|license| drivers_license_to_identity(license)),
+        grouped.identity_document.first().map(|doc| identity_document_to_identity(doc)),
+    ]
+    .into_iter()
+    .flatten()
+    .for_each(|(identity, custom_fields)| {
         add_item(CipherType::Identity(Box::new(identity)), custom_fields);
-    }
-
-    // Passport credentials
-    if let Some(passport) = grouped.passport.first() {
-        let (identity, custom_fields) = passport_to_identity(passport);
-
-        add_item(CipherType::Identity(Box::new(identity)), custom_fields)
-    }
-
-    // Person name credentials
-    if let Some(person_name) = grouped.person_name.first() {
-        let (identity, custom_fields) = person_name_to_identity(person_name);
-
-        add_item(CipherType::Identity(Box::new(identity)), custom_fields);
-    }
-
-    // Drivers license credentials
-    if let Some(drivers_license) = grouped.drivers_license.first() {
-        let (identity, custom_fields) = drivers_license_to_identity(drivers_license);
-
-        add_item(CipherType::Identity(Box::new(identity)), custom_fields);
-    }
-
-    // Identity document credentials
-    if let Some(identity_document) = grouped.identity_document.first() {
-        let (identity, custom_fields) = identity_document_to_identity(identity_document);
-
-        add_item(CipherType::Identity(Box::new(identity)), custom_fields);
-    }
+    });
 
     // Standalone Note credentials -> Secure Note (only if no other credentials exist)
     if !grouped.note.is_empty() && output.is_empty() {
@@ -149,9 +125,7 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
             folder_id: None, // TODO: Handle folders
             name: value.title.clone(),
             notes: standalone_note_content,
-            r#type: CipherType::SecureNote(Box::new(SecureNote {
-                r#type: SecureNoteType::Generic,
-            })),
+            r#type: secure_note_type(),
             favorite: false,
             reprompt: 0,
             fields: vec![],
