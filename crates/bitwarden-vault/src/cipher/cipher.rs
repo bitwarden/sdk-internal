@@ -32,6 +32,9 @@ use crate::{
     VaultParseError,
 };
 
+// Version constant
+pub const CURRENT_CIPHER_VERSION: u32 = 3;
+
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
@@ -46,6 +49,12 @@ pub enum CipherError {
     EncryptError(#[from] EncryptError),
     #[error("This cipher contains attachments without keys. Those attachments will need to be reuploaded to complete the operation")]
     AttachmentsWithoutKeys,
+
+    // POC - Cipher versioning
+    #[error("Unsupported cipher version {0}")]
+    UnsupportedCipherVersion(u32),
+    #[error("Migration failed: {0}")]
+    MigrationFailed(String),
 }
 
 /// Helper trait for operations on cipher types.
@@ -136,6 +145,9 @@ pub struct Cipher {
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
+
+    pub version: Option<u32>,
+    pub data: Option<String>,
 }
 
 bitwarden_state::register_repository_item!(Cipher, "Cipher");
@@ -179,6 +191,8 @@ pub struct CipherView {
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
+
+    pub version: Option<u32>,
 }
 
 #[allow(missing_docs)]
@@ -333,6 +347,8 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             deleted_date: cipher_view.deleted_date,
             revision_date: cipher_view.revision_date,
             permissions: cipher_view.permissions,
+            version: cipher_view.version,
+            data: None,
         })
     }
 }
@@ -376,6 +392,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
+            version: self.version,
         };
 
         // For compatibility we only remove URLs with invalid checksums if the cipher has a key
@@ -757,6 +774,8 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             deleted_date: cipher.deleted_date.map(|d| d.parse()).transpose()?,
             revision_date: require!(cipher.revision_date).parse()?,
             key: EncString::try_from_optional(cipher.key)?,
+            version: cipher.version.map(|v| v as u32),
+            data: cipher.data,
         })
     }
 }
@@ -831,6 +850,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            version: None,
         }
     }
 
@@ -895,6 +915,8 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            version: None,
+            data: None,
         };
 
         let view: CipherListView = key_store.decrypt(&cipher).unwrap();
