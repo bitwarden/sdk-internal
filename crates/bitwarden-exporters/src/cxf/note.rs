@@ -159,6 +159,7 @@ mod tests {
         assert_eq!(cipher.fields.len(), 0); // Notes don't have custom fields
     }
 
+    // TODO: Consider moving this logic to import.rs since it's more about how notes are handled during the import process
     #[test]
     fn test_note_as_part_of_login() {
         use credential_exchange_format::{BasicAuthCredential, Credential, Item};
