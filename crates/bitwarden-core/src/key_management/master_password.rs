@@ -47,7 +47,7 @@ impl MasterPasswordUnlockData {
     pub(crate) fn derive(
         password: &str,
         kdf: &Kdf,
-        salt: &String,
+        salt: &str,
         user_key: &SymmetricCryptoKey,
     ) -> Result<Self, MasterPasswordError> {
         let master_key =
@@ -58,7 +58,7 @@ impl MasterPasswordUnlockData {
 
         Ok(Self {
             kdf: kdf.clone(),
-            salt: salt.clone(),
+            salt: salt.to_owned(),
             master_key_wrapped_user_key,
         })
     }
@@ -129,7 +129,7 @@ impl MasterPasswordAuthenticationData {
     pub(crate) fn derive(
         password: &str,
         kdf: &Kdf,
-        salt: &String,
+        salt: &str,
     ) -> Result<Self, MasterPasswordError> {
         let master_key =
             MasterKey::derive(password, salt, kdf).map_err(MasterPasswordError::Crypto)?;
@@ -142,7 +142,7 @@ impl MasterPasswordAuthenticationData {
 
         Ok(Self {
             kdf: kdf.clone(),
-            salt: salt.clone(),
+            salt: salt.to_owned(),
             master_password_authentication_hash: hash,
         })
     }
