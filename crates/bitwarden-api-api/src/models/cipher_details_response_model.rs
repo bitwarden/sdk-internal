@@ -23,7 +23,7 @@ pub struct CipherDetailsResponseModel {
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub r#type: Option<models::CipherType>,
     #[serde(rename = "data", skip_serializing_if = "Option::is_none")]
-    pub data: Option<serde_json::Value>,
+    pub data: Option<String>,
     #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(rename = "notes", skip_serializing_if = "Option::is_none")]
@@ -59,6 +59,8 @@ pub struct CipherDetailsResponseModel {
     pub reprompt: Option<models::CipherRepromptType>,
     #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
+    #[serde(rename = "version", skip_serializing_if = "Option::is_none")]
+    pub version: Option<i32>,
     #[serde(rename = "folderId", skip_serializing_if = "Option::is_none")]
     pub folder_id: Option<uuid::Uuid>,
     #[serde(rename = "favorite", skip_serializing_if = "Option::is_none")]
@@ -97,6 +99,7 @@ impl CipherDetailsResponseModel {
             deleted_date: None,
             reprompt: None,
             key: None,
+            version: None,
             folder_id: None,
             favorite: None,
             edit: None,

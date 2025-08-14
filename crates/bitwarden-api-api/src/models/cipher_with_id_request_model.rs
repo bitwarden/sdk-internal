@@ -51,6 +51,12 @@ pub struct CipherWithIdRequestModel {
     pub secure_note: Option<Box<models::CipherSecureNoteModel>>,
     #[serde(rename = "sshKey", skip_serializing_if = "Option::is_none")]
     pub ssh_key: Option<Box<models::CipherSshKeyModel>>,
+    /// The version of the cipher data. Default is 1 for backward compatibility.
+    #[serde(rename = "version", skip_serializing_if = "Option::is_none")]
+    pub version: Option<i32>,
+    /// Opaque data for versioned clients.
+    #[serde(rename = "data", skip_serializing_if = "Option::is_none")]
+    pub data: Option<String>,
     #[serde(
         rename = "lastKnownRevisionDate",
         skip_serializing_if = "Option::is_none"
@@ -81,6 +87,8 @@ impl CipherWithIdRequestModel {
             identity: None,
             secure_note: None,
             ssh_key: None,
+            version: None,
+            data: None,
             last_known_revision_date: None,
             id,
         }
