@@ -110,19 +110,14 @@ pub struct InternalClient {
 }
 
 impl InternalClient {
-    #[allow(missing_docs)]
+    /// Load feature flags. This is intentionally a collection and not the internal `Flag` enum as
+    /// we want to avoid changes in feature flags from being a breaking change.
     #[cfg(feature = "internal")]
     pub fn load_flags(&self, flags: std::collections::HashMap<String, bool>) {
         *self.flags.write().expect("RwLock is not poisoned") = Flags::load_from_map(flags);
     }
 
-    #[allow(missing_docs)]
-    #[cfg(feature = "internal")]
-    pub fn set_flags(&self, flags: &Flags) {
-        *self.flags.write().expect("RwLock is not poisoned") = flags.clone();
-    }
-
-    #[allow(missing_docs)]
+    /// Retrieve the active feature flags.
     #[cfg(feature = "internal")]
     pub fn get_flags(&self) -> Flags {
         self.flags.read().expect("RwLock is not poisoned").clone()
