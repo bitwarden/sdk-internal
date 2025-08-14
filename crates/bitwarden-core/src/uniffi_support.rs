@@ -3,6 +3,7 @@
 use std::num::NonZeroU32;
 
 use bitwarden_crypto::CryptoError;
+use bitwarden_uniffi_error::convert_result;
 use uuid::Uuid;
 
 use crate::key_management::SignedSecurityState;
@@ -14,7 +15,7 @@ uniffi::custom_type!(DateTime, std::time::SystemTime, { remote });
 
 uniffi::custom_type!(Uuid, String, {
     remote,
-    try_lift: |val| Uuid::parse_str(val.as_str()).map_err(|e| e.into()),
+    try_lift: |val| convert_result(Uuid::parse_str(val.as_str())),
     lower: |obj| obj.to_string(),
 });
 
@@ -29,9 +30,7 @@ struct UniffiConverterDummyRecord {
 
 uniffi::custom_type!(SignedSecurityState, String, {
     try_lift: |val| {
-        val.parse().map_err(|e| {
-            CryptoError::EncodingError(e).into()
-        })
+        convert_result(val.parse().map_err(CryptoError::EncodingError))
     },
     lower: |obj| obj.into(),
 });

@@ -29,6 +29,7 @@ argon2 = { version = ">=0.5.0, <0.6", features = [
 ], default-features = false }
 base64 = ">=0.22.1, <0.23"
 bitwarden-error = { workspace = true }
+bitwarden-uniffi-error = { workspace = true }
 cbc = { version = ">=0.1.2, <0.2", features = ["alloc", "zeroize"] }
 chacha20poly1305 = { version = "0.10.1" }
 ciborium = { version = ">=0.2.2, <0.3" }
@@ -46,7 +47,7 @@ rayon = ">=1.8.1, <2.0"
 rsa = ">=0.9.2, <0.10"
 schemars = { workspace = true }
 serde = { workspace = true }
-serde_bytes = { workspace = true } 
+serde_bytes = { workspace = true }
 serde_repr.workspace = true
 sha1 = ">=0.10.5, <0.11"
 sha2 = ">=0.10.6, <0.11"
