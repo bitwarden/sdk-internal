@@ -5,6 +5,7 @@ use tsify::Tsify;
 /// Clone auto implements the standard lib's Clone trait, allowing us to create copies of this
 /// struct.
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendPasswordCredentials {
     /// A Base64-encoded hash of the password protecting the send.
