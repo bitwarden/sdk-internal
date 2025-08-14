@@ -15,6 +15,7 @@ pub(crate) use import::parse_cxf;
 mod api_key;
 mod card;
 mod editable_field;
+mod identity;
 mod login;
 mod note;
 mod wifi;

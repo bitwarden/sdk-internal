@@ -1,18 +1,23 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
-    Account as CxfAccount, ApiKeyCredential, BasicAuthCredential, Credential, CreditCardCredential,
-    Item, NoteCredential, PasskeyCredential, WifiCredential,
+    Account as CxfAccount, AddressCredential, ApiKeyCredential, BasicAuthCredential, Credential,
+    CreditCardCredential, DriversLicenseCredential, IdentityDocumentCredential, Item,
+    NoteCredential, PasskeyCredential, PassportCredential, PersonNameCredential, WifiCredential,
 };
 
 use crate::{
     cxf::{
         api_key::api_key_to_fields,
+        identity::{
+            address_to_identity, drivers_license_to_identity, identity_document_to_identity,
+            passport_to_identity, person_name_to_identity,
+        },
         login::{to_fields, to_login},
         note::extract_note_content,
         wifi::wifi_to_fields,
         CxfError,
     },
-    CipherType, ImportingCipher, SecureNote, SecureNoteType,
+    CipherType, Field, ImportingCipher, SecureNote, SecureNoteType,
 };
 
 /**
@@ -87,12 +92,7 @@ pub(crate) fn parse_item(value: Item) -> Vec<ImportingCipher> {
         })
     }
 
-    if !grouped.credit_card.is_empty() {
-        let credit_card = grouped
-            .credit_card
-            .first()
-            .expect("Credit card is not empty");
-
+    if let Some(credit_card) = grouped.credit_card.first() {
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
             name: value.title.clone(),
@@ -167,6 +167,55 @@ pub(crate) fn parse_item(value: Item) -> Vec<ImportingCipher> {
         })
     }
 
+    let mut add_item = |t: CipherType, fields: Vec<Field>| {
+        output.push(ImportingCipher {
+            folder_id: None, // TODO: Handle folders
+            name: value.title.clone(),
+            notes: None,
+            r#type: t,
+            favorite: false,
+            reprompt: 0,
+            fields,
+            revision_date,
+            creation_date,
+            deleted_date: None,
+        })
+    };
+
+    // Address credentials
+    if let Some(address) = grouped.address.first() {
+        let (identity, custom_fields) = address_to_identity(address);
+        add_item(CipherType::Identity(Box::new(identity)), custom_fields);
+    }
+
+    // Passport credentials
+    if let Some(passport) = grouped.passport.first() {
+        let (identity, custom_fields) = passport_to_identity(passport);
+
+        add_item(CipherType::Identity(Box::new(identity)), custom_fields)
+    }
+
+    // Person name credentials
+    if let Some(person_name) = grouped.person_name.first() {
+        let (identity, custom_fields) = person_name_to_identity(person_name);
+
+        add_item(CipherType::Identity(Box::new(identity)), custom_fields);
+    }
+
+    // Drivers license credentials
+    if let Some(drivers_license) = grouped.drivers_license.first() {
+        let (identity, custom_fields) = drivers_license_to_identity(drivers_license);
+
+        add_item(CipherType::Identity(Box::new(identity)), custom_fields);
+    }
+
+    // Identity document credentials
+    if let Some(identity_document) = grouped.identity_document.first() {
+        let (identity, custom_fields) = identity_document_to_identity(identity_document);
+
+        add_item(CipherType::Identity(Box::new(identity)), custom_fields);
+    }
+
     output
 }
 
@@ -208,6 +257,26 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
             Credential::Wifi(wifi) => Some(wifi.as_ref()),
             _ => None,
         }),
+        address: filter_credentials(&credentials, |c| match c {
+            Credential::Address(address) => Some(address.as_ref()),
+            _ => None,
+        }),
+        passport: filter_credentials(&credentials, |c| match c {
+            Credential::Passport(passport) => Some(passport.as_ref()),
+            _ => None,
+        }),
+        person_name: filter_credentials(&credentials, |c| match c {
+            Credential::PersonName(person_name) => Some(person_name.as_ref()),
+            _ => None,
+        }),
+        drivers_license: filter_credentials(&credentials, |c| match c {
+            Credential::DriversLicense(drivers_license) => Some(drivers_license.as_ref()),
+            _ => None,
+        }),
+        identity_document: filter_credentials(&credentials, |c| match c {
+            Credential::IdentityDocument(identity_document) => Some(identity_document.as_ref()),
+            _ => None,
+        }),
         note: filter_credentials(&credentials, |c| match c {
             Credential::Note(note) => Some(note.as_ref()),
             _ => None,
@@ -221,6 +290,11 @@ struct GroupedCredentials {
     passkey: Vec<PasskeyCredential>,
     credit_card: Vec<CreditCardCredential>,
     wifi: Vec<WifiCredential>,
+    address: Vec<AddressCredential>,
+    passport: Vec<PassportCredential>,
+    person_name: Vec<PersonNameCredential>,
+    drivers_license: Vec<DriversLicenseCredential>,
+    identity_document: Vec<IdentityDocumentCredential>,
     note: Vec<NoteCredential>,
 }
 
