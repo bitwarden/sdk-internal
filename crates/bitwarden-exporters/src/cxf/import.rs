@@ -53,84 +53,7 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
     // Extract note content if present (to be added to parent cipher)
     let note_content = grouped.note.first().map(extract_note_content);
 
-    // Login credentials
-    if !grouped.basic_auth.is_empty() || !grouped.passkey.is_empty() || !grouped.totp.is_empty() {
-        let basic_auth = grouped.basic_auth.first();
-        let passkey = grouped.passkey.first();
-        let totp = grouped.totp.first();
-
-        let login = to_login(creation_date, basic_auth, passkey, totp, scope);
-
-        output.push(ImportingCipher {
-            folder_id: None, // TODO: Handle folders
-            name: value.title.clone(),
-            notes: note_content.clone(),
-            r#type: CipherType::Login(Box::new(login)),
-            favorite: false,
-            reprompt: 0,
-            fields: vec![],
-            revision_date,
-            creation_date,
-            deleted_date: None,
-        })
-    }
-
-    if let Some(credit_card) = grouped.credit_card.first() {
-        output.push(ImportingCipher {
-            folder_id: None, // TODO: Handle folders
-            name: value.title.clone(),
-            notes: note_content.clone(),
-            r#type: CipherType::Card(Box::new(credit_card.into())),
-            favorite: false,
-            reprompt: 0,
-            fields: scope.map(to_fields).unwrap_or_default(),
-            revision_date,
-            creation_date,
-            deleted_date: None,
-        })
-    }
-
-    // API Key credentials -> Secure Note
-    if let Some(api_key) = grouped.api_key.first() {
-        let fields = api_key_to_fields(api_key);
-
-        output.push(ImportingCipher {
-            folder_id: None, // TODO: Handle folders
-            name: value.title.clone(),
-            notes: note_content.clone(),
-            r#type: CipherType::SecureNote(Box::new(SecureNote {
-                r#type: SecureNoteType::Generic,
-            })),
-            favorite: false,
-            reprompt: 0,
-            fields,
-            revision_date,
-            creation_date,
-            deleted_date: None,
-        })
-    }
-
-    // WiFi credentials -> Secure Note
-    if let Some(wifi) = grouped.wifi.first() {
-        let fields = wifi_to_fields(wifi);
-
-        output.push(ImportingCipher {
-            folder_id: None, // TODO: Handle folders
-            name: value.title.clone(),
-            notes: note_content.clone(),
-            r#type: CipherType::SecureNote(Box::new(SecureNote {
-                r#type: SecureNoteType::Generic,
-            })),
-            favorite: false,
-            reprompt: 0,
-            fields,
-            revision_date,
-            creation_date,
-            deleted_date: None,
-        })
-    }
-
-
+    // Helper to add ciphers with consistent boilerplate
     let mut add_item = |t: CipherType, fields: Vec<Field>| {
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
@@ -145,6 +68,45 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
             deleted_date: None,
         })
     };
+
+    // Login credentials
+    if !grouped.basic_auth.is_empty() || !grouped.passkey.is_empty() || !grouped.totp.is_empty() {
+        let basic_auth = grouped.basic_auth.first();
+        let passkey = grouped.passkey.first();
+        let totp = grouped.totp.first();
+
+        let login = to_login(creation_date, basic_auth, passkey, totp, scope);
+        add_item(CipherType::Login(Box::new(login)), vec![]);
+    }
+
+    if let Some(credit_card) = grouped.credit_card.first() {
+        add_item(
+            CipherType::Card(Box::new(credit_card.into())),
+            scope.map(to_fields).unwrap_or_default(),
+        );
+    }
+
+    // API Key credentials -> Secure Note
+    if let Some(api_key) = grouped.api_key.first() {
+        let fields = api_key_to_fields(api_key);
+        add_item(
+            CipherType::SecureNote(Box::new(SecureNote {
+                r#type: SecureNoteType::Generic,
+            })),
+            fields,
+        );
+    }
+
+    // WiFi credentials -> Secure Note
+    if let Some(wifi) = grouped.wifi.first() {
+        let fields = wifi_to_fields(wifi);
+        add_item(
+            CipherType::SecureNote(Box::new(SecureNote {
+                r#type: SecureNoteType::Generic,
+            })),
+            fields,
+        );
+    }
 
     // Address credentials
     if let Some(address) = grouped.address.first() {
@@ -182,12 +144,11 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
 
     // Standalone Note credentials -> Secure Note (only if no other credentials exist)
     if !grouped.note.is_empty() && output.is_empty() {
-        let note_content = grouped.note.first().map(extract_note_content);
-
+        let standalone_note_content = grouped.note.first().map(extract_note_content);
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
             name: value.title.clone(),
-            notes: note_content,
+            notes: standalone_note_content,
             r#type: CipherType::SecureNote(Box::new(SecureNote {
                 r#type: SecureNoteType::Generic,
             })),
@@ -197,7 +158,7 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
             revision_date,
             creation_date,
             deleted_date: None,
-        })
+        });
     }
 
     output
