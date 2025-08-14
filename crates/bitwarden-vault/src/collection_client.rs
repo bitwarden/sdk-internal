@@ -1,3 +1,6 @@
+#[cfg(not(feature = "wasm"))]
+use std::collections::HashMap;
+
 use bitwarden_collections::{
     collection::{Collection, CollectionView},
     tree::{NodeItem, Tree},
@@ -79,6 +82,15 @@ impl CollectionViewNodeItem {
                 map.set(&id.to_string().into(), &name.into());
                 map
             })
+    }
+
+    #[cfg(not(feature = "wasm"))]
+    pub fn get_ancestors(&self) -> HashMap<String, String> {
+        self.node_item
+            .ancestors
+            .iter()
+            .map(|(id, name)| (id.to_string(), name.to_string()))
+            .collect()
     }
 }
 
