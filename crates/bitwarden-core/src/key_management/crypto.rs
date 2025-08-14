@@ -312,7 +312,10 @@ pub(super) fn update_kdf(
         .map_err(CryptoClientError::MasterPassword)?;
     let old_authentication_data = MasterPasswordAuthenticationData::derive(
         password,
-        &client.internal.get_kdf().ok_or(NotAuthenticatedError)?,
+        &client
+            .internal
+            .get_kdf()
+            .map_err(|_| NotAuthenticatedError)?,
         email,
     )
     .map_err(CryptoClientError::MasterPassword)?;
