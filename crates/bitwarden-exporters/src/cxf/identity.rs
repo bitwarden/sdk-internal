@@ -33,7 +33,7 @@ pub(super) fn address_to_identity(address: &AddressCredential) -> (Identity, Vec
 /// - nationalIdentificationNumber: EditableField<"string"> → Identity::ssn
 /// - fullName: EditableField<"string"> → Identity::first_name + last_name (split)
 /// - All other fields → CustomFields
-pub fn passport_to_identity(passport: &PassportCredential) -> (Identity, Vec<Field>) {
+pub(super) fn passport_to_identity(passport: &PassportCredential) -> (Identity, Vec<Field>) {
     // Split full name into first and last name if available
 
     let (first_name, last_name) = split_name(&passport.full_name);
@@ -102,7 +102,9 @@ pub fn passport_to_identity(passport: &PassportCredential) -> (Identity, Vec<Fie
 /// - surnamePrefix + surname + surname2: combine for complete last name
 /// - credentials: EditableField<"string"> → Identity::company (as professional credentials)
 /// - Other fields → CustomFields
-pub fn person_name_to_identity(person_name: &PersonNameCredential) -> (Identity, Vec<Field>) {
+pub(super) fn person_name_to_identity(
+    person_name: &PersonNameCredential,
+) -> (Identity, Vec<Field>) {
     // Construct complete last name from surnamePrefix, surname, and surname2
     let last_name = [
         person_name.surname_prefix.as_ref(),
@@ -151,7 +153,7 @@ pub fn person_name_to_identity(person_name: &PersonNameCredential) -> (Identity,
 /// - territory: EditableField<"subdivision-code"> → Identity::state
 /// - country: EditableField<"country-code"> → Identity::country
 /// - All other fields → CustomFields
-pub fn drivers_license_to_identity(
+pub(super) fn drivers_license_to_identity(
     drivers_license: &DriversLicenseCredential,
 ) -> (Identity, Vec<Field>) {
     // Split full name into first and last name if available
@@ -212,7 +214,7 @@ pub fn drivers_license_to_identity(
 /// - identificationNumber: EditableField<"string"> → Identity::ssn
 /// - fullName: EditableField<"string"> → Identity::first_name + last_name (split)
 /// - All other fields → CustomFields
-pub fn identity_document_to_identity(
+pub(super) fn identity_document_to_identity(
     identity_document: &IdentityDocumentCredential,
 ) -> (Identity, Vec<Field>) {
     // Split full name into first and last name if available
