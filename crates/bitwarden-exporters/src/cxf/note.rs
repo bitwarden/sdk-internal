@@ -75,7 +75,6 @@ mod tests {
         assert_eq!(content, long_content);
     }
 
-
     #[test]
     fn test_standalone_note_credential() {
         use credential_exchange_format::{Credential, Item};

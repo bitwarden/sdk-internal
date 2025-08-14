@@ -32,25 +32,6 @@ pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfErro
     Ok(items)
 }
 
-/**
- * Parse CXF payload in the format compatible with the CXF specification (At the
- * Header-level).
- */
-#[allow(dead_code)]
-pub(crate) fn parse_cxf_spec(payload: String) -> Result<Vec<ImportingCipher>, CxfError> {
-    use credential_exchange_format::Header;
-
-    let header: Header = serde_json::from_str(&payload)?;
-
-    let items: Vec<ImportingCipher> = header
-        .accounts
-        .into_iter()
-        .flat_map(|account| account.items.into_iter().flat_map(parse_item))
-        .collect();
-
-    Ok(items)
-}
-
 /// Convert a CXF timestamp to a [`DateTime<Utc>`].
 ///
 /// If the timestamp is None, the current time is used.
@@ -312,6 +293,24 @@ mod tests {
     use credential_exchange_format::{CreditCardCredential, EditableFieldYearMonth};
 
     use super::*;
+
+    /**
+     * Parse CXF payload in the format compatible with the CXF specification (At the
+     * Header-level).
+     */
+    fn parse_cxf_spec(payload: String) -> Result<Vec<ImportingCipher>, CxfError> {
+        use credential_exchange_format::Header;
+
+        let header: Header = serde_json::from_str(&payload)?;
+
+        let items: Vec<ImportingCipher> = header
+            .accounts
+            .into_iter()
+            .flat_map(|account| account.items.into_iter().flat_map(parse_item))
+            .collect();
+
+        Ok(items)
+    }
 
     fn load_sample_cxf() -> Result<Vec<ImportingCipher>, CxfError> {
         use std::fs;

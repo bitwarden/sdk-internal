@@ -29,7 +29,6 @@ pub(super) fn totp_credential_to_totp(cxf_totp: &TotpCredential) -> Totp {
 mod tests {
     use super::*;
 
-
     #[test]
     fn test_totp_credential_to_totp_basic() {
         let totp = TotpCredential {
