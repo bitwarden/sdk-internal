@@ -219,7 +219,7 @@ pub struct LoginUri {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub struct Fido2Credential {
     pub credential_id: String,
     pub key_type: String,
