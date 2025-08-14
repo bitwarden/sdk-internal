@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     Account as CxfAccount, AddressCredential, ApiKeyCredential, BasicAuthCredential, Credential,
-    CreditCardCredential, DriversLicenseCredential, IdentityDocumentCredential, Item, NoteCredential,
-    PasskeyCredential, PassportCredential, PersonNameCredential, WifiCredential,
+    CreditCardCredential, DriversLicenseCredential, IdentityDocumentCredential, Item,
+    NoteCredential, PasskeyCredential, PassportCredential, PersonNameCredential, WifiCredential,
 };
 
 use crate::{
@@ -146,8 +146,8 @@ pub(crate) fn parse_item(value: Item) -> Vec<ImportingCipher> {
             deleted_date: None,
         })
     }
-  
-   // Standalone Note credentials -> Secure Note (only if no other credentials exist)
+
+    // Standalone Note credentials -> Secure Note (only if no other credentials exist)
     if !grouped.note.is_empty() && output.is_empty() {
         let note_content = grouped.note.first().map(extract_note_content);
 
@@ -161,11 +161,11 @@ pub(crate) fn parse_item(value: Item) -> Vec<ImportingCipher> {
             favorite: false,
             reprompt: 0,
             fields: vec![],
-          revision_date,
+            revision_date,
             creation_date,
             deleted_date: None,
-          })
-  }
+        })
+    }
 
     let mut add_item = |t: CipherType, fields: Vec<Field>| {
         output.push(ImportingCipher {
