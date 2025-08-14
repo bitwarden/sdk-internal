@@ -1,11 +1,10 @@
 use credential_exchange_format::NoteCredential;
 
 /// Extract note content from a CXF Note credential
-/// According to CXF mapping:
+/// The way notes are handled (in import.rs) depends on their context:
 /// - If part of an item, use parent type and map content to Cipher::notes
 /// - If standalone, map to SecureNote
-///
-/// This function extracts the content string for either use case
+/// That's why we only have this small utility function and tests here.
 pub fn extract_note_content(note: &NoteCredential) -> String {
     note.content.value.0.clone()
 }
