@@ -16,7 +16,7 @@ use crate::{
         wifi::wifi_to_fields,
         CxfError,
     },
-    CipherType, ImportingCipher, SecureNote, SecureNoteType,
+    CipherType, Field, ImportingCipher, SecureNote, SecureNoteType,
 };
 
 /**
@@ -143,7 +143,7 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
         })
     }
 
-	let mut add_item = |t: CipherType, fields: Vec<Field>| {
+    let mut add_item = |t: CipherType, fields: Vec<Field>| {
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
             name: value.title.clone(),
@@ -157,6 +157,12 @@ fn parse_item(value: Item) -> Vec<ImportingCipher> {
             deleted_date: None,
         })
     };
+
+    // Address credentials
+    if let Some(address) = grouped.address.first() {
+        let (identity, custom_fields) = address_to_identity(address);
+        add_item(CipherType::Identity(Box::new(identity)), custom_fields);
+    }
 
     // Passport credentials
     if let Some(passport) = grouped.passport.first() {

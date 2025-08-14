@@ -1,6 +1,6 @@
 use credential_exchange_format::{
-    AddressCredential, DriversLicenseCredential, IdentityDocumentCredential, PassportCredential,
-    PersonNameCredential,
+    AddressCredential, DriversLicenseCredential, EditableField, EditableFieldString,
+    IdentityDocumentCredential, PassportCredential, PersonNameCredential,
 };
 
 use crate::{cxf::editable_field::create_field, Field, Identity};
@@ -35,20 +35,8 @@ pub(super) fn address_to_identity(address: &AddressCredential) -> (Identity, Vec
 /// - All other fields → CustomFields
 pub fn passport_to_identity(passport: &PassportCredential) -> (Identity, Vec<Field>) {
     // Split full name into first and last name if available
-    let (first_name, last_name) = if let Some(full_name) = &passport.full_name {
-        let name_parts: Vec<&str> = full_name.value.0.split_whitespace().collect();
-        match name_parts.len() {
-            0 => (None, None),
-            1 => (Some(name_parts[0].to_string()), None),
-            _ => {
-                let first = name_parts[0].to_string();
-                let last = name_parts[1..].join(" ");
-                (Some(first), Some(last))
-            }
-        }
-    } else {
-        (None, None)
-    };
+
+    let (first_name, last_name) = split_name(&passport.full_name);
 
     let identity = Identity {
         first_name,
@@ -167,20 +155,7 @@ pub fn drivers_license_to_identity(
     drivers_license: &DriversLicenseCredential,
 ) -> (Identity, Vec<Field>) {
     // Split full name into first and last name if available
-    let (first_name, last_name) = if let Some(full_name) = &drivers_license.full_name {
-        let name_parts: Vec<&str> = full_name.value.0.split_whitespace().collect();
-        match name_parts.len() {
-            0 => (None, None),
-            1 => (Some(name_parts[0].to_string()), None),
-            _ => {
-                let first = name_parts[0].to_string();
-                let last = name_parts[1..].join(" ");
-                (Some(first), Some(last))
-            }
-        }
-    } else {
-        (None, None)
-    };
+    let (first_name, last_name) = split_name(&drivers_license.full_name);
 
     let identity = Identity {
         first_name,
@@ -241,20 +216,7 @@ pub fn identity_document_to_identity(
     identity_document: &IdentityDocumentCredential,
 ) -> (Identity, Vec<Field>) {
     // Split full name into first and last name if available
-    let (first_name, last_name) = if let Some(full_name) = &identity_document.full_name {
-        let name_parts: Vec<&str> = full_name.value.0.split_whitespace().collect();
-        match name_parts.len() {
-            0 => (None, None),
-            1 => (Some(name_parts[0].to_string()), None),
-            _ => {
-                let first = name_parts[0].to_string();
-                let last = name_parts[1..].join(" ");
-                (Some(first), Some(last))
-            }
-        }
-    } else {
-        (None, None)
-    };
+    let (first_name, last_name) = split_name(&identity_document.full_name);
 
     let identity = Identity {
         first_name,
@@ -313,6 +275,25 @@ pub fn identity_document_to_identity(
     // Note: identity-document doesn't have a document_type field in the CXF example
 
     (identity, custom_fields)
+}
+
+fn split_name(
+    full_name: &Option<EditableField<EditableFieldString>>,
+) -> (Option<String>, Option<String>) {
+    if let Some(full_name) = full_name {
+        let name_parts: Vec<&str> = full_name.value.0.split_whitespace().collect();
+        match name_parts.len() {
+            0 => (None, None),
+            1 => (Some(name_parts[0].to_string()), None),
+            _ => {
+                let first = name_parts[0].to_string();
+                let last = name_parts[1..].join(" ");
+                (Some(first), Some(last))
+            }
+        }
+    } else {
+        (None, None)
+    }
 }
 
 #[cfg(test)]
