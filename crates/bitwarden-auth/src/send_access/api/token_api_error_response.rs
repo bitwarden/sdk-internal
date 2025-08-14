@@ -231,7 +231,8 @@ mod tests {
                     "code should map to the expected variant"
                 );
 
-                // 3a) Serializing enum -> JSON string containing the canonical code (includes quotes)
+                // 3a) Serializing enum -> JSON string containing the canonical code
+                // (includes quotes)
                 let json_from_variant = to_string(expected_variant).unwrap();
                 assert_eq!(
                     json_from_variant, *code_json,
