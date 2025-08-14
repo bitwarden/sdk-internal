@@ -6,7 +6,7 @@ use std::num::NonZeroU32;
 use bitwarden_api_api::models::{
     master_password_unlock_response_model::MasterPasswordUnlockResponseModel, KdfType,
 };
-use bitwarden_crypto::{CryptoError, EncString, Kdf, MasterKey, SymmetricCryptoKey
+use bitwarden_crypto::{EncString, Kdf, MasterKey, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
