@@ -18,4 +18,5 @@ mod editable_field;
 mod identity;
 mod login;
 mod note;
+mod totp;
 mod wifi;
