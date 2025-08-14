@@ -5,7 +5,7 @@ use credential_exchange_format::NoteCredential;
 /// - If part of an item, use parent type and map content to Cipher::notes
 /// - If standalone, map to SecureNote
 /// That's why we only have this small utility function and tests here.
-pub fn extract_note_content(note: &NoteCredential) -> String {
+pub(super) fn extract_note_content(note: &NoteCredential) -> String {
     note.content.value.0.clone()
 }
 
