@@ -1,36 +1,26 @@
-//! Mobile specific user decryption operations
-//!
-//! This module contains the data structures and error handling for user decryption operations,
+//! This module contains the data structures and error handling for user decryption operations.
 
 use bitwarden_api_api::models::UserDecryptionResponseModel;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::key_management::master_password::{MasterPasswordError, MasterPasswordUnlockData};
 
 /// Error for master user decryption related operations.
-#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub enum UserDecryptionError {
+    /// Error related to master password unlock.
     #[error(transparent)]
     MasterPasswordError(#[from] MasterPasswordError),
 }
 
 /// Represents data required to decrypt user's vault.
 /// Currently, this is only used for master password unlock.
-#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
 pub struct UserDecryptionData {
+    /// Optional master password unlock data.
     pub master_password_unlock: Option<MasterPasswordUnlockData>,
 }
 
@@ -71,8 +61,8 @@ mod tests {
                         parallelism: Some(4),
                     },
                 ),
-                master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
-                salt: TEST_SALT.to_string(),
+                master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
+                salt: Some(TEST_SALT.to_string()),
             })),
         };
 
@@ -122,19 +112,19 @@ mod tests {
     }
 
     #[test]
-    fn test_try_from_user_decryption_response_model_missing_field_error() {
+    fn test_try_from_user_decryption_response_model_salt_none_missing_field_error() {
         let response = UserDecryptionResponseModel {
             master_password_unlock: Some(Box::new(MasterPasswordUnlockResponseModel {
                 kdf: Box::new(
                     bitwarden_api_api::models::MasterPasswordUnlockKdfResponseModel {
-                        kdf_type: KdfType::Argon2id,
-                        iterations: 3,
+                        kdf_type: KdfType::PBKDF2_SHA256,
+                        iterations: 600_000,
                         memory: None,
                         parallelism: None,
                     },
                 ),
-                master_key_encrypted_user_key: TEST_USER_KEY.to_string(),
-                salt: TEST_SALT.to_string(),
+                master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
+                salt: None,
             })),
         };
 

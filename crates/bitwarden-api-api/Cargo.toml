@@ -12,10 +12,6 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
-[features]
-default = []
-wasm = ["dep:tsify", "dep:wasm-bindgen"] # WASM support
-
 [dependencies]
 reqwest = { workspace = true }
 serde = { workspace = true }
@@ -26,7 +22,5 @@ serde_with = { version = ">=3.8, <4", default-features = false, features = [
     "std",
     "macros",
 ] }
-tsify = { workspace = true, optional = true, features = ["js"], default-features = false }
 url = ">=2.5, <3"
 uuid = { workspace = true }
-wasm-bindgen = { workspace = true, optional = true, features = ["serde-serialize"] }
