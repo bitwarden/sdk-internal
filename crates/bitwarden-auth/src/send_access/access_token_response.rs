@@ -38,6 +38,7 @@ impl From<SendAccessTokenApiSuccessResponse> for SendAccessTokenResponse {
 // SendAccessTokenApiErrorResponse
 #[bitwarden_error::bitwarden_error(full)]
 #[derive(Debug, thiserror::Error)]
+#[serde(tag = "kind", content = "data", rename_all = "lowercase")]
 pub enum SendAccessTokenError {
     #[error("Unexpected Error response: {0:?}")]
     Unexpected(IdentityTransportError),
