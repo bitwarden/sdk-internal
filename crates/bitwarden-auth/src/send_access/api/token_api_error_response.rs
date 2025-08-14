@@ -132,15 +132,16 @@ mod tests {
                     "code should map to the expected variant"
                 );
 
-                // 3a) Serializing enum -> JSON string containing the canonical code (includes quotes)
+                // 3a) Serializing enum -> JSON string containing the canonical code
+                // (includes quotes)
                 let json_from_variant = to_string(expected_variant).unwrap();
                 assert_eq!(
                     json_from_variant, *code_json,
                     "serialization should emit the canonical code string"
                 );
 
-                // 3b) (Optional) Type-safe check: to_value() → Value::String, then compare the code;
-                // this avoids formatting/quoting concerns from to_string().
+                // 3b) (Optional) Type-safe check: to_value() → Value::String, then compare the
+                // code; this avoids formatting/quoting concerns from to_string().
                 let value_from_variant = to_value(expected_variant).unwrap();
                 assert_eq!(
                     value_from_variant,
@@ -237,8 +238,8 @@ mod tests {
                     "serialization should emit the canonical code string"
                 );
 
-                // 3b) (Optional) Type-safe check: to_value() → Value::String, then compare the code;
-                // this avoids formatting/quoting concerns from to_string().
+                // 3b) (Optional) Type-safe check: to_value() → Value::String, then compare the
+                // code; this avoids formatting/quoting concerns from to_string().
                 let value_from_variant = to_value(expected_variant).unwrap();
                 assert_eq!(
                     value_from_variant,
