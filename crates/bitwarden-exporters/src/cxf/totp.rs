@@ -3,7 +3,7 @@ use credential_exchange_format::{OTPHashAlgorithm, TotpCredential};
 
 /// Convert CXF TotpCredential to Bitwarden's Totp struct
 /// This ensures we use the exact same encoding and formatting as Bitwarden's core implementation
-pub fn totp_credential_to_totp(cxf_totp: &TotpCredential) -> Totp {
+pub(super) fn totp_credential_to_totp(cxf_totp: &TotpCredential) -> Totp {
     let algorithm = match cxf_totp.algorithm {
         OTPHashAlgorithm::Sha1 => TotpAlgorithm::Sha1,
         OTPHashAlgorithm::Sha256 => TotpAlgorithm::Sha256,
