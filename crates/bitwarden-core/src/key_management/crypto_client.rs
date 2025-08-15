@@ -98,6 +98,7 @@ impl CryptoClient {
     /// `initialize_user_crypto`. The provided pin is encrypted with the user key.
     pub fn enroll_pin_with_encrypted_pin(
         &self,
+        // Note: This will be replaced by `EncString` with https://bitwarden.atlassian.net/browse/PM-24775
         encrypted_pin: String,
     ) -> Result<EnrollPinResponse, CryptoClientError> {
         let encrypted_pin: EncString = encrypted_pin.parse()?;

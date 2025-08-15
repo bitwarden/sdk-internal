@@ -1,6 +1,6 @@
 use bitwarden_core::key_management::crypto::{
-    DeriveKeyConnectorRequest, DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest,
-    UpdatePasswordResponse,
+    DeriveKeyConnectorRequest, DerivePinKeyResponse, EnrollPinResponse, InitOrgCryptoRequest,
+    InitUserCryptoRequest, UpdatePasswordResponse,
 };
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 
@@ -64,6 +64,26 @@ impl CryptoClient {
         Ok(self
             .0
             .derive_pin_user_key(encrypted_pin)
+            .map_err(Error::MobileCrypto)?)
+    }
+
+    /// Protects the current user key with the provided PIN. The result can be stored and later
+    /// used to initialize another client instance by using the PIN and the PIN key with
+    /// `initialize_user_crypto`.
+    pub fn enroll_pin(&self, pin: String) -> Result<EnrollPinResponse> {
+        Ok(self.0.enroll_pin(pin).map_err(Error::MobileCrypto)?)
+    }
+
+    /// Protects the current user key with the provided PIN. The result can be stored and later
+    /// used to initialize another client instance by using the PIN and the PIN key with
+    /// `initialize_user_crypto`. The provided pin is encrypted with the user key.
+    pub fn enroll_pin_with_encrypted_pin(
+        &self,
+        encrypted_pin: EncString,
+    ) -> Result<EnrollPinResponse> {
+        Ok(self
+            .0
+            .enroll_pin_with_encrypted_pin(encrypted_pin.to_string())
             .map_err(Error::MobileCrypto)?)
     }
 
