@@ -234,7 +234,7 @@ pub(crate) fn extract_integer(
     target_label: i64,
     value_name: &str,
 ) -> Result<i128, CoseExtractError> {
-    Ok(header
+    header
         .rest
         .iter()
         .find_map(|(label, value)| match (label, value) {
@@ -245,8 +245,8 @@ pub(crate) fn extract_integer(
             }
             _ => None,
         })
-        .ok_or(CoseExtractError::MissingValue(value_name.to_string()))?
-        .into())
+        .map(Into::into)
+        .ok_or_else(|| CoseExtractError::MissingValue(value_name.to_string()))
 }
 
 pub(crate) fn extract_bytes(
