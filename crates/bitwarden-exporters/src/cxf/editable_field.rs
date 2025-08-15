@@ -1,7 +1,8 @@
 use bitwarden_vault::FieldType;
 use credential_exchange_format::{
-    EditableField, EditableFieldBoolean, EditableFieldConcealedString, EditableFieldDate,
-    EditableFieldString, EditableFieldWifiNetworkSecurityType, EditableFieldYearMonth,
+    EditableField, EditableFieldBoolean, EditableFieldConcealedString, EditableFieldCountryCode,
+    EditableFieldDate, EditableFieldString, EditableFieldWifiNetworkSecurityType,
+    EditableFieldYearMonth,
 };
 
 use crate::Field;
@@ -58,6 +59,14 @@ impl EditableFieldToField for EditableField<EditableFieldWifiNetworkSecurityType
     }
 }
 
+impl EditableFieldToField for EditableField<EditableFieldCountryCode> {
+    const FIELD_TYPE: FieldType = FieldType::Text;
+
+    fn field_value(&self) -> String {
+        self.value.0.clone()
+    }
+}
+
 impl EditableFieldToField for EditableField<EditableFieldDate> {
     const FIELD_TYPE: FieldType = FieldType::Text;
 
@@ -88,6 +97,7 @@ fn security_type_to_string(security_type: &EditableFieldWifiNetworkSecurityType)
         Wpa3Personal => "WPA3 Personal",
         Wep => "WEP",
         Other(s) => s,
+        _ => "Unknown",
     }
 }
 
