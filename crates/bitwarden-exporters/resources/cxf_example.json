@@ -1,0 +1,599 @@
+{
+    "version": {
+        "major": 1,
+        "minor": 0
+    },
+    "exporterRpId": "exporter.example.com",
+    "exporterDisplayName": "Exporter app",
+    "timestamp": 1705228800,
+    "accounts": [
+        {
+            "id": "DZSXp7iBQY-Fg-OofakQtQ",
+            "username": "jane_smith",
+            "email": "jane.smith@example.com",
+            "fullName": "Jane Smith",
+            "items": [
+                {
+                    "id": "9OF-QjVDQo2Wp2xWPw6ZhA",
+                    "creationAt": 1705142400,
+                    "modifiedAt": 1705228800,
+                    "title": "GitHub Login",
+                    "subtitle": "Work GitHub account",
+                    "scope": {
+                        "urls": ["https://github.com"],
+                        "androidApps": []
+                    },
+                    "credentials": [
+                        {
+                            "type": "basic-auth",
+                            "username": {
+                                "id": "-eZX0Gw-TzOsBFwt67N7ZA",
+                                "fieldType": "string",
+                                "value": "johndoe",
+                                "label": "Username field"
+                            },
+                            "password": {
+                                "id": "wgu3wTcXSYawrGMWMtaANg",
+                                "fieldType": "concealed-string",
+                                "value": "securepassword123",
+                                "label": "Password field"
+                            }
+                        },
+                        {
+                            "type": "totp",
+                            "secret": "JBSWY3DPEHPK3PXP",
+                            "period": 30,
+                            "digits": 6,
+                            "issuer": "Google",
+                            "algorithm": "sha256",
+                            "username": "jane.smith@example.com"
+                        }
+                    ],
+                    "tags": ["development", "git", "work"]
+                },
+                {
+                    "id": "akKA3Y0jQRuK7sKplB0Y9w",
+                    "creationAt": 1705142400,
+                    "modifiedAt": 1705228800,
+                    "title": "WebAuthn.io",
+                    "subtitle": "johndoe",
+                    "credentials": [
+                        {
+                            "type": "passkey",
+                            "credentialId": "Y3JlZGVudGlhbElkRXhhbXBsZQ",
+                            "rpId": "webauthn.io",
+                            "username": "johndoe",
+                            "userDisplayName": "John Doe",
+                            "userHandle": "cnEzaNHWcYK3coWZjvoaV1Hj9gnI12mKe2dL2HZVFlY",
+                            "key": "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgARu_0sCt20EpgVxb4Puq3Ga5VVLpuTY75ngvZlyq3X6hRANCAASmdk1xLsK0oOlhxIPp0d1ZuS0sT9nf6BZtSelhqvLBW0fOL33l_bXgsr_STUHjCLn8l6gcRJwe7OQvbQubZ1dY",
+                            "fido2Extensions": {
+                                "hmacSecret": {
+                                    "algorithm": "HS256",
+                                    "secret": "c2VjcmV0X2tleV9kYXRh"
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "iz0Q6JWoQ_CbDRboCPJ1Tg",
+                    "creationAt": 1705142400,
+                    "modifiedAt": 1705228800,
+                    "title": "Visa Credit Card",
+                    "subtitle": "Personal Visa card",
+                    "credentials": [
+                        {
+                            "type": "credit-card",
+                            "number": {
+                                "id": "MTIz", 
+                                "fieldType": "concealed-string",
+                                "value": "4111111111111111",
+                                "label": "Card Number"
+                            },
+                            "fullName": {
+                                "fieldType": "string",
+                                "value": "John Doe",
+                                "label": "Cardholder Name"
+                            },
+                            "cardType": {
+                                "fieldType": "string",
+                                "value": "Visa",
+                                "label": "Card Type"
+                            },
+                            "verificationNumber": {
+                                "fieldType": "concealed-string",
+                                "value": "123",
+                                "label": "CVV"
+                            },
+                            "pin": {
+                                "fieldType": "concealed-string",
+                                "value": "0000",
+                                "label": "PIN"
+                            },
+                            "expiryDate": {
+                                "fieldType": "year-month",
+                                "value": "2027-08",
+                                "label": "Expiry Date"
+                            },
+                            "validFrom": {
+                                "fieldType": "year-month",
+                                "value": "2024-02",
+                                "label": "Valid From"
+                            }
+                        }
+                    ],
+                    "tags": ["finance", "credit card", "personal"]
+                },
+                {
+                    "id": "2cGy6PNOSQ2cW43NVxjGSg",
+                    "creationAt": 1705142400,
+                    "modifiedAt": 1705228800,
+                    "title": "Wifi",
+                    "subtitle": "Home Wifi",
+                    "credentials": [
+                        {
+                            "type": "wifi",
+                            "ssid": {
+                                "fieldType": "string",
+                                "value": "Home_Network",
+                                "label": "Wi-Fi SSID"
+                            },
+                            "networkSecurityType": {
+                                "fieldType": "wifi-network-security-type",
+                                "value": "WPA2",
+                                "label": "Security Type"
+                            },
+                            "passphrase": {
+                                "fieldType": "concealed-string",
+                                "value": "mypassword123",
+                                "label": "Wi-Fi Password"
+                            },
+                            "hidden": {
+                                "fieldType": "boolean",
+                                "value": "false",
+                                "label": "Hidden Network"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "s4TK1UNTRhG4j1DQawUz8g",
+                    "creationAt": 1705142400,
+                    "modifiedAt": 1705228800,
+                    "title": "Home alarm",
+                    "subtitle": "instructions",
+                    "credentials": [
+                        {
+                            "type": "note",
+                            "content": {
+                                "fieldType": "string",
+                                "value": "some instructionts to enable/disable the alarm",
+                                "label": "alarm"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "BQzS9Ws3RnOabLzFuyOu7Q",
+                    "creationAt": 1705142400,
+                    "modifiedAt": 1705228800,
+                    "title": "Driver License",
+                    "subtitle": "US",
+                    "credentials": [
+                        {
+                            "type": "drivers-license",
+                            "fullName": {
+                                "fieldType": "string",
+                                "value": "John Doe",
+                                "label": "Full Name"
+                            },
+                            "birthDate": {
+                                "fieldType": "date",
+                                "value": "1990-05-15",
+                                "label": "Date of Birth"
+                            },
+                            "issueDate": {
+                                "fieldType": "date",
+                                "value": "2020-06-01",
+                                "label": "Issue Date"
+                            },
+                            "expiryDate": {
+                                "fieldType": "date",
+                                "value": "2030-06-01",
+                                "label": "Expiry Date"
+                            },
+                            "issuingAuthority": {
+                                "fieldType": "string",
+                                "value": "Department of Motor Vehicles",
+                                "label": "Issuing Authority"
+                            },
+                            "territory": {
+                                "fieldType": "subdivision-code",
+                                "value": "CA",
+                                "label": "Territory"
+                            },
+                            "country": {
+                                "fieldType": "country-code",
+                                "value": "US",
+                                "label": "Country"
+                            },
+                            "licenseNumber": {
+                                "fieldType": "string",
+                                "value": "D12345678",
+                                "label": "License Number"
+                            },
+                            "licenseClass": {
+                                "fieldType": "string",
+                                "value": "C",
+                                "label": "License Class"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "HHl63ybfQG6GBRHlyrvKfg",
+                    "creationAt": 1705142400,
+                    "modifiedAt": 1705228800,
+                    "title": "House Address",
+                    "subtitle": "US",
+                    "credentials": [
+                        {
+                            "type": "address",
+                            "streetAddress": {
+                                "fieldType": "string",
+                                "value": "123 Main Street",
+                                "label": "Street Address"
+                            },
+                            "postalCode": {
+                                "fieldType": "string",
+                                "value": "12345",
+                                "label": "Postal Code"
+                            },
+                            "city": {
+                                "fieldType": "string",
+                                "value": "Springfield",
+                                "label": "City"
+                            },
+                            "territory": {
+                                "fieldType": "subdivision-code",
+                                "value": "CA",
+                                "label": "State"
+                            },
+                            "country": {
+                                "fieldType": "country-code",
+                                "value": "US",
+                                "label": "Country"
+                            },
+                            "tel": {
+                                "fieldType": "string",
+                                "value": "+1-555-123-4567",
+                                "label": "Telephone"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "Z4cFmc21Q5-vCVwd1wJx1g",
+                    "creationAt": 1705142400,
+                    "modifiedAt": 1705228800,
+                    "title": "SSH Key",
+                    "subtitle": "GitHub",
+                    "credentials": [
+                        {
+                            "type": "ssh-key",
+                            "keyType": "ssh-rsa",
+                            "privateKey": "MC4CAQAwBQYDK2VwBCIEID-U9VakauO4Fsv4b_znpDHcdYg74U68siZjnWLPn7Q1",
+                            "keyComment": "Work SSH Key",
+                            "creationDate": {
+                                "fieldType": "date",
+                                "value": "2023-01-01",
+                                "label": "Creation Date"
+                            },
+                            "expiryDate": {
+                                "fieldType": "date",
+                                "value": "2025-01-01",
+                                "label": "Expiry Date",
+                                "extensions": []
+                            },
+                            "keyGenerationSource": {
+                                "fieldType": "string",
+                                "value": "Generated using OpenSSH",
+                                "label": "Key Generation Source"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "EWM-4m3pSEi0ZBQbFVB92g",
+                    "creationAt": 1705142400,
+                    "modifiedAt": 1705228800,
+                    "title": "ID card",
+                    "subtitle": "US",
+                    "credentials": [
+                        {
+                            "type": "file",
+                            "id": "VGVzdEZpbGVJRA",
+                            "name": "example-document.pdf",
+                            "decryptedSize": 2048576,
+                            "integrityHash": "dGhpcyBpcyBhIHNhbXBsZSBpbnRlZ3JpdHkgaGFzaA"
+                        }
+                    ]
+                },
+                {
+                    "id": "U9TPhd80SsWKKUtx3HxVsA",
+                    "creationAt": 1705142400,
+                    "modifiedAt": 1705228800,
+                    "title": "ID card",
+                    "subtitle": "US",
+                    "credentials": [
+                        {
+                            "type": "identity-document",
+                            "issuingCountry": {
+                                "fieldType": "country-code",
+                                "value": "US",
+                                "label": "Issuing Country"
+                            },
+                            "documentNumber": {
+                                "fieldType": "string",
+                                "value": "123456789",
+                                "label": "Document Number"
+                            },
+                            "identificationNumber": {
+                                "fieldType": "string",
+                                "value": "ID123456789",
+                                "label": "Identification Number"
+                            },
+                            "nationality": {
+                                "fieldType": "string",
+                                "value": "American",
+                                "label": "Nationality"
+                            },
+                            "fullName": {
+                                "fieldType": "string",
+                                "value": "Jane Doe",
+                                "label": "Full Name"
+                            },
+                            "birthDate": {
+                                "fieldType": "date",
+                                "value": "1990-04-15",
+                                "label": "Birth Date"
+                            },
+                            "birthPlace": {
+                                "fieldType": "string",
+                                "value": "New York, USA",
+                                "label": "Birth Place"
+                            },
+                            "sex": {
+                                "fieldType": "string",
+                                "value": "F",
+                                "label": "Sex"
+                            },
+                            "issueDate": {
+                                "fieldType": "date",
+                                "value": "2020-01-01",
+                                "label": "Issue Date"
+                            },
+                            "expiryDate": {
+                                "fieldType": "date",
+                                "value": "2030-01-01",
+                                "label": "Expiry Date"
+                            },
+                            "issuingAuthority": {
+                                "fieldType": "string",
+                                "value": "Department of State",
+                                "label": "Issuing Authority"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "K4BBlNWWTS21ZqzTUn0H6Q",
+                    "creationAt": 1705142400,
+                    "modifiedAt": 1705228800,
+                    "title": "Passport",
+                    "subtitle": "US",
+                    "credentials": [
+                        {
+                            "type": "passport",
+                            "issuingCountry": {
+                                "fieldType": "country-code",
+                                "value": "US",
+                                "label": "Issuing Country"
+                            },
+                            "passportType": {
+                                "fieldType": "string",
+                                "value": "Regular",
+                                "label": "Passport Type"
+                            },
+                            "passportNumber": {
+                                "fieldType": "string",
+                                "value": "A12345678",
+                                "label": "Passport Number"
+                            },
+                            "nationalIdentificationNumber": {
+                                "fieldType": "string",
+                                "value": "ID123456789",
+                                "label": "National Identification Number"
+                            },
+                            "nationality": {
+                                "fieldType": "string",
+                                "value": "American",
+                                "label": "Nationality"
+                            },
+                            "fullName": {
+                                "fieldType": "string",
+                                "value": "John Doe",
+                                "label": "Full Name"
+                            },
+                            "birthDate": {
+                                "fieldType": "date",
+                                "value": "1990-01-01",
+                                "label": "Birth Date"
+                            },
+                            "birthPlace": {
+                                "fieldType": "string",
+                                "value": "Los Angeles, USA",
+                                "label": "Birth Place"
+                            },
+                            "sex": {
+                                "fieldType": "string",
+                                "value": "M",
+                                "label": "Sex"
+                            },
+                            "issueDate": {
+                                "fieldType": "date",
+                                "value": "2015-06-15",
+                                "label": "Issue Date"
+                            },
+                            "expiryDate": {
+                                "fieldType": "date",
+                                "value": "2025-06-15",
+                                "label": "Expiry Date"
+                            },
+                            "issuingAuthority": {
+                                "fieldType": "string",
+                                "value": "U.S. Department of State",
+                                "label": "Issuing Authority"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "LmInpZjdRwKIKZFdbBz19g",
+                    "creationAt": 1705142400,
+                    "modifiedAt": 1705228800,
+                    "title": "John Doe",
+                    "subtitle": "personal name",
+                    "credentials": [
+                        {
+                            "type": "person-name",
+                            "title": {
+                                "fieldType": "string",
+                                "value": "Dr.",
+                                "label": "Title"
+                            },
+                            "given": {
+                                "fieldType": "string",
+                                "value": "John",
+                                "label": "Given Name"
+                            },
+                            "givenInformal": {
+                                "fieldType": "string",
+                                "value": "Johnny",
+                                "label": "Informal Given Name"
+                            },
+                            "given2": {
+                                "fieldType": "string",
+                                "value": "Michael",
+                                "label": "Second Given Name"
+                            },
+                            "surnamePrefix": {
+                                "fieldType": "string",
+                                "value": "van",
+                                "label": "Surname Prefix"
+                            },
+                            "surname": {
+                                "fieldType": "string",
+                                "value": "Doe",
+                                "label": "Surname"
+                            },
+                            "surname2": {
+                                "fieldType": "string",
+                                "value": "Smith",
+                                "label": "Second Surname"
+                            },
+                            "credentials": {
+                                "fieldType": "string",
+                                "value": "PhD",
+                                "label": "Credentials"
+                            },
+                            "generation": {
+                                "fieldType": "string",
+                                "value": "III",
+                                "label": "Generation"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "TMrjj3uIRtitVmIpiwXmyg",
+                    "creationAt": 1705142400,
+                    "modifiedAt": 1705228800,
+                    "title": "API key",
+                    "subtitle": "john_doe",
+                    "credentials": [
+                        {
+                            "type": "api-key",
+                            "key": {
+                                "fieldType": "concealed-string",
+                                "value": "AIzaSyAyRofL-VJHZofHc-qOSkqVOdhvgQoJADk",
+                                "label": "API Key"
+                            },
+                            "username": {
+                                "fieldType": "string",
+                                "value": "john_doe",
+                                "label": "Username"
+                            },
+                            "keyType": {
+                                "fieldType": "string",
+                                "value": "Bearer",
+                                "label": "Key Type"
+                            },
+                            "url": {
+                                "fieldType": "string",
+                                "value": "https://api.example.com",
+                                "label": "API URL"
+                            },
+                            "validFrom": {
+                                "fieldType": "date",
+                                "value": "2025-01-01",
+                                "label": "Valid From"
+                            },
+                            "expiryDate": {
+                                "fieldType": "date",
+                                "value": "2026-01-01",
+                                "label": "Expiry Date"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "QtvgfXSgS8O6ukLNZZKMlw",
+                    "creationAt": 1705142400,
+                    "modifiedAt": 1705228800,
+                    "title": "Generated Password",
+                    "subtitle": "john_doe",
+                    "credentials": [
+                        {
+                            "type": "generated-password",
+                            "password": "KozyS!cf#Nc9C799"
+                        }
+                    ]
+                }
+            ],
+            "collections": [
+                {
+                    "id": "0dimBl7dRRyPLGKGxEEm5Q",
+                    "creationAt": 1705228800,
+                    "modifiedAt": 1705315200,
+                    "title": "Work Accounts",
+                    "subtitle": "A collection of pro accounts for various services",
+                    "items": [
+                        {
+                            "item": "TMrjj3uIRtitVmIpiwXmyg",
+                            "account": "DZSXp7iBQY-Fg-OofakQtQ"
+                        },
+                        {
+                            "item": "Z4cFmc21Q5-vCVwd1wJx1g",
+                            "account": "DZSXp7iBQY-Fg-OofakQtQ"
+                        },
+                        {
+                            "item": "9OF-QjVDQo2Wp2xWPw6ZhA",
+                            "account": "DZSXp7iBQY-Fg-OofakQtQ"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

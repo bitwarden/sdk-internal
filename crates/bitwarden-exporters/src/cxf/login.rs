@@ -6,10 +6,11 @@
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::MissingFieldError;
 use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
-use bitwarden_vault::FieldType;
+use bitwarden_vault::{FieldType, Totp, TotpAlgorithm};
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
-    AndroidAppIdCredential, BasicAuthCredential, CredentialScope, PasskeyCredential,
+    AndroidAppIdCredential, BasicAuthCredential, CredentialScope, OTPHashAlgorithm,
+    PasskeyCredential, TotpCredential,
 };
 use thiserror::Error;
 
@@ -18,17 +19,48 @@ use crate::{Fido2Credential, Field, Login, LoginUri};
 /// Prefix that indicates the URL is an Android app scheme.
 const ANDROID_APP_SCHEME: &str = "androidapp://";
 
+/// Convert CXF OTPHashAlgorithm to Bitwarden's TotpAlgorithm
+/// Handles standard algorithms and special cases like Steam
+fn convert_otp_algorithm(algorithm: &OTPHashAlgorithm) -> TotpAlgorithm {
+    match algorithm {
+        OTPHashAlgorithm::Sha1 => TotpAlgorithm::Sha1,
+        OTPHashAlgorithm::Sha256 => TotpAlgorithm::Sha256,
+        OTPHashAlgorithm::Sha512 => TotpAlgorithm::Sha512,
+        OTPHashAlgorithm::Unknown(ref algo) if algo == "steam" => TotpAlgorithm::Steam,
+        OTPHashAlgorithm::Unknown(_) | _ => TotpAlgorithm::Sha1, /* Default to SHA1 for unknown
+                                                                  * algorithms */
+    }
+}
+
+/// Convert CXF TotpCredential to Bitwarden's Totp struct
+/// This ensures we use the exact same encoding and formatting as Bitwarden's core implementation
+fn totp_credential_to_totp(cxf_totp: &TotpCredential) -> Totp {
+    let algorithm = convert_otp_algorithm(&cxf_totp.algorithm);
+
+    let secret_bytes: Vec<u8> = cxf_totp.secret.clone().into();
+
+    Totp {
+        account: cxf_totp.username.clone(),
+        algorithm,
+        digits: cxf_totp.digits as u32,
+        issuer: cxf_totp.issuer.clone(),
+        period: cxf_totp.period as u32,
+        secret: secret_bytes,
+    }
+}
+
 pub(super) fn to_login(
     creation_date: DateTime<Utc>,
     basic_auth: Option<&BasicAuthCredential>,
     passkey: Option<&PasskeyCredential>,
+    totp: Option<&TotpCredential>,
     scope: Option<&CredentialScope>,
 ) -> Login {
     Login {
         username: basic_auth.and_then(|v| v.username.clone().map(|v| v.into())),
         password: basic_auth.and_then(|v| v.password.clone().map(|u| u.into())),
         login_uris: scope.map(to_uris).unwrap_or_default(),
-        totp: None,
+        totp: totp.map(|t| totp_credential_to_totp(t).to_string()),
         fido2_credentials: passkey.map(|p| {
             vec![Fido2Credential {
                 credential_id: format!("b64.{}", p.credential_id),
@@ -69,7 +101,8 @@ fn to_uris(scope: &CredentialScope) -> Vec<LoginUri> {
 /// Converts a `CredentialScope` to a vector of `Field` objects.
 ///
 /// This is used for non-login credentials.
-pub(crate) fn to_fields(scope: &CredentialScope) -> Vec<Field> {
+#[allow(unused)]
+pub(super) fn to_fields(scope: &CredentialScope) -> Vec<Field> {
     let urls = scope.urls.iter().enumerate().map(|(i, u)| Field {
         name: Some(format!("Url {}", i + 1)),
         value: Some(u.clone()),
@@ -472,5 +505,101 @@ mod tests {
                 },
             ]
         );
+    }
+
+    // TOTP tests
+    #[test]
+    fn test_totp_credential_to_totp_basic() {
+        let totp = TotpCredential {
+            secret: "Hello World!".as_bytes().to_vec().into(),
+            period: 30,
+            digits: 6,
+            username: Some("test@example.com".to_string()),
+            algorithm: OTPHashAlgorithm::Sha1,
+            issuer: Some("Example".to_string()),
+        };
+
+        let bitwarden_totp = totp_credential_to_totp(&totp);
+        let otpauth = bitwarden_totp.to_string();
+
+        assert!(otpauth.starts_with("otpauth://totp/Example:test%40example%2Ecom?secret="));
+        assert!(otpauth.contains("&issuer=Example"));
+        // Default period (30) and digits (6) and algorithm (SHA1) should not be included
+        assert!(!otpauth.contains("&period=30"));
+        assert!(!otpauth.contains("&digits=6"));
+        assert!(!otpauth.contains("&algorithm=SHA1"));
+    }
+
+    #[test]
+    fn test_totp_credential_to_totp_custom_parameters() {
+        let totp = TotpCredential {
+            secret: "Hello World!".as_bytes().to_vec().into(),
+            period: 60,
+            digits: 8,
+            username: Some("user".to_string()),
+            algorithm: OTPHashAlgorithm::Sha256,
+            issuer: Some("Custom Issuer".to_string()),
+        };
+
+        let bitwarden_totp = totp_credential_to_totp(&totp);
+        let otpauth = bitwarden_totp.to_string();
+
+        assert!(otpauth.contains("Custom%20Issuer:user"));
+        assert!(otpauth.contains("&issuer=Custom%20Issuer"));
+        assert!(otpauth.contains("&period=60"));
+        assert!(otpauth.contains("&digits=8"));
+        assert!(otpauth.contains("&algorithm=SHA256"));
+    }
+
+    // Algorithm conversion tests
+    #[test]
+    fn test_convert_otp_algorithm_sha1() {
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Sha1);
+        assert_eq!(result, TotpAlgorithm::Sha1);
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_sha256() {
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Sha256);
+        assert_eq!(result, TotpAlgorithm::Sha256);
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_sha512() {
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Sha512);
+        assert_eq!(result, TotpAlgorithm::Sha512);
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_steam() {
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown("steam".to_string()));
+        assert_eq!(result, TotpAlgorithm::Steam);
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_steam_case_sensitive() {
+        // Test that "steam" is case-sensitive
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown("Steam".to_string()));
+        assert_eq!(result, TotpAlgorithm::Sha1); // will default to SHA1
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_unknown_empty() {
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown("".to_string()));
+        assert_eq!(result, TotpAlgorithm::Sha1); // will default to SHA1
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_unknown_md5() {
+        // Test an algorithm that might exist in other systems but isn't supported
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown("md5".to_string()));
+        assert_eq!(result, TotpAlgorithm::Sha1); // will default to SHA1
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_unknown_whitespace() {
+        // Test steam with whitespace (will not match)
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown(" steam ".to_string()));
+        assert_eq!(result, TotpAlgorithm::Sha1); // will default to SHA1
     }
 }

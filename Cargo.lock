@@ -504,6 +504,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-fido",
+ "bitwarden-ssh",
  "bitwarden-vault",
  "chrono",
  "credential-exchange-format",
@@ -1166,9 +1167,8 @@ dependencies = [
 
 [[package]]
 name = "credential-exchange-format"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5209d9b20c3eb8d2b96f3b06133b27d79168f312c09a8035f46c0fb18053aefc"
+version = "0.2.0"
+source = "git+https://github.com/bitwarden/credential-exchange?rev=38e8a013c13644f832c457555baaa536fe481b77#38e8a013c13644f832c457555baaa536fe481b77"
 dependencies = [
  "chrono",
  "data-encoding",
