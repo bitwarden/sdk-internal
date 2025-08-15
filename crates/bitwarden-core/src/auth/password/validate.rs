@@ -70,7 +70,7 @@ pub(crate) fn validate_password_user_key(
                 }
 
                 Ok(master_key
-                    .derive_master_key_hash(password.as_bytes(), HashPurpose::LocalAuthorization)?)
+                    .derive_master_key_hash(password.as_bytes(), HashPurpose::LocalAuthorization))
             }
         }
     } else {

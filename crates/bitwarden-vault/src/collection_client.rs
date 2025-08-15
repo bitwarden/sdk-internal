@@ -3,6 +3,7 @@ use bitwarden_collections::{
     tree::{NodeItem, Tree},
 };
 use bitwarden_core::Client;
+#[cfg(feature = "wasm")]
 use bitwarden_error::js_sys::Map;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -69,6 +70,7 @@ impl CollectionViewNodeItem {
         self.node_item.children.clone()
     }
 
+    #[cfg(feature = "wasm")]
     pub fn get_ancestors(&self) -> Map {
         self.node_item
             .ancestors

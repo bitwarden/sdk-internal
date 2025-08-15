@@ -40,12 +40,10 @@ fn main() {
                 kdf,
             } => {
                 let key = MasterKey::derive(&password, &email, &kdf).unwrap();
-                let hash = key
-                    .derive_master_key_hash(
-                        password.as_bytes(),
-                        bitwarden_crypto::HashPurpose::ServerAuthorization,
-                    )
-                    .unwrap();
+                let hash = key.derive_master_key_hash(
+                    password.as_bytes(),
+                    bitwarden_crypto::HashPurpose::ServerAuthorization,
+                );
 
                 master_keys.push((key, hash));
             }
