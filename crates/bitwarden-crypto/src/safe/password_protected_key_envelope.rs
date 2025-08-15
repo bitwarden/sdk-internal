@@ -155,15 +155,17 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
     ) -> Result<SymmetricCryptoKey, PasswordProtectedKeyEnvelopeError> {
         // There must be exactly one recipient in the COSE Encrypt object, which contains the KDF
         // parameters.
-        if self.cose_encrypt.recipients.len() != 1 {
-            return Err(PasswordProtectedKeyEnvelopeError::ParsingError(
-                "Invalid number of recipients".to_string(),
-            ));
-        }
+        let recipient = self
+            .cose_encrypt
+            .recipients
+            .first()
+            .filter(|_| self.cose_encrypt.recipients.len() == 1)
+            .ok_or_else(|| {
+                PasswordProtectedKeyEnvelopeError::ParsingError(
+                    "Invalid number of recipients".to_string(),
+                )
+            })?;
 
-        let recipient = self.cose_encrypt.recipients.first().ok_or(
-            PasswordProtectedKeyEnvelopeError::ParsingError("Missing recipient".to_string()),
-        )?;
         if recipient.protected.header.alg != Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13)) {
             return Err(PasswordProtectedKeyEnvelopeError::ParsingError(
                 "Unknown or unsupported KDF algorithm".to_string(),
