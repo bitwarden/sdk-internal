@@ -31,10 +31,7 @@ fn main() {
     let pin = "1234";
     let envelope =
         PasswordProtectedKeyEnvelope::seal(vault_key, pin, &ctx).expect("Sealing should work");
-    disk.save(
-        "vault_key_envelope",
-        (&envelope).into(),
-    );
+    disk.save("vault_key_envelope", (&envelope).into());
 
     // Wipe the context to simulate new session
     ctx.clear_local();
@@ -55,20 +52,14 @@ fn main() {
     let envelope = envelope
         .reseal(pin, "0000")
         .expect("The password should be valid");
-    disk.save(
-        "vault_key_envelope",
-        (&envelope).into(),
-    );
+    disk.save("vault_key_envelope", (&envelope).into());
 
     // Alice wants to change the protected key. This requires creating a new envelope
     ctx.generate_symmetric_key(ExampleSymmetricKey::VaultKey)
         .expect("Generating vault key should work");
     let envelope = PasswordProtectedKeyEnvelope::seal(ExampleSymmetricKey::VaultKey, "0000", &ctx)
         .expect("Sealing should work");
-    disk.save(
-        "vault_key_envelope",
-        (&envelope).into(),
-    );
+    disk.save("vault_key_envelope", (&envelope).into());
 
     // Alice tries the password but it is wrong
     assert!(matches!(
