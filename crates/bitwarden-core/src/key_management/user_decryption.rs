@@ -46,7 +46,7 @@ impl TryFrom<IdentityUserDecryptionOptionsResponseModel> for UserDecryptionData 
     fn try_from(response: IdentityUserDecryptionOptionsResponseModel) -> Result<Self, Self::Error> {
         let master_password_unlock = response
             .master_password_unlock
-            .map(|response| MasterPasswordUnlockData::try_from(response))
+            .map(MasterPasswordUnlockData::try_from)
             .transpose()?;
 
         Ok(UserDecryptionData {
