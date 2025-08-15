@@ -341,9 +341,9 @@ pub(super) fn update_password(
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct EnrollPinResponse {
     /// [UserKey] protected by PIN
-    pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
+    pub pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
     /// PIN protected by [UserKey]
-    user_key_encrypted_pin: EncString,
+    pub user_key_encrypted_pin: EncString,
 }
 
 pub(super) fn enroll_pin(

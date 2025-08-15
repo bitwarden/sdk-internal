@@ -9,7 +9,7 @@ use super::crypto::{
     DeriveKeyConnectorRequest, EnrollAdminPasswordResetError, MakeKeyPairResponse,
     VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
 };
-#[cfg(feature = "wasm")]
+#[cfg(any(feature = "wasm", test))]
 use crate::key_management::PasswordProtectedKeyEnvelope;
 #[cfg(feature = "internal")]
 use crate::key_management::{
@@ -111,7 +111,7 @@ impl CryptoClient {
 
     /// Decrypts a `PasswordProtectedKeyEnvelope`, returning the user key, if successful.
     /// This is a stop-gap solution, until initialization of the SDK is used.
-    #[cfg(feature = "wasm")]
+    #[cfg(any(feature = "wasm", test))]
     pub fn unseal_password_protected_key_envelope(
         &self,
         pin: String,
@@ -184,5 +184,42 @@ impl Client {
         CryptoClient {
             client: self.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bitwarden_crypto::{BitwardenLegacyKeyBytes, SymmetricCryptoKey};
+
+    use super::*;
+    use crate::client::test_accounts::test_bitwarden_com_account;
+
+    #[tokio::test]
+    async fn test_enroll_pin_envelope() {
+        // Initialize a test client with user crypto
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let user_key_initial =
+            SymmetricCryptoKey::try_from(client.crypto().get_user_encryption_key().await.unwrap())
+                .unwrap();
+
+        // Enroll with a PIN, then re-enroll
+        let pin = "1234";
+        let enroll_response = client.crypto().enroll_pin(pin.to_string()).unwrap();
+        let re_enroll_response = client
+            .crypto()
+            .enroll_pin_with_encrypted_pin(enroll_response.user_key_encrypted_pin.to_string())
+            .unwrap();
+
+        let secret = BitwardenLegacyKeyBytes::from(
+            client
+                .crypto()
+                .unseal_password_protected_key_envelope(
+                    pin.to_string(),
+                    re_enroll_response.pin_protected_user_key_envelope,
+                )
+                .unwrap(),
+        );
+        let user_key_final = SymmetricCryptoKey::try_from(&secret).unwrap();
+        assert_eq!(user_key_initial, user_key_final);
     }
 }
