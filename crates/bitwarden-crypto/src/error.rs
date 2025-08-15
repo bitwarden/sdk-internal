@@ -4,7 +4,7 @@ use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{fingerprint::FingerprintError, safe::PasswordProtectedKeyEnvelopeError};
+use crate::fingerprint::FingerprintError;
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -69,9 +69,6 @@ pub enum CryptoError {
 
     #[error("Encoding error, {0}")]
     EncodingError(#[from] EncodingError),
-
-    #[error("Password protected key envelope error, {0}")]
-    PasswordProtectedKeyEnvelopeError(#[from] PasswordProtectedKeyEnvelopeError),
 }
 
 #[derive(Debug, Error)]

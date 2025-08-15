@@ -8,10 +8,11 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    dangerous_get_v2_rotated_account_keys, AsymmetricCryptoKey, CoseSerializable, CryptoError,
-    EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes,
-    PrimitiveEncryptable, SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes,
-    SymmetricCryptoKey, UnsignedSharedKey, UserKey,
+    dangerous_get_v2_rotated_account_keys, safe::PasswordProtectedKeyEnvelopeError,
+    AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
+    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, SignatureAlgorithm,
+    SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
+    UserKey,
 };
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
@@ -40,6 +41,8 @@ pub enum CryptoClientError {
     VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
+    #[error(transparent)]
+    PasswordProtectedKeyEnvelope(#[from] PasswordProtectedKeyEnvelopeError),
 }
 
 /// State used for initializing the user cryptographic state.
@@ -353,14 +356,12 @@ pub(super) fn enroll_pin(
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context_mut();
 
-    let key_envelope = PasswordProtectedKeyEnvelope(
-        bitwarden_crypto::safe::PasswordProtectedKeyEnvelope::seal(
+    let key_envelope =
+        PasswordProtectedKeyEnvelope(bitwarden_crypto::safe::PasswordProtectedKeyEnvelope::seal(
             SymmetricKeyId::User,
             &pin,
             &ctx,
-        )
-        .map_err(CryptoError::PasswordProtectedKeyEnvelopeError)?,
-    );
+        )?);
     let encrypted_pin = pin.encrypt(&mut ctx, SymmetricKeyId::User)?;
     Ok(EnrollPinResponse {
         pin_protected_user_key_envelope: key_envelope,
