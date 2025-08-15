@@ -14,7 +14,7 @@ use crate::{
             address_to_identity, drivers_license_to_identity, identity_document_to_identity,
             passport_to_identity, person_name_to_identity,
         },
-        login::{to_fields, to_login},
+        login::to_login,
         note::extract_note_content,
         wifi::wifi_to_fields,
         CxfError,
