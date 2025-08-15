@@ -101,6 +101,7 @@ fn to_uris(scope: &CredentialScope) -> Vec<LoginUri> {
 /// Converts a `CredentialScope` to a vector of `Field` objects.
 ///
 /// This is used for non-login credentials.
+#[allow(unused)]
 pub(super) fn to_fields(scope: &CredentialScope) -> Vec<Field> {
     let urls = scope.urls.iter().enumerate().map(|(i, u)| Field {
         name: Some(format!("Url {}", i + 1)),

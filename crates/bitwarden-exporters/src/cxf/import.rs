@@ -9,11 +9,12 @@ use credential_exchange_format::{
 use crate::{
     cxf::{
         api_key::api_key_to_fields,
+        card::to_card,
         identity::{
             address_to_identity, drivers_license_to_identity, identity_document_to_identity,
             passport_to_identity, person_name_to_identity,
         },
-        login::{to_fields, to_login},
+        login::to_login,
         note::extract_note_content,
         wifi::wifi_to_fields,
         CxfError,
@@ -81,10 +82,9 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
 
     // Credit Card credentials
     if let Some(credit_card) = grouped.credit_card.first() {
-        add_item(
-            CipherType::Card(Box::new(credit_card.into())),
-            scope.map(to_fields).unwrap_or_default(),
-        );
+        let (card, fields) = to_card(credit_card);
+
+        add_item(CipherType::Card(Box::new(card)), fields);
     }
 
     // Helper for creating SecureNote cipher type
