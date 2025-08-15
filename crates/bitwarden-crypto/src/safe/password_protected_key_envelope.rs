@@ -77,7 +77,7 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
         Self::seal_ref_with_settings(
             key_to_seal,
             password,
-            &Argon2RawSettings::default_for_platform(),
+            &Argon2RawSettings::local_kdf_settings(),
         )
     }
 
@@ -262,9 +262,9 @@ struct Argon2RawSettings {
 }
 
 impl Argon2RawSettings {
-    /// Creates default Argon2 settings based on the platform. This currently is a static preset
+    /// Creates default Argon2 settings based on the device. This currently is a static preset
     /// based on the target os
-    fn default_for_platform() -> Self {
+    fn local_kdf_settings() -> Self {
         // iOS has memory limitations in the auto-fill context. So, the memory is halved
         // but the iterations are doubled
         if cfg!(target_os = "ios") {
@@ -310,8 +310,13 @@ impl TryInto<Params> for &Argon2RawSettings {
     type Error = PasswordProtectedKeyEnvelopeError;
 
     fn try_into(self) -> Result<Params, PasswordProtectedKeyEnvelopeError> {
-        Params::new(self.memory, self.iterations, self.parallelism, Some(32))
-            .map_err(|_| PasswordProtectedKeyEnvelopeError::KdfError)
+        Params::new(
+            self.memory,
+            self.iterations,
+            self.parallelism,
+            Some(ENVELOPE_ARGON2_OUTPUT_KEY_SIZE),
+        )
+        .map_err(|_| PasswordProtectedKeyEnvelopeError::KdfError)
     }
 }
 
