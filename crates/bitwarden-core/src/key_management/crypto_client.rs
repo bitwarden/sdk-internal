@@ -81,8 +81,8 @@ impl CryptoClient {
         get_v2_rotated_account_keys(&self.client)
     }
 
-    /// Update the user's password, which will re-encrypt the user's encryption key with the new
-    /// password. This returns the new encrypted user key and the new password hash.
+    /// Update the user's kdf settings, which will re-encrypt the user's encryption key with the new
+    /// kdf settings. This returns the new encrypted user key and the new password hash.
     pub fn update_kdf(
         &self,
         password: String,

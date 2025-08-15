@@ -2,7 +2,7 @@ use bitwarden_core::key_management::crypto::{
     DeriveKeyConnectorRequest, DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest,
     UpdatePasswordResponse,
 };
-use bitwarden_crypto::{EncString, UnsignedSharedKey};
+use bitwarden_crypto::{EncString, Kdf, UnsignedSharedKey};
 
 use crate::error::{Error, Result};
 
@@ -80,5 +80,18 @@ impl CryptoClient {
             .0
             .derive_key_connector(request)
             .map_err(Error::DeriveKeyConnector)?)
+    }
+
+    /// Update the user's kdf settings, which will re-encrypt the user's encryption key with the new
+    /// kdf settings. This returns the new encrypted user key and the new password hash.
+    pub fn update_kdf(
+        &self,
+        password: String,
+        kdf: Kdf,
+    ) -> Result<bitwarden_core::key_management::crypto::UpdateKdfResponse> {
+        Ok(self
+            .0
+            .update_kdf(password, kdf)
+            .map_err(Error::MobileCrypto)?)
     }
 }
