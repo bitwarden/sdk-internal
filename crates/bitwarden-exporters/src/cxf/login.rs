@@ -19,17 +19,23 @@ use crate::{Fido2Credential, Field, Login, LoginUri};
 /// Prefix that indicates the URL is an Android app scheme.
 const ANDROID_APP_SCHEME: &str = "androidapp://";
 
-/// Convert CXF TotpCredential to Bitwarden's Totp struct
-/// This ensures we use the exact same encoding and formatting as Bitwarden's core implementation
-fn totp_credential_to_totp(cxf_totp: &TotpCredential) -> Totp {
-    let algorithm = match cxf_totp.algorithm {
+/// Convert CXF OTPHashAlgorithm to Bitwarden's TotpAlgorithm
+/// Handles standard algorithms and special cases like Steam
+fn convert_otp_algorithm(algorithm: &OTPHashAlgorithm) -> TotpAlgorithm {
+    match algorithm {
         OTPHashAlgorithm::Sha1 => TotpAlgorithm::Sha1,
         OTPHashAlgorithm::Sha256 => TotpAlgorithm::Sha256,
         OTPHashAlgorithm::Sha512 => TotpAlgorithm::Sha512,
         OTPHashAlgorithm::Unknown(ref algo) if algo == "steam" => TotpAlgorithm::Steam,
         OTPHashAlgorithm::Unknown(_) | _ => TotpAlgorithm::Sha1, /* Default to SHA1 for unknown
                                                                   * algorithms */
-    };
+    }
+}
+
+/// Convert CXF TotpCredential to Bitwarden's Totp struct
+/// This ensures we use the exact same encoding and formatting as Bitwarden's core implementation
+fn totp_credential_to_totp(cxf_totp: &TotpCredential) -> Totp {
+    let algorithm = convert_otp_algorithm(&cxf_totp.algorithm);
 
     let secret_bytes: Vec<u8> = cxf_totp.secret.clone().into();
 
@@ -542,5 +548,57 @@ mod tests {
         assert!(otpauth.contains("&period=60"));
         assert!(otpauth.contains("&digits=8"));
         assert!(otpauth.contains("&algorithm=SHA256"));
+    }
+
+    // Algorithm conversion tests
+    #[test]
+    fn test_convert_otp_algorithm_sha1() {
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Sha1);
+        assert_eq!(result, TotpAlgorithm::Sha1);
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_sha256() {
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Sha256);
+        assert_eq!(result, TotpAlgorithm::Sha256);
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_sha512() {
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Sha512);
+        assert_eq!(result, TotpAlgorithm::Sha512);
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_steam() {
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown("steam".to_string()));
+        assert_eq!(result, TotpAlgorithm::Steam);
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_steam_case_sensitive() {
+        // Test that "steam" is case-sensitive
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown("Steam".to_string()));
+        assert_eq!(result, TotpAlgorithm::Sha1); // will default to SHA1
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_unknown_empty() {
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown("".to_string()));
+        assert_eq!(result, TotpAlgorithm::Sha1); // will default to SHA1
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_unknown_md5() {
+        // Test an algorithm that might exist in other systems but isn't supported
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown("md5".to_string()));
+        assert_eq!(result, TotpAlgorithm::Sha1); // will default to SHA1
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_unknown_whitespace() {
+        // Test steam with whitespace (will not match)
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown(" steam ".to_string()));
+        assert_eq!(result, TotpAlgorithm::Sha1); // will default to SHA1
     }
 }
