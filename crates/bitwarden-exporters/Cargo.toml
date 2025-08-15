@@ -30,6 +30,7 @@ bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-fido = { workspace = true }
+bitwarden-ssh = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
 credential-exchange-format = { git = "https://github.com/bitwarden/credential-exchange", rev = "38e8a013c13644f832c457555baaa536fe481b77" }
