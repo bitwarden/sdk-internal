@@ -1,4 +1,4 @@
-use bitwarden_crypto::CryptoError;
+use bitwarden_crypto::{CryptoError, Decryptable};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 #[cfg(feature = "wasm")]
@@ -87,6 +87,20 @@ impl CryptoClient {
     /// used to initialize another client instance by using the PIN and the PIN key with
     /// `initialize_user_crypto`.
     pub fn enroll_pin(&self, pin: String) -> Result<EnrollPinResponse, CryptoClientError> {
+        enroll_pin(&self.client, pin)
+    }
+
+    /// Protects the current user key with the provided PIN. The result can be stored and later
+    /// used to initialize another client instance by using the PIN and the PIN key with
+    /// `initialize_user_crypto`. The provided pin is encrypted with the user key.
+    pub fn enroll_pin_with_encrypted_pin(
+        &self,
+        pin: EncString,
+    ) -> Result<EnrollPinResponse, CryptoClientError> {
+        let pin = pin.decrypt(
+            &mut self.client.internal.get_key_store().context_mut(),
+            SymmetricKeyId::User,
+        )?;
         enroll_pin(&self.client, pin)
     }
 
