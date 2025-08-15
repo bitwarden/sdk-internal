@@ -4,7 +4,7 @@ use bitwarden_api_identity::models::KdfType;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::auth::api::response::user_decryption_options_response::UserDecryptionOptionsResponseModel;
+use crate::auth::api::response::identity_user_decryption_options_response::IdentityUserDecryptionOptionsResponseModel;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct IdentityTokenSuccessResponse {
@@ -38,7 +38,7 @@ pub struct IdentityTokenSuccessResponse {
     key_connector_url: Option<String>,
 
     #[serde(rename = "userDecryptionOptions", alias = "UserDecryptionOptions")]
-    pub user_decryption_options: Option<UserDecryptionOptionsResponseModel>,
+    pub user_decryption_options: Option<IdentityUserDecryptionOptionsResponseModel>,
 
     /// Stores unknown api response fields
     extra: Option<HashMap<String, Value>>,

@@ -2,7 +2,7 @@ use bitwarden_api_api::models::MasterPasswordUnlockResponseModel;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct UserDecryptionOptionsResponseModel {
+pub struct IdentityUserDecryptionOptionsResponseModel {
     #[serde(
         rename = "masterPasswordUnlock",
         skip_serializing_if = "Option::is_none"
