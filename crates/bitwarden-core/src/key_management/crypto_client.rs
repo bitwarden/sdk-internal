@@ -95,9 +95,10 @@ impl CryptoClient {
     /// `initialize_user_crypto`. The provided pin is encrypted with the user key.
     pub fn enroll_pin_with_encrypted_pin(
         &self,
-        pin: EncString,
+        encrypted_pin: String,
     ) -> Result<EnrollPinResponse, CryptoClientError> {
-        let pin = pin.decrypt(
+        let encrypted_pin: EncString = encrypted_pin.parse()?;
+        let pin = encrypted_pin.decrypt(
             &mut self.client.internal.get_key_store().context_mut(),
             SymmetricKeyId::User,
         )?;
