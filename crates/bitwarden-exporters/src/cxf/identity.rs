@@ -290,3 +290,172 @@ fn split_name(
         }
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_split_name_none() {
+        let full_name = None;
+        let (first, last) = split_name(&full_name);
+        assert_eq!(first, None);
+        assert_eq!(last, None);
+    }
+
+    #[test]
+    fn test_split_name_empty_string() {
+        let full_name = Some(EditableField {
+            value: EditableFieldString("".to_string()),
+            label: None,
+            id: None,
+            extensions: None,
+        });
+        let (first, last) = split_name(&full_name);
+        assert_eq!(first, None);
+        assert_eq!(last, None);
+    }
+
+    #[test]
+    fn test_split_name_whitespace_only() {
+        let full_name = Some(EditableField {
+            value: EditableFieldString("   \t\n  ".to_string()),
+            label: None,
+            id: None,
+            extensions: None,
+        });
+        let (first, last) = split_name(&full_name);
+        assert_eq!(first, None);
+        assert_eq!(last, None);
+    }
+
+    #[test]
+    fn test_split_name_single_name() {
+        let full_name = Some(EditableField {
+            value: EditableFieldString("John".to_string()),
+            label: None,
+            id: None,
+            extensions: None,
+        });
+        let (first, last) = split_name(&full_name);
+        assert_eq!(first, Some("John".to_string()));
+        assert_eq!(last, None);
+    }
+
+    #[test]
+    fn test_split_name_single_name_with_whitespace() {
+        let full_name = Some(EditableField {
+            value: EditableFieldString("  John  ".to_string()),
+            label: None,
+            id: None,
+            extensions: None,
+        });
+        let (first, last) = split_name(&full_name);
+        assert_eq!(first, Some("John".to_string()));
+        assert_eq!(last, None);
+    }
+
+    #[test]
+    fn test_split_name_first_last() {
+        let full_name = Some(EditableField {
+            value: EditableFieldString("John Doe".to_string()),
+            label: None,
+            id: None,
+            extensions: None,
+        });
+        let (first, last) = split_name(&full_name);
+        assert_eq!(first, Some("John".to_string()));
+        assert_eq!(last, Some("Doe".to_string()));
+    }
+
+    #[test]
+    fn test_split_name_first_middle_last() {
+        let full_name = Some(EditableField {
+            value: EditableFieldString("John Michael Doe".to_string()),
+            label: None,
+            id: None,
+            extensions: None,
+        });
+        let (first, last) = split_name(&full_name);
+        assert_eq!(first, Some("John".to_string()));
+        assert_eq!(last, Some("Michael Doe".to_string()));
+    }
+
+    #[test]
+    fn test_split_name_multiple_middle_names() {
+        let full_name = Some(EditableField {
+            value: EditableFieldString("John Michael Andrew Doe".to_string()),
+            label: None,
+            id: None,
+            extensions: None,
+        });
+        let (first, last) = split_name(&full_name);
+        assert_eq!(first, Some("John".to_string()));
+        assert_eq!(last, Some("Michael Andrew Doe".to_string()));
+    }
+
+    #[test]
+    fn test_split_name_complex_surname() {
+        let full_name = Some(EditableField {
+            value: EditableFieldString("Jane van der Berg".to_string()),
+            label: None,
+            id: None,
+            extensions: None,
+        });
+        let (first, last) = split_name(&full_name);
+        assert_eq!(first, Some("Jane".to_string()));
+        assert_eq!(last, Some("van der Berg".to_string()));
+    }
+
+    #[test]
+    fn test_split_name_hyphenated_surname() {
+        let full_name = Some(EditableField {
+            value: EditableFieldString("Mary Smith-Johnson".to_string()),
+            label: None,
+            id: None,
+            extensions: None,
+        });
+        let (first, last) = split_name(&full_name);
+        assert_eq!(first, Some("Mary".to_string()));
+        assert_eq!(last, Some("Smith-Johnson".to_string()));
+    }
+
+    #[test]
+    fn test_split_name_extra_whitespace() {
+        let full_name = Some(EditableField {
+            value: EditableFieldString("  John   Michael   Doe  ".to_string()),
+            label: None,
+            id: None,
+            extensions: None,
+        });
+        let (first, last) = split_name(&full_name);
+        assert_eq!(first, Some("John".to_string()));
+        assert_eq!(last, Some("Michael Doe".to_string()));
+    }
+
+    #[test]
+    fn test_split_name_special_characters() {
+        let full_name = Some(EditableField {
+            value: EditableFieldString("José María González".to_string()),
+            label: None,
+            id: None,
+            extensions: None,
+        });
+        let (first, last) = split_name(&full_name);
+        assert_eq!(first, Some("José".to_string()));
+        assert_eq!(last, Some("María González".to_string()));
+    }
+
+    #[test]
+    fn test_split_name_single_character_names() {
+        let full_name = Some(EditableField {
+            value: EditableFieldString("A B C".to_string()),
+            label: None,
+            id: None,
+            extensions: None,
+        });
+        let (first, last) = split_name(&full_name);
+        assert_eq!(first, Some("A".to_string()));
+        assert_eq!(last, Some("B C".to_string()));
+    }
+}
