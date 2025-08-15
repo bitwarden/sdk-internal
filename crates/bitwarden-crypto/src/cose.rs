@@ -32,7 +32,7 @@ pub(crate) const ARGON2_PARALLELISM: i64 = -71004;
 // Note: These are in the "unregistered" tree: https://datatracker.ietf.org/doc/html/rfc6838#section-3.4
 // These are only used within Bitwarden, and not meant for exchange with other systems.
 const CONTENT_TYPE_PADDED_UTF8: &str = "application/x.bitwarden.utf8-padded";
-pub(crate) const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
+const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
 const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-key";
 
 // Labels

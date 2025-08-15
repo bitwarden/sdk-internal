@@ -17,16 +17,14 @@ use std::{marker::PhantomData, num::TryFromIntError};
 
 use argon2::Params;
 use ciborium::{value::Integer, Value};
-use coset::{
-    iana::CoapContentFormat, CborSerializable, ContentType, CoseError, Header, HeaderBuilder,
-};
+use coset::{CborSerializable, CoseError, Header, HeaderBuilder};
 use rand::RngCore;
 use thiserror::Error;
 
 use crate::{
     cose::{
         extract_bytes, extract_integer, CoseExtractError, ALG_ARGON2ID13, ARGON2_ITERATIONS,
-        ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT, CONTENT_TYPE_BITWARDEN_LEGACY_KEY,
+        ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
     },
     xchacha20, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds,
     KeyStoreContext, SymmetricCryptoKey,
@@ -200,13 +198,15 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
             .map_err(|_| PasswordProtectedKeyEnvelopeError::WrongPassword)?;
 
         SymmetricCryptoKey::try_from(
-            match self.cose_encrypt.protected.header.content_type.as_ref() {
-                Some(ContentType::Text(format)) if format == CONTENT_TYPE_BITWARDEN_LEGACY_KEY => {
-                    EncodedSymmetricKey::BitwardenLegacyKey(BitwardenLegacyKeyBytes::from(
-                        key_bytes,
-                    ))
-                }
-                Some(ContentType::Assigned(CoapContentFormat::CoseKey)) => {
+            match ContentFormat::try_from(&self.cose_encrypt.protected.header).map_err(|_| {
+                PasswordProtectedKeyEnvelopeError::ParsingError(
+                    "Invalid content format".to_string(),
+                )
+            })? {
+                ContentFormat::BitwardenLegacyKey => EncodedSymmetricKey::BitwardenLegacyKey(
+                    BitwardenLegacyKeyBytes::from(key_bytes),
+                ),
+                ContentFormat::CoseKey => {
                     EncodedSymmetricKey::CoseKey(CoseKeyBytes::from(key_bytes))
                 }
                 _ => {
