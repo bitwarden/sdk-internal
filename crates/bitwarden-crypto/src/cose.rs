@@ -32,7 +32,7 @@ pub(crate) const ARGON2_PARALLELISM: i64 = -71004;
 // Note: These are in the "unregistered" tree: https://datatracker.ietf.org/doc/html/rfc6838#section-3.4
 // These are only used within Bitwarden, and not meant for exchange with other systems.
 const CONTENT_TYPE_PADDED_UTF8: &str = "application/x.bitwarden.utf8-padded";
-pub(crate) const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
+const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
 const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-key";
 
 // Labels
@@ -234,7 +234,7 @@ pub(crate) fn extract_integer(
     target_label: i64,
     value_name: &str,
 ) -> Result<i128, CoseExtractError> {
-    Ok(header
+    header
         .rest
         .iter()
         .find_map(|(label, value)| match (label, value) {
@@ -245,8 +245,8 @@ pub(crate) fn extract_integer(
             }
             _ => None,
         })
-        .ok_or(CoseExtractError::MissingValue(value_name.to_string()))?
-        .into())
+        .map(Into::into)
+        .ok_or_else(|| CoseExtractError::MissingValue(value_name.to_string()))
 }
 
 pub(crate) fn extract_bytes(

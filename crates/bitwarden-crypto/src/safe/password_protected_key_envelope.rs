@@ -18,9 +18,7 @@ use std::{marker::PhantomData, num::TryFromIntError, str::FromStr};
 use argon2::Params;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use ciborium::{value::Integer, Value};
-use coset::{
-    iana::CoapContentFormat, CborSerializable, ContentType, CoseError, Header, HeaderBuilder,
-};
+use coset::{CborSerializable, CoseError, Header, HeaderBuilder};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -28,7 +26,7 @@ use thiserror::Error;
 use crate::{
     cose::{
         extract_bytes, extract_integer, CoseExtractError, ALG_ARGON2ID13, ARGON2_ITERATIONS,
-        ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT, CONTENT_TYPE_BITWARDEN_LEGACY_KEY,
+        ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
     },
     xchacha20, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey,
     FromStrVisitor, KeyIds, KeyStoreContext, SymmetricCryptoKey,
@@ -79,7 +77,7 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
         Self::seal_ref_with_settings(
             key_to_seal,
             password,
-            &Argon2RawSettings::default_for_platform(),
+            &Argon2RawSettings::local_kdf_settings(),
         )
     }
 
@@ -157,15 +155,17 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
     ) -> Result<SymmetricCryptoKey, PasswordProtectedKeyEnvelopeError> {
         // There must be exactly one recipient in the COSE Encrypt object, which contains the KDF
         // parameters.
-        if self.cose_encrypt.recipients.len() != 1 {
-            return Err(PasswordProtectedKeyEnvelopeError::ParsingError(
-                "Invalid number of recipients".to_string(),
-            ));
-        }
+        let recipient = self
+            .cose_encrypt
+            .recipients
+            .first()
+            .filter(|_| self.cose_encrypt.recipients.len() == 1)
+            .ok_or_else(|| {
+                PasswordProtectedKeyEnvelopeError::ParsingError(
+                    "Invalid number of recipients".to_string(),
+                )
+            })?;
 
-        let recipient = self.cose_encrypt.recipients.first().ok_or(
-            PasswordProtectedKeyEnvelopeError::ParsingError("Missing recipient".to_string()),
-        )?;
         if recipient.protected.header.alg != Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13)) {
             return Err(PasswordProtectedKeyEnvelopeError::ParsingError(
                 "Unknown or unsupported KDF algorithm".to_string(),
@@ -200,13 +200,15 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
             .map_err(|_| PasswordProtectedKeyEnvelopeError::WrongPassword)?;
 
         SymmetricCryptoKey::try_from(
-            match self.cose_encrypt.protected.header.content_type.as_ref() {
-                Some(ContentType::Text(format)) if format == CONTENT_TYPE_BITWARDEN_LEGACY_KEY => {
-                    EncodedSymmetricKey::BitwardenLegacyKey(BitwardenLegacyKeyBytes::from(
-                        key_bytes,
-                    ))
-                }
-                Some(ContentType::Assigned(CoapContentFormat::CoseKey)) => {
+            match ContentFormat::try_from(&self.cose_encrypt.protected.header).map_err(|_| {
+                PasswordProtectedKeyEnvelopeError::ParsingError(
+                    "Invalid content format".to_string(),
+                )
+            })? {
+                ContentFormat::BitwardenLegacyKey => EncodedSymmetricKey::BitwardenLegacyKey(
+                    BitwardenLegacyKeyBytes::from(key_bytes),
+                ),
+                ContentFormat::CoseKey => {
                     EncodedSymmetricKey::CoseKey(CoseKeyBytes::from(key_bytes))
                 }
                 _ => {
@@ -304,9 +306,10 @@ impl<Ids: KeyIds> Serialize for PasswordProtectedKeyEnvelope<Ids> {
     }
 }
 
-/// Raw argon2 settings differ from the KDF struct defined for existing master-password unlock.
-/// The memory is represented in kibibytes (KiB) instead of mebibytes (MiB), and the salt is a fixed
-/// size of 32 bytes, and randomly generated, instead of being derived from the email.
+/// Raw argon2 settings differ from the [crate::keys::Kdf::Argon2id] struct defined for existing
+/// master-password unlock. The memory is represented in kibibytes (KiB) instead of mebibytes (MiB),
+/// and the salt is a fixed size of 32 bytes, and randomly generated, instead of being derived from
+/// the email.
 struct Argon2RawSettings {
     iterations: u32,
     /// Memory in KiB
@@ -316,9 +319,9 @@ struct Argon2RawSettings {
 }
 
 impl Argon2RawSettings {
-    /// Creates default Argon2 settings based on the platform. This currently is a static preset
+    /// Creates default Argon2 settings based on the device. This currently is a static preset
     /// based on the target os
-    fn default_for_platform() -> Self {
+    fn local_kdf_settings() -> Self {
         // iOS has memory limitations in the auto-fill context. So, the memory is halved
         // but the iterations are doubled
         if cfg!(target_os = "ios") {
@@ -364,8 +367,13 @@ impl TryInto<Params> for &Argon2RawSettings {
     type Error = PasswordProtectedKeyEnvelopeError;
 
     fn try_into(self) -> Result<Params, PasswordProtectedKeyEnvelopeError> {
-        Params::new(self.memory, self.iterations, self.parallelism, Some(32))
-            .map_err(|_| PasswordProtectedKeyEnvelopeError::KdfError)
+        Params::new(
+            self.memory,
+            self.iterations,
+            self.parallelism,
+            Some(ENVELOPE_ARGON2_OUTPUT_KEY_SIZE),
+        )
+        .map_err(|_| PasswordProtectedKeyEnvelopeError::KdfError)
     }
 }
 
