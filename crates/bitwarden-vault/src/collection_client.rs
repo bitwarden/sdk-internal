@@ -1,13 +1,12 @@
-#[cfg(not(feature = "wasm"))]
 use std::collections::HashMap;
-
+use serde::{Deserialize, Serialize};
+use tsify::Tsify;
+use uuid::Uuid;
 use bitwarden_collections::{
     collection::{Collection, CollectionView},
     tree::{NodeItem, Tree},
 };
 use bitwarden_core::Client;
-#[cfg(feature = "wasm")]
-use bitwarden_error::js_sys::Map;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -73,25 +72,18 @@ impl CollectionViewNodeItem {
         self.node_item.children.clone()
     }
 
-    #[cfg(feature = "wasm")]
-    pub fn get_ancestors(&self) -> Map {
-        self.node_item
-            .ancestors
-            .iter()
-            .fold(Map::new(), |map, (id, name)| {
-                map.set(&id.to_string().into(), &name.into());
-                map
-            })
+    pub fn get_ancestors(&self) -> AncestorMap {
+        AncestorMap {
+            ancestors: self.node_item.ancestors.clone(),
+        }
     }
+}
 
-    #[cfg(not(feature = "wasm"))]
-    pub fn get_ancestors(&self) -> HashMap<String, String> {
-        self.node_item
-            .ancestors
-            .iter()
-            .map(|(id, name)| (id.to_string(), name.to_string()))
-            .collect()
-    }
+#[derive(Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct AncestorMap {
+    #[serde(flatten)]
+    ancestors: HashMap<Uuid, String>,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
