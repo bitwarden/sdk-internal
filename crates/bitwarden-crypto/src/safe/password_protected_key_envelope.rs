@@ -252,9 +252,10 @@ impl<Ids: KeyIds> TryFrom<&Vec<u8>> for PasswordProtectedKeyEnvelope<Ids> {
     }
 }
 
-/// Raw argon2 settings differ from the [crate::keys::Kdf::Argon2id] struct defined for existing master-password unlock.
-/// The memory is represented in kibibytes (KiB) instead of mebibytes (MiB), and the salt is a fixed
-/// size of 32 bytes, and randomly generated, instead of being derived from the email.
+/// Raw argon2 settings differ from the [crate::keys::Kdf::Argon2id] struct defined for existing
+/// master-password unlock. The memory is represented in kibibytes (KiB) instead of mebibytes (MiB),
+/// and the salt is a fixed size of 32 bytes, and randomly generated, instead of being derived from
+/// the email.
 struct Argon2RawSettings {
     iterations: u32,
     /// Memory in KiB
