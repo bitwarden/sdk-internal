@@ -18,14 +18,6 @@ uniffi::custom_type!(Uuid, String, {
     lower: |obj| obj.to_string(),
 });
 
-uniffi::custom_type!(PasswordProtectedKeyEnvelope, String, {
-    remote,
-    try_lift: |val| bitwarden_crypto::safe::PasswordProtectedKeyEnvelope::from_str(val.as_str())
-        .map_err(|e| e.into())
-        .map(PasswordProtectedKeyEnvelope),
-    lower: |obj| obj.0.into(),
-});
-
 // Uniffi doesn't emit unused types, this is a dummy record to ensure that the custom type
 // converters are emitted
 #[allow(dead_code)]
@@ -42,4 +34,12 @@ uniffi::custom_type!(SignedSecurityState, String, {
         })
     },
     lower: |obj| obj.into(),
+});
+
+uniffi::custom_type!(PasswordProtectedKeyEnvelope, String, {
+    remote,
+    try_lift: |val| bitwarden_crypto::safe::PasswordProtectedKeyEnvelope::from_str(val.as_str())
+        .map_err(|e| e.into())
+        .map(PasswordProtectedKeyEnvelope),
+    lower: |obj| obj.0.into(),
 });
