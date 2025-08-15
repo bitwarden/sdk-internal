@@ -9,14 +9,17 @@ use super::crypto::{
     DeriveKeyConnectorRequest, EnrollAdminPasswordResetError, MakeKeyPairResponse,
     VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
 };
-#[cfg(feature = "internal")]
-use crate::key_management::crypto::{
-    derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
-    initialize_org_crypto, initialize_user_crypto, update_password, DerivePinKeyResponse,
-    InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
-};
 #[cfg(feature = "wasm")]
-use crate::key_management::{PasswordProtectedKeyEnvelope, SymmetricKeyId};
+use crate::key_management::PasswordProtectedKeyEnvelope;
+#[cfg(feature = "internal")]
+use crate::key_management::{
+    crypto::{
+        derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
+        initialize_org_crypto, initialize_user_crypto, update_password, DerivePinKeyResponse,
+        InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
+    },
+    SymmetricKeyId,
+};
 use crate::{
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
