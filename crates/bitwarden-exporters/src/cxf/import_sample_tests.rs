@@ -5,10 +5,8 @@
 use super::import::parse_item;
 use crate::{cxf::CxfError, CipherType, ImportingCipher};
 
-/**
- * Parse CXF payload in the format compatible with the CXF specification (At the
- * Header-level).
- */
+/// Parse CXF payload in the format compatible with the CXF specification (At the
+/// Header-level).
 fn parse_cxf_spec(payload: String) -> Result<Vec<ImportingCipher>, CxfError> {
     use credential_exchange_format::Header;
 
