@@ -1,6 +1,7 @@
 use bitwarden_api_api::models::{
     DomainsResponseModel, ProfileOrganizationResponseModel, ProfileResponseModel, SyncResponseModel,
 };
+use bitwarden_collections::{collection::Collection, error::CollectionsParseError};
 use bitwarden_core::{
     client::encryption_settings::EncryptionSettingsError, require, Client, MissingFieldError,
 };
@@ -8,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{Cipher, Collection, Folder, GlobalDomains, VaultParseError};
+use crate::{Cipher, Folder, GlobalDomains, VaultParseError};
 
 #[derive(Debug, Error)]
 pub enum SyncError {
@@ -18,6 +19,8 @@ pub enum SyncError {
     MissingField(#[from] MissingFieldError),
     #[error(transparent)]
     VaultParse(#[from] VaultParseError),
+    #[error(transparent)]
+    CollectionParse(#[from] CollectionsParseError),
     #[error(transparent)]
     EncryptionSettings(#[from] EncryptionSettingsError),
 }

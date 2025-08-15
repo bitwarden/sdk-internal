@@ -27,6 +27,8 @@ pub struct TrialSendVerificationEmailRequestModel {
     pub product_tier: Option<models::ProductTierType>,
     #[serde(rename = "products", skip_serializing_if = "Option::is_none")]
     pub products: Option<Vec<models::ProductType>>,
+    #[serde(rename = "trialLength", skip_serializing_if = "Option::is_none")]
+    pub trial_length: Option<i32>,
 }
 
 impl TrialSendVerificationEmailRequestModel {
@@ -37,6 +39,7 @@ impl TrialSendVerificationEmailRequestModel {
             receive_marketing_emails: None,
             product_tier: None,
             products: None,
+            trial_length: None,
         }
     }
 }
