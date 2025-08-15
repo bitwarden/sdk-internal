@@ -6,6 +6,7 @@ use bitwarden_collections::{
 };
 use bitwarden_core::Client;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
 use tsify::Tsify;
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
@@ -80,10 +81,9 @@ impl CollectionViewNodeItem {
     }
 }
 
-#[derive(Serialize, Deserialize, Tsify)]
-#[tsify(into_wasm_abi, from_wasm_abi)]
+#[cfg_attr(feature = "wasm", derive(Tsify, Serialize, Deserialize))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct AncestorMap {
-    #[serde(flatten)]
     ancestors: HashMap<Uuid, String>,
 }
 
