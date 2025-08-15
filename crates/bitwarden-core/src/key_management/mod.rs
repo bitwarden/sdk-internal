@@ -19,14 +19,17 @@ mod crypto_client;
 pub use crypto_client::CryptoClient;
 
 #[cfg(feature = "internal")]
-pub mod master_password;
+mod master_password;
+#[cfg(feature = "internal")]
+pub use master_password::*;
 #[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]
-pub mod user_decryption;
-
+mod user_decryption;
 #[cfg(feature = "internal")]
 pub use security_state::{SecurityState, SignedSecurityState};
+#[cfg(feature = "internal")]
+pub use user_decryption::*;
 
 key_ids! {
     #[symmetric]
