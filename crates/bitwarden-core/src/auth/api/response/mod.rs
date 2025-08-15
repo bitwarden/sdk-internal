@@ -4,6 +4,7 @@ mod identity_success_response;
 mod identity_token_fail_response;
 mod identity_token_response;
 mod identity_two_factor_response;
+pub(crate) mod identity_user_decryption_options_response;
 pub(crate) mod two_factor_provider_data;
 mod two_factor_providers;
 
