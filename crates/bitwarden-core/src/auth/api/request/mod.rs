@@ -30,7 +30,6 @@ use crate::{
 
 async fn send_identity_connect_request(
     configurations: &ApiConfigurations,
-    email: Option<&str>,
     body: impl serde::Serialize,
 ) -> Result<IdentityTokenResponse, LoginError> {
     let mut request = configurations
