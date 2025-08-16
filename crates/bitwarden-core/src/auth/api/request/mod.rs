@@ -12,7 +12,6 @@ mod password_token_request;
 pub(crate) use password_token_request::*;
 
 mod renew_token_request;
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 pub(crate) use renew_token_request::*;
 
 mod auth_request_token_request;
