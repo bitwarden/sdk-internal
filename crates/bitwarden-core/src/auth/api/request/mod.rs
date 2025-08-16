@@ -30,7 +30,6 @@ use crate::{
 
 async fn send_identity_connect_request(
     configurations: &ApiConfigurations,
-    email: Option<&str>,
     body: impl serde::Serialize,
 ) -> Result<IdentityTokenResponse, LoginError> {
     let mut request = configurations
@@ -49,10 +48,6 @@ async fn send_identity_connect_request(
 
     if let Some(ref user_agent) = configurations.identity.user_agent {
         request = request.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-
-    if let Some(email) = email {
-        request = request.header("Auth-Email", URL_SAFE_NO_PAD.encode(email.as_bytes()));
     }
 
     let response = request
