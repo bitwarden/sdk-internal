@@ -9,10 +9,10 @@ static ERROR_TO_UNIFFI_ERROR: OnceLock<
 
 pub use anyhow::Error;
 
-/// Configure an error converter to convert errors in calls to [`uniffi::custom_type!`] into the main
-/// error of the application (`bitwarden_uniffi::error::BitwardenError). This is needed because if
-/// the errors don't match, Uniffi will panic instead of returning an error. This needs to be called
-/// by the `bitwarden_uniffi` crate before any other Uniffi code is run.
+/// Configure an error converter to convert errors in calls to [`uniffi::custom_type!`] into the
+/// main error of the application (`bitwarden_uniffi::error::BitwardenError). This is needed because
+/// if the errors don't match, Uniffi will panic instead of returning an error. This needs to be
+/// called by the `bitwarden_uniffi` crate before any other Uniffi code is run.
 pub fn set_error_to_uniffi_error<F>(f: F)
 where
     F: Fn(Box<dyn std::error::Error + Send + Sync>) -> anyhow::Error + Send + Sync + 'static,
