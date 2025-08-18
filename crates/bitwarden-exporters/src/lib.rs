@@ -280,7 +280,7 @@ pub enum SecureNoteType {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub struct Identity {
     pub title: Option<String>,
     pub first_name: Option<String>,

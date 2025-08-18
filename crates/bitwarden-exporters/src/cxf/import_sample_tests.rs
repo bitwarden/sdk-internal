@@ -35,6 +35,10 @@ fn load_sample_cxf() -> Result<Vec<ImportingCipher>, CxfError> {
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_vault::FieldType;
+
+    use crate::{Field, Identity};
+
     use super::*;
 
     #[test]
@@ -135,26 +139,27 @@ mod tests {
             .expect("Should find House Address item");
 
         // Verify it's an Identity cipher
-        let identity = match &address_cipher.r#type {
-            CipherType::Identity(identity) => identity,
-            _ => panic!("Expected Identity cipher for address"),
+        let identity = if let CipherType::Identity(identity) = &address_cipher.r#type {
+            identity
+        } else {
+            panic!("Expected Identity cipher for address")
         };
 
         // Verify all address field mappings from cxf_example.json
-        assert_eq!(identity.address1, Some("123 Main Street".to_string()));
-        assert_eq!(identity.city, Some("Springfield".to_string()));
-        assert_eq!(identity.state, Some("CA".to_string()));
-        assert_eq!(identity.country, Some("US".to_string()));
-        assert_eq!(identity.phone, Some("+1-555-123-4567".to_string()));
-        assert_eq!(identity.postal_code, Some("12345".to_string()));
+        let expected_identity = Identity {
+            address1: Some("123 Main Street".to_string()),
+            city: Some("Springfield".to_string()),
+            state: Some("CA".to_string()),
+            country: Some("US".to_string()),
+            phone: Some("+1-555-123-4567".to_string()),
+            postal_code: Some("12345".to_string()),
+            ..Default::default()
+        };
+
+        assert_eq!(**identity, expected_identity);
 
         // Verify no unmapped fields (address has no custom fields)
         assert_eq!(address_cipher.fields.len(), 0);
-
-        // Verify unused Identity fields remain None
-        assert_eq!(identity.first_name, None);
-        assert_eq!(identity.passport_number, None);
-        assert_eq!(identity.license_number, None);
     }
 
     #[test]
@@ -168,42 +173,83 @@ mod tests {
             .expect("Should find Passport item");
 
         // Verify it's an Identity cipher
-        let identity = match &passport_cipher.r#type {
-            CipherType::Identity(identity) => identity,
-            _ => panic!("Expected Identity cipher for passport"),
+        let identity = if let CipherType::Identity(identity) = &passport_cipher.r#type {
+            identity
+        } else {
+            panic!("Expected Identity cipher for passport")
         };
 
         // Verify Identity field mappings from cxf_example.json
-        assert_eq!(identity.passport_number, Some("A12345678".to_string()));
-        assert_eq!(identity.first_name, Some("John".to_string()));
-        assert_eq!(identity.last_name, Some("Doe".to_string()));
-        assert_eq!(identity.ssn, Some("ID123456789".to_string()));
-        assert_eq!(identity.country, None); // Now custom field per mapping
+        let expected_identity = Identity {
+            passport_number: Some("A12345678".to_string()),
+            first_name: Some("John".to_string()),
+            last_name: Some("Doe".to_string()),
+            ssn: Some("ID123456789".to_string()),
+            country: None,
+            ..Default::default()
+        };
 
-        // Verify custom fields preserve all unmapped data
-        assert!(
-            passport_cipher.fields.len() >= 4,
-            "Should have multiple custom fields"
-        );
+        assert_eq!(**identity, expected_identity);
 
-        // Check specific custom fields
-        let issuing_country = passport_cipher
-            .fields
-            .iter()
-            .find(|f| f.name.as_deref() == Some("Issuing Country"))
-            .expect("Should have Issuing Country");
-        assert_eq!(issuing_country.value, Some("US".to_string()));
+        // Verify custom fields preserve unmapped data
+        let expected_fields = vec![
+            Field {
+                name: Some("Issuing Country".to_string()),
+                value: Some("US".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Nationality".to_string()),
+                value: Some("American".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Birth Date".to_string()),
+                value: Some("1990-01-01".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Birth Place".to_string()),
+                value: Some("Los Angeles, USA".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Sex".to_string()),
+                value: Some("M".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Issue Date".to_string()),
+                value: Some("2015-06-15".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Expiry Date".to_string()),
+                value: Some("2025-06-15".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Issuing Authority".to_string()),
+                value: Some("U.S. Department of State".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Passport Type".to_string()),
+                value: Some("Regular".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+        ];
 
-        let nationality = passport_cipher
-            .fields
-            .iter()
-            .find(|f| f.name.as_deref() == Some("Nationality"))
-            .expect("Should have Nationality");
-        assert_eq!(nationality.value, Some("American".to_string()));
-
-        // Verify unused Identity fields remain None
-        assert_eq!(identity.address1, None);
-        assert_eq!(identity.license_number, None);
+        assert_eq!(passport_cipher.fields, expected_fields);
     }
 
     #[test]
@@ -217,42 +263,41 @@ mod tests {
             .expect("Should find John Doe item");
 
         // Verify it's an Identity cipher
-        let identity = match &person_name_cipher.r#type {
-            CipherType::Identity(identity) => identity,
-            _ => panic!("Expected Identity cipher for person name"),
+        let identity = if let CipherType::Identity(identity) = &person_name_cipher.r#type {
+            identity
+        } else {
+            panic!("Expected Identity cipher for person name")
         };
 
         // Verify Identity field mappings from cxf_example.json
-        assert_eq!(identity.title, Some("Dr.".to_string()));
-        assert_eq!(identity.first_name, Some("John".to_string()));
-        assert_eq!(identity.middle_name, Some("Michael".to_string()));
-        assert_eq!(identity.last_name, Some("van Doe Smith".to_string())); // Combined surname
-        assert_eq!(identity.company, Some("PhD".to_string())); // credentials → company
+        let expected_identity = Identity {
+            title: Some("Dr.".to_string()),
+            first_name: Some("John".to_string()),
+            middle_name: Some("Michael".to_string()),
+            last_name: Some("van Doe Smith".to_string()), // Combined surname
+            company: Some("PhD".to_string()),             // credentials → company
+            ..Default::default()
+        };
+
+        assert_eq!(**identity, expected_identity);
 
         // Verify custom fields preserve unmapped data
-        assert!(
-            person_name_cipher.fields.len() >= 2,
-            "Should have custom fields"
-        );
+        let expected_fields = vec![
+            Field {
+                name: Some("Informal Given Name".to_string()),
+                value: Some("Johnny".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Generation".to_string()),
+                value: Some("III".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+        ];
 
-        let informal_given = person_name_cipher
-            .fields
-            .iter()
-            .find(|f| f.name.as_deref() == Some("Informal Given Name"))
-            .expect("Should have Informal Given Name");
-        assert_eq!(informal_given.value, Some("Johnny".to_string()));
-
-        let generation = person_name_cipher
-            .fields
-            .iter()
-            .find(|f| f.name.as_deref() == Some("Generation"))
-            .expect("Should have Generation");
-        assert_eq!(generation.value, Some("III".to_string()));
-
-        // Verify unused Identity fields remain None
-        assert_eq!(identity.address1, None);
-        assert_eq!(identity.passport_number, None);
-        assert_eq!(identity.license_number, None);
+        assert_eq!(person_name_cipher.fields, expected_fields);
     }
 
     #[test]
@@ -266,46 +311,60 @@ mod tests {
             .expect("Should find Driver License item");
 
         // Verify it's an Identity cipher
-        let identity = match &drivers_license_cipher.r#type {
-            CipherType::Identity(identity) => identity,
-            _ => panic!("Expected Identity cipher for drivers license"),
+        let identity = if let CipherType::Identity(identity) = &drivers_license_cipher.r#type {
+            identity
+        } else {
+            panic!("Expected Identity cipher for drivers license")
         };
 
         // Verify Identity field mappings from cxf_example.json
-        assert_eq!(identity.license_number, Some("D12345678".to_string()));
-        assert_eq!(identity.first_name, Some("John".to_string()));
-        assert_eq!(identity.last_name, Some("Doe".to_string()));
-        assert_eq!(identity.state, Some("CA".to_string()));
-        assert_eq!(identity.country, Some("US".to_string()));
-        assert_eq!(identity.company, None); // issuingAuthority is now custom field
+        let expected_identity = Identity {
+            license_number: Some("D12345678".to_string()),
+            first_name: Some("John".to_string()),
+            last_name: Some("Doe".to_string()),
+            state: Some("CA".to_string()),
+            country: Some("US".to_string()),
+            company: None, // issuingAuthority is now custom field
+            ..Default::default()
+        };
+
+        assert_eq!(**identity, expected_identity);
 
         // Verify custom fields preserve unmapped data
-        assert!(
-            drivers_license_cipher.fields.len() >= 3,
-            "Should have multiple custom fields"
-        );
+        let expected_fields = vec![
+            Field {
+                name: Some("Birth Date".to_string()),
+                value: Some("1990-05-15".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Issue Date".to_string()),
+                value: Some("2020-06-01".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Expiry Date".to_string()),
+                value: Some("2030-06-01".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Issuing Authority".to_string()),
+                value: Some("Department of Motor Vehicles".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("License Class".to_string()),
+                value: Some("C".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+        ];
 
-        let issuing_authority = drivers_license_cipher
-            .fields
-            .iter()
-            .find(|f| f.name.as_deref() == Some("Issuing Authority"))
-            .expect("Should have Issuing Authority");
-        assert_eq!(
-            issuing_authority.value,
-            Some("Department of Motor Vehicles".to_string())
-        );
-
-        let license_class = drivers_license_cipher
-            .fields
-            .iter()
-            .find(|f| f.name.as_deref() == Some("License Class"))
-            .expect("Should have License Class");
-        assert_eq!(license_class.value, Some("C".to_string()));
-
-        // Verify unused Identity fields remain None
-        assert_eq!(identity.title, None);
-        assert_eq!(identity.address1, None);
-        assert_eq!(identity.passport_number, None);
+        assert_eq!(drivers_license_cipher.fields, expected_fields);
     }
 
     #[test]
@@ -319,17 +378,23 @@ mod tests {
             .expect("Should find ID card item");
 
         // Verify it's an Identity cipher
-        let identity = match &identity_document_cipher.r#type {
-            CipherType::Identity(identity) => identity,
-            _ => panic!("Expected Identity cipher for identity document"),
+        let identity = if let CipherType::Identity(identity) = &identity_document_cipher.r#type {
+            identity
+        } else {
+            panic!("Expected Identity cipher for identity document")
         };
 
         // Verify Identity field mappings from cxf_example.json
-        assert_eq!(identity.passport_number, Some("123456789".to_string())); // documentNumber → passport_number
-        assert_eq!(identity.first_name, Some("Jane".to_string())); // fullName split
-        assert_eq!(identity.last_name, Some("Doe".to_string())); // fullName split
-        assert_eq!(identity.ssn, Some("ID123456789".to_string())); // identificationNumber → ssn
-        assert_eq!(identity.country, None); // issuingCountry goes to custom fields
+        let expected_identity = Identity {
+            passport_number: Some("123456789".to_string()), // documentNumber → passport_number
+            first_name: Some("Jane".to_string()),           // fullName split
+            last_name: Some("Doe".to_string()),             // fullName split
+            ssn: Some("ID123456789".to_string()),           // identificationNumber → ssn
+            country: None,                                  // issuingCountry goes to custom fields
+            ..Default::default()                            // All other fields should remain None
+        };
+
+        assert_eq!(**identity, expected_identity);
 
         // Verify custom fields preserve unmapped data
         assert!(
@@ -337,42 +402,58 @@ mod tests {
             "Should have multiple custom fields"
         );
 
-        // Check specific custom fields
-        let issuing_country = identity_document_cipher
-            .fields
-            .iter()
-            .find(|f| f.name.as_deref() == Some("Issuing Country"))
-            .expect("Should have Issuing Country");
-        assert_eq!(issuing_country.value, Some("US".to_string()));
+        // Verify custom fields preserve unmapped data
+        let expected_fields = vec![
+            Field {
+                name: Some("Issuing Country".to_string()),
+                value: Some("US".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Nationality".to_string()),
+                value: Some("American".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Birth Date".to_string()),
+                value: Some("1990-04-15".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Birth Place".to_string()),
+                value: Some("New York, USA".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Sex".to_string()),
+                value: Some("F".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Issue Date".to_string()),
+                value: Some("2020-01-01".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Expiry Date".to_string()),
+                value: Some("2030-01-01".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+            Field {
+                name: Some("Issuing Authority".to_string()),
+                value: Some("Department of State".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            },
+        ];
 
-        let nationality = identity_document_cipher
-            .fields
-            .iter()
-            .find(|f| f.name.as_deref() == Some("Nationality"))
-            .expect("Should have Nationality");
-        assert_eq!(nationality.value, Some("American".to_string()));
-
-        let birth_place = identity_document_cipher
-            .fields
-            .iter()
-            .find(|f| f.name.as_deref() == Some("Birth Place"))
-            .expect("Should have Birth Place");
-        assert_eq!(birth_place.value, Some("New York, USA".to_string()));
-
-        let issuing_authority = identity_document_cipher
-            .fields
-            .iter()
-            .find(|f| f.name.as_deref() == Some("Issuing Authority"))
-            .expect("Should have Issuing Authority");
-        assert_eq!(
-            issuing_authority.value,
-            Some("Department of State".to_string())
-        );
-
-        // Verify unused Identity fields remain None
-        assert_eq!(identity.title, None);
-        assert_eq!(identity.address1, None);
-        assert_eq!(identity.license_number, None);
-        assert_eq!(identity.company, None);
+        assert_eq!(identity_document_cipher.fields, expected_fields);
     }
 }
