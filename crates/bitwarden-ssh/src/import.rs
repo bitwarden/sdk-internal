@@ -32,12 +32,6 @@ pub fn import_key(
     }
 }
 
-/// Import a DER encoded private key, and returns a decoded [SshKeyView]. This is primarily used for
-/// importing SSH keys from other Credential Managers through Credential Exchange.
-pub fn import_pkcs8_der(encoded_key: &[u8]) -> Result<SshKeyView, SshKeyImportError> {
-    import_der_key(encoded_key)
-}
-
 fn import_pkcs8_key(
     encoded_key: String,
     password: Option<String>,
@@ -55,10 +49,12 @@ fn import_pkcs8_key(
         SecretDocument::from_pkcs8_pem(&encoded_key).map_err(|_| SshKeyImportError::ParsingError)?
     };
 
-    import_der_key(doc.as_bytes())
+    import_pkcs8_der_key(doc.as_bytes())
 }
 
-fn import_der_key(encoded_key: &[u8]) -> Result<SshKeyView, SshKeyImportError> {
+/// Import a DER encoded private key, and returns a decoded [SshKeyView]. This is primarily used for
+/// importing SSH keys from other Credential Managers through Credential Exchange.
+pub fn import_pkcs8_der_key(encoded_key: &[u8]) -> Result<SshKeyView, SshKeyImportError> {
     let private_key_info =
         PrivateKeyInfo::from_der(encoded_key).map_err(|_| SshKeyImportError::ParsingError)?;
 

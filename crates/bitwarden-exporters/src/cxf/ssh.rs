@@ -1,4 +1,4 @@
-use bitwarden_ssh::{error::SshKeyImportError, import::import_pkcs8_der};
+use bitwarden_ssh::{error::SshKeyImportError, import::import_pkcs8_der_key};
 use bitwarden_vault::FieldType;
 use credential_exchange_format::SshKeyCredential;
 
@@ -10,7 +10,7 @@ pub(super) fn to_ssh(
 ) -> Result<(SshKey, Vec<Field>), SshKeyImportError> {
     // Convert to OpenSSH format
     let encoded_key: Vec<u8> = credential.private_key.as_ref().into();
-    let encoded_key = import_pkcs8_der(&encoded_key)?;
+    let encoded_key = import_pkcs8_der_key(&encoded_key)?;
 
     let ssh = SshKey {
         private_key: encoded_key.private_key,
