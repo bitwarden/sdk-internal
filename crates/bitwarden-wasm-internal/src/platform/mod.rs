@@ -32,7 +32,6 @@ impl PlatformClient {
     }
 
     /// Load feature flags into the client
-    #[wasm_bindgen(js_name = load_flags)]
     pub fn load_flags(&self, flags: FeatureFlags) -> Result<(), JsValue> {
         self.0.internal.load_flags(flags.flags);
         Ok(())
