@@ -163,7 +163,6 @@ struct ContentView: View {
                 fn: { r in 
                     r.setValue(
                         "application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-                    
                     var comp = URLComponents()
                     comp.queryItems = [
                         URLQueryItem(name: "scope", value: "api offline_access"),
