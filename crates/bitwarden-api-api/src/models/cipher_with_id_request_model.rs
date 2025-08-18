@@ -14,6 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherWithIdRequestModel {
+    /// The Id of the user that encrypted the cipher. It should always represent a UserId.
+    #[serde(rename = "encryptedFor", skip_serializing_if = "Option::is_none")]
+    pub encrypted_for: Option<uuid::Uuid>,
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub r#type: Option<models::CipherType>,
     #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
@@ -60,6 +63,7 @@ pub struct CipherWithIdRequestModel {
 impl CipherWithIdRequestModel {
     pub fn new(name: String, id: uuid::Uuid) -> CipherWithIdRequestModel {
         CipherWithIdRequestModel {
+            encrypted_for: None,
             r#type: None,
             organization_id: None,
             folder_id: None,

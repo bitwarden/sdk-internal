@@ -105,13 +105,6 @@ pub enum OrganizationsOrgIdUsersIdGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_groups_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdGroupsGetError {
-    UnknownValue(serde_json::Value),
-}
-
 /// struct for typed errors of method [`organizations_org_id_users_id_post`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -330,7 +323,7 @@ pub async fn organizations_org_id_users_account_recovery_details_post(
 
 pub async fn organizations_org_id_users_confirm_post(
     configuration: &configuration::Configuration,
-    org_id: &str,
+    org_id: uuid::Uuid,
     organization_user_bulk_confirm_request_model: Option<
         models::OrganizationUserBulkConfirmRequestModel,
     >,
@@ -346,7 +339,7 @@ pub async fn organizations_org_id_users_confirm_post(
     let uri_str = format!(
         "{}/organizations/{orgId}/users/confirm",
         configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id)
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
     let mut req_builder = configuration
         .client
@@ -720,8 +713,8 @@ pub async fn organizations_org_id_users_get(
 
 pub async fn organizations_org_id_users_id_confirm_post(
     configuration: &configuration::Configuration,
-    org_id: &str,
-    id: &str,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
     organization_user_confirm_request_model: Option<models::OrganizationUserConfirmRequestModel>,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdConfirmPostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
@@ -732,8 +725,8 @@ pub async fn organizations_org_id_users_id_confirm_post(
     let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/confirm",
         configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id),
-        id = crate::apis::urlencode(p_id)
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
     let mut req_builder = configuration
         .client
@@ -903,21 +896,21 @@ pub async fn organizations_org_id_users_id_delete_account_post(
 
 pub async fn organizations_org_id_users_id_get(
     configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
     id: uuid::Uuid,
-    org_id: &str,
     include_groups: Option<bool>,
 ) -> Result<models::OrganizationUserDetailsResponseModel, Error<OrganizationsOrgIdUsersIdGetError>>
 {
     // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
     let p_org_id = org_id;
+    let p_id = id;
     let p_include_groups = include_groups;
 
     let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}",
         configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string()),
-        orgId = crate::apis::urlencode(p_org_id)
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
@@ -952,60 +945,6 @@ pub async fn organizations_org_id_users_id_get(
     } else {
         let content = resp.text().await?;
         let entity: Option<OrganizationsOrgIdUsersIdGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_users_id_groups_get(
-    configuration: &configuration::Configuration,
-    org_id: &str,
-    id: &str,
-) -> Result<Vec<String>, Error<OrganizationsOrgIdUsersIdGroupsGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}/groups",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id),
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `Vec&lt;String&gt;`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `Vec&lt;String&gt;`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdGroupsGetError> =
-            serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1109,8 +1048,8 @@ pub async fn organizations_org_id_users_id_put(
 
 pub async fn organizations_org_id_users_id_reinvite_post(
     configuration: &configuration::Configuration,
-    org_id: &str,
-    id: &str,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
 ) -> Result<(), Error<OrganizationsOrgIdUsersIdReinvitePostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
@@ -1119,8 +1058,8 @@ pub async fn organizations_org_id_users_id_reinvite_post(
     let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/reinvite",
         configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id),
-        id = crate::apis::urlencode(p_id)
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
     let mut req_builder = configuration
         .client
@@ -1199,8 +1138,8 @@ pub async fn organizations_org_id_users_id_remove_post(
 
 pub async fn organizations_org_id_users_id_reset_password_details_get(
     configuration: &configuration::Configuration,
-    org_id: &str,
-    id: &str,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
 ) -> Result<
     models::OrganizationUserResetPasswordDetailsResponseModel,
     Error<OrganizationsOrgIdUsersIdResetPasswordDetailsGetError>,
@@ -1212,8 +1151,8 @@ pub async fn organizations_org_id_users_id_reset_password_details_get(
     let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/reset-password-details",
         configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id),
-        id = crate::apis::urlencode(p_id)
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
@@ -1256,8 +1195,8 @@ pub async fn organizations_org_id_users_id_reset_password_details_get(
 
 pub async fn organizations_org_id_users_id_reset_password_put(
     configuration: &configuration::Configuration,
-    org_id: &str,
-    id: &str,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
     organization_user_reset_password_request_model: Option<
         models::OrganizationUserResetPasswordRequestModel,
     >,
@@ -1271,8 +1210,8 @@ pub async fn organizations_org_id_users_id_reset_password_put(
     let uri_str = format!(
         "{}/organizations/{orgId}/users/{id}/reset-password",
         configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id),
-        id = crate::apis::urlencode(p_id)
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
     let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
@@ -1678,7 +1617,7 @@ pub async fn organizations_org_id_users_organization_user_id_accept_post(
 
 pub async fn organizations_org_id_users_public_keys_post(
     configuration: &configuration::Configuration,
-    org_id: &str,
+    org_id: uuid::Uuid,
     organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
 ) -> Result<
     models::OrganizationUserPublicKeyResponseModelListResponseModel,
@@ -1691,7 +1630,7 @@ pub async fn organizations_org_id_users_public_keys_post(
     let uri_str = format!(
         "{}/organizations/{orgId}/users/public-keys",
         configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id)
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
     let mut req_builder = configuration
         .client
@@ -1737,7 +1676,7 @@ pub async fn organizations_org_id_users_public_keys_post(
 
 pub async fn organizations_org_id_users_reinvite_post(
     configuration: &configuration::Configuration,
-    org_id: &str,
+    org_id: uuid::Uuid,
     organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
 ) -> Result<
     models::OrganizationUserBulkResponseModelListResponseModel,
@@ -1750,7 +1689,7 @@ pub async fn organizations_org_id_users_reinvite_post(
     let uri_str = format!(
         "{}/organizations/{orgId}/users/reinvite",
         configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id)
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
     let mut req_builder = configuration
         .client

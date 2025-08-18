@@ -95,6 +95,9 @@ pub enum EventType {
     OrganizationDomain_Verified = 2002,
     OrganizationDomain_NotVerified = 2003,
     Secret_Retrieved = 2100,
+    Secret_Created = 2101,
+    Secret_Edited = 2102,
+    Secret_Deleted = 2103,
 }
 
 impl std::fmt::Display for EventType {
@@ -180,6 +183,9 @@ impl std::fmt::Display for EventType {
                 Self::OrganizationDomain_Verified => "2002",
                 Self::OrganizationDomain_NotVerified => "2003",
                 Self::Secret_Retrieved => "2100",
+                Self::Secret_Created => "2101",
+                Self::Secret_Edited => "2102",
+                Self::Secret_Deleted => "2103",
             }
         )
     }

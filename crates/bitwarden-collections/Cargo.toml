@@ -1,0 +1,39 @@
+[package]
+name = "bitwarden-collections"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+readme.workspace = true
+keywords.workspace = true
+
+[features]
+uniffi = [
+    "bitwarden-core/uniffi",
+    "bitwarden-crypto/uniffi",
+    "dep:uniffi"
+] # Uniffi bindings
+wasm = [
+    "bitwarden-core/wasm",
+    "dep:tsify",
+    "dep:wasm-bindgen"
+] # WASM support
+
+[dependencies]
+bitwarden-api-api = { workspace = true }
+bitwarden-core = { workspace = true, features = ["internal"] }
+bitwarden-crypto = { workspace = true }
+bitwarden-error = { workspace = true }
+serde = { workspace = true }
+serde_repr = { workspace = true }
+thiserror = { workspace = true }
+tsify = { workspace = true, optional = true }
+uniffi = { workspace = true, optional = true }
+uuid = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
+
+[lints]
+workspace = true

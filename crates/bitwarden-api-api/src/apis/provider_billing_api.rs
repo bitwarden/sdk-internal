@@ -28,10 +28,32 @@ pub enum ProvidersProviderIdBillingInvoicesInvoiceIdGetError {
     UnknownValue(serde_json::Value),
 }
 
+/// struct for typed errors of method [`providers_provider_id_billing_payment_method_put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ProvidersProviderIdBillingPaymentMethodPutError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method
+/// [`providers_provider_id_billing_payment_method_verify_bank_account_post`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ProvidersProviderIdBillingPaymentMethodVerifyBankAccountPostError {
+    UnknownValue(serde_json::Value),
+}
+
 /// struct for typed errors of method [`providers_provider_id_billing_subscription_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ProvidersProviderIdBillingSubscriptionGetError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`providers_provider_id_billing_tax_information_get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ProvidersProviderIdBillingTaxInformationGetError {
     UnknownValue(serde_json::Value),
 }
 
@@ -125,6 +147,94 @@ pub async fn providers_provider_id_billing_invoices_invoice_id_get(
     }
 }
 
+pub async fn providers_provider_id_billing_payment_method_put(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+    update_payment_method_request_body: Option<models::UpdatePaymentMethodRequestBody>,
+) -> Result<(), Error<ProvidersProviderIdBillingPaymentMethodPutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_update_payment_method_request_body = update_payment_method_request_body;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/billing/payment-method",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_payment_method_request_body);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProvidersProviderIdBillingPaymentMethodPutError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn providers_provider_id_billing_payment_method_verify_bank_account_post(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+    verify_bank_account_request_body: Option<models::VerifyBankAccountRequestBody>,
+) -> Result<(), Error<ProvidersProviderIdBillingPaymentMethodVerifyBankAccountPostError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_verify_bank_account_request_body = verify_bank_account_request_body;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/billing/payment-method/verify-bank-account",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_verify_bank_account_request_body);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProvidersProviderIdBillingPaymentMethodVerifyBankAccountPostError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
 pub async fn providers_provider_id_billing_subscription_get(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -156,6 +266,46 @@ pub async fn providers_provider_id_billing_subscription_get(
     } else {
         let content = resp.text().await?;
         let entity: Option<ProvidersProviderIdBillingSubscriptionGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn providers_provider_id_billing_tax_information_get(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+) -> Result<(), Error<ProvidersProviderIdBillingTaxInformationGetError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/billing/tax-information",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProvidersProviderIdBillingTaxInformationGetError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

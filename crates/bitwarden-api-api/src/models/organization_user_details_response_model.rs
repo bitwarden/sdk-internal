@@ -47,6 +47,13 @@ pub struct OrganizationUserDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub managed_by_organization: Option<bool>,
+    #[serde(
+        rename = "claimedByOrganization",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub claimed_by_organization: Option<bool>,
+    #[serde(rename = "ssoExternalId", skip_serializing_if = "Option::is_none")]
+    pub sso_external_id: Option<String>,
     #[serde(rename = "collections", skip_serializing_if = "Option::is_none")]
     pub collections: Option<Vec<models::SelectionReadOnlyResponseModel>>,
     #[serde(rename = "groups", skip_serializing_if = "Option::is_none")]
@@ -68,6 +75,8 @@ impl OrganizationUserDetailsResponseModel {
             uses_key_connector: None,
             has_master_password: None,
             managed_by_organization: None,
+            claimed_by_organization: None,
+            sso_external_id: None,
             collections: None,
             groups: None,
         }
