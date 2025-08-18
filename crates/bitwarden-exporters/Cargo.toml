@@ -18,6 +18,7 @@ keywords.workspace = true
 [features]
 uniffi = ["dep:uniffi", "bitwarden-core/uniffi"] # Uniffi bindings
 wasm = [
+    "bitwarden-collections/wasm",
     "bitwarden-vault/wasm",
     "dep:tsify",
     "dep:wasm-bindgen"
@@ -25,7 +26,7 @@ wasm = [
 
 [dependencies]
 base64 = ">=0.22.1, <0.23"
-bitwarden-collections = { workspace = true, features = ["wasm"] }
+bitwarden-collections = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
