@@ -116,7 +116,7 @@ pub(super) fn person_name_to_identity(
     .map(|field| field.value.0.clone())
     .collect::<Vec<_>>()
     .into_iter()
-    .reduce(|acc, part| format!("{} {}", acc, part));
+    .reduce(|acc, part| format!("{acc} {part}"));
 
     let identity = Identity {
         title: person_name.title.as_ref().map(|t| t.value.0.clone()),
