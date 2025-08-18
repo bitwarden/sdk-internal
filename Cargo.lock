@@ -1166,9 +1166,9 @@ dependencies = [
 
 [[package]]
 name = "credential-exchange-format"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5209d9b20c3eb8d2b96f3b06133b27d79168f312c09a8035f46c0fb18053aefc"
+checksum = "976c4941d06303b0411805093c91d83a96ec245aed832875985ada6cd84db7b8"
 dependencies = [
  "chrono",
  "data-encoding",
