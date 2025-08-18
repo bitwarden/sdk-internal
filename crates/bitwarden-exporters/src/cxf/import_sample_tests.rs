@@ -37,9 +37,8 @@ fn load_sample_cxf() -> Result<Vec<ImportingCipher>, CxfError> {
 mod tests {
     use bitwarden_vault::FieldType;
 
-    use crate::{Field, Identity};
-
     use super::*;
+    use crate::{Field, Identity};
 
     #[test]
     fn test_load_cxf_example_without_crashing() {
