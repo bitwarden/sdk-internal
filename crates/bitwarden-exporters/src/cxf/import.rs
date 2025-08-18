@@ -109,17 +109,26 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
 
     // Identity credentials (address, passport, person name, drivers license, identity document)
     [
-        grouped.address.first().map(address_to_identity),
-        grouped.passport.first().map(passport_to_identity),
-        grouped.person_name.first().map(person_name_to_identity),
+        grouped
+            .address
+            .first()
+            .map(|a| address_to_identity(a.clone())),
+        grouped
+            .passport
+            .first()
+            .map(|p| passport_to_identity(p.clone())),
+        grouped
+            .person_name
+            .first()
+            .map(|p| person_name_to_identity(p.clone())),
         grouped
             .drivers_license
             .first()
-            .map(drivers_license_to_identity),
+            .map(|d| drivers_license_to_identity(d.clone())),
         grouped
             .identity_document
             .first()
-            .map(identity_document_to_identity),
+            .map(|i| identity_document_to_identity(i.clone())),
     ]
     .into_iter()
     .flatten()
