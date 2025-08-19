@@ -280,7 +280,7 @@ pub struct UpdateKdfResponse {
     master_password_authentication_data: MasterPasswordAuthenticationData,
     /// The unlock data for the new KDF setting
     master_password_unlock_data: MasterPasswordUnlockData,
-    /// The authentication data for the prior to the KDF change
+    /// The authentication data for the KDF setting prior to the change
     old_master_password_authentication_data: MasterPasswordAuthenticationData,
 }
 
