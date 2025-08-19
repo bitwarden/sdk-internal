@@ -300,8 +300,9 @@ pub(super) fn update_kdf(
         .get_login_method()
         .ok_or(NotAuthenticatedError)?;
     let email = match login_method.as_ref() {
-        LoginMethod::User(UserLoginMethod::Username { email, .. })
-        | LoginMethod::User(UserLoginMethod::ApiKey { email, .. }) => email,
+        LoginMethod::User(
+            UserLoginMethod::Username { email, .. } | UserLoginMethod::ApiKey { email, .. },
+        ) => email,
         #[cfg(feature = "secrets")]
         LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
     };
