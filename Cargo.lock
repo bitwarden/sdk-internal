@@ -406,7 +406,7 @@ dependencies = [
  "reqwest",
  "rustls",
  "rustls-platform-verifier",
- "schemars 0.8.22",
+ "schemars 1.0.0",
  "serde",
  "serde_bytes",
  "serde_json",
@@ -447,7 +447,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rayon",
  "rsa",
- "schemars 0.8.22",
+ "schemars 1.0.0",
  "serde",
  "serde_bytes",
  "serde_json",
@@ -553,7 +553,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "reqwest",
- "schemars 0.8.22",
+ "schemars 1.0.0",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -610,7 +610,7 @@ dependencies = [
  "bitwarden-crypto",
  "chrono",
  "log",
- "schemars 0.8.22",
+ "schemars 1.0.0",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -3511,6 +3511,18 @@ dependencies = [
 
 [[package]]
 name = "schemars"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cd191f9397d57d581cddd31014772520aa448f65ef991055d7f61582c65165f"
+dependencies = [
+ "dyn-clone",
+ "ref-cast",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "schemars"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "febc07c7e70b5db4f023485653c754d76e1bbe8d9dbfa20193ce13da9f9633f4"
@@ -3522,18 +3534,6 @@ dependencies = [
  "serde",
  "serde_json",
  "uuid",
-]
-
-[[package]]
-name = "schemars"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cd191f9397d57d581cddd31014772520aa448f65ef991055d7f61582c65165f"
-dependencies = [
- "dyn-clone",
- "ref-cast",
- "serde",
- "serde_json",
 ]
 
 [[package]]
