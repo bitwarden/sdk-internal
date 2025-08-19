@@ -280,7 +280,7 @@ pub struct UpdateKdfResponse {
     master_password_authentication_data: MasterPasswordAuthenticationData,
     /// The unlock data for the new KDF setting
     master_password_unlock_data: MasterPasswordUnlockData,
-    /// The authentication data for the prior to the KDF change
+    /// The authentication data for the KDF setting prior to the change
     old_master_password_authentication_data: MasterPasswordAuthenticationData,
 }
 
@@ -300,8 +300,9 @@ pub(super) fn make_update_kdf(
         .get_login_method()
         .ok_or(NotAuthenticatedError)?;
     let email = match login_method.as_ref() {
-        LoginMethod::User(UserLoginMethod::Username { email, .. })
-        | LoginMethod::User(UserLoginMethod::ApiKey { email, .. }) => email,
+        LoginMethod::User(
+            UserLoginMethod::Username { email, .. } | UserLoginMethod::ApiKey { email, .. },
+        ) => email,
         #[cfg(feature = "secrets")]
         LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
     };
