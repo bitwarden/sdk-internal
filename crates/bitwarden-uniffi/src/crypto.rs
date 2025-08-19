@@ -45,9 +45,16 @@ impl CryptoClient {
     /// Update the user's password, which will re-encrypt the user's encryption key with the new
     /// password. This returns the new encrypted user key and the new password hash.
     pub fn update_password(&self, new_password: String) -> Result<UpdatePasswordResponse> {
+        self.make_update_password(new_password)
+    }
+
+    /// Update the user's password, which will re-encrypt the user's encryption key with the new
+    /// password. This returns the new encrypted user key and the new password hash but does not
+    /// update sdk state.
+    pub fn make_update_password(&self, new_password: String) -> Result<UpdatePasswordResponse> {
         Ok(self
             .0
-            .update_password(new_password)
+            .make_update_password(new_password)
             .map_err(Error::MobileCrypto)?)
     }
 
@@ -84,14 +91,14 @@ impl CryptoClient {
 
     /// Update the user's kdf settings, which will re-encrypt the user's encryption key with the new
     /// kdf settings. This returns the new encrypted user key and the new password hash.
-    pub fn update_kdf(
+    pub fn make_update_kdf(
         &self,
         password: String,
         kdf: Kdf,
     ) -> Result<bitwarden_core::key_management::crypto::UpdateKdfResponse> {
         Ok(self
             .0
-            .update_kdf(password, kdf)
+            .make_update_kdf(password, kdf)
             .map_err(Error::MobileCrypto)?)
     }
 }

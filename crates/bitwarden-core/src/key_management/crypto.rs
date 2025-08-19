@@ -284,7 +284,7 @@ pub struct UpdateKdfResponse {
     old_master_password_authentication_data: MasterPasswordAuthenticationData,
 }
 
-pub(super) fn update_kdf(
+pub(super) fn make_update_kdf(
     client: &Client,
     password: &str,
     new_kdf: &Kdf,
@@ -339,7 +339,7 @@ pub struct UpdatePasswordResponse {
     new_key: EncString,
 }
 
-pub(super) fn update_password(
+pub(super) fn make_update_password(
     client: &Client,
     new_password: String,
 ) -> Result<UpdatePasswordResponse, CryptoClientError> {
@@ -830,7 +830,7 @@ mod tests {
         let new_kdf = Kdf::PBKDF2 {
             iterations: 600_000.try_into().unwrap(),
         };
-        let new_kdf_response = update_kdf(&client, "123412341234", &new_kdf).unwrap();
+        let new_kdf_response = make_update_kdf(&client, "123412341234", &new_kdf).unwrap();
 
         let client2 = Client::new(None);
 
@@ -921,7 +921,7 @@ mod tests {
         .await
         .unwrap();
 
-        let new_password_response = update_password(&client, "123412341234".into()).unwrap();
+        let new_password_response = make_update_password(&client, "123412341234".into()).unwrap();
 
         let client2 = Client::new(None);
 
