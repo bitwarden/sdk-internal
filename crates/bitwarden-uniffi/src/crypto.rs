@@ -42,13 +42,18 @@ impl CryptoClient {
             .map_err(Error::MobileCrypto)?)
     }
 
-    /// Update the user's password, which will re-encrypt the user's encryption key with the new
-    /// password. This returns the new encrypted user key and the new password hash.
+    /// Create the data necessary to update the user's password. The user's encryption key is re-encrypted
+    /// with the new
+    /// password. This returns the new encrypted user key and the new password hash but does not
+    /// update sdk state.
+    ///
+    /// Note: This is deprecated and `make_update_password` should be used instead
     pub fn update_password(&self, new_password: String) -> Result<UpdatePasswordResponse> {
         self.make_update_password(new_password)
     }
 
-    /// Update the user's password, which will re-encrypt the user's encryption key with the new
+    /// Create the data necessary to update the user's password. The user's encryption key is re-encrypted
+    /// with the new
     /// password. This returns the new encrypted user key and the new password hash but does not
     /// update sdk state.
     pub fn make_update_password(&self, new_password: String) -> Result<UpdatePasswordResponse> {
@@ -89,8 +94,9 @@ impl CryptoClient {
             .map_err(Error::DeriveKeyConnector)?)
     }
 
-    /// Update the user's kdf settings, which will re-encrypt the user's encryption key with the new
-    /// kdf settings. This returns the new encrypted user key and the new password hash.
+    /// Create the data necessary to update the user's kdf settings. The user's encryption key is re-encrypted
+    /// for the password under the new kdf settings. This returns the new encrypted user key and the new password hash but does not
+    /// update sdk state.
     pub fn make_update_kdf(
         &self,
         password: String,
