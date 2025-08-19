@@ -3055,7 +3055,7 @@ pub async fn ciphers_post(
 
 pub async fn ciphers_purge_post(
     configuration: &configuration::Configuration,
-    organization_id: Option<&str>,
+    organization_id: Option<uuid::Uuid>,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
 ) -> Result<(), Error<CiphersPurgePostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
