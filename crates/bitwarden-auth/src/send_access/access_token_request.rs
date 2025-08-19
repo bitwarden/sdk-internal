@@ -201,8 +201,9 @@ mod tests {
         use super::*;
 
         mod send_access_password_credentials_tests {
-            use super::*;
             use serde_json::{from_str, to_string};
+
+            use super::*;
             #[test]
             fn deserializes_camelcase_from_ts() {
                 let json = r#"{ "passwordHashB64": "ha$h" }"#;

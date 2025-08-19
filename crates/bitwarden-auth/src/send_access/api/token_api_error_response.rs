@@ -86,8 +86,9 @@ mod tests {
     use super::*;
 
     mod send_access_token_invalid_request_error_tests {
-        use super::*;
         use serde_json::{from_str, to_string, to_value, Value};
+
+        use super::*;
 
         #[test]
         fn invalid_request_variants_support_alias_and_emit_codes() {
@@ -185,8 +186,9 @@ mod tests {
     }
 
     mod send_access_token_invalid_grant_error_tests {
-        use super::*;
         use serde_json::{from_str, to_string, to_value, Value};
+
+        use super::*;
 
         #[test]
         fn invalid_grant_variants_support_alias_and_emit_codes() {
@@ -283,8 +285,9 @@ mod tests {
     }
 
     mod send_access_token_error_tests {
-        use super::*;
         use serde_json::{from_str, to_string};
+
+        use super::*;
 
         #[test]
         fn deserializes_invalid_request_without_details() {
