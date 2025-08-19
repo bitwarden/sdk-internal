@@ -3,7 +3,7 @@ use credential_exchange_format::WifiCredential;
 use crate::{cxf::editable_field::create_field, Field};
 
 /// Convert WiFi credentials to custom fields following the CXF mapping convention
-pub fn wifi_to_fields(wifi: &WifiCredential) -> Vec<Field> {
+pub(super) fn wifi_to_fields(wifi: &WifiCredential) -> Vec<Field> {
     [
         // SSID: Text field
         wifi.ssid.as_ref().map(|ssid| create_field("SSID", ssid)),
