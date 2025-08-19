@@ -4,53 +4,46 @@ use tsify::Tsify;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "snake_case")]
 /// Invalid request errors - typically due to missing parameters.
 pub enum SendAccessTokenInvalidRequestError {
-    #[serde(rename = "send_id_required", alias = "send_id is required.")]
     #[allow(missing_docs)]
     SendIdRequired,
 
-    #[serde(
-        rename = "password_hash_b64_required",
-        alias = "password_hash_b64 is required."
-    )]
     #[allow(missing_docs)]
-    PasswordHashRequired,
+    PasswordHashB64Required,
 
-    #[serde(rename = "email_required", alias = "email is required.")]
     #[allow(missing_docs)]
     EmailRequired,
 
-    #[serde(
-        rename = "email_and_otp_required_otp_sent",
-        alias = "email and otp are required. An OTP has been sent to the email address provided."
-    )]
     #[allow(missing_docs)]
     EmailAndOtpRequiredOtpSent,
+
+    /// Fallback for unknown variants for forward compatibility
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "snake_case")]
 /// Invalid grant errors - typically due to invalid credentials.
 pub enum SendAccessTokenInvalidGrantError {
     #[allow(missing_docs)]
-    #[serde(rename = "send_id_invalid", alias = "send_id is invalid.")]
-    InvalidSendId,
+    SendIdInvalid,
 
     #[allow(missing_docs)]
-    #[serde(
-        rename = "password_hash_b64_invalid",
-        alias = "password_hash_b64 is invalid."
-    )]
-    InvalidPasswordHash,
+    PasswordHashB64Invalid,
 
     #[allow(missing_docs)]
-    #[serde(rename = "email_invalid", alias = "email is invalid.")]
-    InvalidEmail,
+    EmailInvalid,
 
     #[allow(missing_docs)]
-    #[serde(rename = "otp_invalid", alias = "otp is invalid.")]
-    InvalidOtp,
+    OtpInvalid,
+
+    /// Fallback for unknown variants for forward compatibility
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
@@ -67,17 +60,75 @@ pub enum SendAccessTokenApiErrorResponse {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[cfg_attr(feature = "wasm", tsify(optional))]
         /// The optional error description for invalid request errors.
-        error_description: Option<SendAccessTokenInvalidRequestError>,
+        error_description: Option<String>,
+
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(feature = "wasm", tsify(optional))]
+        /// The optional specific error type for invalid request errors.
+        send_access_error_type: Option<SendAccessTokenInvalidRequestError>,
     },
 
     /// Invalid grant error, typically due to invalid credentials.
-    /// Ex. `Password_hash` is invalid.
     #[serde(rename = "invalid_grant")]
     InvalidGrant {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[cfg_attr(feature = "wasm", tsify(optional))]
         /// The optional error description for invalid grant errors.
-        error_description: Option<SendAccessTokenInvalidGrantError>,
+        error_description: Option<String>,
+
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(feature = "wasm", tsify(optional))]
+        /// The optional specific error type for invalid grant errors.
+        send_access_error_type: Option<SendAccessTokenInvalidGrantError>,
+    },
+
+    #[serde(rename = "invalid_client")]
+    /// Invalid client error, typically due to an invalid client secret or client ID.
+    InvalidClient {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(feature = "wasm", tsify(optional))]
+        /// The optional error description for invalid client errors.
+        error_description: Option<String>,
+    },
+
+    #[serde(rename = "unauthorized_client")]
+    /// Unauthorized client error, typically due to an unauthorized client.
+    UnauthorizedClient {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(feature = "wasm", tsify(optional))]
+        /// The optional error description for unauthorized client errors.
+        error_description: Option<String>,
+    },
+
+    #[serde(rename = "unsupported_grant_type")]
+    /// Unsupported grant type error, typically due to an unsupported credential flow.
+    /// Note: during initial feature rollout, this will be used to indicate that the
+    /// feature flag is disabled.
+    UnsupportedGrantType {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(feature = "wasm", tsify(optional))]
+        /// The optional error description for unsupported grant type errors.
+        error_description: Option<String>,
+    },
+
+    #[serde(rename = "invalid_scope")]
+    /// Invalid scope error, typically due to an invalid scope requested.
+    InvalidScope {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(feature = "wasm", tsify(optional))]
+        /// The optional error description for invalid scope errors.
+        error_description: Option<String>,
+    },
+
+    // add invalid target error
+    #[serde(rename = "invalid_target")]
+    /// Invalid target error which is shown if the requested
+    /// resource is invalid, missing, unknown, or malformed.
+    InvalidTarget {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(feature = "wasm", tsify(optional))]
+        /// The optional error description for invalid target errors.
+        error_description: Option<String>,
     },
 }
 
@@ -86,376 +137,848 @@ mod tests {
     use super::*;
 
     mod send_access_token_invalid_request_error_tests {
-        use serde_json::{from_str, to_string, to_value, Value};
+        use serde_json::{from_str, json, to_string, to_value, Value};
 
         use super::*;
 
         #[test]
-        fn invalid_request_variants_support_alias_and_emit_codes() {
-            // (expected_variant, code_json, sentence_json)
-            let cases: &[(SendAccessTokenInvalidRequestError, &str, &str)] = &[
-            (
-                SendAccessTokenInvalidRequestError::SendIdRequired,
-                "\"send_id_required\"",
-                "\"send_id is required.\"",
-            ),
-            (
-                SendAccessTokenInvalidRequestError::PasswordHashRequired,
-                "\"password_hash_b64_required\"",
-                "\"password_hash_b64 is required.\"",
-            ),
-            (
-                SendAccessTokenInvalidRequestError::EmailRequired,
-                "\"email_required\"",
-                "\"email is required.\"",
-            ),
-            (
-                SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent,
-                "\"email_and_otp_required_otp_sent\"",
-                "\"email and otp are required. An OTP has been sent to the email address provided.\"",
-            ),
-        ];
+        fn invalid_request_variants_serde_tests() {
+            // (expected_variant, send_access_error_type)
+            let cases: &[(SendAccessTokenInvalidRequestError, &str)] = &[
+                (
+                    SendAccessTokenInvalidRequestError::SendIdRequired,
+                    "\"send_id_required\"",
+                ),
+                (
+                    SendAccessTokenInvalidRequestError::PasswordHashB64Required,
+                    "\"password_hash_b64_required\"",
+                ),
+                (
+                    SendAccessTokenInvalidRequestError::EmailRequired,
+                    "\"email_required\"",
+                ),
+                (
+                    SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent,
+                    "\"email_and_otp_required_otp_sent\"",
+                ),
+            ];
 
-            for (expected_variant, code_json, sentence_json) in cases {
-                // 1) Deserializing the server's sentence alias -> enum
-                let error_from_sentence: SendAccessTokenInvalidRequestError =
-                    from_str(sentence_json).unwrap();
+            for (expected_variant, send_access_error_type_json) in cases {
+                // Deserialize from send_access_error_type to enum
+                let error_from_send_access_error_type: SendAccessTokenInvalidRequestError =
+                    from_str(send_access_error_type_json).unwrap();
                 assert_eq!(
-                    &error_from_sentence, expected_variant,
-                    "sentence alias should map to the expected variant"
+                    &error_from_send_access_error_type, expected_variant,
+                    "send_access_error_type should map to the expected variant"
                 );
 
-                // 2) Deserializing the canonical code -> enum
-                let error_from_code: SendAccessTokenInvalidRequestError =
-                    from_str(code_json).unwrap();
-                assert_eq!(
-                    &error_from_code, expected_variant,
-                    "code should map to the expected variant"
-                );
-
-                // 3a) Serializing enum -> JSON string containing the canonical code
-                // (includes quotes)
+                // Serializing enum -> JSON string containing send_access_error_type
                 let json_from_variant = to_string(expected_variant).unwrap();
                 assert_eq!(
-                    json_from_variant, *code_json,
-                    "serialization should emit the canonical code string"
+                    json_from_variant, *send_access_error_type_json,
+                    "serialization should emit the send_access_error_type_json"
                 );
 
-                // 3b) (Optional) Type-safe check: to_value() → Value::String, then compare the
+                // Type-safe check: to_value() → Value::String, then compare the
                 // code; this avoids formatting/quoting concerns from to_string().
                 let value_from_variant = to_value(expected_variant).unwrap();
                 assert_eq!(
                     value_from_variant,
-                    Value::String(code_json.trim_matches('"').to_string()),
-                    "serialization as Value should be the canonical code"
+                    Value::String(send_access_error_type_json.trim_matches('"').to_string()),
+                    "serialization as value should match json generated from enum"
                 );
 
-                // 4) Round-trip: sentence alias -> enum -> canonical code
-                let round_tripped_code = to_string(&error_from_sentence).unwrap();
+                // Round-trip: send_access_error_type -> enum -> send_access_error_type
+                let round_tripped_code = to_string(&error_from_send_access_error_type).unwrap();
                 assert_eq!(
-                    round_tripped_code, *code_json,
-                    "alias should round-trip to the canonical code"
+                    round_tripped_code, *send_access_error_type_json,
+                    "round-trip should preserve the send_access_error_type_json"
                 );
             }
         }
 
         #[test]
-        fn invalid_request_unknown_sentence_fails() {
-            // No #[serde(other)] variant defined, so unknown strings should fail to parse.
-            let unknown_sentence_json = "\"this is not a known invalid_request sentence\"";
-            let err =
-                from_str::<SendAccessTokenInvalidRequestError>(unknown_sentence_json).unwrap_err();
-            let msg = err.to_string();
-            assert!(
-                msg.contains("unknown variant") || msg.contains("expected"),
-                "unexpected error: {msg}"
-            );
+        fn invalid_request_full_payload_with_both_fields_parses() {
+            let payload = json!({
+                "error": "invalid_request",
+                "error_description": "send_id is required.",
+                "send_access_error_type": "send_id_required"
+            })
+            .to_string();
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(&payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidRequest {
+                    error_description,
+                    send_access_error_type,
+                } => {
+                    assert_eq!(error_description.as_deref(), Some("send_id is required."));
+                    assert_eq!(
+                        send_access_error_type,
+                        Some(SendAccessTokenInvalidRequestError::SendIdRequired)
+                    );
+                }
+                _ => panic!("expected invalid_request"),
+            }
         }
 
         #[test]
-        fn invalid_request_unknown_code_fails() {
-            let unknown_code_json = "\"not_a_real_invalid_request_code\"";
-            let err =
-                from_str::<SendAccessTokenInvalidRequestError>(unknown_code_json).unwrap_err();
-            let msg = err.to_string();
-            assert!(
-                msg.contains("unknown variant") || msg.contains("expected"),
-                "unexpected error: {msg}"
-            );
+        fn invalid_request_payload_without_description_is_allowed() {
+            let payload = r#"
+    {
+        "error": "invalid_request",
+        "send_access_error_type": "email_required"
+    }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = serde_json::from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidRequest {
+                    error_description,
+                    send_access_error_type,
+                } => {
+                    assert!(error_description.is_none());
+                    assert_eq!(
+                        send_access_error_type,
+                        Some(SendAccessTokenInvalidRequestError::EmailRequired)
+                    );
+                }
+                _ => panic!("expected invalid_request"),
+            }
+        }
+
+        #[test]
+        fn invalid_request_unknown_code_maps_to_unknown() {
+            let payload = r#"
+    {
+        "error": "invalid_request",
+        "error_description": "something new",
+        "send_access_error_type": "brand_new_code"
+    }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = serde_json::from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidRequest {
+                    error_description,
+                    send_access_error_type,
+                } => {
+                    assert_eq!(error_description.as_deref(), Some("something new"));
+                    assert_eq!(
+                        send_access_error_type,
+                        Some(SendAccessTokenInvalidRequestError::Unknown)
+                    );
+                }
+                _ => panic!("expected invalid_request"),
+            }
+        }
+
+        #[test]
+        fn invalid_request_minimal_payload_is_allowed() {
+            let payload = r#"{ "error": "invalid_request" }"#;
+            let parsed: SendAccessTokenApiErrorResponse = serde_json::from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidRequest {
+                    error_description,
+                    send_access_error_type,
+                } => {
+                    assert!(error_description.is_none());
+                    assert!(send_access_error_type.is_none());
+                }
+                _ => panic!("expected invalid_request"),
+            }
+        }
+
+        #[test]
+        fn invalid_request_null_fields_become_none() {
+            let payload = r#"
+        {
+          "error": "invalid_request",
+          "error_description": null,
+          "send_access_error_type": null
+        }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidRequest {
+                    error_description,
+                    send_access_error_type,
+                } => {
+                    assert!(error_description.is_none());
+                    assert!(send_access_error_type.is_none());
+                }
+                _ => panic!("expected invalid_request"),
+            }
         }
     }
 
     mod send_access_token_invalid_grant_error_tests {
-        use serde_json::{from_str, to_string, to_value, Value};
+        use serde_json::{from_str, json, to_string, to_value, Value};
 
         use super::*;
 
         #[test]
-        fn invalid_grant_variants_support_alias_and_emit_codes() {
-            // (variant, code_json, sentence_json)
-            let cases: &[(SendAccessTokenInvalidGrantError, &str, &str)] = &[
+        fn invalid_grant_variants_serde_tests() {
+            // (expected_variant, send_access_error_type)
+            let cases: &[(SendAccessTokenInvalidGrantError, &str)] = &[
                 (
-                    SendAccessTokenInvalidGrantError::InvalidSendId,
+                    SendAccessTokenInvalidGrantError::SendIdInvalid,
                     "\"send_id_invalid\"",
-                    "\"send_id is invalid.\"",
                 ),
                 (
-                    SendAccessTokenInvalidGrantError::InvalidPasswordHash,
+                    SendAccessTokenInvalidGrantError::PasswordHashB64Invalid,
                     "\"password_hash_b64_invalid\"",
-                    "\"password_hash_b64 is invalid.\"",
                 ),
                 (
-                    SendAccessTokenInvalidGrantError::InvalidEmail,
+                    SendAccessTokenInvalidGrantError::EmailInvalid,
                     "\"email_invalid\"",
-                    "\"email is invalid.\"",
                 ),
                 (
-                    SendAccessTokenInvalidGrantError::InvalidOtp,
+                    SendAccessTokenInvalidGrantError::OtpInvalid,
                     "\"otp_invalid\"",
-                    "\"otp is invalid.\"",
                 ),
             ];
 
-            for (expected_variant, code_json, sentence_json) in cases {
-                // 1) Deserializing the server's sentence alias -> enum
-                let error_from_sentence: SendAccessTokenInvalidGrantError =
-                    from_str(sentence_json).unwrap();
+            for (expected_variant, send_access_error_type_json) in cases {
+                // Deserialize from send_access_error_type to enum
+                let error_from_send_access_error_type: SendAccessTokenInvalidGrantError =
+                    from_str(send_access_error_type_json).unwrap();
                 assert_eq!(
-                    &error_from_sentence, expected_variant,
-                    "sentence alias should map to the expected variant"
+                    &error_from_send_access_error_type, expected_variant,
+                    "send_access_error_type should map to the expected variant"
                 );
 
-                // 2) Deserializing the canonical code -> enum
-                let error_from_code: SendAccessTokenInvalidGrantError =
-                    from_str(code_json).unwrap();
-                assert_eq!(
-                    &error_from_code, expected_variant,
-                    "code should map to the expected variant"
-                );
-
-                // 3a) Serializing enum -> JSON string containing the canonical code
-                // (includes quotes)
+                // Serializing enum -> JSON string containing send_access_error_type
                 let json_from_variant = to_string(expected_variant).unwrap();
                 assert_eq!(
-                    json_from_variant, *code_json,
-                    "serialization should emit the canonical code string"
+                    json_from_variant, *send_access_error_type_json,
+                    "serialization should emit the send_access_error_type_json"
                 );
 
-                // 3b) (Optional) Type-safe check: to_value() → Value::String, then compare the
-                // code; this avoids formatting/quoting concerns from to_string().
+                // Type-safe check: to_value() → Value::String
                 let value_from_variant = to_value(expected_variant).unwrap();
                 assert_eq!(
                     value_from_variant,
-                    Value::String(code_json.trim_matches('"').to_string()),
-                    "serialization as Value should be the canonical code"
+                    Value::String(send_access_error_type_json.trim_matches('"').to_string()),
+                    "serialization as value should match json generated from enum"
                 );
 
-                // 4) Round-trip: sentence alias -> enum -> canonical code
-                let round_tripped_code = to_string(&error_from_sentence).unwrap();
+                // Round-trip: send_access_error_type -> enum -> send_access_error_type
+                let round_tripped_code = to_string(&error_from_send_access_error_type).unwrap();
                 assert_eq!(
-                    round_tripped_code, *code_json,
-                    "alias should round-trip to the canonical code"
+                    round_tripped_code, *send_access_error_type_json,
+                    "round-trip should preserve the send_access_error_type_json"
                 );
             }
         }
 
         #[test]
-        fn invalid_grant_unknown_sentence_fails() {
-            // No #[serde(other)] variant defined, so unknown strings should fail to parse.
-            let unknown_sentence_json = "\"this is not a known invalid_grant sentence\"";
-            let err =
-                from_str::<SendAccessTokenInvalidGrantError>(unknown_sentence_json).unwrap_err();
-            let msg = err.to_string();
-            assert!(
-                msg.contains("unknown variant") || msg.contains("expected"),
-                "unexpected error: {msg}"
-            );
+        fn invalid_grant_full_payload_with_both_fields_parses() {
+            let payload = json!({
+                "error": "invalid_grant",
+                "error_description": "password_hash_b64 is invalid.",
+                "send_access_error_type": "password_hash_b64_invalid"
+            })
+            .to_string();
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(&payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidGrant {
+                    error_description,
+                    send_access_error_type,
+                } => {
+                    assert_eq!(
+                        error_description.as_deref(),
+                        Some("password_hash_b64 is invalid.")
+                    );
+                    assert_eq!(
+                        send_access_error_type,
+                        Some(SendAccessTokenInvalidGrantError::PasswordHashB64Invalid)
+                    );
+                }
+                _ => panic!("expected invalid_grant"),
+            }
         }
 
         #[test]
-        fn invalid_grant_unknown_code_fails() {
-            let unknown_code_json = "\"not_a_real_invalid_grant_code\"";
-            let err = from_str::<SendAccessTokenInvalidGrantError>(unknown_code_json).unwrap_err();
-            let msg = err.to_string();
-            assert!(
-                msg.contains("unknown variant") || msg.contains("expected"),
-                "unexpected error: {msg}"
-            );
+        fn invalid_grant_payload_without_description_is_allowed() {
+            let payload = r#"
+{
+    "error": "invalid_grant",
+    "send_access_error_type": "otp_invalid"
+}"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = serde_json::from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidGrant {
+                    error_description,
+                    send_access_error_type,
+                } => {
+                    assert!(error_description.is_none());
+                    assert_eq!(
+                        send_access_error_type,
+                        Some(SendAccessTokenInvalidGrantError::OtpInvalid)
+                    );
+                }
+                _ => panic!("expected invalid_grant"),
+            }
+        }
+
+        #[test]
+        fn invalid_grant_unknown_code_maps_to_unknown() {
+            let payload = r#"
+{
+    "error": "invalid_grant",
+    "error_description": "new server-side reason",
+    "send_access_error_type": "brand_new_grant_code"
+}"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = serde_json::from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidGrant {
+                    error_description,
+                    send_access_error_type,
+                } => {
+                    assert_eq!(error_description.as_deref(), Some("new server-side reason"));
+                    assert_eq!(
+                        send_access_error_type,
+                        Some(SendAccessTokenInvalidGrantError::Unknown)
+                    );
+                }
+                _ => panic!("expected invalid_grant"),
+            }
+        }
+
+        #[test]
+        fn invalid_grant_minimal_payload_is_allowed() {
+            let payload = r#"{ "error": "invalid_grant" }"#;
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidGrant {
+                    error_description,
+                    send_access_error_type,
+                } => {
+                    assert!(error_description.is_none());
+                    assert!(send_access_error_type.is_none());
+                }
+                _ => panic!("expected invalid_grant"),
+            }
+        }
+
+        #[test]
+        fn invalid_grant_null_fields_become_none() {
+            let payload = r#"
+        {
+          "error": "invalid_grant",
+          "error_description": null,
+          "send_access_error_type": null
+        }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidGrant {
+                    error_description,
+                    send_access_error_type,
+                } => {
+                    assert!(error_description.is_none());
+                    assert!(send_access_error_type.is_none());
+                }
+                _ => panic!("expected invalid_grant"),
+            }
         }
     }
 
-    mod send_access_token_error_tests {
-        use serde_json::{from_str, to_string};
-
+    mod send_access_token_invalid_client_error_tests {
         use super::*;
+        use serde_json::{from_str, json, to_value};
 
         #[test]
-        fn deserializes_invalid_request_without_details() {
-            let json = r#"{ "error": "invalid_request" }"#;
-            let result: SendAccessTokenApiErrorResponse = from_str(json).unwrap();
-            assert_eq!(
-                result,
-                SendAccessTokenApiErrorResponse::InvalidRequest {
-                    error_description: None
+        fn invalid_client_full_payload_with_description_parses() {
+            let payload = json!({
+                "error": "invalid_client",
+                "error_description": "Invalid client credentials."
+            })
+            .to_string();
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(&payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidClient { error_description } => {
+                    assert_eq!(
+                        error_description.as_deref(),
+                        Some("Invalid client credentials.")
+                    );
                 }
-            );
+                _ => panic!("expected invalid_client"),
+            }
         }
 
         #[test]
-        fn deserializes_invalid_grant_without_details() {
-            let json = r#"{ "error": "invalid_grant" }"#;
-            let result: SendAccessTokenApiErrorResponse = from_str(json).unwrap();
-            assert_eq!(
-                result,
-                SendAccessTokenApiErrorResponse::InvalidGrant {
-                    error_description: None
-                }
-            );
-        }
+        fn invalid_client_without_description_is_allowed() {
+            let payload = r#"{ "error": "invalid_client" }"#;
 
-        // --- With details: ALIAS (sentence) -> enum
-
-        #[test]
-        fn deserializes_invalid_request_with_sentence_detail() {
-            let json =
-                r#"{ "error": "invalid_request", "error_description": "send_id is required." }"#;
-            let result: SendAccessTokenApiErrorResponse = from_str(json).unwrap();
-            assert_eq!(
-                result,
-                SendAccessTokenApiErrorResponse::InvalidRequest {
-                    error_description: Some(SendAccessTokenInvalidRequestError::SendIdRequired)
+            let parsed: SendAccessTokenApiErrorResponse = serde_json::from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidClient { error_description } => {
+                    assert!(error_description.is_none());
                 }
-            );
+                _ => panic!("expected invalid_client"),
+            }
         }
 
         #[test]
-        fn deserializes_invalid_grant_with_sentence_detail() {
-            let json = r#"{ "error": "invalid_grant", "error_description": "password_hash_b64 is invalid." }"#;
-            let result: SendAccessTokenApiErrorResponse = from_str(json).unwrap();
-            assert_eq!(
-                result,
-                SendAccessTokenApiErrorResponse::InvalidGrant {
-                    error_description: Some(SendAccessTokenInvalidGrantError::InvalidPasswordHash)
-                }
-            );
-        }
-
-        // --- With details: CODE -> enum
-
-        #[test]
-        fn deserializes_invalid_request_with_code_detail() {
-            let json = r#"{ "error": "invalid_request", "error_description": "send_id_required" }"#;
-            let result: SendAccessTokenApiErrorResponse = from_str(json).unwrap();
-            assert_eq!(
-                result,
-                SendAccessTokenApiErrorResponse::InvalidRequest {
-                    error_description: Some(SendAccessTokenInvalidRequestError::SendIdRequired)
-                }
-            );
-        }
-
-        #[test]
-        fn deserializes_invalid_request_with_code_detail_email_and_otp_required() {
-            // Note: matches your Rust rename "email_and_otp_required_otp_sent"
-            let json = r#"{ "error": "invalid_request", "error_description": "email_and_otp_required_otp_sent" }"#;
-            let result: SendAccessTokenApiErrorResponse = from_str(json).unwrap();
-            assert_eq!(
-                result,
-                SendAccessTokenApiErrorResponse::InvalidRequest {
-                    error_description: Some(
-                        SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent
-                    )
-                }
-            );
-        }
-
-        #[test]
-        fn deserializes_invalid_grant_with_code_detail() {
-            let json =
-                r#"{ "error": "invalid_grant", "error_description": "password_hash_b64_invalid" }"#;
-            let result: SendAccessTokenApiErrorResponse = from_str(json).unwrap();
-            assert_eq!(
-                result,
-                SendAccessTokenApiErrorResponse::InvalidGrant {
-                    error_description: Some(SendAccessTokenInvalidGrantError::InvalidPasswordHash)
-                }
-            );
-        }
-
-        // --- enum -> JSON: should always emit the CODE (not the sentence)
-
-        #[test]
-        fn serializes_invalid_request_with_detail_emits_code() {
-            let e = SendAccessTokenApiErrorResponse::InvalidRequest {
-                error_description: Some(
-                    SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent,
-                ),
+        fn invalid_client_serializes_back() {
+            let value = SendAccessTokenApiErrorResponse::InvalidClient {
+                error_description: Some("Invalid client credentials.".into()),
             };
-            let json = to_string(&e).unwrap();
+            let j = to_value(value).unwrap();
             assert_eq!(
-                json,
-                r#"{"error":"invalid_request","error_description":"email_and_otp_required_otp_sent"}"#
+                j,
+                json!({
+                    "error": "invalid_client",
+                    "error_description": "Invalid client credentials."
+                })
             );
         }
 
         #[test]
-        fn serializes_invalid_grant_with_detail_emits_code() {
-            let e = SendAccessTokenApiErrorResponse::InvalidGrant {
-                error_description: Some(SendAccessTokenInvalidGrantError::InvalidPasswordHash),
+        fn invalid_client_minimal_payload_is_allowed() {
+            let payload = r#"{ "error": "invalid_client" }"#;
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidClient { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected invalid_client"),
+            }
+        }
+
+        #[test]
+        fn invalid_client_null_description_becomes_none() {
+            let payload = r#"
+        {
+          "error": "invalid_client",
+          "error_description": null
+        }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidClient { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected invalid_client"),
+            }
+        }
+
+        #[test]
+        fn invalid_client_ignores_send_access_error_type_and_extra_fields() {
+            let payload = r#"
+        {
+          "error": "invalid_client",
+          "send_access_error_type": "should_be_ignored",
+          "extra_field": 123,
+          "error_description": "desc"
+        }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidClient { error_description } => {
+                    assert_eq!(error_description.as_deref(), Some("desc"));
+                }
+                _ => panic!("expected invalid_client"),
+            }
+        }
+    }
+
+    mod send_access_token_unauthorized_client_error_tests {
+        use super::*;
+        use serde_json::{from_str, json, to_value};
+
+        #[test]
+        fn unauthorized_client_full_payload_with_description_parses() {
+            let payload = json!({
+                "error": "unauthorized_client",
+                "error_description": "Client not permitted to use this grant."
+            })
+            .to_string();
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(&payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::UnauthorizedClient { error_description } => {
+                    assert_eq!(
+                        error_description.as_deref(),
+                        Some("Client not permitted to use this grant.")
+                    );
+                }
+                _ => panic!("expected unauthorized_client"),
+            }
+        }
+
+        #[test]
+        fn unauthorized_client_without_description_is_allowed() {
+            let payload = r#"{ "error": "unauthorized_client" }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = serde_json::from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::UnauthorizedClient { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected unauthorized_client"),
+            }
+        }
+
+        #[test]
+        fn unauthorized_client_serializes_back() {
+            let value = SendAccessTokenApiErrorResponse::UnauthorizedClient {
+                error_description: None,
             };
-            let json = to_string(&e).unwrap();
+            let j = to_value(value).unwrap();
+            assert_eq!(j, json!({ "error": "unauthorized_client" }));
+        }
+
+        #[test]
+        fn unauthorized_client_minimal_payload_is_allowed() {
+            let payload = r#"{ "error": "unauthorized_client" }"#;
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::UnauthorizedClient { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected unauthorized_client"),
+            }
+        }
+
+        #[test]
+        fn unauthorized_client_null_description_becomes_none() {
+            let payload = r#"
+        {
+          "error": "unauthorized_client",
+          "error_description": null
+        }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::UnauthorizedClient { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected unauthorized_client"),
+            }
+        }
+
+        #[test]
+        fn unauthorized_client_ignores_send_access_error_type_and_extra_fields() {
+            let payload = r#"
+        {
+          "error": "unauthorized_client",
+          "send_access_error_type": "should_be_ignored",
+          "extra_field": true
+        }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::UnauthorizedClient { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected unauthorized_client"),
+            }
+        }
+    }
+
+    mod send_access_token_unsupported_grant_type_error_tests {
+        use super::*;
+        use serde_json::{from_str, json, to_value};
+
+        #[test]
+        fn unsupported_grant_type_full_payload_with_description_parses() {
+            let payload = json!({
+                "error": "unsupported_grant_type",
+                "error_description": "This grant type is not enabled."
+            })
+            .to_string();
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(&payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::UnsupportedGrantType { error_description } => {
+                    assert_eq!(
+                        error_description.as_deref(),
+                        Some("This grant type is not enabled.")
+                    );
+                }
+                _ => panic!("expected unsupported_grant_type"),
+            }
+        }
+
+        #[test]
+        fn unsupported_grant_type_without_description_is_allowed() {
+            let payload = r#"{ "error": "unsupported_grant_type" }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = serde_json::from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::UnsupportedGrantType { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected unsupported_grant_type"),
+            }
+        }
+
+        #[test]
+        fn unsupported_grant_type_serializes_back() {
+            let value = SendAccessTokenApiErrorResponse::UnsupportedGrantType {
+                error_description: Some("Disabled by feature flag".into()),
+            };
+            let j = to_value(value).unwrap();
             assert_eq!(
-                json,
-                r#"{"error":"invalid_grant","error_description":"password_hash_b64_invalid"}"#
+                j,
+                json!({
+                    "error": "unsupported_grant_type",
+                    "error_description": "Disabled by feature flag"
+                })
             );
         }
 
-        // --- Round-trip: sentence -> enum -> code
+        #[test]
+        fn unsupported_grant_type_minimal_payload_is_allowed() {
+            let payload = r#"{ "error": "unsupported_grant_type" }"#;
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::UnsupportedGrantType { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected unsupported_grant_type"),
+            }
+        }
 
         #[test]
-        fn round_trips_sentence_detail_to_code_for_invalid_request() {
-            let in_json = r#"{ "error": "invalid_request", "error_description": "email and otp are required. An OTP has been sent to the email address provided." }"#;
-            let parsed: SendAccessTokenApiErrorResponse = from_str(in_json).unwrap();
-            let out_json = to_string(&parsed).unwrap();
+        fn unsupported_grant_type_null_description_becomes_none() {
+            let payload = r#"
+        {
+          "error": "unsupported_grant_type",
+          "error_description": null
+        }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::UnsupportedGrantType { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected unsupported_grant_type"),
+            }
+        }
+
+        #[test]
+        fn unsupported_grant_type_ignores_send_access_error_type_and_extra_fields() {
+            let payload = r#"
+        {
+          "error": "unsupported_grant_type",
+          "send_access_error_type": "should_be_ignored",
+          "extra_field": "noise"
+        }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::UnsupportedGrantType { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected unsupported_grant_type"),
+            }
+        }
+    }
+
+    mod send_access_token_invalid_scope_error_tests {
+        use super::*;
+        use serde_json::{from_str, json, to_value};
+
+        #[test]
+        fn invalid_scope_full_payload_with_description_parses() {
+            let payload = json!({
+                "error": "invalid_scope",
+                "error_description": "Requested scope is not allowed."
+            })
+            .to_string();
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(&payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidScope { error_description } => {
+                    assert_eq!(
+                        error_description.as_deref(),
+                        Some("Requested scope is not allowed.")
+                    );
+                }
+                _ => panic!("expected invalid_scope"),
+            }
+        }
+
+        #[test]
+        fn invalid_scope_without_description_is_allowed() {
+            let payload = r#"{ "error": "invalid_scope" }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = serde_json::from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidScope { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected invalid_scope"),
+            }
+        }
+
+        #[test]
+        fn invalid_scope_serializes_back() {
+            let value = SendAccessTokenApiErrorResponse::InvalidScope {
+                error_description: None,
+            };
+            let j = to_value(value).unwrap();
+            assert_eq!(j, json!({ "error": "invalid_scope" }));
+        }
+
+        #[test]
+        fn invalid_scope_minimal_payload_is_allowed() {
+            let payload = r#"{ "error": "invalid_scope" }"#;
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidScope { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected invalid_scope"),
+            }
+        }
+
+        #[test]
+        fn invalid_scope_null_description_becomes_none() {
+            let payload = r#"
+        {
+          "error": "invalid_scope",
+          "error_description": null
+        }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidScope { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected invalid_scope"),
+            }
+        }
+
+        #[test]
+        fn invalid_scope_ignores_send_access_error_type_and_extra_fields() {
+            let payload = r#"
+        {
+          "error": "invalid_scope",
+          "send_access_error_type": "should_be_ignored",
+          "extra_field": [1,2,3]
+        }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidScope { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected invalid_scope"),
+            }
+        }
+    }
+
+    mod send_access_token_invalid_target_error_tests {
+        use super::*;
+        use serde_json::{from_str, json, to_value};
+
+        #[test]
+        fn invalid_target_full_payload_with_description_parses() {
+            let payload = json!({
+                "error": "invalid_target",
+                "error_description": "Unknown or disallowed resource indicator."
+            })
+            .to_string();
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(&payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidTarget { error_description } => {
+                    assert_eq!(
+                        error_description.as_deref(),
+                        Some("Unknown or disallowed resource indicator.")
+                    );
+                }
+                _ => panic!("expected invalid_target"),
+            }
+        }
+
+        #[test]
+        fn invalid_target_without_description_is_allowed() {
+            let payload = r#"{ "error": "invalid_target" }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = serde_json::from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidTarget { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected invalid_target"),
+            }
+        }
+
+        #[test]
+        fn invalid_target_serializes_back() {
+            let value = SendAccessTokenApiErrorResponse::InvalidTarget {
+                error_description: Some("Bad resource parameter".into()),
+            };
+            let j = to_value(value).unwrap();
             assert_eq!(
-                out_json,
-                r#"{"error":"invalid_request","error_description":"email_and_otp_required_otp_sent"}"#
+                j,
+                json!({
+                    "error": "invalid_target",
+                    "error_description": "Bad resource parameter"
+                })
             );
         }
 
         #[test]
-        fn round_trips_sentence_detail_to_code_for_invalid_grant() {
-            let in_json = r#"{ "error": "invalid_grant", "error_description": "otp is invalid." }"#;
-            let parsed: SendAccessTokenApiErrorResponse = from_str(in_json).unwrap();
-            let out_json = to_string(&parsed).unwrap();
-            assert_eq!(
-                out_json,
-                r#"{"error":"invalid_grant","error_description":"otp_invalid"}"#
-            );
-        }
-
-        // --- Negative: unknown detail should fail to parse (no #[serde(other)] present)
-
-        #[test]
-        fn deserializing_unknown_detail_fails_for_invalid_request() {
-            let json = r#"{ "error": "invalid_request", "error_description": "totally unknown" }"#;
-            let err = from_str::<SendAccessTokenApiErrorResponse>(json).unwrap_err();
-            let msg = err.to_string();
-            assert!(
-                msg.contains("unknown variant") || msg.contains("expected"),
-                "unexpected error: {msg}"
-            );
+        fn invalid_target_minimal_payload_is_allowed() {
+            let payload = r#"{ "error": "invalid_target" }"#;
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidTarget { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected invalid_target"),
+            }
         }
 
         #[test]
-        fn deserializing_unknown_detail_fails_for_invalid_grant() {
-            let json = r#"{ "error": "invalid_grant", "error_description": "not_a_real_code" }"#;
-            let err = from_str::<SendAccessTokenApiErrorResponse>(json).unwrap_err();
-            let msg = err.to_string();
-            assert!(
-                msg.contains("unknown variant") || msg.contains("expected"),
-                "unexpected error: {msg}"
-            );
+        fn invalid_target_null_description_becomes_none() {
+            let payload = r#"
+        {
+          "error": "invalid_target",
+          "error_description": null
+        }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidTarget { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected invalid_target"),
+            }
         }
+
+        #[test]
+        fn invalid_target_ignores_send_access_error_type_and_extra_fields() {
+            let payload = r#"
+        {
+          "error": "invalid_target",
+          "send_access_error_type": "should_be_ignored",
+          "extra_field": {"k":"v"}
+        }"#;
+
+            let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
+            match parsed {
+                SendAccessTokenApiErrorResponse::InvalidTarget { error_description } => {
+                    assert!(error_description.is_none());
+                }
+                _ => panic!("expected invalid_target"),
+            }
+        }
+    }
+
+    #[test]
+    fn unknown_top_level_error_rejects() {
+        let payload = r#"{ "error": "totally_new_error" }"#;
+        let err = serde_json::from_str::<SendAccessTokenApiErrorResponse>(payload).unwrap_err();
+        let _ = err;
     }
 }
