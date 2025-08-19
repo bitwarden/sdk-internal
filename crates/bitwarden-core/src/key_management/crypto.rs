@@ -23,9 +23,7 @@ use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
     error::StatefulCryptoError,
     key_management::{
-        master_password::{
-            MasterPasswordAuthenticationData, MasterPasswordError, MasterPasswordUnlockData,
-        },
+        master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
         AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
     },
     Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
