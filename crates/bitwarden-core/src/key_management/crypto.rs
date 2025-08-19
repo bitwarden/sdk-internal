@@ -23,7 +23,8 @@ use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
     error::StatefulCryptoError,
     key_management::{
-        AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
+        AsymmetricKeyId, MasterPasswordUnlockData, SecurityState, SignedSecurityState,
+        SigningKeyId, SymmetricKeyId,
     },
     Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
 };
@@ -75,6 +76,13 @@ pub enum InitUserCryptoMethod {
         password: String,
         /// The user's encrypted symmetric crypto key
         user_key: EncString,
+    },
+    /// Master Password Unlock
+    MasterPasswordUnlock {
+        /// The user's master password
+        password: String,
+        /// Contains the data needed to unlock with the master password
+        master_password_unlock: MasterPasswordUnlockData,
     },
     /// Never lock and/or biometric unlock
     DecryptedKey {
@@ -155,6 +163,18 @@ pub(super) async fn initialize_user_crypto(
             client
                 .internal
                 .initialize_user_crypto_master_key(master_key, user_key, key_state)?;
+        }
+        InitUserCryptoMethod::MasterPasswordUnlock {
+            password,
+            master_password_unlock,
+        } => {
+            client
+                .internal
+                .initialize_user_crypto_master_password_unlock(
+                    password,
+                    master_password_unlock,
+                    key_state,
+                )?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
