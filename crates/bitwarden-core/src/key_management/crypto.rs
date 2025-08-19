@@ -43,7 +43,7 @@ pub enum CryptoClientError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
-    MasterPassword(#[from] MasterPasswordError),
+    InvalidKdfSettings(#[from] MasterPasswordError),
 }
 
 /// State used for initializing the user cryptographic state.
@@ -308,9 +308,9 @@ pub(super) fn make_update_kdf(
     };
 
     let authentication_data = MasterPasswordAuthenticationData::derive(password, new_kdf, email)
-        .map_err(CryptoClientError::MasterPassword)?;
+        .map_err(CryptoClientError::InvalidKdfSettings)?;
     let unlock_data = MasterPasswordUnlockData::derive(password, new_kdf, email, user_key)
-        .map_err(CryptoClientError::MasterPassword)?;
+        .map_err(CryptoClientError::InvalidKdfSettings)?;
     let old_authentication_data = MasterPasswordAuthenticationData::derive(
         password,
         &client
@@ -319,7 +319,7 @@ pub(super) fn make_update_kdf(
             .map_err(|_| NotAuthenticatedError)?,
         email,
     )
-    .map_err(CryptoClientError::MasterPassword)?;
+    .map_err(CryptoClientError::InvalidKdfSettings)?;
 
     Ok(UpdateKdfResponse {
         master_password_authentication_data: authentication_data,
