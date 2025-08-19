@@ -160,13 +160,9 @@ struct ContentView: View {
         let (loginDataJson, _) = try await http.data(
             for: request(
                 method: "POST", url: IDENTITY_URL + "connect/token",
-                fn: { r in
-                    r.setValue(
-                        EMAIL.data(using: .utf8)?.base64EncodedString(),
-                        forHTTPHeaderField: "Auth-Email")
+                fn: { r in 
                     r.setValue(
                         "application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-
                     var comp = URLComponents()
                     comp.queryItems = [
                         URLQueryItem(name: "scope", value: "api offline_access"),
@@ -194,6 +190,7 @@ struct ContentView: View {
                 email: EMAIL,
                 privateKey: loginData.PrivateKey,
                 signingKey: nil,
+                securityState: nil,
                 method: InitUserCryptoMethod.password(
                     password: PASSWORD,
                     userKey: loginData.Key
@@ -253,6 +250,7 @@ struct ContentView: View {
             email: EMAIL,
             privateKey: privateKey,
             signingKey: nil,
+            securityState: nil,
             method: InitUserCryptoMethod.decryptedKey(
                 decryptedUserKey: key
             )
@@ -281,6 +279,7 @@ struct ContentView: View {
             email: EMAIL,
             privateKey: privateKey,
             signingKey: nil,
+            securityState: nil,
             method: InitUserCryptoMethod.pin(pin: PIN, pinProtectedUserKey: pinProtectedUserKey)
         ))
     }

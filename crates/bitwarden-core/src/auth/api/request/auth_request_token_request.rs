@@ -47,7 +47,7 @@ impl AuthRequestTokenRequest {
             auth_request_id: *auth_request_id,
             access_code: access_code.to_string(),
         };
-        debug!("initializing {:?}", obj);
+        debug!("initializing {obj:?}");
         obj
     }
 
@@ -55,6 +55,6 @@ impl AuthRequestTokenRequest {
         &self,
         configurations: &ApiConfigurations,
     ) -> Result<IdentityTokenResponse, LoginError> {
-        super::send_identity_connect_request(configurations, Some(&self.email), &self).await
+        super::send_identity_connect_request(configurations, &self).await
     }
 }

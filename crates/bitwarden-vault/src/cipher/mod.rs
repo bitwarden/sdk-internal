@@ -20,10 +20,10 @@ pub use attachment_client::{AttachmentsClient, DecryptFileError, EncryptFileErro
 pub use card::{CardBrand, CardListView, CardView};
 pub use cipher::{
     Cipher, CipherError, CipherListView, CipherListViewType, CipherRepromptType, CipherType,
-    CipherView, EncryptionContext,
+    CipherView, DecryptCipherListResult, EncryptionContext,
 };
 pub use cipher_client::CiphersClient;
-pub use field::FieldView;
+pub use field::{FieldType, FieldView};
 pub use identity::IdentityView;
 pub use login::{
     Fido2Credential, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView, Login,

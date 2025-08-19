@@ -18,6 +18,16 @@ mod crypto_client;
 #[cfg(feature = "internal")]
 pub use crypto_client::CryptoClient;
 
+#[cfg(feature = "internal")]
+mod non_generic_wrappers;
+#[allow(unused_imports)]
+#[cfg(feature = "internal")]
+pub(crate) use non_generic_wrappers::*;
+#[cfg(feature = "internal")]
+mod security_state;
+#[cfg(feature = "internal")]
+pub use security_state::{SecurityState, SignedSecurityState};
+
 key_ids! {
     #[symmetric]
     pub enum SymmetricKeyId {

@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use coset::CborSerializable;
@@ -15,7 +15,7 @@ use crate::{
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type EncString = string;
+export type EncString = Tagged<string, "EncString">;
 "#;
 
 /// # Encrypted string primitive
@@ -224,9 +224,9 @@ impl std::fmt::Debug for EncString {
             }
             EncString::Cose_Encrypt0_B64 { data } => {
                 let msg = coset::CoseEncrypt0::from_slice(data.as_slice())
-                    .map(|msg| format!("{:?}", msg))
+                    .map(|msg| format!("{msg:?}"))
                     .unwrap_or_else(|_| "INVALID_COSE".to_string());
-                write!(f, "{}.{}", enc_type, msg)
+                write!(f, "{enc_type}.{msg}")
             }
         }
     }
@@ -342,11 +342,11 @@ impl KeyDecryptable<SymmetricCryptoKey, String> for EncString {
 /// Usually we wouldn't want to expose EncStrings in the API or the schemas.
 /// But during the transition phase we will expose endpoints using the EncString type.
 impl schemars::JsonSchema for EncString {
-    fn schema_name() -> String {
-        "EncString".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "EncString".into()
     }
 
-    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(generator: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
         generator.subschema_for::<String>()
     }
 }
@@ -504,7 +504,7 @@ mod tests {
         let enc_str  = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
         let enc_string: EncString = enc_str.parse().unwrap();
 
-        let debug_string = format!("{:?}", enc_string);
+        let debug_string = format!("{enc_string:?}");
         assert_eq!(debug_string, enc_str);
     }
 
@@ -514,7 +514,7 @@ mod tests {
 
         assert_eq!(
             serde_json::to_string(&schema).unwrap(),
-            r#"{"$schema":"http://json-schema.org/draft-07/schema#","title":"EncString","type":"string"}"#
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"EncString","type":"string"}"#
         );
     }
 }

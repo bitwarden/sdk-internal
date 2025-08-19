@@ -6,33 +6,61 @@
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::MissingFieldError;
 use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
+use bitwarden_vault::{FieldType, Totp, TotpAlgorithm};
 use chrono::{DateTime, Utc};
-use credential_exchange_format::{BasicAuthCredential, CredentialScope, PasskeyCredential};
+use credential_exchange_format::{
+    AndroidAppIdCredential, BasicAuthCredential, CredentialScope, OTPHashAlgorithm,
+    PasskeyCredential, TotpCredential,
+};
 use thiserror::Error;
 
-use crate::{Fido2Credential, Login, LoginUri};
+use crate::{Fido2Credential, Field, Login, LoginUri};
+
+/// Prefix that indicates the URL is an Android app scheme.
+const ANDROID_APP_SCHEME: &str = "androidapp://";
+
+/// Convert CXF OTPHashAlgorithm to Bitwarden's TotpAlgorithm
+/// Handles standard algorithms and special cases like Steam
+fn convert_otp_algorithm(algorithm: &OTPHashAlgorithm) -> TotpAlgorithm {
+    match algorithm {
+        OTPHashAlgorithm::Sha1 => TotpAlgorithm::Sha1,
+        OTPHashAlgorithm::Sha256 => TotpAlgorithm::Sha256,
+        OTPHashAlgorithm::Sha512 => TotpAlgorithm::Sha512,
+        OTPHashAlgorithm::Unknown(ref algo) if algo == "steam" => TotpAlgorithm::Steam,
+        OTPHashAlgorithm::Unknown(_) | _ => TotpAlgorithm::Sha1, /* Default to SHA1 for unknown
+                                                                  * algorithms */
+    }
+}
+
+/// Convert CXF TotpCredential to Bitwarden's Totp struct
+/// This ensures we use the exact same encoding and formatting as Bitwarden's core implementation
+fn totp_credential_to_totp(cxf_totp: &TotpCredential) -> Totp {
+    let algorithm = convert_otp_algorithm(&cxf_totp.algorithm);
+
+    let secret_bytes: Vec<u8> = cxf_totp.secret.clone().into();
+
+    Totp {
+        account: cxf_totp.username.clone(),
+        algorithm,
+        digits: cxf_totp.digits as u32,
+        issuer: cxf_totp.issuer.clone(),
+        period: cxf_totp.period as u32,
+        secret: secret_bytes,
+    }
+}
 
 pub(super) fn to_login(
     creation_date: DateTime<Utc>,
     basic_auth: Option<&BasicAuthCredential>,
     passkey: Option<&PasskeyCredential>,
-    scope: Option<CredentialScope>,
+    totp: Option<&TotpCredential>,
+    scope: Option<&CredentialScope>,
 ) -> Login {
-    let login = Login {
+    Login {
         username: basic_auth.and_then(|v| v.username.clone().map(|v| v.into())),
         password: basic_auth.and_then(|v| v.password.clone().map(|u| u.into())),
-        login_uris: scope
-            .map(|v| {
-                v.urls
-                    .iter()
-                    .map(|u| LoginUri {
-                        uri: Some(u.clone()),
-                        r#match: None,
-                    })
-                    .collect()
-            })
-            .unwrap_or_default(),
-        totp: None,
+        login_uris: scope.map(to_uris).unwrap_or_default(),
+        totp: totp.map(|t| totp_credential_to_totp(t).to_string()),
         fido2_credentials: passkey.map(|p| {
             vec![Fido2Credential {
                 credential_id: format!("b64.{}", p.credential_id),
@@ -50,8 +78,46 @@ pub(super) fn to_login(
                 creation_date,
             }]
         }),
-    };
-    login
+    }
+}
+
+/// Converts a `CredentialScope` to a vector of `LoginUri` objects.
+///
+/// This is used for login credentials.
+fn to_uris(scope: &CredentialScope) -> Vec<LoginUri> {
+    let urls = scope.urls.iter().map(|u| LoginUri {
+        uri: Some(u.clone()),
+        r#match: None,
+    });
+
+    let android_apps = scope.android_apps.iter().map(|a| LoginUri {
+        uri: Some(format!("{ANDROID_APP_SCHEME}{}", a.bundle_id)),
+        r#match: None,
+    });
+
+    urls.chain(android_apps).collect()
+}
+
+/// Converts a `CredentialScope` to a vector of `Field` objects.
+///
+/// This is used for non-login credentials.
+#[allow(unused)]
+pub(super) fn to_fields(scope: &CredentialScope) -> Vec<Field> {
+    let urls = scope.urls.iter().enumerate().map(|(i, u)| Field {
+        name: Some(format!("Url {}", i + 1)),
+        value: Some(u.clone()),
+        r#type: FieldType::Text as u8,
+        linked_id: None,
+    });
+
+    let android_apps = scope.android_apps.iter().enumerate().map(|(i, a)| Field {
+        name: Some(format!("Android App {}", i + 1)),
+        value: Some(a.bundle_id.clone()),
+        r#type: FieldType::Text as u8,
+        linked_id: None,
+    });
+
+    urls.chain(android_apps).collect()
 }
 
 impl From<Login> for BasicAuthCredential {
@@ -65,10 +131,25 @@ impl From<Login> for BasicAuthCredential {
 
 impl From<Login> for CredentialScope {
     fn from(login: Login) -> Self {
-        CredentialScope {
-            urls: login.login_uris.into_iter().filter_map(|u| u.uri).collect(),
-            android_apps: vec![],
-        }
+        let (android_uris, urls): (Vec<_>, Vec<_>) = login
+            .login_uris
+            .into_iter()
+            .filter_map(|u| u.uri)
+            .partition(|uri| uri.starts_with(ANDROID_APP_SCHEME));
+
+        let android_apps = android_uris
+            .into_iter()
+            .map(|uri| {
+                let rest = uri.trim_start_matches(ANDROID_APP_SCHEME);
+                AndroidAppIdCredential {
+                    bundle_id: rest.to_string(),
+                    certificate: None,
+                    name: None,
+                }
+            })
+            .collect();
+
+        CredentialScope { urls, android_apps }
     }
 }
 
@@ -185,5 +266,340 @@ mod tests {
         assert_eq!(String::from(passkey.user_handle.clone()), "AAECAwQFBg");
         assert_eq!(String::from(passkey.key.clone()), "AAECAwQFBg");
         assert!(passkey.fido2_extensions.is_none());
+    }
+
+    #[test]
+    fn test_to_uris_with_urls_only() {
+        let scope = CredentialScope {
+            urls: vec![
+                "https://vault.bitwarden.com".to_string(),
+                "https://bitwarden.com".to_string(),
+            ],
+            android_apps: vec![],
+        };
+
+        let uris = to_uris(&scope);
+
+        assert_eq!(
+            uris,
+            vec![
+                LoginUri {
+                    uri: Some("https://vault.bitwarden.com".to_string()),
+                    r#match: None
+                },
+                LoginUri {
+                    uri: Some("https://bitwarden.com".to_string()),
+                    r#match: None
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn test_to_uris_with_android_apps_only() {
+        let scope = CredentialScope {
+            urls: vec![],
+            android_apps: vec![
+                credential_exchange_format::AndroidAppIdCredential {
+                    bundle_id: "com.bitwarden.app".to_string(),
+                    certificate: None,
+                    name: None,
+                },
+                credential_exchange_format::AndroidAppIdCredential {
+                    bundle_id: "com.example.app".to_string(),
+                    certificate: None,
+                    name: None,
+                },
+            ],
+        };
+
+        let uris = to_uris(&scope);
+
+        assert_eq!(
+            uris,
+            vec![
+                LoginUri {
+                    uri: Some("androidapp://com.bitwarden.app".to_string()),
+                    r#match: None
+                },
+                LoginUri {
+                    uri: Some("androidapp://com.example.app".to_string()),
+                    r#match: None
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn test_to_uris_with_mixed_urls_and_android_apps() {
+        let scope = CredentialScope {
+            urls: vec![
+                "https://vault.bitwarden.com".to_string(),
+                "https://bitwarden.com".to_string(),
+            ],
+            android_apps: vec![
+                credential_exchange_format::AndroidAppIdCredential {
+                    bundle_id: "com.bitwarden.app".to_string(),
+                    certificate: None,
+                    name: None,
+                },
+                credential_exchange_format::AndroidAppIdCredential {
+                    bundle_id: "com.example.app".to_string(),
+                    certificate: None,
+                    name: None,
+                },
+            ],
+        };
+
+        let uris = to_uris(&scope);
+
+        assert_eq!(
+            uris,
+            vec![
+                LoginUri {
+                    uri: Some("https://vault.bitwarden.com".to_string()),
+                    r#match: None
+                },
+                LoginUri {
+                    uri: Some("https://bitwarden.com".to_string()),
+                    r#match: None
+                },
+                LoginUri {
+                    uri: Some("androidapp://com.bitwarden.app".to_string()),
+                    r#match: None
+                },
+                LoginUri {
+                    uri: Some("androidapp://com.example.app".to_string()),
+                    r#match: None
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn test_to_uris_with_empty_scope() {
+        let scope = CredentialScope {
+            urls: vec![],
+            android_apps: vec![],
+        };
+
+        let uris = to_uris(&scope);
+
+        assert!(uris.is_empty());
+    }
+
+    #[test]
+    fn test_credential_scope_with_android_apps_only() {
+        let login = Login {
+            username: None,
+            password: None,
+            login_uris: vec![
+                LoginUri {
+                    uri: Some("androidapp://com.bitwarden.app".to_string()),
+                    r#match: None,
+                },
+                LoginUri {
+                    uri: Some("androidapp://com.example.app".to_string()),
+                    r#match: None,
+                },
+            ],
+            totp: None,
+            fido2_credentials: None,
+        };
+
+        let scope: CredentialScope = login.into();
+        assert!(scope.urls.is_empty());
+        assert_eq!(scope.android_apps.len(), 2);
+        assert_eq!(scope.android_apps[0].bundle_id, "com.bitwarden.app");
+        assert_eq!(scope.android_apps[1].bundle_id, "com.example.app");
+    }
+
+    #[test]
+    fn test_credential_scope_with_mixed_urls_and_android_apps() {
+        let login = Login {
+            username: None,
+            password: None,
+            login_uris: vec![
+                LoginUri {
+                    uri: Some("https://vault.bitwarden.com".to_string()),
+                    r#match: None,
+                },
+                LoginUri {
+                    uri: Some("androidapp://com.bitwarden.app".to_string()),
+                    r#match: None,
+                },
+                LoginUri {
+                    uri: Some("https://bitwarden.com".to_string()),
+                    r#match: None,
+                },
+                LoginUri {
+                    uri: Some("androidapp://com.example.app".to_string()),
+                    r#match: None,
+                },
+            ],
+            totp: None,
+            fido2_credentials: None,
+        };
+
+        let scope: CredentialScope = login.into();
+        assert_eq!(
+            scope.urls,
+            vec![
+                "https://vault.bitwarden.com".to_string(),
+                "https://bitwarden.com".to_string(),
+            ]
+        );
+        assert_eq!(scope.android_apps.len(), 2);
+        assert_eq!(scope.android_apps[0].bundle_id, "com.bitwarden.app");
+        assert_eq!(scope.android_apps[1].bundle_id, "com.example.app");
+    }
+
+    #[test]
+    fn test_to_fields() {
+        let scope = CredentialScope {
+            urls: vec![
+                "https://vault.bitwarden.com".to_string(),
+                "https://bitwarden.com".to_string(),
+            ],
+            android_apps: vec![
+                credential_exchange_format::AndroidAppIdCredential {
+                    bundle_id: "com.bitwarden.app".to_string(),
+                    certificate: None,
+                    name: None,
+                },
+                credential_exchange_format::AndroidAppIdCredential {
+                    bundle_id: "com.example.app".to_string(),
+                    certificate: None,
+                    name: None,
+                },
+            ],
+        };
+
+        let fields = to_fields(&scope);
+        assert_eq!(
+            fields,
+            vec![
+                Field {
+                    name: Some("Url 1".to_string()),
+                    value: Some("https://vault.bitwarden.com".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("Url 2".to_string()),
+                    value: Some("https://bitwarden.com".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("Android App 1".to_string()),
+                    value: Some("com.bitwarden.app".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("Android App 2".to_string()),
+                    value: Some("com.example.app".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
+            ]
+        );
+    }
+
+    // TOTP tests
+    #[test]
+    fn test_totp_credential_to_totp_basic() {
+        let totp = TotpCredential {
+            secret: "Hello World!".as_bytes().to_vec().into(),
+            period: 30,
+            digits: 6,
+            username: Some("test@example.com".to_string()),
+            algorithm: OTPHashAlgorithm::Sha1,
+            issuer: Some("Example".to_string()),
+        };
+
+        let bitwarden_totp = totp_credential_to_totp(&totp);
+        let otpauth = bitwarden_totp.to_string();
+
+        assert!(otpauth.starts_with("otpauth://totp/Example:test%40example%2Ecom?secret="));
+        assert!(otpauth.contains("&issuer=Example"));
+        // Default period (30) and digits (6) and algorithm (SHA1) should not be included
+        assert!(!otpauth.contains("&period=30"));
+        assert!(!otpauth.contains("&digits=6"));
+        assert!(!otpauth.contains("&algorithm=SHA1"));
+    }
+
+    #[test]
+    fn test_totp_credential_to_totp_custom_parameters() {
+        let totp = TotpCredential {
+            secret: "Hello World!".as_bytes().to_vec().into(),
+            period: 60,
+            digits: 8,
+            username: Some("user".to_string()),
+            algorithm: OTPHashAlgorithm::Sha256,
+            issuer: Some("Custom Issuer".to_string()),
+        };
+
+        let bitwarden_totp = totp_credential_to_totp(&totp);
+        let otpauth = bitwarden_totp.to_string();
+
+        assert!(otpauth.contains("Custom%20Issuer:user"));
+        assert!(otpauth.contains("&issuer=Custom%20Issuer"));
+        assert!(otpauth.contains("&period=60"));
+        assert!(otpauth.contains("&digits=8"));
+        assert!(otpauth.contains("&algorithm=SHA256"));
+    }
+
+    // Algorithm conversion tests
+    #[test]
+    fn test_convert_otp_algorithm_sha1() {
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Sha1);
+        assert_eq!(result, TotpAlgorithm::Sha1);
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_sha256() {
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Sha256);
+        assert_eq!(result, TotpAlgorithm::Sha256);
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_sha512() {
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Sha512);
+        assert_eq!(result, TotpAlgorithm::Sha512);
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_steam() {
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown("steam".to_string()));
+        assert_eq!(result, TotpAlgorithm::Steam);
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_steam_case_sensitive() {
+        // Test that "steam" is case-sensitive
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown("Steam".to_string()));
+        assert_eq!(result, TotpAlgorithm::Sha1); // will default to SHA1
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_unknown_empty() {
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown("".to_string()));
+        assert_eq!(result, TotpAlgorithm::Sha1); // will default to SHA1
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_unknown_md5() {
+        // Test an algorithm that might exist in other systems but isn't supported
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown("md5".to_string()));
+        assert_eq!(result, TotpAlgorithm::Sha1); // will default to SHA1
+    }
+
+    #[test]
+    fn test_convert_otp_algorithm_unknown_whitespace() {
+        // Test steam with whitespace (will not match)
+        let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown(" steam ".to_string()));
+        assert_eq!(result, TotpAlgorithm::Sha1); // will default to SHA1
     }
 }

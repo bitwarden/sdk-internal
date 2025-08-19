@@ -10,8 +10,9 @@ use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
-    KeyIds, LocalId, Result, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
-    SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, UnsignedSharedKey,
+    KeyIds, LocalId, PublicKeyEncryptionAlgorithm, Result, RotatedUserKeys, Signature,
+    SignatureAlgorithm, SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey,
+    SymmetricCryptoKey, UnsignedSharedKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -310,6 +311,25 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         self.add_local_symmetric_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key())
     }
 
+    /// Generate a new random xchacha20-poly1305 symmetric key and store it in the context
+    #[cfg(test)]
+    pub(crate) fn make_cose_symmetric_key(
+        &mut self,
+        key_id: Ids::Symmetric,
+    ) -> Result<Ids::Symmetric> {
+        let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        #[allow(deprecated)]
+        self.set_symmetric_key(key_id, key)?;
+        Ok(key_id)
+    }
+
+    /// Makes a new asymmetric encryption key using the current default algorithm, and stores it in
+    /// the context
+    pub fn make_asymmetric_key(&mut self) -> Result<Ids::Asymmetric> {
+        let key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        self.add_local_asymmetric_key(key)
+    }
+
     /// Generate a new signature key using the current default algorithm, and store it in the
     /// context
     pub fn make_signing_key(&mut self) -> Result<Ids::Signing> {
@@ -377,7 +397,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{key_id:?}")))
     }
 
-    fn get_asymmetric_key(&self, key_id: Ids::Asymmetric) -> Result<&AsymmetricCryptoKey> {
+    pub(super) fn get_asymmetric_key(
+        &self,
+        key_id: Ids::Asymmetric,
+    ) -> Result<&AsymmetricCryptoKey> {
         if key_id.is_local() {
             self.local_asymmetric_keys.get(key_id)
         } else {
@@ -386,7 +409,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{key_id:?}")))
     }
 
-    fn get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
+    pub(super) fn get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
         if key_id.is_local() {
             self.local_signing_keys.get(key_id)
         } else {
@@ -436,6 +459,16 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 .upsert(key_id, key);
         }
         Ok(())
+    }
+
+    /// Add a new asymmetric key to the local context, returning a new unique identifier for it.
+    pub fn add_local_asymmetric_key(
+        &mut self,
+        key: AsymmetricCryptoKey,
+    ) -> Result<Ids::Asymmetric> {
+        let key_id = Ids::Asymmetric::new_local(LocalId::new());
+        self.local_asymmetric_keys.upsert(key_id, key);
+        Ok(key_id)
     }
 
     /// Sets a signing key in the context
@@ -503,8 +536,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Signs the given data using the specified signing key, for the given
     /// [crate::SigningNamespace] and returns the signature and the serialized message. See
     /// [crate::SigningKey::sign]
-    #[allow(unused)]
-    pub(crate) fn sign<Message: Serialize>(
+    pub fn sign<Message: Serialize>(
         &self,
         key: Ids::Signing,
         message: &Message,
@@ -525,6 +557,19 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ) -> Result<(Signature, signing::SerializedMessage)> {
         self.get_signing_key(key)?.sign_detached(message, namespace)
     }
+
+    /// Re-encrypts the user's keys with the provided symmetric key for a v2 user.
+    pub fn dangerous_get_v2_rotated_account_keys(
+        &self,
+        current_user_private_key_id: Ids::Asymmetric,
+        current_user_signing_key_id: Ids::Signing,
+    ) -> Result<RotatedUserKeys> {
+        crate::dangerous_get_v2_rotated_account_keys(
+            current_user_private_key_id,
+            current_user_signing_key_id,
+            self,
+        )
+    }
 }
 
 #[cfg(test)]
@@ -538,8 +583,9 @@ mod tests {
             KeyStore,
         },
         traits::tests::{TestIds, TestSigningKey, TestSymmKey},
-        CompositeEncryptable, CryptoError, Decryptable, LocalId, SignatureAlgorithm, SigningKey,
-        SigningNamespace, SymmetricCryptoKey,
+        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes,
+        CoseSerializable, CryptoError, Decryptable, KeyDecryptable, LocalId, Pkcs8PrivateKeyBytes,
+        SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey,
     };
 
     #[test]
@@ -720,5 +766,82 @@ mod tests {
             &verifying_key,
             &SigningNamespace::ExampleNamespace
         ))
+    }
+
+    #[test]
+    fn test_account_key_rotation() {
+        let store: KeyStore<TestIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        // Make the keys
+        let current_user_signing_key_id = ctx.make_signing_key().unwrap();
+        let current_user_private_key_id = ctx.make_asymmetric_key().unwrap();
+
+        // Get the rotated account keys
+        let rotated_keys = ctx
+            .dangerous_get_v2_rotated_account_keys(
+                current_user_private_key_id,
+                current_user_signing_key_id,
+            )
+            .unwrap();
+
+        // Public/Private key
+        assert_eq!(
+            AsymmetricPublicCryptoKey::from_der(&rotated_keys.public_key)
+                .unwrap()
+                .to_der()
+                .unwrap(),
+            ctx.get_asymmetric_key(current_user_private_key_id)
+                .unwrap()
+                .to_public_key()
+                .to_der()
+                .unwrap()
+        );
+        let decrypted_private_key: Vec<u8> = rotated_keys
+            .private_key
+            .decrypt_with_key(&rotated_keys.user_key)
+            .unwrap();
+        let private_key =
+            AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(decrypted_private_key))
+                .unwrap();
+        assert_eq!(
+            private_key.to_der().unwrap(),
+            ctx.get_asymmetric_key(current_user_private_key_id)
+                .unwrap()
+                .to_der()
+                .unwrap()
+        );
+
+        // Signing Key
+        let decrypted_signing_key: Vec<u8> = rotated_keys
+            .signing_key
+            .decrypt_with_key(&rotated_keys.user_key)
+            .unwrap();
+        let signing_key =
+            SigningKey::from_cose(&CoseKeyBytes::from(decrypted_signing_key)).unwrap();
+        assert_eq!(
+            signing_key.to_cose(),
+            ctx.get_signing_key(current_user_signing_key_id)
+                .unwrap()
+                .to_cose(),
+        );
+
+        // Signed Public Key
+        let signed_public_key = rotated_keys.signed_public_key;
+        let unwrapped_key = signed_public_key
+            .verify_and_unwrap(
+                &ctx.get_signing_key(current_user_signing_key_id)
+                    .unwrap()
+                    .to_verifying_key(),
+            )
+            .unwrap();
+        assert_eq!(
+            unwrapped_key.to_der().unwrap(),
+            ctx.get_asymmetric_key(current_user_private_key_id)
+                .unwrap()
+                .to_public_key()
+                .to_der()
+                .unwrap()
+        );
     }
 }

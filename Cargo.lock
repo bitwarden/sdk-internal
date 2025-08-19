@@ -344,6 +344,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-auth"
+version = "1.0.0"
+dependencies = [
+ "bitwarden-core",
+ "bitwarden-error",
+ "serde",
+ "serde_json",
+ "serde_qs",
+ "thiserror 1.0.69",
+ "tsify",
+ "uniffi",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-cli"
 version = "1.0.0"
 dependencies = [
@@ -354,9 +370,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-collections"
+version = "1.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-error",
+ "serde",
+ "serde_repr",
+ "thiserror 1.0.69",
+ "tsify",
+ "uniffi",
+ "uuid",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "bitwarden-core"
 version = "1.0.0"
 dependencies = [
+ "async-trait",
  "base64",
  "bitwarden-api-api",
  "bitwarden-api-identity",
@@ -374,12 +408,13 @@ dependencies = [
  "rustls-platform-verifier",
  "schemars 0.8.22",
  "serde",
+ "serde_bytes",
  "serde_json",
  "serde_qs",
  "serde_repr",
  "thiserror 2.0.12",
  "tokio",
- "tsify-next",
+ "tsify",
  "uniffi",
  "uuid",
  "wasm-bindgen",
@@ -421,7 +456,7 @@ dependencies = [
  "sha2",
  "subtle",
  "thiserror 2.0.12",
- "tsify-next",
+ "tsify",
  "typenum",
  "uniffi",
  "uuid",
@@ -438,7 +473,7 @@ dependencies = [
  "js-sys",
  "serde",
  "trybuild",
- "tsify-next",
+ "tsify",
  "wasm-bindgen",
  "wasm-bindgen-test",
 ]
@@ -455,7 +490,7 @@ dependencies = [
  "serde",
  "syn",
  "thiserror 2.0.12",
- "tsify-next",
+ "tsify",
  "wasm-bindgen",
 ]
 
@@ -464,10 +499,12 @@ name = "bitwarden-exporters"
 version = "1.0.0"
 dependencies = [
  "base64",
+ "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-fido",
+ "bitwarden-ssh",
  "bitwarden-vault",
  "chrono",
  "credential-exchange-format",
@@ -476,7 +513,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.12",
- "tsify-next",
+ "tsify",
  "uniffi",
  "uuid",
  "wasm-bindgen",
@@ -521,7 +558,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.12",
  "tokio",
- "tsify-next",
+ "tsify",
  "uniffi",
  "wasm-bindgen",
  "wiremock",
@@ -541,7 +578,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.12",
  "tokio",
- "tsify-next",
+ "tsify",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -598,7 +635,7 @@ dependencies = [
  "serde",
  "ssh-key",
  "thiserror 2.0.12",
- "tsify-next",
+ "tsify",
  "uniffi",
  "wasm-bindgen",
 ]
@@ -608,8 +645,19 @@ name = "bitwarden-state"
 version = "1.0.0"
 dependencies = [
  "async-trait",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
+]
+
+[[package]]
+name = "bitwarden-test"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "bitwarden-api-api",
+ "bitwarden-state",
+ "reqwest",
+ "wiremock",
 ]
 
 [[package]]
@@ -627,7 +675,7 @@ dependencies = [
  "tokio",
  "tokio-test",
  "tokio-util",
- "tsify-next",
+ "tsify",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
@@ -639,6 +687,7 @@ version = "0.1.0"
 dependencies = [
  "android_logger",
  "async-trait",
+ "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-exporters",
@@ -686,10 +735,12 @@ version = "1.0.0"
 dependencies = [
  "base64",
  "bitwarden-api-api",
+ "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-state",
+ "bitwarden-test",
  "chrono",
  "data-encoding",
  "hmac",
@@ -702,10 +753,12 @@ dependencies = [
  "sha2",
  "thiserror 2.0.12",
  "tokio",
- "tsify-next",
+ "tsify",
  "uniffi",
  "uuid",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wiremock",
 ]
 
 [[package]]
@@ -714,6 +767,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "base64",
+ "bitwarden-auth",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
@@ -728,7 +782,7 @@ dependencies = [
  "console_log",
  "log",
  "serde",
- "tsify-next",
+ "tsify",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
@@ -1113,9 +1167,8 @@ dependencies = [
 
 [[package]]
 name = "credential-exchange-format"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5209d9b20c3eb8d2b96f3b06133b27d79168f312c09a8035f46c0fb18053aefc"
+version = "0.2.0"
+source = "git+https://github.com/bitwarden/credential-exchange?rev=38e8a013c13644f832c457555baaa536fe481b77#38e8a013c13644f832c457555baaa536fe481b77"
 dependencies = [
  "chrono",
  "data-encoding",
@@ -3458,12 +3511,13 @@ dependencies = [
 
 [[package]]
 name = "schemars"
-version = "0.8.22"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fbf2ae1b8bc8e02df939598064d22402220cd5bbcca1c76f7d6a310974d5615"
+checksum = "febc07c7e70b5db4f023485653c754d76e1bbe8d9dbfa20193ce13da9f9633f4"
 dependencies = [
  "chrono",
  "dyn-clone",
+ "ref-cast",
  "schemars_derive",
  "serde",
  "serde_json",
@@ -3484,9 +3538,9 @@ dependencies = [
 
 [[package]]
 name = "schemars_derive"
-version = "0.8.22"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32e265784ad618884abaea0600a9adf15393368d840e0222d101a072f3f7534d"
+checksum = "c1eeedaab7b1e1d09b5b4661121f4d27f9e7487089b0117833ccd7a882ee1ecc"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4357,22 +4411,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "tsify-next"
-version = "0.5.6"
+name = "tsify"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d0f2208feeb5f7a6edb15a2389c14cd42480ef6417318316bb866da5806a61d"
+checksum = "b2ec91b85e6c6592ed28636cb1dd1fac377ecbbeb170ff1d79f97aac5e38926d"
 dependencies = [
  "serde",
  "serde-wasm-bindgen",
- "tsify-next-macros",
+ "tsify-macros",
  "wasm-bindgen",
 ]
 
 [[package]]
-name = "tsify-next-macros"
-version = "0.5.6"
+name = "tsify-macros"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f81253930d0d388a3ab8fa4ae56da9973ab171ef833d1be2e9080fc3ce502bd6"
+checksum = "9a324606929ad11628a19206d7853807481dcaecd6c08be70a235930b8241955"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::FromStr};
+use std::{borrow::Cow, fmt::Display, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 pub use internal::UnsignedSharedKey;
@@ -20,7 +20,7 @@ mod internal {
     #[cfg(feature = "wasm")]
     #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
     const TS_CUSTOM_TYPES: &'static str = r#"
-    export type UnsignedSharedKey = string;
+    export type UnsignedSharedKey = Tagged<string, "UnsignedSharedKey">;
     "#;
 
     /// # Encrypted string primitive
@@ -227,11 +227,11 @@ impl UnsignedSharedKey {
 /// But during the transition phase we will expose endpoints using the UnsignedSharedKey
 /// type.
 impl schemars::JsonSchema for UnsignedSharedKey {
-    fn schema_name() -> String {
-        "UnsignedSharedKey".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "UnsignedSharedKey".into()
     }
 
-    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(generator: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
         generator.subschema_for::<String>()
     }
 }
@@ -345,7 +345,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
         let enc_str: &str = "4.ZheRb3PCfAunyFdQYPfyrFqpuvmln9H9w5nDjt88i5A7ug1XE0LJdQHCIYJl0YOZ1gCOGkhFu/CRY2StiLmT3iRKrrVBbC1+qRMjNNyDvRcFi91LWsmRXhONVSPjywzrJJXglsztDqGkLO93dKXNhuKpcmtBLsvgkphk/aFvxbaOvJ/FHdK/iV0dMGNhc/9tbys8laTdwBlI5xIChpRcrfH+XpSFM88+Bu03uK67N9G6eU1UmET+pISJwJvMuIDMqH+qkT7OOzgL3t6I0H2LDj+CnsumnQmDsvQzDiNfTR0IgjpoE9YH2LvPXVP2wVUkiTwXD9cG/E7XeoiduHyHjw==";
         let enc_string: UnsignedSharedKey = enc_str.parse().unwrap();
 
-        let debug_string = format!("{:?}", enc_string);
+        let debug_string = format!("{enc_string:?}");
         assert_eq!(debug_string, "UnsignedSharedKey");
     }
 
@@ -355,7 +355,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
 
         assert_eq!(
             serde_json::to_string(&schema).unwrap(),
-            r#"{"$schema":"http://json-schema.org/draft-07/schema#","title":"UnsignedSharedKey","type":"string"}"#
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"UnsignedSharedKey","type":"string"}"#
         );
     }
 }

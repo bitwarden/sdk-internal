@@ -7,7 +7,7 @@ use chrono::Month;
 use credential_exchange_format::{Credential, CreditCardCredential, EditableFieldYearMonth};
 use num_traits::FromPrimitive;
 
-use crate::Card;
+use crate::{cxf::editable_field::create_field, Card, Field};
 
 impl From<Card> for Vec<Credential> {
     fn from(value: Card) -> Self {
@@ -57,6 +57,23 @@ impl From<&CreditCardCredential> for Card {
     }
 }
 
+pub(super) fn to_card(credential: &CreditCardCredential) -> (Card, Vec<Field>) {
+    let card = credential.into();
+
+    let fields = [
+        credential.pin.as_ref().map(|v| create_field("PIN", v)),
+        credential
+            .valid_from
+            .as_ref()
+            .map(|v| create_field("Valid From", v)),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+
+    (card, fields)
+}
+
 /// Sanitize credit card brand
 ///
 /// Performs a fuzzy match on the string to find a matching brand. By converting to lowercase and
@@ -83,6 +100,7 @@ fn sanitize_brand(value: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_vault::FieldType;
     use chrono::Month;
     use credential_exchange_format::EditableFieldYearMonth;
 
@@ -150,7 +168,7 @@ mod tests {
             full_name: Some("John Doe".to_string().into()),
             card_type: Some("Visa".to_string().into()),
             verification_number: Some("123".to_string().into()),
-            pin: None,
+            pin: Some("4567".to_string().into()),
             expiry_date: Some(
                 EditableFieldYearMonth {
                     year: 2025,
@@ -158,15 +176,39 @@ mod tests {
                 }
                 .into(),
             ),
-            valid_from: None,
+            valid_from: Some(
+                EditableFieldYearMonth {
+                    year: 2024,
+                    month: Month::January,
+                }
+                .into(),
+            ),
         };
 
-        let card: Card = (&credit_card).into();
+        let (card, fields) = to_card(&credit_card);
         assert_eq!(card.cardholder_name, Some("John Doe".to_string()));
         assert_eq!(card.exp_month, Some("12".to_string()));
         assert_eq!(card.exp_year, Some("2025".to_string()));
         assert_eq!(card.code, Some("123".to_string()));
         assert_eq!(card.brand, Some("Visa".to_string()));
         assert_eq!(card.number, Some("4111111111111111".to_string()));
+
+        assert_eq!(
+            fields,
+            vec![
+                Field {
+                    name: Some("PIN".to_string()),
+                    value: Some("4567".to_string()),
+                    r#type: FieldType::Hidden as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("Valid From".to_string()),
+                    value: Some("2024-01".to_string()),
+                    r#type: FieldType::Text as u8,
+                    linked_id: None,
+                },
+            ]
+        )
     }
 }

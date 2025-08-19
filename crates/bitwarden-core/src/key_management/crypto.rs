@@ -8,19 +8,23 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, SignatureAlgorithm,
-    SignedPublicKey, SigningKey, SymmetricCryptoKey, UnsignedSharedKey, UserKey,
+    dangerous_get_v2_rotated_account_keys, AsymmetricCryptoKey, CoseSerializable, CryptoError,
+    EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes,
+    SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    UnsignedSharedKey, UserKey,
 };
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use {tsify_next::Tsify, wasm_bindgen::prelude::*};
+use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
-    key_management::{AsymmetricKeyId, SymmetricKeyId},
+    error::StatefulCryptoError,
+    key_management::{
+        AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
+    },
     Client, NotAuthenticatedError, VaultLockedError, WrongPasswordError,
 };
 
@@ -53,6 +57,8 @@ pub struct InitUserCryptoRequest {
     pub private_key: EncString,
     /// The user's signing key
     pub signing_key: Option<EncString>,
+    /// The user's security state
+    pub security_state: Option<SignedSecurityState>,
     /// The initialization method to use
     pub method: InitUserCryptoMethod,
 }
@@ -141,23 +147,20 @@ pub(super) async fn initialize_user_crypto(
         client.internal.init_user_id(user_id)?;
     }
 
+    let key_state = (&req).into();
+
     match req.method {
         InitUserCryptoMethod::Password { password, user_key } => {
             let master_key = MasterKey::derive(&password, &req.email, &req.kdf_params)?;
-            client.internal.initialize_user_crypto_master_key(
-                master_key,
-                user_key,
-                req.private_key,
-                req.signing_key,
-            )?;
+            client
+                .internal
+                .initialize_user_crypto_master_key(master_key, user_key, key_state)?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
-            client.internal.initialize_user_crypto_decrypted_key(
-                user_key,
-                req.private_key,
-                req.signing_key,
-            )?;
+            client
+                .internal
+                .initialize_user_crypto_decrypted_key(user_key, key_state)?;
         }
         InitUserCryptoMethod::Pin {
             pin,
@@ -167,8 +170,7 @@ pub(super) async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_pin(
                 pin_key,
                 pin_protected_user_key,
-                req.private_key,
-                req.signing_key,
+                key_state,
             )?;
         }
         InitUserCryptoMethod::AuthRequest {
@@ -188,11 +190,9 @@ pub(super) async fn initialize_user_crypto(
                     auth_request_key,
                 )?,
             };
-            client.internal.initialize_user_crypto_decrypted_key(
-                user_key,
-                req.private_key,
-                req.signing_key,
-            )?;
+            client
+                .internal
+                .initialize_user_crypto_decrypted_key(user_key, key_state)?;
         }
         InitUserCryptoMethod::DeviceKey {
             device_key,
@@ -203,11 +203,9 @@ pub(super) async fn initialize_user_crypto(
             let user_key = device_key
                 .decrypt_user_key(protected_device_private_key, device_protected_user_key)?;
 
-            client.internal.initialize_user_crypto_decrypted_key(
-                user_key,
-                req.private_key,
-                req.signing_key,
-            )?;
+            client
+                .internal
+                .initialize_user_crypto_decrypted_key(user_key, key_state)?;
         }
         InitUserCryptoMethod::KeyConnector {
             master_key,
@@ -218,12 +216,9 @@ pub(super) async fn initialize_user_crypto(
                 .map_err(|_| CryptoError::InvalidKey)?;
             let master_key = MasterKey::try_from(master_key_bytes.as_mut_slice())?;
 
-            client.internal.initialize_user_crypto_master_key(
-                master_key,
-                user_key,
-                req.private_key,
-                req.signing_key,
-            )?;
+            client
+                .internal
+                .initialize_user_crypto_master_key(master_key, user_key, key_state)?;
         }
     }
 
@@ -412,7 +407,9 @@ pub(super) fn enroll_admin_password_reset(
     use base64::{engine::general_purpose::STANDARD, Engine};
     use bitwarden_crypto::AsymmetricPublicCryptoKey;
 
-    let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(public_key)?)?;
+    let public_key = AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
+        STANDARD.decode(public_key)?,
+    ))?;
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
@@ -561,7 +558,7 @@ pub(super) fn verify_asymmetric_keys(
             valid_private_key: true,
         },
         Err(e) => {
-            log::debug!("User asymmetric keys verification: {}", e);
+            log::debug!("User asymmetric keys verification: {e}");
 
             VerifyAsymmetricKeysResponse {
                 private_key_decryptable: !matches!(e, VerifyError::DecryptFailed(_)),
@@ -571,44 +568,147 @@ pub(super) fn verify_asymmetric_keys(
     })
 }
 
-/// A new signing key pair along with the signed public key
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+/// Response for the `make_keys_for_user_crypto_v2`, containing a set of keys for a user
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct MakeUserSigningKeysResponse {
-    /// Base64 encoded verifying key
-    verifying_key: String,
-    /// Signing key, encrypted with the user's symmetric key
-    signing_key: EncString,
+pub struct UserCryptoV2KeysResponse {
+    /// User key
+    user_key: String,
+
+    /// Wrapped private key
+    private_key: EncString,
+    /// Public key
+    public_key: String,
     /// The user's public key, signed by the signing key
     signed_public_key: SignedPublicKey,
+
+    /// Signing key, encrypted with the user's symmetric key
+    signing_key: EncString,
+    /// Base64 encoded verifying key
+    verifying_key: String,
+
+    /// The user's signed security state
+    security_state: SignedSecurityState,
+    /// The security state's version
+    security_version: u64,
 }
 
-/// Makes a new set of signing keys for a user, which should only be done during
-/// once. This also signs the public key with the signing key
-/// and returns the signed public key.
-pub fn make_user_signing_keys_for_enrollment(
+/// Creates the user's cryptographic state for v2 users. This includes ensuring signature key pair
+/// is present, a signed public key is present, a security state is present and signed, and the user
+/// key is a Cose key.
+pub(crate) fn make_v2_keys_for_v1_user(
     client: &Client,
-) -> Result<MakeUserSigningKeysResponse, CryptoError> {
+) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context();
 
-    // Make new keypair and sign the public key with it
-    let signature_keypair = SigningKey::make(SignatureAlgorithm::Ed25519);
-    let temporary_signature_keypair_id = ctx.add_local_signing_key(signature_keypair.clone())?;
+    // Re-use existing private key
+    let private_key_id = AsymmetricKeyId::UserPrivateKey;
 
-    let signed_public_key = ctx.make_signed_public_key(
+    // Ensure that the function is only called for a V1 user.
+    if client.internal.get_security_version() != 1 {
+        return Err(StatefulCryptoError::WrongAccountCryptoVersion {
+            expected: "1".to_string(),
+            got: 2,
+        });
+    }
+
+    // Ensure the user has a private key.
+    // V1 user must have a private key to upgrade. This should be ensured by the client before
+    // calling the upgrade function.
+    if !ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey) {
+        return Err(StatefulCryptoError::CryptoError(CryptoError::MissingKeyId(
+            "UserPrivateKey".to_string(),
+        )));
+    }
+
+    #[allow(deprecated)]
+    let private_key = ctx.dangerous_get_asymmetric_key(private_key_id)?.clone();
+
+    // New user key
+    let user_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+
+    // New signing key
+    let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
+    let temporary_signing_key_id = ctx.add_local_signing_key(signing_key.clone())?;
+
+    // Sign existing public key
+    let signed_public_key = ctx.make_signed_public_key(private_key_id, temporary_signing_key_id)?;
+    let public_key = private_key.to_public_key();
+
+    // Initialize security state for the user
+    let security_state = SecurityState::initialize_for_user(
+        client
+            .internal
+            .get_user_id()
+            .ok_or(StatefulCryptoError::MissingSecurityState)?,
+    );
+    let signed_security_state = security_state.sign(temporary_signing_key_id, &mut ctx)?;
+
+    Ok(UserCryptoV2KeysResponse {
+        user_key: user_key.to_base64(),
+
+        private_key: private_key.to_der()?.encrypt_with_key(&user_key)?,
+        public_key: STANDARD.encode(public_key.to_der()?),
+        signed_public_key,
+
+        signing_key: signing_key.to_cose().encrypt_with_key(&user_key)?,
+        verifying_key: STANDARD.encode(signing_key.to_verifying_key().to_cose()),
+
+        security_state: signed_security_state,
+        security_version: security_state.version(),
+    })
+}
+
+/// Gets a set of new wrapped account keys for a user, given a new user key.
+///
+/// In the current implementation, it just re-encrypts any existing keys. This function expects a
+/// user to be a v2 user; that is, they have a signing key, a cose user-key, and a private key
+pub(crate) fn get_v2_rotated_account_keys(
+    client: &Client,
+) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
+    let key_store = client.internal.get_key_store();
+    let mut ctx = key_store.context();
+
+    // Ensure that the function is only called for a V2 user.
+    // V2 users have a security version 2 or higher.
+    if client.internal.get_security_version() == 1 {
+        return Err(StatefulCryptoError::WrongAccountCryptoVersion {
+            expected: "2+".to_string(),
+            got: 1,
+        });
+    }
+
+    let security_state = client
+        .internal
+        .security_state
+        .read()
+        .expect("RwLock is not poisoned")
+        .to_owned()
+        // This cannot occur since the security version check above already ensures that the
+        // security state is present.
+        .ok_or(StatefulCryptoError::MissingSecurityState)?;
+
+    let rotated_keys = dangerous_get_v2_rotated_account_keys(
         AsymmetricKeyId::UserPrivateKey,
-        temporary_signature_keypair_id,
+        SigningKeyId::UserSigningKey,
+        &ctx,
     )?;
 
-    Ok(MakeUserSigningKeysResponse {
-        verifying_key: STANDARD.encode(signature_keypair.to_verifying_key().to_cose()),
-        signing_key: signature_keypair
-            .to_cose()
-            .encrypt(&mut ctx, SymmetricKeyId::User)?,
-        signed_public_key,
+    Ok(UserCryptoV2KeysResponse {
+        user_key: rotated_keys.user_key.to_base64(),
+
+        private_key: rotated_keys.private_key,
+        public_key: STANDARD.encode(rotated_keys.public_key),
+        signed_public_key: rotated_keys.signed_public_key,
+
+        signing_key: rotated_keys.signing_key,
+        verifying_key: STANDARD.encode(rotated_keys.verifying_key),
+
+        security_state: security_state.sign(SigningKeyId::UserSigningKey, &mut ctx)?,
+        security_version: security_state.version(),
     })
 }
 
@@ -619,7 +719,18 @@ mod tests {
     use bitwarden_crypto::RsaKeyPair;
 
     use super::*;
-    use crate::Client;
+    use crate::{client::internal::UserKeyState, Client};
+    const TEST_VECTOR_USER_KEY_V2_B64: &str = "pQEEAlACHUUoybNAuJoZzqNMxz2bAzoAARFvBIQDBAUGIFggAvGl4ifaUAomQdCdUPpXLHtypiQxHjZwRHeI83caZM4B";
+    const TEST_VECTOR_PRIVATE_KEY_V2: &str = "7.g1gdowE6AAERbwMZARwEUAIdRSjJs0C4mhnOo0zHPZuhBVgYthGLGqVLPeidY8mNMxpLJn3fyeSxyaWsWQTR6pxmRV2DyGZXly/0l9KK+Rsfetl9wvYIz0O4/RW3R6wf7eGxo5XmicV3WnFsoAmIQObxkKWShxFyjzg+ocKItQDzG7Gp6+MW4biTrAlfK51ML/ZS+PCjLmgI1QQr4eMHjiwA2TBKtKkxfjoTJkMXECpRVLEXOo8/mbIGYkuabbSA7oU+TJ0yXlfKDtD25gnyO7tjW/0JMFUaoEKRJOuKoXTN4n/ks4Hbxk0X5/DzfG05rxWad2UNBjNg7ehW99WrQ+33ckdQFKMQOri/rt8JzzrF1k11/jMJ+Y2TADKNHr91NalnUX+yqZAAe3sRt5Pv5ZhLIwRMKQi/1NrLcsQPRuUnogVSPOoMnE/eD6F70iU60Z6pvm1iBw2IvELZcrs/oxpO2SeCue08fIZW/jNZokbLnm90tQ7QeZTUpiPALhUgfGOa3J9VOJ7jQGCqDjd9CzV2DCVfhKCapeTbldm+RwEWBz5VvorH5vMx1AzbPRJxdIQuxcg3NqRrXrYC7fyZljWaPB9qP1tztiPtd1PpGEgxLByIfR6fqyZMCvOBsWbd0H6NhF8mNVdDw60+skFRdbRBTSCjCtKZeLVuVFb8ioH45PR5oXjtx4atIDzu6DKm6TTMCbR6DjZuZZ8GbwHxuUD2mDD3pAFhaof9kR3lQdjy7Zb4EzUUYskQxzcLPcqzp9ZgB3Rg91SStBCCMhdQ6AnhTy+VTGt/mY5AbBXNRSL6fI0r+P9K8CcEI4bNZCDkwwQr5v4O4ykSUzIvmVU0zKzDngy9bteIZuhkvGUoZlQ9UATNGPhoLfqq2eSvqEXkCbxTVZ5D+Ww9pHmWeVcvoBhcl5MvicfeQt++dY3tPjIfZq87nlugG4HiNbcv9nbVpgwe3v8cFetWXQgnO4uhx8JHSwGoSuxHFZtl2sdahjTHavRHnYjSABEFrViUKgb12UDD5ow1GAL62wVdSJKRf9HlLbJhN3PBxuh5L/E0wy1wGA9ecXtw/R1ktvXZ7RklGAt1TmNzZv6vI2J/CMXvndOX9rEpjKMbwbIDAjQ9PxiWdcnmc5SowT9f6yfIjbjXnRMWWidPAua7sgrtej4HP4Qjz1fpgLMLCRyF97tbMTmsAI5Cuj98Buh9PwcdyXj5SbVuHdJS1ehv9b5SWPsD4pwOm3+otVNK6FTazhoUl47AZoAoQzXfsXxrzqYzvF0yJkCnk9S1dcij1L569gQ43CJO6o6jIZFJvA4EmZDl95ELu+BC+x37Ip8dq4JLPsANDVSqvXO9tfDUIXEx25AaOYhW2KAUoDve/fbsU8d0UZR1o/w+ZrOQwawCIPeVPtbh7KFRVQi/rPI+Abl6XR6qMJbKPegliYGUuGF2oEMEc6QLTsMRCEPuw0S3kxbNfVPqml8nGhB2r8zUHBY1diJEmipVghnwH74gIKnyJ2C9nKjV8noUfKzqyV8vxUX2G5yXgodx8Jn0cWs3XhWuApFla9z4R28W/4jA1jK2WQMlx+b6xKUWgRk8+fYsc0HSt2fDrQ9pLpnjb8ME59RCxSPV++PThpnR2JtastZBZur2hBIJsGILCAmufUU4VC4gBKPhNfu/OK4Ktgz+uQlUa9fEC/FnkpTRQPxHuQjSQSNrIIyW1bIRBtnwjvvvNoui9FZJ";
+    #[allow(unused)]
+    const TEST_VECTOR_PUBLIC_KEY_V2: &str = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAz/+1jPJ1HqcaCdKrTPms8XJcvnmd9alI42U2XF/4GMNTM5KF1gI6snhR/23ZLatZRFMHoK8ZCMSpGNkjLadArz52ldceTvBOhQUiWylkZQ4NfNa3xIYJubXOmkeDyfNuyLxVZvcZOko9PdT+Qx2QxDrFi2XNo2I7aVFd19/COIEkex4mJ0eA3MHFpKCdxYbcTAsGID8+kVR9L84S1JptZoG8x+iB/D3/Q4y02UsQYpFTu0vbPY84YmW03ngJdxWzS8X4/UJI/jaEn5rO4xlU5QcL0l4IybP5LRpE9XEeUHATKVOG7eNfpe9zDfKV2qQoofQMH9VvkWO4psaWDjBSdwIDAQAB";
+    #[allow(unused)]
+    const TEST_VECTOR_SIGNED_PUBLIC_KEY_V2: &str = "hFgepAEnAxg8BFAmkP0QgfdMVbIujX55W/yNOgABOH8BoFkBTqNpYWxnb3JpdGhtAG1jb250ZW50Rm9ybWF0AGlwdWJsaWNLZXlZASYwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDP/7WM8nUepxoJ0qtM+azxcly+eZ31qUjjZTZcX/gYw1MzkoXWAjqyeFH/bdktq1lEUwegrxkIxKkY2SMtp0CvPnaV1x5O8E6FBSJbKWRlDg181rfEhgm5tc6aR4PJ827IvFVm9xk6Sj091P5DHZDEOsWLZc2jYjtpUV3X38I4gSR7HiYnR4DcwcWkoJ3FhtxMCwYgPz6RVH0vzhLUmm1mgbzH6IH8Pf9DjLTZSxBikVO7S9s9jzhiZbTeeAl3FbNLxfj9Qkj+NoSfms7jGVTlBwvSXgjJs/ktGkT1cR5QcBMpU4bt41+l73MN8pXapCih9Awf1W+RY7imxpYOMFJ3AgMBAAFYQMq/hT4wod2w8xyoM7D86ctuLNX4ZRo+jRHf2sZfaO7QsvonG/ZYuNKF5fq8wpxMRjfoMvnY2TTShbgzLrW8BA4=";
+    const TEST_VECTOR_SIGNING_KEY_V2: &str = "7.g1gcowE6AAERbwMYZQRQAh1FKMmzQLiaGc6jTMc9m6EFWBhYePc2qkCruHAPXgbzXsIP1WVk11ArbLNYUBpifToURlwHKs1je2BwZ1C/5thz4nyNbL0wDaYkRWI9ex1wvB7KhdzC7ltStEd5QttboTSCaXQROSZaGBPNO5+Bu3sTY8F5qK1pBUo6AHNN";
+    #[allow(unused)]
+    const TEST_VECTOR_VERIFYING_KEY_V2: &str =
+        "pgEBAlAmkP0QgfdMVbIujX55W/yNAycEgQIgBiFYIEM6JxBmjWQTruAm3s6BTaJy1q6BzQetMBacNeRJ0kxR";
+    const TEST_VECTOR_SECURITY_STATE_V2: &str = "hFgepAEnAxg8BFAmkP0QgfdMVbIujX55W/yNOgABOH8CoFgkomhlbnRpdHlJZFBHOOw2BI9OQoNq+Vl1xZZKZ3ZlcnNpb24CWEAlchbJR0vmRfShG8On7Q2gknjkw4Dd6MYBLiH4u+/CmfQdmjNZdf6kozgW/6NXyKVNu8dAsKsin+xxXkDyVZoG";
 
     #[tokio::test]
     async fn test_update_password() {
@@ -639,6 +750,7 @@ mod tests {
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
                 signing_key: None,
+                security_state: None,
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
                     user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
@@ -660,6 +772,7 @@ mod tests {
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
                 signing_key: None,
+                security_state: None,
                 method: InitUserCryptoMethod::Password {
                     password: "123412341234".into(),
                     user_key: new_password_response.new_key,
@@ -719,6 +832,7 @@ mod tests {
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
                 signing_key: None,
+                security_state: None,
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
                     user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
@@ -742,6 +856,7 @@ mod tests {
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
                 signing_key: None,
+                security_state: None,
                 method: InitUserCryptoMethod::Pin {
                     pin: "1234".into(),
                     pin_protected_user_key: pin_key.pin_protected_user_key,
@@ -786,6 +901,7 @@ mod tests {
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
                 signing_key: None,
+                security_state: None,
                 method: InitUserCryptoMethod::Pin {
                     pin: "1234".into(),
                     pin_protected_user_key,
@@ -818,8 +934,6 @@ mod tests {
 
     #[test]
     fn test_enroll_admin_password_reset() {
-        use base64::{engine::general_purpose::STANDARD, Engine};
-
         let client = Client::new(None);
 
         let master_key = MasterKey::derive(
@@ -835,7 +949,15 @@ mod tests {
         let private_key ="2.yN7l00BOlUE0Sb0M//Q53w==|EwKG/BduQRQ33Izqc/ogoBROIoI5dmgrxSo82sgzgAMIBt3A2FZ9vPRMY+GWT85JiqytDitGR3TqwnFUBhKUpRRAq4x7rA6A1arHrFp5Tp1p21O3SfjtvB3quiOKbqWk6ZaU1Np9HwqwAecddFcB0YyBEiRX3VwF2pgpAdiPbSMuvo2qIgyob0CUoC/h4Bz1be7Qa7B0Xw9/fMKkB1LpOm925lzqosyMQM62YpMGkjMsbZz0uPopu32fxzDWSPr+kekNNyLt9InGhTpxLmq1go/pXR2uw5dfpXc5yuta7DB0EGBwnQ8Vl5HPdDooqOTD9I1jE0mRyuBpWTTI3FRnu3JUh3rIyGBJhUmHqGZvw2CKdqHCIrQeQkkEYqOeJRJVdBjhv5KGJifqT3BFRwX/YFJIChAQpebNQKXe/0kPivWokHWwXlDB7S7mBZzhaAPidZvnuIhalE2qmTypDwHy22FyqV58T8MGGMchcASDi/QXI6kcdpJzPXSeU9o+NC68QDlOIrMVxKFeE7w7PvVmAaxEo0YwmuAzzKy9QpdlK0aab/xEi8V4iXj4hGepqAvHkXIQd+r3FNeiLfllkb61p6WTjr5urcmDQMR94/wYoilpG5OlybHdbhsYHvIzYoLrC7fzl630gcO6t4nM24vdB6Ymg9BVpEgKRAxSbE62Tqacxqnz9AcmgItb48NiR/He3n3ydGjPYuKk/ihZMgEwAEZvSlNxYONSbYrIGDtOY+8Nbt6KiH3l06wjZW8tcmFeVlWv+tWotnTY9IqlAfvNVTjtsobqtQnvsiDjdEVtNy/s2ci5TH+NdZluca2OVEr91Wayxh70kpM6ib4UGbfdmGgCo74gtKvKSJU0rTHakQ5L9JlaSDD5FamBRyI0qfL43Ad9qOUZ8DaffDCyuaVyuqk7cz9HwmEmvWU3VQ+5t06n/5kRDXttcw8w+3qClEEdGo1KeENcnXCB32dQe3tDTFpuAIMLqwXs6FhpawfZ5kPYvLPczGWaqftIs/RXJ/EltGc0ugw2dmTLpoQhCqrcKEBDoYVk0LDZKsnzitOGdi9mOWse7Se8798ib1UsHFUjGzISEt6upestxOeupSTOh0v4+AjXbDzRUyogHww3V+Bqg71bkcMxtB+WM+pn1XNbVTyl9NR040nhP7KEf6e9ruXAtmrBC2ah5cFEpLIot77VFZ9ilLuitSz+7T8n1yAh1IEG6xxXxninAZIzi2qGbH69O5RSpOJuJTv17zTLJQIIc781JwQ2TTwTGnx5wZLbffhCasowJKd2EVcyMJyhz6ru0PvXWJ4hUdkARJs3Xu8dus9a86N8Xk6aAPzBDqzYb1vyFIfBxP0oO8xFHgd30Cgmz8UrSE3qeWRrF8ftrI6xQnFjHBGWD/JWSvd6YMcQED0aVuQkuNW9ST/DzQThPzRfPUoiL10yAmV7Ytu4fR3x2sF0Yfi87YhHFuCMpV/DsqxmUizyiJuD938eRcH8hzR/VO53Qo3UIsqOLcyXtTv6THjSlTopQ+JOLOnHm1w8dzYbLN44OG44rRsbihMUQp+wUZ6bsI8rrOnm9WErzkbQFbrfAINdoCiNa6cimYIjvvnMTaFWNymqY1vZxGztQiMiHiHYwTfwHTXrb9j0uPM=|09J28iXv9oWzYtzK2LBT6Yht4IT4MijEkk0fwFdrVQ4=".parse().unwrap();
         client
             .internal
-            .initialize_user_crypto_master_key(master_key, user_key, private_key, None)
+            .initialize_user_crypto_master_key(
+                master_key,
+                user_key,
+                UserKeyState {
+                    private_key,
+                    signing_key: None,
+                    security_state: None,
+                },
+            )
             .unwrap();
 
         let public_key = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsy7RFHcX3C8Q4/OMmhhbFReYWfB45W9PDTEA8tUZwZmtOiN2RErIS2M1c+K/4HoDJ/TjpbX1f2MZcr4nWvKFuqnZXyewFc+jmvKVewYi+NAu2++vqKq2kKcmMNhwoQDQdQIVy/Uqlp4Cpi2cIwO6ogq5nHNJGR3jm+CpyrafYlbz1bPvL3hbyoGDuG2tgADhyhXUdFuef2oF3wMvn1lAJAvJnPYpMiXUFmj1ejmbwtlxZDrHgUJvUcp7nYdwUKaFoi+sOttHn3u7eZPtNvxMjhSS/X/1xBIzP/mKNLdywH5LoRxniokUk+fV3PYUxJsiU3lV0Trc/tH46jqd8ZGjmwIDAQAB";
@@ -964,5 +1086,170 @@ mod tests {
 
         assert!(response.private_key_decryptable);
         assert!(!response.valid_private_key);
+    }
+
+    #[tokio::test]
+    async fn test_make_v2_keys_for_v1_user() {
+        let client = Client::new(None);
+
+        let priv_key: EncString = "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=".parse().unwrap();
+        let encrypted_userkey: EncString =  "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap();
+
+        initialize_user_crypto(
+            &client,
+            InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 100_000.try_into().unwrap(),
+                },
+                email: "test@bitwarden.com".into(),
+                private_key: priv_key,
+                signing_key: None,
+                security_state: None,
+                method: InitUserCryptoMethod::Password {
+                    password: "asdfasdfasdf".into(),
+                    user_key: encrypted_userkey.clone(),
+                },
+            },
+        )
+        .await
+        .unwrap();
+
+        let master_key = MasterKey::derive(
+            "asdfasdfasdf",
+            "test@bitwarden.com",
+            &Kdf::PBKDF2 {
+                iterations: NonZeroU32::new(100_000).unwrap(),
+            },
+        )
+        .unwrap();
+        let enrollment_response = make_v2_keys_for_v1_user(&client).unwrap();
+        let encrypted_userkey_v2 = master_key
+            .encrypt_user_key(
+                &SymmetricCryptoKey::try_from(enrollment_response.clone().user_key).unwrap(),
+            )
+            .unwrap();
+
+        let client2 = Client::new(None);
+        initialize_user_crypto(
+            &client2,
+            InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 100_000.try_into().unwrap(),
+                },
+                email: "test@bitwarden.com".into(),
+                private_key: enrollment_response.private_key,
+                signing_key: Some(enrollment_response.signing_key),
+                security_state: Some(enrollment_response.security_state),
+                method: InitUserCryptoMethod::Password {
+                    password: "asdfasdfasdf".into(),
+                    user_key: encrypted_userkey_v2,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_make_v2_keys_for_v1_user_with_v2_user_fails() {
+        let client = Client::new(None);
+        #[allow(deprecated)]
+        client
+            .internal
+            .get_key_store()
+            .context_mut()
+            .set_symmetric_key(
+                SymmetricKeyId::User,
+                SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            )
+            .unwrap();
+        initialize_user_crypto(
+            &client,
+            InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 100_000.try_into().unwrap(),
+                },
+                email: "test@bitwarden.com".into(),
+                private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
+                signing_key: Some(TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap()),
+                security_state: Some(TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap()),
+                method: InitUserCryptoMethod::DecryptedKey {
+                    decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
+                },
+            },
+        )
+        .await
+        .unwrap();
+
+        let result = make_v2_keys_for_v1_user(&client);
+        assert!(matches!(
+            result,
+            Err(StatefulCryptoError::WrongAccountCryptoVersion {
+                expected: _,
+                got: _
+            })
+        ));
+    }
+
+    #[test]
+    fn test_get_v2_rotated_account_keys_non_v2_user() {
+        let client = Client::new(None);
+        #[allow(deprecated)]
+        client
+            .internal
+            .get_key_store()
+            .context_mut()
+            .set_symmetric_key(
+                SymmetricKeyId::User,
+                SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            )
+            .unwrap();
+
+        let result = get_v2_rotated_account_keys(&client);
+        assert!(matches!(
+            result,
+            Err(StatefulCryptoError::WrongAccountCryptoVersion {
+                expected: _,
+                got: _
+            })
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_get_v2_rotated_account_keys() {
+        let client = Client::new(None);
+        #[allow(deprecated)]
+        client
+            .internal
+            .get_key_store()
+            .context_mut()
+            .set_symmetric_key(
+                SymmetricKeyId::User,
+                SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            )
+            .unwrap();
+        initialize_user_crypto(
+            &client,
+            InitUserCryptoRequest {
+                user_id: Some(uuid::Uuid::new_v4()),
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 100_000.try_into().unwrap(),
+                },
+                email: "test@bitwarden.com".into(),
+                private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
+                signing_key: Some(TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap()),
+                security_state: Some(TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap()),
+                method: InitUserCryptoMethod::DecryptedKey {
+                    decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
+                },
+            },
+        )
+        .await
+        .unwrap();
+
+        assert!(get_v2_rotated_account_keys(&client).is_ok());
     }
 }

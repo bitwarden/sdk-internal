@@ -18,8 +18,8 @@ pub use content_format::*;
 mod enc_string;
 pub use enc_string::{EncString, UnsignedSharedKey};
 mod error;
-pub use error::CryptoError;
 pub(crate) use error::Result;
+pub use error::{CryptoError, EncodingError};
 mod fingerprint;
 pub use fingerprint::fingerprint;
 mod keys;
@@ -27,13 +27,16 @@ pub use keys::*;
 mod rsa;
 pub use crate::rsa::RsaKeyPair;
 mod util;
-pub use util::{generate_random_alphanumeric, generate_random_bytes, pbkdf2};
+pub use util::{generate_random_alphanumeric, generate_random_bytes, pbkdf2, FromStrVisitor};
 mod wordlist;
 pub use wordlist::EFF_LONG_WORD_LIST;
 mod store;
-pub use store::{KeyStore, KeyStoreContext};
+pub use store::{
+    dangerous_get_v2_rotated_account_keys, KeyStore, KeyStoreContext, RotatedUserKeys,
+};
 mod cose;
 pub use cose::CoseSerializable;
+pub mod safe;
 mod signing;
 pub use signing::*;
 mod traits;

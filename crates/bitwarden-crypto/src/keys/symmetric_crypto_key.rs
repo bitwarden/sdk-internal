@@ -407,6 +407,7 @@ impl From<EncodedSymmetricKey> for Vec<u8> {
     }
 }
 impl EncodedSymmetricKey {
+    /// Returns the content format of the encoded symmetric key.
     #[allow(private_interfaces)]
     pub fn content_format(&self) -> ContentFormat {
         match self {

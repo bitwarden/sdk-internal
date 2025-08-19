@@ -96,7 +96,7 @@ impl CommunicationBackend for JsCommunicationBackend {
         let result = self
             .sender
             .run_in_thread(|sender| async move {
-                sender.send(message).await.map_err(|e| format!("{:?}", e))
+                sender.send(message).await.map_err(|e| format!("{e:?}"))
             })
             .await;
 

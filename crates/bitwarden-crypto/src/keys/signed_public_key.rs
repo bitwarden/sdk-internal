@@ -2,7 +2,7 @@
 //! identity, which is provided by a signature keypair. This is done by signing the public key, and
 //! requiring consumers to verify the public key before consumption by using unwrap_and_verify.
 
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
@@ -13,13 +13,13 @@ use super::AsymmetricPublicCryptoKey;
 use crate::{
     cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CoseSign1Bytes,
     CryptoError, PublicKeyEncryptionAlgorithm, RawPublicKey, SignedObject, SigningKey,
-    SigningNamespace, VerifyingKey,
+    SigningNamespace, SpkiPublicKeyBytes, VerifyingKey,
 };
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type SignedPublicKey = string;
+export type SignedPublicKey = Tagged<string, "SignedPublicKey">;
 "#;
 
 /// `PublicKeyFormat` defines the format of the public key in a `SignedAsymmetricPublicKeyMessage`.
@@ -86,9 +86,7 @@ impl From<SignedPublicKey> for CoseSign1Bytes {
 impl TryFrom<CoseSign1Bytes> for SignedPublicKey {
     type Error = EncodingError;
     fn try_from(bytes: CoseSign1Bytes) -> Result<Self, EncodingError> {
-        Ok(SignedPublicKey(SignedObject::from_cose(
-            &CoseSign1Bytes::from(bytes),
-        )?))
+        Ok(SignedPublicKey(SignedObject::from_cose(&bytes)?))
     }
 }
 
@@ -114,8 +112,10 @@ impl SignedPublicKey {
             public_key_message.content_format,
         ) {
             (PublicKeyEncryptionAlgorithm::RsaOaepSha1, PublicKeyFormat::Spki) => Ok(
-                AsymmetricPublicCryptoKey::from_der(&public_key_message.public_key.into_vec())
-                    .map_err(|_| EncodingError::InvalidValue("public key"))?,
+                AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
+                    public_key_message.public_key.into_vec(),
+                ))
+                .map_err(|_| EncodingError::InvalidValue("public key"))?,
             ),
         }
     }
@@ -152,11 +152,11 @@ impl serde::Serialize for SignedPublicKey {
 }
 
 impl schemars::JsonSchema for SignedPublicKey {
-    fn schema_name() -> String {
-        "SignedPublicKey".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "SignedPublicKey".into()
     }
 
-    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(generator: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
         generator.subschema_for::<String>()
     }
 }

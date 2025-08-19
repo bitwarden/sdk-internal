@@ -4,6 +4,8 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use thiserror::Error;
+
 use crate::repository::{Repository, RepositoryItem};
 
 /// A registry that contains repositories for different types of items.
@@ -17,6 +19,11 @@ impl std::fmt::Debug for StateRegistry {
         f.debug_struct("StateRegistry").finish()
     }
 }
+
+/// Repository not found.
+#[derive(Debug, Error)]
+#[error("Repository not found for the requested type")]
+pub struct RepositoryNotFoundError;
 
 impl StateRegistry {
     /// Creates a new empty `StateRegistry`.
@@ -36,13 +43,16 @@ impl StateRegistry {
     }
 
     /// Retrieves a client-managed repository from the map given its type.
-    pub fn get_client_managed<T: RepositoryItem>(&self) -> Option<Arc<dyn Repository<T>>> {
+    pub fn get_client_managed<T: RepositoryItem>(
+        &self,
+    ) -> Result<Arc<dyn Repository<T>>, RepositoryNotFoundError> {
         self.client_managed
             .read()
             .expect("RwLock should not be poisoned")
             .get(&TypeId::of::<T>())
             .and_then(|boxed| boxed.downcast_ref::<Arc<dyn Repository<T>>>())
             .map(Arc::clone)
+            .ok_or(RepositoryNotFoundError)
     }
 }
 
@@ -107,19 +117,19 @@ mod tests {
                 .unwrap()
         }
 
-        assert!(map.get_client_managed::<TestItem<usize>>().is_none());
-        assert!(map.get_client_managed::<TestItem<String>>().is_none());
-        assert!(map.get_client_managed::<TestItem<Vec<u8>>>().is_none());
+        assert!(map.get_client_managed::<TestItem<usize>>().is_err());
+        assert!(map.get_client_managed::<TestItem<String>>().is_err());
+        assert!(map.get_client_managed::<TestItem<Vec<u8>>>().is_err());
 
         map.register_client_managed(a.clone());
         assert_eq!(get(&map).await, Some(TestItem(a.0)));
-        assert!(map.get_client_managed::<TestItem<String>>().is_none());
-        assert!(map.get_client_managed::<TestItem<Vec<u8>>>().is_none());
+        assert!(map.get_client_managed::<TestItem<String>>().is_err());
+        assert!(map.get_client_managed::<TestItem<Vec<u8>>>().is_err());
 
         map.register_client_managed(b.clone());
         assert_eq!(get(&map).await, Some(TestItem(a.0)));
         assert_eq!(get(&map).await, Some(TestItem(b.0.clone())));
-        assert!(map.get_client_managed::<TestItem<Vec<u8>>>().is_none());
+        assert!(map.get_client_managed::<TestItem<Vec<u8>>>().is_err());
 
         map.register_client_managed(c.clone());
         assert_eq!(get(&map).await, Some(TestItem(a.0)));

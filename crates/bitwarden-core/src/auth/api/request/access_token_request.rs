@@ -23,7 +23,7 @@ impl AccessTokenRequest {
             client_secret: client_secret.to_string(),
             grant_type: "client_credentials".to_string(),
         };
-        debug!("initializing {:?}", obj);
+        debug!("initializing {obj:?}");
         obj
     }
 
@@ -31,6 +31,6 @@ impl AccessTokenRequest {
         &self,
         configurations: &ApiConfigurations,
     ) -> Result<IdentityTokenResponse, LoginError> {
-        super::send_identity_connect_request(configurations, None, &self).await
+        super::send_identity_connect_request(configurations, &self).await
     }
 }
