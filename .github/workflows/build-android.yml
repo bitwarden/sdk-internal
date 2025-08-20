@@ -17,10 +17,10 @@ jobs:
     runs-on: ubuntu-24.04
     #needs: build
     permissions:
-      id-token: write
-      contents: read
-      packages: write
       actions: write
+      contents: read
+      id-token: write
+      packages: write
 
     steps:
       - name: Log in to Azure
@@ -50,7 +50,7 @@ jobs:
       - name: Trigger SDK update in Android repo
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }} 
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }} 
           _SDK_PACKAGE: "com.bitwarden:sdk-android.dev"
           _SDK_VERSION: "1.0.0-2686-km-update-kdf-sdk"
         run: |
