@@ -81,6 +81,21 @@ String composeVersion(String branchName){
     }
 }
 
+def exportSdkInfoToGithubOutput(String artifactId, String groupId, String version){
+    def sdkPackageId = "${groupId}:${artifactId}"
+    def isCI = System.getenv('CI') != null
+
+    if (isCI) {
+        def githubOutput = System.getenv("GITHUB_OUTPUT")
+        
+        new File(githubOutput) << "sdk-package-id=${sdkPackageId}\n"
+        new File(githubOutput) << "sdk-version=${version}\n"
+
+        println "✅ Wrote to GITHUB_OUTPUT:"
+        println new File(githubOutput).text
+    }
+}
+
 publishing {
     publications {
         maven(MavenPublication) {
@@ -101,6 +116,8 @@ publishing {
             if (findProperty('version') == 'unspecified') {
                 version = composeVersion(branchName)
             }
+
+            exportSdkInfoToGithubOutput(artifactId,groupId,version)
 
             pom {
                 name.set("Bitwarden SDK for Android")
