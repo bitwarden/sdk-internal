@@ -12,6 +12,8 @@ use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
+#[cfg(feature = "uniffi")]
+use uniffi;
 use crate::DecryptError;
 
 #[allow(missing_docs)]
@@ -51,13 +53,22 @@ impl CollectionsClient {
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 pub struct CollectionViewTree {
     tree: Tree<CollectionView>,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 pub struct CollectionViewNodeItem {
     node_item: NodeItem<CollectionView>,
+}
+
+#[cfg_attr(feature = "wasm", derive(Tsify, Serialize, Deserialize))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct AncestorMap {
+    ancestors: HashMap<Uuid, String>,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -79,12 +90,6 @@ impl CollectionViewNodeItem {
             ancestors: self.node_item.ancestors.clone(),
         }
     }
-}
-
-#[cfg_attr(feature = "wasm", derive(Tsify, Serialize, Deserialize))]
-#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
-pub struct AncestorMap {
-    ancestors: HashMap<Uuid, String>,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
