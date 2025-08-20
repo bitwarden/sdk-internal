@@ -53,6 +53,11 @@ impl Client {
                     ClientConfig::with_platform_verifier()
                         .expect("Failed to create platform verifier"),
                 );
+
+                #[cfg(not(debug_assertions))]
+                {
+                    client_builder = client_builder.https_only(true);
+                }
             }
 
             client_builder
