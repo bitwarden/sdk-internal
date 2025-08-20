@@ -12,6 +12,18 @@ defaults:
     shell: bash
 
 jobs:
+    test:
+      - name: Trigger SDK update in Android repo
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          _SDK_PACKAGE: "com.bitwarden:sdk-android.dev"
+          _SDK_VERSION: "1.0.0-2686-km-update-kdf-sdk"
+        run: |
+          echo "🚀 Triggering sdlc-sdk-update.yml workflow in bitwarden/android repo..."
+          gh workflow run sdlc-sdk-update.yml --repo bitwarden/android --ref main -f run-mode=Update -f sdk-package=$_SDK_PACKAGE -f sdk-version=$_SDK_VERSION
+          exit 1
+
   build:
     name: Build
     runs-on: ubuntu-24.04
