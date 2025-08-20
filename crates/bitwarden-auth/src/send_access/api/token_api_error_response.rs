@@ -487,8 +487,9 @@ mod tests {
     }
 
     mod send_access_token_invalid_client_error_tests {
-        use super::*;
         use serde_json::{from_str, json, to_value};
+
+        use super::*;
 
         #[test]
         fn invalid_client_full_payload_with_description_parses() {
@@ -588,8 +589,9 @@ mod tests {
     }
 
     mod send_access_token_unauthorized_client_error_tests {
-        use super::*;
         use serde_json::{from_str, json, to_value};
+
+        use super::*;
 
         #[test]
         fn unauthorized_client_full_payload_with_description_parses() {
@@ -682,8 +684,9 @@ mod tests {
     }
 
     mod send_access_token_unsupported_grant_type_error_tests {
-        use super::*;
         use serde_json::{from_str, json, to_value};
+
+        use super::*;
 
         #[test]
         fn unsupported_grant_type_full_payload_with_description_parses() {
@@ -782,8 +785,9 @@ mod tests {
     }
 
     mod send_access_token_invalid_scope_error_tests {
-        use super::*;
         use serde_json::{from_str, json, to_value};
+
+        use super::*;
 
         #[test]
         fn invalid_scope_full_payload_with_description_parses() {
@@ -876,8 +880,9 @@ mod tests {
     }
 
     mod send_access_token_invalid_target_error_tests {
-        use super::*;
         use serde_json::{from_str, json, to_value};
+
+        use super::*;
 
         #[test]
         fn invalid_target_full_payload_with_description_parses() {
