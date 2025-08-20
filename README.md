@@ -64,7 +64,7 @@ are:
 ## API Bindings
 
 We autogenerate the server bindings
-using[openapi-generator](https://github.com/OpenAPITools/openapi-generator). To do this, we first
+using [openapi-generator](https://github.com/OpenAPITools/openapi-generator). To do this, we first
 need to build the internal swagger documentation.
 
 ### Swagger generation
