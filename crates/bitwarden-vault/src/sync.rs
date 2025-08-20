@@ -3,7 +3,9 @@ use bitwarden_api_api::models::{
 };
 use bitwarden_collections::{collection::Collection, error::CollectionsParseError};
 use bitwarden_core::{
-    client::encryption_settings::EncryptionSettingsError, require, Client, MissingFieldError,
+    client::encryption_settings::EncryptionSettingsError,
+    key_management::{MasterPasswordError, MasterPasswordUnlockData},
+    require, Client, MissingFieldError, NotAuthenticatedError,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -23,6 +25,10 @@ pub enum SyncError {
     CollectionParse(#[from] CollectionsParseError),
     #[error(transparent)]
     EncryptionSettings(#[from] EncryptionSettingsError),
+    #[error(transparent)]
+    MasterPassword(#[from] MasterPasswordError),
+    #[error(transparent)]
+    NotAuthenticatedError(#[from] NotAuthenticatedError),
 }
 
 #[allow(missing_docs)]
@@ -38,6 +44,17 @@ pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncRes
     let sync = bitwarden_api_api::apis::sync_api::sync_get(&config.api, input.exclude_subdomains)
         .await
         .map_err(|e| SyncError::Api(e.into()))?;
+
+    if let Some(master_password_unlock_response) = sync
+        .user_decryption
+        .as_deref()
+        .and_then(|d| d.master_password_unlock.as_deref())
+    {
+        let master_password_unlock =
+            MasterPasswordUnlockData::try_from(master_password_unlock_response.clone())?;
+
+        client.internal.update_kdf(master_password_unlock.kdf)?;
+    }
 
     let org_keys: Vec<_> = require!(sync.profile.as_ref())
         .organizations

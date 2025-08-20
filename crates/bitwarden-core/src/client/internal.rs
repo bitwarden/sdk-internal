@@ -278,6 +278,45 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
+    pub fn update_kdf(&self, new_kdf: Kdf) -> Result<(), NotAuthenticatedError> {
+        let login_method = self.get_login_method().ok_or(NotAuthenticatedError)?;
+
+        let kdf = match login_method.as_ref() {
+            LoginMethod::User(UserLoginMethod::Username { kdf, .. }) => kdf,
+            LoginMethod::User(UserLoginMethod::ApiKey { kdf, .. }) => kdf,
+            #[cfg(feature = "secrets")]
+            LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
+        };
+
+        if *kdf != new_kdf {
+            match login_method.as_ref() {
+                LoginMethod::User(UserLoginMethod::Username {
+                    client_id, email, ..
+                }) => self.set_login_method(LoginMethod::User(UserLoginMethod::Username {
+                    client_id: client_id.to_owned(),
+                    email: email.to_owned(),
+                    kdf: new_kdf,
+                })),
+                LoginMethod::User(UserLoginMethod::ApiKey {
+                    client_id,
+                    client_secret,
+                    email,
+                    ..
+                }) => self.set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
+                    client_id: client_id.to_owned(),
+                    client_secret: client_secret.to_owned(),
+                    email: email.to_owned(),
+                    kdf: new_kdf,
+                })),
+                #[cfg(feature = "secrets")]
+                LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
+            };
+        }
+
+        Ok(())
+    }
+
+    #[cfg(feature = "internal")]
     pub(crate) fn initialize_user_crypto_decrypted_key(
         &self,
         user_key: SymmetricCryptoKey,
