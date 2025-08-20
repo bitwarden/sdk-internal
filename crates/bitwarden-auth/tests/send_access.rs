@@ -107,9 +107,11 @@ mod request_send_access_token_invalid_request_tests {
         };
 
         // Create a mock error response
+        let error_description = "send_id is required.".into();
         let raw_error = serde_json::json!({
             "error": "invalid_request",
-            "error_description": "send_id is required."
+            "error_description": error_description,
+            "send_access_error_type": "send_id_required"
         });
 
         // Register the mock for the request
@@ -131,7 +133,10 @@ mod request_send_access_token_invalid_request_tests {
                 assert_eq!(
                     api_err,
                     SendAccessTokenApiErrorResponse::InvalidRequest {
-                        error_description: Some(SendAccessTokenInvalidRequestError::SendIdRequired)
+                        send_access_error_type: Some(
+                            SendAccessTokenInvalidRequestError::SendIdRequired
+                        ),
+                        error_description: Some(error_description),
                     }
                 );
             }
@@ -154,9 +159,12 @@ mod request_send_access_token_invalid_request_tests {
         };
 
         // Create a mock error response
+        // save off raw error desc into variable
+        let error_description = "password_hash_b64 is required.".into();
         let raw_error = serde_json::json!({
             "error": "invalid_request",
-            "error_description": "password_hash_b64 is required."
+            "error_description": error_description,
+            "send_access_error_type": "password_hash_b64_required"
         });
 
         // Register the mock for the request
@@ -178,9 +186,10 @@ mod request_send_access_token_invalid_request_tests {
                 assert_eq!(
                     api_err,
                     SendAccessTokenApiErrorResponse::InvalidRequest {
-                        error_description: Some(
-                            SendAccessTokenInvalidRequestError::PasswordHashRequired
-                        )
+                        send_access_error_type: Some(
+                            SendAccessTokenInvalidRequestError::PasswordHashB64Required
+                        ),
+                        error_description: Some(error_description),
                     }
                 );
             }
@@ -203,9 +212,11 @@ mod request_send_access_token_invalid_request_tests {
         };
 
         // Create a mock error response
+        let error_description = "email is required.".into();
         let raw_error = serde_json::json!({
             "error": "invalid_request",
-            "error_description": "email is required."
+            "error_description": error_description,
+            "send_access_error_type": "email_required"
         });
 
         // Register the mock for the request
@@ -227,7 +238,10 @@ mod request_send_access_token_invalid_request_tests {
                 assert_eq!(
                     api_err,
                     SendAccessTokenApiErrorResponse::InvalidRequest {
-                        error_description: Some(SendAccessTokenInvalidRequestError::EmailRequired)
+                        send_access_error_type: Some(
+                            SendAccessTokenInvalidRequestError::EmailRequired
+                        ),
+                        error_description: Some(error_description),
                     }
                 );
             }
@@ -254,9 +268,13 @@ mod request_send_access_token_invalid_request_tests {
         };
 
         // Create a mock error response
+        let error_description =
+            "email and otp are required. An OTP has been sent to the email address provided."
+                .into();
         let raw_error = serde_json::json!({
             "error": "invalid_request",
-            "error_description": "email and otp are required. An OTP has been sent to the email address provided."
+            "error_description": error_description,
+            "send_access_error_type": "email_and_otp_required_otp_sent"
         });
 
         // Register the mock for the request
@@ -278,9 +296,10 @@ mod request_send_access_token_invalid_request_tests {
                 assert_eq!(
                     api_err,
                     SendAccessTokenApiErrorResponse::InvalidRequest {
-                        error_description: Some(
+                        send_access_error_type: Some(
                             SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent
-                        )
+                        ),
+                        error_description: Some(error_description),
                     }
                 );
             }
@@ -309,9 +328,11 @@ mod request_send_access_token_invalid_grant_tests {
         };
 
         // Create a mock error response
+        let error_description = "send_id is invalid.".into();
         let raw_error = serde_json::json!({
             "error": "invalid_grant",
-            "error_description": "send_id is invalid."
+            "error_description": error_description,
+            "send_access_error_type": "send_id_invalid"
         });
 
         // Register the mock for the request
@@ -333,7 +354,10 @@ mod request_send_access_token_invalid_grant_tests {
                 assert_eq!(
                     api_err,
                     SendAccessTokenApiErrorResponse::InvalidGrant {
-                        error_description: Some(SendAccessTokenInvalidGrantError::InvalidSendId)
+                        send_access_error_type: Some(
+                            SendAccessTokenInvalidGrantError::SendIdInvalid
+                        ),
+                        error_description: Some(error_description),
                     }
                 );
             }
@@ -360,9 +384,11 @@ mod request_send_access_token_invalid_grant_tests {
         };
 
         // Create a mock error response
+        let error_description = "password_hash_b64 is invalid.".into();
         let raw_error = serde_json::json!({
             "error": "invalid_grant",
-            "error_description": "password_hash_b64 is invalid."
+            "error_description": error_description,
+            "send_access_error_type": "password_hash_b64_invalid"
         });
 
         // Register the mock for the request
@@ -384,9 +410,10 @@ mod request_send_access_token_invalid_grant_tests {
                 assert_eq!(
                     api_err,
                     SendAccessTokenApiErrorResponse::InvalidGrant {
-                        error_description: Some(
-                            SendAccessTokenInvalidGrantError::InvalidPasswordHash
-                        )
+                        send_access_error_type: Some(
+                            SendAccessTokenInvalidGrantError::PasswordHashB64Invalid
+                        ),
+                        error_description: Some(error_description),
                     }
                 );
             }
@@ -412,9 +439,11 @@ mod request_send_access_token_invalid_grant_tests {
         };
 
         // Create a mock error response
+        let error_description = "email is invalid.".into();
         let raw_error = serde_json::json!({
             "error": "invalid_grant",
-            "error_description": "email is invalid."
+            "error_description": error_description,
+            "send_access_error_type": "email_invalid"
         });
 
         // Register the mock for the request
@@ -436,7 +465,10 @@ mod request_send_access_token_invalid_grant_tests {
                 assert_eq!(
                     api_err,
                     SendAccessTokenApiErrorResponse::InvalidGrant {
-                        error_description: Some(SendAccessTokenInvalidGrantError::InvalidEmail)
+                        send_access_error_type: Some(
+                            SendAccessTokenInvalidGrantError::EmailInvalid
+                        ),
+                        error_description: Some(error_description),
                     }
                 );
             }
@@ -463,9 +495,11 @@ mod request_send_access_token_invalid_grant_tests {
         };
 
         // Create a mock error response
+        let error_description = "otp is invalid.".into();
         let raw_error = serde_json::json!({
             "error": "invalid_grant",
-            "error_description": "otp is invalid."
+            "error_description": error_description,
+            "send_access_error_type": "otp_invalid"
         });
 
         // Register the mock for the request
@@ -487,7 +521,8 @@ mod request_send_access_token_invalid_grant_tests {
                 assert_eq!(
                     api_err,
                     SendAccessTokenApiErrorResponse::InvalidGrant {
-                        error_description: Some(SendAccessTokenInvalidGrantError::InvalidOtp)
+                        send_access_error_type: Some(SendAccessTokenInvalidGrantError::OtpInvalid),
+                        error_description: Some(error_description),
                     }
                 );
             }
