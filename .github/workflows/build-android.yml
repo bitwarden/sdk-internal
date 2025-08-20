@@ -12,7 +12,15 @@ defaults:
     shell: bash
 
 jobs:
-    test:
+  update:
+    name: Update sdk test
+    runs-on: ubuntu-24.04
+    needs: build
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
       - name: Trigger SDK update in Android repo
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
