@@ -8,12 +8,12 @@ use bitwarden_core::Client;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
+#[cfg(feature = "uniffi")]
+use uniffi;
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-#[cfg(feature = "uniffi")]
-use uniffi;
 use crate::DecryptError;
 
 #[allow(missing_docs)]

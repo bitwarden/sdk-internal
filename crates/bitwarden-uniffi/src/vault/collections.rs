@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
-use crate::{error::Error, Result};
 use bitwarden_collections::collection::{Collection, CollectionView};
 use bitwarden_vault::collection_client::CollectionViewTree;
+
+use crate::{error::Error, Result};
 
 #[allow(missing_docs)]
 #[derive(uniffi::Object)]
