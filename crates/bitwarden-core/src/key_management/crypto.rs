@@ -244,13 +244,11 @@ pub(super) async fn initialize_user_crypto(
 
     client
         .internal
-        .set_login_method(crate::client::LoginMethod::User(
-            crate::client::UserLoginMethod::Username {
-                client_id: "".to_string(),
-                email: req.email,
-                kdf: req.kdf_params,
-            },
-        ));
+        .set_login_method(LoginMethod::User(UserLoginMethod::Username {
+            client_id: "".to_string(),
+            email: req.email,
+            kdf: req.kdf_params,
+        }));
 
     Ok(())
 }
