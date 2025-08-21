@@ -89,9 +89,8 @@ mod tests {
     use uuid::uuid;
     use wiremock::{matchers, Mock, Request, ResponseTemplate};
 
-    use crate::FolderId;
-
     use super::*;
+    use crate::FolderId;
 
     #[tokio::test]
     async fn test_create_folder() {
