@@ -90,9 +90,6 @@ def exportSdkInfoToGithubOutput(String artifactId, String groupId, String versio
         
         new File(githubOutput) << "sdk-package-id=${sdkPackageId}\n"
         new File(githubOutput) << "sdk-version=${version}\n"
-
-        println "✅ Wrote to GITHUB_OUTPUT:"
-        println new File(githubOutput).text
     }
 }
 
