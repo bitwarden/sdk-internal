@@ -1,4 +1,6 @@
-use data_encoding::{Specification, BASE64URL};
+use std::str::FromStr;
+
+use data_encoding::BASE64URL;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -54,27 +56,30 @@ impl std::fmt::Display for B64Url {
 #[error("Data isn't base64url encoded")]
 pub struct NotB64UrlEncoded;
 
+const BASE64URL_PERMISSIVE: data_encoding::Encoding = data_encoding_macro::new_encoding! {
+    symbols: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
+    padding: None,
+    check_trailing_bits: false,
+};
+const BASE64URL_PADDING: &str = "=";
+
 impl TryFrom<&str> for B64Url {
     type Error = NotB64UrlEncoded;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let specs = BASE64URL.specification();
-        let padding = specs
-            .padding
-            .expect("BASE64URL should have padding character");
-        let specs = Specification {
-            check_trailing_bits: false,
-            padding: None,
-            ..specs
-        };
-        let encoding = specs
-            .encoding()
-            .expect("BASE64URL specification should be valid");
-        let sane_string = value.trim_end_matches(padding);
-        encoding
+        let sane_string = value.trim_end_matches(BASE64URL_PADDING);
+        BASE64URL_PERMISSIVE
             .decode(sane_string.as_bytes())
             .map(Self)
             .map_err(|_| NotB64UrlEncoded)
+    }
+}
+
+impl FromStr for B64Url {
+    type Err = NotB64UrlEncoded;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::try_from(s)
     }
 }
 
@@ -181,6 +186,13 @@ mod tests {
     fn test_not_b64url_encoded_error_display() {
         let error = NotB64UrlEncoded;
         assert_eq!(error.to_string(), "Data isn't base64url encoded");
+    }
+
+    #[test]
+    fn test_b64url_from_str() {
+        let encoded = "SGVsbG8sIFdvcmxkIQ==";
+        let b64url: B64Url = encoded.parse().unwrap();
+        assert_eq!(b64url.as_ref(), b"Hello, World!");
     }
 
     #[test]

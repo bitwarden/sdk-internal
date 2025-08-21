@@ -352,7 +352,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_qs",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tsify",
  "uniffi",
  "wasm-bindgen",
@@ -379,7 +379,7 @@ dependencies = [
  "bitwarden-error",
  "serde",
  "serde_repr",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tsify",
  "uniffi",
  "uuid",
@@ -471,9 +471,10 @@ name = "bitwarden-encoding"
 version = "1.0.0"
 dependencies = [
  "data-encoding",
+ "data-encoding-macro",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "uniffi",
 ]
 
@@ -1424,6 +1425,26 @@ name = "data-encoding"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
+
+[[package]]
+name = "data-encoding-macro"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47ce6c96ea0102f01122a185683611bd5ac8d99e62bc59dd12e6bda344ee673d"
+dependencies = [
+ "data-encoding",
+ "data-encoding-macro-internal",
+]
+
+[[package]]
+name = "data-encoding-macro-internal"
+version = "0.1.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d162beedaa69905488a8da94f5ac3edb4dd4788b732fadb7bd120b2625c1976"
+dependencies = [
+ "data-encoding",
+ "syn",
+]
 
 [[package]]
 name = "deadpool"
