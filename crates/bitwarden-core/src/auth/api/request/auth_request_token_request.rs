@@ -55,6 +55,6 @@ impl AuthRequestTokenRequest {
         &self,
         configurations: &ApiConfigurations,
     ) -> Result<IdentityTokenResponse, LoginError> {
-        super::send_identity_connect_request(configurations, Some(&self.email), &self).await
+        super::send_identity_connect_request(configurations, &self).await
     }
 }
