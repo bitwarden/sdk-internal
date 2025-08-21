@@ -395,6 +395,7 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-api-identity",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-state",
  "bitwarden-uuid",
@@ -472,6 +473,8 @@ dependencies = [
  "data-encoding",
  "serde",
  "serde_json",
+ "thiserror 1.0.69",
+ "uniffi",
 ]
 
 [[package]]
@@ -699,6 +702,7 @@ dependencies = [
  "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-exporters",
  "bitwarden-fido",
  "bitwarden-generators",

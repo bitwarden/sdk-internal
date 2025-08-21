@@ -3,6 +3,7 @@ use bitwarden_core::auth::{
     RegisterKeyResponse, RegisterTdeKeyResponse,
 };
 use bitwarden_crypto::{EncString, HashPurpose, Kdf, TrustDeviceResponse, UnsignedSharedKey};
+use bitwarden_encoding::B64;
 
 use crate::error::{Error, Result};
 
@@ -67,7 +68,7 @@ impl AuthClient {
     pub fn make_register_tde_keys(
         &self,
         email: String,
-        org_public_key: String,
+        org_public_key: B64,
         remember_device: bool,
     ) -> Result<RegisterTdeKeyResponse> {
         Ok(self

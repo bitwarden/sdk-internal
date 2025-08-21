@@ -1,5 +1,6 @@
 use data_encoding::{Specification, BASE64URL};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 /// Base64URL encoded data
 ///
@@ -49,14 +50,9 @@ impl std::fmt::Display for B64Url {
 }
 
 /// An error returned when a string is not base64 decodable.
-#[derive(Debug)]
+#[derive(Debug, Error)]
+#[error("Data isn't base64url encoded")]
 pub struct NotB64UrlEncoded;
-
-impl std::fmt::Display for NotB64UrlEncoded {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Data isn't base64url encoded")
-    }
-}
 
 impl TryFrom<&str> for B64Url {
     type Error = NotB64UrlEncoded;

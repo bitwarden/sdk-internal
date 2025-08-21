@@ -14,9 +14,14 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
+[features]
+uniffi = ["dep:uniffi"]
+
 [dependencies]
 data-encoding = { workspace = true }
 serde = { workspace = true }
+thiserror.workspace = true
+uniffi = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

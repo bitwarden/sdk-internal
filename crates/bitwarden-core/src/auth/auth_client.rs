@@ -2,6 +2,8 @@
 use bitwarden_crypto::{
     CryptoError, DeviceKey, EncString, Kdf, TrustDeviceResponse, UnsignedSharedKey,
 };
+#[cfg(feature = "internal")]
+use bitwarden_encoding::B64;
 
 #[cfg(feature = "secrets")]
 use crate::auth::login::{login_access_token, AccessTokenLoginRequest, AccessTokenLoginResponse};
@@ -88,7 +90,7 @@ impl AuthClient {
     pub fn make_register_tde_keys(
         &self,
         email: String,
-        org_public_key: String,
+        org_public_key: B64,
         remember_device: bool,
     ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
         make_register_tde_keys(&self.client, email, org_public_key, remember_device)
