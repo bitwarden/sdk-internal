@@ -41,8 +41,8 @@ impl Client {
 /// accounts to be used on other servers this protection was explicitly removed from these data
 /// dumps.
 pub struct TestAccount {
-    user: InitUserCryptoRequest,
-    org: Option<InitOrgCryptoRequest>,
+    pub user: InitUserCryptoRequest,
+    pub org: Option<InitOrgCryptoRequest>,
 }
 
 /// ### `test@bitwarden.com`

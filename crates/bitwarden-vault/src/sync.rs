@@ -181,3 +181,206 @@ impl TryFrom<DomainsResponseModel> for DomainResponse {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::num::NonZeroU32;
+
+    use bitwarden_api_api::models::{
+        KdfType, MasterPasswordUnlockKdfResponseModel, MasterPasswordUnlockResponseModel,
+        UserDecryptionResponseModel,
+    };
+    use bitwarden_core::{
+        client::test_accounts::{test_bitwarden_com_account, TestAccount},
+        key_management::{crypto::InitUserCryptoMethod, SymmetricKeyId},
+        ClientSettings, DeviceType,
+    };
+    use bitwarden_crypto::{Kdf, UnsignedSharedKey};
+    use bitwarden_test::start_api_mock;
+    use wiremock::{matchers, Mock, MockServer, Request, ResponseTemplate};
+
+    use super::*;
+
+    const USER_NAME: &str = "Test User";
+    const USER_EMAIL: &str = "test@example.com";
+
+    fn create_profile_response(user_id: Uuid) -> ProfileResponseModel {
+        ProfileResponseModel {
+            id: Some(user_id),
+            name: Some(USER_NAME.to_string()),
+            email: Some(USER_EMAIL.to_string()),
+            organizations: Some(vec![]),
+            ..ProfileResponseModel::new()
+        }
+    }
+
+    fn create_sync_response(user_id: Uuid) -> SyncResponseModel {
+        SyncResponseModel {
+            profile: Some(Box::new(create_profile_response(user_id))),
+            folders: Some(vec![]),
+            collections: Some(vec![]),
+            ciphers: Some(vec![]),
+            ..SyncResponseModel::new()
+        }
+    }
+
+    fn create_test_account() -> (TestAccount, Uuid, Uuid, UnsignedSharedKey) {
+        let test_account = test_bitwarden_com_account();
+        let user_id = test_account.user.user_id.unwrap();
+        let organization_keys = test_account
+            .org
+            .as_ref()
+            .map(|org| org.organization_keys.clone())
+            .unwrap();
+        let organization_id = *organization_keys.keys().next().unwrap();
+        let organization_key = organization_keys.get(&organization_id).unwrap().clone();
+
+        (test_account, user_id, organization_id, organization_key)
+    }
+
+    async fn setup_sync_client(
+        response: SyncResponseModel,
+        test_account: TestAccount,
+    ) -> (MockServer, Client) {
+        let (server, api_config) = start_api_mock(vec![Mock::given(matchers::path("/sync"))
+            .respond_with(move |_: &Request| {
+                ResponseTemplate::new(200).set_body_json(response.to_owned())
+            })
+            .expect(1)])
+        .await;
+
+        let client = Client::new(Some(ClientSettings {
+            identity_url: api_config.base_path.clone(),
+            api_url: api_config.base_path,
+            user_agent: api_config.user_agent.unwrap(),
+            device_type: DeviceType::SDK,
+        }));
+
+        client
+            .crypto()
+            .initialize_user_crypto(test_account.user)
+            .await
+            .unwrap();
+
+        (server, client)
+    }
+
+    #[tokio::test]
+    async fn test_sync_user_empty_vault_no_organizations() {
+        let (test_account, user_id, organization_id, ..) = create_test_account();
+        let (_server, client) =
+            setup_sync_client(create_sync_response(user_id), test_account).await;
+
+        let sync_request = SyncRequest {
+            exclude_subdomains: Some(false),
+        };
+
+        let sync_response = sync(&client, &sync_request).await;
+        assert!(sync_response.is_ok());
+
+        let sync_response = sync_response.unwrap();
+        assert_eq!(sync_response.profile.id, user_id);
+        assert_eq!(sync_response.profile.name, USER_NAME);
+        assert_eq!(sync_response.profile.email, USER_EMAIL);
+        assert!(sync_response.profile.organizations.is_empty());
+        assert!(sync_response.ciphers.is_empty());
+        assert!(sync_response.folders.is_empty());
+        assert!(sync_response.collections.is_empty());
+        assert!(sync_response.domains.is_none());
+        assert!(!client
+            .internal
+            .get_key_store()
+            .context()
+            .has_symmetric_key(SymmetricKeyId::Organization(organization_id)));
+    }
+
+    #[tokio::test]
+    async fn test_sync_user_with_organization() {
+        let (test_account, user_id, organization_id, organization_key) = create_test_account();
+
+        let response = SyncResponseModel {
+            profile: Some(Box::new(ProfileResponseModel {
+                organizations: Some(vec![ProfileOrganizationResponseModel {
+                    id: Some(organization_id),
+                    key: Some(organization_key.to_string()),
+                    ..ProfileOrganizationResponseModel::new()
+                }]),
+                ..create_profile_response(user_id)
+            })),
+            ..create_sync_response(user_id)
+        };
+
+        let (_server, client) = setup_sync_client(response, test_account).await;
+
+        let sync_request = SyncRequest {
+            exclude_subdomains: Some(false),
+        };
+
+        let sync_response = sync(&client, &sync_request).await;
+        assert!(sync_response.is_ok());
+
+        let sync_response = sync_response.unwrap();
+        assert_eq!(sync_response.profile.id, user_id);
+        assert_eq!(sync_response.profile.name, USER_NAME);
+        assert_eq!(sync_response.profile.email, USER_EMAIL);
+        assert_eq!(sync_response.profile.organizations.len(), 1);
+        let organization = sync_response.profile.organizations.first().unwrap();
+        assert_eq!(organization.id, organization_id);
+        assert!(sync_response.ciphers.is_empty());
+        assert!(sync_response.folders.is_empty());
+        assert!(sync_response.collections.is_empty());
+        assert!(sync_response.domains.is_none());
+        assert!(client
+            .internal
+            .get_key_store()
+            .context()
+            .has_symmetric_key(SymmetricKeyId::Organization(organization_id)));
+    }
+
+    #[tokio::test]
+    async fn test_sync_user_with_decryption_options_master_password_unlock() {
+        let (mut test_account, user_id, ..) = create_test_account();
+
+        test_account.user.kdf_params = Kdf::PBKDF2 {
+            iterations: NonZeroU32::new(600_000).unwrap(),
+        };
+
+        let InitUserCryptoMethod::Password { user_key, .. } = &test_account.user.method else {
+            panic!("incorrect init user crypto method");
+        };
+
+        let response = SyncResponseModel {
+            user_decryption: Some(Box::new(UserDecryptionResponseModel {
+                master_password_unlock: Some(Box::new(MasterPasswordUnlockResponseModel {
+                    kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
+                        kdf_type: KdfType::Argon2id,
+                        iterations: 4,
+                        memory: Some(65),
+                        parallelism: Some(5),
+                    }),
+                    salt: Some(USER_EMAIL.to_string()),
+                    master_key_encrypted_user_key: Some(user_key.to_string()),
+                })),
+            })),
+            ..create_sync_response(user_id)
+        };
+
+        let (_server, client) = setup_sync_client(response, test_account).await;
+
+        let sync_request = SyncRequest {
+            exclude_subdomains: Some(false),
+        };
+
+        let sync_response = sync(&client, &sync_request).await;
+        assert!(sync_response.is_ok());
+
+        assert_eq!(
+            client.internal.get_kdf().unwrap(),
+            Kdf::Argon2id {
+                iterations: NonZeroU32::new(4).unwrap(),
+                memory: NonZeroU32::new(65).unwrap(),
+                parallelism: NonZeroU32::new(5).unwrap(),
+            }
+        );
+    }
+}
