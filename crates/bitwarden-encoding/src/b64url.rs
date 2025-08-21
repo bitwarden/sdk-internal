@@ -141,8 +141,7 @@ mod tests {
     fn test_b64url_display() {
         let data = b"Hello";
         let b64url = B64Url::from(data.as_slice());
-        let display_str = format!("{}", b64url);
-        assert_eq!(display_str, "SGVsbG8=");
+        assert_eq!(b64url.to_string(), "SGVsbG8=");
     }
 
     #[test]
@@ -181,7 +180,7 @@ mod tests {
     #[test]
     fn test_not_b64url_encoded_error_display() {
         let error = NotB64UrlEncoded;
-        assert_eq!(format!("{}", error), "Data isn't base64url encoded");
+        assert_eq!(error.to_string(), "Data isn't base64url encoded");
     }
 
     #[test]

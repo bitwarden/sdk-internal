@@ -139,8 +139,7 @@ mod tests {
     fn test_b64_display() {
         let data = b"Hello";
         let b64 = B64::from(data.as_slice());
-        let display_str = format!("{}", b64);
-        assert_eq!(display_str, "SGVsbG8=");
+        assert_eq!(b64.to_string(), "SGVsbG8=");
     }
 
     #[test]
@@ -179,7 +178,7 @@ mod tests {
     #[test]
     fn test_not_b64_encoded_error_display() {
         let error = NotB64Encoded;
-        assert_eq!(format!("{}", error), "Data isn't base64 encoded");
+        assert_eq!(error.to_string(), "Data isn't base64 encoded");
     }
 
     #[test]
