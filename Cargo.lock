@@ -466,6 +466,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-encoding"
+version = "1.0.0"
+dependencies = [
+ "data-encoding",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "bitwarden-error"
 version = "1.0.0"
 dependencies = [

@@ -49,6 +49,7 @@ chrono = { version = ">=0.4.26, <0.5", features = [
     "serde",
     "std",
 ], default-features = false }
+data-encoding = ">=2.0, <3"
 js-sys = { version = ">=0.3.72, <0.4" }
 log = ">=0.4.18, <0.5"
 proc-macro2 = ">=1.0.89, <2"
