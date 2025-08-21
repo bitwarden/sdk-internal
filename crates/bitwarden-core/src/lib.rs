@@ -24,8 +24,6 @@ pub mod secrets_manager;
 mod util;
 
 pub use bitwarden_crypto::ZeroizingAllocator;
-#[cfg(feature = "internal")]
-pub use client::Flags;
 pub use client::{Client, ClientSettings, DeviceType};
 
 mod ids;
