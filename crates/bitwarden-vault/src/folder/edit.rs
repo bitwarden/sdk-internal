@@ -50,7 +50,7 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
 
     let folder: Folder = resp.try_into()?;
 
-    // debug_assert!(folder.id.unwrap_or_default().to_string() == folder_id);
+    debug_assert!(folder.id.unwrap_or_default().to_string() == folder_id);
 
     repository
         .set(folder_id.to_string(), folder.clone())
