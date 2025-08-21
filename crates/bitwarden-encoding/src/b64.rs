@@ -39,6 +39,7 @@ impl From<B64> for String {
         String::from(&src)
     }
 }
+
 impl From<&B64> for String {
     fn from(src: &B64) -> Self {
         BASE64.encode(&src.0)
