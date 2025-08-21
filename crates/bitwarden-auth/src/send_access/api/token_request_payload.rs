@@ -8,7 +8,7 @@ use crate::{
 /// Represents the shape of the credentials used in the send access token payload.
 #[derive(Serialize, Debug)]
 // untagged allows for different variants to be serialized without a type tag
-// example: { "password_hash": "example_hash" } instead of { "Password": { "password_hash":
+// example: { "password_hash_b64": "example_hash" } instead of { "Password": { "password_hash_b64":
 // "example_hash" } }
 #[serde(untagged)]
 pub enum SendAccessTokenPayloadCredentials {
@@ -84,7 +84,7 @@ pub struct SendAccessTokenRequestPayload {
     /// The credentials used for the send access request.
     /// This can be password, email, email OTP, or anonymous.
     // Flatten allows us to serialize the variant directly into the payload without a wrapper
-    // example: { "password_hash": "example_hash" } instead of { "variant": { "password_hash":
+    // example: { "password_hash_b64": "example_hash" } instead of { "variant": { "password_hash_b64":
     // "example_hash" } }
     #[serde(flatten)]
     pub credentials: SendAccessTokenPayloadCredentials,
