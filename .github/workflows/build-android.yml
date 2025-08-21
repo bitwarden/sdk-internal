@@ -11,6 +11,10 @@ on:
         description: "Update Android Repo - Opens a PR updating the SDK in bitwarden/android"
         type: boolean
         default: false
+      test-android-repo:
+          description: "Test Android Repo Apps - Runs the SDK Test workflow in bitwarden/android"
+          type: boolean
+          default: false
 
 defaults:
   run:
