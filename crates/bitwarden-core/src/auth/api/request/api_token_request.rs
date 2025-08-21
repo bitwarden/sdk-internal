@@ -7,7 +7,7 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ApiTokenRequest {
+pub(crate) struct ApiTokenRequest {
     scope: String,
     client_id: String,
     client_secret: String,
@@ -21,7 +21,7 @@ pub struct ApiTokenRequest {
 }
 
 impl ApiTokenRequest {
-    pub fn new(client_id: &String, client_secret: &String) -> Self {
+    pub(crate) fn new(client_id: &String, client_secret: &String) -> Self {
         let obj = Self {
             scope: "api".to_string(),
             client_id: client_id.to_string(),

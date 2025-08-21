@@ -9,7 +9,7 @@ use crate::auth::api::response::two_factor_provider_data::{
 };
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct TwoFactorProviders {
+pub(crate) struct TwoFactorProviders {
     #[serde(rename = "0", default, deserialize_with = "double_option")]
     pub authenticator: Option<Option<Authenticator>>,
     #[serde(rename = "1")]
