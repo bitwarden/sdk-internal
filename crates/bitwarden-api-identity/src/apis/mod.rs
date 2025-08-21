@@ -1,21 +1,21 @@
 use std::{error, fmt};
 
 #[derive(Debug, Clone)]
-pub struct ResponseContent<T> {
+pub struct ResponseContent {
     pub status: reqwest::StatusCode,
     pub content: String,
-    pub entity: Option<T>,
+    pub entity: Option<serde_json::Value>,
 }
 
 #[derive(Debug)]
-pub enum Error<T> {
+pub enum Error {
     Reqwest(reqwest::Error),
     Serde(serde_json::Error),
     Io(std::io::Error),
-    ResponseError(ResponseContent<T>),
+    ResponseError(ResponseContent),
 }
 
-impl<T> fmt::Display for Error<T> {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (module, e) = match self {
             Error::Reqwest(e) => ("reqwest", e.to_string()),
@@ -27,7 +27,7 @@ impl<T> fmt::Display for Error<T> {
     }
 }
 
-impl<T: fmt::Debug> error::Error for Error<T> {
+impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         Some(match self {
             Error::Reqwest(e) => e,
@@ -38,19 +38,19 @@ impl<T: fmt::Debug> error::Error for Error<T> {
     }
 }
 
-impl<T> From<reqwest::Error> for Error<T> {
+impl From<reqwest::Error> for Error {
     fn from(e: reqwest::Error) -> Self {
         Error::Reqwest(e)
     }
 }
 
-impl<T> From<serde_json::Error> for Error<T> {
+impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
         Error::Serde(e)
     }
 }
 
-impl<T> From<std::io::Error> for Error<T> {
+impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
         Error::Io(e)
     }
@@ -117,3 +117,33 @@ pub mod info_api;
 pub mod sso_api;
 
 pub mod configuration;
+
+use std::sync::Arc;
+
+pub struct ApiClient {
+    accounts_api: accounts_api::AccountsApiClient,
+    info_api: info_api::InfoApiClient,
+    sso_api: sso_api::SsoApiClient,
+}
+
+impl ApiClient {
+    pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
+        Self {
+            accounts_api: accounts_api::AccountsApiClient::new(configuration.clone()),
+            info_api: info_api::InfoApiClient::new(configuration.clone()),
+            sso_api: sso_api::SsoApiClient::new(configuration.clone()),
+        }
+    }
+}
+
+impl ApiClient {
+    pub fn accounts_api(&self) -> &accounts_api::AccountsApiClient {
+        &self.accounts_api
+    }
+    pub fn info_api(&self) -> &info_api::InfoApiClient {
+        &self.info_api
+    }
+    pub fn sso_api(&self) -> &sso_api::SsoApiClient {
+        &self.sso_api
+    }
+}

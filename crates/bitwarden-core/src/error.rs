@@ -11,8 +11,8 @@ use thiserror::Error;
 
 macro_rules! impl_bitwarden_error {
     ($name:ident, $error:ident) => {
-        impl<T> From<$name<T>> for $error {
-            fn from(e: $name<T>) -> Self {
+        impl From<$name> for $error {
+            fn from(e: $name) -> Self {
                 match e {
                     $name::Reqwest(e) => Self::Reqwest(e),
                     $name::ResponseError(e) => Self::ResponseContent {

@@ -1,4 +1,3 @@
-use bitwarden_api_api::apis::folders_api;
 use bitwarden_core::{key_management::KeyIds, ApiError, MissingFieldError};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
@@ -31,7 +30,7 @@ pub enum EditFolderError {
 
 pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
     key_store: &KeyStore<KeyIds>,
-    api_config: &bitwarden_api_api::apis::configuration::Configuration,
+    api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     folder_id: &str,
     request: FolderAddEditRequest,
@@ -44,7 +43,9 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
 
     let folder_request = key_store.encrypt(request)?;
 
-    let resp = folders_api::folders_id_put(api_config, folder_id, Some(folder_request))
+    let resp = api_client
+        .folders_api()
+        .folders_id_put(folder_id, Some(folder_request))
         .await
         .map_err(ApiError::from)?;
 
@@ -61,10 +62,7 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_api_api::{
-        apis::configuration::Configuration,
-        models::{FolderRequestModel, FolderResponseModel},
-    };
+    use bitwarden_api_api::models::{FolderRequestModel, FolderResponseModel};
     use bitwarden_core::key_management::SymmetricKeyId;
     use bitwarden_crypto::{PrimitiveEncryptable, SymmetricCryptoKey};
     use bitwarden_test::{start_api_mock, MemoryRepository};
@@ -105,9 +103,8 @@ mod tests {
 
         let folder_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
 
-        let (_server, api_config) = start_api_mock(vec![Mock::given(matchers::path(format!(
-            "/folders/{}",
-            folder_id
+        let (_server, api_client) = start_api_mock(vec![Mock::given(matchers::path(format!(
+            "/folders/{folder_id}",
         )))
         .respond_with(move |req: &Request| {
             let body: FolderRequestModel = req.body_json().unwrap();
@@ -126,7 +123,7 @@ mod tests {
 
         let result = edit_folder(
             &store,
-            &api_config,
+            &api_client,
             &repository,
             &folder_id.to_string(),
             FolderAddEditRequest {
@@ -153,9 +150,11 @@ mod tests {
         let repository = MemoryRepository::<Folder>::default();
         let folder_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
 
+        let (_server, api_client) = start_api_mock(vec![]).await;
+
         let result = edit_folder(
             &store,
-            &Configuration::default(),
+            &api_client,
             &repository,
             &folder_id.to_string(),
             FolderAddEditRequest {
@@ -182,9 +181,8 @@ mod tests {
 
         let folder_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
 
-        let (_server, api_config) = start_api_mock(vec![Mock::given(matchers::path(format!(
-            "/folders/{}",
-            folder_id
+        let (_server, api_client) = start_api_mock(vec![Mock::given(matchers::path(format!(
+            "/folders/{folder_id}",
         )))
         .respond_with(ResponseTemplate::new(500))])
         .await;
@@ -194,7 +192,7 @@ mod tests {
 
         let result = edit_folder(
             &store,
-            &api_config,
+            &api_client,
             &repository,
             &folder_id.to_string(),
             FolderAddEditRequest {
