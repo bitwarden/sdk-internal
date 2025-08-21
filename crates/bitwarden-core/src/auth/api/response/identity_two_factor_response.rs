@@ -6,7 +6,7 @@ use serde_json::Value;
 use crate::auth::api::response::two_factor_providers::TwoFactorProviders;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct IdentityTwoFactorResponse {
+pub(crate) struct IdentityTwoFactorResponse {
     pub error: String,
     pub error_description: String,
     #[serde(rename = "twoFactorProviders2", alias = "TwoFactorProviders2")]

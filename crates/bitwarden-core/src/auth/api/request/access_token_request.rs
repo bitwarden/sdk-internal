@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct AccessTokenRequest {
+pub(crate) struct AccessTokenRequest {
     scope: String,
     client_id: String,
     client_secret: String,
@@ -16,7 +16,7 @@ pub struct AccessTokenRequest {
 }
 
 impl AccessTokenRequest {
-    pub fn new(access_token_id: Uuid, client_secret: &String) -> Self {
+    pub(crate) fn new(access_token_id: Uuid, client_secret: &String) -> Self {
         let obj = Self {
             scope: "api.secrets".to_string(),
             client_id: access_token_id.to_string(),
