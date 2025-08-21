@@ -170,6 +170,7 @@ jobs:
           owner: bitwarden
           repositories: android
           permission-actions: write
+          permission-pull-requests: write
 
       - name: Trigger SDK Update in Android repo
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.update-android-repo
@@ -231,7 +232,7 @@ jobs:
           fi
 
           if [ -n "$_PR_NUMBER" ]; then
-            gh pr edit $_PR_NUMBER $LABEL_ACTION $_BREAKING_CHANGE_LABEL
+            gh pr edit --repo bitwarden/sdk-internal $_PR_NUMBER $LABEL_ACTION $_BREAKING_CHANGE_LABEL
           fi
 
           exit $ERROR_CODE
