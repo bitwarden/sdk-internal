@@ -63,7 +63,9 @@ impl TryFrom<&str> for B64Url {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let specs = BASE64URL.specification();
-        let padding = specs.padding.expect("BASE64URL should have padding character");
+        let padding = specs
+            .padding
+            .expect("BASE64URL should have padding character");
         let specs = Specification {
             check_trailing_bits: false,
             padding: None,
@@ -172,10 +174,10 @@ mod tests {
     fn test_b64url_serialization() {
         let data = b"serialization test";
         let b64url = B64Url::from(data.as_slice());
-        
+
         let serialized = serde_json::to_string(&b64url).unwrap();
         assert_eq!(serialized, "\"c2VyaWFsaXphdGlvbiB0ZXN0\"");
-        
+
         let deserialized: B64Url = serde_json::from_str(&serialized).unwrap();
         assert_eq!(b64url.as_ref(), deserialized.as_ref());
     }
@@ -191,25 +193,25 @@ mod tests {
         let data1 = b"test data";
         let data2 = b"test data";
         let data3 = b"different data";
-        
+
         let b64url_1 = B64Url::from(data1.as_slice());
         let b64url_2 = B64Url::from(data2.as_slice());
         let b64url_3 = B64Url::from(data3.as_slice());
-        
+
         assert_eq!(b64url_1, b64url_2);
         assert_ne!(b64url_1, b64url_3);
-        
+
         use std::{
             collections::hash_map::DefaultHasher,
             hash::{Hash, Hasher},
         };
-        
+
         let mut hasher1 = DefaultHasher::new();
         let mut hasher2 = DefaultHasher::new();
-        
+
         b64url_1.hash(&mut hasher1);
         b64url_2.hash(&mut hasher2);
-        
+
         assert_eq!(hasher1.finish(), hasher2.finish());
     }
 }
