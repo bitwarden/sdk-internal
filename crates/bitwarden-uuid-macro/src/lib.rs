@@ -16,12 +16,12 @@ pub fn uuid_newtype(input: TokenStream) -> TokenStream {
     let vis = input.vis;
     let name_str = ident.to_string();
 
-    let tsify_type = format!("Tagged<Uuid, \"{}\">", name_str);
-    let doc_string = format!(" NewType wrapper for `{}`", name_str);
+    let tsify_type = format!("Tagged<Uuid, \"{name_str}\">");
+    let doc_string = format!(" NewType wrapper for `{name_str}`");
 
     let expanded = quote! {
         #[doc = #doc_string]
-        #[cfg_attr(feature = "wasm", derive(::tsify_next::Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+        #[cfg_attr(feature = "wasm", derive(::tsify::Tsify), tsify(into_wasm_abi, from_wasm_abi))]
         #[derive(
             ::serde::Serialize, ::serde::Deserialize,
             ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::cmp::PartialOrd, ::std::cmp::Ord,
@@ -60,6 +60,18 @@ pub fn uuid_newtype(input: TokenStream) -> TokenStream {
         impl From<#ident> for ::uuid::Uuid {
             fn from(value: #ident) -> Self {
                 value.0
+            }
+        }
+
+        impl ::std::fmt::Display for #ident {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                self.0.fmt(f)
+            }
+        }
+
+        impl ::std::default::Default for #ident {
+            fn default() -> Self {
+                Self(uuid::Uuid::default())
             }
         }
     };

@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     fingerprint, generate_random_alphanumeric, AsymmetricCryptoKey, AsymmetricPublicCryptoKey,
-    CryptoError, PublicKeyEncryptionAlgorithm, UnsignedSharedKey,
+    CryptoError, PublicKeyEncryptionAlgorithm, SpkiPublicKeyBytes, UnsignedSharedKey,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, SymmetricCryptoKey};
@@ -52,7 +52,7 @@ pub(crate) fn auth_request_decrypt_user_key(
     private_key: String,
     user_key: UnsignedSharedKey,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
-    let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
+    let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?.into())?;
     let key: SymmetricCryptoKey = user_key.decapsulate_key_unsigned(&key)?;
     Ok(key)
 }
@@ -66,7 +66,7 @@ pub(crate) fn auth_request_decrypt_master_key(
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
     use bitwarden_crypto::MasterKey;
 
-    let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?)?;
+    let key = AsymmetricCryptoKey::from_der(&STANDARD.decode(private_key)?.into())?;
     let master_key: SymmetricCryptoKey = master_key.decapsulate_key_unsigned(&key)?;
     let master_key = MasterKey::try_from(&master_key)?;
 
@@ -91,7 +91,9 @@ pub(crate) fn approve_auth_request(
     client: &Client,
     public_key: String,
 ) -> Result<UnsignedSharedKey, ApproveAuthRequestError> {
-    let public_key = AsymmetricPublicCryptoKey::from_der(&STANDARD.decode(public_key)?)?;
+    let public_key = AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
+        STANDARD.decode(public_key)?,
+    ))?;
 
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
@@ -106,45 +108,48 @@ pub(crate) fn approve_auth_request(
     )?)
 }
 
-#[test]
-fn test_auth_request() {
-    let request = new_auth_request("test@bitwarden.com").unwrap();
-
-    let secret = vec![
-        111, 32, 97, 169, 4, 241, 174, 74, 239, 206, 113, 86, 174, 68, 216, 238, 52, 85, 156, 27,
-        134, 149, 54, 55, 91, 147, 45, 130, 131, 237, 51, 31, 191, 106, 155, 14, 160, 82, 47, 40,
-        96, 31, 114, 127, 212, 187, 167, 110, 205, 116, 198, 243, 218, 72, 137, 53, 248, 43, 255,
-        67, 35, 61, 245, 93,
-    ];
-
-    let private_key =
-        AsymmetricCryptoKey::from_der(&STANDARD.decode(&request.private_key).unwrap()).unwrap();
-
-    let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(
-        &SymmetricCryptoKey::try_from(secret.clone()).unwrap(),
-        &private_key.to_public_key(),
-    )
-    .unwrap();
-
-    let decrypted = auth_request_decrypt_user_key(request.private_key, encrypted).unwrap();
-
-    assert_eq!(decrypted.to_encoded(), secret);
-}
-
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::{Kdf, MasterKey};
+    use bitwarden_crypto::{BitwardenLegacyKeyBytes, Kdf, MasterKey, SpkiPublicKeyBytes};
 
     use super::*;
     use crate::{
+        client::internal::UserKeyState,
         key_management::{
             crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
             SymmetricKeyId,
         },
         UserId,
     };
+
+    #[test]
+    fn test_auth_request() {
+        let request = new_auth_request("test@bitwarden.com").unwrap();
+
+        let secret = vec![
+            111, 32, 97, 169, 4, 241, 174, 74, 239, 206, 113, 86, 174, 68, 216, 238, 52, 85, 156,
+            27, 134, 149, 54, 55, 91, 147, 45, 130, 131, 237, 51, 31, 191, 106, 155, 14, 160, 82,
+            47, 40, 96, 31, 114, 127, 212, 187, 167, 110, 205, 116, 198, 243, 218, 72, 137, 53,
+            248, 43, 255, 67, 35, 61, 245, 93,
+        ];
+
+        let private_key =
+            AsymmetricCryptoKey::from_der(&STANDARD.decode(&request.private_key).unwrap().into())
+                .unwrap();
+
+        let secret = BitwardenLegacyKeyBytes::from(secret);
+        let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(
+            &SymmetricCryptoKey::try_from(&secret).unwrap(),
+            &private_key.to_public_key(),
+        )
+        .unwrap();
+
+        let decrypted = auth_request_decrypt_user_key(request.private_key, encrypted).unwrap();
+
+        assert_eq!(decrypted.to_encoded().to_vec(), secret.to_vec());
+    }
 
     #[test]
     fn test_approve() {
@@ -163,14 +168,23 @@ mod tests {
         let private_key ="2.yN7l00BOlUE0Sb0M//Q53w==|EwKG/BduQRQ33Izqc/ogoBROIoI5dmgrxSo82sgzgAMIBt3A2FZ9vPRMY+GWT85JiqytDitGR3TqwnFUBhKUpRRAq4x7rA6A1arHrFp5Tp1p21O3SfjtvB3quiOKbqWk6ZaU1Np9HwqwAecddFcB0YyBEiRX3VwF2pgpAdiPbSMuvo2qIgyob0CUoC/h4Bz1be7Qa7B0Xw9/fMKkB1LpOm925lzqosyMQM62YpMGkjMsbZz0uPopu32fxzDWSPr+kekNNyLt9InGhTpxLmq1go/pXR2uw5dfpXc5yuta7DB0EGBwnQ8Vl5HPdDooqOTD9I1jE0mRyuBpWTTI3FRnu3JUh3rIyGBJhUmHqGZvw2CKdqHCIrQeQkkEYqOeJRJVdBjhv5KGJifqT3BFRwX/YFJIChAQpebNQKXe/0kPivWokHWwXlDB7S7mBZzhaAPidZvnuIhalE2qmTypDwHy22FyqV58T8MGGMchcASDi/QXI6kcdpJzPXSeU9o+NC68QDlOIrMVxKFeE7w7PvVmAaxEo0YwmuAzzKy9QpdlK0aab/xEi8V4iXj4hGepqAvHkXIQd+r3FNeiLfllkb61p6WTjr5urcmDQMR94/wYoilpG5OlybHdbhsYHvIzYoLrC7fzl630gcO6t4nM24vdB6Ymg9BVpEgKRAxSbE62Tqacxqnz9AcmgItb48NiR/He3n3ydGjPYuKk/ihZMgEwAEZvSlNxYONSbYrIGDtOY+8Nbt6KiH3l06wjZW8tcmFeVlWv+tWotnTY9IqlAfvNVTjtsobqtQnvsiDjdEVtNy/s2ci5TH+NdZluca2OVEr91Wayxh70kpM6ib4UGbfdmGgCo74gtKvKSJU0rTHakQ5L9JlaSDD5FamBRyI0qfL43Ad9qOUZ8DaffDCyuaVyuqk7cz9HwmEmvWU3VQ+5t06n/5kRDXttcw8w+3qClEEdGo1KeENcnXCB32dQe3tDTFpuAIMLqwXs6FhpawfZ5kPYvLPczGWaqftIs/RXJ/EltGc0ugw2dmTLpoQhCqrcKEBDoYVk0LDZKsnzitOGdi9mOWse7Se8798ib1UsHFUjGzISEt6upestxOeupSTOh0v4+AjXbDzRUyogHww3V+Bqg71bkcMxtB+WM+pn1XNbVTyl9NR040nhP7KEf6e9ruXAtmrBC2ah5cFEpLIot77VFZ9ilLuitSz+7T8n1yAh1IEG6xxXxninAZIzi2qGbH69O5RSpOJuJTv17zTLJQIIc781JwQ2TTwTGnx5wZLbffhCasowJKd2EVcyMJyhz6ru0PvXWJ4hUdkARJs3Xu8dus9a86N8Xk6aAPzBDqzYb1vyFIfBxP0oO8xFHgd30Cgmz8UrSE3qeWRrF8ftrI6xQnFjHBGWD/JWSvd6YMcQED0aVuQkuNW9ST/DzQThPzRfPUoiL10yAmV7Ytu4fR3x2sF0Yfi87YhHFuCMpV/DsqxmUizyiJuD938eRcH8hzR/VO53Qo3UIsqOLcyXtTv6THjSlTopQ+JOLOnHm1w8dzYbLN44OG44rRsbihMUQp+wUZ6bsI8rrOnm9WErzkbQFbrfAINdoCiNa6cimYIjvvnMTaFWNymqY1vZxGztQiMiHiHYwTfwHTXrb9j0uPM=|09J28iXv9oWzYtzK2LBT6Yht4IT4MijEkk0fwFdrVQ4=".parse().unwrap();
         client
             .internal
-            .initialize_user_crypto_master_key(master_key, user_key, private_key, None)
+            .initialize_user_crypto_master_key(
+                master_key,
+                user_key,
+                UserKeyState {
+                    private_key,
+                    signing_key: None,
+                    security_state: None,
+                },
+            )
             .unwrap();
 
         let public_key = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvyLRDUwXB4BfQ507D4meFPmwn5zwy3IqTPJO4plrrhnclWahXa240BzyFW9gHgYu+Jrgms5xBfRTBMcEsqqNm7+JpB6C1B6yvnik0DpJgWQw1rwvy4SUYidpR/AWbQi47n/hvnmzI/sQxGddVfvWu1iTKOlf5blbKYAXnUE5DZBGnrWfacNXwRRdtP06tFB0LwDgw+91CeLSJ9py6dm1qX5JIxoO8StJOQl65goLCdrTWlox+0Jh4xFUfCkb+s3px+OhSCzJbvG/hlrSRcUz5GnwlCEyF3v5lfUtV96MJD+78d8pmH6CfFAp2wxKRAbGdk+JccJYO6y6oIXd3Fm7twIDAQAB";
 
         // Verify fingerprint
-        let pbkey = STANDARD.decode(public_key).unwrap();
-        let fingerprint = fingerprint("test@bitwarden.com", &pbkey).unwrap();
+        let pubkey = STANDARD.decode(public_key).unwrap();
+        let pubkey = SpkiPublicKeyBytes::from(pubkey.clone());
+        let fingerprint = fingerprint("test@bitwarden.com", &pubkey).unwrap();
         assert_eq!(fingerprint, "childless-unfair-prowler-dropbox-designate");
 
         approve_auth_request(&client, public_key.to_owned()).unwrap();
@@ -184,7 +198,7 @@ mod tests {
         let dec = auth_request_decrypt_user_key(private_key.to_owned(), enc_user_key).unwrap();
 
         assert_eq!(
-            &dec.to_encoded(),
+            &dec.to_encoded().to_vec(),
             &[
                 201, 37, 234, 213, 21, 75, 40, 70, 149, 213, 234, 16, 19, 251, 162, 245, 161, 74,
                 34, 245, 211, 151, 211, 192, 95, 10, 117, 50, 88, 223, 23, 157
@@ -203,7 +217,7 @@ mod tests {
                 .unwrap();
 
         assert_eq!(
-            &dec.to_encoded(),
+            &dec.to_encoded().to_vec(),
             &[
                 109, 128, 172, 147, 206, 123, 134, 95, 16, 36, 155, 113, 201, 18, 186, 230, 216,
                 212, 173, 188, 74, 11, 134, 131, 137, 242, 105, 178, 105, 126, 52, 139, 248, 91,
@@ -230,7 +244,15 @@ mod tests {
 
         existing_device
             .internal
-            .initialize_user_crypto_master_key(master_key, user_key, private_key.clone(), None)
+            .initialize_user_crypto_master_key(
+                master_key,
+                user_key,
+                UserKeyState {
+                    private_key: private_key.clone(),
+                    signing_key: None,
+                    security_state: None,
+                },
+            )
             .unwrap();
 
         // Initialize a new device which will request to be logged in
@@ -249,6 +271,7 @@ mod tests {
                 email: email.to_owned(),
                 private_key,
                 signing_key: None,
+                security_state: None,
                 method: InitUserCryptoMethod::AuthRequest {
                     request_private_key: auth_req.private_key,
                     method: AuthRequestMethod::UserKey {

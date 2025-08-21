@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use tsify_next::Tsify;
+use tsify::Tsify;
 
 #[derive(Serialize, Copy, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

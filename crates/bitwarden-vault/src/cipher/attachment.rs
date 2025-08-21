@@ -1,10 +1,11 @@
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
-    CryptoError, Decryptable, EncString, Encryptable, IdentifyKey, KeyStoreContext,
+    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
+    OctetStreamBytes, PrimitiveEncryptable,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use tsify_next::Tsify;
+use tsify::Tsify;
 
 use super::Cipher;
 use crate::VaultParseError;
@@ -36,6 +37,18 @@ pub struct AttachmentView {
     pub size_name: Option<String>,
     pub file_name: Option<String>,
     pub key: Option<EncString>,
+    /// The decrypted attachmentkey in base64 format.
+    ///
+    /// **TEMPORARY FIELD**: This field is a temporary workaround to provide
+    /// decrypted attachment keys to the TypeScript client during the migration
+    /// process. It will be removed once the encryption/decryption logic is
+    /// fully migrated to the SDK.
+    ///
+    /// **Ticket**: <https://bitwarden.atlassian.net/browse/PM-23005>
+    ///
+    /// Do not rely on this field for long-term use.
+    #[cfg(feature = "wasm")]
+    pub decrypted_key: Option<String>,
 }
 
 #[allow(missing_docs)]
@@ -78,8 +91,10 @@ impl IdentifyKey<SymmetricKeyId> for AttachmentFile {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for AttachmentFileView<'_> {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult>
+    for AttachmentFileView<'_>
+{
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -91,7 +106,8 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         // Because this is a new attachment, we have to generate a key for it, encrypt the contents
         // with it, and then encrypt the key with the cipher key
         let attachment_key = ctx.generate_symmetric_key(ATTACHMENT_KEY)?;
-        let encrypted_contents = self.contents.encrypt(ctx, attachment_key)?;
+        let encrypted_contents =
+            OctetStreamBytes::from(self.contents).encrypt(ctx, attachment_key)?;
         attachment.key = Some(ctx.wrap_symmetric_key(ciphers_key, attachment_key)?);
 
         let contents = encrypted_contents.to_buffer()?;
@@ -101,7 +117,7 @@ impl Encryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult> for Attachment
         attachment.size_name = Some(size_name(contents.len()));
 
         Ok(AttachmentEncryptResult {
-            attachment: attachment.encrypt(ctx, ciphers_key)?,
+            attachment: attachment.encrypt_composite(ctx, ciphers_key)?,
             contents,
         })
     }
@@ -137,8 +153,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, Vec<u8>> for AttachmentFile {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Attachment> for AttachmentView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Attachment> for AttachmentView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -160,6 +176,18 @@ impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<AttachmentView, CryptoError> {
+        #[cfg(feature = "wasm")]
+        let decrypted_key = if let Some(attachment_key) = &self.key {
+            let content_key_id = ctx.unwrap_symmetric_key(key, ATTACHMENT_KEY, attachment_key)?;
+
+            #[allow(deprecated)]
+            let actual_key = ctx.dangerous_get_symmetric_key(content_key_id)?;
+
+            Some(actual_key.to_base64())
+        } else {
+            None
+        };
+
         Ok(AttachmentView {
             id: self.id.clone(),
             url: self.url.clone(),
@@ -167,6 +195,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
             size_name: self.size_name.clone(),
             file_name: self.file_name.decrypt(ctx, key)?,
             key: self.key.clone(),
+            #[cfg(feature = "wasm")]
+            decrypted_key,
         })
     }
 }
@@ -223,6 +253,7 @@ mod tests {
             size_name: Some("100 Bytes".into()),
             file_name: Some("Test.txt".into()),
             key: None,
+            decrypted_key: None,
         };
 
         let contents = b"This is a test file that we will encrypt. It's 100 bytes long, the encrypted version will be longer!";
@@ -279,6 +310,7 @@ mod tests {
             size_name: Some("161 Bytes".into()),
             file_name: Some("Test.txt".into()),
             key: Some("2.r288/AOSPiaLFkW07EBGBw==|SAmnnCbOLFjX5lnURvoualOetQwuyPc54PAmHDTRrhT0gwO9ailna9U09q9bmBfI5XrjNNEsuXssgzNygRkezoVQvZQggZddOwHB6KQW5EQ=|erIMUJp8j+aTcmhdE50zEX+ipv/eR1sZ7EwULJm/6DY=".parse().unwrap()),
+            decrypted_key: None,
         };
 
         let cipher  = Cipher {
@@ -336,6 +368,7 @@ mod tests {
             size_name: Some("161 Bytes".into()),
             file_name: Some("Test.txt".into()),
             key: None,
+            decrypted_key: None,
         };
 
         let cipher  = Cipher {

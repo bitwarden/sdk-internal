@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use coset::CborSerializable;
@@ -8,13 +8,14 @@ use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
     util::FromStrVisitor,
-    Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    Aes256CbcHmacKey, ContentFormat, KeyDecryptable, KeyEncryptable, KeyEncryptableWithContentType,
+    SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
 };
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type EncString = string;
+export type EncString = Tagged<string, "EncString">;
 "#;
 
 /// # Encrypted string primitive
@@ -223,9 +224,9 @@ impl std::fmt::Debug for EncString {
             }
             EncString::Cose_Encrypt0_B64 { data } => {
                 let msg = coset::CoseEncrypt0::from_slice(data.as_slice())
-                    .map(|msg| format!("{:?}", msg))
+                    .map(|msg| format!("{msg:?}"))
                     .unwrap_or_else(|_| "INVALID_COSE".to_string());
-                write!(f, "{}.{}", enc_type, msg)
+                write!(f, "{enc_type}.{msg}")
             }
         }
     }
@@ -262,8 +263,9 @@ impl EncString {
     pub(crate) fn encrypt_xchacha20_poly1305(
         data_dec: &[u8],
         key: &XChaCha20Poly1305Key,
+        content_format: ContentFormat,
     ) -> Result<EncString> {
-        let data = crate::cose::encrypt_xchacha20_poly1305(data_dec, key)?;
+        let data = crate::cose::encrypt_xchacha20_poly1305(data_dec, key, content_format)?;
         Ok(EncString::Cose_Encrypt0_B64 { data })
     }
 
@@ -277,12 +279,16 @@ impl EncString {
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
+impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
+    fn encrypt_with_key(
+        self,
+        key: &SymmetricCryptoKey,
+        content_format: ContentFormat,
+    ) -> Result<EncString> {
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(inner_key) => {
-                EncString::encrypt_xchacha20_poly1305(self, inner_key)
+                EncString::encrypt_xchacha20_poly1305(self, inner_key, content_format)
             }
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperation::EncryptionNotImplementedForKey,
@@ -305,7 +311,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let decrypted_message =
+                let (decrypted_message, _) =
                     crate::cose::decrypt_xchacha20_poly1305(data.as_slice(), key)?;
                 Ok(decrypted_message)
             }
@@ -316,13 +322,13 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
 
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for String {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        self.as_bytes().encrypt_with_key(key)
+        Utf8Bytes::from(self).encrypt_with_key(key)
     }
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        self.as_bytes().encrypt_with_key(key)
+        Utf8Bytes::from(self).encrypt_with_key(key)
     }
 }
 
@@ -336,11 +342,11 @@ impl KeyDecryptable<SymmetricCryptoKey, String> for EncString {
 /// Usually we wouldn't want to expose EncStrings in the API or the schemas.
 /// But during the transition phase we will expose endpoints using the EncString type.
 impl schemars::JsonSchema for EncString {
-    fn schema_name() -> String {
-        "EncString".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "EncString".into()
     }
 
-    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(generator: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
         generator.subschema_for::<String>()
     }
 }
@@ -375,7 +381,7 @@ mod tests {
         let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
 
         let test_string = "encrypted_test_string";
-        let cipher = test_string.to_owned().encrypt_with_key(&key).unwrap();
+        let cipher = test_string.to_string().encrypt_with_key(&key).unwrap();
 
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);
@@ -385,8 +391,8 @@ mod tests {
     fn test_enc_string_ref_roundtrip() {
         let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
 
-        let test_string = "encrypted_test_string";
-        let cipher = test_string.encrypt_with_key(&key).unwrap();
+        let test_string: &'static str = "encrypted_test_string";
+        let cipher = test_string.to_string().encrypt_with_key(&key).unwrap();
 
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);
@@ -498,7 +504,7 @@ mod tests {
         let enc_str  = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
         let enc_string: EncString = enc_str.parse().unwrap();
 
-        let debug_string = format!("{:?}", enc_string);
+        let debug_string = format!("{enc_string:?}");
         assert_eq!(debug_string, enc_str);
     }
 
@@ -508,7 +514,7 @@ mod tests {
 
         assert_eq!(
             serde_json::to_string(&schema).unwrap(),
-            r#"{"$schema":"http://json-schema.org/draft-07/schema#","title":"EncString","type":"string"}"#
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"EncString","type":"string"}"#
         );
     }
 }

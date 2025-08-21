@@ -90,6 +90,8 @@ pub struct OrganizationLicense {
     pub sm_seats: Option<i32>,
     #[serde(rename = "smServiceAccounts", skip_serializing_if = "Option::is_none")]
     pub sm_service_accounts: Option<i32>,
+    #[serde(rename = "useRiskInsights", skip_serializing_if = "Option::is_none")]
+    pub use_risk_insights: Option<bool>,
     #[serde(
         rename = "limitCollectionCreationDeletion",
         skip_serializing_if = "Option::is_none"
@@ -104,6 +106,16 @@ pub struct OrganizationLicense {
     pub trial: Option<bool>,
     #[serde(rename = "licenseType", skip_serializing_if = "Option::is_none")]
     pub license_type: Option<models::LicenseType>,
+    #[serde(
+        rename = "useOrganizationDomains",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_organization_domains: Option<bool>,
+    #[serde(
+        rename = "useAdminSponsoredFamilies",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_admin_sponsored_families: Option<bool>,
     #[serde(rename = "hash", skip_serializing_if = "Option::is_none")]
     pub hash: Option<String>,
     #[serde(rename = "signature", skip_serializing_if = "Option::is_none")]
@@ -150,10 +162,13 @@ impl OrganizationLicense {
             use_secrets_manager: None,
             sm_seats: None,
             sm_service_accounts: None,
+            use_risk_insights: None,
             limit_collection_creation_deletion: None,
             allow_admin_access_to_all_collection_items: None,
             trial: None,
             license_type: None,
+            use_organization_domains: None,
+            use_admin_sponsored_families: None,
             hash: None,
             signature: None,
             token: None,

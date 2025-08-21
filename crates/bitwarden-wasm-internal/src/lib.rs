@@ -3,6 +3,7 @@
 mod client;
 mod custom_types;
 mod init;
+mod platform;
 mod pure_crypto;
 mod ssh;
 

@@ -31,7 +31,6 @@ All URIs are relative to _http://localhost_
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ----------- |
 | _AccountsApi_ | [**accounts_prelogin_post**](docs/AccountsApi.md#accounts_prelogin_post)                                                       | **POST** /accounts/prelogin                            |
 | _AccountsApi_ | [**accounts_register_finish_post**](docs/AccountsApi.md#accounts_register_finish_post)                                         | **POST** /accounts/register/finish                     |
-| _AccountsApi_ | [**accounts_register_post**](docs/AccountsApi.md#accounts_register_post)                                                       | **POST** /accounts/register                            |
 | _AccountsApi_ | [**accounts_register_send_verification_email_post**](docs/AccountsApi.md#accounts_register_send_verification_email_post)       | **POST** /accounts/register/send-verification-email    |
 | _AccountsApi_ | [**accounts_register_verification_email_clicked_post**](docs/AccountsApi.md#accounts_register_verification_email_clicked_post) | **POST** /accounts/register/verification-email-clicked |
 | _AccountsApi_ | [**accounts_trial_send_verification_email_post**](docs/AccountsApi.md#accounts_trial_send_verification_email_post)             | **POST** /accounts/trial/send-verification-email       |
@@ -58,8 +57,7 @@ All URIs are relative to _http://localhost_
 - [PublicKeyCredentialDescriptor](docs/PublicKeyCredentialDescriptor.md)
 - [PublicKeyCredentialType](docs/PublicKeyCredentialType.md)
 - [RegisterFinishRequestModel](docs/RegisterFinishRequestModel.md)
-- [RegisterRequestModel](docs/RegisterRequestModel.md)
-- [RegisterResponseModel](docs/RegisterResponseModel.md)
+- [RegisterFinishResponseModel](docs/RegisterFinishResponseModel.md)
 - [RegisterSendVerificationEmailRequestModel](docs/RegisterSendVerificationEmailRequestModel.md)
 - [RegisterVerificationEmailClickedRequestModel](docs/RegisterVerificationEmailClickedRequestModel.md)
 - [TrialSendVerificationEmailRequestModel](docs/TrialSendVerificationEmailRequestModel.md)

@@ -1,6 +1,7 @@
+use bitwarden_collections::collection::Collection;
 use bitwarden_core::{key_management::KeyIds, Client};
-use bitwarden_crypto::{Encryptable, IdentifyKey, KeyStoreContext};
-use bitwarden_vault::{Cipher, CipherView, Collection, Folder, FolderView};
+use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, KeyStoreContext};
+use bitwarden_vault::{Cipher, CipherView, Folder, FolderView};
 
 use crate::{
     csv::export_csv,
@@ -80,7 +81,7 @@ fn encrypt_import(
         view.set_new_fido2_credentials(ctx, passkeys)?;
     }
 
-    let new_cipher = view.encrypt(ctx, view.key_identifier())?;
+    let new_cipher = view.encrypt_composite(ctx, view.key_identifier())?;
 
     Ok(new_cipher)
 }

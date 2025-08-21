@@ -7,14 +7,8 @@ mod uniffi_support;
 
 mod cipher;
 pub use cipher::*;
-mod collection;
-pub use collection::{Collection, CollectionId, CollectionView};
-mod collection_client;
-pub use collection_client::CollectionsClient;
 mod folder;
-pub use folder::{Folder, FolderId, FolderView};
-mod folder_client;
-pub use folder_client::FoldersClient;
+pub use folder::*;
 mod password_history;
 pub use password_history::{PasswordHistory, PasswordHistoryView};
 mod password_history_client;
@@ -33,5 +27,8 @@ pub use vault_client::{VaultClient, VaultClientExt};
 mod sync;
 pub use sync::{SyncRequest, SyncResponse};
 
+#[allow(missing_docs)]
+pub mod collection_client;
 mod totp_client;
+
 pub use totp_client::TotpClient;

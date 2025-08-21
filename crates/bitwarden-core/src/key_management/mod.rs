@@ -6,15 +6,30 @@
 //! - [KeyIds] is a helper type that combines both symmetric and asymmetric key identifiers. This is
 //!   usually used in the type bounds of [KeyStore],
 //!   [KeyStoreContext](bitwarden_crypto::KeyStoreContext),
-//!   [Encryptable](bitwarden_crypto::Encryptable) and [Decryptable](bitwarden_crypto::Encryptable).
+//!   [PrimitiveEncryptable](bitwarden_crypto::PrimitiveEncryptable),
+//!   [CompositeEncryptable](bitwarden_crypto::CompositeEncryptable), and
+//!   [Decryptable](bitwarden_crypto::Decryptable).
+
 use bitwarden_crypto::{key_ids, KeyStore, SymmetricCryptoKey};
 
-use crate::OrganizationId;
-
+#[cfg(feature = "internal")]
 pub mod crypto;
+#[cfg(feature = "internal")]
 mod crypto_client;
-
+#[cfg(feature = "internal")]
 pub use crypto_client::CryptoClient;
+
+#[cfg(feature = "internal")]
+mod non_generic_wrappers;
+#[allow(unused_imports)]
+#[cfg(feature = "internal")]
+pub(crate) use non_generic_wrappers::*;
+#[cfg(feature = "internal")]
+mod security_state;
+#[cfg(feature = "internal")]
+pub use security_state::{SecurityState, SignedSecurityState};
+
+use crate::OrganizationId;
 
 key_ids! {
     #[symmetric]
@@ -36,6 +51,8 @@ key_ids! {
     #[signing]
     pub enum SigningKeyId {
         UserSigningKey,
+        #[local]
+        Local(&'static str),
     }
 
     pub KeyIds => SymmetricKeyId, AsymmetricKeyId, SigningKeyId;

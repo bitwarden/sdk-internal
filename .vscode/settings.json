@@ -27,6 +27,7 @@
     "spki",
     "totp",
     "uniffi",
+    "wiremock",
     "wordlist",
     "XCHACHA",
     "Zeroize",

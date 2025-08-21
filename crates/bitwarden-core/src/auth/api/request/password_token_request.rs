@@ -56,7 +56,7 @@ impl PasswordTokenRequest {
             two_factor_provider: tf.map(|t| t.provider.clone()),
             two_factor_remember: tf.map(|t| t.remember),
         };
-        debug!("initializing {:?}", obj);
+        debug!("initializing {obj:?}");
         obj
     }
 
@@ -64,6 +64,6 @@ impl PasswordTokenRequest {
         &self,
         configurations: &ApiConfigurations,
     ) -> Result<IdentityTokenResponse, LoginError> {
-        super::send_identity_connect_request(configurations, Some(&self.email), &self).await
+        super::send_identity_connect_request(configurations, &self).await
     }
 }

@@ -3,25 +3,33 @@ use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
-use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
+use bitwarden_crypto::{
+    CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
+    PrimitiveEncryptable,
+};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
-use tsify_next::Tsify;
+use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::linked_id::LinkedIdType;
 use crate::VaultParseError;
 
+/// Represents the type of a [FieldView].
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum FieldType {
+    /// Text field
     Text = 0,
+    /// Hidden text field
     Hidden = 1,
+    /// Boolean field
     Boolean = 2,
+    /// Linked field
     Linked = 3,
 }
 
@@ -50,8 +58,8 @@ pub struct FieldView {
     pub linked_id: Option<LinkedIdType>,
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Field> for FieldView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Field> for FieldView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,

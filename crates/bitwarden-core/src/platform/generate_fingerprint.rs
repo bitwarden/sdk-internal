@@ -42,8 +42,7 @@ pub enum FingerprintError {
 
 pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String, FingerprintError> {
     let key = STANDARD.decode(&input.public_key)?;
-
-    Ok(fingerprint(&input.fingerprint_material, &key)?)
+    Ok(fingerprint(&input.fingerprint_material, &key.into())?)
 }
 
 /// Errors that can occur when computing a fingerprint.
@@ -82,7 +81,7 @@ mod tests {
     use bitwarden_crypto::{Kdf, MasterKey};
 
     use super::*;
-    use crate::Client;
+    use crate::{client::internal::UserKeyState, Client};
 
     #[test]
     fn test_generate_user_fingerprint() {
@@ -106,8 +105,11 @@ mod tests {
             .initialize_user_crypto_master_key(
                 master_key,
                 user_key.parse().unwrap(),
-                private_key.parse().unwrap(),
-                None,
+                UserKeyState {
+                    private_key: private_key.parse().unwrap(),
+                    signing_key: None,
+                    security_state: None,
+                },
             )
             .unwrap();
 
