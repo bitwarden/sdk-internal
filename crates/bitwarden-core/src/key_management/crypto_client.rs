@@ -82,7 +82,7 @@ impl CryptoClient {
     }
 
     /// Create the data necessary to update the user's kdf settings. The user's encryption key is
-    /// re-encrypted for the password under the new kdf settings. This returns the new encrypted
+    /// re-encrypted for the password under the new kdf settings. This returns the re-encrypted
     /// user key and the new password hash but does not update sdk state.
     pub fn make_update_kdf(
         &self,
