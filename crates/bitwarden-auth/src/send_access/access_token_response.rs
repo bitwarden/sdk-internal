@@ -44,7 +44,7 @@ pub enum SendAccessTokenError {
     #[error("Unexpected Error response: {0:?}")]
     /// Represents an unexpected error that occurred during the request.
     /// This would typically be a transport-level error, such as network issues or serialization problems.
-    Unexpected(IdentityTransportError),
+    Unexpected(UnexpectedIdentityError),
 
     #[error("Expected error response")]
     /// Represents an expected error response from the API.
@@ -54,7 +54,7 @@ pub enum SendAccessTokenError {
 // This is just a utility function so that the ? operator works correctly without manual mapping
 impl From<reqwest::Error> for SendAccessTokenError {
     fn from(value: reqwest::Error) -> Self {
-        Self::Unexpected(IdentityTransportError(value))
+        Self::Unexpected(UnexpectedIdentityError(value))
     }
 }
 
@@ -65,16 +65,16 @@ impl From<reqwest::Error> for SendAccessTokenError {
 // As that is not the case, we have to implement it manually.
 
 #[derive(Debug)]
-/// Any transport-level error that occurs when making requests to identity.
-pub struct IdentityTransportError(reqwest::Error);
+/// Any unexpected error that occurs when making requests to identity.
+pub struct UnexpectedIdentityError(reqwest::Error);
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type IdentityTransportError = string;
+export type UnexpectedIdentityError = string;
 "#;
 
-impl serde::Serialize for IdentityTransportError {
+impl serde::Serialize for UnexpectedIdentityError {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -83,7 +83,7 @@ impl serde::Serialize for IdentityTransportError {
     }
 }
 
-impl<'de> serde::Deserialize<'de> for IdentityTransportError {
+impl<'de> serde::Deserialize<'de> for UnexpectedIdentityError {
     fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
