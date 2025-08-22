@@ -357,7 +357,7 @@ pub(super) fn enroll_pin(
     let mut ctx = key_store.context_mut();
 
     let key_envelope =
-        PasswordProtectedKeyEnvelope(bitwarden_crypto::safe::PasswordProtectedKeyEnvelope::seal(
+        PasswordProtectedKeyEnvelope(PasswordProtectedKeyEnvelope::seal(
             SymmetricKeyId::User,
             &pin,
             &ctx,
