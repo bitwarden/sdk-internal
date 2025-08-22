@@ -3,7 +3,7 @@
 //! This module contains the logic for generating fingerprints.
 
 use bitwarden_crypto::{fingerprint, SpkiPublicKeyBytes};
-use bitwarden_encoding::{NotB64Encoded, B64};
+use bitwarden_encoding::B64;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -36,8 +36,6 @@ pub struct FingerprintResponse {
 pub enum FingerprintError {
     #[error(transparent)]
     CryptoError(#[from] bitwarden_crypto::CryptoError),
-    #[error(transparent)]
-    InvalidBase64(#[from] NotB64Encoded),
 }
 
 pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String, FingerprintError> {

@@ -4,7 +4,6 @@ use bitwarden_crypto::{
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, SymmetricCryptoKey};
-use bitwarden_encoding::NotB64Encoded;
 #[cfg(feature = "internal")]
 use bitwarden_encoding::B64;
 use thiserror::Error;
@@ -81,8 +80,6 @@ pub enum ApproveAuthRequestError {
     Crypto(#[from] CryptoError),
     #[error(transparent)]
     VaultLocked(#[from] VaultLockedError),
-    #[error(transparent)]
-    InvalidBase64(#[from] NotB64Encoded),
 }
 
 /// Approve an auth request.
