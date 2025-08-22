@@ -431,6 +431,7 @@ dependencies = [
  "aes",
  "argon2",
  "base64",
+ "bitwarden-encoding",
  "bitwarden-error",
  "cbc",
  "chacha20poly1305",

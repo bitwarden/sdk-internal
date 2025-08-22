@@ -24,9 +24,10 @@ use std::str::FromStr;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    CoseSerializable, CoseSign1Bytes, CryptoError, EncodingError, FromStrVisitor, KeyIds,
-    KeyStoreContext, SignedObject, SigningNamespace, VerifyingKey,
+    CoseSerializable, CoseSign1Bytes, CryptoError, EncodingError, KeyIds, KeyStoreContext,
+    SignedObject, SigningNamespace, VerifyingKey,
 };
+use bitwarden_encoding::FromStrVisitor;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
