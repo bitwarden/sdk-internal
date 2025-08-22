@@ -1000,7 +1000,7 @@ mod tests {
         initialize_user_crypto(
             &client1,
             InitUserCryptoRequest {
-                user_id: Some(uuid::Uuid::new_v4()),
+                user_id: Some(UserId::new_v4()),
                 kdf_params: Kdf::PBKDF2 {
                     iterations: 100_000.try_into().unwrap(),
                 },
@@ -1024,7 +1024,7 @@ mod tests {
         initialize_user_crypto(
             &client2,
             InitUserCryptoRequest {
-                user_id: Some(uuid::Uuid::new_v4()),
+                user_id: Some(UserId::new_v4()),
                 // NOTE: THIS CHANGES KDF SETTINGS. We ensure in this test that even with different
                 // KDF settings the pin can unlock the user key.
                 kdf_params: Kdf::PBKDF2 {
