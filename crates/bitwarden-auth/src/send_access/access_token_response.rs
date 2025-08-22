@@ -43,7 +43,8 @@ impl From<SendAccessTokenApiSuccessResponse> for SendAccessTokenResponse {
 pub enum SendAccessTokenError {
     #[error("Unexpected Error response: {0:?}")]
     /// Represents an unexpected error that occurred during the request.
-    /// This would typically be a transport-level error, such as network issues or serialization problems.
+    /// This would typically be a transport-level error, such as network issues or serialization
+    /// problems.
     Unexpected(UnexpectedIdentityError),
 
     #[error("Expected error response")]

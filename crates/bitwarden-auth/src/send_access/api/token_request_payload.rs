@@ -84,8 +84,8 @@ pub struct SendAccessTokenRequestPayload {
     /// The credentials used for the send access request.
     /// This can be password, email, email OTP, or anonymous.
     // Flatten allows us to serialize the variant directly into the payload without a wrapper
-    // example: { "password_hash_b64": "example_hash" } instead of { "variant": { "password_hash_b64":
-    // "example_hash" } }
+    // example: { "password_hash_b64": "example_hash" } instead of { "variant": {
+    // "password_hash_b64": "example_hash" } }
     #[serde(flatten)]
     pub credentials: SendAccessTokenPayloadCredentials,
 }
