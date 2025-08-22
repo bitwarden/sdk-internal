@@ -18,13 +18,13 @@ pub enum MasterPasswordError {
     /// The wrapped encryption key could not be parsed because the encstring is malformed
     #[error("Wrapped encryption key is malformed")]
     EncryptionKeyMalformed,
-    /// The KDF data could not be parsed, because it is missing values or has an invalid value
+    /// The KDF data could not be parsed, because it has an invalid value
     #[error("KDF is malformed")]
     KdfMalformed,
     /// The KDF had an invalid configuration
     #[error("Invalid KDF configuration")]
     InvalidKdfConfiguration,
-    /// The wrapped encryption key or salt fields are missing or KDF data is malformed
+    /// The wrapped encryption key or salt fields are missing or KDF data is incomplete
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
     /// Generic crypto error
@@ -81,18 +81,8 @@ impl TryFrom<MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
             },
             KdfType::Argon2id => Kdf::Argon2id {
                 iterations: kdf_parse_nonzero_u32(response.kdf.iterations)?,
-                memory: kdf_parse_nonzero_u32(
-                    response
-                        .kdf
-                        .memory
-                        .ok_or(MasterPasswordError::KdfMalformed)?,
-                )?,
-                parallelism: kdf_parse_nonzero_u32(
-                    response
-                        .kdf
-                        .parallelism
-                        .ok_or(MasterPasswordError::KdfMalformed)?,
-                )?,
+                memory: kdf_parse_nonzero_u32(require!(response.kdf.memory))?,
+                parallelism: kdf_parse_nonzero_u32(require!(response.kdf.parallelism))?,
             },
         };
 
@@ -273,7 +263,7 @@ mod tests {
     }
 
     #[test]
-    fn test_try_from_master_password_unlock_response_model_invalid_user_key_encryption_key_malformed_error(
+    fn test_try_from_master_password_unlock_response_model_invalid_user_key_encryption_kdf_malformed_error(
     ) {
         let response = create_pbkdf2_response(
             Some(TEST_INVALID_USER_KEY.to_string()),
@@ -315,7 +305,7 @@ mod tests {
     }
 
     #[test]
-    fn test_try_from_master_password_unlock_response_model_argon2id_kdf_memory_none_kdf_malformed_error(
+    fn test_try_from_master_password_unlock_response_model_argon2id_kdf_memory_none_missing_field_error(
     ) {
         let response = MasterPasswordUnlockResponseModel {
             kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
@@ -329,7 +319,12 @@ mod tests {
         };
 
         let result = MasterPasswordUnlockData::try_from(response);
-        assert!(matches!(result, Err(MasterPasswordError::KdfMalformed)));
+        assert!(matches!(
+            result,
+            Err(MasterPasswordError::MissingField(MissingFieldError(
+                "response.kdf.memory"
+            )))
+        ));
     }
 
     #[test]
@@ -351,7 +346,7 @@ mod tests {
     }
 
     #[test]
-    fn test_try_from_master_password_unlock_response_model_argon2id_kdf_parallelism_kdf_malformed_error(
+    fn test_try_from_master_password_unlock_response_model_argon2id_kdf_parallelism_none_missing_field_error(
     ) {
         let response = MasterPasswordUnlockResponseModel {
             kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
@@ -365,7 +360,12 @@ mod tests {
         };
 
         let result = MasterPasswordUnlockData::try_from(response);
-        assert!(matches!(result, Err(MasterPasswordError::KdfMalformed)));
+        assert!(matches!(
+            result,
+            Err(MasterPasswordError::MissingField(MissingFieldError(
+                "response.kdf.parallelism"
+            )))
+        ));
     }
 
     #[test]

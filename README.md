@@ -69,14 +69,10 @@ need to build the internal swagger documentation.
 
 ### Swagger generation
 
-The first step is to generate the swagger documents from the server repository.
+The first step is to generate the swagger documents from the root of the server repository.
 
 ```bash
-# src/Api
-dotnet swagger tofile --output ../../api.json ./bin/Debug/net8.0/Api.dll internal
-
-# src/Identity
-ASPNETCORE_ENVIRONMENT=development dotnet swagger tofile --output ../../identity.json ./bin/Debug/net8.0/Identity.dll v1
+pwsh ./dev/generate_openapi_files.ps1
 ```
 
 ### OpenApi Generator

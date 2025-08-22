@@ -23,6 +23,11 @@ mod master_password;
 #[cfg(feature = "internal")]
 pub use master_password::*;
 #[cfg(feature = "internal")]
+mod non_generic_wrappers;
+#[allow(unused_imports)]
+#[cfg(feature = "internal")]
+pub(crate) use non_generic_wrappers::*;
+#[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]
 mod user_decryption;
