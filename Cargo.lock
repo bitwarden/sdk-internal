@@ -583,6 +583,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-iter"
+version = "1.0.0"
+dependencies = [
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-send"
 version = "1.0.0"
 dependencies = [
