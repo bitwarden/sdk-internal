@@ -9,6 +9,7 @@
 //!   [PrimitiveEncryptable](bitwarden_crypto::PrimitiveEncryptable),
 //!   [CompositeEncryptable](bitwarden_crypto::CompositeEncryptable), and
 //!   [Decryptable](bitwarden_crypto::Decryptable).
+
 use bitwarden_crypto::{key_ids, KeyStore, SymmetricCryptoKey};
 
 #[cfg(feature = "internal")]
@@ -28,12 +29,14 @@ mod security_state;
 #[cfg(feature = "internal")]
 pub use security_state::{SecurityState, SignedSecurityState};
 
+use crate::OrganizationId;
+
 key_ids! {
     #[symmetric]
     pub enum SymmetricKeyId {
         Master,
         User,
-        Organization(uuid::Uuid),
+        Organization(OrganizationId),
         #[local]
         Local(&'static str),
     }
@@ -76,7 +79,7 @@ pub fn create_test_crypto_with_user_key(key: SymmetricCryptoKey) -> KeyStore<Key
 /// it in their own tests.
 pub fn create_test_crypto_with_user_and_org_key(
     key: SymmetricCryptoKey,
-    org_id: uuid::Uuid,
+    org_id: OrganizationId,
     org_key: SymmetricCryptoKey,
 ) -> KeyStore<KeyIds> {
     let store = KeyStore::default();
