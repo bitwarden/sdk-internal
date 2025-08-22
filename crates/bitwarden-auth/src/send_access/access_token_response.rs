@@ -33,17 +33,21 @@ impl From<SendAccessTokenApiSuccessResponse> for SendAccessTokenResponse {
     }
 }
 
-#[allow(missing_docs)]
 // We're using the full variant of the bitwarden-error macro because we want to keep the contents of
 // SendAccessTokenApiErrorResponse
 #[bitwarden_error::bitwarden_error(full)]
 #[derive(Debug, thiserror::Error)]
 #[serde(tag = "kind", content = "data", rename_all = "lowercase")]
+/// Represents errors that can occur when requesting a send access token.
+/// It includes expected and unexpected API errors.
 pub enum SendAccessTokenError {
     #[error("Unexpected Error response: {0:?}")]
+    /// Represents an unexpected error that occurred during the request.
+    /// This would typically be a transport-level error, such as network issues or serialization problems.
     Unexpected(IdentityTransportError),
 
     #[error("Expected error response")]
+    /// Represents an expected error response from the API.
     Expected(SendAccessTokenApiErrorResponse),
 }
 
@@ -60,8 +64,8 @@ impl From<reqwest::Error> for SendAccessTokenError {
 // `Api` variant somehow so it gets serialized as a plain string.
 // As that is not the case, we have to implement it manually.
 
-/// Any transport-level error that occurs when making requests to identity.
 #[derive(Debug)]
+/// Any transport-level error that occurs when making requests to identity.
 pub struct IdentityTransportError(reqwest::Error);
 
 #[cfg(feature = "wasm")]
