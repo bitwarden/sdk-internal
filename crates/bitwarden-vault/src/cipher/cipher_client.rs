@@ -1,5 +1,6 @@
 use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
+use bitwarden_iter::BwIterator;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -13,6 +14,54 @@ use crate::{
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CiphersClient {
     pub(crate) client: Client,
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[allow(missing_docs)]
+pub struct CipherIterator(BwIterator<Cipher>);
+
+impl Into<BwIterator<Cipher>> for CipherIterator {
+    fn into(self) -> BwIterator<Cipher> {
+        self.0
+    }
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[allow(missing_docs)]
+pub struct CipherViewIterator(BwIterator<Result<CipherView, DecryptError>>);
+
+impl Into<BwIterator<Result<CipherView, DecryptError>>> for CipherViewIterator {
+    fn into(self) -> BwIterator<Result<CipherView, DecryptError>> {
+        self.0
+    }
+}
+
+impl IntoIterator for CipherViewIterator {
+    type Item = Result<CipherView, DecryptError>;
+    type IntoIter = <BwIterator<Self::Item> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[allow(missing_docs)]
+pub struct CipherListViewIterator(BwIterator<Result<CipherListView, DecryptError>>);
+
+impl Into<BwIterator<Result<CipherListView, DecryptError>>> for CipherListViewIterator {
+    fn into(self) -> BwIterator<Result<CipherListView, DecryptError>> {
+        self.0
+    }
+}
+
+impl IntoIterator for CipherListViewIterator {
+    type Item = Result<CipherListView, DecryptError>;
+    type IntoIter = <BwIterator<Self::Item> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -105,10 +154,30 @@ impl CiphersClient {
     }
 
     #[allow(missing_docs)]
+    pub fn decrypt_stream(&self, cipher_iter: CipherIterator) -> CipherViewIterator {
+        let client = self.client.clone();
+        let iter = cipher_iter.0.iter.map(move |cipher| {
+            let key_store = client.internal.get_key_store();
+            key_store.decrypt(&cipher).map_err(DecryptError::from)
+        });
+        CipherViewIterator(BwIterator::new(iter))
+    }
+
+    #[allow(missing_docs)]
     pub fn decrypt_list(&self, ciphers: Vec<Cipher>) -> Result<Vec<CipherListView>, DecryptError> {
         let key_store = self.client.internal.get_key_store();
         let cipher_views = key_store.decrypt_list(&ciphers)?;
         Ok(cipher_views)
+    }
+
+    #[allow(missing_docs)]
+    pub fn decrypt_list_stream(&self, cipher_iter: CipherIterator) -> CipherListViewIterator {
+        let client = self.client.clone();
+        let iter = cipher_iter.0.iter.map(move |cipher| {
+            let key_store = client.internal.get_key_store();
+            key_store.decrypt(&cipher).map_err(DecryptError::from)
+        });
+        CipherListViewIterator(BwIterator::new(iter))
     }
 
     /// Decrypt cipher list with failures

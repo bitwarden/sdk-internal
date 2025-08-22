@@ -1,0 +1,27 @@
+[package]
+name = "bitwarden-iter"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+development = ["tokio-test"] # only used in doc-tests
+
+[features]
+wasm = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
+
+[dependencies]
+futures = "0.3.31"
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+
+[target.'cfg(target_arch="wasm32")'.dependencies]
+wasm-bindgen-futures = { workspace = true, optional = true }
+
+[lints]
+workspace = true

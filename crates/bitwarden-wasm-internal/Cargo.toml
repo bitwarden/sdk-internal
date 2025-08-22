@@ -23,14 +23,17 @@ bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
 bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }
 bitwarden-exporters = { workspace = true, features = ["wasm"] }
+bitwarden-fido = { workspace = true, features = ["wasm"] }
 bitwarden-generators = { workspace = true, features = ["wasm"] }
 bitwarden-ipc = { workspace = true, features = ["wasm"] }
+bitwarden-iter = { workspace = true, features = ["wasm"] }
 bitwarden-ssh = { workspace = true, features = ["wasm"] }
 bitwarden-state = { workspace = true, features = ["wasm"] }
 bitwarden-threading = { workspace = true }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
 console_error_panic_hook = "0.1.7"
 console_log = { version = "1.0.0", features = ["color"] }
+js-sys = { workspace = true, optional = true }
 log = "0.4.20"
 serde = { workspace = true }
 tsify = { workspace = true }
