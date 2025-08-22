@@ -1,6 +1,8 @@
-use std::str;
+use std::{pin::Pin, time::Duration};
 
 use bitwarden_core::Client;
+use bitwarden_threading::time::sleep;
+use futures::{stream, StreamExt};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -21,15 +23,41 @@ impl IteratorClient {
     pub fn create_js_iterator(&self) -> JsRustIterator {
         to_js_iterator(get_test_iteration())
     }
+
+    pub fn create_js_async_iterator(&self) -> JsRustAsyncIterator {
+        JsRustAsyncIterator::new(
+            stream::iter(get_test_iteration()).then(|x| async move { async_operation(x).await }),
+        )
+    }
 }
 
 fn get_test_iteration() -> impl Iterator<Item = i32> {
     (0..10).map(|x| x * 2)
 }
 
+async fn async_operation(input: i32) -> i32 {
+    sleep(Duration::from_millis(500)).await;
+    input * 2
+}
+
 #[wasm_bindgen]
 pub struct JsRustAsyncIterator {
-    iter: Box<futures::stream::Stream<Item = i32>>,
+    iter: Pin<Box<dyn futures::stream::Stream<Item = i32>>>,
+}
+
+impl JsRustAsyncIterator {
+    pub fn new(iter: impl futures::stream::Stream<Item = i32> + 'static) -> Self {
+        Self {
+            iter: Box::pin(iter),
+        }
+    }
+}
+
+#[wasm_bindgen]
+impl JsRustAsyncIterator {
+    pub async fn next(&mut self) -> Option<i32> {
+        self.iter.next().await
+    }
 }
 
 #[wasm_bindgen]
@@ -40,8 +68,10 @@ pub struct JsRustIterator {
 }
 
 impl JsRustIterator {
-    pub fn new(iter: Box<dyn Iterator<Item = i32>>) -> Self {
-        Self { iter }
+    pub fn new(iter: impl Iterator<Item = i32> + 'static) -> Self {
+        Self {
+            iter: Box::new(iter),
+        }
     }
 }
 
@@ -58,7 +88,7 @@ impl JsRustIterator {
 // }
 
 pub fn to_js_iterator(iter: impl Iterator<Item = i32> + 'static) -> JsRustIterator {
-    JsRustIterator::new(Box::new(iter))
+    JsRustIterator::new(iter)
 }
 
 // #[wasm_bindgen]

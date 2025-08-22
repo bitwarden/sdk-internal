@@ -778,6 +778,7 @@ dependencies = [
  "bitwarden-vault",
  "console_error_panic_hook",
  "console_log",
+ "futures",
  "js-sys",
  "log",
  "serde",

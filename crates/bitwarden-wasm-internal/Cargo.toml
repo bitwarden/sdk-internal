@@ -31,6 +31,7 @@ bitwarden-threading = { workspace = true }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
 console_error_panic_hook = "0.1.7"
 console_log = { version = "1.0.0", features = ["color"] }
+futures = "0.3.31"
 js-sys = { workspace = true, optional = true }
 log = "0.4.20"
 serde = { workspace = true }
