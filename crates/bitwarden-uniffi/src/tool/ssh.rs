@@ -26,4 +26,9 @@ impl SshClient {
         bitwarden_ssh::import::import_key(imported_key, password)
             .map_err(|e| BitwardenError::E(Error::SshImport(e)))
     }
+
+    pub fn decrypt_ssh_key_for_agent(&self, encrypted_pem: String, password: String) -> Result<String> {
+        bitwarden_ssh::import::decrypt_openssh_key(encrypted_pem, password)
+            .map_err(|e| BitwardenError::E(Error::SshImport(e)))
+    }
 }

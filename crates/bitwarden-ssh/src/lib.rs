@@ -24,5 +24,8 @@ fn ssh_private_key_to_view(value: PrivateKey) -> Result<SshKeyView, SshKeyExport
         private_key: private_key_openssh.to_string(),
         public_key: value.public_key().to_string(),
         fingerprint: value.fingerprint(HashAlg::Sha256).to_string(),
+        original_private_key: None,
+        is_encrypted: false,
+        ssh_key_passphrase: None,
     })
 }

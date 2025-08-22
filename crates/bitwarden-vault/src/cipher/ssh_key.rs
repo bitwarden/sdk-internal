@@ -15,12 +15,19 @@ use crate::{cipher::cipher::CopyableCipherFields, Cipher};
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SshKey {
-    /// SSH private key (ed25519/rsa) in unencrypted openssh private key format [OpenSSH private key](https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key)
+    /// SSH private key (ed25519/rsa) in unencrypted OpenSSH private key format [OpenSSH private key](https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key).
+    /// For encrypted imports, this may be empty; see `originalPrivateKey`.
     pub private_key: EncString,
     /// SSH public key (ed25519/rsa) according to [RFC4253](https://datatracker.ietf.org/doc/html/rfc4253#section-6.6)
     pub public_key: EncString,
     /// SSH fingerprint using SHA256 in the format: `SHA256:BASE64_ENCODED_FINGERPRINT`
     pub fingerprint: EncString,
+    /// Original SSH private key as provided during import (PEM). If the key was encrypted, this preserves the encrypted PEM verbatim.
+    pub original_private_key: Option<EncString>,
+    /// Indicates whether the original_private_key was encrypted at import time.
+    pub is_encrypted: bool,
+    /// Optional stored passphrase for the SSH private key (if user opted-in).
+    pub ssh_key_passphrase: Option<EncString>,
 }
 
 #[allow(missing_docs)]
@@ -29,12 +36,19 @@ pub struct SshKey {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SshKeyView {
-    /// SSH private key (ed25519/rsa) in unencrypted openssh private key format [OpenSSH private key](https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key)
+    /// Preferred SSH private key material to display/copy. For unencrypted keys this is an OpenSSH PEM.
+    /// For encrypted imports this may be empty; see `original_private_key`.
     pub private_key: String,
     /// SSH public key (ed25519/rsa) according to [RFC4253](https://datatracker.ietf.org/doc/html/rfc4253#section-6.6)
     pub public_key: String,
     /// SSH fingerprint using SHA256 in the format: `SHA256:BASE64_ENCODED_FINGERPRINT`
     pub fingerprint: String,
+    /// Original SSH private key as provided during import (PEM). If the key was encrypted, this preserves the encrypted PEM verbatim.
+    pub original_private_key: Option<String>,
+    /// Indicates whether the original_private_key was encrypted at import time.
+    pub is_encrypted: bool,
+    /// Optional stored passphrase for the SSH private key (if user opted-in).
+    pub ssh_key_passphrase: Option<String>,
 }
 
 impl CompositeEncryptable<KeyIds, SymmetricKeyId, SshKey> for SshKeyView {
@@ -47,6 +61,9 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, SshKey> for SshKeyView {
             private_key: self.private_key.encrypt(ctx, key)?,
             public_key: self.public_key.encrypt(ctx, key)?,
             fingerprint: self.fingerprint.encrypt(ctx, key)?,
+            original_private_key: self.original_private_key.encrypt(ctx, key)?,
+            is_encrypted: self.is_encrypted,
+            ssh_key_passphrase: self.ssh_key_passphrase.encrypt(ctx, key)?,
         })
     }
 }
@@ -61,6 +78,9 @@ impl Decryptable<KeyIds, SymmetricKeyId, SshKeyView> for SshKey {
             private_key: self.private_key.decrypt(ctx, key)?,
             public_key: self.public_key.decrypt(ctx, key)?,
             fingerprint: self.fingerprint.decrypt(ctx, key)?,
+            original_private_key: self.original_private_key.decrypt(ctx, key)?,
+            is_encrypted: self.is_encrypted,
+            ssh_key_passphrase: self.ssh_key_passphrase.decrypt(ctx, key)?,
         })
     }
 }
@@ -103,6 +123,9 @@ mod tests {
             private_key: private_key_encrypted,
             public_key: public_key_encrypted,
             fingerprint: fingerprint_encrypted,
+            original_private_key: None,
+            is_encrypted: false,
+            ssh_key_passphrase: None,
         };
 
         assert_eq!(
@@ -117,6 +140,9 @@ mod tests {
             private_key: "2.tMIugb6zQOL+EuOizna1wQ==|W5dDLoNJtajN68yeOjrr6w==|qS4hwJB0B0gNLI0o+jxn+sKMBmvtVgJCRYNEXBZoGeE=".parse().unwrap(),
             public_key: "2.tMIugb6zQOL+EuOizna1wQ==|W5dDLoNJtajN68yeOjrr6w==|qS4hwJB0B0gNLI0o+jxn+sKMBmvtVgJCRYNEXBZoGeE=".parse().unwrap(),
             fingerprint: "2.tMIugb6zQOL+EuOizna1wQ==|W5dDLoNJtajN68yeOjrr6w==|qS4hwJB0B0gNLI0o+jxn+sKMBmvtVgJCRYNEXBZoGeE=".parse().unwrap(),
+            original_private_key: None,
+            is_encrypted: false,
+            ssh_key_passphrase: None,
         };
 
         let copyable_fields = ssh_key.get_copyable_fields(None);
