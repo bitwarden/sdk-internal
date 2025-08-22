@@ -474,6 +474,7 @@ dependencies = [
 name = "bitwarden-encoding"
 version = "1.0.0"
 dependencies = [
+ "bitwarden-uniffi-error",
  "data-encoding",
  "data-encoding-macro",
  "serde",
