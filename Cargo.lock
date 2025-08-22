@@ -780,6 +780,7 @@ dependencies = [
  "bitwarden-exporters",
  "bitwarden-generators",
  "bitwarden-ipc",
+ "bitwarden-iter",
  "bitwarden-ssh",
  "bitwarden-state",
  "bitwarden-threading",
