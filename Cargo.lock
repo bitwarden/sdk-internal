@@ -473,9 +473,13 @@ dependencies = [
  "data-encoding",
  "data-encoding-macro",
  "serde",
+ "serde-wasm-bindgen",
  "serde_json",
  "thiserror 2.0.12",
+ "tsify",
  "uniffi",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
 ]
 
 [[package]]

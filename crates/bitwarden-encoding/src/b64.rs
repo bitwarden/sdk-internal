@@ -3,13 +3,38 @@ use std::str::FromStr;
 use data_encoding::BASE64;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
+
+use crate::FromStrVisitor;
 
 /// Base64 encoded data
 ///
 /// Is indifferent about padding when decoding, but always produces padding when encoding.
-#[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, Eq)]
-#[serde(try_from = "&str", into = "String")]
+#[cfg(feature = "wasm")]
+#[derive(Debug, Serialize, Clone, Hash, PartialEq, Eq)]
+#[serde(into = "String")]
+#[derive(Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct B64(#[tsify(type = "String")] Vec<u8>);
+
+/// Base64 encoded data
+///
+/// Is indifferent about padding when decoding, but always produces padding when encoding.
+#[cfg(not(feature = "wasm"))]
+#[derive(Debug, Serialize, Clone, Hash, PartialEq, Eq)]
+#[serde(into = "String")]
 pub struct B64(Vec<u8>);
+
+// We manually implement this to handle both `String` and `&str`
+impl<'de> Deserialize<'de> for B64 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(FromStrVisitor::new())
+    }
+}
 
 impl From<Vec<u8>> for B64 {
     fn from(src: Vec<u8>) -> Self {
@@ -63,6 +88,18 @@ const BASE64_PERMISSIVE: data_encoding::Encoding = data_encoding_macro::new_enco
     check_trailing_bits: false,
 };
 const BASE64_PADDING: &str = "=";
+
+impl TryFrom<String> for B64 {
+    type Error = NotB64Encoded;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let sane_string = value.trim_end_matches(BASE64_PADDING);
+        BASE64_PERMISSIVE
+            .decode(sane_string.as_bytes())
+            .map(Self)
+            .map_err(|_| NotB64Encoded)
+    }
+}
 
 impl TryFrom<&str> for B64 {
     type Error = NotB64Encoded;
