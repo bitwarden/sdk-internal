@@ -10,7 +10,7 @@ impl TryFrom<FolderView> for crate::Folder {
 
     fn try_from(value: FolderView) -> Result<Self, Self::Error> {
         Ok(Self {
-            id: require!(value.id),
+            id: require!(value.id).into(),
             name: value.name,
         })
     }
@@ -44,8 +44,8 @@ impl crate::Cipher {
         };
 
         Ok(Self {
-            id: require!(view.id),
-            folder_id: view.folder_id,
+            id: require!(view.id).into(),
+            folder_id: view.folder_id.map(|f| f.into()),
             name: view.name,
             notes: view.notes,
             r#type: r,
@@ -200,7 +200,7 @@ impl From<SecureNoteType> for crate::SecureNoteType {
 mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
     use bitwarden_crypto::SymmetricCryptoKey;
-    use bitwarden_vault::{CipherRepromptType, LoginView};
+    use bitwarden_vault::{CipherId, CipherRepromptType, FolderId, LoginView};
     use chrono::{DateTime, Utc};
 
     use super::*;
@@ -209,7 +209,7 @@ mod tests {
     fn test_try_from_folder_view() {
         let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         let view = FolderView {
-            id: Some(test_id),
+            id: Some(FolderId::new(test_id)),
             name: "test_name".to_string(),
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
         };
@@ -237,7 +237,7 @@ mod tests {
                 autofill_on_page_load: None,
                 fido2_credentials: None,
             }),
-            id: Some(test_id),
+            id: Some(CipherId::new(test_id)),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
@@ -288,7 +288,7 @@ mod tests {
                 autofill_on_page_load: None,
                 fido2_credentials: None,
             }),
-            id: Some(test_id),
+            id: Some(CipherId::new(test_id)),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],

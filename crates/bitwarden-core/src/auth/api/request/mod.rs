@@ -27,7 +27,7 @@ use crate::{
     ApiError,
 };
 
-async fn send_identity_connect_request(
+pub(crate) async fn send_identity_connect_request(
     configurations: &ApiConfigurations,
     body: impl serde::Serialize,
 ) -> Result<IdentityTokenResponse, LoginError> {

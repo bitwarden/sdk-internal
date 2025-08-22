@@ -121,6 +121,7 @@ mod tests {
             crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
             SymmetricKeyId,
         },
+        UserId,
     };
 
     #[test]
@@ -265,7 +266,7 @@ mod tests {
         new_device
             .crypto()
             .initialize_user_crypto(InitUserCryptoRequest {
-                user_id: Some(uuid::Uuid::new_v4()),
+                user_id: Some(UserId::new_v4()),
                 kdf_params: kdf,
                 email: email.to_owned(),
                 private_key,

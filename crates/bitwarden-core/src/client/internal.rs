@@ -8,7 +8,6 @@ use bitwarden_crypto::{CryptoError, EncString, Kdf, MasterKey, PinKey, UnsignedS
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
-use uuid::Uuid;
 
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::client::encryption_settings::EncryptionSettings;
@@ -16,7 +15,7 @@ use crate::client::encryption_settings::EncryptionSettings;
 use crate::client::login_method::ServiceAccountLoginMethod;
 use crate::{
     auth::renew::renew_token, client::login_method::LoginMethod, error::UserIdAlreadySetError,
-    key_management::KeyIds, DeviceType,
+    key_management::KeyIds, DeviceType, OrganizationId, UserId,
 };
 #[cfg(feature = "internal")]
 use crate::{
@@ -88,7 +87,7 @@ pub(crate) struct SdkManagedTokens {
 #[allow(missing_docs)]
 #[derive(Debug)]
 pub struct InternalClient {
-    pub(crate) user_id: OnceLock<Uuid>,
+    pub(crate) user_id: OnceLock<UserId>,
     pub(crate) tokens: RwLock<Tokens>,
     pub(crate) login_method: RwLock<Option<Arc<LoginMethod>>>,
 
@@ -135,7 +134,7 @@ impl InternalClient {
     }
 
     #[allow(missing_docs)]
-    pub fn get_access_token_organization(&self) -> Option<Uuid> {
+    pub fn get_access_token_organization(&self) -> Option<OrganizationId> {
         match self
             .login_method
             .read()
@@ -232,7 +231,7 @@ impl InternalClient {
     }
 
     #[allow(missing_docs)]
-    pub fn init_user_id(&self, user_id: Uuid) -> Result<(), UserIdAlreadySetError> {
+    pub fn init_user_id(&self, user_id: UserId) -> Result<(), UserIdAlreadySetError> {
         let set_uuid = self.user_id.get_or_init(|| user_id);
 
         // Only return an error if the user_id is already set to a different value,
@@ -246,7 +245,7 @@ impl InternalClient {
     }
 
     #[allow(missing_docs)]
-    pub fn get_user_id(&self) -> Option<Uuid> {
+    pub fn get_user_id(&self) -> Option<UserId> {
         self.user_id.get().copied()
     }
 
@@ -341,7 +340,7 @@ impl InternalClient {
     #[cfg(feature = "secrets")]
     pub(crate) fn initialize_crypto_single_org_key(
         &self,
-        organization_id: Uuid,
+        organization_id: OrganizationId,
         key: SymmetricCryptoKey,
     ) {
         EncryptionSettings::new_single_org_key(organization_id, key, &self.key_store);
@@ -351,7 +350,7 @@ impl InternalClient {
     #[cfg(feature = "internal")]
     pub fn initialize_org_crypto(
         &self,
-        org_keys: Vec<(Uuid, UnsignedSharedKey)>,
+        org_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
     ) -> Result<(), EncryptionSettingsError> {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
     }
@@ -366,7 +365,7 @@ mod tests {
         use super::*;
 
         let client = Client::new(None);
-        let user_id = Uuid::new_v4();
+        let user_id = UserId::new_v4();
 
         // Setting the user ID for the first time should work.
         assert!(client.internal.init_user_id(user_id).is_ok());
@@ -376,7 +375,7 @@ mod tests {
         assert!(client.internal.init_user_id(user_id).is_ok());
 
         // Trying to set a different user_id should return an error.
-        let different_user_id = Uuid::new_v4();
+        let different_user_id = UserId::new_v4();
         assert!(client.internal.init_user_id(different_user_id).is_err());
     }
 }

@@ -89,7 +89,7 @@ impl CollectionViewTree {
         collection_view: CollectionView,
     ) -> Option<CollectionViewNodeItem> {
         self.tree
-            .get_item_by_id(collection_view.id.unwrap_or_default())
+            .get_item_by_id(collection_view.id.unwrap_or_default().into())
             .map(|n| CollectionViewNodeItem { node_item: n })
     }
 
