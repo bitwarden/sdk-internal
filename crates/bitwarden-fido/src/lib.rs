@@ -22,6 +22,7 @@ mod traits;
 mod types;
 
 #[cfg(feature = "wasm")]
+#[allow(missing_docs)]
 pub mod wasm;
 
 pub use authenticator::{

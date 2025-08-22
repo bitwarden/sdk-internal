@@ -785,6 +785,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-exporters",
+ "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-ipc",
  "bitwarden-iter",

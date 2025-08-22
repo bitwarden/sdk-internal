@@ -16,7 +16,12 @@ keywords.workspace = true
 
 [features]
 uniffi = ["dep:uniffi", "bitwarden-core/uniffi", "bitwarden-vault/uniffi"]
-wasm = ["dep:wasm-bindgen"]
+wasm = [
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+    "dep:tsify",
+    "bitwarden-vault/wasm",
+]
 
 [dependencies]
 async-trait = { workspace = true }

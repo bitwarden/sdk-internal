@@ -7,6 +7,7 @@ mod platform;
 mod pure_crypto;
 mod ssh;
 
+pub use bitwarden_fido::wasm::*;
 pub use bitwarden_ipc::wasm::*;
 pub use bitwarden_iter::wasm::*;
 pub use client::BitwardenClient;
