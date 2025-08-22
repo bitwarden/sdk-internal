@@ -586,6 +586,7 @@ dependencies = [
 name = "bitwarden-iter"
 version = "1.0.0"
 dependencies = [
+ "futures",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
@@ -787,7 +788,6 @@ dependencies = [
  "bitwarden-vault",
  "console_error_panic_hook",
  "console_log",
- "futures",
  "js-sys",
  "log",
  "serde",
