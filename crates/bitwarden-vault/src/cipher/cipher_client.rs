@@ -1,6 +1,8 @@
 use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
+use bitwarden_encoding::B64;
+#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
@@ -60,9 +62,9 @@ impl CiphersClient {
     pub fn encrypt_cipher_for_rotation(
         &self,
         mut cipher_view: CipherView,
-        new_key_b64: String,
+        new_key: B64,
     ) -> Result<EncryptionContext, CipherError> {
-        let new_key = SymmetricCryptoKey::try_from(new_key_b64)?;
+        let new_key = SymmetricCryptoKey::try_from(new_key.to_string())?;
 
         let user_id = self
             .client

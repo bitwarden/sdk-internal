@@ -1,6 +1,6 @@
 use std::pin::Pin;
 
-use base64::{engine::general_purpose::STANDARD, Engine};
+use bitwarden_encoding::B64;
 use coset::{iana::KeyOperation, CborSerializable, RegisteredLabelWithPrivate};
 use generic_array::GenericArray;
 use rand::Rng;
@@ -227,8 +227,8 @@ impl SymmetricCryptoKey {
     }
 
     #[allow(missing_docs)]
-    pub fn to_base64(&self) -> String {
-        STANDARD.encode(self.to_encoded())
+    pub fn to_base64(&self) -> B64 {
+        B64::from(self.to_encoded().as_ref())
     }
 }
 
@@ -261,10 +261,8 @@ impl TryFrom<String> for SymmetricCryptoKey {
     type Error = CryptoError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        let bytes = STANDARD
-            .decode(value)
-            .map_err(|_| CryptoError::InvalidKey)?;
-        Self::try_from(&BitwardenLegacyKeyBytes::from(bytes))
+        let bytes = B64::try_from(value).map_err(|_| CryptoError::InvalidKey)?;
+        Self::try_from(&BitwardenLegacyKeyBytes::from(bytes.as_ref()))
     }
 }
 
@@ -430,7 +428,7 @@ pub fn derive_symmetric_key(name: &str) -> Aes256CbcHmacKey {
 
 #[cfg(test)]
 mod tests {
-    use base64::{engine::general_purpose::STANDARD, Engine};
+    use bitwarden_encoding::B64;
     use generic_array::GenericArray;
     use typenum::U32;
 
@@ -443,13 +441,13 @@ mod tests {
     #[test]
     fn test_symmetric_crypto_key() {
         let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
-        let key2 = SymmetricCryptoKey::try_from(key.to_base64()).unwrap();
+        let key2 = SymmetricCryptoKey::try_from(key.to_base64().to_string()).unwrap();
 
         assert_eq!(key, key2);
 
         let key = "UY4B5N4DA4UisCNClgZtRr6VLy9ZF5BXXC7cDZRqourKi4ghEMgISbCsubvgCkHf5DZctQjVot11/vVvN9NNHQ==".to_string();
         let key2 = SymmetricCryptoKey::try_from(key.clone()).unwrap();
-        assert_eq!(key, key2.to_base64());
+        assert_eq!(key, key2.to_base64().to_string());
     }
 
     #[test]
@@ -462,8 +460,9 @@ mod tests {
 
     #[test]
     fn test_decode_new_symmetric_crypto_key() {
-        let key = STANDARD.decode("pQEEAlDib+JxbqMBlcd3KTUesbufAzoAARFvBIQDBAUGIFggt79surJXmqhPhYuuqi9ZyPfieebmtw2OsmN5SDrb4yUB").unwrap();
-        let key = BitwardenLegacyKeyBytes::from(key);
+        let key: B64 = ("pQEEAlDib+JxbqMBlcd3KTUesbufAzoAARFvBIQDBAUGIFggt79surJXmqhPhYuuqi9ZyPfieebmtw2OsmN5SDrb4yUB").parse()
+        .unwrap();
+        let key = BitwardenLegacyKeyBytes::from(key.as_ref());
         let key = SymmetricCryptoKey::try_from(&key).unwrap();
         match key {
             SymmetricCryptoKey::XChaCha20Poly1305Key(_) => (),
@@ -521,7 +520,7 @@ mod tests {
         let key1 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key2 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         assert_ne!(key1, key2);
-        let key3 = SymmetricCryptoKey::try_from(key1.to_base64()).unwrap();
+        let key3 = SymmetricCryptoKey::try_from(key1.to_base64().to_string()).unwrap();
         assert_eq!(key1, key3);
     }
 
@@ -532,7 +531,7 @@ mod tests {
         let key2 =
             SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(vec![2u8; 32])).unwrap();
         assert_ne!(key1, key2);
-        let key3 = SymmetricCryptoKey::try_from(key1.to_base64()).unwrap();
+        let key3 = SymmetricCryptoKey::try_from(key1.to_base64().to_string()).unwrap();
         assert_eq!(key1, key3);
     }
 
@@ -541,7 +540,7 @@ mod tests {
         let key1 = SymmetricCryptoKey::make_xchacha20_poly1305_key();
         let key2 = SymmetricCryptoKey::make_xchacha20_poly1305_key();
         assert_ne!(key1, key2);
-        let key3 = SymmetricCryptoKey::try_from(key1.to_base64()).unwrap();
+        let key3 = SymmetricCryptoKey::try_from(key1.to_base64().to_string()).unwrap();
         assert_eq!(key1, key3);
     }
 

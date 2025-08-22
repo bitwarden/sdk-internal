@@ -2,8 +2,8 @@
 //!
 //! This module contains the logic for generating fingerprints.
 
-use base64::{engine::general_purpose::STANDARD, Engine};
-use bitwarden_crypto::fingerprint;
+use bitwarden_crypto::{fingerprint, SpkiPublicKeyBytes};
+use bitwarden_encoding::B64;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -17,7 +17,7 @@ pub struct FingerprintRequest {
     /// The input material, used in the fingerprint generation process.
     pub fingerprint_material: String,
     /// The user's public key encoded with base64.
-    pub public_key: String,
+    pub public_key: B64,
 }
 
 /// Response containing a generated fingerprint.
@@ -41,8 +41,10 @@ pub enum FingerprintError {
 }
 
 pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String, FingerprintError> {
-    let key = STANDARD.decode(&input.public_key)?;
-    Ok(fingerprint(&input.fingerprint_material, &key.into())?)
+    Ok(fingerprint(
+        &input.fingerprint_material,
+        &SpkiPublicKeyBytes::from(input.public_key.as_ref()),
+    )?)
 }
 
 /// Errors that can occur when computing a fingerprint.
