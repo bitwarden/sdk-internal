@@ -262,7 +262,15 @@ impl TryFrom<String> for SymmetricCryptoKey {
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         let bytes = B64::try_from(value).map_err(|_| CryptoError::InvalidKey)?;
-        Self::try_from(&BitwardenLegacyKeyBytes::from(bytes.as_ref()))
+        Self::try_from(bytes)
+    }
+}
+
+impl TryFrom<B64> for SymmetricCryptoKey {
+    type Error = CryptoError;
+
+    fn try_from(value: B64) -> Result<Self, Self::Error> {
+        Self::try_from(&BitwardenLegacyKeyBytes::from(value.as_ref()))
     }
 }
 
@@ -441,7 +449,7 @@ mod tests {
     #[test]
     fn test_symmetric_crypto_key() {
         let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
-        let key2 = SymmetricCryptoKey::try_from(key.to_base64().to_string()).unwrap();
+        let key2 = SymmetricCryptoKey::try_from(key.to_base64()).unwrap();
 
         assert_eq!(key, key2);
 
@@ -520,7 +528,7 @@ mod tests {
         let key1 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key2 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         assert_ne!(key1, key2);
-        let key3 = SymmetricCryptoKey::try_from(key1.to_base64().to_string()).unwrap();
+        let key3 = SymmetricCryptoKey::try_from(key1.to_base64()).unwrap();
         assert_eq!(key1, key3);
     }
 
@@ -531,7 +539,7 @@ mod tests {
         let key2 =
             SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(vec![2u8; 32])).unwrap();
         assert_ne!(key1, key2);
-        let key3 = SymmetricCryptoKey::try_from(key1.to_base64().to_string()).unwrap();
+        let key3 = SymmetricCryptoKey::try_from(key1.to_base64()).unwrap();
         assert_eq!(key1, key3);
     }
 
@@ -540,7 +548,7 @@ mod tests {
         let key1 = SymmetricCryptoKey::make_xchacha20_poly1305_key();
         let key2 = SymmetricCryptoKey::make_xchacha20_poly1305_key();
         assert_ne!(key1, key2);
-        let key3 = SymmetricCryptoKey::try_from(key1.to_base64().to_string()).unwrap();
+        let key3 = SymmetricCryptoKey::try_from(key1.to_base64()).unwrap();
         assert_eq!(key1, key3);
     }
 

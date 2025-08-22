@@ -64,7 +64,7 @@ impl CiphersClient {
         mut cipher_view: CipherView,
         new_key: B64,
     ) -> Result<EncryptionContext, CipherError> {
-        let new_key = SymmetricCryptoKey::try_from(new_key.to_string())?;
+        let new_key = SymmetricCryptoKey::try_from(new_key)?;
 
         let user_id = self
             .client

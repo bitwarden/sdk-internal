@@ -469,7 +469,7 @@ pub struct MakeKeyPairResponse {
 }
 
 pub(super) fn make_key_pair(user_key: B64) -> Result<MakeKeyPairResponse, CryptoError> {
-    let user_key = UserKey::new(SymmetricCryptoKey::try_from(user_key.to_string())?);
+    let user_key = UserKey::new(SymmetricCryptoKey::try_from(user_key)?);
 
     let key_pair = user_key.make_key_pair()?;
 
@@ -546,7 +546,7 @@ pub(super) fn verify_asymmetric_keys(
         Ok(())
     }
 
-    let user_key = SymmetricCryptoKey::try_from(request.user_key.to_string())?;
+    let user_key = SymmetricCryptoKey::try_from(request.user_key.clone())?;
 
     Ok(match verify_inner(&user_key, &request) {
         Ok(_) => VerifyAsymmetricKeysResponse {
@@ -1130,8 +1130,7 @@ mod tests {
         let enrollment_response = make_v2_keys_for_v1_user(&client).unwrap();
         let encrypted_userkey_v2 = master_key
             .encrypt_user_key(
-                &SymmetricCryptoKey::try_from(enrollment_response.clone().user_key.to_string())
-                    .unwrap(),
+                &SymmetricCryptoKey::try_from(enrollment_response.clone().user_key).unwrap(),
             )
             .unwrap();
 

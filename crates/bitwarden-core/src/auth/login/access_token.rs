@@ -129,8 +129,7 @@ fn load_tokens_from_state(
             let organization_id: OrganizationId = organization_id
                 .parse()
                 .map_err(|_| LoginError::InvalidOrganizationId)?;
-            let encryption_key =
-                SymmetricCryptoKey::try_from(client_state.encryption_key.to_string())?;
+            let encryption_key = SymmetricCryptoKey::try_from(client_state.encryption_key)?;
 
             client
                 .internal
