@@ -7,7 +7,8 @@ use thiserror::Error;
 use crate::{NotAuthenticatedError, VaultLockedError, WrongPasswordError};
 
 mod access_token;
-pub(super) mod api;
+// API is intentionally not visible outside of `auth` as these should be considered private.
+mod api;
 #[allow(missing_docs)]
 pub mod auth_client;
 mod jwt_token;
