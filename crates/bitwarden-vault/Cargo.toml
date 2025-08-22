@@ -36,6 +36,7 @@ bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-state = { workspace = true }
+bitwarden-uuid = { workspace = true }
 chrono = { workspace = true }
 data-encoding = ">=2.0, <3"
 hmac = ">=0.12.1, <0.13"

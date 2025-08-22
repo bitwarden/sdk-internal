@@ -90,6 +90,7 @@ mod tests {
     use wiremock::{matchers, Mock, Request, ResponseTemplate};
 
     use super::*;
+    use crate::FolderId;
 
     #[tokio::test]
     async fn test_create_folder() {
@@ -131,7 +132,7 @@ mod tests {
         assert_eq!(
             result,
             FolderView {
-                id: Some(folder_id),
+                id: Some(FolderId::new(folder_id)),
                 name: "test".to_string(),
                 revision_date: "2025-01-01T00:00:00Z".parse().unwrap(),
             }
