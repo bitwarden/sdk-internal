@@ -93,11 +93,7 @@ impl TryFrom<String> for B64 {
     type Error = NotB64Encoded;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        let sane_string = value.trim_end_matches(BASE64_PADDING);
-        BASE64_PERMISSIVE
-            .decode(sane_string.as_bytes())
-            .map(Self)
-            .map_err(|_| NotB64Encoded)
+        Self::try_from(value.as_str())
     }
 }
 

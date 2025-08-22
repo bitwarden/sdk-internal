@@ -3,6 +3,7 @@ pub mod response;
 
 #[cfg(feature = "internal")]
 mod prelogin;
+use bitwarden_encoding::NotB64Encoded;
 #[cfg(feature = "internal")]
 pub use prelogin::*;
 
@@ -41,7 +42,7 @@ pub enum LoginError {
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
-    InvalidBase64(#[from] base64::DecodeError),
+    InvalidBase64(#[from] NotB64Encoded),
 
     #[error(transparent)]
     MissingField(#[from] crate::MissingFieldError),

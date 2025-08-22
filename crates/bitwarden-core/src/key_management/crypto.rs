@@ -12,7 +12,7 @@ use bitwarden_crypto::{
     SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
     UnsignedSharedKey, UserKey,
 };
-use bitwarden_encoding::B64;
+use bitwarden_encoding::{NotB64Encoded, B64};
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -395,7 +395,7 @@ pub enum EnrollAdminPasswordResetError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
-    InvalidBase64(#[from] base64::DecodeError),
+    InvalidBase64(#[from] NotB64Encoded),
 }
 
 pub(super) fn enroll_admin_password_reset(

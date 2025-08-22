@@ -64,6 +64,14 @@ const BASE64URL_PERMISSIVE: data_encoding::Encoding = data_encoding_macro::new_e
 };
 const BASE64URL_PADDING: &str = "=";
 
+impl TryFrom<String> for B64Url {
+    type Error = NotB64UrlEncoded;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::try_from(value.as_str())
+    }
+}
+
 impl TryFrom<&str> for B64Url {
     type Error = NotB64UrlEncoded;
 

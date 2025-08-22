@@ -8,6 +8,7 @@ use bitwarden_crypto::{
 };
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
+use bitwarden_encoding::NotB64Encoded;
 use bitwarden_error::bitwarden_error;
 #[cfg(feature = "internal")]
 use log::warn;
@@ -29,7 +30,7 @@ pub enum EncryptionSettingsError {
     Crypto(#[from] bitwarden_crypto::CryptoError),
 
     #[error(transparent)]
-    InvalidBase64(#[from] base64::DecodeError),
+    InvalidBase64(#[from] NotB64Encoded),
 
     #[error(transparent)]
     VaultLocked(#[from] VaultLockedError),

@@ -1,12 +1,10 @@
 use std::{fmt::Debug, str::FromStr};
 
-use base64::Engine;
 use bitwarden_crypto::{derive_shareable_key, SymmetricCryptoKey};
+use bitwarden_encoding::{NotB64Encoded, B64};
 use thiserror::Error;
 use uuid::Uuid;
 use zeroize::Zeroizing;
-
-use crate::util::STANDARD_INDIFFERENT;
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
@@ -21,7 +19,7 @@ pub enum AccessTokenInvalidError {
     InvalidUuid,
 
     #[error("Error decoding base64: {0}")]
-    InvalidBase64(#[from] base64::DecodeError),
+    InvalidBase64(#[from] NotB64Encoded),
 
     #[error("Invalid base64 length: expected {expected}, got {got}")]
     InvalidBase64Length { expected: usize, got: usize },
@@ -67,11 +65,11 @@ impl FromStr for AccessToken {
             return Err(AccessTokenInvalidError::InvalidUuid);
         };
 
-        let encryption_key = STANDARD_INDIFFERENT.decode(encryption_key)?;
-        let encryption_key = Zeroizing::new(encryption_key.try_into().map_err(|e: Vec<_>| {
+        let encryption_key: B64 = encryption_key.parse()?;
+        let encryption_key = Zeroizing::new(encryption_key.as_ref().try_into().map_err(|_| {
             AccessTokenInvalidError::InvalidBase64Length {
                 expected: 16,
-                got: e.len(),
+                got: encryption_key.as_ref().len(),
             }
         })?);
         let encryption_key =
