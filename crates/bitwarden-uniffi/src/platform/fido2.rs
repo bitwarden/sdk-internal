@@ -7,7 +7,9 @@ use bitwarden_fido::{
     PublicKeyCredentialAuthenticatorAttestationResponse, PublicKeyCredentialRpEntity,
     PublicKeyCredentialUserEntity,
 };
-use bitwarden_vault::{CipherListView, CipherView, EncryptionContext, Fido2CredentialNewView};
+use bitwarden_vault::{
+    CipherListView, CipherListViewIterator, CipherView, EncryptionContext, Fido2CredentialNewView,
+};
 
 use crate::error::{Error, Result};
 
@@ -273,6 +275,12 @@ impl bitwarden_fido::Fido2CredentialStore for UniffiTraitBridge<&dyn Fido2Creden
 
     async fn save_credential(&self, cred: EncryptionContext) -> Result<(), BitFido2CallbackError> {
         self.0.save_credential(cred).await.map_err(Into::into)
+    }
+
+    async fn all_credentials_stream(
+        &self,
+    ) -> Result<CipherListViewIterator, BitFido2CallbackError> {
+        unimplemented!()
     }
 }
 

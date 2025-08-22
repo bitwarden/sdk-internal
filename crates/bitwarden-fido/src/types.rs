@@ -8,6 +8,8 @@ use passkey::types::webauthn::UserVerificationRequirement;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 
 use super::{
     get_enum_from_string_name, string_to_guid_bytes, InvalidGuid, SelectedCredential, UnknownEnum,
@@ -18,6 +20,7 @@ use super::{
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Fido2CredentialAutofillView {
     pub credential_id: Vec<u8>,
     pub cipher_id: uuid::Uuid,

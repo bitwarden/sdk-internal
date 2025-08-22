@@ -1,4 +1,6 @@
-use bitwarden_vault::{CipherListView, CipherView, EncryptionContext, Fido2CredentialNewView};
+use bitwarden_vault::{
+    CipherListView, CipherListViewIterator, CipherView, EncryptionContext, Fido2CredentialNewView,
+};
 use passkey::authenticator::UIHint;
 use thiserror::Error;
 
@@ -47,6 +49,8 @@ pub trait Fido2CredentialStore: Send + Sync {
     async fn all_credentials(&self) -> Result<Vec<CipherListView>, Fido2CallbackError>;
 
     async fn save_credential(&self, cred: EncryptionContext) -> Result<(), Fido2CallbackError>;
+
+    async fn all_credentials_stream(&self) -> Result<CipherListViewIterator, Fido2CallbackError>;
 }
 
 #[allow(missing_docs)]

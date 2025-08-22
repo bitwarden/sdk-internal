@@ -2,7 +2,9 @@ use std::sync::Mutex;
 
 use bitwarden_core::{Client, VaultLockedError};
 use bitwarden_crypto::CryptoError;
-use bitwarden_vault::{CipherError, CipherView, EncryptionContext};
+use bitwarden_error::bitwarden_error;
+use bitwarden_iter::BwIterator;
+use bitwarden_vault::{CipherError, CipherView, DecryptError, EncryptionContext};
 use itertools::Itertools;
 use log::error;
 use passkey::{
@@ -84,8 +86,11 @@ pub enum SilentlyDiscoverCredentialsError {
 }
 
 #[allow(missing_docs)]
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CredentialsForAutofillError {
+    #[error(transparent)]
+    DecryptError(#[from] DecryptError),
     #[error(transparent)]
     CipherError(#[from] CipherError),
     #[error(transparent)]
@@ -289,6 +294,29 @@ impl<'a> Fido2Authenticator<'a> {
             )
             .flatten_ok()
             .collect()
+    }
+
+    #[allow(missing_docs)]
+    pub async fn credentials_for_autofill_stream(
+        &mut self,
+    ) -> Result<
+        BwIterator<Result<Fido2CredentialAutofillView, CredentialsForAutofillError>>,
+        CredentialsForAutofillError,
+    > {
+        let all_credentials = self.credential_store.all_credentials_stream().await?;
+
+        let iter = all_credentials
+            .into_iter()
+            .map(
+                |cipher| -> Result<Vec<Fido2CredentialAutofillView>, CredentialsForAutofillError> {
+                    Ok(Fido2CredentialAutofillView::from_cipher_list_view(
+                        &cipher?,
+                    )?)
+                },
+            )
+            .flatten_ok();
+
+        Ok(BwIterator::new(iter))
     }
 
     pub(super) fn get_authenticator(

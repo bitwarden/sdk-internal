@@ -14,6 +14,15 @@ impl<T> BwIterator<T> {
     }
 }
 
+impl<T> IntoIterator for BwIterator<T> {
+    type Item = T;
+    type IntoIter = Box<dyn Iterator<Item = T>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter
+    }
+}
+
 pub struct BwStream<T> {
     pub stream: Pin<Box<dyn futures::stream::Stream<Item = T>>>,
 }

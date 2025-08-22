@@ -22,7 +22,9 @@ pub use cipher::{
     Cipher, CipherError, CipherListView, CipherListViewType, CipherRepromptType, CipherType,
     CipherView, DecryptCipherListResult, EncryptionContext,
 };
-pub use cipher_client::{CipherIterator, CipherViewIterator, CiphersClient};
+pub use cipher_client::{
+    CipherIterator, CipherListViewIterator, CipherViewIterator, CiphersClient,
+};
 pub use field::{FieldType, FieldView};
 pub use identity::IdentityView;
 pub use login::{

@@ -20,6 +20,10 @@ mod client_fido;
 mod crypto;
 mod traits;
 mod types;
+
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
 pub use authenticator::{
     CredentialsForAutofillError, Fido2Authenticator, GetAssertionError, MakeCredentialError,
     SilentlyDiscoverCredentialsError,
