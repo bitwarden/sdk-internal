@@ -103,18 +103,6 @@ impl CryptoClient {
     /// Create the data necessary to update the user's password. The user's encryption key is
     /// re-encrypted with the new password. This returns the new encrypted user key and the new
     /// password hash but does not update sdk state.
-    ///
-    /// Note: This is deprecated and `make_update_password` should be used instead
-    pub fn update_password(
-        &self,
-        new_password: String,
-    ) -> Result<UpdatePasswordResponse, CryptoClientError> {
-        self.make_update_password(new_password)
-    }
-
-    /// Create the data necessary to update the user's password. The user's encryption key is
-    /// re-encrypted with the new password. This returns the new encrypted user key and the new
-    /// password hash but does not update sdk state.
     pub fn make_update_password(
         &self,
         new_password: String,
