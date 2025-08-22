@@ -1,6 +1,6 @@
 use bitwarden_core::key_management::crypto::{
     DeriveKeyConnectorRequest, DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest,
-    UpdatePasswordResponse,
+    UpdateKdfResponse, UpdatePasswordResponse,
 };
 use bitwarden_crypto::{EncString, Kdf, UnsignedSharedKey};
 
@@ -95,11 +95,7 @@ impl CryptoClient {
     /// Create the data necessary to update the user's kdf settings. The user's encryption key is
     /// re-encrypted for the password under the new kdf settings. This returns the new encrypted
     /// user key and the new password hash but does not update sdk state.
-    pub fn make_update_kdf(
-        &self,
-        password: String,
-        kdf: Kdf,
-    ) -> Result<bitwarden_core::key_management::crypto::UpdateKdfResponse> {
+    pub fn make_update_kdf(&self, password: String, kdf: Kdf) -> Result<UpdateKdfResponse> {
         Ok(self
             .0
             .make_update_kdf(password, kdf)
