@@ -48,6 +48,9 @@ pub enum EncryptionSettingsError {
 
     #[error(transparent)]
     UserIdAlreadySetError(#[from] UserIdAlreadySetError),
+
+    #[error("Wrong Pin")]
+    WrongPin,
 }
 
 #[allow(clippy::large_enum_variant)]
