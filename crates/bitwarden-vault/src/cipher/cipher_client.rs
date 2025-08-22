@@ -1,5 +1,6 @@
 use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
+use bitwarden_iter::BwIterator;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -13,6 +14,26 @@ use crate::{
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CiphersClient {
     pub(crate) client: Client,
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[allow(missing_docs)]
+pub struct CipherIterator(BwIterator<Cipher>);
+
+impl Into<BwIterator<Cipher>> for CipherIterator {
+    fn into(self) -> BwIterator<Cipher> {
+        self.0
+    }
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[allow(missing_docs)]
+pub struct CipherViewIterator(BwIterator<Result<CipherView, DecryptError>>);
+
+impl Into<BwIterator<Result<CipherView, DecryptError>>> for CipherViewIterator {
+    fn into(self) -> BwIterator<Result<CipherView, DecryptError>> {
+        self.0
+    }
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -102,6 +123,16 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let cipher_view = key_store.decrypt(&cipher)?;
         Ok(cipher_view)
+    }
+
+    #[allow(missing_docs)]
+    pub fn decrypt_stream(&self, cipher_iter: CipherIterator) -> CipherViewIterator {
+        let client = self.client.clone();
+        let iter = cipher_iter.0.iter.map(move |cipher| {
+            let key_store = client.internal.get_key_store();
+            key_store.decrypt(&cipher).map_err(DecryptError::from)
+        });
+        CipherViewIterator(BwIterator::new(iter))
     }
 
     #[allow(missing_docs)]

@@ -30,6 +30,11 @@ use wasm_bindgen::prelude::*;
 //     input * 2
 // }
 
+// #[wasm_bindgen]
+// pub fn into_iterable<T: Into<JsValue>>() {
+
+// }
+
 #[wasm_bindgen]
 pub struct JsRustAsyncIterator {
     iter: Pin<Box<dyn futures::stream::Stream<Item = i32>>>,

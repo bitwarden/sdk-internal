@@ -746,6 +746,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-iter",
  "bitwarden-state",
  "bitwarden-test",
  "chrono",
