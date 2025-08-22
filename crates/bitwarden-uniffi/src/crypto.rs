@@ -47,8 +47,6 @@ impl CryptoClient {
     /// password hash but does not update sdk state.
     ///
     /// Note: This is deprecated and `make_update_password` should be used instead
-    #[allow(deprecated)]
-    #[deprecated(note = "Use `make_update_password` instead")]
     pub fn update_password(&self, new_password: String) -> Result<UpdatePasswordResponse> {
         self.make_update_password(new_password)
     }
