@@ -6,6 +6,7 @@ uniffi::setup_scaffolding!();
 mod uniffi_support;
 
 mod cipher;
+pub(crate) mod traits;
 pub use cipher::*;
 mod folder;
 pub use folder::*;
