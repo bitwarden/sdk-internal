@@ -1,8 +1,9 @@
+use indexed_db::Error;
 use js_sys::JsString;
 use serde::{de::DeserializeOwned, ser::Serialize};
 
 use crate::{
-    repository::{RepositoryItem, RepositoryItemData},
+    repository::{RepositoryItem, RepositoryMigrationStep, RepositoryMigrations},
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError},
 };
 
@@ -22,28 +23,32 @@ pub struct IndexedDbDatabase(
 impl Database for IndexedDbDatabase {
     async fn initialize(
         configuration: DatabaseConfiguration,
-        registrations: &[RepositoryItemData],
+        migrations: RepositoryMigrations,
     ) -> Result<Self, DatabaseError> {
-        let DatabaseConfiguration::IndexedDb { db_name: _db_name } = configuration else {
+        let DatabaseConfiguration::IndexedDb { ref db_name } = configuration else {
             return Err(DatabaseError::UnsupportedConfiguration(configuration));
         };
 
         let factory = indexed_db::Factory::get()?;
 
-        let registrations = registrations.to_vec();
-
-        // Sum all the versions of the registrations to determine the database version
-        // TODO: We should do a better versioning strategy, as this won't work if one repository is
-        // removed
-        let version: u32 = registrations.iter().map(|reg| reg.version).sum();
-
         // Open the database, creating it if needed
         let db = factory
-            .open("bitwarden-sdk-test-db", version, async move |evt| {
+            .open(db_name, migrations.version, async move |evt| {
                 let db = evt.database();
 
-                for reg in registrations {
-                    db.build_object_store(reg.name).create()?;
+                for step in &migrations.steps {
+                    match step {
+                        RepositoryMigrationStep::Add(data) => {
+                            db.build_object_store(data.name).create()?;
+                        }
+                        RepositoryMigrationStep::Remove(data) => {
+                            match db.delete_object_store(data.name) {
+                                // If the store doesn't exist, we can ignore the error
+                                Ok(_) | Err(Error::DoesNotExist) => {}
+                                Err(e) => return Err(e),
+                            }
+                        }
+                    }
                 }
 
                 Ok(())

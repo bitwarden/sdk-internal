@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bitwarden_core::{platform::FingerprintRequest, Client};
 use bitwarden_fido::ClientFido2Ext;
-use bitwarden_state::{repository::RepositoryItem, DatabaseConfiguration};
+use bitwarden_state::DatabaseConfiguration;
 use bitwarden_vault::Cipher;
 use repository::UniffiRepositoryBridge;
 
@@ -68,16 +68,14 @@ impl StateClient {
         self.0.platform().state().register_client_managed(cipher);
     }
 
+    /// Initialize the database for SDK managed repositories.
     pub async fn initialize_state(&self, configuration: SqliteConfiguration) -> Result<()> {
-        let sdk_managed_repositories = vec![
-            // This should list all the SDK-managed repositories
-            <Cipher as RepositoryItem>::data(),
-        ];
+        let migrations = bitwarden_state_migrations::get_sdk_managed_migrations();
 
         self.0
             .platform()
             .state()
-            .initialize_database(configuration.into(), sdk_managed_repositories)
+            .initialize_database(configuration.into(), migrations)
             .await
             .map_err(Error::StateRegistry)?;
         Ok(())
