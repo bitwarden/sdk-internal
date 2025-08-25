@@ -1,9 +1,10 @@
 use bitwarden_crypto::{CryptoError, MasterKey, RsaKeyPair};
+use bitwarden_encoding::B64;
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct KeyConnectorResponse {
-    pub master_key: String,
+    pub master_key: B64,
     pub encrypted_user_key: String,
     pub keys: RsaKeyPair,
 }
@@ -36,7 +37,7 @@ mod tests {
         let result = make_key_connector_keys(&mut rng).unwrap();
 
         assert_eq!(
-            result.master_key,
+            result.master_key.to_string(),
             "PgDvL4lfQNZ/W7joHwmloSyEDsPOmn87GBvhiO9xGh4="
         );
     }

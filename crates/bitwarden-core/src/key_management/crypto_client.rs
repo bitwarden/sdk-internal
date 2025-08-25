@@ -1,6 +1,7 @@
 use bitwarden_crypto::CryptoError;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
+use bitwarden_encoding::B64;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -53,7 +54,7 @@ impl CryptoClient {
 
     /// Generates a new key pair and encrypts the private key with the provided user key.
     /// Crypto initialization not required.
-    pub fn make_key_pair(&self, user_key: String) -> Result<MakeKeyPairResponse, CryptoError> {
+    pub fn make_key_pair(&self, user_key: B64) -> Result<MakeKeyPairResponse, CryptoError> {
         make_key_pair(user_key)
     }
 
@@ -85,7 +86,7 @@ impl CryptoClient {
 impl CryptoClient {
     /// Get the uses's decrypted encryption key. Note: It's very important
     /// to keep this key safe, as it can be used to decrypt all of the user's data
-    pub async fn get_user_encryption_key(&self) -> Result<String, CryptoClientError> {
+    pub async fn get_user_encryption_key(&self) -> Result<B64, CryptoClientError> {
         get_user_encryption_key(&self.client).await
     }
 
@@ -118,7 +119,7 @@ impl CryptoClient {
     /// the users [UserKey][bitwarden_crypto::UserKey] with the organization's public key.
     pub fn enroll_admin_password_reset(
         &self,
-        public_key: String,
+        public_key: B64,
     ) -> Result<UnsignedSharedKey, EnrollAdminPasswordResetError> {
         enroll_admin_password_reset(&self.client, public_key)
     }
@@ -127,7 +128,7 @@ impl CryptoClient {
     pub fn derive_key_connector(
         &self,
         request: DeriveKeyConnectorRequest,
-    ) -> Result<String, DeriveKeyConnectorError> {
+    ) -> Result<B64, DeriveKeyConnectorError> {
         derive_key_connector(request)
     }
 }

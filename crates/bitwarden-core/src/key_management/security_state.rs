@@ -22,12 +22,11 @@
 
 use std::str::FromStr;
 
-use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     CoseSerializable, CoseSign1Bytes, CryptoError, EncodingError, KeyIds, KeyStoreContext,
     SignedObject, SigningNamespace, VerifyingKey,
 };
-use bitwarden_encoding::FromStrVisitor;
+use bitwarden_encoding::{FromStrVisitor, B64};
 use serde::{Deserialize, Serialize};
 
 use crate::UserId;
@@ -115,7 +114,7 @@ impl TryFrom<&CoseSign1Bytes> for SignedSecurityState {
 impl From<SignedSecurityState> for String {
     fn from(val: SignedSecurityState) -> Self {
         let bytes: CoseSign1Bytes = val.into();
-        STANDARD.encode(&bytes)
+        B64::from(bytes.as_ref()).to_string()
     }
 }
 
@@ -123,10 +122,8 @@ impl FromStr for SignedSecurityState {
     type Err = EncodingError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let bytes = STANDARD
-            .decode(s)
-            .map_err(|_| EncodingError::InvalidBase64Encoding)?;
-        Self::try_from(&CoseSign1Bytes::from(bytes))
+        let bytes = B64::try_from(s).map_err(|_| EncodingError::InvalidBase64Encoding)?;
+        Self::try_from(&CoseSign1Bytes::from(&bytes))
     }
 }
 

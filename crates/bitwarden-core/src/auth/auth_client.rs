@@ -137,7 +137,7 @@ impl AuthClient {
     pub fn validate_password(
         &self,
         password: String,
-        password_hash: String,
+        password_hash: B64,
     ) -> Result<bool, AuthValidateError> {
         validate_password(&self.client, password, password_hash)
     }
@@ -147,7 +147,7 @@ impl AuthClient {
         &self,
         password: String,
         encrypted_user_key: String,
-    ) -> Result<String, AuthValidateError> {
+    ) -> Result<B64, AuthValidateError> {
         validate_password_user_key(&self.client, password, encrypted_user_key)
     }
 
@@ -168,7 +168,7 @@ impl AuthClient {
     #[allow(missing_docs)]
     pub fn approve_auth_request(
         &self,
-        public_key: String,
+        public_key: B64,
     ) -> Result<UnsignedSharedKey, ApproveAuthRequestError> {
         approve_auth_request(&self.client, public_key)
     }

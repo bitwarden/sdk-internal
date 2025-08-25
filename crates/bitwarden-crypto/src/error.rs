@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use bitwarden_encoding::NotB64Encoded;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use uuid::Uuid;
@@ -86,7 +87,7 @@ pub enum EncStringParseError {
     #[error("Invalid asymmetric type, got type {enc_type} with {parts} parts")]
     InvalidTypeAsymm { enc_type: String, parts: usize },
     #[error("Error decoding base64: {0}")]
-    InvalidBase64(#[from] base64::DecodeError),
+    InvalidBase64(#[from] NotB64Encoded),
     #[error("Invalid length: expected {expected}, got {got}")]
     InvalidLength { expected: usize, got: usize },
     #[error("Invalid encoding {0}")]

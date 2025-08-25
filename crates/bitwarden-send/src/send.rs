@@ -434,7 +434,7 @@ mod tests {
         #[allow(deprecated)]
         let send_key = ctx.dangerous_get_symmetric_key(send_key).unwrap();
         let send_key_b64 = send_key.to_base64();
-        assert_eq!(send_key_b64, "IR9ImHGm6rRuIjiN7csj94bcZR5WYTJj5GtNfx33zm6tJCHUl+QZlpNPba8g2yn70KnOHsAODLcR0um6E3MAlg==");
+        assert_eq!(send_key_b64.to_string(), "IR9ImHGm6rRuIjiN7csj94bcZR5WYTJj5GtNfx33zm6tJCHUl+QZlpNPba8g2yn70KnOHsAODLcR0um6E3MAlg==");
     }
 
     #[test]

@@ -41,7 +41,7 @@ impl AuthClient {
         password: String,
         kdf_params: Kdf,
         purpose: HashPurpose,
-    ) -> Result<String> {
+    ) -> Result<B64> {
         Ok(self
             .0
             .kdf()
@@ -92,7 +92,7 @@ impl AuthClient {
     /// To retrieve the user's password hash, use [`AuthClient::hash_password`] with
     /// `HashPurpose::LocalAuthentication` during login and persist it. If the login method has no
     /// password, use the email OTP.
-    pub fn validate_password(&self, password: String, password_hash: String) -> Result<bool> {
+    pub fn validate_password(&self, password: String, password_hash: B64) -> Result<bool> {
         Ok(self
             .0
             .auth()
@@ -110,7 +110,7 @@ impl AuthClient {
         &self,
         password: String,
         encrypted_user_key: String,
-    ) -> Result<String> {
+    ) -> Result<B64> {
         Ok(self
             .0
             .auth()
@@ -143,7 +143,7 @@ impl AuthClient {
     }
 
     /// Approve an auth request
-    pub fn approve_auth_request(&self, public_key: String) -> Result<UnsignedSharedKey> {
+    pub fn approve_auth_request(&self, public_key: B64) -> Result<UnsignedSharedKey> {
         Ok(self
             .0
             .auth()

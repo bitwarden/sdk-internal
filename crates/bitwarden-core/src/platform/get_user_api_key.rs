@@ -18,7 +18,7 @@ use bitwarden_api_api::{
     apis::accounts_api::accounts_api_key_post,
     models::{ApiKeyResponseModel, SecretVerificationRequestModel},
 };
-use bitwarden_crypto::{HashPurpose, MasterKey};
+use bitwarden_crypto::{CryptoError, HashPurpose, MasterKey};
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -81,7 +81,11 @@ fn build_secret_verification_request(
             .map(|p| {
                 let master_key = MasterKey::derive(p, email, kdf)?;
 
-                master_key.derive_master_key_hash(p.as_bytes(), HashPurpose::ServerAuthorization)
+                Ok::<String, CryptoError>(
+                    master_key
+                        .derive_master_key_hash(p.as_bytes(), HashPurpose::ServerAuthorization)
+                        .to_string(),
+                )
             })
             .transpose()?;
         Ok(SecretVerificationRequestModel {

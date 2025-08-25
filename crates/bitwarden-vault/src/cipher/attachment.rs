@@ -196,7 +196,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
             file_name: self.file_name.decrypt(ctx, key)?,
             key: self.key.clone(),
             #[cfg(feature = "wasm")]
-            decrypted_key,
+            decrypted_key: decrypted_key.map(|k| k.to_string()),
         })
     }
 }

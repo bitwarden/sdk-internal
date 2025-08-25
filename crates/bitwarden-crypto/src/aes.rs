@@ -105,7 +105,7 @@ fn generate_mac(mac_key: &[u8], iv: &[u8], data: &[u8]) -> Result<[u8; 32]> {
 
 #[cfg(test)]
 mod tests {
-    use base64::{engine::general_purpose::STANDARD, Engine};
+    use bitwarden_encoding::B64;
     use generic_array::{sequence::GenericSequence, ArrayLength};
     use rand::SeedableRng;
 
@@ -160,9 +160,9 @@ mod tests {
         let iv = generate_vec(16, 0, 1);
         let iv: &[u8; 16] = iv.as_slice().try_into().unwrap();
         let key = generate_generic_array(0, 1);
-        let data = STANDARD.decode("ByUF8vhyX4ddU9gcooznwA==").unwrap();
+        let data: B64 = ("ByUF8vhyX4ddU9gcooznwA==").parse().unwrap();
 
-        let decrypted = decrypt_aes256(iv, data, &key).unwrap();
+        let decrypted = decrypt_aes256(iv, data.into(), &key).unwrap();
 
         assert_eq!(String::from_utf8(decrypted).unwrap(), "EncryptMe!");
     }

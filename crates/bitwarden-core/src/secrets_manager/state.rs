@@ -6,6 +6,7 @@
 use std::{fmt::Debug, path::Path};
 
 use bitwarden_crypto::{EncString, KeyDecryptable, KeyEncryptable};
+use bitwarden_encoding::B64;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::AccessToken;
@@ -20,7 +21,7 @@ const STATE_VERSION: u32 = 1;
 pub(crate) struct ClientState {
     pub(crate) version: u32,
     pub(crate) token: String,
-    pub(crate) encryption_key: String,
+    pub(crate) encryption_key: B64,
 }
 
 #[allow(missing_docs)]
@@ -38,7 +39,7 @@ pub enum StateFileError {
 }
 
 impl ClientState {
-    pub fn new(token: String, encryption_key: String) -> Self {
+    pub fn new(token: String, encryption_key: B64) -> Self {
         Self {
             version: STATE_VERSION,
             token,
