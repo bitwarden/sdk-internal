@@ -1,4 +1,4 @@
-use bitwarden_crypto::CryptoError;
+use bitwarden_crypto::{CryptoError, Kdf};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 #[cfg(feature = "wasm")]
@@ -12,15 +12,15 @@ use super::crypto::{
 #[cfg(feature = "internal")]
 use crate::key_management::crypto::{
     derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
-    initialize_org_crypto, initialize_user_crypto, update_password, DerivePinKeyResponse,
+    initialize_org_crypto, initialize_user_crypto, make_update_password, DerivePinKeyResponse,
     InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
 };
 use crate::{
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
     key_management::crypto::{
-        get_v2_rotated_account_keys, make_v2_keys_for_v1_user, CryptoClientError,
-        UserCryptoV2KeysResponse,
+        get_v2_rotated_account_keys, make_update_kdf, make_v2_keys_for_v1_user, CryptoClientError,
+        UpdateKdfResponse, UserCryptoV2KeysResponse,
     },
     Client,
 };
@@ -80,6 +80,17 @@ impl CryptoClient {
     ) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
         get_v2_rotated_account_keys(&self.client)
     }
+
+    /// Create the data necessary to update the user's kdf settings. The user's encryption key is
+    /// re-encrypted for the password under the new kdf settings. This returns the re-encrypted
+    /// user key and the new password hash but does not update sdk state.
+    pub fn make_update_kdf(
+        &self,
+        password: String,
+        kdf: Kdf,
+    ) -> Result<UpdateKdfResponse, CryptoClientError> {
+        make_update_kdf(&self.client, &password, &kdf)
+    }
 }
 
 impl CryptoClient {
@@ -89,13 +100,14 @@ impl CryptoClient {
         get_user_encryption_key(&self.client).await
     }
 
-    /// Update the user's password, which will re-encrypt the user's encryption key with the new
-    /// password. This returns the new encrypted user key and the new password hash.
-    pub fn update_password(
+    /// Create the data necessary to update the user's password. The user's encryption key is
+    /// re-encrypted with the new password. This returns the new encrypted user key and the new
+    /// password hash but does not update sdk state.
+    pub fn make_update_password(
         &self,
         new_password: String,
     ) -> Result<UpdatePasswordResponse, CryptoClientError> {
-        update_password(&self.client, new_password)
+        make_update_password(&self.client, new_password)
     }
 
     /// Generates a PIN protected user key from the provided PIN. The result can be stored and later
