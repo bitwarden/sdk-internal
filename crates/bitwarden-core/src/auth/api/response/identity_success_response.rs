@@ -7,7 +7,7 @@ use serde_json::Value;
 use crate::auth::api::response::user_decryption_options_response::UserDecryptionOptionsResponseModel;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct IdentityTokenSuccessResponse {
+pub(crate) struct IdentityTokenSuccessResponse {
     pub access_token: String,
     pub expires_in: u64,
     pub refresh_token: Option<String>,

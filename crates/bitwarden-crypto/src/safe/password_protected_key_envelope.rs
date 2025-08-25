@@ -17,6 +17,7 @@ use std::{marker::PhantomData, num::TryFromIntError, str::FromStr};
 
 use argon2::Params;
 use base64::{engine::general_purpose::STANDARD, Engine};
+use bitwarden_encoding::FromStrVisitor;
 use ciborium::{value::Integer, Value};
 use coset::{CborSerializable, CoseError, Header, HeaderBuilder};
 use rand::RngCore;
@@ -28,8 +29,8 @@ use crate::{
         extract_bytes, extract_integer, CoseExtractError, ALG_ARGON2ID13, ARGON2_ITERATIONS,
         ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
     },
-    xchacha20, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey,
-    FromStrVisitor, KeyIds, KeyStoreContext, SymmetricCryptoKey,
+    xchacha20, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds,
+    KeyStoreContext, SymmetricCryptoKey,
 };
 
 /// 16 is the RECOMMENDED salt size for all applications:

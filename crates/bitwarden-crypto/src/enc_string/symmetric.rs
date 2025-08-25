@@ -1,13 +1,13 @@
 use std::{borrow::Cow, str::FromStr};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
+use bitwarden_encoding::FromStrVisitor;
 use coset::CborSerializable;
 use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
-    util::FromStrVisitor,
     Aes256CbcHmacKey, ContentFormat, KeyDecryptable, KeyEncryptable, KeyEncryptableWithContentType,
     SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
 };

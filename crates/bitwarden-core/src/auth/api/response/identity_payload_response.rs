@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[cfg_attr(test, derive(Default))]
-pub struct IdentityTokenPayloadResponse {
+pub(crate) struct IdentityTokenPayloadResponse {
     pub access_token: String,
     pub expires_in: u64,
     pub refresh_token: Option<String>,

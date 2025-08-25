@@ -26,6 +26,7 @@ bitwarden-cli = { path = "crates/bitwarden-cli", version = "=1.0.0" }
 bitwarden-collections = { path = "crates/bitwarden-collections", version = "=1.0.0" }
 bitwarden-core = { path = "crates/bitwarden-core", version = "=1.0.0" }
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=1.0.0" }
+bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=1.0.0" }
 bitwarden-error = { path = "crates/bitwarden-error", version = "=1.0.0" }
 bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=1.0.0" }
 bitwarden-exporters = { path = "crates/bitwarden-exporters", version = "=1.0.0" }
@@ -49,6 +50,7 @@ chrono = { version = ">=0.4.26, <0.5", features = [
     "serde",
     "std",
 ], default-features = false }
+data-encoding = ">=2.0, <3"
 js-sys = { version = ">=0.3.72, <0.4" }
 log = ">=0.4.18, <0.5"
 proc-macro2 = ">=1.0.89, <2"
