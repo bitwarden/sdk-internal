@@ -2,7 +2,7 @@ use bitwarden_api_api::models::UserDecryptionResponseModel;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    auth::api::response::user_decryption_options_response::UserDecryptionOptionsResponseModel,
+    auth::user_decryption_options_response::UserDecryptionOptionsResponseModel,
     key_management::master_password::{MasterPasswordError, MasterPasswordUnlockData},
 };
 
