@@ -3,7 +3,7 @@ use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    auth::api::response::identity_user_decryption_options_response::IdentityUserDecryptionOptionsResponseModel,
+    auth::api::response::user_decryption_options_response::UserDecryptionOptionsResponseModel,
     key_management::master_password::{MasterPasswordError, MasterPasswordUnlockData},
 };
 
@@ -40,10 +40,10 @@ impl TryFrom<UserDecryptionResponseModel> for UserDecryptionData {
     }
 }
 
-impl TryFrom<IdentityUserDecryptionOptionsResponseModel> for UserDecryptionData {
+impl TryFrom<UserDecryptionOptionsResponseModel> for UserDecryptionData {
     type Error = UserDecryptionError;
 
-    fn try_from(response: IdentityUserDecryptionOptionsResponseModel) -> Result<Self, Self::Error> {
+    fn try_from(response: UserDecryptionOptionsResponseModel) -> Result<Self, Self::Error> {
         let master_password_unlock = response
             .master_password_unlock
             .map(MasterPasswordUnlockData::try_from)
