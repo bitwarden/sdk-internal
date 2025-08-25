@@ -53,6 +53,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import uniffi.bitwarden_api_api.FolderRequestModel
 import java.security.cert.X509Certificate
 import java.util.Base64
 import javax.net.ssl.X509TrustManager
@@ -100,6 +101,11 @@ class MainActivity : FragmentActivity() {
         biometric = Biometric(this)
         client = Client(null)
         http = httpClient()
+
+        val req = client.serializeFolderRequest(FolderRequestModel("name"));
+        println("Folder request: $req")
+        val resp = client.deserializeFolderRequest(req);
+        println("Folder: ${resp.name}")
 
         setContent {
             MyApplicationTheme {
@@ -249,7 +255,7 @@ class MainActivity : FragmentActivity() {
 
         client.crypto().initializeUserCrypto(
             InitUserCryptoRequest(
-                userId = null,
+                userId = "3aa3726c-4643-43fb-9f55-a0196e928914",
                 kdfParams = kdf,
                 email = EMAIL,
                 privateKey = loginBody.PrivateKey,
@@ -336,7 +342,7 @@ class MainActivity : FragmentActivity() {
             GlobalScope.launch {
                 client.crypto().initializeUserCrypto(
                     InitUserCryptoRequest(
-                        userId = null,
+                        userId = "3aa3726c-4643-43fb-9f55-a0196e928914",
                         kdfParams = kdf,
                         email = EMAIL,
                         privateKey = privateKey!!,
@@ -376,7 +382,7 @@ class MainActivity : FragmentActivity() {
         GlobalScope.launch {
             client.crypto().initializeUserCrypto(
                 InitUserCryptoRequest(
-                    userId = null,
+                    userId = "3aa3726c-4643-43fb-9f55-a0196e928914",
                     kdfParams = kdf,
                     email = EMAIL,
                     privateKey = privateKey!!,
