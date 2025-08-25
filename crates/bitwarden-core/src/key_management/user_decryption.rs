@@ -1,10 +1,9 @@
 use bitwarden_api_api::models::UserDecryptionResponseModel;
 use serde::{Deserialize, Serialize};
 
-use crate::key_management::master_password::MasterPasswordError;
 use crate::{
     auth::api::response::user_decryption_options_response::UserDecryptionOptionsResponseModel,
-    key_management::master_password::MasterPasswordUnlockData,
+    key_management::master_password::{MasterPasswordError, MasterPasswordUnlockData},
 };
 
 /// Represents data required to decrypt user's vault.

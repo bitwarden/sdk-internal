@@ -6,8 +6,6 @@ use bitwarden_api_api::models::{
 use bitwarden_crypto::{EncString, Kdf};
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{require, MissingFieldError};
 
@@ -29,12 +27,6 @@ pub(crate) enum MasterPasswordError {
 /// Represents the data required to unlock with the master password.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
 pub(crate) struct MasterPasswordUnlockData {
     /// The key derivation function used to derive the master key
     kdf: Kdf,
