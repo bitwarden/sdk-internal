@@ -9,7 +9,8 @@ use crate::{NotAuthenticatedError, VaultLockedError, WrongPasswordError};
 mod access_token;
 // API is intentionally not visible outside of `auth` as these should be considered private.
 mod api;
-pub(crate) use api::response::*;
+#[allow(unused_imports)]
+pub(crate) use api::response::user_decryption_options_response;
 #[allow(missing_docs)]
 pub mod auth_client;
 mod jwt_token;
