@@ -9,7 +9,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use thiserror::Error;
 
 use crate::{
-    repository::{Repository, RepositoryItem, RepositoryItemData},
+    repository::{Repository, RepositoryItem, RepositoryItemData, RepositoryMigrations},
     sdk_managed::{Database, DatabaseConfiguration, SystemDatabase},
 };
 
@@ -71,19 +71,19 @@ impl StateRegistry {
     pub async fn initialize_database(
         &self,
         configuration: DatabaseConfiguration,
-        repositories: Vec<RepositoryItemData>,
+        migrations: RepositoryMigrations,
     ) -> Result<(), StateRegistryError> {
         if self.database.get().is_some() {
             return Err(StateRegistryError::DatabaseAlreadyInitialized);
         }
         let _ = self
             .database
-            .set(SystemDatabase::initialize(configuration, &repositories).await?);
+            .set(SystemDatabase::initialize(configuration, migrations.clone()).await?);
 
         *self
             .sdk_managed
             .write()
-            .expect("RwLock should not be poisoned") = repositories.clone();
+            .expect("RwLock should not be poisoned") = migrations.into_repository_items();
 
         Ok(())
     }

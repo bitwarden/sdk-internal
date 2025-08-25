@@ -677,6 +677,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-state-migrations"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "bitwarden-error",
+ "bitwarden-state",
+ "bitwarden-threading",
+ "bitwarden-vault",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "bitwarden-test"
 version = "1.0.0"
 dependencies = [
@@ -724,6 +736,7 @@ dependencies = [
  "bitwarden-send",
  "bitwarden-ssh",
  "bitwarden-state",
+ "bitwarden-state-migrations",
  "bitwarden-vault",
  "chrono",
  "env_logger",
@@ -805,6 +818,7 @@ dependencies = [
  "bitwarden-ipc",
  "bitwarden-ssh",
  "bitwarden-state",
+ "bitwarden-state-migrations",
  "bitwarden-threading",
  "bitwarden-vault",
  "console_error_panic_hook",

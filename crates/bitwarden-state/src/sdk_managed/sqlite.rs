@@ -4,7 +4,7 @@ use serde::{de::DeserializeOwned, ser::Serialize};
 use tokio::sync::Mutex;
 
 use crate::{
-    repository::{RepositoryItem, RepositoryItemData},
+    repository::{RepositoryItem, RepositoryMigrationStep, RepositoryMigrations},
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError},
 };
 
@@ -14,7 +14,7 @@ pub struct SqliteDatabase(Arc<Mutex<rusqlite::Connection>>);
 impl Database for SqliteDatabase {
     async fn initialize(
         configuration: DatabaseConfiguration,
-        registrations: &[RepositoryItemData],
+        migrations: RepositoryMigrations,
     ) -> Result<Self, DatabaseError> {
         let DatabaseConfiguration::Sqlite {
             db_name,
@@ -32,11 +32,18 @@ impl Database for SqliteDatabase {
 
         let transaction = db.transaction()?;
 
-        for reg in registrations {
-            transaction.execute(
-                "CREATE TABLE IF NOT EXISTS ?1 (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
-                [reg.name],
-            )?;
+        for step in &migrations.steps {
+            match step {
+                RepositoryMigrationStep::Add(data) => {
+                    transaction.execute(
+                        "CREATE TABLE IF NOT EXISTS ?1 (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+                        [data.name],
+                    )?;
+                }
+                RepositoryMigrationStep::Remove(data) => {
+                    transaction.execute("DROP TABLE IF EXISTS ?1;", [data.name])?;
+                }
+            }
         }
 
         transaction.commit()?;
