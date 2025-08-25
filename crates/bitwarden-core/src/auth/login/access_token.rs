@@ -5,7 +5,6 @@ use bitwarden_crypto::{BitwardenLegacyKeyBytes, EncString, KeyDecryptable, Symme
 use chrono::Utc;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use super::LoginError;
 use crate::{
@@ -17,7 +16,7 @@ use crate::{
     client::{LoginMethod, ServiceAccountLoginMethod},
     require,
     secrets_manager::state::{self, ClientState},
-    Client,
+    Client, OrganizationId,
 };
 
 pub(crate) async fn login_access_token(
@@ -120,7 +119,7 @@ fn load_tokens_from_state(
     client: &Client,
     state_file: &Path,
     access_token: &AccessToken,
-) -> Result<Uuid, LoginError> {
+) -> Result<OrganizationId, LoginError> {
     let client_state = state::get(state_file, access_token)?;
 
     let token: JwtToken = client_state.token.parse()?;
@@ -129,7 +128,7 @@ fn load_tokens_from_state(
         let time_till_expiration = (token.exp as i64) - Utc::now().timestamp();
 
         if time_till_expiration > 0 {
-            let organization_id: Uuid = organization_id
+            let organization_id: OrganizationId = organization_id
                 .parse()
                 .map_err(|_| LoginError::InvalidOrganizationId)?;
             let encryption_key = SymmetricCryptoKey::try_from(client_state.encryption_key)?;
