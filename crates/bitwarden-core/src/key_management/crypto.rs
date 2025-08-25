@@ -653,7 +653,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
         signed_public_key,
 
         signing_key: signing_key.to_cose().encrypt_with_key(&user_key)?,
-        verifying_key: signing_key.to_verifying_key().to_cose().as_ref().into(),
+        verifying_key: signing_key.to_verifying_key().to_cose().into(),
 
         security_state: signed_security_state,
         security_version: security_state.version(),
@@ -703,7 +703,7 @@ pub(crate) fn get_v2_rotated_account_keys(
         signed_public_key: rotated_keys.signed_public_key,
 
         signing_key: rotated_keys.signing_key,
-        verifying_key: rotated_keys.verifying_key.as_ref().into(),
+        verifying_key: rotated_keys.verifying_key.into(),
 
         security_state: security_state.sign(SigningKeyId::UserSigningKey, &mut ctx)?,
         security_version: security_state.version(),

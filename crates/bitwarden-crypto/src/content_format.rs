@@ -174,6 +174,7 @@ impl ConstContentFormat for CoseKeyContentFormat {
     }
 }
 impl CoseContentFormat for CoseKeyContentFormat {}
+impl FromB64ContentFormat for CoseKeyContentFormat {}
 /// CoseKeyBytes is a type alias for Bytes with `CoseKeyContentFormat`. This is used for serialized
 /// CoseKey objects.
 pub type CoseKeyBytes = Bytes<CoseKeyContentFormat>;

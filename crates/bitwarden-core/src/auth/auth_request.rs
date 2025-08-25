@@ -40,7 +40,7 @@ pub(crate) fn new_auth_request(email: &str) -> Result<AuthRequestResponse, Crypt
 
     Ok(AuthRequestResponse {
         private_key: key.to_der()?.as_ref().into(),
-        public_key: spki.as_ref().into(),
+        public_key: spki.into(),
         fingerprint,
         access_code: generate_random_alphanumeric(25),
     })
