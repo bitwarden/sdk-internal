@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct IdentityTokenSuccessResponse {
+pub(crate) struct IdentityTokenSuccessResponse {
     pub access_token: String,
     pub expires_in: u64,
     pub refresh_token: Option<String>,

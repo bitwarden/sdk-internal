@@ -1,6 +1,7 @@
 extern crate console_error_panic_hook;
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 
+use bitwarden_auth::{AuthClient, AuthClientExt};
 use bitwarden_core::{key_management::CryptoClient, Client, ClientSettings};
 use bitwarden_error::bitwarden_error;
 use bitwarden_exporters::ExporterClientExt;
@@ -8,7 +9,10 @@ use bitwarden_generators::GeneratorClientsExt;
 use bitwarden_vault::{VaultClient, VaultClientExt};
 use wasm_bindgen::prelude::*;
 
-use crate::platform::PlatformClient;
+use crate::platform::{
+    token_provider::{JsTokenProvider, WasmClientManagedTokens},
+    PlatformClient,
+};
 
 #[allow(missing_docs)]
 #[wasm_bindgen]
@@ -18,8 +22,9 @@ pub struct BitwardenClient(pub(crate) Client);
 impl BitwardenClient {
     #[allow(missing_docs)]
     #[wasm_bindgen(constructor)]
-    pub fn new(settings: Option<ClientSettings>) -> Self {
-        Self(Client::new(settings))
+    pub fn new(token_provider: JsTokenProvider, settings: Option<ClientSettings>) -> Self {
+        let tokens = Arc::new(WasmClientManagedTokens::new(token_provider));
+        Self(Client::new_with_client_tokens(settings, tokens))
     }
 
     /// Test method, echoes back the input
@@ -43,6 +48,11 @@ impl BitwardenClient {
         let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
 
         res.text().await.map_err(|e| e.to_string())
+    }
+
+    /// Auth related operations.
+    pub fn auth(&self) -> AuthClient {
+        self.0.auth_new()
     }
 
     #[allow(missing_docs)]

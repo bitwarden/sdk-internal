@@ -7,7 +7,7 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ApiTokenRequest {
+pub(crate) struct ApiTokenRequest {
     scope: String,
     client_id: String,
     client_secret: String,
@@ -21,7 +21,7 @@ pub struct ApiTokenRequest {
 }
 
 impl ApiTokenRequest {
-    pub fn new(client_id: &String, client_secret: &String) -> Self {
+    pub(crate) fn new(client_id: &String, client_secret: &String) -> Self {
         let obj = Self {
             scope: "api".to_string(),
             client_id: client_id.to_string(),
@@ -31,7 +31,7 @@ impl ApiTokenRequest {
             device_name: "firefox".to_string(),
             grant_type: "client_credentials".to_string(),
         };
-        debug!("initializing {:?}", obj);
+        debug!("initializing {obj:?}");
         obj
     }
 
@@ -39,6 +39,6 @@ impl ApiTokenRequest {
         &self,
         configurations: &ApiConfigurations,
     ) -> Result<IdentityTokenResponse, LoginError> {
-        super::send_identity_connect_request(configurations, None, &self).await
+        super::send_identity_connect_request(configurations, &self).await
     }
 }

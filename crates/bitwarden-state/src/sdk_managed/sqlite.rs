@@ -23,7 +23,7 @@ impl Database for SqliteDatabase {
         else {
             return Err(DatabaseError::UnsupportedConfiguration(configuration));
         };
-        path.set_file_name(format!("{}.sqlite", db_name));
+        path.set_file_name(format!("{db_name}.sqlite"));
 
         let mut db = rusqlite::Connection::open(path)?;
 

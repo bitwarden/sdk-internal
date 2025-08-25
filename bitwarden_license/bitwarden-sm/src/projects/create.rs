@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::ProjectCreateRequestModel;
-use bitwarden_core::{key_management::SymmetricKeyId, Client};
-use bitwarden_crypto::Encryptable;
+use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId};
+use bitwarden_crypto::PrimitiveEncryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -28,7 +28,7 @@ pub(crate) async fn create_project(
     input.validate()?;
 
     let key_store = client.internal.get_key_store();
-    let key = SymmetricKeyId::Organization(input.organization_id);
+    let key = SymmetricKeyId::Organization(OrganizationId::new(input.organization_id));
 
     let project = Some(ProjectCreateRequestModel {
         name: input

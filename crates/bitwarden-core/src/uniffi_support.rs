@@ -1,8 +1,11 @@
 //! This module contains custom type converters for Uniffi.
 
-use std::num::NonZeroU32;
+use std::{num::NonZeroU32, str::FromStr};
 
+use bitwarden_crypto::CryptoError;
 use uuid::Uuid;
+
+use crate::key_management::{PasswordProtectedKeyEnvelope, SignedSecurityState};
 
 uniffi::use_remote_type!(bitwarden_crypto::NonZeroU32);
 
@@ -23,3 +26,20 @@ struct UniffiConverterDummyRecord {
     uuid: Uuid,
     date: DateTime,
 }
+
+uniffi::custom_type!(SignedSecurityState, String, {
+    try_lift: |val| {
+        val.parse().map_err(|e| {
+            CryptoError::EncodingError(e).into()
+        })
+    },
+    lower: |obj| obj.into(),
+});
+
+uniffi::custom_type!(PasswordProtectedKeyEnvelope, String, {
+    remote,
+    try_lift: |val| bitwarden_crypto::safe::PasswordProtectedKeyEnvelope::from_str(val.as_str())
+        .map_err(|e| e.into())
+        .map(PasswordProtectedKeyEnvelope),
+    lower: |obj| obj.0.into(),
+});

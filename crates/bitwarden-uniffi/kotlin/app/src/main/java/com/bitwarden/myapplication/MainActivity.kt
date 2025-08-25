@@ -234,7 +234,6 @@ class MainActivity : FragmentActivity() {
 
         val loginBody = http.post(IDENTITY_URL + "connect/token") {
             contentType(ContentType.Application.Json)
-            header("Auth-Email", Base64.getEncoder().encodeToString(EMAIL.toByteArray()))
             setBody(FormDataContent(Parameters.build {
                 append("scope", "api offline_access")
                 append("client_id", "web")
@@ -255,6 +254,7 @@ class MainActivity : FragmentActivity() {
                 email = EMAIL,
                 privateKey = loginBody.PrivateKey,
                 signingKey = null,
+                securityState = null,
                 method = InitUserCryptoMethod.Password(
                     password = PASSWORD, userKey = loginBody.Key
                 )
@@ -341,6 +341,7 @@ class MainActivity : FragmentActivity() {
                         email = EMAIL,
                         privateKey = privateKey!!,
                         signingKey = null,
+                        securityState = null,
                         method = InitUserCryptoMethod.DecryptedKey(decryptedUserKey = key)
                     )
                 )
@@ -380,6 +381,7 @@ class MainActivity : FragmentActivity() {
                     email = EMAIL,
                     privateKey = privateKey!!,
                     signingKey = null,
+                    securityState = null,
                     method = InitUserCryptoMethod.Pin(
                         pinProtectedUserKey = pinProtectedUserKey, pin = PIN
                     )

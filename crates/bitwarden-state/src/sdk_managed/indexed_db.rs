@@ -9,8 +9,8 @@ use crate::{
 #[derive(Debug, thiserror::Error)]
 #[error("IndexedDB internal error: {0}")]
 pub struct IndexedDbInternalError(String);
-impl From<tsify_next::serde_wasm_bindgen::Error> for IndexedDbInternalError {
-    fn from(err: tsify_next::serde_wasm_bindgen::Error) -> Self {
+impl From<tsify::serde_wasm_bindgen::Error> for IndexedDbInternalError {
+    fn from(err: tsify::serde_wasm_bindgen::Error) -> Self {
         IndexedDbInternalError(err.to_string())
     }
 }
@@ -71,7 +71,7 @@ impl Database for IndexedDbDatabase {
                         let response = store.get(&JsString::from(key)).await?;
 
                         if let Some(value) = response {
-                            Ok(::tsify_next::serde_wasm_bindgen::from_value(value)
+                            Ok(::tsify::serde_wasm_bindgen::from_value(value)
                                 .map_err(IndexedDbInternalError::from)?)
                         } else {
                             Ok(None)
@@ -101,7 +101,7 @@ impl Database for IndexedDbDatabase {
                         let mut items: Vec<T> = Vec::new();
 
                         for value in results {
-                            let item: T = ::tsify_next::serde_wasm_bindgen::from_value(value)
+                            let item: T = ::tsify::serde_wasm_bindgen::from_value(value)
                                 .map_err(IndexedDbInternalError::from)?;
                             items.push(item);
                         }
@@ -131,7 +131,7 @@ impl Database for IndexedDbDatabase {
                     .run(|t| async move {
                         let store = t.object_store(&namespace)?;
 
-                        let value = ::tsify_next::serde_wasm_bindgen::to_value(&value)
+                        let value = ::tsify::serde_wasm_bindgen::to_value(&value)
                             .map_err(IndexedDbInternalError::from)?;
 
                         store.put_kv(&JsString::from(key), &value).await?;

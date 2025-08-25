@@ -36,6 +36,8 @@ pub struct ProfileProviderResponseModel {
     pub use_events: Option<bool>,
     #[serde(rename = "providerStatus", skip_serializing_if = "Option::is_none")]
     pub provider_status: Option<models::ProviderStatusType>,
+    #[serde(rename = "providerType", skip_serializing_if = "Option::is_none")]
+    pub provider_type: Option<models::ProviderType>,
 }
 
 impl ProfileProviderResponseModel {
@@ -52,6 +54,7 @@ impl ProfileProviderResponseModel {
             user_id: None,
             use_events: None,
             provider_status: None,
+            provider_type: None,
         }
     }
 }

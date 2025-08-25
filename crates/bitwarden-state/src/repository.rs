@@ -1,5 +1,7 @@
 use std::any::TypeId;
 
+use crate::registry::RepositoryNotFoundError;
+
 /// An error resulting from operations on a repository.
 #[derive(thiserror::Error, Debug)]
 pub enum RepositoryError {
@@ -14,6 +16,10 @@ pub enum RepositoryError {
     /// An internal database error.
     #[error(transparent)]
     Database(#[from] crate::sdk_managed::DatabaseError),
+
+    /// Repository not found.
+    #[error(transparent)]
+    RepositoryNotFound(#[from] RepositoryNotFoundError),
 }
 
 /// This trait represents a generic repository interface, capable of storing and retrieving

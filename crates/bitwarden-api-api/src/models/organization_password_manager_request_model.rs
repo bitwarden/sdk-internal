@@ -16,6 +16,8 @@ use crate::models;
 pub struct OrganizationPasswordManagerRequestModel {
     #[serde(rename = "plan", skip_serializing_if = "Option::is_none")]
     pub plan: Option<models::PlanType>,
+    #[serde(rename = "sponsoredPlan", skip_serializing_if = "Option::is_none")]
+    pub sponsored_plan: Option<models::PlanSponsorshipType>,
     #[serde(rename = "seats", skip_serializing_if = "Option::is_none")]
     pub seats: Option<i32>,
     #[serde(rename = "additionalStorage", skip_serializing_if = "Option::is_none")]
@@ -26,6 +28,7 @@ impl OrganizationPasswordManagerRequestModel {
     pub fn new() -> OrganizationPasswordManagerRequestModel {
         OrganizationPasswordManagerRequestModel {
             plan: None,
+            sponsored_plan: None,
             seats: None,
             additional_storage: None,
         }

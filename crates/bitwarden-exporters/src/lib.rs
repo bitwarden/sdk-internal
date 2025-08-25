@@ -3,7 +3,7 @@
 use std::fmt;
 
 use bitwarden_vault::{
-    CipherRepromptType, CipherView, Fido2CredentialFullView, LoginUriView, UriMatchType,
+    CipherRepromptType, CipherView, Fido2CredentialFullView, FolderId, LoginUriView, UriMatchType,
 };
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
@@ -29,7 +29,7 @@ pub use error::ExportError;
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(
     feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify_next::Tsify),
+    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
 pub enum ExportFormat {
@@ -123,7 +123,7 @@ impl From<ImportingCipher> for CipherView {
         Self {
             id: None,
             organization_id: None,
-            folder_id: value.folder_id,
+            folder_id: value.folder_id.map(FolderId::new),
             collection_ids: vec![],
             key: None,
             name: value.name,
@@ -170,7 +170,7 @@ impl From<LoginUri> for bitwarden_vault::LoginUriView {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Field {
     pub name: Option<String>,
     pub value: Option<String>,
@@ -212,7 +212,7 @@ pub struct Login {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LoginUri {
     pub uri: Option<String>,
     pub r#match: Option<u8>,
@@ -280,7 +280,7 @@ pub enum SecureNoteType {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub struct Identity {
     pub title: Option<String>,
     pub first_name: Option<String>,

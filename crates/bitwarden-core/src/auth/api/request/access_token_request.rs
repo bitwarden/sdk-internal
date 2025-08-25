@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct AccessTokenRequest {
+pub(crate) struct AccessTokenRequest {
     scope: String,
     client_id: String,
     client_secret: String,
@@ -16,14 +16,14 @@ pub struct AccessTokenRequest {
 }
 
 impl AccessTokenRequest {
-    pub fn new(access_token_id: Uuid, client_secret: &String) -> Self {
+    pub(crate) fn new(access_token_id: Uuid, client_secret: &String) -> Self {
         let obj = Self {
             scope: "api.secrets".to_string(),
             client_id: access_token_id.to_string(),
             client_secret: client_secret.to_string(),
             grant_type: "client_credentials".to_string(),
         };
-        debug!("initializing {:?}", obj);
+        debug!("initializing {obj:?}");
         obj
     }
 
@@ -31,6 +31,6 @@ impl AccessTokenRequest {
         &self,
         configurations: &ApiConfigurations,
     ) -> Result<IdentityTokenResponse, LoginError> {
-        super::send_identity_connect_request(configurations, None, &self).await
+        super::send_identity_connect_request(configurations, &self).await
     }
 }

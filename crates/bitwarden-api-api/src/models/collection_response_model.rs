@@ -24,6 +24,13 @@ pub struct CollectionResponseModel {
     pub name: Option<String>,
     #[serde(rename = "externalId", skip_serializing_if = "Option::is_none")]
     pub external_id: Option<String>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub r#type: Option<models::CollectionType>,
+    #[serde(
+        rename = "defaultUserCollectionEmail",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_user_collection_email: Option<String>,
 }
 
 impl CollectionResponseModel {
@@ -34,6 +41,8 @@ impl CollectionResponseModel {
             organization_id: None,
             name: None,
             external_id: None,
+            r#type: None,
+            default_user_collection_email: None,
         }
     }
 }

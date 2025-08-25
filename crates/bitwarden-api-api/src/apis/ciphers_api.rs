@@ -133,6 +133,13 @@ pub enum CiphersIdAttachmentAttachmentIdAdminDeleteError {
     UnknownValue(serde_json::Value),
 }
 
+/// struct for typed errors of method [`ciphers_id_attachment_attachment_id_admin_get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CiphersIdAttachmentAttachmentIdAdminGetError {
+    UnknownValue(serde_json::Value),
+}
+
 /// struct for typed errors of method [`ciphers_id_attachment_attachment_id_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -864,7 +871,7 @@ pub async fn ciphers_get(
 
 pub async fn ciphers_id_admin_delete(
     configuration: &configuration::Configuration,
-    id: &str,
+    id: uuid::Uuid,
 ) -> Result<(), Error<CiphersIdAdminDeleteError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
@@ -872,7 +879,7 @@ pub async fn ciphers_id_admin_delete(
     let uri_str = format!(
         "{}/ciphers/{id}/admin",
         configuration.base_path,
-        id = crate::apis::urlencode(p_id)
+        id = crate::apis::urlencode(p_id.to_string())
     );
     let mut req_builder = configuration
         .client
@@ -1115,9 +1122,12 @@ pub async fn ciphers_id_attachment_admin_post(
 
 pub async fn ciphers_id_attachment_attachment_id_admin_delete(
     configuration: &configuration::Configuration,
-    id: &str,
+    id: uuid::Uuid,
     attachment_id: &str,
-) -> Result<(), Error<CiphersIdAttachmentAttachmentIdAdminDeleteError>> {
+) -> Result<
+    models::DeleteAttachmentResponseData,
+    Error<CiphersIdAttachmentAttachmentIdAdminDeleteError>,
+> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
     let p_attachment_id = attachment_id;
@@ -1125,7 +1135,7 @@ pub async fn ciphers_id_attachment_attachment_id_admin_delete(
     let uri_str = format!(
         "{}/ciphers/{id}/attachment/{attachmentId}/admin",
         configuration.base_path,
-        id = crate::apis::urlencode(p_id),
+        id = crate::apis::urlencode(p_id.to_string()),
         attachmentId = crate::apis::urlencode(p_attachment_id)
     );
     let mut req_builder = configuration
@@ -1143,12 +1153,77 @@ pub async fn ciphers_id_attachment_attachment_id_admin_delete(
     let resp = configuration.client.execute(req).await?;
 
     let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
     if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeleteAttachmentResponseData`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeleteAttachmentResponseData`")))),
+        }
     } else {
         let content = resp.text().await?;
         let entity: Option<CiphersIdAttachmentAttachmentIdAdminDeleteError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn ciphers_id_attachment_attachment_id_admin_get(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    attachment_id: &str,
+) -> Result<models::AttachmentResponseModel, Error<CiphersIdAttachmentAttachmentIdAdminGetError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_attachment_id = attachment_id;
+
+    let uri_str = format!(
+        "{}/ciphers/{id}/attachment/{attachmentId}/admin",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string()),
+        attachmentId = crate::apis::urlencode(p_attachment_id)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::AttachmentResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::AttachmentResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<CiphersIdAttachmentAttachmentIdAdminGetError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -1217,9 +1292,12 @@ pub async fn ciphers_id_attachment_attachment_id_delete(
 
 pub async fn ciphers_id_attachment_attachment_id_delete_admin_post(
     configuration: &configuration::Configuration,
-    id: &str,
+    id: uuid::Uuid,
     attachment_id: &str,
-) -> Result<(), Error<CiphersIdAttachmentAttachmentIdDeleteAdminPostError>> {
+) -> Result<
+    models::DeleteAttachmentResponseData,
+    Error<CiphersIdAttachmentAttachmentIdDeleteAdminPostError>,
+> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
     let p_attachment_id = attachment_id;
@@ -1227,7 +1305,7 @@ pub async fn ciphers_id_attachment_attachment_id_delete_admin_post(
     let uri_str = format!(
         "{}/ciphers/{id}/attachment/{attachmentId}/delete-admin",
         configuration.base_path,
-        id = crate::apis::urlencode(p_id),
+        id = crate::apis::urlencode(p_id.to_string()),
         attachmentId = crate::apis::urlencode(p_attachment_id)
     );
     let mut req_builder = configuration
@@ -1245,9 +1323,20 @@ pub async fn ciphers_id_attachment_attachment_id_delete_admin_post(
     let resp = configuration.client.execute(req).await?;
 
     let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
     if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeleteAttachmentResponseData`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeleteAttachmentResponseData`")))),
+        }
     } else {
         let content = resp.text().await?;
         let entity: Option<CiphersIdAttachmentAttachmentIdDeleteAdminPostError> =
@@ -2000,7 +2089,7 @@ pub async fn ciphers_id_delete(
 
 pub async fn ciphers_id_delete_admin_post(
     configuration: &configuration::Configuration,
-    id: &str,
+    id: uuid::Uuid,
 ) -> Result<(), Error<CiphersIdDeleteAdminPostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
@@ -2008,7 +2097,7 @@ pub async fn ciphers_id_delete_admin_post(
     let uri_str = format!(
         "{}/ciphers/{id}/delete-admin",
         configuration.base_path,
-        id = crate::apis::urlencode(p_id)
+        id = crate::apis::urlencode(p_id.to_string())
     );
     let mut req_builder = configuration
         .client
@@ -2041,7 +2130,7 @@ pub async fn ciphers_id_delete_admin_post(
 
 pub async fn ciphers_id_delete_admin_put(
     configuration: &configuration::Configuration,
-    id: &str,
+    id: uuid::Uuid,
 ) -> Result<(), Error<CiphersIdDeleteAdminPutError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
@@ -2049,7 +2138,7 @@ pub async fn ciphers_id_delete_admin_put(
     let uri_str = format!(
         "{}/ciphers/{id}/delete-admin",
         configuration.base_path,
-        id = crate::apis::urlencode(p_id)
+        id = crate::apis::urlencode(p_id.to_string())
     );
     let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
@@ -2526,7 +2615,7 @@ pub async fn ciphers_id_put(
 
 pub async fn ciphers_id_restore_admin_put(
     configuration: &configuration::Configuration,
-    id: &str,
+    id: uuid::Uuid,
 ) -> Result<models::CipherMiniResponseModel, Error<CiphersIdRestoreAdminPutError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
@@ -2534,7 +2623,7 @@ pub async fn ciphers_id_restore_admin_put(
     let uri_str = format!(
         "{}/ciphers/{id}/restore-admin",
         configuration.base_path,
-        id = crate::apis::urlencode(p_id)
+        id = crate::apis::urlencode(p_id.to_string())
     );
     let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
@@ -3104,7 +3193,7 @@ pub async fn ciphers_restore_put(
 pub async fn ciphers_share_post(
     configuration: &configuration::Configuration,
     cipher_bulk_share_request_model: Option<models::CipherBulkShareRequestModel>,
-) -> Result<(), Error<CiphersSharePostError>> {
+) -> Result<models::CipherMiniResponseModelListResponseModel, Error<CiphersSharePostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_cipher_bulk_share_request_model = cipher_bulk_share_request_model;
 
@@ -3125,9 +3214,20 @@ pub async fn ciphers_share_post(
     let resp = configuration.client.execute(req).await?;
 
     let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
     if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CipherMiniResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CipherMiniResponseModelListResponseModel`")))),
+        }
     } else {
         let content = resp.text().await?;
         let entity: Option<CiphersSharePostError> = serde_json::from_str(&content).ok();
@@ -3142,7 +3242,7 @@ pub async fn ciphers_share_post(
 pub async fn ciphers_share_put(
     configuration: &configuration::Configuration,
     cipher_bulk_share_request_model: Option<models::CipherBulkShareRequestModel>,
-) -> Result<(), Error<CiphersSharePutError>> {
+) -> Result<models::CipherMiniResponseModelListResponseModel, Error<CiphersSharePutError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_cipher_bulk_share_request_model = cipher_bulk_share_request_model;
 
@@ -3161,9 +3261,20 @@ pub async fn ciphers_share_put(
     let resp = configuration.client.execute(req).await?;
 
     let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
     if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CipherMiniResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CipherMiniResponseModelListResponseModel`")))),
+        }
     } else {
         let content = resp.text().await?;
         let entity: Option<CiphersSharePutError> = serde_json::from_str(&content).ok();

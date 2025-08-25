@@ -24,9 +24,9 @@
 
 use std::sync::{Arc, RwLock};
 
-use rayon::prelude::*;
+use rayon::{iter::Either, prelude::*};
 
-use crate::{Decryptable, Encryptable, IdentifyKey, KeyId, KeyIds};
+use crate::{CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds};
 
 mod backend;
 mod context;
@@ -34,6 +34,9 @@ mod context;
 use backend::{create_store, StoreBackend};
 use context::GlobalKeys;
 pub use context::KeyStoreContext;
+
+mod key_rotation;
+pub use key_rotation::*;
 
 /// An in-memory key store that provides a safe and secure way to store keys and use them for
 /// encryption/decryption operations. The store API is designed to work only on key identifiers
@@ -78,8 +81,8 @@ pub use context::KeyStoreContext;
 ///        SymmKeyId::User
 ///    }
 /// }
-/// impl Encryptable<Ids, SymmKeyId, EncString> for Data {
-///     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
+/// impl CompositeEncryptable<Ids, SymmKeyId, EncString> for Data {
+///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
 ///         self.0.encrypt(ctx, key)
 ///     }
 /// }
@@ -136,7 +139,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     /// context-local store will be cleared when the context is dropped.
     ///
     /// If you are only looking to encrypt or decrypt items, you should implement
-    /// [Encryptable]/[Decryptable] and use the [KeyStore::encrypt], [KeyStore::decrypt],
+    /// [CompositeEncryptable]/[Decryptable] and use the [KeyStore::encrypt], [KeyStore::decrypt],
     /// [KeyStore::encrypt_list] and [KeyStore::decrypt_list] methods instead.
     ///
     /// The current implementation of context only clears the keys automatically when the context is
@@ -150,11 +153,11 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     /// future to also not be [Send].
     ///
     /// Some other possible use cases for this API and alternative recommendations are:
-    /// - Decrypting or encrypting multiple [Decryptable] or [Encryptable] items while sharing any
-    ///   local keys. This is not recommended as it can lead to fragile and flaky
+    /// - Decrypting or encrypting multiple [Decryptable] or [CompositeEncryptable] items while
+    ///   sharing any local keys. This is not recommended as it can lead to fragile and flaky
     ///   decryption/encryption operations. We recommend any local keys to be used only in the
-    ///   context of a single [Encryptable] or [Decryptable] implementation. In the future we might
-    ///   enforce this.
+    ///   context of a single [CompositeEncryptable] or [Decryptable] implementation. In the future
+    ///   we might enforce this.
     /// - Obtaining the key material directly. We strongly recommend against doing this as it can
     ///   lead to key material being leaked, but we need to support it for backwards compatibility.
     ///   If you want to access the key material to encrypt it or derive a new key from it, we
@@ -218,12 +221,16 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     /// already be present in the store, otherwise this will return an error.
     /// This method is not parallelized, and is meant for single item encryption.
     /// If you need to encrypt multiple items, use `encrypt_list` instead.
-    pub fn encrypt<Key: KeyId, Data: Encryptable<Ids, Key, Output> + IdentifyKey<Key>, Output>(
+    pub fn encrypt<
+        Key: KeyId,
+        Data: CompositeEncryptable<Ids, Key, Output> + IdentifyKey<Key>,
+        Output,
+    >(
         &self,
         data: Data,
     ) -> Result<Output, crate::CryptoError> {
         let key = data.key_identifier();
-        data.encrypt(&mut self.context(), key)
+        data.encrypt_composite(&mut self.context(), key)
     }
 
     /// Decrypt a list of items using this key store. The keys returned by
@@ -259,6 +266,48 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         res
     }
 
+    /// Decrypt a list of items using this key store, returning a tuple of successful and failed
+    /// items.
+    ///
+    /// # Arguments
+    /// * `data` - The list of items to decrypt.
+    ///
+    /// # Returns
+    /// A tuple containing two vectors: the first vector contains the successfully decrypted items,
+    /// and the second vector contains the original items that failed to decrypt.
+    pub fn decrypt_list_with_failures<
+        'a,
+        Key: KeyId,
+        Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Send + Sync + 'a,
+        Output: Send + Sync,
+    >(
+        &self,
+        data: &'a [Data],
+    ) -> (Vec<Output>, Vec<&'a Data>) {
+        let results: (Vec<_>, Vec<_>) = data
+            .par_chunks(batch_chunk_size(data.len()))
+            .flat_map(|chunk| {
+                let mut ctx = self.context();
+
+                chunk
+                    .iter()
+                    .map(|item| {
+                        let result = item
+                            .decrypt(&mut ctx, item.key_identifier())
+                            .map_err(|_| item);
+                        ctx.clear_local();
+                        result
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .partition_map(|result| match result {
+                Ok(output) => Either::Left(output),
+                Err(original_item) => Either::Right(original_item),
+            });
+
+        results
+    }
+
     /// Encrypt a list of items using this key store. The keys returned by
     /// `data[i].key_identifier()` must already be present in the store, otherwise this will
     /// return an error. This method will try to parallelize the encryption of the items, for
@@ -266,7 +315,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     /// single item encryption.
     pub fn encrypt_list<
         Key: KeyId,
-        Data: Encryptable<Ids, Key, Output> + IdentifyKey<Key> + Send + Sync,
+        Data: CompositeEncryptable<Ids, Key, Output> + IdentifyKey<Key> + Send + Sync,
         Output: Send + Sync,
     >(
         &self,
@@ -281,7 +330,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
 
                 for item in chunk {
                     let key = item.key_identifier();
-                    result.push(item.encrypt(&mut ctx, key));
+                    result.push(item.encrypt_composite(&mut ctx, key));
                     ctx.clear_local();
                 }
 
@@ -315,7 +364,7 @@ pub(crate) mod tests {
     use crate::{
         store::{KeyStore, KeyStoreContext},
         traits::tests::{TestIds, TestSymmKey},
-        EncString, SymmetricCryptoKey,
+        EncString, PrimitiveEncryptable, SymmetricCryptoKey,
     };
 
     pub struct DataView(pub String, pub TestSymmKey);
@@ -333,8 +382,8 @@ pub(crate) mod tests {
         }
     }
 
-    impl crate::Encryptable<TestIds, TestSymmKey, Data> for DataView {
-        fn encrypt(
+    impl crate::CompositeEncryptable<TestIds, TestSymmKey, Data> for DataView {
+        fn encrypt_composite(
             &self,
             ctx: &mut KeyStoreContext<TestIds>,
             key: TestSymmKey,
@@ -371,7 +420,7 @@ pub(crate) mod tests {
 
         // Create some test data
         let data: Vec<_> = (0..300usize)
-            .map(|n| DataView(format!("Test {}", n), TestSymmKey::A((n % 15) as u8)))
+            .map(|n| DataView(format!("Test {n}"), TestSymmKey::A((n % 15) as u8)))
             .collect();
 
         // Encrypt the data

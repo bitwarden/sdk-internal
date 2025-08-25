@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bitwarden_state::{
-    registry::StateRegistryError,
+    registry::{RepositoryNotFoundError, StateRegistryError},
     repository::{Repository, RepositoryItem, RepositoryItemData},
     DatabaseConfiguration,
 };
@@ -26,7 +26,9 @@ impl StateClient {
     }
 
     /// Get a client managed state repository for a specific type, if it exists.
-    pub fn get_client_managed<T: RepositoryItem>(&self) -> Option<Arc<dyn Repository<T>>> {
+    pub fn get_client_managed<T: RepositoryItem>(
+        &self,
+    ) -> Result<Arc<dyn Repository<T>>, RepositoryNotFoundError> {
         self.client.internal.repository_map.get_client_managed()
     }
 
