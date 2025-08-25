@@ -682,12 +682,8 @@ dependencies = [
 name = "bitwarden-state-migrations"
 version = "1.0.0"
 dependencies = [
- "async-trait",
- "bitwarden-error",
  "bitwarden-state",
- "bitwarden-threading",
  "bitwarden-vault",
- "thiserror 1.0.69",
 ]
 
 [[package]]
