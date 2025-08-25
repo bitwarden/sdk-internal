@@ -399,6 +399,7 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-state",
+ "bitwarden-uniffi-error",
  "bitwarden-uuid",
  "chrono",
  "getrandom 0.2.16",
@@ -434,6 +435,7 @@ dependencies = [
  "base64",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-uniffi-error",
  "cbc",
  "chacha20poly1305",
  "ciborium",
@@ -472,6 +474,7 @@ dependencies = [
 name = "bitwarden-encoding"
 version = "1.0.0"
 dependencies = [
+ "bitwarden-uniffi-error",
  "data-encoding",
  "data-encoding-macro",
  "serde",
@@ -716,6 +719,7 @@ dependencies = [
  "bitwarden-send",
  "bitwarden-ssh",
  "bitwarden-state",
+ "bitwarden-uniffi-error",
  "bitwarden-vault",
  "chrono",
  "env_logger",
@@ -727,6 +731,14 @@ dependencies = [
  "thiserror 2.0.12",
  "uniffi",
  "uuid",
+]
+
+[[package]]
+name = "bitwarden-uniffi-error"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "uniffi",
 ]
 
 [[package]]
