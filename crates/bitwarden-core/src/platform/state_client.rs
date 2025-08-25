@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use bitwarden_state::{
-    registry::RepositoryNotFoundError,
-    repository::{Repository, RepositoryItem},
+    registry::{RepositoryNotFoundError, StateRegistryError},
+    repository::{Repository, RepositoryItem, RepositoryItemData},
+    DatabaseConfiguration,
 };
 
 use crate::Client;
@@ -29,5 +30,27 @@ impl StateClient {
         &self,
     ) -> Result<Arc<dyn Repository<T>>, RepositoryNotFoundError> {
         self.client.internal.repository_map.get_client_managed()
+    }
+
+    /// Initialize the database for SDK managed repositories.
+    pub async fn initialize_database(
+        &self,
+        configuration: DatabaseConfiguration,
+        repositories: Vec<RepositoryItemData>,
+    ) -> Result<(), StateRegistryError> {
+        self.client
+            .internal
+            .repository_map
+            .initialize_database(configuration, repositories)
+            .await
+    }
+
+    /// Get a SDK managed state repository for a specific type, if it exists.
+    pub fn get_sdk_managed<
+        T: RepositoryItem + serde::ser::Serialize + serde::de::DeserializeOwned,
+    >(
+        &self,
+    ) -> Result<impl Repository<T>, StateRegistryError> {
+        self.client.internal.repository_map.get_sdk_managed()
     }
 }

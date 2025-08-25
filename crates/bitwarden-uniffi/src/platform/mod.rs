@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use bitwarden_core::{platform::FingerprintRequest, Client};
 use bitwarden_fido::ClientFido2Ext;
+use bitwarden_state::{repository::RepositoryItem, DatabaseConfiguration};
 use bitwarden_vault::Cipher;
 use repository::UniffiRepositoryBridge;
 
@@ -54,13 +55,40 @@ pub struct StateClient(Client);
 
 repository::create_uniffi_repository!(CipherRepository, Cipher);
 
+#[derive(uniffi::Record)]
+pub struct SqliteConfiguration {
+    db_name: String,
+    folder_path: String,
+}
+
 #[uniffi::export]
 impl StateClient {
-    pub fn register_cipher_repository(&self, store: Arc<dyn CipherRepository>) {
-        let store_internal = UniffiRepositoryBridge::new(store);
+    pub fn register_cipher_repository(&self, repository: Arc<dyn CipherRepository>) {
+        let cipher = UniffiRepositoryBridge::new(repository);
+        self.0.platform().state().register_client_managed(cipher);
+    }
+
+    pub async fn initialize_state(&self, configuration: SqliteConfiguration) -> Result<()> {
+        let sdk_managed_repositories = vec![
+            // This should list all the SDK-managed repositories
+            <Cipher as RepositoryItem>::data(),
+        ];
+
         self.0
             .platform()
             .state()
-            .register_client_managed(store_internal)
+            .initialize_database(configuration.into(), sdk_managed_repositories)
+            .await
+            .map_err(Error::StateRegistry)?;
+        Ok(())
+    }
+}
+
+impl From<SqliteConfiguration> for DatabaseConfiguration {
+    fn from(config: SqliteConfiguration) -> Self {
+        DatabaseConfiguration::Sqlite {
+            db_name: config.db_name,
+            folder_path: config.folder_path.into(),
+        }
     }
 }

@@ -9,6 +9,14 @@ pub enum RepositoryError {
     #[error("Internal error: {0}")]
     Internal(String),
 
+    /// A serialization or deserialization error.
+    #[error(transparent)]
+    Serde(#[from] serde_json::Error),
+
+    /// An internal database error.
+    #[error(transparent)]
+    Database(#[from] crate::sdk_managed::DatabaseError),
+
     /// Repository not found.
     #[error(transparent)]
     RepositoryNotFound(#[from] RepositoryNotFoundError),
@@ -34,9 +42,38 @@ pub trait Repository<V: RepositoryItem>: Send + Sync {
 pub trait RepositoryItem: Internal + Send + Sync + 'static {
     /// The name of the type implementing this trait.
     const NAME: &'static str;
+
+    /// The version of the repository type implementing this trait.
+    const VERSION: u32;
+
     /// Returns the `TypeId` of the type implementing this trait.
     fn type_id() -> TypeId {
         TypeId::of::<Self>()
+    }
+
+    /// Returns metadata about the repository item type.
+    fn data() -> RepositoryItemData {
+        RepositoryItemData::new::<Self>()
+    }
+}
+
+/// This struct holds metadata about a registered repository item type.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy)]
+pub struct RepositoryItemData {
+    pub(crate) type_id: TypeId,
+    pub(crate) name: &'static str,
+    pub(crate) version: u32,
+}
+
+impl RepositoryItemData {
+    /// Create a new `RepositoryItemData` from a type that implements `RepositoryItem`.
+    pub fn new<T: RepositoryItem + ?Sized>() -> Self {
+        Self {
+            type_id: TypeId::of::<T>(),
+            name: T::NAME,
+            version: T::VERSION,
+        }
     }
 }
 
@@ -44,11 +81,12 @@ pub trait RepositoryItem: Internal + Send + Sync + 'static {
 /// where it's defined. The provided name must be unique and not be changed.
 #[macro_export]
 macro_rules! register_repository_item {
-    ($ty:ty, $name:literal) => {
+    ($ty:ty, $name:literal, version: $version:literal) => {
         const _: () = {
             impl $crate::repository::___internal::Internal for $ty {}
             impl $crate::repository::RepositoryItem for $ty {
                 const NAME: &'static str = $name;
+                const VERSION: u32 = $version;
             }
         };
     };
