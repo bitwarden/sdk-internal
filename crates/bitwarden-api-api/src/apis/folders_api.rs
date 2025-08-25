@@ -70,6 +70,7 @@ pub enum FoldersPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Vault/Controllers/FoldersController.cs#L96`]
 pub async fn folders_all_delete(
     configuration: &configuration::Configuration,
 ) -> Result<(), Error<FoldersAllDeleteError>> {
@@ -103,6 +104,7 @@ pub async fn folders_all_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Vault/Controllers/FoldersController.cs#L49`]
 pub async fn folders_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::FolderResponseModelListResponseModel, Error<FoldersGetError>> {
@@ -145,6 +147,7 @@ pub async fn folders_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Vault/Controllers/FoldersController.cs#L83`]
 pub async fn folders_id_delete(
     configuration: &configuration::Configuration,
     id: &str,
@@ -186,6 +189,7 @@ pub async fn folders_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Vault/Controllers/FoldersController.cs#L83`]
 pub async fn folders_id_delete_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -227,6 +231,7 @@ pub async fn folders_id_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Vault/Controllers/FoldersController.cs#L36`]
 pub async fn folders_id_get(
     configuration: &configuration::Configuration,
     id: &str,
@@ -277,6 +282,7 @@ pub async fn folders_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Vault/Controllers/FoldersController.cs#L68`]
 pub async fn folders_id_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -332,6 +338,7 @@ pub async fn folders_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Vault/Controllers/FoldersController.cs#L68`]
 pub async fn folders_id_put(
     configuration: &configuration::Configuration,
     id: &str,
@@ -385,6 +392,7 @@ pub async fn folders_id_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Vault/Controllers/FoldersController.cs#L58`]
 pub async fn folders_post(
     configuration: &configuration::Configuration,
     folder_request_model: Option<models::FolderRequestModel>,

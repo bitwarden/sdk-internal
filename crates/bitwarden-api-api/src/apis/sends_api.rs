@@ -98,6 +98,7 @@ pub enum SendsPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Tools/Controllers/SendsController.cs#L63`]
 pub async fn sends_access_id_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -142,6 +143,7 @@ pub async fn sends_access_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Tools/Controllers/SendsController.cs#L102`]
 pub async fn sends_encoded_send_id_access_file_file_id_post(
     configuration: &configuration::Configuration,
     encoded_send_id: &str,
@@ -190,6 +192,7 @@ pub async fn sends_encoded_send_id_access_file_file_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Tools/Controllers/SendsController.cs#L215`]
 pub async fn sends_file_v2_post(
     configuration: &configuration::Configuration,
     send_request_model: Option<models::SendRequestModel>,
@@ -239,6 +242,7 @@ pub async fn sends_file_v2_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Tools/Controllers/SendsController.cs#L145`]
 pub async fn sends_file_validate_azure_post(
     configuration: &configuration::Configuration,
 ) -> Result<(), Error<SendsFileValidateAzurePostError>> {
@@ -272,6 +276,7 @@ pub async fn sends_file_validate_azure_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Tools/Controllers/SendsController.cs#L196`]
 pub async fn sends_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::SendResponseModelListResponseModel, Error<SendsGetError>> {
@@ -314,6 +319,7 @@ pub async fn sends_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Tools/Controllers/SendsController.cs#L317`]
 pub async fn sends_id_delete(
     configuration: &configuration::Configuration,
     id: &str,
@@ -355,6 +361,7 @@ pub async fn sends_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Tools/Controllers/SendsController.cs#L245`]
 pub async fn sends_id_file_file_id_get(
     configuration: &configuration::Configuration,
     id: &str,
@@ -408,6 +415,7 @@ pub async fn sends_id_file_file_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Tools/Controllers/SendsController.cs#L272`]
 pub async fn sends_id_file_file_id_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -452,6 +460,7 @@ pub async fn sends_id_file_file_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Tools/Controllers/SendsController.cs#L183`]
 pub async fn sends_id_get(
     configuration: &configuration::Configuration,
     id: &str,
@@ -502,6 +511,7 @@ pub async fn sends_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Tools/Controllers/SendsController.cs#L287`]
 pub async fn sends_id_put(
     configuration: &configuration::Configuration,
     id: &str,
@@ -555,6 +565,7 @@ pub async fn sends_id_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Tools/Controllers/SendsController.cs#L302`]
 pub async fn sends_id_remove_password_put(
     configuration: &configuration::Configuration,
     id: &str,
@@ -605,6 +616,7 @@ pub async fn sends_id_remove_password_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Tools/Controllers/SendsController.cs#L205`]
 pub async fn sends_post(
     configuration: &configuration::Configuration,
     send_request_model: Option<models::SendRequestModel>,

@@ -101,6 +101,7 @@ pub enum ServiceAccountsIdGrantedPoliciesPutError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L69`]
 pub async fn organizations_id_access_policies_people_potential_grantees_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -155,6 +156,7 @@ pub async fn organizations_id_access_policies_people_potential_grantees_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L107`]
 pub async fn organizations_id_access_policies_projects_potential_grantees_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -209,6 +211,7 @@ pub async fn organizations_id_access_policies_projects_potential_grantees_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L86`]
 pub async fn organizations_id_access_policies_service_accounts_potential_grantees_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -263,6 +266,7 @@ pub async fn organizations_id_access_policies_service_accounts_potential_grantee
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L127`]
 pub async fn projects_id_access_policies_people_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -317,6 +321,7 @@ pub async fn projects_id_access_policies_people_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L137`]
 pub async fn projects_id_access_policies_people_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -374,6 +379,7 @@ pub async fn projects_id_access_policies_people_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L234`]
 pub async fn projects_id_access_policies_service_accounts_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -428,6 +434,7 @@ pub async fn projects_id_access_policies_service_accounts_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L246`]
 pub async fn projects_id_access_policies_service_accounts_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -488,6 +495,7 @@ pub async fn projects_id_access_policies_service_accounts_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L267`]
 pub async fn secrets_secret_id_access_policies_get(
     configuration: &configuration::Configuration,
     secret_id: uuid::Uuid,
@@ -540,6 +548,7 @@ pub async fn secrets_secret_id_access_policies_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L161`]
 pub async fn service_accounts_id_access_policies_people_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -594,6 +603,7 @@ pub async fn service_accounts_id_access_policies_people_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L172`]
 pub async fn service_accounts_id_access_policies_people_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -651,6 +661,7 @@ pub async fn service_accounts_id_access_policies_people_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L196`]
 pub async fn service_accounts_id_granted_policies_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -705,6 +716,7 @@ pub async fn service_accounts_id_granted_policies_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L214`]
 pub async fn service_accounts_id_granted_policies_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,

@@ -49,6 +49,7 @@ pub enum ProjectsIdPutError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/ProjectsController.cs#L59`]
 pub async fn organizations_organization_id_projects_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -103,6 +104,7 @@ pub async fn organizations_organization_id_projects_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/ProjectsController.cs#L78`]
 pub async fn organizations_organization_id_projects_post(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -159,6 +161,7 @@ pub async fn organizations_organization_id_projects_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/ProjectsController.cs#L160`]
 pub async fn projects_delete_post(
     configuration: &configuration::Configuration,
     uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
@@ -208,6 +211,7 @@ pub async fn projects_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/ProjectsController.cs#L129`]
 pub async fn projects_id_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -258,6 +262,7 @@ pub async fn projects_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/ProjectsController.cs#L108`]
 pub async fn projects_id_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,

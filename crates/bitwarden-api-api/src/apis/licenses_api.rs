@@ -28,6 +28,7 @@ pub enum LicensesUserIdGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/LicensesController.cs#L70`]
 pub async fn licenses_organization_id_get(
     configuration: &configuration::Configuration,
     id: &str,
@@ -84,6 +85,7 @@ pub async fn licenses_organization_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/LicensesController.cs#L49`]
 pub async fn licenses_user_id_get(
     configuration: &configuration::Configuration,
     id: &str,

@@ -252,6 +252,7 @@ pub enum OrganizationsPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L214`]
 pub async fn organizations_create_without_payment_post(
     configuration: &configuration::Configuration,
     organization_no_payment_create_request: Option<models::OrganizationNoPaymentCreateRequest>,
@@ -305,6 +306,7 @@ pub async fn organizations_create_without_payment_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L145`]
 pub async fn organizations_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::ProfileOrganizationResponseModelListResponseModel, Error<OrganizationsGetError>>
@@ -348,6 +350,7 @@ pub async fn organizations_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L418`]
 pub async fn organizations_id_api_key_information_type_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -400,6 +403,7 @@ pub async fn organizations_id_api_key_information_type_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L369`]
 pub async fn organizations_id_api_key_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -455,6 +459,7 @@ pub async fn organizations_id_api_key_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationsController.cs#L228`]
 pub async fn organizations_id_cancel_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -499,6 +504,7 @@ pub async fn organizations_id_cancel_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L556`]
 pub async fn organizations_id_collection_management_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -556,6 +562,7 @@ pub async fn organizations_id_collection_management_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L296`]
 pub async fn organizations_id_delete(
     configuration: &configuration::Configuration,
     id: &str,
@@ -600,6 +607,7 @@ pub async fn organizations_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L296`]
 pub async fn organizations_id_delete_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -644,6 +652,7 @@ pub async fn organizations_id_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L340`]
 pub async fn organizations_id_delete_recover_token_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -692,6 +701,7 @@ pub async fn organizations_id_delete_recover_token_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L126`]
 pub async fn organizations_id_get(
     configuration: &configuration::Configuration,
     id: &str,
@@ -742,6 +752,7 @@ pub async fn organizations_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L493`]
 pub async fn organizations_id_keys_get(
     configuration: &configuration::Configuration,
     id: &str,
@@ -792,6 +803,7 @@ pub async fn organizations_id_keys_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L499`]
 pub async fn organizations_id_keys_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -847,6 +859,7 @@ pub async fn organizations_id_keys_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L271`]
 pub async fn organizations_id_leave_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -888,6 +901,7 @@ pub async fn organizations_id_leave_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationsController.cs#L94`]
 pub async fn organizations_id_license_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -943,6 +957,7 @@ pub async fn organizations_id_license_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L575`]
 pub async fn organizations_id_plan_type_get(
     configuration: &configuration::Configuration,
     id: &str,
@@ -993,6 +1008,7 @@ pub async fn organizations_id_plan_type_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L230`]
 pub async fn organizations_id_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -1048,6 +1064,7 @@ pub async fn organizations_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L480`]
 pub async fn organizations_id_public_key_get(
     configuration: &configuration::Configuration,
     id: &str,
@@ -1098,6 +1115,7 @@ pub async fn organizations_id_public_key_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L230`]
 pub async fn organizations_id_put(
     configuration: &configuration::Configuration,
     id: &str,
@@ -1151,6 +1169,7 @@ pub async fn organizations_id_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationsController.cs#L254`]
 pub async fn organizations_id_reinstate_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1192,6 +1211,7 @@ pub async fn organizations_id_reinstate_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L432`]
 pub async fn organizations_id_rotate_api_key_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -1248,6 +1268,7 @@ pub async fn organizations_id_rotate_api_key_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationsController.cs#L204`]
 pub async fn organizations_id_seat_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1303,6 +1324,7 @@ pub async fn organizations_id_seat_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationsController.cs#L136`]
 pub async fn organizations_id_sm_subscription_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1363,6 +1385,7 @@ pub async fn organizations_id_sm_subscription_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L513`]
 pub async fn organizations_id_sso_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1413,6 +1436,7 @@ pub async fn organizations_id_sso_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L532`]
 pub async fn organizations_id_sso_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1468,6 +1492,7 @@ pub async fn organizations_id_sso_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L258`]
 pub async fn organizations_id_storage_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -1523,6 +1548,7 @@ pub async fn organizations_id_storage_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationsController.cs#L179`]
 pub async fn organizations_id_subscribe_secrets_manager_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1582,6 +1608,7 @@ pub async fn organizations_id_subscribe_secrets_manager_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationsController.cs#L55`]
 pub async fn organizations_id_subscription_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1634,6 +1661,7 @@ pub async fn organizations_id_subscription_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationsController.cs#L163`]
 pub async fn organizations_id_subscription_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1693,6 +1721,7 @@ pub async fn organizations_id_subscription_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationsController.cs#L266`]
 pub async fn organizations_id_tax_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1743,6 +1772,7 @@ pub async fn organizations_id_tax_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationsController.cs#L285`]
 pub async fn organizations_id_tax_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1785,6 +1815,7 @@ pub async fn organizations_id_tax_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationsController.cs#L115`]
 pub async fn organizations_id_upgrade_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1840,6 +1871,7 @@ pub async fn organizations_id_upgrade_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationsController.cs#L217`]
 pub async fn organizations_id_verify_bank_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1885,6 +1917,7 @@ pub async fn organizations_id_verify_bank_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L159`]
 pub async fn organizations_identifier_auto_enroll_status_get(
     configuration: &configuration::Configuration,
     identifier: &str,
@@ -1939,6 +1972,7 @@ pub async fn organizations_identifier_auto_enroll_status_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L198`]
 pub async fn organizations_post(
     configuration: &configuration::Configuration,
     organization_create_request_model: Option<models::OrganizationCreateRequestModel>,

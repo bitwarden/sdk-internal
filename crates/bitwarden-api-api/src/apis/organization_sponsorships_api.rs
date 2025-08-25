@@ -103,6 +103,7 @@ pub enum OrganizationSponsorshipValidateTokenPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationSponsorshipsController.cs#L168`]
 pub async fn organization_sponsorship_redeem_post(
     configuration: &configuration::Configuration,
     sponsorship_token: Option<&str>,
@@ -153,6 +154,7 @@ pub async fn organization_sponsorship_redeem_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationSponsorshipsController.cs#L247`]
 pub async fn organization_sponsorship_sponsored_sponsored_org_id_delete(
     configuration: &configuration::Configuration,
     sponsored_org_id: uuid::Uuid,
@@ -195,6 +197,7 @@ pub async fn organization_sponsorship_sponsored_sponsored_org_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationSponsorshipsController.cs#L247`]
 pub async fn organization_sponsorship_sponsored_sponsored_org_id_remove_post(
     configuration: &configuration::Configuration,
     sponsored_org_id: uuid::Uuid,
@@ -237,6 +240,7 @@ pub async fn organization_sponsorship_sponsored_sponsored_org_id_remove_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationSponsorshipsController.cs#L82`]
 pub async fn organization_sponsorship_sponsoring_org_id_families_for_enterprise_post(
     configuration: &configuration::Configuration,
     sponsoring_org_id: uuid::Uuid,
@@ -285,6 +289,7 @@ pub async fn organization_sponsorship_sponsoring_org_id_families_for_enterprise_
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationSponsorshipsController.cs#L123`]
 pub async fn organization_sponsorship_sponsoring_org_id_families_for_enterprise_resend_post(
     configuration: &configuration::Configuration,
     sponsoring_org_id: uuid::Uuid,
@@ -333,6 +338,7 @@ pub async fn organization_sponsorship_sponsoring_org_id_families_for_enterprise_
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationSponsorshipsController.cs#L232`]
 pub async fn organization_sponsorship_sponsoring_org_id_sponsored_friendly_name_revoke_delete(
     configuration: &configuration::Configuration,
     sponsoring_org_id: uuid::Uuid,
@@ -380,6 +386,7 @@ pub async fn organization_sponsorship_sponsoring_org_id_sponsored_friendly_name_
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationSponsorshipsController.cs#L278`]
 pub async fn organization_sponsorship_sponsoring_org_id_sponsored_get(
     configuration: &configuration::Configuration,
     sponsoring_org_id: uuid::Uuid,
@@ -434,6 +441,7 @@ pub async fn organization_sponsorship_sponsoring_org_id_sponsored_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationSponsorshipsController.cs#L262`]
 pub async fn organization_sponsorship_sponsoring_org_id_sync_status_get(
     configuration: &configuration::Configuration,
     sponsoring_org_id: uuid::Uuid,
@@ -474,6 +482,7 @@ pub async fn organization_sponsorship_sponsoring_org_id_sync_status_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationSponsorshipsController.cs#L214`]
 pub async fn organization_sponsorship_sponsoring_organization_id_delete(
     configuration: &configuration::Configuration,
     sponsoring_organization_id: uuid::Uuid,
@@ -516,6 +525,7 @@ pub async fn organization_sponsorship_sponsoring_organization_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationSponsorshipsController.cs#L214`]
 pub async fn organization_sponsorship_sponsoring_organization_id_delete_post(
     configuration: &configuration::Configuration,
     sponsoring_organization_id: uuid::Uuid,
@@ -558,6 +568,7 @@ pub async fn organization_sponsorship_sponsoring_organization_id_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationSponsorshipsController.cs#L197`]
 pub async fn organization_sponsorship_sync_post(
     configuration: &configuration::Configuration,
     organization_sponsorship_sync_request_model: Option<
@@ -613,6 +624,7 @@ pub async fn organization_sponsorship_sync_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Billing/Controllers/OrganizationSponsorshipsController.cs#L149`]
 pub async fn organization_sponsorship_validate_token_post(
     configuration: &configuration::Configuration,
     sponsorship_token: Option<&str>,

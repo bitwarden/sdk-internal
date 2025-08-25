@@ -21,6 +21,7 @@ pub enum SyncGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/Vault/Controllers/SyncController.cs#L80`]
 pub async fn sync_get(
     configuration: &configuration::Configuration,
     exclude_domains: Option<bool>,

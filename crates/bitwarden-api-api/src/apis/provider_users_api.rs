@@ -119,6 +119,7 @@ pub enum ProvidersProviderIdUsersReinvitePostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/ProviderUsersController.cs#L131`]
 pub async fn providers_provider_id_users_confirm_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -178,6 +179,7 @@ pub async fn providers_provider_id_users_confirm_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/ProviderUsersController.cs#L192`]
 pub async fn providers_provider_id_users_delete(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -237,6 +239,7 @@ pub async fn providers_provider_id_users_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/ProviderUsersController.cs#L192`]
 pub async fn providers_provider_id_users_delete_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -296,6 +299,7 @@ pub async fn providers_provider_id_users_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/ProviderUsersController.cs#L53`]
 pub async fn providers_provider_id_users_get(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -349,6 +353,7 @@ pub async fn providers_provider_id_users_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/ProviderUsersController.cs#L106`]
 pub async fn providers_provider_id_users_id_accept_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -397,6 +402,7 @@ pub async fn providers_provider_id_users_id_accept_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/ProviderUsersController.cs#L118`]
 pub async fn providers_provider_id_users_id_confirm_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -445,6 +451,7 @@ pub async fn providers_provider_id_users_id_confirm_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/ProviderUsersController.cs#L179`]
 pub async fn providers_provider_id_users_id_delete(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -490,6 +497,7 @@ pub async fn providers_provider_id_users_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/ProviderUsersController.cs#L179`]
 pub async fn providers_provider_id_users_id_delete_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -535,6 +543,7 @@ pub async fn providers_provider_id_users_id_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/ProviderUsersController.cs#L41`]
 pub async fn providers_provider_id_users_id_get(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -589,6 +598,7 @@ pub async fn providers_provider_id_users_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/ProviderUsersController.cs#L160`]
 pub async fn providers_provider_id_users_id_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -637,6 +647,7 @@ pub async fn providers_provider_id_users_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/ProviderUsersController.cs#L160`]
 pub async fn providers_provider_id_users_id_put(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -683,6 +694,7 @@ pub async fn providers_provider_id_users_id_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/ProviderUsersController.cs#L93`]
 pub async fn providers_provider_id_users_id_reinvite_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -728,6 +740,7 @@ pub async fn providers_provider_id_users_id_reinvite_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/ProviderUsersController.cs#L66`]
 pub async fn providers_provider_id_users_invite_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -773,6 +786,7 @@ pub async fn providers_provider_id_users_invite_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/ProviderUsersController.cs#L146`]
 pub async fn providers_provider_id_users_public_keys_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -832,6 +846,7 @@ pub async fn providers_provider_id_users_public_keys_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/AdminConsole/Controllers/ProviderUsersController.cs#L79`]
 pub async fn providers_provider_id_users_reinvite_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,

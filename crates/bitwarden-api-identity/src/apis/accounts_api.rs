@@ -56,6 +56,7 @@ pub enum AccountsWebauthnAssertionOptionsGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Identity/Controllers/AccountsController.cs#L201`]
 pub async fn accounts_prelogin_post(
     configuration: &configuration::Configuration,
     prelogin_request_model: Option<models::PreloginRequestModel>,
@@ -102,6 +103,7 @@ pub async fn accounts_prelogin_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Identity/Controllers/AccountsController.cs#L143`]
 pub async fn accounts_register_finish_post(
     configuration: &configuration::Configuration,
     register_finish_request_model: Option<models::RegisterFinishRequestModel>,
@@ -148,6 +150,7 @@ pub async fn accounts_register_finish_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Identity/Controllers/AccountsController.cs#L111`]
 pub async fn accounts_register_send_verification_email_post(
     configuration: &configuration::Configuration,
     register_send_verification_email_request_model: Option<
@@ -190,6 +193,7 @@ pub async fn accounts_register_send_verification_email_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Identity/Controllers/AccountsController.cs#L125`]
 pub async fn accounts_register_verification_email_clicked_post(
     configuration: &configuration::Configuration,
     register_verification_email_clicked_request_model: Option<
@@ -232,6 +236,7 @@ pub async fn accounts_register_verification_email_clicked_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Identity/Billing/Controller/AccountsController.cs#L17`]
 pub async fn accounts_trial_send_verification_email_post(
     configuration: &configuration::Configuration,
     trial_send_verification_email_request_model: Option<
@@ -273,6 +278,7 @@ pub async fn accounts_trial_send_verification_email_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Identity/Controllers/AccountsController.cs#L212`]
 pub async fn accounts_webauthn_assertion_options_get(
     configuration: &configuration::Configuration,
 ) -> Result<

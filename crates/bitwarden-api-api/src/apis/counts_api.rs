@@ -35,6 +35,7 @@ pub enum ServiceAccountsServiceAccountIdSmCountsGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/CountsController.cs#L38`]
 pub async fn organizations_organization_id_sm_counts_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -89,6 +90,7 @@ pub async fn organizations_organization_id_sm_counts_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/CountsController.cs#L63`]
 pub async fn projects_project_id_sm_counts_get(
     configuration: &configuration::Configuration,
     project_id: uuid::Uuid,
@@ -139,6 +141,7 @@ pub async fn projects_project_id_sm_counts_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/236027fc22cf490ad8317841e44cf3dcf54f0c36/src/Api/SecretsManager/Controllers/CountsController.cs#L84`]
 pub async fn service_accounts_service_account_id_sm_counts_get(
     configuration: &configuration::Configuration,
     service_account_id: uuid::Uuid,
