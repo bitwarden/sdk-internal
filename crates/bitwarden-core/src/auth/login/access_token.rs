@@ -65,7 +65,7 @@ pub(crate) async fn login_access_token(
         }
 
         let payload: Payload = serde_json::from_slice(&decrypted_payload)?;
-        let encryption_key = BitwardenLegacyKeyBytes::from(payload.encryption_key.as_ref());
+        let encryption_key = BitwardenLegacyKeyBytes::from(&payload.encryption_key);
         let encryption_key = SymmetricCryptoKey::try_from(&encryption_key)?;
 
         let access_token_obj: JwtToken = r.access_token.parse()?;

@@ -49,7 +49,7 @@ impl FromStr for JwtToken {
             return Err(Self::Err::InvalidParts);
         }
         let decoded = B64Url::try_from(split[1])?;
-        Ok(serde_json::from_slice(decoded.as_ref())?)
+        Ok(serde_json::from_slice(decoded.as_bytes())?)
     }
 }
 

@@ -126,7 +126,7 @@ impl FromStr for SignedPublicKey {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let bytes = B64::try_from(s).map_err(|_| EncodingError::InvalidCborSerialization)?;
-        Self::try_from(CoseSign1Bytes::from(bytes.as_ref()))
+        Self::try_from(CoseSign1Bytes::from(&bytes))
     }
 }
 

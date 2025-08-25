@@ -41,7 +41,7 @@ pub enum FingerprintError {
 pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String, FingerprintError> {
     Ok(fingerprint(
         &input.fingerprint_material,
-        &SpkiPublicKeyBytes::from(input.public_key.as_ref()),
+        &SpkiPublicKeyBytes::from(&input.public_key),
     )?)
 }
 

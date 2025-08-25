@@ -270,7 +270,7 @@ impl TryFrom<B64> for SymmetricCryptoKey {
     type Error = CryptoError;
 
     fn try_from(value: B64) -> Result<Self, Self::Error> {
-        Self::try_from(&BitwardenLegacyKeyBytes::from(value.as_ref()))
+        Self::try_from(&BitwardenLegacyKeyBytes::from(&value))
     }
 }
 
@@ -470,7 +470,7 @@ mod tests {
     fn test_decode_new_symmetric_crypto_key() {
         let key: B64 = ("pQEEAlDib+JxbqMBlcd3KTUesbufAzoAARFvBIQDBAUGIFggt79surJXmqhPhYuuqi9ZyPfieebmtw2OsmN5SDrb4yUB").parse()
         .unwrap();
-        let key = BitwardenLegacyKeyBytes::from(key.as_ref());
+        let key = BitwardenLegacyKeyBytes::from(&key);
         let key = SymmetricCryptoKey::try_from(&key).unwrap();
         match key {
             SymmetricCryptoKey::XChaCha20Poly1305Key(_) => (),

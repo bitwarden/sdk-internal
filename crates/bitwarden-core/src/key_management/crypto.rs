@@ -211,7 +211,7 @@ pub(super) async fn initialize_user_crypto(
             master_key,
             user_key,
         } => {
-            let mut bytes = master_key.as_ref().to_vec();
+            let mut bytes = master_key.as_bytes().to_vec();
             let master_key = MasterKey::try_from(bytes.as_mut_slice())?;
 
             client
@@ -402,8 +402,7 @@ pub(super) fn enroll_admin_password_reset(
 ) -> Result<UnsignedSharedKey, EnrollAdminPasswordResetError> {
     use bitwarden_crypto::AsymmetricPublicCryptoKey;
 
-    let public_key =
-        AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(public_key.as_ref()))?;
+    let public_key = AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&public_key))?;
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
@@ -536,7 +535,7 @@ pub(super) fn verify_asymmetric_keys(
             .to_der()
             .map_err(VerifyError::PublicFailed)?;
 
-        let derived_public_key = B64::from(derived_public_key_vec.as_ref());
+        let derived_public_key = B64::from(derived_public_key_vec);
 
         if derived_public_key != request.user_public_key {
             return Err(VerifyError::KeyMismatch);
@@ -650,7 +649,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
         user_key: user_key.to_base64(),
 
         private_key: private_key.to_der()?.encrypt_with_key(&user_key)?,
-        public_key: public_key.to_der()?.as_ref().into(),
+        public_key: public_key.to_der()?.into(),
         signed_public_key,
 
         signing_key: signing_key.to_cose().encrypt_with_key(&user_key)?,
@@ -700,7 +699,7 @@ pub(crate) fn get_v2_rotated_account_keys(
         user_key: rotated_keys.user_key.to_base64(),
 
         private_key: rotated_keys.private_key,
-        public_key: rotated_keys.public_key.as_ref().into(),
+        public_key: rotated_keys.public_key.into(),
         signed_public_key: rotated_keys.signed_public_key,
 
         signing_key: rotated_keys.signing_key,
@@ -965,7 +964,7 @@ mod tests {
 
         let private_key: B64 = "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCzLtEUdxfcLxDj84yaGFsVF5hZ8Hjlb08NMQDy1RnBma06I3ZESshLYzVz4r/gegMn9OOltfV/Yxlyvida8oW6qdlfJ7AVz6Oa8pV7BiL40C7b76+oqraQpyYw2HChANB1AhXL9SqWngKmLZwjA7qiCrmcc0kZHeOb4KnKtp9iVvPVs+8veFvKgYO4ba2AAOHKFdR0W55/agXfAy+fWUAkC8mc9ikyJdQWaPV6OZvC2XFkOseBQm9Rynudh3BQpoWiL6w620efe7t5k+02/EyOFJL9f/XEEjM/+Yo0t3LAfkuhHGeKiRST59Xc9hTEmyJTeVXROtz+0fjqOp3xkaObAgMBAAECggEACs4xhnO0HaZhh1/iH7zORMIRXKeyxP2LQiTR8xwN5JJ9wRWmGAR9VasS7EZFTDidIGVME2u/h4s5EqXnhxfO+0gGksVvgNXJ/qw87E8K2216g6ZNo6vSGA7H1GH2voWwejJ4/k/cJug6dz2S402rRAKh2Wong1arYHSkVlQp3diiMa5FHAOSE+Cy09O2ZsaF9IXQYUtlW6AVXFrBEPYH2kvkaPXchh8VETMijo6tbvoKLnUHe+wTaDMls7hy8exjtVyI59r3DNzjy1lNGaGb5QSnFMXR+eHhPZc844Wv02MxC15zKABADrl58gpJyjTl6XpDdHCYGsmGpVGH3X9TQQKBgQDz/9beFjzq59ve6rGwn+EtnQfSsyYT+jr7GN8lNEXb3YOFXBgPhfFIcHRh2R00Vm9w2ApfAx2cd8xm2I6HuvQ1Os7g26LWazvuWY0Qzb+KaCLQTEGH1RnTq6CCG+BTRq/a3J8M4t38GV5TWlzv8wr9U4dl6FR4efjb65HXs1GQ4QKBgQC7/uHfrOTEHrLeIeqEuSl0vWNqEotFKdKLV6xpOvNuxDGbgW4/r/zaxDqt0YBOXmRbQYSEhmO3oy9J6XfE1SUln0gbavZeW0HESCAmUIC88bDnspUwS9RxauqT5aF8ODKN/bNCWCnBM1xyonPOs1oT1nyparJVdQoG//Y7vkB3+wKBgBqLqPq8fKAp3XfhHLfUjREDVoiLyQa/YI9U42IOz9LdxKNLo6p8rgVthpvmnRDGnpUuS+KOWjhdqDVANjF6G3t3DG7WNl8Rh5Gk2H4NhFswfSkgQrjebFLlBy9gjQVCWXt8KSmjvPbiY6q52Aaa8IUjA0YJAregvXxfopxO+/7BAoGARicvEtDp7WWnSc1OPoj6N14VIxgYcI7SyrzE0d/1x3ffKzB5e7qomNpxKzvqrVP8DzG7ydh8jaKPmv1MfF8tpYRy3AhmN3/GYwCnPqT75YYrhcrWcVdax5gmQVqHkFtIQkRSCIftzPLlpMGKha/YBV8c1fvC4LD0NPh/Ynv0gtECgYEAyOZg95/kte0jpgUEgwuMrzkhY/AaUJULFuR5MkyvReEbtSBQwV5tx60+T95PHNiFooWWVXiLMsAgyI2IbkxVR1Pzdri3gWK5CTfqb7kLuaj/B7SGvBa2Sxo478KS5K8tBBBWkITqo+wLC0mn3uZi1dyMWO1zopTA+KtEGF2dtGQ=".parse().unwrap();
 
-        let private_key = Pkcs8PrivateKeyBytes::from(private_key.as_ref());
+        let private_key = Pkcs8PrivateKeyBytes::from(private_key.as_bytes());
         let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
         let decrypted: SymmetricCryptoKey =
             encrypted.decapsulate_key_unsigned(&private_key).unwrap();

@@ -272,7 +272,7 @@ impl<Ids: KeyIds> FromStr for PasswordProtectedKeyEnvelope<Ids> {
                 "Invalid PasswordProtectedKeyEnvelope Base64 encoding".to_string(),
             )
         })?;
-        Self::try_from(&data.as_ref().to_vec()).map_err(|_| {
+        Self::try_from(&data.as_bytes().to_vec()).map_err(|_| {
             PasswordProtectedKeyEnvelopeError::ParsingError(
                 "Failed to parse PasswordProtectedKeyEnvelope".to_string(),
             )

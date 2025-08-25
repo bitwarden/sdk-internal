@@ -26,6 +26,13 @@ pub struct B64(#[tsify(type = "String")] Vec<u8>);
 #[serde(into = "String")]
 pub struct B64(Vec<u8>);
 
+impl B64 {
+    /// Returns a byte slice of the inner vector.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 // We manually implement this to handle both `String` and `&str`
 impl<'de> Deserialize<'de> for B64 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -50,12 +57,6 @@ impl From<&[u8]> for B64 {
 impl From<B64> for Vec<u8> {
     fn from(src: B64) -> Self {
         src.0
-    }
-}
-
-impl AsRef<[u8]> for B64 {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
     }
 }
 
@@ -132,7 +133,7 @@ mod tests {
     fn test_b64_from_slice() {
         let data = b"Hello";
         let b64 = B64::from(data.as_slice());
-        assert_eq!(b64.as_ref(), data);
+        assert_eq!(b64.as_bytes(), data);
     }
 
     #[test]
@@ -148,14 +149,14 @@ mod tests {
     fn test_b64_decoding_with_padding() {
         let encoded_with_padding = "SGVsbG8sIFdvcmxkIQ==";
         let b64 = B64::try_from(encoded_with_padding).unwrap();
-        assert_eq!(b64.as_ref(), b"Hello, World!");
+        assert_eq!(b64.as_bytes(), b"Hello, World!");
     }
 
     #[test]
     fn test_b64_decoding_without_padding() {
         let encoded_without_padding = "SGVsbG8sIFdvcmxkIQ";
         let b64 = B64::try_from(encoded_without_padding).unwrap();
-        assert_eq!(b64.as_ref(), b"Hello, World!");
+        assert_eq!(b64.as_bytes(), b"Hello, World!");
     }
 
     #[test]
@@ -164,7 +165,7 @@ mod tests {
         let b64 = B64::from(original.as_slice());
         let encoded = String::from(&b64);
         let decoded = B64::try_from(encoded.as_str()).unwrap();
-        assert_eq!(decoded.as_ref(), original);
+        assert_eq!(decoded.as_bytes(), original);
     }
 
     #[test]
@@ -173,7 +174,7 @@ mod tests {
         let b64 = B64::from(original.as_slice());
         let encoded = String::from(&b64);
         let decoded = B64::try_from(encoded.as_str()).unwrap();
-        assert_eq!(decoded.as_ref(), original);
+        assert_eq!(decoded.as_bytes(), original);
     }
 
     #[test]
@@ -194,14 +195,14 @@ mod tests {
     fn test_b64_empty_string() {
         let empty = "";
         let b64 = B64::try_from(empty).unwrap();
-        assert_eq!(b64.as_ref().len(), 0);
+        assert_eq!(b64.as_bytes().len(), 0);
     }
 
     #[test]
     fn test_b64_padding_removal() {
         let encoded_with_padding = "SGVsbG8sIFdvcmxkIQ==";
         let b64 = B64::try_from(encoded_with_padding).unwrap();
-        assert_eq!(b64.as_ref(), b"Hello, World!");
+        assert_eq!(b64.as_bytes(), b"Hello, World!");
     }
 
     #[test]
@@ -213,7 +214,7 @@ mod tests {
         assert_eq!(serialized, "\"c2VyaWFsaXphdGlvbiB0ZXN0\"");
 
         let deserialized: B64 = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(b64.as_ref(), deserialized.as_ref());
+        assert_eq!(b64.as_bytes(), deserialized.as_bytes());
     }
 
     #[test]
@@ -226,7 +227,7 @@ mod tests {
     fn test_b64_from_str() {
         let encoded = "SGVsbG8sIFdvcmxkIQ==";
         let b64: B64 = encoded.parse().unwrap();
-        assert_eq!(b64.as_ref(), b"Hello, World!");
+        assert_eq!(b64.as_bytes(), b"Hello, World!");
     }
 
     #[test]

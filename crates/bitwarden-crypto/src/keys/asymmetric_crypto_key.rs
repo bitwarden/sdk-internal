@@ -265,11 +265,10 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         .parse()
         .unwrap();
 
-        let private_key = Pkcs8PrivateKeyBytes::from(private_key.as_ref());
+        let private_key = Pkcs8PrivateKeyBytes::from(private_key.as_bytes());
         let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
         let public_key =
-            AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(public_key.as_ref()))
-                .unwrap();
+            AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&public_key)).unwrap();
 
         let raw_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(&raw_key, &public_key).unwrap();

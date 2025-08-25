@@ -1,3 +1,4 @@
+use bitwarden_encoding::B64;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -75,6 +76,18 @@ impl<C: ConstContentFormat> From<&[u8]> for Bytes<C> {
     }
 }
 
+impl<C: ConstContentFormat + FromB64ContentFormat> From<&B64> for Bytes<C> {
+    fn from(val: &B64) -> Self {
+        Self::from(val.as_bytes())
+    }
+}
+
+impl<C: ConstContentFormat + FromB64ContentFormat> From<Bytes<C>> for B64 {
+    fn from(val: Bytes<C>) -> Self {
+        B64::from(val.as_ref())
+    }
+}
+
 impl<C: ConstContentFormat> AsRef<[u8]> for Bytes<C> {
     fn as_ref(&self) -> &[u8] {
         &self.inner
@@ -139,12 +152,16 @@ impl ConstContentFormat for SpkiPublicKeyDerContentFormat {
         ContentFormat::SPKIPublicKeyDer
     }
 }
+impl FromB64ContentFormat for SpkiPublicKeyDerContentFormat {}
 /// SpkiPublicKeyBytes is a type alias for Bytes with `SpkiPublicKeyDerContentFormat`. This is used
 /// for SPKI public keys in DER format.
 pub type SpkiPublicKeyBytes = Bytes<SpkiPublicKeyDerContentFormat>;
 
 /// A marker trait for COSE content formats.
 pub trait CoseContentFormat {}
+
+/// A marker trait for content formats that can be converted from B64.
+pub trait FromB64ContentFormat {}
 
 /// Content format for COSE keys.
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -171,6 +188,7 @@ impl ConstContentFormat for BitwardenLegacyKeyContentFormat {
         ContentFormat::BitwardenLegacyKey
     }
 }
+impl FromB64ContentFormat for BitwardenLegacyKeyContentFormat {}
 /// BitwardenLegacyKeyBytes is a type alias for Bytes with `BitwardenLegacyKeyContentFormat`. This
 /// is used for the legacy format for symmetric keys. A description of the format is available in
 /// the `ContentFormat::BitwardenLegacyKey` documentation.
@@ -187,6 +205,7 @@ impl ConstContentFormat for CoseSign1ContentFormat {
     }
 }
 impl CoseContentFormat for CoseSign1ContentFormat {}
+impl FromB64ContentFormat for CoseSign1ContentFormat {}
 /// CoseSign1Bytes is a type alias for Bytes with `CoseSign1ContentFormat`. This is used for
 /// serialized COSE Sign1 messages.
 pub type CoseSign1Bytes = Bytes<CoseSign1ContentFormat>;

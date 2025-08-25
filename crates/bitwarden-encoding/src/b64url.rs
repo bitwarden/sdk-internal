@@ -11,6 +11,13 @@ use thiserror::Error;
 #[serde(try_from = "&str", into = "String")]
 pub struct B64Url(Vec<u8>);
 
+impl B64Url {
+    /// Returns a byte slice of the inner vector.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 impl From<Vec<u8>> for B64Url {
     fn from(src: Vec<u8>) -> Self {
         Self(src)
@@ -25,12 +32,6 @@ impl From<&[u8]> for B64Url {
 impl From<B64Url> for Vec<u8> {
     fn from(src: B64Url) -> Self {
         src.0
-    }
-}
-
-impl AsRef<[u8]> for B64Url {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
     }
 }
 
@@ -107,7 +108,7 @@ mod tests {
     fn test_b64url_from_slice() {
         let data = b"Hello";
         let b64url = B64Url::from(data.as_slice());
-        assert_eq!(b64url.as_ref(), data);
+        assert_eq!(b64url.as_bytes(), data);
     }
 
     #[test]
@@ -122,14 +123,14 @@ mod tests {
     fn test_b64url_decoding_with_padding() {
         let encoded_with_padding = "SGVsbG8sIFdvcmxkIQ==";
         let b64url = B64Url::try_from(encoded_with_padding).unwrap();
-        assert_eq!(b64url.as_ref(), b"Hello, World!");
+        assert_eq!(b64url.as_bytes(), b"Hello, World!");
     }
 
     #[test]
     fn test_b64url_decoding_without_padding() {
         let encoded_without_padding = "SGVsbG8sIFdvcmxkIQ";
         let b64url = B64Url::try_from(encoded_without_padding).unwrap();
-        assert_eq!(b64url.as_ref(), b"Hello, World!");
+        assert_eq!(b64url.as_bytes(), b"Hello, World!");
     }
 
     #[test]
@@ -138,7 +139,7 @@ mod tests {
         let b64url = B64Url::from(original.as_slice());
         let encoded = String::from(&b64url);
         let decoded = B64Url::try_from(encoded.as_str()).unwrap();
-        assert_eq!(decoded.as_ref(), original);
+        assert_eq!(decoded.as_bytes(), original);
     }
 
     #[test]
@@ -147,7 +148,7 @@ mod tests {
         let b64url = B64Url::from(original.as_slice());
         let encoded = String::from(&b64url);
         let decoded = B64Url::try_from(encoded.as_str()).unwrap();
-        assert_eq!(decoded.as_ref(), original);
+        assert_eq!(decoded.as_bytes(), original);
     }
 
     #[test]
@@ -168,14 +169,14 @@ mod tests {
     fn test_b64url_empty_string() {
         let empty = "";
         let b64url = B64Url::try_from(empty).unwrap();
-        assert_eq!(b64url.as_ref().len(), 0);
+        assert_eq!(b64url.as_bytes().len(), 0);
     }
 
     #[test]
     fn test_b64url_padding_removal() {
         let encoded_with_padding = "SGVsbG8sIFdvcmxkIQ==";
         let b64url = B64Url::try_from(encoded_with_padding).unwrap();
-        assert_eq!(b64url.as_ref(), b"Hello, World!");
+        assert_eq!(b64url.as_bytes(), b"Hello, World!");
     }
 
     #[test]
@@ -187,7 +188,7 @@ mod tests {
         assert_eq!(serialized, "\"c2VyaWFsaXphdGlvbiB0ZXN0\"");
 
         let deserialized: B64Url = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(b64url.as_ref(), deserialized.as_ref());
+        assert_eq!(b64url.as_bytes(), deserialized.as_bytes());
     }
 
     #[test]
@@ -200,7 +201,7 @@ mod tests {
     fn test_b64url_from_str() {
         let encoded = "SGVsbG8sIFdvcmxkIQ==";
         let b64url: B64Url = encoded.parse().unwrap();
-        assert_eq!(b64url.as_ref(), b"Hello, World!");
+        assert_eq!(b64url.as_bytes(), b"Hello, World!");
     }
 
     #[test]

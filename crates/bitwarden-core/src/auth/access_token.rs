@@ -66,12 +66,13 @@ impl FromStr for AccessToken {
         };
 
         let encryption_key: B64 = encryption_key.parse()?;
-        let encryption_key = Zeroizing::new(encryption_key.as_ref().try_into().map_err(|_| {
-            AccessTokenInvalidError::InvalidBase64Length {
-                expected: 16,
-                got: encryption_key.as_ref().len(),
-            }
-        })?);
+        let encryption_key =
+            Zeroizing::new(encryption_key.as_bytes().try_into().map_err(|_| {
+                AccessTokenInvalidError::InvalidBase64Length {
+                    expected: 16,
+                    got: encryption_key.as_bytes().len(),
+                }
+            })?);
         let encryption_key =
             derive_shareable_key(encryption_key, "accesstoken", Some("sm-access-token"));
 
