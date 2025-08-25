@@ -4,7 +4,10 @@ use serde::{de::DeserializeOwned, ser::Serialize};
 use tokio::sync::Mutex;
 
 use crate::{
-    repository::{validate_registry_name, RepositoryItem, RepositoryItemData},
+    repository::{
+        validate_registry_name, RepositoryItem, RepositoryItemData, RepositoryMigrationStep,
+        RepositoryMigrations,
+    },
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError},
 };
 
@@ -25,24 +28,40 @@ fn validate_identifier(name: &'static str) -> Result<&'static str, DatabaseError
 impl SqliteDatabase {
     fn initialize_internal(
         mut db: rusqlite::Connection,
-        registrations: &[RepositoryItemData],
+        migrations: RepositoryMigrations,
     ) -> Result<Self, DatabaseError> {
         // Set WAL mode for better concurrency
         db.pragma_update(None, "journal_mode", "WAL")?;
 
         let transaction = db.transaction()?;
 
-        for reg in registrations {
-            // SAFETY: SQLite tables cannot use ?, but `reg.name()` is not user controlled and
-            // is validated to only contain valid characters, so it's safe to
-            // interpolate here.
-            transaction.execute(
-                &format!(
-                    "CREATE TABLE IF NOT EXISTS \"{}\" (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
-                    validate_identifier(reg.name())?,
-                ),
-                [],
-            )?;
+        for step in &migrations.steps {
+            match step {
+                RepositoryMigrationStep::Add(data) => {
+                    // SAFETY: SQLite tables cannot use ?, but `reg.name()` is not user controlled
+                    // and is validated to only contain valid characters, so
+                    // it's safe to interpolate here.
+                    transaction.execute(
+                        &format!(
+                            "CREATE TABLE IF NOT EXISTS \"{}\" (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+                            validate_identifier(data.name())?,
+                        ),
+                        [],
+                    )?;
+                }
+                RepositoryMigrationStep::Remove(data) => {
+                    // SAFETY: SQLite tables cannot use ?, but `reg.name()` is not user controlled
+                    // and is validated to only contain valid characters, so
+                    // it's safe to interpolate here.
+                    transaction.execute(
+                        &format!(
+                            "DROP TABLE IF EXISTS \"{}\";",
+                            validate_identifier(data.name())?,
+                        ),
+                        [],
+                    )?;
+                }
+            }
         }
 
         transaction.commit()?;
@@ -53,7 +72,7 @@ impl SqliteDatabase {
 impl Database for SqliteDatabase {
     async fn initialize(
         configuration: DatabaseConfiguration,
-        registrations: &[RepositoryItemData],
+        migrations: RepositoryMigrations,
     ) -> Result<Self, DatabaseError> {
         let DatabaseConfiguration::Sqlite {
             db_name,
@@ -65,7 +84,7 @@ impl Database for SqliteDatabase {
         path.set_file_name(format!("{db_name}.sqlite"));
 
         let db = rusqlite::Connection::open(path)?;
-        Self::initialize_internal(db, registrations)
+        Self::initialize_internal(db, migrations)
     }
 
     async fn get<T: Serialize + DeserializeOwned + RepositoryItem>(

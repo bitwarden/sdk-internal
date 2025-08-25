@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bitwarden_state::{
     registry::{RepositoryNotFoundError, StateRegistryError},
-    repository::{Repository, RepositoryItem, RepositoryItemData},
+    repository::{Repository, RepositoryItem, RepositoryMigrations},
     DatabaseConfiguration,
 };
 
@@ -36,12 +36,12 @@ impl StateClient {
     pub async fn initialize_database(
         &self,
         configuration: DatabaseConfiguration,
-        repositories: Vec<RepositoryItemData>,
+        migrations: RepositoryMigrations,
     ) -> Result<(), StateRegistryError> {
         self.client
             .internal
             .repository_map
-            .initialize_database(configuration, repositories)
+            .initialize_database(configuration, migrations)
             .await
     }
 
