@@ -1,20 +1,11 @@
 use bitwarden_api_api::models::UserDecryptionResponseModel;
-use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 
+use crate::key_management::master_password::MasterPasswordError;
 use crate::{
     auth::api::response::user_decryption_options_response::UserDecryptionOptionsResponseModel,
-    key_management::master_password::{MasterPasswordError, MasterPasswordUnlockData},
+    key_management::master_password::MasterPasswordUnlockData,
 };
-
-/// Error for master user decryption related operations.
-#[bitwarden_error(flat)]
-#[derive(Debug, thiserror::Error)]
-enum UserDecryptionError {
-    /// Error related to master password unlock.
-    #[error(transparent)]
-    MasterPasswordError(#[from] MasterPasswordError),
-}
 
 /// Represents data required to decrypt user's vault.
 /// Currently, this is only used for master password unlock.
@@ -26,7 +17,7 @@ struct UserDecryptionData {
 }
 
 impl TryFrom<UserDecryptionResponseModel> for UserDecryptionData {
-    type Error = UserDecryptionError;
+    type Error = MasterPasswordError;
 
     fn try_from(response: UserDecryptionResponseModel) -> Result<Self, Self::Error> {
         let master_password_unlock = response
@@ -41,7 +32,7 @@ impl TryFrom<UserDecryptionResponseModel> for UserDecryptionData {
 }
 
 impl TryFrom<UserDecryptionOptionsResponseModel> for UserDecryptionData {
-    type Error = UserDecryptionError;
+    type Error = MasterPasswordError;
 
     fn try_from(response: UserDecryptionOptionsResponseModel) -> Result<Self, Self::Error> {
         let master_password_unlock = response
