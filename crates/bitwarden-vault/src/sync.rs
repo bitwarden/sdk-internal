@@ -204,9 +204,9 @@ mod tests {
     const USER_NAME: &str = "Test User";
     const USER_EMAIL: &str = "test@example.com";
 
-    fn create_profile_response(user_id: Uuid) -> ProfileResponseModel {
+    fn create_profile_response(user_id: UserId) -> ProfileResponseModel {
         ProfileResponseModel {
-            id: Some(user_id),
+            id: Some(user_id.into()),
             name: Some(USER_NAME.to_string()),
             email: Some(USER_EMAIL.to_string()),
             organizations: Some(vec![]),
@@ -214,7 +214,7 @@ mod tests {
         }
     }
 
-    fn create_sync_response(user_id: Uuid) -> SyncResponseModel {
+    fn create_sync_response(user_id: UserId) -> SyncResponseModel {
         SyncResponseModel {
             profile: Some(Box::new(create_profile_response(user_id))),
             folders: Some(vec![]),
@@ -224,7 +224,7 @@ mod tests {
         }
     }
 
-    fn create_test_account() -> (TestAccount, Uuid, Uuid, UnsignedSharedKey) {
+    fn create_test_account() -> (TestAccount, UserId, OrganizationId, UnsignedSharedKey) {
         let test_account = test_bitwarden_com_account();
         let user_id = test_account.user.user_id.unwrap();
         let organization_keys = test_account
@@ -301,7 +301,7 @@ mod tests {
         let response = SyncResponseModel {
             profile: Some(Box::new(ProfileResponseModel {
                 organizations: Some(vec![ProfileOrganizationResponseModel {
-                    id: Some(organization_id),
+                    id: Some(organization_id.into()),
                     key: Some(organization_key.to_string()),
                     ..ProfileOrganizationResponseModel::new()
                 }]),

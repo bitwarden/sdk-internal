@@ -21,6 +21,7 @@ pub use crypto_client::CryptoClient;
 
 #[cfg(feature = "internal")]
 mod master_password;
+pub use master_password::{MasterPasswordError, MasterPasswordUnlockData};
 #[cfg(feature = "internal")]
 mod non_generic_wrappers;
 #[allow(unused_imports)]
