@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use data_encoding::BASE64URL;
+use data_encoding::BASE64URL_NOPAD;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -42,7 +42,7 @@ impl From<B64Url> for String {
 
 impl From<&B64Url> for String {
     fn from(src: &B64Url) -> Self {
-        BASE64URL.encode(&src.0)
+        BASE64URL_NOPAD.encode(&src.0)
     }
 }
 
@@ -115,8 +115,7 @@ mod tests {
         let data = b"Hello, World!";
         let b64url = B64Url::from(data.as_slice());
         let encoded = String::from(&b64url);
-        assert_eq!(encoded, "SGVsbG8sIFdvcmxkIQ==");
-        assert!(encoded.contains('='));
+        assert_eq!(encoded, "SGVsbG8sIFdvcmxkIQ");
     }
 
     #[test]
@@ -155,7 +154,7 @@ mod tests {
     fn test_b64url_display() {
         let data = b"Hello";
         let b64url = B64Url::from(data.as_slice());
-        assert_eq!(b64url.to_string(), "SGVsbG8=");
+        assert_eq!(b64url.to_string(), "SGVsbG8");
     }
 
     #[test]
