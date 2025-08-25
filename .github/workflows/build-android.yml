@@ -12,9 +12,9 @@ on:
         type: boolean
         default: false
       test-android-repo:
-          description: "Test Android Repo Apps - Runs the SDK Test workflow in bitwarden/android"
-          type: boolean
-          default: false
+        description: "Test Android Repo Apps - Runs the SDK Test workflow in bitwarden/android"
+        type: boolean
+        default: false
 
 defaults:
   run:
