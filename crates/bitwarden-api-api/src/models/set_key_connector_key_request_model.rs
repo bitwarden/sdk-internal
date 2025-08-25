@@ -13,11 +13,12 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SetKeyConnectorKeyRequestModel {
     #[serde(rename = "key")]
     pub key: String,
     #[serde(rename = "keys")]
-    pub keys: Box<models::KeysRequestModel>,
+    pub keys: models::KeysRequestModel,
     #[serde(rename = "kdf")]
     pub kdf: models::KdfType,
     #[serde(rename = "kdfIterations")]
@@ -40,7 +41,7 @@ impl SetKeyConnectorKeyRequestModel {
     ) -> SetKeyConnectorKeyRequestModel {
         SetKeyConnectorKeyRequestModel {
             key,
-            keys: Box::new(keys),
+            keys,
             kdf,
             kdf_iterations,
             kdf_memory: None,

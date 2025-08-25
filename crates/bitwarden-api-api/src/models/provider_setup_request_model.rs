@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct ProviderSetupRequestModel {
     #[serde(rename = "name")]
     pub name: String,
@@ -25,9 +26,9 @@ pub struct ProviderSetupRequestModel {
     #[serde(rename = "key")]
     pub key: String,
     #[serde(rename = "taxInfo")]
-    pub tax_info: Box<models::ExpandedTaxInfoUpdateRequestModel>,
+    pub tax_info: models::ExpandedTaxInfoUpdateRequestModel,
     #[serde(rename = "paymentSource", skip_serializing_if = "Option::is_none")]
-    pub payment_source: Option<Box<models::TokenizedPaymentSourceRequestBody>>,
+    pub payment_source: Option<models::TokenizedPaymentSourceRequestBody>,
 }
 
 impl ProviderSetupRequestModel {
@@ -44,7 +45,7 @@ impl ProviderSetupRequestModel {
             billing_email,
             token,
             key,
-            tax_info: Box::new(tax_info),
+            tax_info,
             payment_source: None,
         }
     }

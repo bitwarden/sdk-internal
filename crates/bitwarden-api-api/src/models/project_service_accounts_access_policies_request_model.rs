@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct ProjectServiceAccountsAccessPoliciesRequestModel {
     #[serde(rename = "serviceAccountAccessPolicyRequests")]
     pub service_account_access_policy_requests: Option<Vec<models::AccessPolicyRequest>>,

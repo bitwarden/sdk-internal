@@ -13,15 +13,16 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct RotateUserAccountKeysAndDataRequestModel {
     #[serde(rename = "oldMasterKeyAuthenticationHash")]
     pub old_master_key_authentication_hash: Option<String>,
     #[serde(rename = "accountUnlockData")]
-    pub account_unlock_data: Box<models::UnlockDataRequestModel>,
+    pub account_unlock_data: models::UnlockDataRequestModel,
     #[serde(rename = "accountKeys")]
-    pub account_keys: Box<models::AccountKeysRequestModel>,
+    pub account_keys: models::AccountKeysRequestModel,
     #[serde(rename = "accountData")]
-    pub account_data: Box<models::AccountDataRequestModel>,
+    pub account_data: models::AccountDataRequestModel,
 }
 
 impl RotateUserAccountKeysAndDataRequestModel {
@@ -33,9 +34,9 @@ impl RotateUserAccountKeysAndDataRequestModel {
     ) -> RotateUserAccountKeysAndDataRequestModel {
         RotateUserAccountKeysAndDataRequestModel {
             old_master_key_authentication_hash,
-            account_unlock_data: Box::new(account_unlock_data),
-            account_keys: Box::new(account_keys),
-            account_data: Box::new(account_data),
+            account_unlock_data,
+            account_keys,
+            account_data,
         }
     }
 }

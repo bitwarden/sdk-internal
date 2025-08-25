@@ -20,6 +20,7 @@ use serde_repr::{Serialize_repr,Deserialize_repr};
 /// {{{description}}}
 #[repr(i64)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum {{{classname}}} {
 {{#allowableValues}}
 {{#enumVars}}
@@ -45,6 +46,7 @@ impl std::fmt::Display for {{{classname}}} {
 {{^isInteger}}
 /// {{{description}}}
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum {{{classname}}} {
 {{#allowableValues}}
 {{#enumVars}}
@@ -123,6 +125,7 @@ impl Default for {{classname}} {
 {{^discriminator}}
 {{#vendorExtensions.x-rust-has-byte-array}}#[serde_as]
 {{/vendorExtensions.x-rust-has-byte-array}}{{#oneOf.isEmpty}}#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct {{{classname}}} {
 {{#vars}}
     {{#description}}
@@ -180,6 +183,7 @@ impl {{{classname}}} {
 {{/description}}
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum {{classname}} {
 {{#composedSchemas.oneOf}}
     {{#description}}
@@ -202,6 +206,7 @@ impl Default for {{classname}} {
 {{#isEnum}}
 /// {{{description}}}
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum {{{enumName}}} {
 {{#allowableValues}}
 {{#enumVars}}

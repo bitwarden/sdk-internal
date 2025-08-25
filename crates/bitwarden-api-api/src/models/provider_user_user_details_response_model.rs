@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct ProviderUserUserDetailsResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
@@ -25,7 +26,7 @@ pub struct ProviderUserUserDetailsResponseModel {
     #[serde(rename = "status", skip_serializing_if = "Option::is_none")]
     pub status: Option<models::ProviderUserStatusType>,
     #[serde(rename = "permissions", skip_serializing_if = "Option::is_none")]
-    pub permissions: Option<Box<models::Permissions>>,
+    pub permissions: Option<models::Permissions>,
     #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(rename = "email", skip_serializing_if = "Option::is_none")]

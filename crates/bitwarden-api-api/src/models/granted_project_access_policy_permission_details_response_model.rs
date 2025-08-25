@@ -13,11 +13,12 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct GrantedProjectAccessPolicyPermissionDetailsResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
     #[serde(rename = "accessPolicy", skip_serializing_if = "Option::is_none")]
-    pub access_policy: Option<Box<models::GrantedProjectAccessPolicyResponseModel>>,
+    pub access_policy: Option<models::GrantedProjectAccessPolicyResponseModel>,
     #[serde(rename = "hasPermission", skip_serializing_if = "Option::is_none")]
     pub has_permission: Option<bool>,
 }

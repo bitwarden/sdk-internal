@@ -13,9 +13,10 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct WebAuthnLoginCredentialUpdateRequestModel {
     #[serde(rename = "deviceResponse")]
-    pub device_response: Box<models::AuthenticatorAssertionRawResponse>,
+    pub device_response: models::AuthenticatorAssertionRawResponse,
     #[serde(rename = "token")]
     pub token: String,
     #[serde(rename = "encryptedUserKey")]
@@ -35,7 +36,7 @@ impl WebAuthnLoginCredentialUpdateRequestModel {
         encrypted_private_key: String,
     ) -> WebAuthnLoginCredentialUpdateRequestModel {
         WebAuthnLoginCredentialUpdateRequestModel {
-            device_response: Box::new(device_response),
+            device_response,
             token,
             encrypted_user_key,
             encrypted_public_key,

@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendFileUploadDataResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
@@ -21,7 +22,7 @@ pub struct SendFileUploadDataResponseModel {
     #[serde(rename = "fileUploadType", skip_serializing_if = "Option::is_none")]
     pub file_upload_type: Option<models::FileUploadType>,
     #[serde(rename = "sendResponse", skip_serializing_if = "Option::is_none")]
-    pub send_response: Option<Box<models::SendResponseModel>>,
+    pub send_response: Option<models::SendResponseModel>,
 }
 
 impl SendFileUploadDataResponseModel {

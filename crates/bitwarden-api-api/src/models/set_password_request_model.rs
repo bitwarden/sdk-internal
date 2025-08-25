@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SetPasswordRequestModel {
     #[serde(rename = "masterPasswordHash")]
     pub master_password_hash: String,
@@ -21,7 +22,7 @@ pub struct SetPasswordRequestModel {
     #[serde(rename = "masterPasswordHint", skip_serializing_if = "Option::is_none")]
     pub master_password_hint: Option<String>,
     #[serde(rename = "keys", skip_serializing_if = "Option::is_none")]
-    pub keys: Option<Box<models::KeysRequestModel>>,
+    pub keys: Option<models::KeysRequestModel>,
     #[serde(rename = "kdf")]
     pub kdf: models::KdfType,
     #[serde(rename = "kdfIterations")]

@@ -13,9 +13,10 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct UnlockDataRequestModel {
     #[serde(rename = "masterPasswordUnlockData")]
-    pub master_password_unlock_data: Box<models::MasterPasswordUnlockDataModel>,
+    pub master_password_unlock_data: models::MasterPasswordUnlockDataModel,
     #[serde(rename = "emergencyAccessUnlockData")]
     pub emergency_access_unlock_data: Option<Vec<models::EmergencyAccessWithIdRequestModel>>,
     #[serde(rename = "organizationAccountRecoveryUnlockData")]
@@ -38,7 +39,7 @@ impl UnlockDataRequestModel {
         device_key_unlock_data: Option<Vec<models::OtherDeviceKeysUpdateRequestModel>>,
     ) -> UnlockDataRequestModel {
         UnlockDataRequestModel {
-            master_password_unlock_data: Box::new(master_password_unlock_data),
+            master_password_unlock_data,
             emergency_access_unlock_data,
             organization_account_recovery_unlock_data,
             passkey_unlock_data,

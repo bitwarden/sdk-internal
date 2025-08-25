@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct TwoFactorWebAuthnRequestModel {
     #[serde(rename = "masterPasswordHash", skip_serializing_if = "Option::is_none")]
     pub master_password_hash: Option<String>,
@@ -28,7 +29,7 @@ pub struct TwoFactorWebAuthnRequestModel {
     #[serde(rename = "id")]
     pub id: i32,
     #[serde(rename = "deviceResponse")]
-    pub device_response: Box<models::AuthenticatorAttestationRawResponse>,
+    pub device_response: models::AuthenticatorAttestationRawResponse,
     #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
 }
@@ -44,7 +45,7 @@ impl TwoFactorWebAuthnRequestModel {
             auth_request_access_code: None,
             secret: None,
             id,
-            device_response: Box::new(device_response),
+            device_response,
             name: None,
         }
     }

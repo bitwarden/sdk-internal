@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct OrganizationUpgradeRequestModel {
     #[serde(rename = "businessName", skip_serializing_if = "Option::is_none")]
     pub business_name: Option<String>,
@@ -47,7 +48,7 @@ pub struct OrganizationUpgradeRequestModel {
     )]
     pub billing_address_postal_code: Option<String>,
     #[serde(rename = "keys", skip_serializing_if = "Option::is_none")]
-    pub keys: Option<Box<models::OrganizationKeysRequestModel>>,
+    pub keys: Option<models::OrganizationKeysRequestModel>,
 }
 
 impl OrganizationUpgradeRequestModel {

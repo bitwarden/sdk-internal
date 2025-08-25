@@ -13,9 +13,10 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct DeleteAttachmentResponseData {
     #[serde(rename = "cipher", skip_serializing_if = "Option::is_none")]
-    pub cipher: Option<Box<models::Cipher>>,
+    pub cipher: Option<models::Cipher>,
 }
 
 impl DeleteAttachmentResponseData {

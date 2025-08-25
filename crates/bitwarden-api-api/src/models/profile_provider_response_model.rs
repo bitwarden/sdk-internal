@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct ProfileProviderResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
@@ -29,7 +30,7 @@ pub struct ProfileProviderResponseModel {
     #[serde(rename = "enabled", skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
     #[serde(rename = "permissions", skip_serializing_if = "Option::is_none")]
-    pub permissions: Option<Box<models::Permissions>>,
+    pub permissions: Option<models::Permissions>,
     #[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
     pub user_id: Option<uuid::Uuid>,
     #[serde(rename = "useEvents", skip_serializing_if = "Option::is_none")]

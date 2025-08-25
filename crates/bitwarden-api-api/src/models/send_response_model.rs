@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
@@ -27,9 +28,9 @@ pub struct SendResponseModel {
     #[serde(rename = "notes", skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
     #[serde(rename = "file", skip_serializing_if = "Option::is_none")]
-    pub file: Option<Box<models::SendFileModel>>,
+    pub file: Option<models::SendFileModel>,
     #[serde(rename = "text", skip_serializing_if = "Option::is_none")]
-    pub text: Option<Box<models::SendTextModel>>,
+    pub text: Option<models::SendTextModel>,
     #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
     #[serde(rename = "maxAccessCount", skip_serializing_if = "Option::is_none")]

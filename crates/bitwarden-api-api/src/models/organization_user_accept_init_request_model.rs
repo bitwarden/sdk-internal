@@ -13,13 +13,14 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct OrganizationUserAcceptInitRequestModel {
     #[serde(rename = "token")]
     pub token: String,
     #[serde(rename = "key")]
     pub key: String,
     #[serde(rename = "keys")]
-    pub keys: Box<models::OrganizationKeysRequestModel>,
+    pub keys: models::OrganizationKeysRequestModel,
     #[serde(rename = "collectionName", skip_serializing_if = "Option::is_none")]
     pub collection_name: Option<String>,
 }
@@ -33,7 +34,7 @@ impl OrganizationUserAcceptInitRequestModel {
         OrganizationUserAcceptInitRequestModel {
             token,
             key,
-            keys: Box::new(keys),
+            keys,
             collection_name: None,
         }
     }

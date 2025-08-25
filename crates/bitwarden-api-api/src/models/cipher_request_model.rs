@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CipherRequestModel {
     /// The Id of the user that encrypted the cipher. It should always represent a UserId.
     #[serde(rename = "encryptedFor", skip_serializing_if = "Option::is_none")]
@@ -42,15 +43,15 @@ pub struct CipherRequestModel {
     #[serde(rename = "attachments2", skip_serializing_if = "Option::is_none")]
     pub attachments2: Option<std::collections::HashMap<String, models::CipherAttachmentModel>>,
     #[serde(rename = "login", skip_serializing_if = "Option::is_none")]
-    pub login: Option<Box<models::CipherLoginModel>>,
+    pub login: Option<models::CipherLoginModel>,
     #[serde(rename = "card", skip_serializing_if = "Option::is_none")]
-    pub card: Option<Box<models::CipherCardModel>>,
+    pub card: Option<models::CipherCardModel>,
     #[serde(rename = "identity", skip_serializing_if = "Option::is_none")]
-    pub identity: Option<Box<models::CipherIdentityModel>>,
+    pub identity: Option<models::CipherIdentityModel>,
     #[serde(rename = "secureNote", skip_serializing_if = "Option::is_none")]
-    pub secure_note: Option<Box<models::CipherSecureNoteModel>>,
+    pub secure_note: Option<models::CipherSecureNoteModel>,
     #[serde(rename = "sshKey", skip_serializing_if = "Option::is_none")]
-    pub ssh_key: Option<Box<models::CipherSshKeyModel>>,
+    pub ssh_key: Option<models::CipherSshKeyModel>,
     #[serde(
         rename = "lastKnownRevisionDate",
         skip_serializing_if = "Option::is_none"

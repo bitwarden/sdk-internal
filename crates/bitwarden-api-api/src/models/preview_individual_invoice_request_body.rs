@@ -13,11 +13,12 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct PreviewIndividualInvoiceRequestBody {
     #[serde(rename = "passwordManager")]
-    pub password_manager: Box<models::IndividualPasswordManagerRequestModel>,
+    pub password_manager: models::IndividualPasswordManagerRequestModel,
     #[serde(rename = "taxInformation")]
-    pub tax_information: Box<models::TaxInformationRequestModel>,
+    pub tax_information: models::TaxInformationRequestModel,
 }
 
 impl PreviewIndividualInvoiceRequestBody {
@@ -26,8 +27,8 @@ impl PreviewIndividualInvoiceRequestBody {
         tax_information: models::TaxInformationRequestModel,
     ) -> PreviewIndividualInvoiceRequestBody {
         PreviewIndividualInvoiceRequestBody {
-            password_manager: Box::new(password_manager),
-            tax_information: Box::new(tax_information),
+            password_manager,
+            tax_information,
         }
     }
 }

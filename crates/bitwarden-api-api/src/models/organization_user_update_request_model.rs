@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct OrganizationUserUpdateRequestModel {
     #[serde(rename = "type")]
     pub r#type: models::OrganizationUserType,
@@ -22,7 +23,7 @@ pub struct OrganizationUserUpdateRequestModel {
     )]
     pub access_secrets_manager: Option<bool>,
     #[serde(rename = "permissions", skip_serializing_if = "Option::is_none")]
-    pub permissions: Option<Box<models::Permissions>>,
+    pub permissions: Option<models::Permissions>,
     #[serde(rename = "collections", skip_serializing_if = "Option::is_none")]
     pub collections: Option<Vec<models::SelectionReadOnlyRequestModel>>,
     #[serde(rename = "groups", skip_serializing_if = "Option::is_none")]

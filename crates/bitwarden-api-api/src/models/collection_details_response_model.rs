@@ -15,6 +15,7 @@ use crate::models;
 /// CollectionDetailsResponseModel : Response model for a collection that is always assigned to the
 /// requesting user, including permissions.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CollectionDetailsResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,

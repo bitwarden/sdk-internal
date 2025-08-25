@@ -15,6 +15,7 @@ use crate::models;
 
 #[serde_as]
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AssertionResponse {
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
     #[serde(rename = "authenticatorData", skip_serializing_if = "Option::is_none")]

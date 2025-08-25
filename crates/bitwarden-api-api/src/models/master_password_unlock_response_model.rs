@@ -13,9 +13,10 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct MasterPasswordUnlockResponseModel {
     #[serde(rename = "kdf")]
-    pub kdf: Box<models::MasterPasswordUnlockKdfResponseModel>,
+    pub kdf: models::MasterPasswordUnlockKdfResponseModel,
     #[serde(rename = "masterKeyEncryptedUserKey")]
     pub master_key_encrypted_user_key: Option<String>,
     #[serde(rename = "salt")]
@@ -29,7 +30,7 @@ impl MasterPasswordUnlockResponseModel {
         salt: Option<String>,
     ) -> MasterPasswordUnlockResponseModel {
         MasterPasswordUnlockResponseModel {
-            kdf: Box::new(kdf),
+            kdf,
             master_key_encrypted_user_key,
             salt,
         }

@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendWithIdRequestModel {
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub r#type: Option<models::SendType>,
@@ -31,9 +32,9 @@ pub struct SendWithIdRequestModel {
     #[serde(rename = "deletionDate")]
     pub deletion_date: String,
     #[serde(rename = "file", skip_serializing_if = "Option::is_none")]
-    pub file: Option<Box<models::SendFileModel>>,
+    pub file: Option<models::SendFileModel>,
     #[serde(rename = "text", skip_serializing_if = "Option::is_none")]
-    pub text: Option<Box<models::SendTextModel>>,
+    pub text: Option<models::SendTextModel>,
     #[serde(rename = "password", skip_serializing_if = "Option::is_none")]
     pub password: Option<String>,
     #[serde(rename = "disabled")]

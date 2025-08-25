@@ -13,13 +13,14 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct TokenizedPaymentMethodRequest {
     #[serde(rename = "type")]
     pub r#type: String,
     #[serde(rename = "token")]
     pub token: String,
     #[serde(rename = "billingAddress", skip_serializing_if = "Option::is_none")]
-    pub billing_address: Option<Box<models::MinimalBillingAddressRequest>>,
+    pub billing_address: Option<models::MinimalBillingAddressRequest>,
 }
 
 impl TokenizedPaymentMethodRequest {

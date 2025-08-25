@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SecretUpdateRequestModel {
     #[serde(rename = "key")]
     pub key: String,
@@ -26,7 +27,7 @@ pub struct SecretUpdateRequestModel {
         rename = "accessPoliciesRequests",
         skip_serializing_if = "Option::is_none"
     )]
-    pub access_policies_requests: Option<Box<models::SecretAccessPoliciesRequestsModel>>,
+    pub access_policies_requests: Option<models::SecretAccessPoliciesRequestsModel>,
 }
 
 impl SecretUpdateRequestModel {

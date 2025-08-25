@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct OrganizationSubscriptionResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
@@ -35,9 +36,9 @@ pub struct OrganizationSubscriptionResponseModel {
     #[serde(rename = "billingEmail", skip_serializing_if = "Option::is_none")]
     pub billing_email: Option<String>,
     #[serde(rename = "plan", skip_serializing_if = "Option::is_none")]
-    pub plan: Option<Box<models::PlanResponseModel>>,
+    pub plan: Option<models::PlanResponseModel>,
     #[serde(rename = "secretsManagerPlan", skip_serializing_if = "Option::is_none")]
-    pub secrets_manager_plan: Option<Box<models::PlanResponseModel>>,
+    pub secrets_manager_plan: Option<models::PlanResponseModel>,
     #[serde(rename = "planType", skip_serializing_if = "Option::is_none")]
     pub plan_type: Option<models::PlanType>,
     #[serde(rename = "seats", skip_serializing_if = "Option::is_none")]
@@ -136,11 +137,11 @@ pub struct OrganizationSubscriptionResponseModel {
     #[serde(rename = "storageGb", skip_serializing_if = "Option::is_none")]
     pub storage_gb: Option<f64>,
     #[serde(rename = "customerDiscount", skip_serializing_if = "Option::is_none")]
-    pub customer_discount: Option<Box<models::BillingCustomerDiscount>>,
+    pub customer_discount: Option<models::BillingCustomerDiscount>,
     #[serde(rename = "subscription", skip_serializing_if = "Option::is_none")]
-    pub subscription: Option<Box<models::BillingSubscription>>,
+    pub subscription: Option<models::BillingSubscription>,
     #[serde(rename = "upcomingInvoice", skip_serializing_if = "Option::is_none")]
-    pub upcoming_invoice: Option<Box<models::BillingSubscriptionUpcomingInvoice>>,
+    pub upcoming_invoice: Option<models::BillingSubscriptionUpcomingInvoice>,
     /// Date when a self-hosted organization's subscription expires, without any grace period.
     #[serde(
         rename = "expirationWithoutGracePeriod",

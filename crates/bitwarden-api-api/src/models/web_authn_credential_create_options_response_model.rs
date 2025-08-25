@@ -13,11 +13,12 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct WebAuthnCredentialCreateOptionsResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
     #[serde(rename = "options", skip_serializing_if = "Option::is_none")]
-    pub options: Option<Box<models::CredentialCreateOptions>>,
+    pub options: Option<models::CredentialCreateOptions>,
     #[serde(rename = "token", skip_serializing_if = "Option::is_none")]
     pub token: Option<String>,
 }

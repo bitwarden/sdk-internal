@@ -13,13 +13,14 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct OptionalCipherDetailsResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
     #[serde(rename = "unavailable", skip_serializing_if = "Option::is_none")]
     pub unavailable: Option<bool>,
     #[serde(rename = "cipher", skip_serializing_if = "Option::is_none")]
-    pub cipher: Option<Box<models::CipherDetailsResponseModel>>,
+    pub cipher: Option<models::CipherDetailsResponseModel>,
 }
 
 impl OptionalCipherDetailsResponseModel {

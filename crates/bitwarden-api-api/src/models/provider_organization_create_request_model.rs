@@ -13,11 +13,12 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct ProviderOrganizationCreateRequestModel {
     #[serde(rename = "clientOwnerEmail")]
     pub client_owner_email: String,
     #[serde(rename = "organizationCreateRequest")]
-    pub organization_create_request: Box<models::OrganizationCreateRequestModel>,
+    pub organization_create_request: models::OrganizationCreateRequestModel,
 }
 
 impl ProviderOrganizationCreateRequestModel {
@@ -27,7 +28,7 @@ impl ProviderOrganizationCreateRequestModel {
     ) -> ProviderOrganizationCreateRequestModel {
         ProviderOrganizationCreateRequestModel {
             client_owner_email,
-            organization_create_request: Box::new(organization_create_request),
+            organization_create_request,
         }
     }
 }

@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CreateClientOrganizationRequestBody {
     #[serde(rename = "name")]
     pub name: String,
@@ -25,7 +26,7 @@ pub struct CreateClientOrganizationRequestBody {
     #[serde(rename = "key")]
     pub key: String,
     #[serde(rename = "keyPair")]
-    pub key_pair: Box<models::KeyPairRequestBody>,
+    pub key_pair: models::KeyPairRequestBody,
     #[serde(rename = "collectionName")]
     pub collection_name: String,
 }
@@ -44,7 +45,7 @@ impl CreateClientOrganizationRequestBody {
             plan_type: None,
             seats: None,
             key,
-            key_pair: Box::new(key_pair),
+            key_pair,
             collection_name,
         }
     }

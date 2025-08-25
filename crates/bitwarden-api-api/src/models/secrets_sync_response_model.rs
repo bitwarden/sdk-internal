@@ -13,13 +13,14 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SecretsSyncResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
     #[serde(rename = "hasChanges", skip_serializing_if = "Option::is_none")]
     pub has_changes: Option<bool>,
     #[serde(rename = "secrets", skip_serializing_if = "Option::is_none")]
-    pub secrets: Option<Box<models::BaseSecretResponseModelListResponseModel>>,
+    pub secrets: Option<models::BaseSecretResponseModelListResponseModel>,
 }
 
 impl SecretsSyncResponseModel {

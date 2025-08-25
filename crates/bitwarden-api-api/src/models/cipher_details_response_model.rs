@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CipherDetailsResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
@@ -29,15 +30,15 @@ pub struct CipherDetailsResponseModel {
     #[serde(rename = "notes", skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
     #[serde(rename = "login", skip_serializing_if = "Option::is_none")]
-    pub login: Option<Box<models::CipherLoginModel>>,
+    pub login: Option<models::CipherLoginModel>,
     #[serde(rename = "card", skip_serializing_if = "Option::is_none")]
-    pub card: Option<Box<models::CipherCardModel>>,
+    pub card: Option<models::CipherCardModel>,
     #[serde(rename = "identity", skip_serializing_if = "Option::is_none")]
-    pub identity: Option<Box<models::CipherIdentityModel>>,
+    pub identity: Option<models::CipherIdentityModel>,
     #[serde(rename = "secureNote", skip_serializing_if = "Option::is_none")]
-    pub secure_note: Option<Box<models::CipherSecureNoteModel>>,
+    pub secure_note: Option<models::CipherSecureNoteModel>,
     #[serde(rename = "sshKey", skip_serializing_if = "Option::is_none")]
-    pub ssh_key: Option<Box<models::CipherSshKeyModel>>,
+    pub ssh_key: Option<models::CipherSshKeyModel>,
     #[serde(rename = "fields", skip_serializing_if = "Option::is_none")]
     pub fields: Option<Vec<models::CipherFieldModel>>,
     #[serde(rename = "passwordHistory", skip_serializing_if = "Option::is_none")]
@@ -68,7 +69,7 @@ pub struct CipherDetailsResponseModel {
     #[serde(rename = "viewPassword", skip_serializing_if = "Option::is_none")]
     pub view_password: Option<bool>,
     #[serde(rename = "permissions", skip_serializing_if = "Option::is_none")]
-    pub permissions: Option<Box<models::CipherPermissionsResponseModel>>,
+    pub permissions: Option<models::CipherPermissionsResponseModel>,
     #[serde(rename = "collectionIds", skip_serializing_if = "Option::is_none")]
     pub collection_ids: Option<Vec<uuid::Uuid>>,
 }

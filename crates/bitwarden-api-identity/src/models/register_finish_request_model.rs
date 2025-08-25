@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct RegisterFinishRequestModel {
     #[serde(rename = "email")]
     pub email: Option<String>,
@@ -28,7 +29,7 @@ pub struct RegisterFinishRequestModel {
     #[serde(rename = "userSymmetricKey")]
     pub user_symmetric_key: Option<String>,
     #[serde(rename = "userAsymmetricKeys")]
-    pub user_asymmetric_keys: Box<models::KeysRequestModel>,
+    pub user_asymmetric_keys: models::KeysRequestModel,
     #[serde(rename = "kdf")]
     pub kdf: models::KdfType,
     #[serde(rename = "kdfIterations")]
@@ -80,7 +81,7 @@ impl RegisterFinishRequestModel {
             master_password_hash,
             master_password_hint: None,
             user_symmetric_key,
-            user_asymmetric_keys: Box::new(user_asymmetric_keys),
+            user_asymmetric_keys,
             kdf,
             kdf_iterations,
             kdf_memory: None,

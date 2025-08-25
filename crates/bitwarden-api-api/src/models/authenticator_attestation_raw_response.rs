@@ -15,6 +15,7 @@ use crate::models;
 
 #[serde_as]
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AuthenticatorAttestationRawResponse {
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
     #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
@@ -25,9 +26,9 @@ pub struct AuthenticatorAttestationRawResponse {
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub r#type: Option<models::PublicKeyCredentialType>,
     #[serde(rename = "response", skip_serializing_if = "Option::is_none")]
-    pub response: Option<Box<models::ResponseData>>,
+    pub response: Option<models::ResponseData>,
     #[serde(rename = "extensions", skip_serializing_if = "Option::is_none")]
-    pub extensions: Option<Box<models::AuthenticationExtensionsClientOutputs>>,
+    pub extensions: Option<models::AuthenticationExtensionsClientOutputs>,
 }
 
 impl AuthenticatorAttestationRawResponse {

@@ -13,9 +13,10 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct WebAuthnLoginCredentialCreateRequestModel {
     #[serde(rename = "deviceResponse")]
-    pub device_response: Box<models::AuthenticatorAttestationRawResponse>,
+    pub device_response: models::AuthenticatorAttestationRawResponse,
     #[serde(rename = "name")]
     pub name: String,
     #[serde(rename = "token")]
@@ -41,7 +42,7 @@ impl WebAuthnLoginCredentialCreateRequestModel {
         supports_prf: bool,
     ) -> WebAuthnLoginCredentialCreateRequestModel {
         WebAuthnLoginCredentialCreateRequestModel {
-            device_response: Box::new(device_response),
+            device_response,
             name,
             token,
             supports_prf,

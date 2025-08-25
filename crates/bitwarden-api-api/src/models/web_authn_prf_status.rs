@@ -17,6 +17,7 @@ use crate::models;
 #[derive(
     Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum WebAuthnPrfStatus {
     Enabled = 0,
     Supported = 1,

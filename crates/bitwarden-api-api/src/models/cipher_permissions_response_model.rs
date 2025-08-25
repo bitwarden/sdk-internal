@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CipherPermissionsResponseModel {
     #[serde(rename = "delete", skip_serializing_if = "Option::is_none")]
     pub delete: Option<bool>,

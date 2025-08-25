@@ -13,12 +13,13 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct UserDecryptionResponseModel {
     #[serde(
         rename = "masterPasswordUnlock",
         skip_serializing_if = "Option::is_none"
     )]
-    pub master_password_unlock: Option<Box<models::MasterPasswordUnlockResponseModel>>,
+    pub master_password_unlock: Option<models::MasterPasswordUnlockResponseModel>,
 }
 
 impl UserDecryptionResponseModel {

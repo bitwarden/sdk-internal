@@ -13,13 +13,14 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct BillingAddressRequest {
     #[serde(rename = "country")]
     pub country: String,
     #[serde(rename = "postalCode")]
     pub postal_code: String,
     #[serde(rename = "taxId", skip_serializing_if = "Option::is_none")]
-    pub tax_id: Option<Box<models::TaxIdRequest>>,
+    pub tax_id: Option<models::TaxIdRequest>,
     #[serde(rename = "line1", skip_serializing_if = "Option::is_none")]
     pub line1: Option<String>,
     #[serde(rename = "line2", skip_serializing_if = "Option::is_none")]

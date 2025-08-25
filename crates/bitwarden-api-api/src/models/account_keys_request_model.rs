@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AccountKeysRequestModel {
     #[serde(rename = "userKeyEncryptedAccountPrivateKey")]
     pub user_key_encrypted_account_private_key: Option<String>,

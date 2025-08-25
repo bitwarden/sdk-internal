@@ -15,15 +15,16 @@ use crate::models;
 
 #[serde_as]
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CredentialCreateOptions {
     #[serde(rename = "status", skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
     #[serde(rename = "errorMessage", skip_serializing_if = "Option::is_none")]
     pub error_message: Option<String>,
     #[serde(rename = "rp", skip_serializing_if = "Option::is_none")]
-    pub rp: Option<Box<models::PublicKeyCredentialRpEntity>>,
+    pub rp: Option<models::PublicKeyCredentialRpEntity>,
     #[serde(rename = "user", skip_serializing_if = "Option::is_none")]
-    pub user: Option<Box<models::Fido2User>>,
+    pub user: Option<models::Fido2User>,
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
     #[serde(rename = "challenge", skip_serializing_if = "Option::is_none")]
     pub challenge: Option<Vec<u8>>,
@@ -37,11 +38,11 @@ pub struct CredentialCreateOptions {
         rename = "authenticatorSelection",
         skip_serializing_if = "Option::is_none"
     )]
-    pub authenticator_selection: Option<Box<models::AuthenticatorSelection>>,
+    pub authenticator_selection: Option<models::AuthenticatorSelection>,
     #[serde(rename = "excludeCredentials", skip_serializing_if = "Option::is_none")]
     pub exclude_credentials: Option<Vec<models::PublicKeyCredentialDescriptor>>,
     #[serde(rename = "extensions", skip_serializing_if = "Option::is_none")]
-    pub extensions: Option<Box<models::AuthenticationExtensionsClientInputs>>,
+    pub extensions: Option<models::AuthenticationExtensionsClientInputs>,
 }
 
 impl CredentialCreateOptions {

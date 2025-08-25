@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct OrganizationCreateRequestModel {
     #[serde(rename = "name")]
     pub name: String,
@@ -25,7 +26,7 @@ pub struct OrganizationCreateRequestModel {
     #[serde(rename = "key")]
     pub key: String,
     #[serde(rename = "keys", skip_serializing_if = "Option::is_none")]
-    pub keys: Option<Box<models::OrganizationKeysRequestModel>>,
+    pub keys: Option<models::OrganizationKeysRequestModel>,
     #[serde(rename = "paymentMethodType", skip_serializing_if = "Option::is_none")]
     pub payment_method_type: Option<models::PaymentMethodType>,
     #[serde(rename = "paymentToken", skip_serializing_if = "Option::is_none")]

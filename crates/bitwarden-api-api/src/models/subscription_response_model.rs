@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SubscriptionResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
@@ -23,11 +24,11 @@ pub struct SubscriptionResponseModel {
     #[serde(rename = "maxStorageGb", skip_serializing_if = "Option::is_none")]
     pub max_storage_gb: Option<i32>,
     #[serde(rename = "upcomingInvoice", skip_serializing_if = "Option::is_none")]
-    pub upcoming_invoice: Option<Box<models::BillingSubscriptionUpcomingInvoice>>,
+    pub upcoming_invoice: Option<models::BillingSubscriptionUpcomingInvoice>,
     #[serde(rename = "subscription", skip_serializing_if = "Option::is_none")]
-    pub subscription: Option<Box<models::BillingSubscription>>,
+    pub subscription: Option<models::BillingSubscription>,
     #[serde(rename = "license", skip_serializing_if = "Option::is_none")]
-    pub license: Option<Box<models::UserLicense>>,
+    pub license: Option<models::UserLicense>,
     #[serde(rename = "expiration", skip_serializing_if = "Option::is_none")]
     pub expiration: Option<String>,
 }

@@ -13,15 +13,16 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct PreviewOrganizationInvoiceRequestBody {
     #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
     pub organization_id: Option<uuid::Uuid>,
     #[serde(rename = "passwordManager")]
-    pub password_manager: Box<models::OrganizationPasswordManagerRequestModel>,
+    pub password_manager: models::OrganizationPasswordManagerRequestModel,
     #[serde(rename = "secretsManager", skip_serializing_if = "Option::is_none")]
-    pub secrets_manager: Option<Box<models::SecretsManagerRequestModel>>,
+    pub secrets_manager: Option<models::SecretsManagerRequestModel>,
     #[serde(rename = "taxInformation")]
-    pub tax_information: Box<models::TaxInformationRequestModel>,
+    pub tax_information: models::TaxInformationRequestModel,
 }
 
 impl PreviewOrganizationInvoiceRequestBody {
@@ -31,9 +32,9 @@ impl PreviewOrganizationInvoiceRequestBody {
     ) -> PreviewOrganizationInvoiceRequestBody {
         PreviewOrganizationInvoiceRequestBody {
             organization_id: None,
-            password_manager: Box::new(password_manager),
+            password_manager,
             secrets_manager: None,
-            tax_information: Box::new(tax_information),
+            tax_information,
         }
     }
 }

@@ -13,11 +13,12 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct PaymentResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
     #[serde(rename = "userProfile", skip_serializing_if = "Option::is_none")]
-    pub user_profile: Option<Box<models::ProfileResponseModel>>,
+    pub user_profile: Option<models::ProfileResponseModel>,
     #[serde(
         rename = "paymentIntentClientSecret",
         skip_serializing_if = "Option::is_none"

@@ -13,11 +13,12 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CipherShareRequestModel {
     #[serde(rename = "collectionIds")]
     pub collection_ids: Vec<String>,
     #[serde(rename = "cipher")]
-    pub cipher: Box<models::CipherRequestModel>,
+    pub cipher: models::CipherRequestModel,
 }
 
 impl CipherShareRequestModel {
@@ -27,7 +28,7 @@ impl CipherShareRequestModel {
     ) -> CipherShareRequestModel {
         CipherShareRequestModel {
             collection_ids,
-            cipher: Box::new(cipher),
+            cipher,
         }
     }
 }

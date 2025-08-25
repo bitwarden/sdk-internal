@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct OrganizationResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
@@ -35,9 +36,9 @@ pub struct OrganizationResponseModel {
     #[serde(rename = "billingEmail", skip_serializing_if = "Option::is_none")]
     pub billing_email: Option<String>,
     #[serde(rename = "plan", skip_serializing_if = "Option::is_none")]
-    pub plan: Option<Box<models::PlanResponseModel>>,
+    pub plan: Option<models::PlanResponseModel>,
     #[serde(rename = "secretsManagerPlan", skip_serializing_if = "Option::is_none")]
-    pub secrets_manager_plan: Option<Box<models::PlanResponseModel>>,
+    pub secrets_manager_plan: Option<models::PlanResponseModel>,
     #[serde(rename = "planType", skip_serializing_if = "Option::is_none")]
     pub plan_type: Option<models::PlanType>,
     #[serde(rename = "seats", skip_serializing_if = "Option::is_none")]

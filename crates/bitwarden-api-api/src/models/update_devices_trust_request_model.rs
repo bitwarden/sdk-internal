@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct UpdateDevicesTrustRequestModel {
     #[serde(rename = "masterPasswordHash", skip_serializing_if = "Option::is_none")]
     pub master_password_hash: Option<String>,
@@ -26,7 +27,7 @@ pub struct UpdateDevicesTrustRequestModel {
     #[serde(rename = "secret", skip_serializing_if = "Option::is_none")]
     pub secret: Option<String>,
     #[serde(rename = "currentDevice")]
-    pub current_device: Box<models::DeviceKeysUpdateRequestModel>,
+    pub current_device: models::DeviceKeysUpdateRequestModel,
     #[serde(rename = "otherDevices", skip_serializing_if = "Option::is_none")]
     pub other_devices: Option<Vec<models::OtherDeviceKeysUpdateRequestModel>>,
 }
@@ -40,7 +41,7 @@ impl UpdateDevicesTrustRequestModel {
             otp: None,
             auth_request_access_code: None,
             secret: None,
-            current_device: Box::new(current_device),
+            current_device,
             other_devices: None,
         }
     }

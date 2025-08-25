@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct OrganizationSponsorshipCreateRequestModel {
     #[serde(rename = "planSponsorshipType")]
     pub plan_sponsorship_type: models::PlanSponsorshipType,

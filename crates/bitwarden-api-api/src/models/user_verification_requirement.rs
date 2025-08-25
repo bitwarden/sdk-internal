@@ -14,6 +14,7 @@ use crate::models;
 
 ///
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum UserVerificationRequirement {
     #[serde(rename = "required")]
     Required,

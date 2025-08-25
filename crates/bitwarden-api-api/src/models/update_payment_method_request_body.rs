@@ -13,11 +13,12 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct UpdatePaymentMethodRequestBody {
     #[serde(rename = "paymentSource")]
-    pub payment_source: Box<models::TokenizedPaymentSourceRequestBody>,
+    pub payment_source: models::TokenizedPaymentSourceRequestBody,
     #[serde(rename = "taxInformation")]
-    pub tax_information: Box<models::TaxInformationRequestBody>,
+    pub tax_information: models::TaxInformationRequestBody,
 }
 
 impl UpdatePaymentMethodRequestBody {
@@ -26,8 +27,8 @@ impl UpdatePaymentMethodRequestBody {
         tax_information: models::TaxInformationRequestBody,
     ) -> UpdatePaymentMethodRequestBody {
         UpdatePaymentMethodRequestBody {
-            payment_source: Box::new(payment_source),
-            tax_information: Box::new(tax_information),
+            payment_source,
+            tax_information,
         }
     }
 }

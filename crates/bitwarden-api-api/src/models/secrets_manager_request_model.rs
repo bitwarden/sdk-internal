@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SecretsManagerRequestModel {
     #[serde(rename = "seats", skip_serializing_if = "Option::is_none")]
     pub seats: Option<i32>,

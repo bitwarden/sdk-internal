@@ -14,6 +14,9 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
+[features]
+uniffi = ["dep:uniffi"] # Uniffi bindings
+
 [dependencies]
 serde = { version = "^1.0", features = ["derive"] }
 {{#serdeWith}}
@@ -90,3 +93,4 @@ mockall = ["dep:mockall"]
 bon = ["dep:bon"]
 {{/useBonBuilder}}
 {{/reqwestTrait}}
+uniffi = { workspace = true, optional = true }

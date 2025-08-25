@@ -326,6 +326,7 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "serde_with",
+ "uniffi",
  "url",
  "uuid",
 ]
@@ -339,6 +340,7 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "serde_with",
+ "uniffi",
  "url",
  "uuid",
 ]
@@ -706,6 +708,7 @@ version = "0.1.0"
 dependencies = [
  "android_logger",
  "async-trait",
+ "bitwarden-api-api",
  "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
@@ -724,6 +727,7 @@ dependencies = [
  "log",
  "oslog",
  "rustls-platform-verifier",
+ "serde_json",
  "thiserror 2.0.12",
  "uniffi",
  "uuid",

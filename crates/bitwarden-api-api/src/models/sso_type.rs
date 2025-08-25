@@ -17,6 +17,7 @@ use crate::models;
 #[derive(
     Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum SsoType {
     OpenIdConnect = 1,
     Saml2 = 2,

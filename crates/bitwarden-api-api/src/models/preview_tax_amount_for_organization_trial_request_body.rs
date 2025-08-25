@@ -13,13 +13,14 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct PreviewTaxAmountForOrganizationTrialRequestBody {
     #[serde(rename = "planType")]
     pub plan_type: models::PlanType,
     #[serde(rename = "productType")]
     pub product_type: models::ProductType,
     #[serde(rename = "taxInformation")]
-    pub tax_information: Box<models::TaxInformationDto>,
+    pub tax_information: models::TaxInformationDto,
 }
 
 impl PreviewTaxAmountForOrganizationTrialRequestBody {
@@ -31,7 +32,7 @@ impl PreviewTaxAmountForOrganizationTrialRequestBody {
         PreviewTaxAmountForOrganizationTrialRequestBody {
             plan_type,
             product_type,
-            tax_information: Box::new(tax_information),
+            tax_information,
         }
     }
 }

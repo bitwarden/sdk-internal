@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct ConfigResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
@@ -21,15 +22,15 @@ pub struct ConfigResponseModel {
     #[serde(rename = "gitHash", skip_serializing_if = "Option::is_none")]
     pub git_hash: Option<String>,
     #[serde(rename = "server", skip_serializing_if = "Option::is_none")]
-    pub server: Option<Box<models::ServerConfigResponseModel>>,
+    pub server: Option<models::ServerConfigResponseModel>,
     #[serde(rename = "environment", skip_serializing_if = "Option::is_none")]
-    pub environment: Option<Box<models::EnvironmentConfigResponseModel>>,
+    pub environment: Option<models::EnvironmentConfigResponseModel>,
     #[serde(rename = "featureStates", skip_serializing_if = "Option::is_none")]
     pub feature_states: Option<std::collections::HashMap<String, serde_json::Value>>,
     #[serde(rename = "push", skip_serializing_if = "Option::is_none")]
-    pub push: Option<Box<models::PushSettings>>,
+    pub push: Option<models::PushSettings>,
     #[serde(rename = "settings", skip_serializing_if = "Option::is_none")]
-    pub settings: Option<Box<models::ServerSettingsResponseModel>>,
+    pub settings: Option<models::ServerSettingsResponseModel>,
 }
 
 impl ConfigResponseModel {

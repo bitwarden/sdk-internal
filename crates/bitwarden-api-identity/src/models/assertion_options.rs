@@ -15,6 +15,7 @@ use crate::models;
 
 #[serde_as]
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AssertionOptions {
     #[serde(rename = "status", skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
@@ -32,7 +33,7 @@ pub struct AssertionOptions {
     #[serde(rename = "userVerification", skip_serializing_if = "Option::is_none")]
     pub user_verification: Option<models::UserVerificationRequirement>,
     #[serde(rename = "extensions", skip_serializing_if = "Option::is_none")]
-    pub extensions: Option<Box<models::AuthenticationExtensionsClientInputs>>,
+    pub extensions: Option<models::AuthenticationExtensionsClientInputs>,
 }
 
 impl AssertionOptions {

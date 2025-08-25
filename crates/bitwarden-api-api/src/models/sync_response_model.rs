@@ -13,11 +13,12 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SyncResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
     #[serde(rename = "profile", skip_serializing_if = "Option::is_none")]
-    pub profile: Option<Box<models::ProfileResponseModel>>,
+    pub profile: Option<models::ProfileResponseModel>,
     #[serde(rename = "folders", skip_serializing_if = "Option::is_none")]
     pub folders: Option<Vec<models::FolderResponseModel>>,
     #[serde(rename = "collections", skip_serializing_if = "Option::is_none")]
@@ -25,13 +26,13 @@ pub struct SyncResponseModel {
     #[serde(rename = "ciphers", skip_serializing_if = "Option::is_none")]
     pub ciphers: Option<Vec<models::CipherDetailsResponseModel>>,
     #[serde(rename = "domains", skip_serializing_if = "Option::is_none")]
-    pub domains: Option<Box<models::DomainsResponseModel>>,
+    pub domains: Option<models::DomainsResponseModel>,
     #[serde(rename = "policies", skip_serializing_if = "Option::is_none")]
     pub policies: Option<Vec<models::PolicyResponseModel>>,
     #[serde(rename = "sends", skip_serializing_if = "Option::is_none")]
     pub sends: Option<Vec<models::SendResponseModel>>,
     #[serde(rename = "userDecryption", skip_serializing_if = "Option::is_none")]
-    pub user_decryption: Option<Box<models::UserDecryptionResponseModel>>,
+    pub user_decryption: Option<models::UserDecryptionResponseModel>,
 }
 
 impl SyncResponseModel {

@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct OrganizationSsoResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
@@ -21,9 +22,9 @@ pub struct OrganizationSsoResponseModel {
     #[serde(rename = "identifier", skip_serializing_if = "Option::is_none")]
     pub identifier: Option<String>,
     #[serde(rename = "data", skip_serializing_if = "Option::is_none")]
-    pub data: Option<Box<models::SsoConfigurationData>>,
+    pub data: Option<models::SsoConfigurationData>,
     #[serde(rename = "urls", skip_serializing_if = "Option::is_none")]
-    pub urls: Option<Box<models::SsoUrls>>,
+    pub urls: Option<models::SsoUrls>,
 }
 
 impl OrganizationSsoResponseModel {

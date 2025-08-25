@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AttachmentUploadDataResponseModel {
     #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
     pub object: Option<String>,
@@ -23,9 +24,9 @@ pub struct AttachmentUploadDataResponseModel {
     #[serde(rename = "fileUploadType", skip_serializing_if = "Option::is_none")]
     pub file_upload_type: Option<models::FileUploadType>,
     #[serde(rename = "cipherResponse", skip_serializing_if = "Option::is_none")]
-    pub cipher_response: Option<Box<models::CipherResponseModel>>,
+    pub cipher_response: Option<models::CipherResponseModel>,
     #[serde(rename = "cipherMiniResponse", skip_serializing_if = "Option::is_none")]
-    pub cipher_mini_response: Option<Box<models::CipherMiniResponseModel>>,
+    pub cipher_mini_response: Option<models::CipherMiniResponseModel>,
 }
 
 impl AttachmentUploadDataResponseModel {

@@ -13,18 +13,19 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CipherCreateRequestModel {
     #[serde(rename = "collectionIds", skip_serializing_if = "Option::is_none")]
     pub collection_ids: Option<Vec<uuid::Uuid>>,
     #[serde(rename = "cipher")]
-    pub cipher: Box<models::CipherRequestModel>,
+    pub cipher: models::CipherRequestModel,
 }
 
 impl CipherCreateRequestModel {
     pub fn new(cipher: models::CipherRequestModel) -> CipherCreateRequestModel {
         CipherCreateRequestModel {
             collection_ids: None,
-            cipher: Box::new(cipher),
+            cipher,
         }
     }
 }
