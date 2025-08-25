@@ -25,7 +25,9 @@ use crate::{
         login_method::UserLoginMethod,
     },
     error::NotAuthenticatedError,
-    key_management::{crypto::InitUserCryptoRequest, SecurityState, SignedSecurityState},
+    key_management::{
+        crypto::InitUserCryptoRequest, MasterPasswordUnlockData, SecurityState, SignedSecurityState,
+    },
 };
 
 /// Represents the user's keys, that are encrypted by the user key, and the signed security state.
@@ -258,6 +260,23 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
+    pub(crate) fn initialize_user_crypto_master_password_unlock(
+        &self,
+        password: String,
+        master_password_unlock: MasterPasswordUnlockData,
+        key_state: UserKeyState,
+    ) -> Result<(), EncryptionSettingsError> {
+        let master_key = MasterKey::derive(
+            &password,
+            &master_password_unlock.salt,
+            &master_password_unlock.kdf,
+        )?;
+        let user_key =
+            master_key.decrypt_user_key(master_password_unlock.master_key_wrapped_user_key)?;
+        self.initialize_user_crypto_decrypted_key(user_key, key_state)
+    }
+
+    #[cfg(feature = "internal")]
     pub(crate) fn initialize_user_crypto_decrypted_key(
         &self,
         user_key: SymmetricCryptoKey,
@@ -325,6 +344,45 @@ impl InternalClient {
         org_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
     ) -> Result<(), EncryptionSettingsError> {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
+    }
+
+    #[cfg(feature = "internal")]
+    pub fn update_kdf(&self, new_kdf: Kdf) -> Result<(), NotAuthenticatedError> {
+        let login_method = self.get_login_method().ok_or(NotAuthenticatedError)?;
+
+        let kdf = match login_method.as_ref() {
+            LoginMethod::User(UserLoginMethod::Username { kdf, .. }) => kdf,
+            LoginMethod::User(UserLoginMethod::ApiKey { kdf, .. }) => kdf,
+            #[cfg(feature = "secrets")]
+            LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
+        };
+
+        if *kdf != new_kdf {
+            match login_method.as_ref() {
+                LoginMethod::User(UserLoginMethod::Username {
+                    client_id, email, ..
+                }) => self.set_login_method(LoginMethod::User(UserLoginMethod::Username {
+                    client_id: client_id.to_owned(),
+                    email: email.to_owned(),
+                    kdf: new_kdf,
+                })),
+                LoginMethod::User(UserLoginMethod::ApiKey {
+                    client_id,
+                    client_secret,
+                    email,
+                    ..
+                }) => self.set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
+                    client_id: client_id.to_owned(),
+                    client_secret: client_secret.to_owned(),
+                    email: email.to_owned(),
+                    kdf: new_kdf,
+                })),
+                #[cfg(feature = "secrets")]
+                LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
+            };
+        }
+
+        Ok(())
     }
 }
 

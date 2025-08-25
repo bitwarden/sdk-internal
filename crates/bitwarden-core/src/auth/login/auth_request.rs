@@ -88,20 +88,11 @@ pub(crate) async fn complete_auth_request(
     .await?;
 
     if let IdentityTokenResponse::Authenticated(r) = response {
-        let kdf = Kdf::default();
-
         client.internal.set_tokens(
             r.access_token.clone(),
             r.refresh_token.clone(),
             r.expires_in,
         );
-        client
-            .internal
-            .set_login_method(LoginMethod::User(UserLoginMethod::Username {
-                client_id: "web".to_owned(),
-                email: auth_req.email.to_owned(),
-                kdf: kdf.clone(),
-            }));
 
         let method = match res.master_password_hash {
             Some(_) => AuthRequestMethod::MasterKey {
@@ -117,8 +108,8 @@ pub(crate) async fn complete_auth_request(
             .crypto()
             .initialize_user_crypto(InitUserCryptoRequest {
                 user_id: None,
-                kdf_params: kdf,
-                email: auth_req.email,
+                kdf_params: Kdf::default(),
+                email: auth_req.email.to_owned(),
                 private_key: require!(r.private_key).parse()?,
                 signing_key: None,
                 security_state: None,
@@ -128,6 +119,14 @@ pub(crate) async fn complete_auth_request(
                 },
             })
             .await?;
+
+        client
+            .internal
+            .set_login_method(LoginMethod::User(UserLoginMethod::Username {
+                client_id: "web".to_owned(),
+                email: auth_req.email.to_owned(),
+                kdf: Kdf::default(),
+            }));
 
         Ok(())
     } else {
