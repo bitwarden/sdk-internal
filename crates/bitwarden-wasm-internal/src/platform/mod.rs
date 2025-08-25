@@ -59,14 +59,15 @@ pub struct IndexedDbConfiguration {
 
 #[wasm_bindgen]
 impl StateClient {
+    pub fn register_cipher_repository(&self, cipher_repository: CipherRepository) {
+        let cipher = cipher_repository.into_channel_impl();
+        self.0.platform().state().register_client_managed(cipher);
+    }
+
     pub async fn initialize_state(
         &self,
         configuration: IndexedDbConfiguration,
-        cipher_repository: CipherRepository,
     ) -> Result<(), bitwarden_state::registry::StateRegistryError> {
-        let cipher = cipher_repository.into_channel_impl();
-        self.0.platform().state().register_client_managed(cipher);
-
         let sdk_managed_repositories = vec![
             // This should list all the SDK-managed repositories
             <Cipher as RepositoryItem>::data(),

@@ -63,14 +63,12 @@ pub struct SqliteConfiguration {
 
 #[uniffi::export]
 impl StateClient {
-    pub async fn initialize_state(
-        &self,
-        configuration: SqliteConfiguration,
-        cipher_repository: Arc<dyn CipherRepository>,
-    ) -> Result<()> {
-        let cipher = UniffiRepositoryBridge::new(cipher_repository);
+    pub fn register_cipher_repository(&self, repository: Arc<dyn CipherRepository>) {
+        let cipher = UniffiRepositoryBridge::new(repository);
         self.0.platform().state().register_client_managed(cipher);
+    }
 
+    pub async fn initialize_state(&self, configuration: SqliteConfiguration) -> Result<()> {
         let sdk_managed_repositories = vec![
             // This should list all the SDK-managed repositories
             <Cipher as RepositoryItem>::data(),
