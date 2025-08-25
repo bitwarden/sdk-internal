@@ -20,6 +20,7 @@ bench = false
 
 [dependencies]
 async-trait = { workspace = true }
+bitwarden-api-api = { workspace = true, features = ["uniffi"] }
 bitwarden-collections = { workspace = true, features = ["uniffi"] }
 bitwarden-core = { workspace = true, features = ["uniffi"] }
 bitwarden-crypto = { workspace = true, features = ["uniffi"] }
@@ -34,6 +35,7 @@ bitwarden-vault = { workspace = true, features = ["uniffi"] }
 chrono = { workspace = true, features = ["std"] }
 env_logger = "0.11.1"
 log = { workspace = true }
+serde_json.workspace = true
 thiserror = { workspace = true }
 uniffi = { workspace = true }
 uuid = { workspace = true }

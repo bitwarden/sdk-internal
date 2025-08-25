@@ -109,11 +109,11 @@ impl SyncResponse {
         }
 
         Ok(SyncResponse {
-            profile: ProfileResponse::process_response(*profile)?,
+            profile: ProfileResponse::process_response(profile)?,
             folders: try_into_iter(require!(response.folders))?,
             collections: try_into_iter(require!(response.collections))?,
             ciphers: try_into_iter(ciphers)?,
-            domains: response.domains.map(|d| (*d).try_into()).transpose()?,
+            domains: response.domains.map(|d| (d).try_into()).transpose()?,
             //policies: try_into_iter(require!(response.policies))?,
             //sends: try_into_iter(require!(response.sends))?,
         })

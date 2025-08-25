@@ -119,4 +119,7 @@ pub enum Error {
     SshGeneration(#[from] bitwarden_ssh::error::KeyGenerationError),
     #[error(transparent)]
     SshImport(#[from] bitwarden_ssh::error::SshKeyImportError),
+
+    #[error(transparent)]
+    Serde(#[from] serde_json::Error),
 }

@@ -3,6 +3,7 @@
 uniffi::setup_scaffolding!();
 
 use auth::AuthClient;
+use bitwarden_api_api::models::FolderRequestModel;
 use bitwarden_core::ClientSettings;
 
 #[allow(missing_docs)]
@@ -91,6 +92,16 @@ impl Client {
     /// Test method, echoes back the input
     pub fn echo(&self, msg: String) -> String {
         msg
+    }
+
+    pub fn serialize_folder_request(&self, req: FolderRequestModel) -> Result<String> {
+        let json = serde_json::to_string(&req).map_err(Error::Serde)?;
+        Ok(json)
+    }
+
+    pub fn deserialize_folder_request(&self, req: String) -> Result<FolderRequestModel> {
+        let model = serde_json::from_str(&req).map_err(Error::Serde)?;
+        Ok(model)
     }
 
     /// Test method, calls http endpoint
