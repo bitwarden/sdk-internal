@@ -10,7 +10,7 @@ use crate::{
 /// Error for master user decryption related operations.
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
-pub enum UserDecryptionError {
+enum UserDecryptionError {
     /// Error related to master password unlock.
     #[error(transparent)]
     MasterPasswordError(#[from] MasterPasswordError),
@@ -20,9 +20,9 @@ pub enum UserDecryptionError {
 /// Currently, this is only used for master password unlock.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct UserDecryptionData {
+struct UserDecryptionData {
     /// Optional master password unlock data.
-    pub master_password_unlock: Option<MasterPasswordUnlockData>,
+    master_password_unlock: Option<MasterPasswordUnlockData>,
 }
 
 impl TryFrom<UserDecryptionResponseModel> for UserDecryptionData {

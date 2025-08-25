@@ -21,8 +21,6 @@ pub use crypto_client::CryptoClient;
 #[cfg(feature = "internal")]
 mod master_password;
 #[cfg(feature = "internal")]
-pub use master_password::*;
-#[cfg(feature = "internal")]
 mod non_generic_wrappers;
 #[allow(unused_imports)]
 #[cfg(feature = "internal")]
@@ -33,8 +31,6 @@ mod security_state;
 mod user_decryption;
 #[cfg(feature = "internal")]
 pub use security_state::{SecurityState, SignedSecurityState};
-#[cfg(feature = "internal")]
-pub use user_decryption::*;
 
 key_ids! {
     #[symmetric]

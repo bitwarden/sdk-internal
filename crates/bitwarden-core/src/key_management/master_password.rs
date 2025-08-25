@@ -14,7 +14,7 @@ use crate::{require, MissingFieldError};
 /// Error for master password related operations.
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
-pub enum MasterPasswordError {
+pub(crate) enum MasterPasswordError {
     /// The wrapped encryption key could not be parsed because the encstring is malformed
     #[error("Wrapped encryption key is malformed")]
     EncryptionKeyMalformed,
@@ -35,13 +35,13 @@ pub enum MasterPasswordError {
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
-pub struct MasterPasswordUnlockData {
+pub(crate) struct MasterPasswordUnlockData {
     /// The key derivation function used to derive the master key
-    pub kdf: Kdf,
+    kdf: Kdf,
     /// The master key wrapped user key
-    pub master_key_wrapped_user_key: EncString,
+    master_key_wrapped_user_key: EncString,
     /// The salt used in the KDF, typically the user's email
-    pub salt: String,
+    salt: String,
 }
 
 impl TryFrom<MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
