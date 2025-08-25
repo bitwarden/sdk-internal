@@ -14,12 +14,8 @@ uniffi = ["bitwarden-vault/uniffi"]
 wasm = ["bitwarden-vault/wasm"]
 
 [dependencies]
-async-trait = { workspace = true }
-bitwarden-error = { workspace = true }
 bitwarden-state = { workspace = true }
-bitwarden-threading = { workspace = true }
 bitwarden-vault = { workspace = true }
-thiserror = { workspace = true }
 
 [lints]
 workspace = true
