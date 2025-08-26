@@ -21,7 +21,6 @@ pub use crypto_client::CryptoClient;
 
 #[cfg(feature = "internal")]
 mod non_generic_wrappers;
-#[allow(unused_imports)]
 #[cfg(feature = "internal")]
 pub(crate) use non_generic_wrappers::*;
 #[cfg(feature = "internal")]
