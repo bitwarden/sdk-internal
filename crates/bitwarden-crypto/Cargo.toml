@@ -16,10 +16,9 @@ keywords.workspace = true
 
 [features]
 default = []
-wasm = ["dep:tsify", "dep:wasm-bindgen"] # WASM support
-
-uniffi = ["dep:uniffi"]  # Uniffi bindings
-no-memory-hardening = [] # Disable memory hardening features
+no-memory-hardening = []                             # Disable memory hardening features
+uniffi = ["bitwarden-encoding/uniffi", "dep:uniffi"] # Uniffi bindings
+wasm = ["dep:tsify", "dep:wasm-bindgen"]             # WASM support
 
 [dependencies]
 aes = { version = ">=0.8.2, <0.9", features = ["zeroize"] }
@@ -27,7 +26,6 @@ argon2 = { version = ">=0.5.0, <0.6", features = [
     "std",
     "zeroize",
 ], default-features = false }
-base64 = ">=0.22.1, <0.23"
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-uniffi-error = { workspace = true }

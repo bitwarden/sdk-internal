@@ -3,6 +3,7 @@ use bitwarden_api_api::{
     models::{AuthRequestCreateRequestModel, AuthRequestType},
 };
 use bitwarden_crypto::Kdf;
+use bitwarden_encoding::B64;
 use uuid::Uuid;
 
 use super::LoginError;
@@ -23,7 +24,7 @@ pub struct NewAuthRequestResponse {
     device_identifier: String,
     auth_request_id: Uuid,
     access_code: String,
-    private_key: String,
+    private_key: B64,
 }
 
 pub(crate) async fn send_new_auth_request(
@@ -37,7 +38,7 @@ pub(crate) async fn send_new_auth_request(
 
     let req = AuthRequestCreateRequestModel {
         email: email.clone(),
-        public_key: auth.public_key,
+        public_key: auth.public_key.to_string(),
         device_identifier: device_identifier.clone(),
         access_code: auth.access_code.clone(),
         r#type: AuthRequestType::AuthenticateAndUnlock,

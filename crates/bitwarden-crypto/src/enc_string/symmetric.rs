@@ -1,7 +1,6 @@
 use std::{borrow::Cow, str::FromStr};
 
-use base64::{engine::general_purpose::STANDARD, Engine};
-use bitwarden_encoding::FromStrVisitor;
+use bitwarden_encoding::{FromStrVisitor, B64};
 use coset::CborSerializable;
 use serde::Deserialize;
 
@@ -187,8 +186,10 @@ impl EncString {
 impl ToString for EncString {
     fn to_string(&self) -> String {
         fn fmt_parts(enc_type: u8, parts: &[&[u8]]) -> String {
-            let encoded_parts: Vec<String> =
-                parts.iter().map(|part| STANDARD.encode(part)).collect();
+            let encoded_parts: Vec<String> = parts
+                .iter()
+                .map(|part| B64::from(*part).to_string())
+                .collect();
             format!("{}.{}", enc_type, encoded_parts.join("|"))
         }
 
@@ -210,8 +211,10 @@ impl std::fmt::Debug for EncString {
             enc_type: u8,
             parts: &[&[u8]],
         ) -> std::fmt::Result {
-            let encoded_parts: Vec<String> =
-                parts.iter().map(|part| STANDARD.encode(part)).collect();
+            let encoded_parts: Vec<String> = parts
+                .iter()
+                .map(|part| B64::from(*part).to_string())
+                .collect();
             write!(f, "{}.{}", enc_type, encoded_parts.join("|"))
         }
 

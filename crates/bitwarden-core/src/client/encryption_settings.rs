@@ -29,9 +29,6 @@ pub enum EncryptionSettingsError {
     Crypto(#[from] bitwarden_crypto::CryptoError),
 
     #[error(transparent)]
-    InvalidBase64(#[from] base64::DecodeError),
-
-    #[error(transparent)]
     VaultLocked(#[from] VaultLockedError),
 
     #[error("Invalid private key")]
