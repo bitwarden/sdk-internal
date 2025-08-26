@@ -154,7 +154,7 @@ impl SymmetricCryptoKey {
             }
             EncodedSymmetricKey::CoseKey(_) => {
                 let mut encoded_key: Vec<u8> = encoded_key.into();
-                pad_key(&mut encoded_key, Self::AES256_CBC_HMAC_KEY_LEN + 1);
+                pad_key(&mut encoded_key, (Self::AES256_CBC_HMAC_KEY_LEN + 1) as u8); // This is less than 255
                 BitwardenLegacyKeyBytes::from(encoded_key)
             }
         }
@@ -373,8 +373,9 @@ impl std::fmt::Debug for XChaCha20Poly1305Key {
 /// padding is used to make sure that the byte representation uniquely separates the keys by
 /// size of the byte array. The previous key types [SymmetricCryptoKey::Aes256CbcHmacKey] and
 /// [SymmetricCryptoKey::Aes256CbcKey] are 64 and 32 bytes long respectively.
-fn pad_key(key_bytes: &mut Vec<u8>, min_length: usize) {
-    crate::keys::utils::pad_bytes(key_bytes, min_length);
+fn pad_key(key_bytes: &mut Vec<u8>, min_length: u8) {
+    crate::keys::utils::pad_bytes(key_bytes, min_length as usize)
+        .expect("Padding cannot fail since the min_length is < 255")
 }
 
 /// Unpad a key that is padded using the PKCS7-like padding defined by [pad_key].

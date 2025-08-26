@@ -361,11 +361,7 @@ mod tests {
         KEY_ID_SIZE,
     };
 
-    /// XChaCha20Poly1305 encstrings should be padded in blocks of 32 bytes. This ensures that the
-    /// encstring length does not reveal more than the 32-byte range of lengths that the contained
-    /// string falls into.
-    #[test]
-    fn test_xchacha20_encstring_string_padding_block_sizes() {
+    fn encrypt_with_xchacha20(plaintext: &str) -> EncString {
         let key_id = [0u8; KEY_ID_SIZE];
         let enc_key = [0u8; 32];
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
@@ -373,51 +369,34 @@ mod tests {
             enc_key: Box::pin(enc_key.into()),
         });
 
-        // This test setup considers the minimum and maximum lengths of the first and second block,
-        // and the minimum length of the third block. We ensure that the minimum and maximum
-        // plaintext values map to the same ciphertext length, but the next block has a different
-        // ciphertext length.
-        let empty_string = ""; // Padded to 32 bytes
-        let empty_string_encrypted = empty_string
-            .encrypt_with_key(&key)
-            .expect("Encryption should succeed");
+        plaintext.encrypt_with_key(&key).expect("encryption works")
+    }
 
-        let largest_first_block_string = "a".repeat(31); // Padded to 32 bytes
-        let largest_first_block_string_encrypted = largest_first_block_string
-            .encrypt_with_key(&key)
-            .expect("Encryption should succeed");
+    /// XChaCha20Poly1305 encstrings should be padded in blocks of 32 bytes. This ensures that the
+    /// encstring length does not reveal more than the 32-byte range of lengths that the contained
+    /// string falls into.
+    #[test]
+    fn test_xchacha20_encstring_string_padding_block_sizes() {
+        let cases = [
+            ("", 32),              // empty string, padded to 32
+            (&"a".repeat(31), 32), // largest in first block
+            (&"a".repeat(32), 64), // smallest in second block
+            (&"a".repeat(63), 64), // largest in second block
+            (&"a".repeat(64), 96), // smallest in third block
+        ];
 
-        let smallest_second_block_string = "a".repeat(32); // Padded to 64 bytes
-        let smallest_second_block_string_encrypted = smallest_second_block_string
-            .encrypt_with_key(&key)
-            .expect("Encryption should succeed");
+        let ciphertext_lengths: Vec<_> = cases
+            .iter()
+            .map(|(plaintext, _)| encrypt_with_xchacha20(plaintext).to_string().len())
+            .collect();
 
-        let largest_second_block_string = "a".repeat(63); // Padded to 64 bytes
-        let largest_second_block_string_encrypted = largest_second_block_string
-            .encrypt_with_key(&key)
-            .expect("Encryption should succeed");
-
-        let smallest_third_block_string = "a".repeat(64); // Padded to 96 bytes
-        let smallest_third_block_string_encrypted = smallest_third_block_string
-            .encrypt_with_key(&key)
-            .expect("Encryption should succeed");
-
-        assert_eq!(
-            empty_string_encrypted.to_string().len(),
-            largest_first_block_string_encrypted.to_string().len()
-        );
-        assert_ne!(
-            largest_first_block_string_encrypted.to_string().len(),
-            smallest_second_block_string_encrypted.to_string().len()
-        );
-        assert_eq!(
-            smallest_second_block_string_encrypted.to_string().len(),
-            largest_second_block_string_encrypted.to_string().len()
-        );
-        assert_ne!(
-            largest_second_block_string_encrypted.to_string().len(),
-            smallest_third_block_string_encrypted.to_string().len()
-        );
+        // Block 1: 0-31 (same length)
+        assert_eq!(ciphertext_lengths[0], ciphertext_lengths[1]);
+        // Block 2: 32-63 (same length, different from block 1)
+        assert_ne!(ciphertext_lengths[1], ciphertext_lengths[2]);
+        assert_eq!(ciphertext_lengths[2], ciphertext_lengths[3]);
+        // Block 3: 64+ (different from block 2)
+        assert_ne!(ciphertext_lengths[3], ciphertext_lengths[4]);
     }
 
     #[test]
