@@ -998,7 +998,7 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                private_key: make_key_pair(user_key.to_string())
+                private_key: make_key_pair(user_key.try_into().unwrap())
                     .unwrap()
                     .user_key_encrypted_private_key,
                 signing_key: None,
@@ -1024,7 +1024,7 @@ mod tests {
                     iterations: 600_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                private_key: make_key_pair(user_key.to_string())
+                private_key: make_key_pair(user_key.try_into().unwrap())
                     .unwrap()
                     .user_key_encrypted_private_key,
                 signing_key: None,
