@@ -28,7 +28,7 @@ pub struct Folder {
     pub revision_date: DateTime<Utc>,
 }
 
-bitwarden_state::register_repository_item!(Folder, "Folder", version: 1);
+bitwarden_state::register_repository_item!(Folder, "Folder");
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]

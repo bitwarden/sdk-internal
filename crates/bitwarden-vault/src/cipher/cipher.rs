@@ -141,7 +141,7 @@ pub struct Cipher {
     pub revision_date: DateTime<Utc>,
 }
 
-bitwarden_state::register_repository_item!(Cipher, "Cipher", version: 1);
+bitwarden_state::register_repository_item!(Cipher, "Cipher");
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]

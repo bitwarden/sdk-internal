@@ -43,9 +43,6 @@ pub trait RepositoryItem: Internal + Send + Sync + 'static {
     /// The name of the type implementing this trait.
     const NAME: &'static str;
 
-    /// The version of the repository type implementing this trait.
-    const VERSION: u32;
-
     /// Returns the `TypeId` of the type implementing this trait.
     fn type_id() -> TypeId {
         TypeId::of::<Self>()
@@ -63,7 +60,6 @@ pub trait RepositoryItem: Internal + Send + Sync + 'static {
 pub struct RepositoryItemData {
     pub(crate) type_id: TypeId,
     pub(crate) name: &'static str,
-    pub(crate) version: u32,
 }
 
 impl RepositoryItemData {
@@ -72,7 +68,6 @@ impl RepositoryItemData {
         Self {
             type_id: TypeId::of::<T>(),
             name: T::NAME,
-            version: T::VERSION,
         }
     }
 }
@@ -81,12 +76,11 @@ impl RepositoryItemData {
 /// where it's defined. The provided name must be unique and not be changed.
 #[macro_export]
 macro_rules! register_repository_item {
-    ($ty:ty, $name:literal, version: $version:literal) => {
+    ($ty:ty, $name:literal) => {
         const _: () = {
             impl $crate::repository::___internal::Internal for $ty {}
             impl $crate::repository::RepositoryItem for $ty {
                 const NAME: &'static str = $name;
-                const VERSION: u32 = $version;
             }
         };
     };

@@ -32,10 +32,9 @@ impl Database for IndexedDbDatabase {
 
         let registrations = registrations.to_vec();
 
-        // Sum all the versions of the registrations to determine the database version
-        // TODO: We should do a better versioning strategy, as this won't work if one repository is
-        // removed
-        let version: u32 = registrations.iter().map(|reg| reg.version).sum();
+        // TODO: This version will be replaced by a proper migration system in a followup PR:
+        // https://github.com/bitwarden/sdk-internal/pull/410
+        let version: u32 = 1;
 
         // Open the database, creating it if needed
         let db = factory
