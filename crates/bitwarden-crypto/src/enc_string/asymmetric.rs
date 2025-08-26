@@ -1,7 +1,6 @@
 use std::{borrow::Cow, fmt::Display, str::FromStr};
 
-use base64::{engine::general_purpose::STANDARD, Engine};
-use bitwarden_encoding::FromStrVisitor;
+use bitwarden_encoding::{FromStrVisitor, B64};
 pub use internal::UnsignedSharedKey;
 use rsa::Oaep;
 use serde::Deserialize;
@@ -130,7 +129,10 @@ impl Display for UnsignedSharedKey {
             }
         };
 
-        let encoded_parts: Vec<String> = parts.iter().map(|part| STANDARD.encode(part)).collect();
+        let encoded_parts: Vec<String> = parts
+            .iter()
+            .map(|part| B64::from(*part).to_string())
+            .collect();
 
         write!(f, "{}.{}", self.enc_type(), encoded_parts.join("|"))?;
 

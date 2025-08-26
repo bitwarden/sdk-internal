@@ -19,6 +19,7 @@ uniffi = ["dep:uniffi"]
 wasm = ["dep:tsify", "dep:wasm-bindgen"]
 
 [dependencies]
+bitwarden-uniffi-error = { workspace = true }
 data-encoding = { workspace = true }
 data-encoding-macro = "0.1.18"
 serde = { workspace = true }
