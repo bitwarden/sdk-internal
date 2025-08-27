@@ -46,7 +46,9 @@ impl TryFrom<&MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
     type Error = MasterPasswordError;
 
     fn try_from(response: &MasterPasswordUnlockResponseModel) -> Result<Self, Self::Error> {
-        let kdf = match &response.kdf.kdf_type {
+        let response = response.clone();
+
+        let kdf = match response.kdf.kdf_type {
             KdfType::PBKDF2_SHA256 => Kdf::PBKDF2 {
                 iterations: kdf_parse_nonzero_u32(response.kdf.iterations)?,
             },
@@ -57,15 +59,15 @@ impl TryFrom<&MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
             },
         };
 
-        let master_key_encrypted_user_key = require!(&response.master_key_encrypted_user_key);
-        let salt = require!(&response.salt);
+        let master_key_encrypted_user_key = require!(response.master_key_encrypted_user_key);
+        let salt = require!(response.salt);
 
         Ok(MasterPasswordUnlockData {
             kdf,
             master_key_wrapped_user_key: master_key_encrypted_user_key
                 .parse()
                 .map_err(|_| MasterPasswordError::EncryptionKeyMalformed)?,
-            salt: salt.clone(),
+            salt,
         })
     }
 }
