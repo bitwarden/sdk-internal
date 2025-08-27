@@ -51,7 +51,9 @@ pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncRes
         .transpose()?
         .and_then(|user_decryption| user_decryption.master_password_unlock)
     {
-        client.internal.update_kdf(master_password_unlock.kdf)?;
+        client
+            .internal
+            .update_master_password_unlock(master_password_unlock)?;
     }
 
     let org_keys: Vec<_> = require!(sync.profile.as_ref())

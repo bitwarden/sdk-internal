@@ -346,8 +346,15 @@ impl InternalClient {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
     }
 
+    /// Updates KDF for the master password unlock login method.
+    /// Salt and user key update is not supported yet.
     #[cfg(feature = "internal")]
-    pub fn update_kdf(&self, new_kdf: Kdf) -> Result<(), NotAuthenticatedError> {
+    pub fn update_master_password_unlock(
+        &self,
+        master_password_unlock: MasterPasswordUnlockData,
+    ) -> Result<(), NotAuthenticatedError> {
+        let new_kdf = master_password_unlock.kdf;
+
         let login_method = self.get_login_method().ok_or(NotAuthenticatedError)?;
 
         let kdf = match login_method.as_ref() {
