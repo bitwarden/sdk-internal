@@ -18,7 +18,6 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::cipher::CipherKind;
 use crate::{cipher::cipher::CopyableCipherFields, Cipher, VaultParseError};
-use crate::traits::duplicates::HasDuplicates;
 
 #[allow(missing_docs)]
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
@@ -33,6 +32,13 @@ pub enum UriMatchType {
     Exact = 3,
     RegularExpression = 4,
     Never = 5,
+}
+
+pub enum DuplicateUriMatchType {
+    Domain,
+    Hostname,
+    Host,
+    Exact,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -325,19 +331,6 @@ pub struct LoginListView {
     /// The TOTP key is not decrypted. Useable as is with [`crate::generate_totp_cipher_view`].
     pub totp: Option<EncString>,
     pub uris: Option<Vec<LoginUriView>>,
-}
-
-impl HasDuplicates<Self> for  LoginListView {
-    fn find_duplicates(&self, strategy: UriMatchType) -> Vec<Self> {
-        match strategy {
-            UriMatchType::Domain => todo!(),
-            UriMatchType::Host => todo!(),
-            UriMatchType::StartsWith => todo!(),
-            UriMatchType::Exact => todo!(),
-            UriMatchType::RegularExpression => todo!(),
-            UriMatchType::Never => todo!(),
-        }
-    }
 }
 
 impl CompositeEncryptable<KeyIds, SymmetricKeyId, LoginUri> for LoginUriView {
