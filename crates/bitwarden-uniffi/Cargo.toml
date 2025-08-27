@@ -12,11 +12,11 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
-[features]
-
 [lib]
 crate-type = ["lib", "staticlib", "cdylib"]
 bench = false
+
+[features]
 
 [dependencies]
 async-trait = { workspace = true }
