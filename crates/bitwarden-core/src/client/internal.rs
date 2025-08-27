@@ -346,10 +346,10 @@ impl InternalClient {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
     }
 
-    /// Updates KDF for the master password unlock login method.
+    /// Updates user's KDF for the master password unlock login method.
     /// Salt and user key update is not supported yet.
     #[cfg(feature = "internal")]
-    pub fn update_master_password_unlock(
+    pub fn update_user_master_password_unlock(
         &self,
         master_password_unlock: MasterPasswordUnlockData,
     ) -> Result<(), NotAuthenticatedError> {
