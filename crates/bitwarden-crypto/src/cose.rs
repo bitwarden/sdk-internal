@@ -57,7 +57,9 @@ pub(crate) fn encrypt_xchacha20_poly1305(
 
     if should_pad_content(&content_format) {
         // Pad the data to a block size in order to hide plaintext length
-        crate::keys::utils::pad_bytes(&mut plaintext, XCHACHA20_TEXT_PAD_BLOCK_SIZE);
+        let min_length =
+            XCHACHA20_TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / XCHACHA20_TEXT_PAD_BLOCK_SIZE));
+        crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;
     }
 
     let mut nonce = [0u8; xchacha20::NONCE_SIZE];
