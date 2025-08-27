@@ -4,7 +4,7 @@ use bitwarden_api_api::models::{
 use bitwarden_collections::{collection::Collection, error::CollectionsParseError};
 use bitwarden_core::{
     client::encryption_settings::EncryptionSettingsError,
-    key_management::{MasterPasswordError, MasterPasswordUnlockData},
+    key_management::{MasterPasswordError, UserDecryptionData},
     require, Client, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
 };
 use serde::{Deserialize, Serialize};
@@ -44,14 +44,13 @@ pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncRes
         .await
         .map_err(|e| SyncError::Api(e.into()))?;
 
-    if let Some(master_password_unlock_response) = sync
+    if let Some(master_password_unlock) = sync
         .user_decryption
         .as_deref()
-        .and_then(|d| d.master_password_unlock.as_deref())
+        .map(UserDecryptionData::try_from)
+        .transpose()?
+        .and_then(|user_decryption| user_decryption.master_password_unlock)
     {
-        let master_password_unlock =
-            MasterPasswordUnlockData::try_from(master_password_unlock_response.clone())?;
-
         client.internal.update_kdf(master_password_unlock.kdf)?;
     }
 

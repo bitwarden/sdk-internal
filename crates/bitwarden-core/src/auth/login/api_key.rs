@@ -9,7 +9,7 @@ use crate::{
         JwtToken,
     },
     client::{internal::UserKeyState, LoginMethod, UserLoginMethod},
-    key_management::MasterPasswordUnlockData,
+    key_management::UserDecryptionData,
     require, Client,
 };
 
@@ -46,13 +46,13 @@ pub(crate) async fn login_api_key(
             security_state: None,
         };
 
-        if let Some(master_password_unlock_response) = r
+        if let Some(master_password_unlock) = r
             .user_decryption_options
             .as_ref()
-            .and_then(|options| options.master_password_unlock.clone())
+            .map(UserDecryptionData::try_from)
+            .transpose()?
+            .and_then(|user_decryption| user_decryption.master_password_unlock)
         {
-            let master_password_unlock =
-                MasterPasswordUnlockData::try_from(master_password_unlock_response)?;
             client
                 .internal
                 .initialize_user_crypto_master_password_unlock(

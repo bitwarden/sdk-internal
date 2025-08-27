@@ -42,11 +42,11 @@ pub struct MasterPasswordUnlockData {
     pub(crate) salt: String,
 }
 
-impl TryFrom<MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
+impl TryFrom<&MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
     type Error = MasterPasswordError;
 
-    fn try_from(response: MasterPasswordUnlockResponseModel) -> Result<Self, Self::Error> {
-        let kdf = match response.kdf.kdf_type {
+    fn try_from(response: &MasterPasswordUnlockResponseModel) -> Result<Self, Self::Error> {
+        let kdf = match &response.kdf.kdf_type {
             KdfType::PBKDF2_SHA256 => Kdf::PBKDF2 {
                 iterations: kdf_parse_nonzero_u32(response.kdf.iterations)?,
             },
@@ -57,15 +57,15 @@ impl TryFrom<MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
             },
         };
 
-        let master_key_encrypted_user_key = require!(response.master_key_encrypted_user_key);
-        let salt = require!(response.salt);
+        let master_key_encrypted_user_key = require!(&response.master_key_encrypted_user_key);
+        let salt = require!(&response.salt);
 
         Ok(MasterPasswordUnlockData {
             kdf,
             master_key_wrapped_user_key: master_key_encrypted_user_key
                 .parse()
                 .map_err(|_| MasterPasswordError::EncryptionKeyMalformed)?,
-            salt,
+            salt: salt.clone(),
         })
     }
 }
@@ -113,7 +113,7 @@ mod tests {
             600_000,
         );
 
-        let data = MasterPasswordUnlockData::try_from(response).unwrap();
+        let data = MasterPasswordUnlockData::try_from(&response).unwrap();
 
         if let Kdf::PBKDF2 { iterations } = data.kdf {
             assert_eq!(iterations.get(), 600_000);
@@ -138,7 +138,7 @@ mod tests {
             salt: Some(TEST_SALT.to_string()),
         };
 
-        let data = MasterPasswordUnlockData::try_from(response).unwrap();
+        let data = MasterPasswordUnlockData::try_from(&response).unwrap();
 
         if let Kdf::Argon2id {
             iterations,
@@ -166,7 +166,7 @@ mod tests {
             600_000,
         );
 
-        let result = MasterPasswordUnlockData::try_from(response);
+        let result = MasterPasswordUnlockData::try_from(&response);
         assert!(matches!(
             result,
             Err(MasterPasswordError::EncryptionKeyMalformed)
@@ -177,7 +177,7 @@ mod tests {
     fn test_try_from_master_password_unlock_response_model_user_key_none_missing_field_error() {
         let response = create_pbkdf2_response(None, Some(TEST_SALT.to_string()), 600_000);
 
-        let result = MasterPasswordUnlockData::try_from(response);
+        let result = MasterPasswordUnlockData::try_from(&response);
         assert!(matches!(
             result,
             Err(MasterPasswordError::MissingField(MissingFieldError(
@@ -190,7 +190,7 @@ mod tests {
     fn test_try_from_master_password_unlock_response_model_salt_none_missing_field_error() {
         let response = create_pbkdf2_response(Some(TEST_USER_KEY.to_string()), None, 600_000);
 
-        let result = MasterPasswordUnlockData::try_from(response);
+        let result = MasterPasswordUnlockData::try_from(&response);
         assert!(matches!(
             result,
             Err(MasterPasswordError::MissingField(MissingFieldError(
@@ -213,7 +213,7 @@ mod tests {
             salt: Some(TEST_SALT.to_string()),
         };
 
-        let result = MasterPasswordUnlockData::try_from(response);
+        let result = MasterPasswordUnlockData::try_from(&response);
         assert!(matches!(
             result,
             Err(MasterPasswordError::MissingField(MissingFieldError(
@@ -236,7 +236,7 @@ mod tests {
             salt: Some(TEST_SALT.to_string()),
         };
 
-        let result = MasterPasswordUnlockData::try_from(response);
+        let result = MasterPasswordUnlockData::try_from(&response);
         assert!(matches!(result, Err(MasterPasswordError::KdfMalformed)));
     }
 
@@ -254,7 +254,7 @@ mod tests {
             salt: Some(TEST_SALT.to_string()),
         };
 
-        let result = MasterPasswordUnlockData::try_from(response);
+        let result = MasterPasswordUnlockData::try_from(&response);
         assert!(matches!(
             result,
             Err(MasterPasswordError::MissingField(MissingFieldError(
@@ -277,7 +277,7 @@ mod tests {
             salt: Some(TEST_SALT.to_string()),
         };
 
-        let result = MasterPasswordUnlockData::try_from(response);
+        let result = MasterPasswordUnlockData::try_from(&response);
         assert!(matches!(result, Err(MasterPasswordError::KdfMalformed)));
     }
 
@@ -290,7 +290,7 @@ mod tests {
             0,
         );
 
-        let result = MasterPasswordUnlockData::try_from(response);
+        let result = MasterPasswordUnlockData::try_from(&response);
         assert!(matches!(result, Err(MasterPasswordError::KdfMalformed)));
     }
 
@@ -308,7 +308,7 @@ mod tests {
             salt: Some(TEST_SALT.to_string()),
         };
 
-        let result = MasterPasswordUnlockData::try_from(response);
+        let result = MasterPasswordUnlockData::try_from(&response);
         assert!(matches!(result, Err(MasterPasswordError::KdfMalformed)));
     }
 }

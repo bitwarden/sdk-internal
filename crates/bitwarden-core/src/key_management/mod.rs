@@ -19,9 +19,12 @@ mod crypto_client;
 #[cfg(feature = "internal")]
 pub use crypto_client::CryptoClient;
 
-#[cfg_attr(feature = "internal", allow(dead_code))]
+#[cfg(feature = "internal")]
 mod master_password;
-pub use master_password::{MasterPasswordError, MasterPasswordUnlockData};
+#[cfg(feature = "internal")]
+pub use master_password::MasterPasswordError;
+#[cfg(feature = "internal")]
+pub(crate) use master_password::MasterPasswordUnlockData;
 #[cfg(feature = "internal")]
 mod non_generic_wrappers;
 #[allow(unused_imports)]
@@ -29,10 +32,12 @@ mod non_generic_wrappers;
 pub(crate) use non_generic_wrappers::*;
 #[cfg(feature = "internal")]
 mod security_state;
-#[cfg_attr(feature = "internal", allow(dead_code))]
+#[cfg(feature = "internal")]
 mod user_decryption;
 #[cfg(feature = "internal")]
 pub use security_state::{SecurityState, SignedSecurityState};
+#[cfg(feature = "internal")]
+pub use user_decryption::UserDecryptionData;
 
 use crate::OrganizationId;
 
