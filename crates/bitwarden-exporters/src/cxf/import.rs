@@ -49,10 +49,7 @@ fn custom_fields_to_fields(custom_fields: &CustomFieldsCredential) -> Vec<Field>
     custom_fields
         .fields
         .iter()
-        .map(|f| {
-            let label = f.label.as_deref().unwrap_or("field");
-            create_field(f, Some(label))
-        })
+        .map(|f| create_field(f, None::<String>))
         .collect()
 }
 
