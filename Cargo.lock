@@ -352,7 +352,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_qs",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tsify",
  "uniffi",
  "wasm-bindgen",
@@ -377,8 +377,10 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-uuid",
  "serde",
- "thiserror 1.0.69",
+ "serde_repr",
+ "thiserror 2.0.12",
  "tsify",
  "uniffi",
  "uuid",
@@ -390,12 +392,13 @@ name = "bitwarden-core"
 version = "1.0.0"
 dependencies = [
  "async-trait",
- "base64",
  "bitwarden-api-api",
  "bitwarden-api-identity",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-state",
+ "bitwarden-uniffi-error",
  "bitwarden-uuid",
  "chrono",
  "getrandom 0.2.16",
@@ -405,7 +408,7 @@ dependencies = [
  "reqwest",
  "rustls",
  "rustls-platform-verifier",
- "schemars 0.8.22",
+ "schemars 1.0.0",
  "serde",
  "serde_bytes",
  "serde_json",
@@ -428,8 +431,9 @@ version = "1.0.0"
 dependencies = [
  "aes",
  "argon2",
- "base64",
+ "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-uniffi-error",
  "cbc",
  "chacha20poly1305",
  "ciborium",
@@ -446,7 +450,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rayon",
  "rsa",
- "schemars 0.8.22",
+ "schemars 1.0.0",
  "serde",
  "serde_bytes",
  "serde_json",
@@ -462,6 +466,23 @@ dependencies = [
  "wasm-bindgen",
  "zeroize",
  "zeroizing-alloc",
+]
+
+[[package]]
+name = "bitwarden-encoding"
+version = "1.0.0"
+dependencies = [
+ "bitwarden-uniffi-error",
+ "data-encoding",
+ "data-encoding-macro",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tsify",
+ "uniffi",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
 ]
 
 [[package]]
@@ -503,6 +524,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-fido",
+ "bitwarden-ssh",
  "bitwarden-vault",
  "chrono",
  "credential-exchange-format",
@@ -551,7 +573,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "reqwest",
- "schemars 0.8.22",
+ "schemars 1.0.0",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -608,7 +630,7 @@ dependencies = [
  "bitwarden-crypto",
  "chrono",
  "log",
- "schemars 0.8.22",
+ "schemars 1.0.0",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -688,12 +710,14 @@ dependencies = [
  "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-exporters",
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-send",
  "bitwarden-ssh",
  "bitwarden-state",
+ "bitwarden-uniffi-error",
  "bitwarden-vault",
  "chrono",
  "env_logger",
@@ -705,6 +729,14 @@ dependencies = [
  "thiserror 2.0.12",
  "uniffi",
  "uuid",
+]
+
+[[package]]
+name = "bitwarden-uniffi-error"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "uniffi",
 ]
 
 [[package]]
@@ -736,9 +768,11 @@ dependencies = [
  "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-state",
  "bitwarden-test",
+ "bitwarden-uuid",
  "chrono",
  "data-encoding",
  "hmac",
@@ -764,7 +798,6 @@ name = "bitwarden-wasm-internal"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "base64",
  "bitwarden-auth",
  "bitwarden-core",
  "bitwarden-crypto",
@@ -1165,9 +1198,8 @@ dependencies = [
 
 [[package]]
 name = "credential-exchange-format"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5209d9b20c3eb8d2b96f3b06133b27d79168f312c09a8035f46c0fb18053aefc"
+version = "0.2.0"
+source = "git+https://github.com/bitwarden/credential-exchange?rev=38e8a013c13644f832c457555baaa536fe481b77#38e8a013c13644f832c457555baaa536fe481b77"
 dependencies = [
  "chrono",
  "data-encoding",
@@ -1410,6 +1442,26 @@ name = "data-encoding"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
+
+[[package]]
+name = "data-encoding-macro"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47ce6c96ea0102f01122a185683611bd5ac8d99e62bc59dd12e6bda344ee673d"
+dependencies = [
+ "data-encoding",
+ "data-encoding-macro-internal",
+]
+
+[[package]]
+name = "data-encoding-macro-internal"
+version = "0.1.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d162beedaa69905488a8da94f5ac3edb4dd4788b732fadb7bd120b2625c1976"
+dependencies = [
+ "data-encoding",
+ "syn",
+]
 
 [[package]]
 name = "deadpool"
@@ -3510,20 +3562,6 @@ dependencies = [
 
 [[package]]
 name = "schemars"
-version = "0.8.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fbf2ae1b8bc8e02df939598064d22402220cd5bbcca1c76f7d6a310974d5615"
-dependencies = [
- "chrono",
- "dyn-clone",
- "schemars_derive",
- "serde",
- "serde_json",
- "uuid",
-]
-
-[[package]]
-name = "schemars"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4cd191f9397d57d581cddd31014772520aa448f65ef991055d7f61582c65165f"
@@ -3535,10 +3573,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "schemars_derive"
-version = "0.8.22"
+name = "schemars"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32e265784ad618884abaea0600a9adf15393368d840e0222d101a072f3f7534d"
+checksum = "febc07c7e70b5db4f023485653c754d76e1bbe8d9dbfa20193ce13da9f9633f4"
+dependencies = [
+ "chrono",
+ "dyn-clone",
+ "ref-cast",
+ "schemars_derive",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "schemars_derive"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1eeedaab7b1e1d09b5b4661121f4d27f9e7487089b0117833ccd7a882ee1ecc"
 dependencies = [
  "proc-macro2",
  "quote",

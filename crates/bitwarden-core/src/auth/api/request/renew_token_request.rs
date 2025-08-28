@@ -6,14 +6,14 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct RenewTokenRequest {
+pub(crate) struct RenewTokenRequest {
     grant_type: String,
     refresh_token: String,
     client_id: String,
 }
 
 impl RenewTokenRequest {
-    pub fn new(refresh_token: String, client_id: String) -> Self {
+    pub(crate) fn new(refresh_token: String, client_id: String) -> Self {
         Self {
             refresh_token,
             client_id,
@@ -25,6 +25,6 @@ impl RenewTokenRequest {
         &self,
         configurations: &ApiConfigurations,
     ) -> Result<IdentityTokenResponse, LoginError> {
-        super::send_identity_connect_request(configurations, None, &self).await
+        super::send_identity_connect_request(configurations, &self).await
     }
 }

@@ -1,9 +1,20 @@
-use bitwarden_core::{Client, Flags};
+use bitwarden_core::Client;
 use bitwarden_vault::{Cipher, Folder};
-use wasm_bindgen::prelude::*;
+use serde::{Deserialize, Serialize};
+use tsify::Tsify;
+use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 
 mod repository;
 pub mod token_provider;
+
+/// Active feature flags for the SDK.
+#[derive(Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct FeatureFlags {
+    /// We intentionally use a loose type here to allow for future flags without breaking changes.
+    #[serde(flatten)]
+    flags: std::collections::HashMap<String, bool>,
+}
 
 #[wasm_bindgen]
 pub struct PlatformClient(Client);
@@ -21,8 +32,8 @@ impl PlatformClient {
     }
 
     /// Load feature flags into the client
-    pub fn load_flags(&self, flags: Flags) -> Result<(), JsValue> {
-        self.0.internal.set_flags(&flags);
+    pub fn load_flags(&self, flags: FeatureFlags) -> Result<(), JsValue> {
+        self.0.internal.load_flags(flags.flags);
         Ok(())
     }
 }

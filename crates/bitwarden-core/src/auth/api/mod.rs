@@ -1,2 +1,2 @@
-pub mod request;
-pub mod response;
+pub(crate) mod request;
+pub(crate) mod response;

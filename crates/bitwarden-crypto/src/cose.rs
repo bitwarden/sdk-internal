@@ -5,9 +5,10 @@
 
 use coset::{
     iana::{self, CoapContentFormat},
-    CborSerializable, ContentType, Label,
+    CborSerializable, ContentType, Header, Label,
 };
 use generic_array::GenericArray;
+use thiserror::Error;
 use typenum::U32;
 
 use crate::{
@@ -21,6 +22,12 @@ use crate::{
 /// the draft was never published as an RFC, we use a private-use value for the algorithm.
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
 const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
+
+pub(crate) const ALG_ARGON2ID13: i64 = -71000;
+pub(crate) const ARGON2_SALT: i64 = -71001;
+pub(crate) const ARGON2_ITERATIONS: i64 = -71002;
+pub(crate) const ARGON2_MEMORY: i64 = -71003;
+pub(crate) const ARGON2_PARALLELISM: i64 = -71004;
 
 // Note: These are in the "unregistered" tree: https://datatracker.ietf.org/doc/html/rfc6838#section-3.4
 // These are only used within Bitwarden, and not meant for exchange with other systems.
@@ -50,7 +57,9 @@ pub(crate) fn encrypt_xchacha20_poly1305(
 
     if should_pad_content(&content_format) {
         // Pad the data to a block size in order to hide plaintext length
-        crate::keys::utils::pad_bytes(&mut plaintext, XCHACHA20_TEXT_PAD_BLOCK_SIZE);
+        let min_length =
+            XCHACHA20_TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / XCHACHA20_TEXT_PAD_BLOCK_SIZE));
+        crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;
     }
 
     let mut nonce = [0u8; xchacha20::NONCE_SIZE];
@@ -221,6 +230,52 @@ pub trait CoseSerializable<T: CoseContentFormat + ConstContentFormat> {
     where
         Self: Sized;
 }
+
+pub(crate) fn extract_integer(
+    header: &Header,
+    target_label: i64,
+    value_name: &str,
+) -> Result<i128, CoseExtractError> {
+    header
+        .rest
+        .iter()
+        .find_map(|(label, value)| match (label, value) {
+            (Label::Int(label_value), ciborium::Value::Integer(int_value))
+                if *label_value == target_label =>
+            {
+                Some(*int_value)
+            }
+            _ => None,
+        })
+        .map(Into::into)
+        .ok_or_else(|| CoseExtractError::MissingValue(value_name.to_string()))
+}
+
+pub(crate) fn extract_bytes(
+    header: &Header,
+    target_label: i64,
+    value_name: &str,
+) -> Result<Vec<u8>, CoseExtractError> {
+    header
+        .rest
+        .iter()
+        .find_map(|(label, value)| match (label, value) {
+            (Label::Int(label_value), ciborium::Value::Bytes(byte_value))
+                if *label_value == target_label =>
+            {
+                Some(byte_value.clone())
+            }
+            _ => None,
+        })
+        .ok_or(CoseExtractError::MissingValue(value_name.to_string()))
+}
+
+#[derive(Debug, Error)]
+pub(crate) enum CoseExtractError {
+    #[error("Missing value {0}")]
+    MissingValue(String),
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

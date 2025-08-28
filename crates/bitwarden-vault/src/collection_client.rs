@@ -3,6 +3,7 @@ use bitwarden_collections::{
     tree::{NodeItem, Tree},
 };
 use bitwarden_core::Client;
+#[cfg(feature = "wasm")]
 use bitwarden_error::js_sys::Map;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -69,6 +70,7 @@ impl CollectionViewNodeItem {
         self.node_item.children.clone()
     }
 
+    #[cfg(feature = "wasm")]
     pub fn get_ancestors(&self) -> Map {
         self.node_item
             .ancestors
@@ -87,7 +89,7 @@ impl CollectionViewTree {
         collection_view: CollectionView,
     ) -> Option<CollectionViewNodeItem> {
         self.tree
-            .get_item_by_id(collection_view.id.unwrap_or_default())
+            .get_item_by_id(collection_view.id.unwrap_or_default().into())
             .map(|n| CollectionViewNodeItem { node_item: n })
     }
 
@@ -110,6 +112,7 @@ impl CollectionViewTree {
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_collections::collection::CollectionType;
     use bitwarden_core::client::test_accounts::test_bitwarden_com_account;
 
     use super::*;
@@ -127,6 +130,8 @@ mod tests {
             hide_passwords: false,
             read_only: false,
             manage: false,
+            default_user_collection_email: None,
+            r#type: CollectionType::SharedCollection,
         }]).unwrap();
 
         assert_eq!(dec[0].name, "Default collection");
@@ -144,6 +149,8 @@ mod tests {
             hide_passwords: false,
             read_only: false,
             manage: false,
+            default_user_collection_email: None,
+            r#type: CollectionType::SharedCollection,
         }).unwrap();
 
         assert_eq!(dec.name, "Default collection");
