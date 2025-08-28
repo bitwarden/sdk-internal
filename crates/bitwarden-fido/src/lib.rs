@@ -116,7 +116,7 @@ fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passk
         .map_err(|_| Fido2Error::InvalidCounter)?;
     let counter = (counter != 0).then_some(counter);
     let key_value = B64Url::try_from(value.key_value)?;
-    let user_handle = value.user_handle.map(|u| B64Url::try_from(u)).transpose()?;
+    let user_handle = value.user_handle.map(B64Url::try_from).transpose()?;
 
     let key = pkcs8_to_cose_key(key_value.as_bytes())?;
 
