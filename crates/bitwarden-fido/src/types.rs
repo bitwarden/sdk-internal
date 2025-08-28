@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::key_management::KeyIds;
 use bitwarden_crypto::{CryptoError, KeyStoreContext};
+use bitwarden_encoding::{B64Url, NotB64UrlEncoded};
 use bitwarden_vault::{CipherListView, CipherListViewType, CipherView, LoginListView};
 use passkey::types::webauthn::UserVerificationRequirement;
 use reqwest::Url;
@@ -61,7 +61,7 @@ pub enum Fido2CredentialAutofillViewError {
     CryptoError(#[from] CryptoError),
 
     #[error(transparent)]
-    Base64DecodeError(#[from] base64::DecodeError),
+    Base64DecodeError(#[from] NotB64UrlEncoded),
 }
 
 impl Fido2CredentialAutofillView {
@@ -77,7 +77,7 @@ impl Fido2CredentialAutofillView {
             .filter_map(|c| -> Option<Result<_, Fido2CredentialAutofillViewError>> {
                 c.user_handle
                     .as_ref()
-                    .map(|u| URL_SAFE_NO_PAD.decode(u))
+                    .map(|u| B64Url::try_from(u.as_str()))
                     .map(|user_handle| {
                         Ok(Fido2CredentialAutofillView {
                             credential_id: string_to_guid_bytes(&c.credential_id)?,
@@ -86,7 +86,7 @@ impl Fido2CredentialAutofillView {
                                 .ok_or(Fido2CredentialAutofillViewError::MissingCipherId)?
                                 .into(),
                             rp_id: c.rp_id.clone(),
-                            user_handle: user_handle?,
+                            user_handle: user_handle?.as_bytes().to_vec(),
                             user_name_for_ui: c
                                 .user_name
                                 .none_whitespace()
@@ -116,7 +116,7 @@ impl Fido2CredentialAutofillView {
                 .filter_map(|c| -> Option<Result<_, Fido2CredentialAutofillViewError>> {
                     c.user_handle
                         .as_ref()
-                        .map(|u| URL_SAFE_NO_PAD.decode(u))
+                        .map(|u| B64Url::try_from(u.as_str()))
                         .map(|user_handle| {
                             Ok(Fido2CredentialAutofillView {
                                 credential_id: string_to_guid_bytes(&c.credential_id)?,
@@ -125,7 +125,7 @@ impl Fido2CredentialAutofillView {
                                     .ok_or(Fido2CredentialAutofillViewError::MissingCipherId)?
                                     .into(),
                                 rp_id: c.rp_id.clone(),
-                                user_handle: user_handle?,
+                                user_handle: user_handle?.as_bytes().to_vec(),
                                 user_name_for_ui: c
                                     .user_name
                                     .none_whitespace()

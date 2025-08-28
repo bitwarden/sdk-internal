@@ -257,9 +257,8 @@ struct GroupedCredentials {
 
 #[cfg(test)]
 mod tests {
-    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
     use chrono::{Duration, Month};
-    use credential_exchange_format::{CreditCardCredential, EditableFieldYearMonth};
+    use credential_exchange_format::{B64Url, CreditCardCredential, EditableFieldYearMonth};
 
     use super::*;
 
@@ -302,35 +301,24 @@ mod tests {
     #[test]
     fn test_parse_passkey() {
         let item = Item {
-            id: URL_SAFE_NO_PAD
-                .decode("Njk1RERENTItNkQ0Ny00NERBLTlFN0EtNDM1MjNEQjYzNjVF")
-                .unwrap()
-                .as_slice()
-                .into(),
+            id: B64Url::try_from("Njk1RERENTItNkQ0Ny00NERBLTlFN0EtNDM1MjNEQjYzNjVF")
+                .unwrap(),
             creation_at: Some(1732181986),
             modified_at: Some(1732182026),
             title: "opotonniee.github.io".to_string(),
             subtitle: None,
             favorite: None,
             credentials: vec![Credential::Passkey(Box::new(PasskeyCredential {
-                credential_id: URL_SAFE_NO_PAD
-                    .decode("6NiHiekW4ZY8vYHa-ucbvA")
-                    .unwrap()
-                    .as_slice()
-                    .into(),
+                credential_id: B64Url::try_from("6NiHiekW4ZY8vYHa-ucbvA")
+                    .unwrap(),
                 rp_id: "opotonniee.github.io".to_string(),
                 username: "alex muller".to_string(),
                 user_display_name: "alex muller".to_string(),
-                user_handle: URL_SAFE_NO_PAD
-                    .decode("YWxleCBtdWxsZXI")
-                    .unwrap()
-                    .as_slice()
-                    .into(),
-                key: URL_SAFE_NO_PAD
-                    .decode("MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgPzvtWYWmIsvqqr3LsZB0K-cbjuhJSGTGziL1LksHAPShRANCAAT-vqHTyEDS9QBNNi2BNLyu6TunubJT_L3G3i7KLpEDhMD15hi24IjGBH0QylJIrvlT4JN2tdRGF436XGc-VoAl")
-                    .unwrap()
-                    .as_slice()
-                    .into(),
+                user_handle: B64Url::try_from("YWxleCBtdWxsZXI")
+                    .unwrap(),
+                key: B64Url::try_from(
+                    "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgPzvtWYWmIsvqqr3LsZB0K-cbjuhJSGTGziL1LksHAPShRANCAAT-vqHTyEDS9QBNNi2BNLyu6TunubJT_L3G3i7KLpEDhMD15hi24IjGBH0QylJIrvlT4JN2tdRGF436XGc-VoAl")
+                    .unwrap(),
                 fido2_extensions: None,
             }))],
             tags: None,
