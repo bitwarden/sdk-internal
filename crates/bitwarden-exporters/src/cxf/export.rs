@@ -1,12 +1,14 @@
 use bitwarden_vault::{Totp, TotpAlgorithm};
 use credential_exchange_format::{
-    Account as CxfAccount, Credential, Item, NoteCredential, OTPHashAlgorithm, TotpCredential,
+    Account as CxfAccount, AddressCredential, Credential, DriversLicenseCredential,
+    IdentityDocumentCredential, Item, NoteCredential, OTPHashAlgorithm, PassportCredential,
+    PersonNameCredential, TotpCredential,
 };
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
-use crate::{cxf::CxfError, Cipher, CipherType, Login};
+use crate::{cxf::CxfError, Cipher, CipherType, Identity, Login};
 
 /// Temporary struct to hold metadata related to current account
 ///
@@ -78,10 +80,8 @@ impl From<CipherType> for Vec<Credential> {
     fn from(value: CipherType) -> Self {
         match value {
             CipherType::Login(login) => (*login).into(),
-            // TODO(PM-15450): Add support for credit cards.
             CipherType::Card(card) => (*card).into(),
-            // TODO(PM-15451): Add support for identities.
-            CipherType::Identity(_) => vec![],
+            CipherType::Identity(identity) => (*identity).into(),
             // Secure Notes only contains a note field which is handled by `TryFrom<Cipher> for
             // Item`.
             CipherType::SecureNote(_) => vec![],
@@ -135,11 +135,137 @@ fn convert_totp(totp: Totp) -> TotpCredential {
     }
 }
 
+impl From<Identity> for Vec<Credential> {
+    fn from(identity: Identity) -> Self {
+        let mut credentials = vec![];
+
+        // Store combined name for reuse
+        let combined_full_name = combine_name(
+            &identity.first_name,
+            &identity.middle_name,
+            &identity.last_name,
+        );
+
+        // Always create PersonName credential for name fields
+        let person_name = PersonNameCredential {
+            title: identity.title.clone().map(|v| v.into()),
+            given: identity.first_name.clone().map(|v| v.into()),
+            given_informal: None,
+            given2: identity.middle_name.clone().map(|v| v.into()),
+            surname_prefix: None,
+            surname: identity.last_name.clone().map(|v| v.into()),
+            surname2: None,
+            credentials: identity.company.clone().map(|v| v.into()),
+            generation: None,
+        };
+
+        credentials.push(Credential::PersonName(Box::new(person_name)));
+
+        // Create Address credential if any address fields are present
+        if identity.address1.is_some()
+            || identity.city.is_some()
+            || identity.state.is_some()
+            || identity.country.is_some()
+            || identity.phone.is_some()
+            || identity.postal_code.is_some()
+        {
+            let address = AddressCredential {
+                street_address: identity.address1.clone().map(|v| v.into()),
+                city: identity.city.clone().map(|v| v.into()),
+                territory: identity.state.clone().map(|v| v.into()),
+                country: identity.country.clone().map(|v| v.into()),
+                tel: identity.phone.clone().map(|v| v.into()),
+                postal_code: identity.postal_code.clone().map(|v| v.into()),
+            };
+
+            credentials.push(Credential::Address(Box::new(address)));
+        }
+
+        // Create Passport credential if passport number is present
+        if let Some(ref passport_number) = identity.passport_number {
+            let passport = PassportCredential {
+                issuing_country: identity.country.clone().map(|v| v.into()),
+                nationality: None,
+                full_name: combined_full_name.clone().map(|v| v.into()),
+                birth_date: None,
+                birth_place: None,
+                sex: None,
+                issue_date: None,
+                expiry_date: None,
+                issuing_authority: None,
+                passport_type: None,
+                passport_number: Some(passport_number.clone().into()),
+                national_identification_number: identity.ssn.clone().map(|v| v.into()),
+            };
+
+            credentials.push(Credential::Passport(Box::new(passport)));
+        }
+
+        // Create DriversLicense credential if license number is present
+        if let Some(ref license_number) = identity.license_number {
+            let drivers_license = DriversLicenseCredential {
+                full_name: combined_full_name.clone().map(|v| v.into()),
+                birth_date: None,
+                issue_date: None,
+                expiry_date: None,
+                issuing_authority: None,
+                territory: identity.state.clone().map(|v| v.into()),
+                country: identity.country.clone().map(|v| v.into()),
+                license_number: Some(license_number.clone().into()),
+                license_class: None,
+            };
+
+            credentials.push(Credential::DriversLicense(Box::new(drivers_license)));
+        }
+
+        // Create IdentityDocument credential if SSN is present but no passport or license number
+        if identity.ssn.is_some()
+            && identity.passport_number.is_none()
+            && identity.license_number.is_none()
+        {
+            let identity_document = IdentityDocumentCredential {
+                issuing_country: identity.country.clone().map(|v| v.into()),
+                document_number: None,
+                identification_number: identity.ssn.clone().map(|v| v.into()),
+                nationality: None,
+                full_name: combined_full_name.map(|v| v.into()),
+                birth_date: None,
+                birth_place: None,
+                sex: None,
+                issue_date: None,
+                expiry_date: None,
+                issuing_authority: None,
+            };
+
+            credentials.push(Credential::IdentityDocument(Box::new(identity_document)));
+        }
+
+        credentials
+    }
+}
+
+fn combine_name(
+    first: &Option<String>,
+    middle: &Option<String>,
+    last: &Option<String>,
+) -> Option<String> {
+    let parts: Vec<&str> = [first.as_deref(), middle.as_deref(), last.as_deref()]
+        .into_iter()
+        .flatten()
+        .collect();
+
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(" "))
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    use crate::{Fido2Credential, Field, LoginUri};
+    use crate::{Fido2Credential, Field, Identity, LoginUri};
 
     #[test]
     fn test_convert_totp() {
@@ -304,5 +430,168 @@ mod tests {
             }
             _ => panic!("Expected Credential::Passkey"),
         }
+    }
+
+    #[test]
+    fn test_identity_to_credentials() {
+        let identity = Identity {
+            title: Some("Dr.".to_string()),
+            first_name: Some("John".to_string()),
+            middle_name: Some("Michael".to_string()),
+            last_name: Some("Doe".to_string()),
+            address1: Some("123 Main St".to_string()),
+            address2: Some("Apt 456".to_string()),
+            address3: None,
+            city: Some("Anytown".to_string()),
+            state: Some("CA".to_string()),
+            postal_code: Some("12345".to_string()),
+            country: Some("US".to_string()),
+            company: Some("PhD".to_string()),
+            email: Some("john@example.com".to_string()),
+            phone: Some("+1234567890".to_string()),
+            ssn: Some("123-45-6789".to_string()),
+            username: Some("johndoe".to_string()),
+            passport_number: Some("P123456789".to_string()),
+            license_number: Some("DL123456".to_string()),
+        };
+
+        let credentials: Vec<Credential> = identity.into();
+
+        // Should create PersonName, Address, Passport, and DriversLicense credentials
+        assert_eq!(credentials.len(), 4);
+
+        // Check PersonName credential
+        if let Credential::PersonName(person_name) = &credentials[0] {
+            assert_eq!(person_name.title.as_ref().unwrap().value.0, "Dr.");
+            assert_eq!(person_name.given.as_ref().unwrap().value.0, "John");
+            assert_eq!(person_name.given2.as_ref().unwrap().value.0, "Michael");
+            assert_eq!(person_name.surname.as_ref().unwrap().value.0, "Doe");
+            assert_eq!(person_name.credentials.as_ref().unwrap().value.0, "PhD");
+        } else {
+            panic!("Expected PersonName credential");
+        }
+
+        // Check Address credential
+        if let Credential::Address(address) = &credentials[1] {
+            assert_eq!(
+                address.street_address.as_ref().unwrap().value.0,
+                "123 Main St"
+            );
+            assert_eq!(address.city.as_ref().unwrap().value.0, "Anytown");
+            assert_eq!(address.territory.as_ref().unwrap().value.0, "CA");
+            assert_eq!(address.country.as_ref().unwrap().value.0, "US");
+            assert_eq!(address.tel.as_ref().unwrap().value.0, "+1234567890");
+            assert_eq!(address.postal_code.as_ref().unwrap().value.0, "12345");
+        } else {
+            panic!("Expected Address credential");
+        }
+
+        // Check Passport credential
+        if let Credential::Passport(passport) = &credentials[2] {
+            assert_eq!(
+                passport.passport_number.as_ref().unwrap().value.0,
+                "P123456789"
+            );
+            assert_eq!(
+                passport.full_name.as_ref().unwrap().value.0,
+                "John Michael Doe"
+            );
+            assert_eq!(
+                passport
+                    .national_identification_number
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .0,
+                "123-45-6789"
+            );
+            assert_eq!(passport.issuing_country.as_ref().unwrap().value.0, "US");
+        } else {
+            panic!("Expected Passport credential");
+        }
+
+        // Check DriversLicense credential
+        if let Credential::DriversLicense(license) = &credentials[3] {
+            assert_eq!(license.license_number.as_ref().unwrap().value.0, "DL123456");
+            assert_eq!(
+                license.full_name.as_ref().unwrap().value.0,
+                "John Michael Doe"
+            );
+            assert_eq!(license.territory.as_ref().unwrap().value.0, "CA");
+            assert_eq!(license.country.as_ref().unwrap().value.0, "US");
+        } else {
+            panic!("Expected DriversLicense credential");
+        }
+    }
+
+    #[test]
+    fn test_identity_minimal_fields() {
+        let identity = Identity {
+            first_name: Some("Jane".to_string()),
+            last_name: Some("Smith".to_string()),
+            ..Default::default()
+        };
+
+        let credentials: Vec<Credential> = identity.into();
+
+        // Should only create PersonName credential
+        assert_eq!(credentials.len(), 1);
+
+        if let Credential::PersonName(person_name) = &credentials[0] {
+            assert_eq!(person_name.given.as_ref().unwrap().value.0, "Jane");
+            assert_eq!(person_name.surname.as_ref().unwrap().value.0, "Smith");
+            assert!(person_name.title.is_none());
+            assert!(person_name.given2.is_none());
+        } else {
+            panic!("Expected PersonName credential");
+        }
+    }
+
+    #[test]
+    fn test_identity_ssn_only() {
+        let identity = Identity {
+            first_name: Some("Bob".to_string()),
+            ssn: Some("987-65-4321".to_string()),
+            ..Default::default()
+        };
+
+        let credentials: Vec<Credential> = identity.into();
+
+        // Should create PersonName and IdentityDocument credentials
+        assert_eq!(credentials.len(), 2);
+
+        if let Credential::IdentityDocument(identity_doc) = &credentials[1] {
+            assert_eq!(
+                identity_doc.identification_number.as_ref().unwrap().value.0,
+                "987-65-4321"
+            );
+            assert_eq!(identity_doc.full_name.as_ref().unwrap().value.0, "Bob");
+        } else {
+            panic!("Expected IdentityDocument credential");
+        }
+    }
+
+    #[test]
+    fn test_combine_name_helper() {
+        assert_eq!(
+            combine_name(
+                &Some("John".to_string()),
+                &Some("Michael".to_string()),
+                &Some("Doe".to_string())
+            ),
+            Some("John Michael Doe".to_string())
+        );
+
+        assert_eq!(
+            combine_name(&Some("Jane".to_string()), &None, &Some("Smith".to_string())),
+            Some("Jane Smith".to_string())
+        );
+
+        assert_eq!(
+            combine_name(&Some("Bob".to_string()), &None, &None),
+            Some("Bob".to_string())
+        );
+
+        assert_eq!(combine_name(&None, &None, &None), None);
     }
 }
