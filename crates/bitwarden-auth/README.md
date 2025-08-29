@@ -4,4 +4,4 @@ Contains the implementation of the auth functionality for the Bitwarden Password
 
 # Send Access
 
-- TODO: add context
+- Manages obtaining send access tokens for accessing secured send endpoints.
