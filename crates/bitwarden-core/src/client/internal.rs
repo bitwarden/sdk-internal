@@ -461,15 +461,14 @@ mod tests {
         let test_account = test_bitwarden_com_account();
         let kdf = test_account.user.kdf_params.clone();
         let expected_email = test_account.user.email.clone();
-        let organization_id = test_account
+        let organization_id = *test_account
             .org
             .as_ref()
             .unwrap()
             .organization_keys
             .keys()
             .next()
-            .unwrap()
-            .clone();
+            .unwrap();
 
         let (_, new_encrypted_user_key) = {
             let master_key = MasterKey::derive(&password, &new_email, &kdf).unwrap();
