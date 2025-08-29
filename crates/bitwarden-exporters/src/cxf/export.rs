@@ -1,8 +1,8 @@
 use bitwarden_vault::{Totp, TotpAlgorithm};
 use credential_exchange_format::{
-    Account as CxfAccount, AddressCredential, Credential, DriversLicenseCredential,
-    IdentityDocumentCredential, Item, NoteCredential, OTPHashAlgorithm, PassportCredential,
-    PersonNameCredential, TotpCredential,
+    Account as CxfAccount, AddressCredential, Credential, CustomFieldsCredential,
+    DriversLicenseCredential, EditableField, EditableFieldString, IdentityDocumentCredential, Item,
+    NoteCredential, OTPHashAlgorithm, PassportCredential, PersonNameCredential, TotpCredential,
 };
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
@@ -179,8 +179,27 @@ impl From<Identity> for Vec<Credential> {
 
         // Create Address credential only if address fields are present
         if has_address_fields {
+            // Combine address lines with newlines as per CXF spec
+            let street_address = {
+                let address_lines: Vec<String> = [
+                    identity.address1.as_ref(),
+                    identity.address2.as_ref(),
+                    identity.address3.as_ref(),
+                ]
+                .into_iter()
+                .flatten()
+                .cloned()
+                .collect();
+
+                if address_lines.is_empty() {
+                    None
+                } else {
+                    Some(address_lines.join("\n"))
+                }
+            };
+
             let address = AddressCredential {
-                street_address: identity.address1.clone().map(|v| v.into()),
+                street_address: street_address.map(|v| v.into()),
                 city: identity.city.clone().map(|v| v.into()),
                 territory: identity.state.clone().map(|v| v.into()),
                 country: identity.country.clone().map(|v| v.into()),
@@ -191,7 +210,8 @@ impl From<Identity> for Vec<Credential> {
             credentials.push(Credential::Address(Box::new(address)));
         }
 
-        // Create document credentials based on available fields - each type separately (to preserve all data)
+        // Create document credentials based on available fields - each type separately (to preserve
+        // all data)
 
         // Create Passport credential if passport number is present
         if let Some(passport_number) = identity.passport_number {
@@ -247,6 +267,38 @@ impl From<Identity> for Vec<Credential> {
             };
 
             credentials.push(Credential::IdentityDocument(Box::new(identity_document)));
+        }
+
+        // Handle unmapped Identity fields as custom fields
+        let mut custom_fields = vec![];
+
+        if let Some(email) = &identity.email {
+            custom_fields.push(EditableField {
+                id: None,
+                label: Some("Email".to_string()),
+                // Could perhaps be EditableField with field type email?
+                value: EditableFieldString(email.clone()),
+                extensions: None,
+            });
+        }
+
+        if let Some(username) = &identity.username {
+            custom_fields.push(EditableField {
+                id: None,
+                label: Some("Username".to_string()),
+                value: EditableFieldString(username.clone()),
+                extensions: None,
+            });
+        }
+
+        // Add CustomFields credential if there are any unmapped fields
+        if !custom_fields.is_empty() {
+            credentials.push(Credential::CustomFields(Box::new(CustomFieldsCredential {
+                id: None,
+                label: None,
+                fields: custom_fields,
+                extensions: vec![],
+            })));
         }
 
         credentials
@@ -466,8 +518,9 @@ mod tests {
 
         let credentials: Vec<Credential> = identity.into();
 
-        // Should create PersonName, Address, Passport, DriversLicense, and IdentityDocument credentials
-        assert_eq!(credentials.len(), 5);
+        // Should create PersonName, Address, Passport, DriversLicense, IdentityDocument, and
+        // CustomFields credentials
+        assert_eq!(credentials.len(), 6);
 
         // Check PersonName credential
         if let Credential::PersonName(person_name) = &credentials[0] {
@@ -484,7 +537,7 @@ mod tests {
         if let Credential::Address(address) = &credentials[1] {
             assert_eq!(
                 address.street_address.as_ref().unwrap().value.0,
-                "123 Main St"
+                "123 Main St\nApt 456"
             );
             assert_eq!(address.city.as_ref().unwrap().value.0, "Anytown");
             assert_eq!(address.territory.as_ref().unwrap().value.0, "CA");
@@ -545,6 +598,23 @@ mod tests {
             assert_eq!(identity_doc.issuing_country.as_ref().unwrap().value.0, "US");
         } else {
             panic!("Expected IdentityDocument credential");
+        }
+
+        // Check CustomFields credential
+        if let Credential::CustomFields(custom_fields) = &credentials[5] {
+            assert_eq!(custom_fields.fields.len(), 2); // email, username
+
+            // Check email field
+            let email_field = &custom_fields.fields[0];
+            assert_eq!(email_field.label.as_ref().unwrap(), "Email");
+            assert_eq!(email_field.value.0, "john@example.com");
+
+            // Check username field
+            let username_field = &custom_fields.fields[1];
+            assert_eq!(username_field.label.as_ref().unwrap(), "Username");
+            assert_eq!(username_field.value.0, "johndoe");
+        } else {
+            panic!("Expected CustomFields credential");
         }
     }
 
