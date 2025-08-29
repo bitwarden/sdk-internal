@@ -86,7 +86,7 @@ impl From<CipherType> for Vec<Credential> {
             // Item`.
             CipherType::SecureNote(_) => vec![],
             // TODO(PM-15448): Add support for SSH Keys.
-            CipherType::SshKey(_) => vec![],
+            CipherType::SshKey(ssh) => (*ssh).try_into().unwrap_or_default(),
         }
     }
 }
