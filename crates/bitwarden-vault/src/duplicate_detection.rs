@@ -4,22 +4,22 @@ use url::Url;
 
 use crate::Cipher;
 
-/// A grouping of ciphers considered duplicates under a specific display key.
+/// A grouping of ciphers considered duplicates under a specific display key
+/// that can be derived from login.username, login.uris, and cipher.name
 #[derive(Debug)]
 pub struct DuplicateSet<'a> {
-    /// Human-readable grouping key (e.g. "username+uri: alice @ example.com").
+    /// Human-readable key (e.g. "username+uri: alice @ example.com").
     pub key: String,
-    /// All ciphers participating in this duplicate group.
+    /// All ciphers participating in the duplicate group.
     pub ciphers: Vec<&'a Cipher>,
 }
 
-/// Strategy for determining whether two login URIs should be considered the same
-/// when detecting duplicate ciphers.
+/// Strategy for determining whether two login URIs should be considered duplicates
 ///
 /// The strategies progressively narrow what is considered a match:
 /// * Domain: compares only the registrable domain (e.g. `sub.example.co.uk` -> `example.co.uk`).
-/// * Hostname: compares the full hostname without port (e.g. `sub.example.com`).
-/// * Host: compares hostname plus a port (if present)
+/// * Hostname: compares the full hostname without port (e.g. `sub.example.co.uk`).
+/// * Host: compares hostname and specified port (when present)
 /// * Exact: compares the full original URI string verbatim.
 pub enum DuplicateUriMatchType {
     /// Match by the effective registrable domain portion of the host.
@@ -39,7 +39,6 @@ pub enum DuplicateUriMatchType {
 ///
 /// Returns a newly allocated `String` containing the normalized form.
 fn normalize_name_for_matching(name: &str) -> String {
-    // currently only removes internal and external whitespace and lowercases
     let normalized = name
         .chars()
         .filter(|c| !c.is_whitespace())
@@ -67,25 +66,26 @@ fn normalize_name_for_matching(name: &str) -> String {
 /// ```
 fn normalize_uri_for_matching(uri: &str, strategy: &DuplicateUriMatchType) -> Option<String> {
     match strategy {
-        DuplicateUriMatchType::Domain => Url::parse(uri).ok().and_then(|url| {
-            url.host_str()
-                .and_then(|hostname| psl::domain_str(hostname).map(|domain| domain.to_string()))
-        }),
-        DuplicateUriMatchType::Hostname => Url::parse(uri)
-            .ok()
-            .and_then(|url| url.host_str().map(|hostname| hostname.to_string())),
-        DuplicateUriMatchType::Host => Url::parse(uri).ok().map(|url| {
-            let hostname = url.host_str().map(|hostname| hostname.to_string());
-            format!(
-                "{}:{}",
-                hostname.unwrap_or_default(),
-                url.port().unwrap_or_default()
-            )
-        }),
+        DuplicateUriMatchType::Domain => {
+            let url = Url::parse(uri).ok()?;
+            let host = url.host_str()?;
+            let host_lower = host.to_ascii_lowercase();
+            psl::domain_str(&host_lower).map(str::to_string)
+        }
+        DuplicateUriMatchType::Hostname => {
+            let url = Url::parse(uri).ok()?;
+            let host = url.host_str()?;
+            Some(host.to_string())
+        }
+        DuplicateUriMatchType::Host => {
+            let url = Url::parse(uri).ok()?;
+            let host = url.host_str()?;
+            let port = url.port().unwrap_or_default();
+            Some(format!("{host}:{port}"))
+        }
         DuplicateUriMatchType::Exact => Some(uri.to_string()),
     }
 }
-
 /// Build groups of duplicated ciphers
 ///
 /// Buckets (size >= 2 kept):
@@ -128,10 +128,14 @@ pub fn find_duplicate_sets<'a>(
         }
     }
 
-    // (BucketKind, grouping_key) -> Vec<&Cipher>
     let mut buckets: HashMap<(BucketKind, String), Vec<&'a Cipher>> = HashMap::new();
 
     for cipher in ciphers.iter() {
+        // Skip ciphers without a stable ID; they cannot participate in duplicate grouping.
+        if cipher.id.is_none() {
+            continue;
+        }
+
         // Extract username (if login) and list of URIs
         let (username, uri_strings): (String, Vec<String>) = if let Some(login) = &cipher.login {
             let username = login
@@ -157,7 +161,7 @@ pub fn find_duplicate_sets<'a>(
         };
         let has_username = !username.is_empty();
 
-        // Username + URI buckets (dedupe normalized URIs per cipher)
+        // Username + URI buckets (avoid redundant URIs for each cipher)
         if has_username && !uri_strings.is_empty() {
             let mut per_cipher_seen: HashSet<String> = HashSet::new();
             for raw_uri in uri_strings.iter() {
@@ -195,26 +199,20 @@ pub fn find_duplicate_sets<'a>(
     }
 
     // Helper to produce a stable, order-independent membership signature.
-    // Prefer stable cipher IDs; fall back to pointer addresses (prefixed) only if an ID is absent.
     fn signature(ciphers: &[&Cipher]) -> String {
         let mut ids: Vec<String> = ciphers
             .iter()
             .map(|c| {
-                if let Some(id) = c.id.as_ref() {
-                    id.to_string()
-                } else {
-                    // Defensive fallback uses a pointer to cipher memory address (avoids unwrap /
-                    // expect) Prefix with _ptr to avoid accidental collision
-                    // with a real UUID string.
-                    format!("_ptr{:016x}", *c as *const Cipher as usize)
-                }
+                c.id.as_ref().map(|id| id.to_string()).expect(
+                    "cipher lacking id did not trigger 'continue' and was present in iteration",
+                )
             })
             .collect();
         ids.sort_unstable();
         ids.join("|")
     }
 
-    // signature -> (precedence, BucketKind, grouping_key, members)
+    // key: signature -> value: (precedence, BucketKind, grouping_key, members)
     let mut strongest_matches: HashMap<String, (u8, BucketKind, String, Vec<&Cipher>)> =
         HashMap::new();
 
@@ -630,13 +628,13 @@ mod tests {
     }
 
     #[test]
-    fn test_missing_ids_still_group_using_pointer_fallback() {
+    fn test_ciphers_without_ids_are_ignored() {
+        // Both ciphers lack IDs so they cannot participate; no duplicate set produced.
         let c1 = make_note_cipher(None, "SameName");
         let c2 = make_note_cipher(None, "  same name  ");
         let ciphers = vec![c1, c2];
         let sets = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Domain);
-        assert_eq!(sets.len(), 1);
-        assert!(sets[0].key.contains("SameName") || sets[0].key.contains("same name"));
+        assert!(sets.is_empty());
     }
 
     #[test]
