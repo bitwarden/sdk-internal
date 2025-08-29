@@ -1,7 +1,23 @@
 use pkcs8::EncodePrivateKey;
-use ssh_key::PrivateKey;
+use rsa::RsaPrivateKey;
+use ssh_key::{private::RsaKeypair, PrivateKey};
 
 use crate::error::SshKeyExportError;
+
+// Convert RSA keypair to PKCS#8 DER format
+// There is a known defect in going RsaPrivateKey -> pkcs8::PrivateKey
+// https://github.com/RustCrypto/SSH/pull/218
+fn convert_rsa_keypair(keypair: &RsaKeypair) -> Result<RsaPrivateKey, ssh_key::Error> {
+    Ok(rsa::RsaPrivateKey::from_components(
+        rsa::BigUint::try_from(&keypair.public.n)?,
+        rsa::BigUint::try_from(&keypair.public.e)?,
+        rsa::BigUint::try_from(&keypair.private.d)?,
+        vec![
+            rsa::BigUint::try_from(&keypair.private.p)?,
+            rsa::BigUint::try_from(&keypair.private.q)?,
+        ],
+    )?)
+}
 
 /// Convert an OpenSSH private key to PKCS#8 DER format
 ///
@@ -24,16 +40,12 @@ pub fn export_pkcs8_der_key(private_key: &str) -> Result<Vec<u8>, SshKeyExportEr
                 .as_bytes()
                 .to_vec())
         }
-        ssh_key::private::KeypairData::Rsa(keypair) => {
-            let rsa_key: rsa::RsaPrivateKey = keypair
-                .clone()
-                .try_into()
-                .map_err(|_| SshKeyExportError::KeyConversionError)?;
-            let der_bytes = rsa_key
-                .to_pkcs8_der()
-                .map_err(|_| SshKeyExportError::KeyConversionError)?;
-            Ok(der_bytes.as_bytes().to_vec())
-        }
+        ssh_key::private::KeypairData::Rsa(keypair) => Ok(convert_rsa_keypair(keypair)
+            .map_err(|_| SshKeyExportError::KeyConversionError)?
+            .to_pkcs8_der()
+            .map_err(|_| SshKeyExportError::KeyConversionError)?
+            .as_bytes()
+            .to_vec()),
         _ => Err(SshKeyExportError::KeyConversionError),
     }
 }
@@ -66,5 +78,18 @@ mod tests {
         );
     }
 
-    // TODO: Add test for RSA
+    #[test]
+    fn export_rsa_openssh_unencrypted() {
+        let private_key = include_str!("../resources/import/rsa_openssh_unencrypted");
+        let result = import_key(private_key.to_string(), Some("".to_string())).unwrap();
+
+        let exported_key = export_pkcs8_der_key(&result.private_key).unwrap();
+
+        // Confirm the public key of the re-imported key is the same ignoring the key comment
+        let reimported_key = import_pkcs8_der_key(&exported_key).unwrap();
+        assert_eq!(
+            reimported_key.public_key,
+            result.public_key.strip_suffix(" testkey").unwrap()
+        );
+    }
 }
