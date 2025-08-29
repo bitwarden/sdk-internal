@@ -41,6 +41,9 @@ pub enum SendAccessTokenInvalidGrantError {
     #[allow(missing_docs)]
     OtpInvalid,
 
+    #[allow(missing_docs)]
+    OtpGenerationFailed,
+
     /// Fallback for unknown variants for forward compatibility
     #[serde(other)]
     Unknown,
@@ -334,6 +337,10 @@ mod tests {
                 (
                     SendAccessTokenInvalidGrantError::OtpInvalid,
                     "\"otp_invalid\"",
+                ),
+                (
+                    SendAccessTokenInvalidGrantError::OtpGenerationFailed,
+                    "\"otp_generation_failed\"",
                 ),
             ];
 
