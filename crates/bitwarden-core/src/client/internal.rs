@@ -395,7 +395,15 @@ impl InternalClient {
 
 #[cfg(test)]
 mod tests {
-    use crate::Client;
+    use std::num::NonZeroU32;
+
+    use bitwarden_crypto::{Kdf, MasterKey, SymmetricCryptoKey};
+
+    use crate::{
+        client::{test_accounts::test_bitwarden_com_account, LoginMethod, UserLoginMethod},
+        key_management::{crypto::InitUserCryptoMethod, MasterPasswordUnlockData, SymmetricKeyId},
+        Client, OrganizationId,
+    };
 
     #[test]
     fn initializing_user_multiple_times() {
@@ -414,5 +422,104 @@ mod tests {
         // Trying to set a different user_id should return an error.
         let different_user_id = UserId::new_v4();
         assert!(client.internal.init_user_id(different_user_id).is_err());
+    }
+
+    #[tokio::test]
+    async fn test_update_user_master_password_unlock_kdf_updated() {
+        let new_kdf = Kdf::Argon2id {
+            iterations: NonZeroU32::new(4).unwrap(),
+            memory: NonZeroU32::new(65).unwrap(),
+            parallelism: NonZeroU32::new(5).unwrap(),
+        };
+
+        let test_account = test_bitwarden_com_account();
+        let InitUserCryptoMethod::Password { user_key, .. } = &test_account.user.method else {
+            panic!("Test account must use password method");
+        };
+        let user_key = user_key.clone();
+        let email = test_account.user.email.clone();
+
+        let client = Client::init_test_account(test_account).await;
+
+        client
+            .internal
+            .update_user_master_password_unlock(MasterPasswordUnlockData {
+                kdf: new_kdf.clone(),
+                master_key_wrapped_user_key: user_key,
+                salt: email,
+            })
+            .unwrap();
+
+        let kdf = client.internal.get_kdf().unwrap();
+        assert_eq!(kdf, new_kdf);
+    }
+
+    #[tokio::test]
+    async fn test_update_user_master_password_unlock_email_and_keys_not_updated() {
+        let password = "asdfasdfasdf".to_string();
+        let new_email = "test2@example.com".to_string();
+        let test_account = test_bitwarden_com_account();
+        let kdf = test_account.user.kdf_params.clone();
+        let expected_email = test_account.user.email.clone();
+        let organization_id = test_account
+            .org
+            .as_ref()
+            .unwrap()
+            .organization_keys
+            .keys()
+            .next()
+            .unwrap()
+            .clone();
+
+        let (_, new_encrypted_user_key) = {
+            let master_key = MasterKey::derive(&password, &new_email, &kdf).unwrap();
+            master_key.make_user_key().unwrap()
+        };
+
+        let client = Client::init_test_account(test_account).await;
+
+        let (expected_user_key, expected_organization_keys) =
+            get_user_key_and_org_key(&client, organization_id);
+
+        client
+            .internal
+            .update_user_master_password_unlock(MasterPasswordUnlockData {
+                kdf,
+                master_key_wrapped_user_key: new_encrypted_user_key,
+                salt: new_email,
+            })
+            .unwrap();
+
+        let login_method = client.internal.get_login_method().unwrap();
+        match login_method.as_ref() {
+            LoginMethod::User(UserLoginMethod::Username { email, .. }) => {
+                assert_eq!(*email, expected_email);
+            }
+            _ => panic!("Expected username login method"),
+        }
+
+        let (user_key, organization_keys) = get_user_key_and_org_key(&client, organization_id);
+        assert_eq!(user_key, expected_user_key);
+        assert_eq!(organization_keys, expected_organization_keys);
+    }
+
+    fn get_user_key_and_org_key(
+        client: &Client,
+        organization_id: OrganizationId,
+    ) -> (SymmetricCryptoKey, SymmetricCryptoKey) {
+        let key_store = client.internal.get_key_store();
+        let context = key_store.context();
+        #[allow(deprecated)]
+        let user_key = context
+            .dangerous_get_symmetric_key(SymmetricKeyId::User)
+            .unwrap()
+            .clone();
+        #[allow(deprecated)]
+        let organization_keys = context
+            .dangerous_get_symmetric_key(SymmetricKeyId::Organization(organization_id))
+            .unwrap()
+            .clone();
+
+        (user_key, organization_keys)
     }
 }

@@ -340,14 +340,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_sync_user_with_decryption_options_master_password_unlock() {
-        let (mut test_account, user_id, ..) = create_test_account();
-
-        test_account.user.kdf_params = Kdf::PBKDF2 {
-            iterations: NonZeroU32::new(600_000).unwrap(),
-        };
+        let (test_account, user_id, ..) = create_test_account();
 
         let InitUserCryptoMethod::Password { user_key, .. } = &test_account.user.method else {
-            panic!("incorrect init user crypto method");
+            panic!("Test account must use password method");
         };
 
         let response = SyncResponseModel {
