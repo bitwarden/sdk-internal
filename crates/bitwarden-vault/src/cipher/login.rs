@@ -34,13 +34,6 @@ pub enum UriMatchType {
     Never = 5,
 }
 
-pub enum DuplicateUriMatchType {
-    Domain,
-    Hostname,
-    Host,
-    Exact,
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
