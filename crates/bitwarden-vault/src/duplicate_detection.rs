@@ -18,7 +18,7 @@
 //! in this module but does so in the Web app
 //! * The Host [ DuplicateUriMatchType ] does not support port numbers when they match the default
 //! for a given scheme (80 for http, 443 for https). Only port numbers not matching a scheme's
-//! default will be parsed and retained. This is due to limitations in the url crate, and could
+//! default will be parsed and retained. This is due to limitations in the url crate and could
 //! likely be fixed using regular expressions.
 //!
 //! ## Logical flow:
@@ -89,7 +89,7 @@ fn normalize_name_for_matching(name: &str) -> String {
 /// * Host appends the explicit port only when one is specified in the URI (see limitations)
 /// * Exact performs no normalization
 ///
-/// # Limitations when using 'Host' strategy:
+/// # Limitations:
 /// Unlike the URL parsing library used in the web app
 /// https://nodejs.org/api/url.html#the-whatwg-url-api
 /// the url crate will strip explicit port numbers
@@ -97,6 +97,9 @@ fn normalize_name_for_matching(name: &str) -> String {
 /// * http://some.domain:80 => some.domain (http default port 80 is not retained)
 /// * https://some.domain:443 => some.domain (https default port 443 is not retained)
 /// * https://some.domain:4444 => some.domain:4444
+/// This applies to the Host strategy only.
+///
+/// Raw IP addresses (IPv4 and IPv6) will not be considered when the Domain strategy is used.
 ///
 /// Examples:
 /// ```text
