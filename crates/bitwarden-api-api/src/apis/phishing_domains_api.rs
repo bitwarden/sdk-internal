@@ -28,6 +28,7 @@ pub enum PhishingDomainsGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/PhishingDomainsController.cs#L25`]
 pub async fn phishing_domains_checksum_get(
     configuration: &configuration::Configuration,
 ) -> Result<String, Error<PhishingDomainsChecksumGetError>> {
@@ -70,6 +71,7 @@ pub async fn phishing_domains_checksum_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/PhishingDomainsController.cs#L13`]
 pub async fn phishing_domains_get(
     configuration: &configuration::Configuration,
 ) -> Result<Vec<String>, Error<PhishingDomainsGetError>> {

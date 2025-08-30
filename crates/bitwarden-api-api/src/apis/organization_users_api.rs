@@ -262,6 +262,7 @@ pub enum OrganizationsOrgIdUsersUserIdResetPasswordEnrollmentPutError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L231`]
 pub async fn organizations_org_id_users_account_recovery_details_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -321,6 +322,7 @@ pub async fn organizations_org_id_users_account_recovery_details_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L345`]
 pub async fn organizations_org_id_users_confirm_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -383,6 +385,7 @@ pub async fn organizations_org_id_users_confirm_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L507`]
 pub async fn organizations_org_id_users_delete(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -442,6 +445,7 @@ pub async fn organizations_org_id_users_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L532`]
 pub async fn organizations_org_id_users_delete_account_delete(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -501,6 +505,7 @@ pub async fn organizations_org_id_users_delete_account_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L532`]
 pub async fn organizations_org_id_users_delete_account_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -560,6 +565,7 @@ pub async fn organizations_org_id_users_delete_account_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L582`]
 pub async fn organizations_org_id_users_enable_secrets_manager_patch(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -605,6 +611,7 @@ pub async fn organizations_org_id_users_enable_secrets_manager_patch(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L582`]
 pub async fn organizations_org_id_users_enable_secrets_manager_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -648,6 +655,7 @@ pub async fn organizations_org_id_users_enable_secrets_manager_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L171`]
 pub async fn organizations_org_id_users_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -711,6 +719,7 @@ pub async fn organizations_org_id_users_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L336`]
 pub async fn organizations_org_id_users_id_confirm_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -759,6 +768,7 @@ pub async fn organizations_org_id_users_id_confirm_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L498`]
 pub async fn organizations_org_id_users_id_delete(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -804,6 +814,7 @@ pub async fn organizations_org_id_users_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L518`]
 pub async fn organizations_org_id_users_id_delete_account_delete(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -849,6 +860,7 @@ pub async fn organizations_org_id_users_id_delete_account_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L518`]
 pub async fn organizations_org_id_users_id_delete_account_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -894,6 +906,7 @@ pub async fn organizations_org_id_users_id_delete_account_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L132`]
 pub async fn organizations_org_id_users_id_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -953,6 +966,7 @@ pub async fn organizations_org_id_users_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L366`]
 pub async fn organizations_org_id_users_id_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1001,6 +1015,7 @@ pub async fn organizations_org_id_users_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L366`]
 pub async fn organizations_org_id_users_id_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1046,6 +1061,7 @@ pub async fn organizations_org_id_users_id_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L271`]
 pub async fn organizations_org_id_users_id_reinvite_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1091,6 +1107,7 @@ pub async fn organizations_org_id_users_id_reinvite_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L498`]
 pub async fn organizations_org_id_users_id_remove_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1136,6 +1153,7 @@ pub async fn organizations_org_id_users_id_remove_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L203`]
 pub async fn organizations_org_id_users_id_reset_password_details_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1193,6 +1211,7 @@ pub async fn organizations_org_id_users_id_reset_password_details_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L469`]
 pub async fn organizations_org_id_users_id_reset_password_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1242,6 +1261,7 @@ pub async fn organizations_org_id_users_id_reset_password_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L565`]
 pub async fn organizations_org_id_users_id_restore_patch(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1287,6 +1307,7 @@ pub async fn organizations_org_id_users_id_restore_patch(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L565`]
 pub async fn organizations_org_id_users_id_restore_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1330,6 +1351,7 @@ pub async fn organizations_org_id_users_id_restore_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L549`]
 pub async fn organizations_org_id_users_id_revoke_patch(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1375,6 +1397,7 @@ pub async fn organizations_org_id_users_id_revoke_patch(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L549`]
 pub async fn organizations_org_id_users_id_revoke_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1418,6 +1441,7 @@ pub async fn organizations_org_id_users_id_revoke_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L239`]
 pub async fn organizations_org_id_users_invite_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1463,6 +1487,7 @@ pub async fn organizations_org_id_users_invite_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L163`]
 pub async fn organizations_org_id_users_mini_details_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1517,6 +1542,7 @@ pub async fn organizations_org_id_users_mini_details_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L278`]
 pub async fn organizations_org_id_users_organization_user_id_accept_init_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1567,6 +1593,7 @@ pub async fn organizations_org_id_users_organization_user_id_accept_init_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L292`]
 pub async fn organizations_org_id_users_organization_user_id_accept_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1615,6 +1642,7 @@ pub async fn organizations_org_id_users_organization_user_id_accept_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L356`]
 pub async fn organizations_org_id_users_public_keys_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1674,6 +1702,7 @@ pub async fn organizations_org_id_users_public_keys_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L261`]
 pub async fn organizations_org_id_users_reinvite_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1733,6 +1762,7 @@ pub async fn organizations_org_id_users_reinvite_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L507`]
 pub async fn organizations_org_id_users_remove_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1792,6 +1822,7 @@ pub async fn organizations_org_id_users_remove_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L573`]
 pub async fn organizations_org_id_users_restore_patch(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1851,6 +1882,7 @@ pub async fn organizations_org_id_users_restore_patch(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L573`]
 pub async fn organizations_org_id_users_restore_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1908,6 +1940,7 @@ pub async fn organizations_org_id_users_restore_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L557`]
 pub async fn organizations_org_id_users_revoke_patch(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -1967,6 +2000,7 @@ pub async fn organizations_org_id_users_revoke_patch(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L557`]
 pub async fn organizations_org_id_users_revoke_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -2024,6 +2058,7 @@ pub async fn organizations_org_id_users_revoke_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L441`]
 pub async fn organizations_org_id_users_user_id_reset_password_enrollment_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,

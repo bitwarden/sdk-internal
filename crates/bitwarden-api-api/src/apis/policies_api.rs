@@ -56,6 +56,7 @@ pub enum OrganizationsOrgIdPoliciesTypePutError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/PoliciesController.cs#L94`]
 pub async fn organizations_org_id_policies_get(
     configuration: &configuration::Configuration,
     org_id: &str,
@@ -108,6 +109,7 @@ pub async fn organizations_org_id_policies_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/PoliciesController.cs#L147`]
 pub async fn organizations_org_id_policies_invited_user_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -167,6 +169,7 @@ pub async fn organizations_org_id_policies_invited_user_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/PoliciesController.cs#L171`]
 pub async fn organizations_org_id_policies_master_password_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -218,6 +221,7 @@ pub async fn organizations_org_id_policies_master_password_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/PoliciesController.cs#L110`]
 pub async fn organizations_org_id_policies_token_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -287,6 +291,7 @@ pub async fn organizations_org_id_policies_token_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/PoliciesController.cs#L73`]
 pub async fn organizations_org_id_policies_type_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -336,6 +341,7 @@ pub async fn organizations_org_id_policies_type_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/PoliciesController.cs#L200`]
 pub async fn organizations_org_id_policies_type_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,

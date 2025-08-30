@@ -42,6 +42,7 @@ pub enum AccountBillingVnextPaymentMethodPutError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Billing/Controllers/VNext/AccountBillingVNextController.cs#L37`]
 pub async fn account_billing_vnext_credit_bitpay_post(
     configuration: &configuration::Configuration,
     email: &str,
@@ -294,6 +295,7 @@ pub async fn account_billing_vnext_credit_bitpay_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Billing/Controllers/VNext/AccountBillingVNextController.cs#L27`]
 pub async fn account_billing_vnext_credit_get(
     configuration: &configuration::Configuration,
     email: &str,
@@ -537,6 +539,7 @@ pub async fn account_billing_vnext_credit_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Billing/Controllers/VNext/AccountBillingVNextController.cs#L49`]
 pub async fn account_billing_vnext_payment_method_get(
     configuration: &configuration::Configuration,
     email: &str,
@@ -784,6 +787,7 @@ pub async fn account_billing_vnext_payment_method_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Billing/Controllers/VNext/AccountBillingVNextController.cs#L59`]
 pub async fn account_billing_vnext_payment_method_put(
     configuration: &configuration::Configuration,
     email: &str,

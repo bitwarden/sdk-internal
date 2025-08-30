@@ -35,6 +35,7 @@ pub enum OrganizationsLicensesSelfHostedPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/SelfHosted/SelfHostedOrganizationLicensesController.cs#L78`]
 pub async fn organizations_licenses_self_hosted_id_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -82,6 +83,7 @@ pub async fn organizations_licenses_self_hosted_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/SelfHosted/SelfHostedOrganizationLicensesController.cs#L104`]
 pub async fn organizations_licenses_self_hosted_id_sync_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -124,6 +126,7 @@ pub async fn organizations_licenses_self_hosted_id_sync_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/SelfHosted/SelfHostedOrganizationLicensesController.cs#L57`]
 pub async fn organizations_licenses_self_hosted_post(
     configuration: &configuration::Configuration,
     key: &str,

@@ -56,6 +56,7 @@ pub enum WebauthnPutError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/WebAuthnController.cs#L92`]
 pub async fn webauthn_assertion_options_post(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
@@ -108,6 +109,7 @@ pub async fn webauthn_assertion_options_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/WebAuthnController.cs#L75`]
 pub async fn webauthn_attestation_options_post(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
@@ -161,6 +163,7 @@ pub async fn webauthn_attestation_options_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/WebAuthnController.cs#L66`]
 pub async fn webauthn_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::WebAuthnCredentialResponseModelListResponseModel, Error<WebauthnGetError>> {
@@ -203,6 +206,7 @@ pub async fn webauthn_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/WebAuthnController.cs#L176`]
 pub async fn webauthn_id_delete_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -247,6 +251,7 @@ pub async fn webauthn_id_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/WebAuthnController.cs#L108`]
 pub async fn webauthn_post(
     configuration: &configuration::Configuration,
     web_authn_login_credential_create_request_model: Option<
@@ -288,6 +293,7 @@ pub async fn webauthn_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/WebAuthnController.cs#L153`]
 pub async fn webauthn_put(
     configuration: &configuration::Configuration,
     web_authn_login_credential_update_request_model: Option<
