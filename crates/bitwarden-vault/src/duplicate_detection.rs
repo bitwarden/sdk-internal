@@ -1,8 +1,28 @@
+//! # Duplicate cipher detection
+//!
+//! Duplicate detection utilities for grouping related [`CipherView`] values that
+//! appear to represent the same real-world login. Buckets are built along three
+//! axes (username+URI, username+name, and name-only) using normalization rules
+//! so that visually similar entries (e.g. differing only by whitespace or
+//! subdomain) coalesce. When multiple bucket types cover the exact same set of
+//! ciphers, only the highest-precedence bucket (username+uri > username+name >
+//! name-only) is kept to avoid redundant duplicate reports. A cipher can still
+//! appear in multiple returned groups if the underlying membership differs
+//! (e.g. same username across two different domains). Normalization is biased
+//! toward collapsing obviously equivalent values without losing distinct data.
+//!
+//! ## High-level flow
+//! 1. Iterate ciphers, skipping those without an id (cannot be deleted after review).
+//! 2. Derive normalized `login.username`, `login.uris` (strategy dependent) and `cipher.name`.
+//! 3. Insert into typed buckets keyed by a canonical composite key.
+//! 4. Filter out singleton buckets; collapse identical membership by precedence.
+//! 5. Produce stable, human-readable display keys for UI consumption via [`find_duplicate_sets`].
+
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 
 use url::Url;
 
-use crate::Cipher;
+use crate::cipher::cipher::CipherView;
 
 /// A grouping of ciphers considered duplicates under a specific display key
 /// that can be derived from login.username, login.uris, and cipher.name
@@ -11,7 +31,7 @@ pub struct DuplicateSet<'a> {
     /// Human-readable key (e.g. "username+uri: alice @ example.com").
     pub key: String,
     /// All ciphers participating in the duplicate group.
-    pub ciphers: Vec<&'a Cipher>,
+    pub ciphers: Vec<&'a CipherView>,
 }
 
 /// Strategy for determining whether two login URIs should be considered duplicates
@@ -19,14 +39,14 @@ pub struct DuplicateSet<'a> {
 /// The strategies progressively narrow what is considered a match:
 /// * Domain: compares only the registrable domain (e.g. `sub.example.co.uk` -> `example.co.uk`).
 /// * Hostname: compares the full hostname without port (e.g. `sub.example.co.uk`).
-/// * Host: compares hostname and specified port (when present)
+/// * Host: compares hostname and an explicitly specified port (omits default/implicit ports)
 /// * Exact: compares the full original URI string verbatim.
 pub enum DuplicateUriMatchType {
     /// Match by the effective registrable domain portion of the host.
     Domain,
     /// Match by the full hostname (subdomains preserved), excluding any port.
     Hostname,
-    /// Match by hostname plus a port (if present).
+    /// Match by hostname plus a port (omits default/implicit ports)
     Host,
     /// Match by the exact original URI string with no normalization applied.
     Exact,
@@ -39,12 +59,16 @@ pub enum DuplicateUriMatchType {
 ///
 /// Returns a newly allocated `String` containing the normalized form.
 fn normalize_name_for_matching(name: &str) -> String {
-    let normalized = name
-        .chars()
-        .filter(|c| !c.is_whitespace())
-        .collect::<String>()
-        .to_lowercase();
-    normalized
+    // Allocate once; skip whitespace and push lowercase chars.
+    let mut out = String::with_capacity(name.len());
+    for ch in name.chars() {
+        if !ch.is_whitespace() {
+            for lower in ch.to_lowercase() {
+                out.push(lower);
+            }
+        }
+    }
+    out
 }
 
 /// Normalize a URI according to the chosen duplicate matching strategy.
@@ -52,15 +76,25 @@ fn normalize_name_for_matching(name: &str) -> String {
 /// Returns an `Option<String>` where:
 /// * Domain uses the public suffix list (psl) to collapse `a.b.example.co.uk` -> `example.co.uk`.
 /// * Hostname preserves the full hostname exactly as parsed (no port).
-/// * Host appends port (if present) to the hostname.
+/// * Host appends the explicit port only when one is specified in the URI (see limitations)
 /// * Exact performs no normalization
+///
+/// Limitations when using 'Host' strategy:
+/// Unlike the URL parsing library used in the web vault
+/// [ https://nodejs.org/api/url.html#the-whatwg-url-api ]
+/// the url crate will strip explicit port numbers
+/// matching the default port for a given url scheme:
+/// * http://some.domain:80 => some.domain (http default port 80 is not retained)
+/// * https://some.domain:443 => some.domain (https default port 443 is not retained)
+/// * https://some.domain:4444 => some.domain:4444
 ///
 /// Examples:
 /// ```text
 /// Strategy=Domain:   https://app.eu.example.com/login  => Some("example.com")
 /// Strategy=Hostname: https://app.eu.example.com/login  => Some("app.eu.example.com")
-/// Strategy=Host:     https://app.eu.example.com/login  => Some("app.eu.example.com:443")
-/// Strategy=Host:     http://example.com:80             => Some("example.com:80")
+/// Strategy=Host:     https://app.eu.example.com/login  => Some("app.eu.example.com") (no port provided)
+/// Strategy=Host:     https://app.eu.example.com:443/   => Some("example.com") (default port for scheme is lost)
+/// Strategy=Host:     https://app.eu.example.com:4444/  => Some("example.com:4444")
 /// Strategy=Exact:    not a uri                         => Some("not a uri")
 /// Strategy=Domain:   not a uri                         => None (parse fails)
 /// ```
@@ -69,6 +103,11 @@ fn normalize_uri_for_matching(uri: &str, strategy: &DuplicateUriMatchType) -> Op
         DuplicateUriMatchType::Domain => {
             let url = Url::parse(uri).ok()?;
             let host = url.host_str()?;
+            // Treat raw IP addresses (v4 or v6) as non-domain (no registrable domain to compare)
+            // This is another divergence from original web vault implementation
+            if host.parse::<std::net::IpAddr>().is_ok() {
+                return None;
+            }
             let host_lower = host.to_ascii_lowercase();
             psl::domain_str(&host_lower).map(str::to_string)
         }
@@ -80,8 +119,11 @@ fn normalize_uri_for_matching(uri: &str, strategy: &DuplicateUriMatchType) -> Op
         DuplicateUriMatchType::Host => {
             let url = Url::parse(uri).ok()?;
             let host = url.host_str()?;
-            let port = url.port().unwrap_or_default();
-            Some(format!("{host}:{port}"))
+            if let Some(port) = url.port() {
+                Some(format!("{host}:{port}"))
+            } else {
+                Some(host.to_string())
+            }
         }
         DuplicateUriMatchType::Exact => Some(uri.to_string()),
     }
@@ -98,19 +140,20 @@ fn normalize_uri_for_matching(uri: &str, strategy: &DuplicateUriMatchType) -> Op
 /// * Names: [normalize_name_for_matching] (whitespace removed, lowercase)
 ///
 /// When different buckets contain the exact same cipher membership, only the
-/// highest‑precedence bucket is retained (username+uri > username+name > name-only).
+/// highest-precedence bucket is retained (username+uri > username+name > name-only).
 ///
 /// Display key formats:
 /// * username+uri: <user> @ <uri_part>
 /// * username+name: <user> & <Name>
-/// * username+name: & <Name> (blank username for name-only)
+/// * name-only: & <Name> (blank username)
 ///
 /// A cipher can appear in multiple returned sets if it legitimately matches
 /// distinct groups (e.g., the same username across two distinct URIs).
 pub fn find_duplicate_sets<'a>(
-    ciphers: &'a [Cipher],
+    ciphers: &'a [CipherView],
     strategy: DuplicateUriMatchType,
 ) -> Vec<DuplicateSet<'a>> {
+    const KEY_SEP: &str = "||"; // separator between composite key parts
     #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     enum BucketKind {
         UsernameUri,
@@ -128,10 +171,9 @@ pub fn find_duplicate_sets<'a>(
         }
     }
 
-    let mut buckets: HashMap<(BucketKind, String), Vec<&'a Cipher>> = HashMap::new();
+    let mut buckets: HashMap<(BucketKind, String), Vec<&'a CipherView>> = HashMap::new();
 
     for cipher in ciphers.iter() {
-        // Skip ciphers without a stable ID; they cannot participate in duplicate grouping.
         if cipher.id.is_none() {
             continue;
         }
@@ -141,17 +183,15 @@ pub fn find_duplicate_sets<'a>(
             let username = login
                 .username
                 .as_ref()
-                .map(|u| u.to_string())
-                .unwrap_or_default()
-                .trim()
-                .to_string();
+                .map(|u| u.trim().to_string())
+                .unwrap_or_default();
             let uris = login
                 .uris
                 .as_ref()
                 .map(|all_uris| {
                     all_uris
                         .iter()
-                        .filter_map(|curr_uri| curr_uri.uri.as_ref().map(|e| e.to_string()))
+                        .filter_map(|curr_uri| curr_uri.uri.clone())
                         .collect::<Vec<_>>()
                 })
                 .unwrap_or_default();
@@ -168,7 +208,10 @@ pub fn find_duplicate_sets<'a>(
                 if let Some(norm_uri) = normalize_uri_for_matching(raw_uri, &strategy) {
                     if per_cipher_seen.insert(norm_uri.clone()) {
                         buckets
-                            .entry((BucketKind::UsernameUri, format!("{username}||{norm_uri}")))
+                            .entry((
+                                BucketKind::UsernameUri,
+                                format!("{username}{KEY_SEP}{norm_uri}"),
+                            ))
                             .or_default()
                             .push(cipher);
                     }
@@ -177,7 +220,7 @@ pub fn find_duplicate_sets<'a>(
         }
 
         // Name-based buckets
-        let raw_name = cipher.name.to_string();
+        let raw_name = cipher.name.clone();
         let trimmed_name = raw_name.trim();
         if !trimmed_name.is_empty() {
             let norm_name = normalize_name_for_matching(trimmed_name);
@@ -185,7 +228,10 @@ pub fn find_duplicate_sets<'a>(
                 // guard in case normalization strips everything
                 if has_username {
                     buckets
-                        .entry((BucketKind::UsernameName, format!("{username}||{norm_name}")))
+                        .entry((
+                            BucketKind::UsernameName,
+                            format!("{username}{KEY_SEP}{norm_name}"),
+                        ))
                         .or_default()
                         .push(cipher);
                 } else {
@@ -199,21 +245,20 @@ pub fn find_duplicate_sets<'a>(
     }
 
     // Helper to produce a stable, order-independent membership signature.
-    fn signature(ciphers: &[&Cipher]) -> String {
-        let mut ids: Vec<String> = ciphers
-            .iter()
-            .map(|c| {
-                c.id.as_ref().map(|id| id.to_string()).expect(
-                    "cipher lacking id did not trigger 'continue' and was present in iteration",
-                )
-            })
-            .collect();
+    // All ciphers inserted into buckets have an id (guard enforced earlier).
+    fn signature(ciphers: &[&CipherView]) -> String {
+        let mut ids: Vec<String> = Vec::with_capacity(ciphers.len());
+        for c in ciphers.iter() {
+            if let Some(id) = &c.id {
+                ids.push(id.to_string());
+            }
+        }
         ids.sort_unstable();
         ids.join("|")
     }
 
     // key: signature -> value: (precedence, BucketKind, grouping_key, members)
-    let mut strongest_matches: HashMap<String, (u8, BucketKind, String, Vec<&Cipher>)> =
+    let mut strongest_matches: HashMap<String, (u8, BucketKind, String, Vec<&CipherView>)> =
         HashMap::new();
 
     for ((kind, key), members) in buckets.into_iter() {
@@ -238,39 +283,20 @@ pub fn find_duplicate_sets<'a>(
     let mut sets: Vec<DuplicateSet> = strongest_matches
         .into_values()
         .map(|(_p, kind, key, members)| {
+            let first_name_trimmed = members
+                .first()
+                .map(|c| c.name.trim().to_string())
+                .unwrap_or_default();
             let display = match kind {
-                BucketKind::UsernameUri => {
-                    if let Some((user, uri_part)) = key.split_once("||") {
-                        format!("username+uri: {user} @ {uri_part}")
-                    } else {
-                        format!("username+uri: {key}")
-                    }
-                }
-                BucketKind::UsernameName => {
-                    if let Some((user, _canon)) = key.split_once("||") {
-                        let display_name = members
-                            .first()
-                            .map(|c| c.name.to_string())
-                            .unwrap_or_default();
-                        let trimmed = display_name.trim();
-                        format!("username+name: {user} & {trimmed}")
-                    } else {
-                        let display_name = members
-                            .first()
-                            .map(|c| c.name.to_string())
-                            .unwrap_or_default();
-                        let trimmed = display_name.trim();
-                        format!("username+name:  & {trimmed}")
-                    }
-                }
-                BucketKind::NameOnly => {
-                    let display_name = members
-                        .first()
-                        .map(|c| c.name.to_string())
-                        .unwrap_or_default();
-                    let trimmed = display_name.trim();
-                    format!("username+name:  & {trimmed}")
-                }
+                BucketKind::UsernameUri => key
+                    .split_once(KEY_SEP)
+                    .map(|(user, uri_part)| format!("username+uri: {user} @ {uri_part}"))
+                    .unwrap_or_else(|| format!("username+uri: {key}")),
+                BucketKind::UsernameName => key
+                    .split_once(KEY_SEP)
+                    .map(|(user, _)| format!("username+name: {user} & {first_name_trimmed}"))
+                    .unwrap_or_else(|| format!("username+name:  & {first_name_trimmed}")),
+                BucketKind::NameOnly => format!("username+name:  & {first_name_trimmed}"),
             };
             DuplicateSet {
                 key: display,
@@ -285,38 +311,32 @@ pub fn find_duplicate_sets<'a>(
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
-    use bitwarden_crypto::EncString;
     use chrono::Utc;
 
     use super::*;
-    use crate::{
-        cipher::{
-            cipher::{CipherRepromptType, CipherType},
-            login::{Login, LoginUri},
-        },
-        Cipher,
-    }; // needed for EncString::from_str
+    use crate::cipher::{
+        cipher::{CipherRepromptType, CipherType, CipherView},
+        login::{LoginUriView, LoginView},
+    };
 
-    // Helper to build a login cipher
+    // helper to construct a CipherView for testing
     fn make_login_cipher(
         id: Option<&str>,
         username: Option<&str>,
         uris: &[&str],
         name: &str,
-    ) -> Cipher {
-        Cipher {
-            id: id.map(|s| s.parse().unwrap()),
+    ) -> CipherView {
+        CipherView {
+            id: id.map(|s| s.parse().expect("valid UUID literal")),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: EncString::from_str(name).unwrap(),
+            name: name.to_string(),
             notes: None,
             r#type: CipherType::Login,
-            login: Some(Login {
-                username: username.map(|u| EncString::from_str(u).unwrap()),
+            login: Some(LoginView {
+                username: username.map(|u| u.to_string()),
                 password: None,
                 password_revision_date: None,
                 uris: if uris.is_empty() {
@@ -324,8 +344,8 @@ mod tests {
                 } else {
                     Some(
                         uris.iter()
-                            .map(|u| LoginUri {
-                                uri: Some(EncString::from_str(u).unwrap()),
+                            .map(|u| LoginUriView {
+                                uri: Some(u.to_string()),
                                 r#match: None,
                                 uri_checksum: None,
                             })
@@ -356,15 +376,15 @@ mod tests {
         }
     }
 
-    // Helper to build non-login cipher (SecureNote)
-    fn make_note_cipher(id: Option<&str>, name: &str) -> Cipher {
-        Cipher {
-            id: id.map(|s| s.parse().unwrap()),
+    // Helper to build non-login cipher view (SecureNote)
+    fn make_note_cipher(id: Option<&str>, name: &str) -> CipherView {
+        CipherView {
+            id: id.map(|s| s.parse().expect("valid UUID literal")),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: EncString::from_str(name).unwrap(),
+            name: name.to_string(),
             notes: None,
             r#type: CipherType::SecureNote,
             login: None,
@@ -441,8 +461,6 @@ mod tests {
             normalize_uri_for_matching(uri, &DuplicateUriMatchType::Hostname),
             Some("app.example.com".to_string())
         );
-        // Host strategy uses explicit port only, defaulting to 0 if absent (per current
-        // implementation)
         assert_eq!(
             normalize_uri_for_matching(uri, &DuplicateUriMatchType::Host),
             Some("app.example.com:8443".to_string())
@@ -450,11 +468,72 @@ mod tests {
     }
 
     #[test]
-    fn test_normalize_uri_host_no_explicit_port_results_zero() {
-        let uri = "https://example.com/path"; // no explicit port -> :0 by implementation
+    fn test_normalize_uri_host_no_explicit_port() {
+        let uri = "https://example.com/path"; // no explicit port -> hostname only
         assert_eq!(
             normalize_uri_for_matching(uri, &DuplicateUriMatchType::Host),
-            Some("example.com:0".to_string())
+            Some("example.com".to_string())
+        );
+    }
+
+    /*
+    * Due to limitations in the url crate, port cannot be obtained when it matches
+    * the default ports for provided schemes. This is a divergence from the URL
+    * parsing library used in the web vault: https://nodejs.org/api/url.html#the-whatwg-url-api
+    * but should be considered an edge case (most users would not supply shceme & defauult port
+    * and default port shouldn't be included by browser for http & https schemes)
+    #[test]
+    fn test_normalize_uri_host_explicit_default_port() {
+        let uri = "https://example.com:443/path"; // explicit default port retained
+        assert_eq!(
+            normalize_uri_for_matching(uri, &DuplicateUriMatchType::Host),
+            Some("example.com:443".to_string())
+        );
+    }
+
+    #[test]
+    fn test_normalize_uri_host_explicit_http_default_port() {
+        let uri = "http://example.com:80/path"; // explicit default http port retained
+        assert_eq!(
+            normalize_uri_for_matching(uri, &DuplicateUriMatchType::Host),
+            Some("example.com:80".to_string())
+        );
+    }
+
+    #[test]
+    fn test_normalize_uri_host_ipv6_explicit_default_port() {
+        let uri = "https://[2001:db8::1]:443/"; // explicit default https port on IPv6
+        assert_eq!(
+            normalize_uri_for_matching(uri, &DuplicateUriMatchType::Host),
+            Some("[2001:db8::1]:443".to_string())
+        );
+    }
+
+    #[test]
+    fn test_normalize_uri_host_userinfo_no_port() {
+    let uri = "https://user:pass@example.com/path"; // userinfo present, no explicit port
+        assert_eq!(
+            normalize_uri_for_matching(uri, &DuplicateUriMatchType::Host),
+            Some("example.com".to_string())
+        );
+    }
+    */
+
+    #[test]
+    fn test_normalize_uri_host_ipv6_non_default_port() {
+        let uri = "https://[2001:db8::1]:8443/"; // IPv6 with non-default port
+        assert_eq!(
+            normalize_uri_for_matching(uri, &DuplicateUriMatchType::Host),
+            Some("[2001:db8::1]:8443".to_string())
+        );
+    }
+
+    #[test]
+    fn test_normalize_uri_host_userinfo_explicit_non_default_port() {
+        let uri = "https://user:pass@example.com:8443/path"; // userinfo with explicit non-default port
+        assert_eq!(
+            normalize_uri_for_matching(uri, &DuplicateUriMatchType::Host),
+            Some("example.com:8443".to_string())
         );
     }
 
@@ -530,7 +609,7 @@ mod tests {
         let ciphers = vec![n1, n2];
         let sets = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Domain);
         assert_eq!(sets.len(), 1);
-        assert!(sets[0].key.contains("Shared Note") || sets[0].key.contains("shared  note"));
+        assert!(sets[0].key.starts_with("username+name:"));
     }
 
     #[test]
@@ -556,9 +635,11 @@ mod tests {
         let ciphers = vec![a, b, c];
         let sets = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Domain);
         assert_eq!(sets.len(), 2);
-        let multi_appearances = sets
-            .iter()
-            .filter(|s| s.ciphers.iter().any(|c| c.name.to_string() == "Multi"));
+        let multi_appearances = sets.iter().filter(|s| {
+            s.ciphers.iter().any(|c| {
+                c.id.map(|id| id.to_string()) == Some("55555555-5555-5555-5555-555555555555".into())
+            })
+        });
         assert_eq!(multi_appearances.count(), 2);
     }
 
