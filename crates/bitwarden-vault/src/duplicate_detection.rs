@@ -3,16 +3,26 @@
 //! Duplicate detection utilities for grouping related [`CipherView`] values that
 //! appear to represent the same real-world login. Buckets are built along three
 //! axes (username+URI, username+name, and name-only) using normalization rules
-//! so that visually similar entries (e.g. differing only by whitespace or
+//! so that visually similar entries (e.g., differing only by whitespace or
 //! subdomain) coalesce. When multiple bucket types cover the exact same set of
 //! ciphers, only the highest-precedence bucket (username+uri > username+name >
 //! name-only) is kept to avoid redundant duplicate reports. A cipher can still
 //! appear in multiple returned groups if the underlying membership differs
-//! (e.g. same username across two different domains). Normalization is biased
+//! (e.g., the same username across two different domains). Normalization is biased
 //! toward collapsing obviously equivalent values without losing distinct data.
 //!
-//! ## High-level flow
-//! 1. Iterate ciphers, skipping those without an id (cannot be deleted after review).
+//! The logic in this module was originally implemented in the web app
+//! [ https://github.com/bitwarden/clients/pull/15967 ]
+//! and adapted to the Rust API. Some notable divergences:
+//! * The Domain [ DuplicateUriMatchType ] does not support IPv4 and IPv6 addresses
+//! in this module but does so in the Web app
+//! * The Host [ DuplicateUriMatchType ] does not support port numbers when they match the default
+//! for a given scheme (80 for http, 443 for https). Only port numbers not matching a scheme's
+//! default will be parsed and retained. This is due to limitations in the url crate, and could
+//! likely be fixed using regular expressions.
+//!
+//! ## Logical flow:
+//! 1. Iterate over CipherViews, skipping those without an id (cannot be deleted after review).
 //! 2. Derive normalized `login.username`, `login.uris` (strategy dependent) and `cipher.name`.
 //! 3. Insert into typed buckets keyed by a canonical composite key.
 //! 4. Filter out singleton buckets; collapse identical membership by precedence.
@@ -79,9 +89,9 @@ fn normalize_name_for_matching(name: &str) -> String {
 /// * Host appends the explicit port only when one is specified in the URI (see limitations)
 /// * Exact performs no normalization
 ///
-/// Limitations when using 'Host' strategy:
-/// Unlike the URL parsing library used in the web vault
-/// [ https://nodejs.org/api/url.html#the-whatwg-url-api ]
+/// # Limitations when using 'Host' strategy:
+/// Unlike the URL parsing library used in the web app
+/// https://nodejs.org/api/url.html#the-whatwg-url-api
 /// the url crate will strip explicit port numbers
 /// matching the default port for a given url scheme:
 /// * http://some.domain:80 => some.domain (http default port 80 is not retained)
@@ -104,7 +114,7 @@ fn normalize_uri_for_matching(uri: &str, strategy: &DuplicateUriMatchType) -> Op
             let url = Url::parse(uri).ok()?;
             let host = url.host_str()?;
             // Treat raw IP addresses (v4 or v6) as non-domain (no registrable domain to compare)
-            // This is another divergence from original web vault implementation
+            // This is another divergence from the original web app implementation
             if host.parse::<std::net::IpAddr>().is_ok() {
                 return None;
             }
@@ -279,7 +289,7 @@ pub fn find_duplicate_sets<'a>(
         }
     }
 
-    // Convert to DuplicateSet with Web Vault display key formatting
+    // Convert to DuplicateSet with Web app display key formatting
     let mut sets: Vec<DuplicateSet> = strongest_matches
         .into_values()
         .map(|(_p, kind, key, members)| {
@@ -479,8 +489,8 @@ mod tests {
     /*
     * Due to limitations in the url crate, port cannot be obtained when it matches
     * the default ports for provided schemes. This is a divergence from the URL
-    * parsing library used in the web vault: https://nodejs.org/api/url.html#the-whatwg-url-api
-    * but should be considered an edge case (most users would not supply shceme & defauult port
+    * parsing library used in the web app: https://nodejs.org/api/url.html#the-whatwg-url-api
+    * but should be considered an edge case (most users would not supply scheme and default port
     * and default port shouldn't be included by browser for http & https schemes)
     #[test]
     fn test_normalize_uri_host_explicit_default_port() {
@@ -503,21 +513,20 @@ mod tests {
     #[test]
     fn test_normalize_uri_host_ipv6_explicit_default_port() {
         let uri = "https://[2001:db8::1]:443/"; // explicit default https port on IPv6
-        assert_eq!(
-            normalize_uri_for_matching(uri, &DuplicateUriMatchType::Host),
+        assert_eq!(normalize_uri_for_matching(uri, &DuplicateUriMatchType::Host),
             Some("[2001:db8::1]:443".to_string())
         );
     }
+    */
 
     #[test]
     fn test_normalize_uri_host_userinfo_no_port() {
-    let uri = "https://user:pass@example.com/path"; // userinfo present, no explicit port
+        let uri = "https://user:pass@example.com/path"; // userinfo present, no explicit port
         assert_eq!(
             normalize_uri_for_matching(uri, &DuplicateUriMatchType::Host),
             Some("example.com".to_string())
         );
     }
-    */
 
     #[test]
     fn test_normalize_uri_host_ipv6_non_default_port() {
@@ -710,7 +719,7 @@ mod tests {
 
     #[test]
     fn test_ciphers_without_ids_are_ignored() {
-        // Both ciphers lack IDs so they cannot participate; no duplicate set produced.
+        // Both ciphers lack IDs, so they cannot participate; no duplicate set produced.
         let c1 = make_note_cipher(None, "SameName");
         let c2 = make_note_cipher(None, "  same name  ");
         let ciphers = vec![c1, c2];
