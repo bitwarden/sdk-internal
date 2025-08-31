@@ -14,12 +14,12 @@
 //! The logic in this module was originally implemented in the web app
 //! [ https://github.com/bitwarden/clients/pull/15967 ]
 //! and adapted to the Rust API. Some notable divergences:
-//! * The Domain [ DuplicateUriMatchType ] does not support IPv4 and IPv6 addresses
-//! in this module but does so in the Web app
+//! * The Domain [ DuplicateUriMatchType ] does not support IPv4 and IPv6 addresses in this module
+//!   but does so in the Web app
 //! * The Host [ DuplicateUriMatchType ] does not support port numbers when they match the default
-//! for a given scheme (80 for http, 443 for https). Only port numbers not matching a scheme's
-//! default will be parsed and retained. This is due to limitations in the url crate and could
-//! likely be fixed using regular expressions.
+//!   for a given scheme (80 for http, 443 for https). Only port numbers not matching a scheme's
+//!   default will be parsed and retained. This is due to limitations in the url crate and could
+//!   likely be fixed using regular expressions.
 //!
 //! ## Logical flow:
 //! 1. Iterate over CipherViews, skipping those without an id (cannot be deleted after review).
@@ -51,6 +51,7 @@ pub struct DuplicateSet<'a> {
 /// * Hostname: compares the full hostname without port (e.g. `sub.example.co.uk`).
 /// * Host: compares hostname and an explicitly specified port (omits default/implicit ports)
 /// * Exact: compares the full original URI string verbatim.
+#[derive(Debug, Clone, Copy)]
 pub enum DuplicateUriMatchType {
     /// Match by the effective registrable domain portion of the host.
     Domain,
@@ -97,6 +98,7 @@ fn normalize_name_for_matching(name: &str) -> String {
 /// * http://some.domain:80 => some.domain (http default port 80 is not retained)
 /// * https://some.domain:443 => some.domain (https default port 443 is not retained)
 /// * https://some.domain:4444 => some.domain:4444
+///
 /// This applies to the Host strategy only.
 ///
 /// Raw IP addresses (IPv4 and IPv6) will not be considered when the Domain strategy is used.
@@ -421,7 +423,6 @@ mod tests {
         }
     }
 
-    // ---- normalize_name_for_matching tests ----
     #[test]
     fn test_normalize_name_empty_and_whitespace() {
         assert_eq!(normalize_name_for_matching(""), "");
@@ -449,8 +450,6 @@ mod tests {
         assert_eq!(normalize_name_for_matching(s), "namewithspaces");
     }
 
-    // ---- normalize_uri_for_matching tests ----
-
     #[test]
     fn test_normalize_uri_domain_basic() {
         let uri = "https://sub.example.co.uk/path";
@@ -468,12 +467,17 @@ mod tests {
     }
 
     #[test]
-    fn test_normalize_uri_hostname_and_host() {
+    fn test_normalize_uri_hostname() {
         let uri = "https://app.example.com:8443/a";
         assert_eq!(
             normalize_uri_for_matching(uri, &DuplicateUriMatchType::Hostname),
             Some("app.example.com".to_string())
         );
+    }
+
+    #[test]
+    fn test_normalize_uri_host() {
+        let uri = "https://app.example.com:8443/a";
         assert_eq!(
             normalize_uri_for_matching(uri, &DuplicateUriMatchType::Host),
             Some("app.example.com:8443".to_string())
@@ -562,16 +566,21 @@ mod tests {
         );
     }
 
-    // ---- find_duplicate_sets tests ----
-
     #[test]
-    fn test_find_duplicate_sets_empty_input() {
-        let sets = find_duplicate_sets(&[], DuplicateUriMatchType::Domain);
-        assert!(sets.is_empty());
+    fn test_find_duplicate_sets_empty_input_all_strategies() {
+        for strategy in [
+            DuplicateUriMatchType::Domain,
+            DuplicateUriMatchType::Hostname,
+            DuplicateUriMatchType::Host,
+            DuplicateUriMatchType::Exact,
+        ] {
+            let sets = find_duplicate_sets(&[], strategy);
+            assert!(sets.is_empty());
+        }
     }
 
     #[test]
-    fn test_username_uri_duplicate_basic() {
+    fn test_username_uri_duplicate_all_strategies() {
         let c1 = make_login_cipher(
             Some("11111111-1111-1111-1111-111111111111"),
             Some("alice"),
@@ -585,14 +594,21 @@ mod tests {
             "Site B",
         );
         let ciphers = vec![c1, c2];
-        let sets = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Domain);
-        assert_eq!(sets.len(), 1); // domain example.com
-        assert!(sets[0].key.starts_with("username+uri:"));
-        assert_eq!(sets[0].ciphers.len(), 2);
+        for strategy in [
+            DuplicateUriMatchType::Domain,
+            DuplicateUriMatchType::Hostname,
+            DuplicateUriMatchType::Host,
+            DuplicateUriMatchType::Exact,
+        ] {
+            let sets = find_duplicate_sets(&ciphers, strategy);
+            assert_eq!(sets.len(), 1, "strategy {:?}", strategy);
+            assert!(sets[0].key.starts_with("username+uri:"));
+            assert_eq!(sets[0].ciphers.len(), 2);
+        }
     }
 
     #[test]
-    fn test_username_name_precedence_lower_than_uri() {
+    fn test_username_name_precedence_lower_than_uri_all_strategies() {
         let c1 = make_login_cipher(
             Some("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
             Some("bob"),
@@ -606,26 +622,40 @@ mod tests {
             "Foo",
         );
         let ciphers = vec![c1, c2];
-        let sets = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Domain);
-        assert_eq!(sets.len(), 1);
-        assert!(sets[0].key.starts_with("username+uri:"));
+        for strategy in [
+            DuplicateUriMatchType::Domain,
+            DuplicateUriMatchType::Hostname,
+            DuplicateUriMatchType::Host,
+            DuplicateUriMatchType::Exact,
+        ] {
+            let sets = find_duplicate_sets(&ciphers, strategy);
+            assert_eq!(sets.len(), 1, "strategy {:?}", strategy);
+            assert!(sets[0].key.starts_with("username+uri:"));
+        }
     }
 
     #[test]
-    fn test_name_only_duplicates() {
+    fn test_name_only_duplicates_all_strategies() {
         let n1 = make_note_cipher(Some("33333333-3333-3333-3333-333333333333"), "Shared Note");
         let n2 = make_note_cipher(
             Some("44444444-4444-4444-4444-444444444444"),
             "  shared  note  ",
         );
         let ciphers = vec![n1, n2];
-        let sets = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Domain);
-        assert_eq!(sets.len(), 1);
-        assert!(sets[0].key.starts_with("username+name:"));
+        for strategy in [
+            DuplicateUriMatchType::Domain,
+            DuplicateUriMatchType::Hostname,
+            DuplicateUriMatchType::Host,
+            DuplicateUriMatchType::Exact,
+        ] {
+            let sets = find_duplicate_sets(&ciphers, strategy);
+            assert_eq!(sets.len(), 1, "strategy {:?}", strategy);
+            assert!(sets[0].key.starts_with("username+name:"));
+        }
     }
 
     #[test]
-    fn test_cipher_in_multiple_sets_via_distinct_uris() {
+    fn test_cipher_in_multiple_sets_via_distinct_uris_all_strategies() {
         let a = make_login_cipher(
             Some("55555555-5555-5555-5555-555555555555"),
             Some("alice"),
@@ -645,18 +675,26 @@ mod tests {
             "Two",
         );
         let ciphers = vec![a, b, c];
-        let sets = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Domain);
-        assert_eq!(sets.len(), 2);
-        let multi_appearances = sets.iter().filter(|s| {
-            s.ciphers.iter().any(|c| {
-                c.id.map(|id| id.to_string()) == Some("55555555-5555-5555-5555-555555555555".into())
-            })
-        });
-        assert_eq!(multi_appearances.count(), 2);
+        for strategy in [
+            DuplicateUriMatchType::Domain,
+            DuplicateUriMatchType::Hostname,
+            DuplicateUriMatchType::Host,
+            DuplicateUriMatchType::Exact,
+        ] {
+            let sets = find_duplicate_sets(&ciphers, strategy);
+            assert_eq!(sets.len(), 2, "strategy {:?}", strategy);
+            let multi_appearances = sets.iter().filter(|s| {
+                s.ciphers.iter().any(|c| {
+                    c.id.map(|id| id.to_string())
+                        == Some("55555555-5555-5555-5555-555555555555".into())
+                })
+            });
+            assert_eq!(multi_appearances.count(), 2);
+        }
     }
 
     #[test]
-    fn test_identical_membership_multiple_normalized_uris_collapse() {
+    fn test_identical_membership_multiple_normalized_uris_collapse_all_strategies() {
         let c1 = make_login_cipher(
             Some("88888888-8888-8888-8888-888888888888"),
             Some("user"),
@@ -670,16 +708,19 @@ mod tests {
             "Y",
         );
         let ciphers = vec![c1, c2];
-        let sets = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Hostname);
-        assert_eq!(sets.len(), 1);
-        assert!(
-            sets[0].key.contains("user @ x.example.com")
-                || sets[0].key.contains("user @ y.example.com")
-        );
+        for strategy in [
+            DuplicateUriMatchType::Domain,
+            DuplicateUriMatchType::Hostname,
+            DuplicateUriMatchType::Host,
+            DuplicateUriMatchType::Exact,
+        ] {
+            let sets = find_duplicate_sets(&ciphers, strategy);
+            assert_eq!(sets.len(), 1, "strategy {:?}", strategy);
+        }
     }
 
     #[test]
-    fn test_per_cipher_uri_deduplication() {
+    fn test_per_cipher_uri_deduplication_all_strategies() {
         let c1 = make_login_cipher(
             Some("10101010-1010-1010-1010-101010101010"),
             Some("u"),
@@ -693,13 +734,20 @@ mod tests {
             "B",
         );
         let ciphers = vec![c1, c2];
-        let sets = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Hostname);
-        assert_eq!(sets.len(), 1);
-        assert_eq!(sets[0].ciphers.len(), 2);
+        for strategy in [
+            DuplicateUriMatchType::Domain,
+            DuplicateUriMatchType::Hostname,
+            DuplicateUriMatchType::Host,
+            DuplicateUriMatchType::Exact,
+        ] {
+            let sets = find_duplicate_sets(&ciphers, strategy);
+            assert_eq!(sets.len(), 1, "strategy {:?}", strategy);
+            assert_eq!(sets[0].ciphers.len(), 2);
+        }
     }
 
     #[test]
-    fn test_domain_strategy_groups_subdomains() {
+    fn test_domain_strategy_collapses_distinct_subdomains() {
         let c1 = make_login_cipher(
             Some("12121212-1212-1212-1212-121212121212"),
             Some("user"),
@@ -718,20 +766,30 @@ mod tests {
         let ciphers_hostname = vec![c1, c2];
         let sets_hostname = find_duplicate_sets(&ciphers_hostname, DuplicateUriMatchType::Hostname);
         assert!(sets_hostname.is_empty());
+        let sets_host = find_duplicate_sets(&ciphers_hostname, DuplicateUriMatchType::Host);
+        assert!(sets_host.is_empty());
+        let sets_exact = find_duplicate_sets(&ciphers_hostname, DuplicateUriMatchType::Exact);
+        assert!(sets_exact.is_empty());
     }
 
     #[test]
-    fn test_ciphers_without_ids_are_ignored() {
-        // Both ciphers lack IDs, so they cannot participate; no duplicate set produced.
+    fn test_ciphers_without_ids_are_ignored_all_strategies() {
         let c1 = make_note_cipher(None, "SameName");
         let c2 = make_note_cipher(None, "  same name  ");
         let ciphers = vec![c1, c2];
-        let sets = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Domain);
-        assert!(sets.is_empty());
+        for strategy in [
+            DuplicateUriMatchType::Domain,
+            DuplicateUriMatchType::Hostname,
+            DuplicateUriMatchType::Host,
+            DuplicateUriMatchType::Exact,
+        ] {
+            let sets = find_duplicate_sets(&ciphers, strategy);
+            assert!(sets.is_empty(), "strategy {:?}", strategy);
+        }
     }
 
     #[test]
-    fn test_username_name_does_not_cross_with_name_only() {
+    fn test_username_name_does_not_cross_with_name_only_all_strategies() {
         let login = make_login_cipher(
             Some("14141414-1414-1414-1414-141414141414"),
             Some("user"),
@@ -741,9 +799,140 @@ mod tests {
         let note1 = make_note_cipher(Some("15151515-1515-1515-1515-151515151515"), "Duplicate");
         let note2 = make_note_cipher(Some("16161616-1616-1616-1616-161616161616"), "duplicate");
         let ciphers = vec![login, note1, note2];
-        let sets = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Domain);
-        assert_eq!(sets.len(), 1);
-        assert!(sets[0].key.starts_with("username+name:  &"));
-        assert_eq!(sets[0].ciphers.len(), 2);
+        for strategy in [
+            DuplicateUriMatchType::Domain,
+            DuplicateUriMatchType::Hostname,
+            DuplicateUriMatchType::Host,
+            DuplicateUriMatchType::Exact,
+        ] {
+            let sets = find_duplicate_sets(&ciphers, strategy);
+            assert_eq!(sets.len(), 1, "strategy {:?}", strategy);
+            assert!(sets[0].key.starts_with("username+name:  &"));
+            assert_eq!(sets[0].ciphers.len(), 2);
+        }
+    }
+
+    #[test]
+    fn test_host_strategy_distinguishes_ports() {
+        let c1 = make_login_cipher(
+            Some("17171717-1717-1717-1717-171717171717"),
+            Some("user"),
+            &["https://example.com:8443"],
+            "A",
+        );
+        let c2 = make_login_cipher(
+            Some("18181818-1818-1818-1818-181818181818"),
+            Some("user"),
+            &["https://example.com:9443"],
+            "B",
+        );
+        let ciphers = vec![c1.clone(), c2.clone()];
+        // Domain & Hostname collapse (ignore differing ports) -> duplicates
+        let sets_domain = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Domain);
+        assert_eq!(sets_domain.len(), 1);
+        let sets_hostname = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Hostname);
+        assert_eq!(sets_hostname.len(), 1);
+        // Host distinguishes ports -> no duplicates
+        let sets_host = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Host);
+        assert!(sets_host.is_empty());
+        // Exact includes full string -> different (ports differ) -> no duplicates
+        let sets_exact = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Exact);
+        assert!(sets_exact.is_empty());
+        // Control: identical ports should duplicate under Host
+        let c3 = make_login_cipher(
+            Some("19191919-1919-1919-1919-191919191919"),
+            Some("user"),
+            &["https://example.com:8443"],
+            "C",
+        );
+        let ciphers_same_port = vec![c1, c3];
+        let sets_host_same_port =
+            find_duplicate_sets(&ciphers_same_port, DuplicateUriMatchType::Host);
+        assert_eq!(sets_host_same_port.len(), 1);
+    }
+
+    #[test]
+    fn test_exact_strategy_requires_full_uri_match() {
+        let c1 = make_login_cipher(
+            Some("20202020-2020-2020-2020-202020202020"),
+            Some("user"),
+            &["https://example.com"],
+            "A",
+        );
+        let c2 = make_login_cipher(
+            Some("21212121-2121-2121-2121-212121212121"),
+            Some("user"),
+            &["https://example.com/login"],
+            "B",
+        );
+        let ciphers = vec![c1, c2];
+        // Domain / Hostname / Host collapse (same host) -> duplicates
+        for strategy in [
+            DuplicateUriMatchType::Domain,
+            DuplicateUriMatchType::Hostname,
+            DuplicateUriMatchType::Host,
+        ] {
+            let sets = find_duplicate_sets(&ciphers, strategy);
+            assert_eq!(sets.len(), 1, "strategy {:?}", strategy);
+        }
+        // Exact uses full string -> no duplicates
+        let sets_exact = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Exact);
+        assert!(sets_exact.is_empty());
+    }
+
+    #[test]
+    fn test_hostname_strategy_groups_identical_full_subdomain_only() {
+        // Two identical subdomain hosts should group for all strategies.
+        let c1 = make_login_cipher(
+            Some("22222222-3333-4444-5555-666666666666"),
+            Some("user"),
+            &["https://login.app.example.com"],
+            "One",
+        );
+        let c2 = make_login_cipher(
+            Some("77777777-8888-9999-aaaa-bbbbbbbbbbbb"),
+            Some("user"),
+            &["https://login.app.example.com"],
+            "Two",
+        );
+        let ciphers = vec![c1, c2];
+        for strategy in [
+            DuplicateUriMatchType::Domain,
+            DuplicateUriMatchType::Hostname,
+            DuplicateUriMatchType::Host,
+            DuplicateUriMatchType::Exact,
+        ] {
+            let sets = find_duplicate_sets(&ciphers, strategy);
+            assert_eq!(sets.len(), 1, "strategy {:?}", strategy);
+        }
+    }
+
+    #[test]
+    fn test_hostname_strategy_ipv6_grouping() {
+        // IPv6 host should produce duplicates under Hostname/Host/Exact but Domain (IP) ignored.
+        let c1 = make_login_cipher(
+            Some("abcdabcd-abcd-abcd-abcd-abcdabcdabcd"),
+            Some("user"),
+            &["https://[2001:db8::1]/login"],
+            "One",
+        );
+        let c2 = make_login_cipher(
+            Some("dcba4321-dcba-4321-dcba-4321dcba4321"),
+            Some("user"),
+            &["https://[2001:db8::1]/account"],
+            "Two",
+        );
+        let ciphers = vec![c1, c2];
+        let sets_domain = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Domain);
+        assert!(sets_domain.is_empty());
+        // Hostname groups (same host w/out port)
+        let sets_hostname = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Hostname);
+        assert_eq!(sets_hostname.len(), 1);
+        // Host groups (no port specified)
+        let sets_host = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Host);
+        assert_eq!(sets_host.len(), 1);
+        // Exact considers full strings different (paths differ) so no grouping
+        let sets_exact = find_duplicate_sets(&ciphers, DuplicateUriMatchType::Exact);
+        assert!(sets_exact.is_empty());
     }
 }
