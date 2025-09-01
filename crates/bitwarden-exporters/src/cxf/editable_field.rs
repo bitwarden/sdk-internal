@@ -24,7 +24,6 @@ where
     }
 }
 
-
 /// Helper function to create an EditableField with common properties
 fn create_editable_field<T>(name: String, value: T) -> EditableField<T> {
     EditableField {

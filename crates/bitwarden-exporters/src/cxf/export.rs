@@ -9,7 +9,7 @@ use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
     cxf::{editable_field::field_to_editable_field_value, CxfError},
-    Cipher, CipherType, Field, Login,
+    Cipher, CipherType, Login,
 };
 
 /// Temporary struct to hold metadata related to current account
