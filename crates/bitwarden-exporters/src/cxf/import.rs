@@ -1,15 +1,16 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     Account as CxfAccount, AddressCredential, ApiKeyCredential, BasicAuthCredential, Credential,
-    CreditCardCredential, DriversLicenseCredential, IdentityDocumentCredential, Item,
-    NoteCredential, PasskeyCredential, PassportCredential, PersonNameCredential, SshKeyCredential,
-    TotpCredential, WifiCredential,
+    CreditCardCredential, CustomFieldsCredential, DriversLicenseCredential,
+    IdentityDocumentCredential, Item, NoteCredential, PasskeyCredential, PassportCredential,
+    PersonNameCredential, SshKeyCredential, TotpCredential, WifiCredential,
 };
 
 use crate::{
     cxf::{
         api_key::api_key_to_fields,
         card::to_card,
+        editable_field::create_field,
         identity::{
             address_to_identity, drivers_license_to_identity, identity_document_to_identity,
             passport_to_identity, person_name_to_identity,
@@ -40,6 +41,16 @@ pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfErro
 fn convert_date(ts: Option<u64>) -> DateTime<Utc> {
     ts.and_then(|ts| DateTime::from_timestamp(ts as i64, 0))
         .unwrap_or(Utc::now())
+}
+
+/// Convert CustomFields credentials to Bitwarden Fields
+/// CustomFields contain arbitrary key-value pairs that should be preserved as custom fields
+fn custom_fields_to_fields(custom_fields: &CustomFieldsCredential) -> Vec<Field> {
+    custom_fields
+        .fields
+        .iter()
+        .map(|f| create_field(f, None::<String>))
+        .collect()
 }
 
 pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
@@ -146,6 +157,12 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
         }
     }
 
+    // CustomFields credentials -> Secure Note
+    if let Some(custom_fields) = grouped.custom_fields.first() {
+        let fields = custom_fields_to_fields(custom_fields);
+        add_item(secure_note_type(), fields);
+    }
+
     // Standalone Note credentials -> Secure Note (only if no other credentials exist)
     if !grouped.note.is_empty() && output.is_empty() {
         let standalone_note_content = grouped.note.first().map(extract_note_content);
@@ -183,59 +200,38 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
         credentials.iter().filter_map(f).cloned().collect()
     }
 
+    macro_rules! extract_credential {
+        ($field:ident, $variant:path, $type:ty) => {
+            filter_credentials(&credentials, |c| match c {
+                $variant(ref inner) => Some(inner.as_ref()),
+                _ => None,
+            })
+        };
+    }
+
     GroupedCredentials {
-        api_key: filter_credentials(&credentials, |c| match c {
-            Credential::ApiKey(api_key) => Some(api_key.as_ref()),
-            _ => None,
-        }),
-        basic_auth: filter_credentials(&credentials, |c| match c {
-            Credential::BasicAuth(basic_auth) => Some(basic_auth.as_ref()),
-            _ => None,
-        }),
-        credit_card: filter_credentials(&credentials, |c| match c {
-            Credential::CreditCard(credit_card) => Some(credit_card.as_ref()),
-            _ => None,
-        }),
-        passkey: filter_credentials(&credentials, |c| match c {
-            Credential::Passkey(passkey) => Some(passkey.as_ref()),
-            _ => None,
-        }),
-        ssh: filter_credentials(&credentials, |c| match c {
-            Credential::SshKey(ssh) => Some(ssh.as_ref()),
-            _ => None,
-        }),
-        totp: filter_credentials(&credentials, |c| match c {
-            Credential::Totp(totp) => Some(totp.as_ref()),
-            _ => None,
-        }),
-        wifi: filter_credentials(&credentials, |c| match c {
-            Credential::Wifi(wifi) => Some(wifi.as_ref()),
-            _ => None,
-        }),
-        address: filter_credentials(&credentials, |c| match c {
-            Credential::Address(address) => Some(address.as_ref()),
-            _ => None,
-        }),
-        passport: filter_credentials(&credentials, |c| match c {
-            Credential::Passport(passport) => Some(passport.as_ref()),
-            _ => None,
-        }),
-        person_name: filter_credentials(&credentials, |c| match c {
-            Credential::PersonName(person_name) => Some(person_name.as_ref()),
-            _ => None,
-        }),
-        drivers_license: filter_credentials(&credentials, |c| match c {
-            Credential::DriversLicense(drivers_license) => Some(drivers_license.as_ref()),
-            _ => None,
-        }),
-        identity_document: filter_credentials(&credentials, |c| match c {
-            Credential::IdentityDocument(identity_document) => Some(identity_document.as_ref()),
-            _ => None,
-        }),
-        note: filter_credentials(&credentials, |c| match c {
-            Credential::Note(note) => Some(note.as_ref()),
-            _ => None,
-        }),
+        api_key: extract_credential!(api_key, Credential::ApiKey, ApiKeyCredential),
+        basic_auth: extract_credential!(basic_auth, Credential::BasicAuth, BasicAuthCredential),
+        credit_card: extract_credential!(credit_card, Credential::CreditCard, CreditCardCredential),
+        custom_fields: extract_credential!(custom_fields, Credential::CustomFields, CustomFields),
+        passkey: extract_credential!(passkey, Credential::Passkey, PasskeyCredential),
+        ssh: extract_credential!(ssh, Credential::SshKey, SshKeyCredential),
+        totp: extract_credential!(totp, Credential::Totp, TotpCredential),
+        wifi: extract_credential!(wifi, Credential::Wifi, WifiCredential),
+        address: extract_credential!(address, Credential::Address, AddressCredential),
+        passport: extract_credential!(passport, Credential::Passport, PassportCredential),
+        person_name: extract_credential!(person_name, Credential::PersonName, PersonNameCredential),
+        drivers_license: extract_credential!(
+            drivers_license,
+            Credential::DriversLicense,
+            DriversLicenseCredential
+        ),
+        identity_document: extract_credential!(
+            identity_document,
+            Credential::IdentityDocument,
+            IdentityDocumentCredential
+        ),
+        note: extract_credential!(note, Credential::Note, NoteCredential),
     }
 }
 
@@ -244,6 +240,7 @@ struct GroupedCredentials {
     api_key: Vec<ApiKeyCredential>,
     basic_auth: Vec<BasicAuthCredential>,
     credit_card: Vec<CreditCardCredential>,
+    custom_fields: Vec<CustomFieldsCredential>,
     drivers_license: Vec<DriversLicenseCredential>,
     identity_document: Vec<IdentityDocumentCredential>,
     note: Vec<NoteCredential>,

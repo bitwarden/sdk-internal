@@ -28,15 +28,15 @@ pub(super) fn to_ssh(
         credential
             .creation_date
             .as_ref()
-            .map(|date| create_field("Creation Date", date)),
+            .map(|date| create_field(date, Some("Creation Date"))),
         credential
             .expiry_date
             .as_ref()
-            .map(|date| create_field("Expiry Date", date)),
+            .map(|date| create_field(date, Some("Expiry Date"))),
         credential
             .key_generation_source
             .as_ref()
-            .map(|source| create_field("Key Generation Source", source)),
+            .map(|source| create_field(source, Some("Key Generation Source"))),
     ]
     .into_iter()
     .flatten()
