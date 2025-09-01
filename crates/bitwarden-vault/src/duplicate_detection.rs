@@ -1,22 +1,19 @@
 //! # Duplicate cipher detection
 //!
-//! Duplicate detection utilities for grouping related [`CipherView`] values that
-//! appear to represent the same real-world login. Buckets are built along three
-//! axes (username+URI, username+name, and name-only) using normalization rules
-//! so that visually similar entries (e.g., differing only by whitespace or
-//! subdomain) coalesce. When multiple bucket types cover the exact same set of
-//! ciphers, only the highest-precedence bucket (username+uri > username+name >
-//! name-only) is kept to avoid redundant duplicate reports. A cipher can still
-//! appear in multiple returned groups if the underlying membership differs
-//! (e.g., the same username across two different domains). Normalization is biased
-//! toward collapsing obviously equivalent values without losing distinct data.
+//! Duplicate cipher detection utilities.
+//!
+//! Ciphers are checked for redundancy using combinations of fields:
+//! username+URI, username+name, and name-only. Normalization rules are applied to name and URIs
+//! so that similar entries coalesce. When multiple bucket types cover the exact same set of
+//! ciphers, only the highest-precedence set type (username+uri > username+name >
+//! name-only) is kept to avoid redundant duplicate reports.
 //!
 //! The logic in this module was originally implemented in the web app
 //! [ https://github.com/bitwarden/clients/pull/15967 ]
 //! and adapted to the Rust API. Some notable divergences:
-//! * The Domain [ DuplicateUriMatchType ] does not support IPv4 and IPv6 addresses in this module
+//! * The Domain [`DuplicateUriMatchType`] does not support IPv4 and IPv6 addresses in this module
 //!   but does so in the Web app
-//! * The Host [ DuplicateUriMatchType ] does not support port numbers when they match the default
+//! * The Host [`DuplicateUriMatchType`] does not support port numbers when they match the default
 //!   for a given scheme (80 for http, 443 for https). Only port numbers not matching a scheme's
 //!   default will be parsed and retained. This is due to limitations in the url crate and could
 //!   likely be fixed using regular expressions.
@@ -70,7 +67,6 @@ pub enum DuplicateUriMatchType {
 ///
 /// Returns a newly allocated `String` containing the normalized form.
 fn normalize_name_for_matching(name: &str) -> String {
-    // Allocate once; skip whitespace and push lowercase chars.
     let mut out = String::with_capacity(name.len());
     for ch in name.chars() {
         if !ch.is_whitespace() {
@@ -97,9 +93,9 @@ fn normalize_name_for_matching(name: &str) -> String {
 /// matching the default port for a given url scheme:
 /// * http://some.domain:80 => some.domain (http default port 80 is not retained)
 /// * https://some.domain:443 => some.domain (https default port 443 is not retained)
-/// * https://some.domain:4444 => some.domain:4444
+/// * https://some.domain:4444 => some.domain:4444 (explicit port 4444 is retained)
 ///
-/// This applies to the Host strategy only.
+/// The above limitation applies to the Host strategy only.
 ///
 /// Raw IP addresses (IPv4 and IPv6) will not be considered when the Domain strategy is used.
 ///
@@ -119,7 +115,7 @@ fn normalize_uri_for_matching(uri: &str, strategy: &DuplicateUriMatchType) -> Op
             let url = Url::parse(uri).ok()?;
             let host = url.host_str()?;
             // Treat raw IP addresses (v4 or v6) as non-domain (no registrable domain to compare)
-            // This is another divergence from the original web app implementation
+            // This is a divergence from the original web app implementation
             if host.parse::<std::net::IpAddr>().is_ok() {
                 return None;
             }
@@ -151,14 +147,14 @@ fn normalize_uri_for_matching(uri: &str, strategy: &DuplicateUriMatchType) -> Op
 /// * name-only: normalized name when the username is missing
 ///
 /// Normalization:
-/// * URIs: [normalize_uri_for_matching] and the provided strategy
-/// * Names: [normalize_name_for_matching] (whitespace removed, lowercase)
+/// * URIs: [`normalize_uri_for_matching`] and the provided strategy
+/// * Names: [`normalize_name_for_matching`] (whitespace removed, lowercase)
 ///
 /// When different buckets contain the exact same cipher membership, only the
 /// highest-precedence bucket is retained (username+uri > username+name > name-only).
 ///
 /// Display key formats:
-/// * username+uri: <user> @ <uri_part>
+/// * username+uri: <user> @ <uri>
 /// * username+name: <user> & <Name>
 /// * name-only: & <Name> (blank username)
 ///
@@ -216,7 +212,7 @@ pub fn find_duplicate_sets<'a>(
         };
         let has_username = !username.is_empty();
 
-        // Username + URI buckets (avoid redundant URIs for each cipher)
+        // Create Username + URI buckets while avoiding redundant URIs for each cipher
         if has_username && !uri_strings.is_empty() {
             let mut per_cipher_seen: HashSet<String> = HashSet::new();
             for raw_uri in uri_strings.iter() {
@@ -259,9 +255,10 @@ pub fn find_duplicate_sets<'a>(
         }
     }
 
-    // Helper to produce a stable, order-independent membership signature.
+    // Helper to produce a stable, order-independent membership signature
+    // (participating cipher ids joined and sorted)
     // All ciphers inserted into buckets have an id (guard enforced earlier).
-    fn signature(ciphers: &[&CipherView]) -> String {
+    fn membership_signature(ciphers: &[&CipherView]) -> String {
         let mut ids: Vec<String> = Vec::with_capacity(ciphers.len());
         for c in ciphers.iter() {
             if let Some(id) = &c.id {
@@ -272,7 +269,8 @@ pub fn find_duplicate_sets<'a>(
         ids.join("|")
     }
 
-    // key: signature -> value: (precedence, BucketKind, grouping_key, members)
+    // A HashMap with key corresponding to a signature created by [`membership_signature`]
+    // and value corresponding to a (precedence, BucketKind, grouping_key, members) tuple
     let mut strongest_matches: HashMap<String, (u8, BucketKind, String, Vec<&CipherView>)> =
         HashMap::new();
 
@@ -280,7 +278,7 @@ pub fn find_duplicate_sets<'a>(
         if members.len() < 2 {
             continue;
         }
-        let signature = signature(&members);
+        let signature = membership_signature(&members);
         let precedence = kind.precedence();
         match strongest_matches.entry(signature) {
             Entry::Vacant(vacant) => {
@@ -305,7 +303,9 @@ pub fn find_duplicate_sets<'a>(
             let display = match kind {
                 BucketKind::UsernameUri => key
                     .split_once(KEY_SEP)
-                    .map(|(user, uri_part)| format!("username+uri: {user} @ {uri_part}"))
+                    .map(|(user, uri)| format!("username+uri: {user} @ {uri}"))
+                    // considering the key is composed of cipher ids, it may be more appropriate to
+                    // return some other descriptive value as a fallback
                     .unwrap_or_else(|| format!("username+uri: {key}")),
                 BucketKind::UsernameName => key
                     .split_once(KEY_SEP)
@@ -342,7 +342,7 @@ mod tests {
         name: &str,
     ) -> CipherView {
         CipherView {
-            id: id.map(|s| s.parse().expect("valid UUID literal")),
+            id: id.map(|s| s.parse().expect("invalid UUID literal")),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
@@ -394,7 +394,7 @@ mod tests {
     // Helper to build non-login cipher view (SecureNote)
     fn make_note_cipher(id: Option<&str>, name: &str) -> CipherView {
         CipherView {
-            id: id.map(|s| s.parse().expect("valid UUID literal")),
+            id: id.map(|s| s.parse().expect("invalid UUID literal")),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
@@ -909,7 +909,7 @@ mod tests {
 
     #[test]
     fn test_hostname_strategy_ipv6_grouping() {
-        // IPv6 host should produce duplicates under Hostname/Host/Exact but Domain (IP) ignored.
+        // IPv6 host should produce duplicates under Hostname/Host/Exact, but Domain (IP) ignored.
         let c1 = make_login_cipher(
             Some("abcdabcd-abcd-abcd-abcd-abcdabcdabcd"),
             Some("user"),
