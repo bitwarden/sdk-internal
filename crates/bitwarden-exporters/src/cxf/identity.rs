@@ -237,6 +237,10 @@ pub(super) fn identity_document_to_identity(
     (identity, custom_fields)
 }
 
+fn to_editable_field(field: &Option<String>) -> Option<EditableField<EditableFieldString>> {
+    field.clone().map(|v| v.into())
+}
+
 fn split_name(
     full_name: &Option<EditableField<EditableFieldString>>,
 ) -> (Option<String>, Option<String>) {
@@ -278,14 +282,14 @@ impl From<Identity> for Vec<Credential> {
         // Create PersonName credential only if name-related fields are present
         if has_name_fields {
             let person_name = PersonNameCredential {
-                title: identity.title.clone().map(|v| v.into()),
-                given: identity.first_name.clone().map(|v| v.into()),
+                title: to_editable_field(&identity.title),
+                given: to_editable_field(&identity.first_name),
                 given_informal: None,
-                given2: identity.middle_name.clone().map(|v| v.into()),
+                given2: to_editable_field(&identity.middle_name),
                 surname_prefix: None,
-                surname: identity.last_name.clone().map(|v| v.into()),
+                surname: to_editable_field(&identity.last_name),
                 surname2: None,
-                credentials: identity.company.clone().map(|v| v.into()),
+                credentials: to_editable_field(&identity.company),
                 generation: None,
             };
 
@@ -296,10 +300,11 @@ impl From<Identity> for Vec<Credential> {
         if has_address_fields {
             // Combine address lines with newlines as per CXF spec
             let street_address = {
-                let address_lines: Vec<&str> = [&identity.address1, &identity.address2, &identity.address3]
-                     .into_iter()
-                    .filter_map(|addr| addr.as_deref())
-                    .collect();
+                let address_lines: Vec<&str> =
+                    [&identity.address1, &identity.address2, &identity.address3]
+                        .into_iter()
+                        .filter_map(|addr| addr.as_deref())
+                        .collect();
 
                 if address_lines.is_empty() {
                     None
@@ -310,23 +315,20 @@ impl From<Identity> for Vec<Credential> {
 
             let address = AddressCredential {
                 street_address: street_address.map(|v| v.into()),
-                city: identity.city.clone().map(|v| v.into()),
-                territory: identity.state.clone().map(|v| v.into()),
-                country: identity.country.clone().map(|v| v.into()),
-                tel: identity.phone.clone().map(|v| v.into()),
-                postal_code: identity.postal_code.clone().map(|v| v.into()),
+                city: to_editable_field(&identity.city),
+                territory: to_editable_field(&identity.state),
+                country: to_editable_field(&identity.country),
+                tel: to_editable_field(&identity.phone),
+                postal_code: to_editable_field(&identity.postal_code),
             };
 
             credentials.push(Credential::Address(Box::new(address)));
         }
 
-        // Create document credentials based on available fields - each type separately (to preserve
-        // all data)
-
         // Create Passport credential if passport number is present
         if let Some(passport_number) = identity.passport_number {
             let passport = PassportCredential {
-                issuing_country: identity.country.clone().map(|v| v.into()),
+                issuing_country: to_editable_field(&identity.country),
                 nationality: None,
                 full_name: full_name.clone().map(|v| v.into()),
                 birth_date: None,
@@ -337,7 +339,7 @@ impl From<Identity> for Vec<Credential> {
                 issuing_authority: None,
                 passport_type: None,
                 passport_number: Some(passport_number.into()),
-                national_identification_number: identity.ssn.clone().map(|v| v.into()),
+                national_identification_number: to_editable_field(&identity.ssn),
             };
 
             credentials.push(Credential::Passport(Box::new(passport)));
@@ -351,8 +353,8 @@ impl From<Identity> for Vec<Credential> {
                 issue_date: None,
                 expiry_date: None,
                 issuing_authority: None,
-                territory: identity.state.clone().map(|v| v.into()),
-                country: identity.country.clone().map(|v| v.into()),
+                territory: to_editable_field(&identity.state),
+                country: to_editable_field(&identity.country),
                 license_number: Some(license_number.into()),
                 license_class: None,
             };
@@ -363,7 +365,7 @@ impl From<Identity> for Vec<Credential> {
         // Create IdentityDocument credential if SSN is present
         if let Some(ssn) = identity.ssn {
             let identity_document = IdentityDocumentCredential {
-                issuing_country: identity.country.clone().map(|v| v.into()),
+                issuing_country: to_editable_field(&identity.country),
                 document_number: None,
                 identification_number: Some(ssn.into()),
                 nationality: None,
