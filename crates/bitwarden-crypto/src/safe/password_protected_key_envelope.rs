@@ -16,8 +16,7 @@
 use std::{marker::PhantomData, num::TryFromIntError, str::FromStr};
 
 use argon2::Params;
-use base64::{engine::general_purpose::STANDARD, Engine};
-use bitwarden_encoding::FromStrVisitor;
+use bitwarden_encoding::{FromStrVisitor, B64};
 use ciborium::{value::Integer, Value};
 use coset::{CborSerializable, CoseError, Header, HeaderBuilder};
 use rand::RngCore;
@@ -268,12 +267,12 @@ impl<Ids: KeyIds> FromStr for PasswordProtectedKeyEnvelope<Ids> {
     type Err = PasswordProtectedKeyEnvelopeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let data = STANDARD.decode(s).map_err(|_| {
+        let data = B64::try_from(s).map_err(|_| {
             PasswordProtectedKeyEnvelopeError::ParsingError(
                 "Invalid PasswordProtectedKeyEnvelope Base64 encoding".to_string(),
             )
         })?;
-        Self::try_from(&data).map_err(|_| {
+        Self::try_from(&data.as_bytes().to_vec()).map_err(|_| {
             PasswordProtectedKeyEnvelopeError::ParsingError(
                 "Failed to parse PasswordProtectedKeyEnvelope".to_string(),
             )
@@ -284,7 +283,7 @@ impl<Ids: KeyIds> FromStr for PasswordProtectedKeyEnvelope<Ids> {
 impl<Ids: KeyIds> From<PasswordProtectedKeyEnvelope<Ids>> for String {
     fn from(val: PasswordProtectedKeyEnvelope<Ids>) -> Self {
         let serialized: Vec<u8> = (&val).into();
-        STANDARD.encode(serialized)
+        B64::from(serialized).to_string()
     }
 }
 
@@ -303,7 +302,7 @@ impl<Ids: KeyIds> Serialize for PasswordProtectedKeyEnvelope<Ids> {
         S: serde::Serializer,
     {
         let serialized: Vec<u8> = self.into();
-        serializer.serialize_str(&STANDARD.encode(serialized))
+        serializer.serialize_str(&B64::from(serialized).to_string())
     }
 }
 

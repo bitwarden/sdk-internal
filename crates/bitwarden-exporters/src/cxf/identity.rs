@@ -50,29 +50,29 @@ pub(super) fn passport_to_identity(passport: PassportCredential) -> (Identity, V
     let custom_fields = [
         passport
             .issuing_country
-            .map(|issuing_country| create_field("Issuing Country", &issuing_country)),
+            .map(|issuing_country| create_field(&issuing_country, Some("Issuing Country"))),
         passport
             .nationality
-            .map(|nationality| create_field("Nationality", &nationality)),
+            .map(|nationality| create_field(&nationality, Some("Nationality"))),
         passport
             .birth_date
-            .map(|birth_date| create_field("Birth Date", &birth_date)),
+            .map(|birth_date| create_field(&birth_date, Some("Birth Date"))),
         passport
             .birth_place
-            .map(|birth_place| create_field("Birth Place", &birth_place)),
-        passport.sex.map(|sex| create_field("Sex", &sex)),
+            .map(|birth_place| create_field(&birth_place, Some("Birth Place"))),
+        passport.sex.map(|sex| create_field(&sex, Some("Sex"))),
         passport
             .issue_date
-            .map(|issue_date| create_field("Issue Date", &issue_date)),
+            .map(|issue_date| create_field(&issue_date, Some("Issue Date"))),
         passport
             .expiry_date
-            .map(|expiry_date| create_field("Expiry Date", &expiry_date)),
+            .map(|expiry_date| create_field(&expiry_date, Some("Expiry Date"))),
         passport
             .issuing_authority
-            .map(|issuing_authority| create_field("Issuing Authority", &issuing_authority)),
+            .map(|issuing_authority| create_field(&issuing_authority, Some("Issuing Authority"))),
         passport
             .passport_type
-            .map(|passport_type| create_field("Passport Type", &passport_type)),
+            .map(|passport_type| create_field(&passport_type, Some("Passport Type"))),
     ]
     .into_iter()
     .flatten()
@@ -118,10 +118,10 @@ pub(super) fn person_name_to_identity(person_name: PersonNameCredential) -> (Ide
     let custom_fields = [
         person_name
             .given_informal
-            .map(|given_informal| create_field("Informal Given Name", &given_informal)),
+            .map(|given_informal| create_field(&given_informal, Some("Informal Given Name"))),
         person_name
             .generation
-            .map(|generation| create_field("Generation", &generation)),
+            .map(|generation| create_field(&generation, Some("Generation"))),
     ]
     .into_iter()
     .flatten()
@@ -158,19 +158,19 @@ pub(super) fn drivers_license_to_identity(
     let custom_fields = [
         drivers_license
             .birth_date
-            .map(|birth_date| create_field("Birth Date", &birth_date)),
+            .map(|birth_date| create_field(&birth_date, Some("Birth Date"))),
         drivers_license
             .issue_date
-            .map(|issue_date| create_field("Issue Date", &issue_date)),
+            .map(|issue_date| create_field(&issue_date, Some("Issue Date"))),
         drivers_license
             .expiry_date
-            .map(|expiry_date| create_field("Expiry Date", &expiry_date)),
+            .map(|expiry_date| create_field(&expiry_date, Some("Expiry Date"))),
         drivers_license
             .issuing_authority
-            .map(|issuing_authority| create_field("Issuing Authority", &issuing_authority)),
+            .map(|issuing_authority| create_field(&issuing_authority, Some("Issuing Authority"))),
         drivers_license
             .license_class
-            .map(|license_class| create_field("License Class", &license_class)),
+            .map(|license_class| create_field(&license_class, Some("License Class"))),
     ]
     .into_iter()
     .flatten()
@@ -207,26 +207,28 @@ pub(super) fn identity_document_to_identity(
     let custom_fields = [
         identity_document
             .issuing_country
-            .map(|issuing_country| create_field("Issuing Country", &issuing_country)),
+            .map(|issuing_country| create_field(&issuing_country, Some("Issuing Country"))),
         identity_document
             .nationality
-            .map(|nationality| create_field("Nationality", &nationality)),
+            .map(|nationality| create_field(&nationality, Some("Nationality"))),
         identity_document
             .birth_date
-            .map(|birth_date| create_field("Birth Date", &birth_date)),
+            .map(|birth_date| create_field(&birth_date, Some("Birth Date"))),
         identity_document
             .birth_place
-            .map(|birth_place| create_field("Birth Place", &birth_place)),
-        identity_document.sex.map(|sex| create_field("Sex", &sex)),
+            .map(|birth_place| create_field(&birth_place, Some("Birth Place"))),
+        identity_document
+            .sex
+            .map(|sex| create_field(&sex, Some("Sex"))),
         identity_document
             .issue_date
-            .map(|issue_date| create_field("Issue Date", &issue_date)),
+            .map(|issue_date| create_field(&issue_date, Some("Issue Date"))),
         identity_document
             .expiry_date
-            .map(|expiry_date| create_field("Expiry Date", &expiry_date)),
+            .map(|expiry_date| create_field(&expiry_date, Some("Expiry Date"))),
         identity_document
             .issuing_authority
-            .map(|issuing_authority| create_field("Issuing Authority", &issuing_authority)),
+            .map(|issuing_authority| create_field(&issuing_authority, Some("Issuing Authority"))),
     ]
     .into_iter()
     .flatten()

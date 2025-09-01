@@ -27,7 +27,6 @@ pub use master_password::MasterPasswordError;
 pub(crate) use master_password::MasterPasswordUnlockData;
 #[cfg(feature = "internal")]
 mod non_generic_wrappers;
-#[allow(unused_imports)]
 #[cfg(feature = "internal")]
 pub(crate) use non_generic_wrappers::*;
 #[cfg(feature = "internal")]

@@ -26,7 +26,8 @@ use crate::{
     },
     error::NotAuthenticatedError,
     key_management::{
-        crypto::InitUserCryptoRequest, MasterPasswordUnlockData, SecurityState, SignedSecurityState,
+        crypto::InitUserCryptoRequest, MasterPasswordUnlockData, PasswordProtectedKeyEnvelope,
+        SecurityState, SignedSecurityState,
     },
 };
 
@@ -325,6 +326,31 @@ impl InternalClient {
         key_state: UserKeyState,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = pin_key.decrypt_user_key(pin_protected_user_key)?;
+        self.initialize_user_crypto_decrypted_key(decrypted_user_key, key_state)
+    }
+
+    #[cfg(feature = "internal")]
+    pub(crate) fn initialize_user_crypto_pin_envelope(
+        &self,
+        pin: String,
+        pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
+        key_state: UserKeyState,
+    ) -> Result<(), EncryptionSettingsError> {
+        let decrypted_user_key = {
+            // Note: This block ensures ctx is dropped. Otherwise it would cause a deadlock when
+            // initializing the user crypto
+            use crate::key_management::SymmetricKeyId;
+            let ctx = &mut self.key_store.context_mut();
+            let decrypted_user_key_id = pin_protected_user_key_envelope
+                .unseal(SymmetricKeyId::Local("tmp_unlock_pin"), &pin, ctx)
+                .map_err(|_| EncryptionSettingsError::WrongPin)?;
+
+            // Allowing deprecated here, until a refactor to pass the Local key ids to
+            // `initialized_user_crypto_decrypted_key`
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(decrypted_user_key_id)?
+                .clone()
+        };
         self.initialize_user_crypto_decrypted_key(decrypted_user_key, key_state)
     }
 
