@@ -56,10 +56,21 @@ pub(super) fn to_login(
     totp: Option<&TotpCredential>,
     scope: Option<&CredentialScope>,
 ) -> Login {
+    // Use basic_auth username first, fallback to non-empty passkey username
+    let username = basic_auth
+        .and_then(|v| v.username.clone().map(|v| v.into()))
+        .or_else(|| passkey.and_then(|p| (!p.username.is_empty()).then_some(p.username.clone())));
+
+    // Use scope URIs first, fallback to passkey rp_id
+    let login_uris = scope
+        .map(to_uris)
+        .or_else(|| passkey.map(|p| vec![passkey_rp_id_to_uri(&p.rp_id)]))
+        .unwrap_or_default();
+
     Login {
-        username: basic_auth.and_then(|v| v.username.clone().map(|v| v.into())),
+        username,
         password: basic_auth.and_then(|v| v.password.clone().map(|u| u.into())),
-        login_uris: scope.map(to_uris).unwrap_or_default(),
+        login_uris,
         totp: totp.map(|t| totp_credential_to_totp(t).to_string()),
         fido2_credentials: passkey.map(|p| {
             vec![Fido2Credential {
@@ -81,19 +92,34 @@ pub(super) fn to_login(
     }
 }
 
+/// Creates a LoginUri from a URL string
+fn create_login_uri(uri: String) -> LoginUri {
+    LoginUri {
+        uri: Some(uri),
+        r#match: None,
+    }
+}
+
+/// Creates URIs from a passkey's rp_id, adding https:// prefix for domain-like strings
+fn passkey_rp_id_to_uri(rp_id: &str) -> LoginUri {
+    let uri = if rp_id.contains('.') && !rp_id.starts_with("http") {
+        format!("https://{}", rp_id)
+    } else {
+        rp_id.to_string()
+    };
+    create_login_uri(uri)
+}
+
 /// Converts a `CredentialScope` to a vector of `LoginUri` objects.
 ///
 /// This is used for login credentials.
 fn to_uris(scope: &CredentialScope) -> Vec<LoginUri> {
-    let urls = scope.urls.iter().map(|u| LoginUri {
-        uri: Some(u.clone()),
-        r#match: None,
-    });
+    let urls = scope.urls.iter().map(|u| create_login_uri(u.clone()));
 
-    let android_apps = scope.android_apps.iter().map(|a| LoginUri {
-        uri: Some(format!("{ANDROID_APP_SCHEME}{}", a.bundle_id)),
-        r#match: None,
-    });
+    let android_apps = scope
+        .android_apps
+        .iter()
+        .map(|a| create_login_uri(format!("{ANDROID_APP_SCHEME}{}", a.bundle_id)));
 
     urls.chain(android_apps).collect()
 }
@@ -601,5 +627,34 @@ mod tests {
         // Test steam with whitespace (will not match)
         let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown(" steam ".to_string()));
         assert_eq!(result, TotpAlgorithm::Sha1); // will default to SHA1
+    }
+
+    // Tests for the new helper functions
+    #[test]
+    fn test_passkey_rp_id_to_uri_with_domain() {
+        let uri = passkey_rp_id_to_uri("example.com");
+        assert_eq!(uri.uri, Some("https://example.com".to_string()));
+        assert_eq!(uri.r#match, None);
+    }
+
+    #[test]
+    fn test_passkey_rp_id_to_uri_with_https() {
+        let uri = passkey_rp_id_to_uri("https://example.com");
+        assert_eq!(uri.uri, Some("https://example.com".to_string()));
+        assert_eq!(uri.r#match, None);
+    }
+
+    #[test]
+    fn test_passkey_rp_id_to_uri_without_domain() {
+        let uri = passkey_rp_id_to_uri("localhost");
+        assert_eq!(uri.uri, Some("localhost".to_string()));
+        assert_eq!(uri.r#match, None);
+    }
+
+    #[test]
+    fn test_create_login_uri() {
+        let uri = create_login_uri("https://test.example".to_string());
+        assert_eq!(uri.uri, Some("https://test.example".to_string()));
+        assert_eq!(uri.r#match, None);
     }
 }
