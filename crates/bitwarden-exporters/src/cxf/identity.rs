@@ -1,6 +1,6 @@
 use credential_exchange_format::{
-    AddressCredential, DriversLicenseCredential, EditableField, EditableFieldString,
-    IdentityDocumentCredential, PassportCredential, PersonNameCredential,
+    AddressCredential, Credential, CustomFieldsCredential, DriversLicenseCredential, EditableField,
+    EditableFieldString, IdentityDocumentCredential, PassportCredential, PersonNameCredential,
 };
 
 use crate::{cxf::editable_field::create_field, Field, Identity};
@@ -250,9 +250,197 @@ fn split_name(
     })
 }
 
+impl From<Identity> for Vec<Credential> {
+    fn from(identity: Identity) -> Self {
+        let mut credentials = vec![];
+
+        // Helper to check if any name fields are present
+        let has_name_fields = identity.title.is_some()
+            || identity.first_name.is_some()
+            || identity.middle_name.is_some()
+            || identity.last_name.is_some()
+            || identity.company.is_some();
+
+        // Helper to check if any address fields are present
+        let has_address_fields = identity.address1.is_some()
+            || identity.city.is_some()
+            || identity.state.is_some()
+            || identity.country.is_some()
+            || identity.phone.is_some()
+            || identity.postal_code.is_some();
+
+        let full_name = combine_name(
+            &identity.first_name,
+            &identity.middle_name,
+            &identity.last_name,
+        );
+
+        // Create PersonName credential only if name-related fields are present
+        if has_name_fields {
+            let person_name = PersonNameCredential {
+                title: identity.title.clone().map(|v| v.into()),
+                given: identity.first_name.clone().map(|v| v.into()),
+                given_informal: None,
+                given2: identity.middle_name.clone().map(|v| v.into()),
+                surname_prefix: None,
+                surname: identity.last_name.clone().map(|v| v.into()),
+                surname2: None,
+                credentials: identity.company.clone().map(|v| v.into()),
+                generation: None,
+            };
+
+            credentials.push(Credential::PersonName(Box::new(person_name)));
+        }
+
+        // Create Address credential only if address fields are present
+        if has_address_fields {
+            // Combine address lines with newlines as per CXF spec
+            let street_address = {
+                let address_lines: Vec<String> = [
+                    identity.address1.as_ref(),
+                    identity.address2.as_ref(),
+                    identity.address3.as_ref(),
+                ]
+                .into_iter()
+                .flatten()
+                .cloned()
+                .collect();
+
+                if address_lines.is_empty() {
+                    None
+                } else {
+                    Some(address_lines.join("\n"))
+                }
+            };
+
+            let address = AddressCredential {
+                street_address: street_address.map(|v| v.into()),
+                city: identity.city.clone().map(|v| v.into()),
+                territory: identity.state.clone().map(|v| v.into()),
+                country: identity.country.clone().map(|v| v.into()),
+                tel: identity.phone.clone().map(|v| v.into()),
+                postal_code: identity.postal_code.clone().map(|v| v.into()),
+            };
+
+            credentials.push(Credential::Address(Box::new(address)));
+        }
+
+        // Create document credentials based on available fields - each type separately (to preserve
+        // all data)
+
+        // Create Passport credential if passport number is present
+        if let Some(passport_number) = identity.passport_number {
+            let passport = PassportCredential {
+                issuing_country: identity.country.clone().map(|v| v.into()),
+                nationality: None,
+                full_name: full_name.clone().map(|v| v.into()),
+                birth_date: None,
+                birth_place: None,
+                sex: None,
+                issue_date: None,
+                expiry_date: None,
+                issuing_authority: None,
+                passport_type: None,
+                passport_number: Some(passport_number.into()),
+                national_identification_number: identity.ssn.clone().map(|v| v.into()),
+            };
+
+            credentials.push(Credential::Passport(Box::new(passport)));
+        }
+
+        // Create DriversLicense credential if license number is present
+        if let Some(license_number) = identity.license_number {
+            let drivers_license = DriversLicenseCredential {
+                full_name: full_name.clone().map(|v| v.into()),
+                birth_date: None,
+                issue_date: None,
+                expiry_date: None,
+                issuing_authority: None,
+                territory: identity.state.clone().map(|v| v.into()),
+                country: identity.country.clone().map(|v| v.into()),
+                license_number: Some(license_number.into()),
+                license_class: None,
+            };
+
+            credentials.push(Credential::DriversLicense(Box::new(drivers_license)));
+        }
+
+        // Create IdentityDocument credential if SSN is present
+        if let Some(ssn) = identity.ssn {
+            let identity_document = IdentityDocumentCredential {
+                issuing_country: identity.country.clone().map(|v| v.into()),
+                document_number: None,
+                identification_number: Some(ssn.into()),
+                nationality: None,
+                full_name: full_name.map(|v| v.into()),
+                birth_date: None,
+                birth_place: None,
+                sex: None,
+                issue_date: None,
+                expiry_date: None,
+                issuing_authority: None,
+            };
+
+            credentials.push(Credential::IdentityDocument(Box::new(identity_document)));
+        }
+
+        // Handle unmapped Identity fields as custom fields
+        let mut custom_fields = vec![];
+
+        if let Some(email) = &identity.email {
+            custom_fields.push(EditableField {
+                id: None,
+                label: Some("Email".to_string()),
+                // Could perhaps be EditableField with field type email?
+                value: EditableFieldString(email.clone()),
+                extensions: None,
+            });
+        }
+
+        if let Some(username) = &identity.username {
+            custom_fields.push(EditableField {
+                id: None,
+                label: Some("Username".to_string()),
+                value: EditableFieldString(username.clone()),
+                extensions: None,
+            });
+        }
+
+        // Add CustomFields credential if there are any unmapped fields
+        if !custom_fields.is_empty() {
+            credentials.push(Credential::CustomFields(Box::new(CustomFieldsCredential {
+                id: None,
+                label: None,
+                fields: custom_fields,
+                extensions: vec![],
+            })));
+        }
+
+        credentials
+    }
+}
+
+pub(crate) fn combine_name(
+    first: &Option<String>,
+    middle: &Option<String>,
+    last: &Option<String>,
+) -> Option<String> {
+    let parts: Vec<&str> = [first.as_deref(), middle.as_deref(), last.as_deref()]
+        .into_iter()
+        .flatten()
+        .collect();
+
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(" "))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use credential_exchange_format::Credential;
 
     #[test]
     fn test_split_name_none() {
@@ -416,5 +604,248 @@ mod tests {
         let (first, last) = split_name(&full_name);
         assert_eq!(first, Some("A".to_string()));
         assert_eq!(last, Some("B C".to_string()));
+    }
+
+    #[test]
+    fn test_identity_to_credentials() {
+        let identity = Identity {
+            title: Some("Dr.".to_string()),
+            first_name: Some("John".to_string()),
+            middle_name: Some("Michael".to_string()),
+            last_name: Some("Doe".to_string()),
+            address1: Some("123 Main St".to_string()),
+            address2: Some("Apt 456".to_string()),
+            address3: None,
+            city: Some("Anytown".to_string()),
+            state: Some("CA".to_string()),
+            postal_code: Some("12345".to_string()),
+            country: Some("US".to_string()),
+            company: Some("PhD".to_string()),
+            email: Some("john@example.com".to_string()),
+            phone: Some("+1234567890".to_string()),
+            ssn: Some("123-45-6789".to_string()),
+            username: Some("johndoe".to_string()),
+            passport_number: Some("P123456789".to_string()),
+            license_number: Some("DL123456".to_string()),
+        };
+
+        let credentials: Vec<Credential> = identity.into();
+
+        // Should create PersonName, Address, Passport, DriversLicense, IdentityDocument, and
+        // CustomFields credentials
+        assert_eq!(credentials.len(), 6);
+
+        // Check PersonName credential
+        if let Credential::PersonName(person_name) = &credentials[0] {
+            assert_eq!(person_name.title.as_ref().unwrap().value.0, "Dr.");
+            assert_eq!(person_name.given.as_ref().unwrap().value.0, "John");
+            assert_eq!(person_name.given2.as_ref().unwrap().value.0, "Michael");
+            assert_eq!(person_name.surname.as_ref().unwrap().value.0, "Doe");
+            assert_eq!(person_name.credentials.as_ref().unwrap().value.0, "PhD");
+        } else {
+            panic!("Expected PersonName credential");
+        }
+
+        // Check Address credential
+        if let Credential::Address(address) = &credentials[1] {
+            assert_eq!(
+                address.street_address.as_ref().unwrap().value.0,
+                "123 Main St\nApt 456"
+            );
+            assert_eq!(address.city.as_ref().unwrap().value.0, "Anytown");
+            assert_eq!(address.territory.as_ref().unwrap().value.0, "CA");
+            assert_eq!(address.country.as_ref().unwrap().value.0, "US");
+            assert_eq!(address.tel.as_ref().unwrap().value.0, "+1234567890");
+            assert_eq!(address.postal_code.as_ref().unwrap().value.0, "12345");
+        } else {
+            panic!("Expected Address credential");
+        }
+
+        // Check Passport credential
+        if let Credential::Passport(passport) = &credentials[2] {
+            assert_eq!(
+                passport.passport_number.as_ref().unwrap().value.0,
+                "P123456789"
+            );
+            assert_eq!(
+                passport.full_name.as_ref().unwrap().value.0,
+                "John Michael Doe"
+            );
+            assert_eq!(
+                passport
+                    .national_identification_number
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .0,
+                "123-45-6789"
+            );
+            assert_eq!(passport.issuing_country.as_ref().unwrap().value.0, "US");
+        } else {
+            panic!("Expected Passport credential");
+        }
+
+        // Check DriversLicense credential
+        if let Credential::DriversLicense(license) = &credentials[3] {
+            assert_eq!(license.license_number.as_ref().unwrap().value.0, "DL123456");
+            assert_eq!(
+                license.full_name.as_ref().unwrap().value.0,
+                "John Michael Doe"
+            );
+            assert_eq!(license.territory.as_ref().unwrap().value.0, "CA");
+            assert_eq!(license.country.as_ref().unwrap().value.0, "US");
+        } else {
+            panic!("Expected DriversLicense credential");
+        }
+
+        // Check IdentityDocument credential
+        if let Credential::IdentityDocument(identity_doc) = &credentials[4] {
+            assert_eq!(
+                identity_doc.identification_number.as_ref().unwrap().value.0,
+                "123-45-6789"
+            );
+            assert_eq!(identity_doc.full_name.as_ref().unwrap().value.0, "John Michael Doe");
+        } else {
+            panic!("Expected IdentityDocument credential");
+        }
+
+        // Check CustomFields credential
+        if let Credential::CustomFields(custom_fields) = &credentials[5] {
+            assert_eq!(custom_fields.fields.len(), 2); // email, username
+
+            // Check email field
+            let email_field = &custom_fields.fields[0];
+            assert_eq!(email_field.label.as_ref().unwrap(), "Email");
+            assert_eq!(email_field.value.0, "john@example.com");
+
+            // Check username field
+            let username_field = &custom_fields.fields[1];
+            assert_eq!(username_field.label.as_ref().unwrap(), "Username");
+            assert_eq!(username_field.value.0, "johndoe");
+        } else {
+            panic!("Expected CustomFields credential");
+        }
+    }
+
+    #[test]
+    fn test_identity_minimal_fields() {
+        let identity = Identity {
+            first_name: Some("Jane".to_string()),
+            last_name: Some("Smith".to_string()),
+            ..Default::default()
+        };
+
+        let credentials: Vec<Credential> = identity.into();
+
+        // Should only create PersonName credential
+        assert_eq!(credentials.len(), 1);
+
+        if let Credential::PersonName(person_name) = &credentials[0] {
+            assert_eq!(person_name.given.as_ref().unwrap().value.0, "Jane");
+            assert_eq!(person_name.surname.as_ref().unwrap().value.0, "Smith");
+            assert!(person_name.title.is_none());
+            assert!(person_name.given2.is_none());
+        } else {
+            panic!("Expected PersonName credential");
+        }
+    }
+
+    #[test]
+    fn test_identity_license_only() {
+        let identity = Identity {
+            first_name: Some("Alice".to_string()),
+            license_number: Some("LIC123456".to_string()),
+            state: Some("NY".to_string()),
+            ..Default::default()
+        };
+
+        let credentials: Vec<Credential> = identity.into();
+
+        // Should create PersonName, Address (due to state), and DriversLicense credentials
+        assert_eq!(credentials.len(), 3);
+
+        // Check PersonName credential
+        if let Credential::PersonName(person_name) = &credentials[0] {
+            assert_eq!(person_name.given.as_ref().unwrap().value.0, "Alice");
+        } else {
+            panic!("Expected PersonName credential");
+        }
+
+        // Check Address credential
+        if let Credential::Address(address) = &credentials[1] {
+            assert_eq!(address.territory.as_ref().unwrap().value.0, "NY");
+        } else {
+            panic!("Expected Address credential");
+        }
+
+        // Check DriversLicense credential
+        if let Credential::DriversLicense(license) = &credentials[2] {
+            assert_eq!(
+                license.license_number.as_ref().unwrap().value.0,
+                "LIC123456"
+            );
+            assert_eq!(license.full_name.as_ref().unwrap().value.0, "Alice");
+            assert_eq!(license.territory.as_ref().unwrap().value.0, "NY");
+        } else {
+            panic!("Expected DriversLicense credential");
+        }
+    }
+
+    #[test]
+    fn test_identity_ssn_only() {
+        let identity = Identity {
+            first_name: Some("Bob".to_string()),
+            ssn: Some("987-65-4321".to_string()),
+            ..Default::default()
+        };
+
+        let credentials: Vec<Credential> = identity.into();
+
+        // Should create PersonName and IdentityDocument credentials
+        assert_eq!(credentials.len(), 2);
+
+        if let Credential::IdentityDocument(identity_doc) = &credentials[1] {
+            assert_eq!(
+                identity_doc.identification_number.as_ref().unwrap().value.0,
+                "987-65-4321"
+            );
+            assert_eq!(identity_doc.full_name.as_ref().unwrap().value.0, "Bob");
+        } else {
+            panic!("Expected IdentityDocument credential");
+        }
+    }
+
+    #[test]
+    fn test_identity_empty() {
+        let identity = Identity::default();
+
+        let credentials: Vec<Credential> = identity.into();
+
+        // Should create no credentials for completely empty identity
+        assert_eq!(credentials.len(), 0);
+    }
+
+    #[test]
+    fn test_combine_name_helper() {
+        assert_eq!(
+            combine_name(
+                &Some("John".to_string()),
+                &Some("Michael".to_string()),
+                &Some("Doe".to_string())
+            ),
+            Some("John Michael Doe".to_string())
+        );
+
+        assert_eq!(
+            combine_name(&Some("Jane".to_string()), &None, &Some("Smith".to_string())),
+            Some("Jane Smith".to_string())
+        );
+
+        assert_eq!(
+            combine_name(&Some("Bob".to_string()), &None, &None),
+            Some("Bob".to_string())
+        );
+
+        assert_eq!(combine_name(&None, &None, &None), None);
     }
 }
