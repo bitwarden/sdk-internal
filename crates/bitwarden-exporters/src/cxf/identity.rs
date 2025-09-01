@@ -254,6 +254,125 @@ fn split_name(
     })
 }
 
+impl From<&Identity> for PersonNameCredential {
+    fn from(identity: &Identity) -> Self {
+        PersonNameCredential {
+            title: to_editable_field(&identity.title),
+            given: to_editable_field(&identity.first_name),
+            given_informal: None,
+            given2: to_editable_field(&identity.middle_name),
+            surname_prefix: None,
+            surname: to_editable_field(&identity.last_name),
+            surname2: None,
+            credentials: to_editable_field(&identity.company),
+            generation: None,
+            // Note: Can't use ..Default::default() - not implemented in current CXF version
+        }
+    }
+}
+
+impl From<&Identity> for AddressCredential {
+    fn from(identity: &Identity) -> Self {
+        // Combine address lines with newlines as per CXF spec
+        let street_address = {
+            let address_lines: Vec<&str> =
+                [&identity.address1, &identity.address2, &identity.address3]
+                    .into_iter()
+                    .filter_map(|addr| addr.as_deref())
+                    .collect();
+
+            if address_lines.is_empty() {
+                None
+            } else {
+                Some(address_lines.join("\n"))
+            }
+        };
+
+        AddressCredential {
+            street_address: street_address.map(|v| v.into()),
+            city: identity.city.clone().map(|v| v.into()),
+            territory: identity.state.clone().map(|v| v.into()),
+            country: identity.country.clone().map(|v| v.into()),
+            tel: to_editable_field(&identity.phone),
+            postal_code: to_editable_field(&identity.postal_code),
+        }
+    }
+}
+
+impl From<&Identity> for PassportCredential {
+    fn from(identity: &Identity) -> Self {
+        let full_name = combine_name(
+            &identity.first_name,
+            &identity.middle_name,
+            &identity.last_name,
+        );
+
+        PassportCredential {
+            issuing_country: identity.country.clone().map(|v| v.into()),
+            nationality: None,
+            full_name: full_name.map(|v| v.into()),
+            birth_date: None,
+            birth_place: None,
+            sex: None,
+            issue_date: None,
+            expiry_date: None,
+            issuing_authority: None,
+            passport_type: None,
+            passport_number: identity.passport_number.clone().map(|v| v.into()),
+            national_identification_number: identity.ssn.clone().map(|v| v.into()),
+            // Note: Can't use ..Default::default() - not implemented in current CXF version
+        }
+    }
+}
+
+impl From<&Identity> for DriversLicenseCredential {
+    fn from(identity: &Identity) -> Self {
+        let full_name = combine_name(
+            &identity.first_name,
+            &identity.middle_name,
+            &identity.last_name,
+        );
+
+        DriversLicenseCredential {
+            full_name: full_name.map(|v| v.into()),
+            birth_date: None,
+            issue_date: None,
+            expiry_date: None,
+            issuing_authority: None,
+            territory: identity.state.clone().map(|v| v.into()),
+            country: identity.country.clone().map(|v| v.into()),
+            license_number: identity.license_number.clone().map(|v| v.into()),
+            license_class: None,
+            // Note: Can't use ..Default::default() - not implemented in current CXF version
+        }
+    }
+}
+
+impl From<&Identity> for IdentityDocumentCredential {
+    fn from(identity: &Identity) -> Self {
+        let full_name = combine_name(
+            &identity.first_name,
+            &identity.middle_name,
+            &identity.last_name,
+        );
+
+        IdentityDocumentCredential {
+            issuing_country: identity.country.clone().map(|v| v.into()),
+            document_number: None,
+            identification_number: identity.ssn.clone().map(|v| v.into()),
+            nationality: None,
+            full_name: full_name.map(|v| v.into()),
+            birth_date: None,
+            birth_place: None,
+            sex: None,
+            issue_date: None,
+            expiry_date: None,
+            issuing_authority: None,
+            // Note: Can't use ..Default::default() - not implemented in current CXF version
+        }
+    }
+}
+
 impl From<Identity> for Vec<Credential> {
     fn from(identity: Identity) -> Self {
         let mut credentials = vec![];
@@ -273,112 +392,29 @@ impl From<Identity> for Vec<Credential> {
             || identity.phone.is_some()
             || identity.postal_code.is_some();
 
-        let full_name = combine_name(
-            &identity.first_name,
-            &identity.middle_name,
-            &identity.last_name,
-        );
-
         // Create PersonName credential only if name-related fields are present
         if has_name_fields {
-            let person_name = PersonNameCredential {
-                title: to_editable_field(&identity.title),
-                given: to_editable_field(&identity.first_name),
-                given_informal: None,
-                given2: to_editable_field(&identity.middle_name),
-                surname_prefix: None,
-                surname: to_editable_field(&identity.last_name),
-                surname2: None,
-                credentials: to_editable_field(&identity.company),
-                generation: None,
-            };
-
-            credentials.push(Credential::PersonName(Box::new(person_name)));
+            credentials.push(Credential::PersonName(Box::new((&identity).into())));
         }
 
         // Create Address credential only if address fields are present
         if has_address_fields {
-            // Combine address lines with newlines as per CXF spec
-            let street_address = {
-                let address_lines: Vec<&str> =
-                    [&identity.address1, &identity.address2, &identity.address3]
-                        .into_iter()
-                        .filter_map(|addr| addr.as_deref())
-                        .collect();
-
-                if address_lines.is_empty() {
-                    None
-                } else {
-                    Some(address_lines.join("\n"))
-                }
-            };
-
-            let address = AddressCredential {
-                street_address: street_address.map(|v| v.into()),
-                city: to_editable_field(&identity.city),
-                territory: to_editable_field(&identity.state),
-                country: to_editable_field(&identity.country),
-                tel: to_editable_field(&identity.phone),
-                postal_code: to_editable_field(&identity.postal_code),
-            };
-
-            credentials.push(Credential::Address(Box::new(address)));
+            credentials.push(Credential::Address(Box::new((&identity).into())));
         }
 
         // Create Passport credential if passport number is present
-        if let Some(passport_number) = identity.passport_number {
-            let passport = PassportCredential {
-                issuing_country: to_editable_field(&identity.country),
-                nationality: None,
-                full_name: full_name.clone().map(|v| v.into()),
-                birth_date: None,
-                birth_place: None,
-                sex: None,
-                issue_date: None,
-                expiry_date: None,
-                issuing_authority: None,
-                passport_type: None,
-                passport_number: Some(passport_number.into()),
-                national_identification_number: to_editable_field(&identity.ssn),
-            };
-
-            credentials.push(Credential::Passport(Box::new(passport)));
+        if identity.passport_number.is_some() {
+            credentials.push(Credential::Passport(Box::new((&identity).into())));
         }
 
         // Create DriversLicense credential if license number is present
-        if let Some(license_number) = identity.license_number {
-            let drivers_license = DriversLicenseCredential {
-                full_name: full_name.clone().map(|v| v.into()),
-                birth_date: None,
-                issue_date: None,
-                expiry_date: None,
-                issuing_authority: None,
-                territory: to_editable_field(&identity.state),
-                country: to_editable_field(&identity.country),
-                license_number: Some(license_number.into()),
-                license_class: None,
-            };
-
-            credentials.push(Credential::DriversLicense(Box::new(drivers_license)));
+        if identity.license_number.is_some() {
+            credentials.push(Credential::DriversLicense(Box::new((&identity).into())));
         }
 
         // Create IdentityDocument credential if SSN is present
-        if let Some(ssn) = identity.ssn {
-            let identity_document = IdentityDocumentCredential {
-                issuing_country: to_editable_field(&identity.country),
-                document_number: None,
-                identification_number: Some(ssn.into()),
-                nationality: None,
-                full_name: full_name.map(|v| v.into()),
-                birth_date: None,
-                birth_place: None,
-                sex: None,
-                issue_date: None,
-                expiry_date: None,
-                issuing_authority: None,
-            };
-
-            credentials.push(Credential::IdentityDocument(Box::new(identity_document)));
+        if identity.ssn.is_some() {
+            credentials.push(Credential::IdentityDocument(Box::new((&identity).into())));
         }
 
         // Handle unmapped Identity fields as custom fields
