@@ -296,15 +296,10 @@ impl From<Identity> for Vec<Credential> {
         if has_address_fields {
             // Combine address lines with newlines as per CXF spec
             let street_address = {
-                let address_lines: Vec<String> = [
-                    identity.address1.as_ref(),
-                    identity.address2.as_ref(),
-                    identity.address3.as_ref(),
-                ]
-                .into_iter()
-                .flatten()
-                .cloned()
-                .collect();
+                let address_lines: Vec<&str> = [&identity.address1, &identity.address2, &identity.address3]
+                     .into_iter()
+                    .filter_map(|addr| addr.as_deref())
+                    .collect();
 
                 if address_lines.is_empty() {
                     None
