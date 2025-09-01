@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::{require, MissingFieldError};
 
 /// Error for master password related operations.
+#[allow(dead_code)]
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum MasterPasswordError {
@@ -25,6 +26,7 @@ pub(crate) enum MasterPasswordError {
 }
 
 /// Represents the data required to unlock with the master password.
+#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct MasterPasswordUnlockData {
