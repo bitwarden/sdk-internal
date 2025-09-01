@@ -380,26 +380,23 @@ impl From<Identity> for Vec<Credential> {
         }
 
         // Handle unmapped Identity fields as custom fields
-        let mut custom_fields = vec![];
-
-        if let Some(email) = &identity.email {
-            custom_fields.push(EditableField {
+        let custom_fields: Vec<EditableField<EditableFieldString>> = [
+            identity.email.as_ref().map(|email| EditableField {
                 id: None,
                 label: Some("Email".to_string()),
-                // Could perhaps be EditableField with field type email?
                 value: EditableFieldString(email.clone()),
                 extensions: None,
-            });
-        }
-
-        if let Some(username) = &identity.username {
-            custom_fields.push(EditableField {
+            }),
+            identity.username.as_ref().map(|username| EditableField {
                 id: None,
                 label: Some("Username".to_string()),
                 value: EditableFieldString(username.clone()),
                 extensions: None,
-            });
-        }
+            }),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
 
         // Add CustomFields credential if there are any unmapped fields
         if !custom_fields.is_empty() {
