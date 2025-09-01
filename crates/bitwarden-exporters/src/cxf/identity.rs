@@ -439,8 +439,9 @@ pub(crate) fn combine_name(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use credential_exchange_format::Credential;
+
+    use super::*;
 
     #[test]
     fn test_split_name_none() {
@@ -704,7 +705,10 @@ mod tests {
                 identity_doc.identification_number.as_ref().unwrap().value.0,
                 "123-45-6789"
             );
-            assert_eq!(identity_doc.full_name.as_ref().unwrap().value.0, "John Michael Doe");
+            assert_eq!(
+                identity_doc.full_name.as_ref().unwrap().value.0,
+                "John Michael Doe"
+            );
         } else {
             panic!("Expected IdentityDocument credential");
         }

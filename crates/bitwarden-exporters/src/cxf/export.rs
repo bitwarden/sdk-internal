@@ -133,8 +133,6 @@ fn convert_totp(totp: Totp) -> TotpCredential {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
 
@@ -305,5 +303,4 @@ mod tests {
             _ => panic!("Expected Credential::Passkey"),
         }
     }
-
 }
