@@ -1,13 +1,16 @@
 use bitwarden_vault::{Totp, TotpAlgorithm};
 use credential_exchange_format::{
-    Account as CxfAccount, Credential, CustomFieldsCredential, EditableField, EditableFieldString,
-    Item, NoteCredential, OTPHashAlgorithm, TotpCredential,
+    Account as CxfAccount, Credential, CustomFieldsCredential, EditableFieldValue, Item,
+    NoteCredential, OTPHashAlgorithm, TotpCredential,
 };
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
-use crate::{cxf::CxfError, Cipher, CipherType, Login};
+use crate::{
+    cxf::{editable_field::field_to_editable_field_value, CxfError},
+    Cipher, CipherType, Field, Login,
+};
 
 /// Temporary struct to hold metadata related to current account
 ///
@@ -59,21 +62,10 @@ impl TryFrom<Cipher> for Item {
 
         // Convert Bitwarden custom fields to CustomFieldsCredential
         if !value.fields.is_empty() {
-            let custom_fields: Vec<EditableField<EditableFieldString>> = value
+            let custom_fields: Vec<EditableFieldValue> = value
                 .fields
                 .into_iter()
-                .filter_map(|field| {
-                    // Only export fields that have both a name and value
-                    match (field.name, field.value) {
-                        (Some(name), Some(value)) => Some(EditableField {
-                            id: None,
-                            label: Some(name),
-                            value: EditableFieldString(value),
-                            extensions: None,
-                        }),
-                        _ => None,
-                    }
-                })
+                .filter_map(field_to_editable_field_value)
                 .collect();
 
             if !custom_fields.is_empty() {
@@ -337,28 +329,52 @@ mod tests {
 
         match credential {
             Credential::CustomFields(custom_fields) => {
-                assert_eq!(custom_fields.fields.len(), 4); // Text, Hidden, Boolean true, Boolean false (Linked field is filtered out due to
-                                                           // None value)
+                assert_eq!(custom_fields.fields.len(), 5); // Text, Hidden, Boolean true, Boolean false, Linked
 
                 // Check Text field
-                let text_field = &custom_fields.fields[0];
-                assert_eq!(text_field.label.as_ref().unwrap(), "Text");
-                assert_eq!(text_field.value.0, "A");
+                match &custom_fields.fields[0] {
+                    EditableFieldValue::String(field) => {
+                        assert_eq!(field.label.as_ref().unwrap(), "Text");
+                        assert_eq!(field.value.0, "A");
+                    }
+                    _ => panic!("Expected String field"),
+                }
 
                 // Check Hidden field
-                let hidden_field = &custom_fields.fields[1];
-                assert_eq!(hidden_field.label.as_ref().unwrap(), "Hidden");
-                assert_eq!(hidden_field.value.0, "B");
+                match &custom_fields.fields[1] {
+                    EditableFieldValue::ConcealedString(field) => {
+                        assert_eq!(field.label.as_ref().unwrap(), "Hidden");
+                        assert_eq!(field.value.0, "B");
+                    }
+                    _ => panic!("Expected ConcealedString field"),
+                }
 
                 // Check Boolean true field
-                let bool_true_field = &custom_fields.fields[2];
-                assert_eq!(bool_true_field.label.as_ref().unwrap(), "Boolean (true)");
-                assert_eq!(bool_true_field.value.0, "true");
+                match &custom_fields.fields[2] {
+                    EditableFieldValue::Boolean(field) => {
+                        assert_eq!(field.label.as_ref().unwrap(), "Boolean (true)");
+                        assert!(field.value.0);
+                    }
+                    _ => panic!("Expected Boolean field"),
+                }
 
                 // Check Boolean false field
-                let bool_false_field = &custom_fields.fields[3];
-                assert_eq!(bool_false_field.label.as_ref().unwrap(), "Boolean (false)");
-                assert_eq!(bool_false_field.value.0, "false");
+                match &custom_fields.fields[3] {
+                    EditableFieldValue::Boolean(field) => {
+                        assert_eq!(field.label.as_ref().unwrap(), "Boolean (false)");
+                        assert!(!field.value.0);
+                    }
+                    _ => panic!("Expected Boolean field"),
+                }
+
+                // Check Linked field
+                match &custom_fields.fields[4] {
+                    EditableFieldValue::String(field) => {
+                        assert_eq!(field.label.as_ref().unwrap(), "Linked");
+                        assert_eq!(field.value.0, "101"); // linked_id as string
+                    }
+                    _ => panic!("Expected String field for Linked"),
+                }
             }
             _ => panic!("Expected Credential::CustomFields"),
         }

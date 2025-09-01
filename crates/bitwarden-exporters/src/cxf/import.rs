@@ -1,9 +1,9 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     Account as CxfAccount, AddressCredential, ApiKeyCredential, BasicAuthCredential, Credential,
-    CreditCardCredential, CustomFieldsCredential, DriversLicenseCredential,
-    IdentityDocumentCredential, Item, NoteCredential, PasskeyCredential, PassportCredential,
-    PersonNameCredential, SshKeyCredential, TotpCredential, WifiCredential,
+    CreditCardCredential, CustomFieldsCredential, DriversLicenseCredential, EditableField,
+    EditableFieldString, IdentityDocumentCredential, Item, NoteCredential, PasskeyCredential,
+    PassportCredential, PersonNameCredential, SshKeyCredential, TotpCredential, WifiCredential,
 };
 
 use crate::{
@@ -49,7 +49,41 @@ fn custom_fields_to_fields(custom_fields: &CustomFieldsCredential) -> Vec<Field>
     custom_fields
         .fields
         .iter()
-        .map(|f| create_field(f, None::<String>))
+        .map(|field_value| match field_value {
+            credential_exchange_format::EditableFieldValue::String(field) => {
+                create_field(field, None::<String>)
+            }
+            credential_exchange_format::EditableFieldValue::ConcealedString(field) => {
+                create_field(field, None::<String>)
+            }
+            credential_exchange_format::EditableFieldValue::Boolean(field) => {
+                create_field(field, None::<String>)
+            }
+            credential_exchange_format::EditableFieldValue::Date(field) => {
+                create_field(field, None::<String>)
+            }
+            credential_exchange_format::EditableFieldValue::YearMonth(field) => {
+                create_field(field, None::<String>)
+            }
+            credential_exchange_format::EditableFieldValue::SubdivisionCode(field) => {
+                create_field(field, None::<String>)
+            }
+            credential_exchange_format::EditableFieldValue::CountryCode(field) => {
+                create_field(field, None::<String>)
+            }
+            credential_exchange_format::EditableFieldValue::WifiNetworkSecurityType(field) => {
+                create_field(field, None::<String>)
+            }
+            _ => create_field(
+                &EditableField {
+                    id: None,
+                    label: Some("Unknown Field".to_string()),
+                    value: EditableFieldString("".to_string()),
+                    extensions: None,
+                },
+                None::<String>,
+            ),
+        })
         .collect()
 }
 

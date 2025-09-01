@@ -1,8 +1,8 @@
 use bitwarden_vault::FieldType;
 use credential_exchange_format::{
     EditableField, EditableFieldBoolean, EditableFieldConcealedString, EditableFieldCountryCode,
-    EditableFieldDate, EditableFieldString, EditableFieldWifiNetworkSecurityType,
-    EditableFieldYearMonth,
+    EditableFieldDate, EditableFieldString, EditableFieldSubdivisionCode, EditableFieldValue,
+    EditableFieldWifiNetworkSecurityType, EditableFieldYearMonth,
 };
 
 use crate::Field;
@@ -21,6 +21,56 @@ where
         value: Some(field.field_value()),
         r#type: T::FIELD_TYPE as u8,
         linked_id: None,
+    }
+}
+
+
+/// Helper function to create an EditableField with common properties
+fn create_editable_field<T>(name: String, value: T) -> EditableField<T> {
+    EditableField {
+        id: None,
+        label: Some(name),
+        value,
+        extensions: None,
+    }
+}
+
+/// Convert Bitwarden Field to CXF EditableFieldValue with proper type mapping
+pub(super) fn field_to_editable_field_value(field: Field) -> Option<EditableFieldValue> {
+    let name = field.name?;
+
+    match field.r#type {
+        x if x == FieldType::Text as u8 => field.value.map(|value| {
+            EditableFieldValue::String(create_editable_field(name, EditableFieldString(value)))
+        }),
+
+        x if x == FieldType::Hidden as u8 => field.value.map(|value| {
+            EditableFieldValue::ConcealedString(create_editable_field(
+                name,
+                EditableFieldConcealedString(value),
+            ))
+        }),
+
+        x if x == FieldType::Boolean as u8 => field.value?.parse::<bool>().ok().map(|bool_value| {
+            EditableFieldValue::Boolean(create_editable_field(
+                name,
+                EditableFieldBoolean(bool_value),
+            ))
+        }),
+
+        x if x == FieldType::Linked as u8 => {
+            let value = field
+                .value
+                .or_else(|| field.linked_id.map(|id| id.to_string()))?;
+            Some(EditableFieldValue::String(create_editable_field(
+                name,
+                EditableFieldString(value),
+            )))
+        }
+
+        _ => field.value.map(|value| {
+            EditableFieldValue::String(create_editable_field(name, EditableFieldString(value)))
+        }),
     }
 }
 
@@ -84,6 +134,14 @@ impl InnerFieldType for EditableFieldYearMonth {
 
     fn to_field_value(&self) -> String {
         format!("{:04}-{:02}", self.year, self.month.number_from_month())
+    }
+}
+
+impl InnerFieldType for EditableFieldSubdivisionCode {
+    const FIELD_TYPE: FieldType = FieldType::Text;
+
+    fn to_field_value(&self) -> String {
+        self.0.clone()
     }
 }
 

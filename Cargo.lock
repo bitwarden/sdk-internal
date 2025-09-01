@@ -1200,7 +1200,7 @@ dependencies = [
 [[package]]
 name = "credential-exchange-format"
 version = "0.2.0"
-source = "git+https://github.com/bitwarden/credential-exchange?rev=38e8a013c13644f832c457555baaa536fe481b77#38e8a013c13644f832c457555baaa536fe481b77"
+source = "git+https://github.com/bitwarden/credential-exchange?rev=12702ad62ccc2a1e3cd9bdea40fc0f6399e1fffa#12702ad62ccc2a1e3cd9bdea40fc0f6399e1fffa"
 dependencies = [
  "chrono",
  "data-encoding",
