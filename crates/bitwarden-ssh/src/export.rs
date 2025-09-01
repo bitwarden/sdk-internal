@@ -4,7 +4,7 @@ use ssh_key::{private::RsaKeypair, PrivateKey};
 
 use crate::error::SshKeyExportError;
 
-// Convert RSA keypair to PKCS#8 DER format
+/// Convert RSA keypair to PKCS#8 DER format
 // There is a known defect in going RsaPrivateKey -> pkcs8::PrivateKey
 // https://github.com/RustCrypto/SSH/pull/218
 fn convert_rsa_keypair(keypair: &RsaKeypair) -> Result<RsaPrivateKey, ssh_key::Error> {
