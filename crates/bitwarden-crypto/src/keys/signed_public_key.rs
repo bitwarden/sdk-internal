@@ -4,8 +4,7 @@
 
 use std::{borrow::Cow, str::FromStr};
 
-use base64::{engine::general_purpose::STANDARD, Engine};
-use bitwarden_encoding::FromStrVisitor;
+use bitwarden_encoding::{FromStrVisitor, B64};
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -94,7 +93,7 @@ impl TryFrom<CoseSign1Bytes> for SignedPublicKey {
 impl From<SignedPublicKey> for String {
     fn from(val: SignedPublicKey) -> Self {
         let bytes: CoseSign1Bytes = val.into();
-        STANDARD.encode(&bytes)
+        B64::from(bytes.as_ref()).to_string()
     }
 }
 
@@ -126,10 +125,8 @@ impl FromStr for SignedPublicKey {
     type Err = EncodingError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let bytes = STANDARD
-            .decode(s)
-            .map_err(|_| EncodingError::InvalidCborSerialization)?;
-        Self::try_from(CoseSign1Bytes::from(bytes))
+        let bytes = B64::try_from(s).map_err(|_| EncodingError::InvalidCborSerialization)?;
+        Self::try_from(CoseSign1Bytes::from(&bytes))
     }
 }
 

@@ -6,19 +6,21 @@ use crate::{cxf::editable_field::create_field, Field};
 pub(super) fn wifi_to_fields(wifi: &WifiCredential) -> Vec<Field> {
     [
         // SSID: Text field
-        wifi.ssid.as_ref().map(|ssid| create_field("SSID", ssid)),
+        wifi.ssid
+            .as_ref()
+            .map(|ssid| create_field(ssid, Some("SSID"))),
         // Passphrase: Hidden field (concealed-string)
         wifi.passphrase
             .as_ref()
-            .map(|passphrase| create_field("Passphrase", passphrase)),
+            .map(|passphrase| create_field(passphrase, Some("Passphrase"))),
         // Network Security Type: Text field
         wifi.network_security_type
             .as_ref()
-            .map(|security| create_field("Network Security Type", security)),
+            .map(|security| create_field(security, Some("Network Security Type"))),
         // Hidden: Boolean field
         wifi.hidden
             .as_ref()
-            .map(|hidden| create_field("Hidden", hidden)),
+            .map(|hidden| create_field(hidden, Some("Hidden"))),
     ]
     .into_iter()
     .flatten()
