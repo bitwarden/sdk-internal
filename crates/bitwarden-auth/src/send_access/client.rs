@@ -42,8 +42,7 @@ impl SendAccessClient {
         // this request, so we are not including it here. If needed, we can revisit this and
         // add it back in.
 
-        let configurations: std::sync::Arc<bitwarden_core::client::ApiConfigurations> =
-            self.client.internal.get_api_configurations().await;
+        let configurations = self.client.internal.get_api_configurations().await;
 
         let request: reqwest::RequestBuilder = configurations
             .identity
