@@ -293,9 +293,9 @@ impl From<&Identity> for AddressCredential {
 
         AddressCredential {
             street_address: street_address.map(|v| v.into()),
-            city: identity.city.clone().map(|v| v.into()),
-            territory: identity.state.clone().map(|v| v.into()),
-            country: identity.country.clone().map(|v| v.into()),
+            city: to_editable_field(&identity.city),
+            territory: to_editable_field(&identity.state),
+            country: to_editable_field(&identity.country),
             tel: to_editable_field(&identity.phone),
             postal_code: to_editable_field(&identity.postal_code),
         }
@@ -311,7 +311,7 @@ impl From<&Identity> for PassportCredential {
         );
 
         PassportCredential {
-            issuing_country: identity.country.clone().map(|v| v.into()),
+            issuing_country: to_editable_field(&identity.country),
             nationality: None,
             full_name: full_name.map(|v| v.into()),
             birth_date: None,
@@ -321,8 +321,8 @@ impl From<&Identity> for PassportCredential {
             expiry_date: None,
             issuing_authority: None,
             passport_type: None,
-            passport_number: identity.passport_number.clone().map(|v| v.into()),
-            national_identification_number: identity.ssn.clone().map(|v| v.into()),
+            passport_number: to_editable_field(&identity.passport_number),
+            national_identification_number: to_editable_field(&identity.ssn),
             // Note: Can't use ..Default::default() - not implemented in current CXF version
         }
     }
@@ -342,9 +342,9 @@ impl From<&Identity> for DriversLicenseCredential {
             issue_date: None,
             expiry_date: None,
             issuing_authority: None,
-            territory: identity.state.clone().map(|v| v.into()),
-            country: identity.country.clone().map(|v| v.into()),
-            license_number: identity.license_number.clone().map(|v| v.into()),
+            territory: to_editable_field(&identity.state),
+            country: to_editable_field(&identity.country),
+            license_number: to_editable_field(&identity.license_number),
             license_class: None,
             // Note: Can't use ..Default::default() - not implemented in current CXF version
         }
@@ -360,9 +360,9 @@ impl From<&Identity> for IdentityDocumentCredential {
         );
 
         IdentityDocumentCredential {
-            issuing_country: identity.country.clone().map(|v| v.into()),
+            issuing_country: to_editable_field(&identity.country),
             document_number: None,
-            identification_number: identity.ssn.clone().map(|v| v.into()),
+            identification_number: to_editable_field(&identity.ssn),
             nationality: None,
             full_name: full_name.map(|v| v.into()),
             birth_date: None,
