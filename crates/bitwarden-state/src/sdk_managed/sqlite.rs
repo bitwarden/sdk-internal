@@ -29,7 +29,7 @@ impl SqliteDatabase {
 
             transaction.execute(
                 &format!(
-                    "CREATE TABLE IF NOT EXISTS {} (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+                    "CREATE TABLE IF NOT EXISTS \"{}\" (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
                     reg.name(),
                 ),
                 [],
@@ -67,7 +67,7 @@ impl Database for SqliteDatabase {
 
         // SAFETY: SQLite tables cannot use ?, but `T::NAME` is not user controlled and is
         // validated to only contain valid characters, so it's safe to interpolate here.
-        let mut stmt = conn.prepare(&format!("SELECT value FROM {} WHERE key = ?1", T::NAME))?;
+        let mut stmt = conn.prepare(&format!("SELECT value FROM \"{}\" WHERE key = ?1", T::NAME))?;
         let mut rows = stmt.query([key])?;
 
         if let Some(row) = rows.next()? {
@@ -86,7 +86,7 @@ impl Database for SqliteDatabase {
 
         // SAFETY: SQLite tables cannot use ?, but `T::NAME` is not user controlled and is
         // validated to only contain valid characters, so it's safe to interpolate here.
-        let mut stmt = conn.prepare(&format!("SELECT key, value FROM {}", T::NAME))?;
+        let mut stmt = conn.prepare(&format!("SELECT key, value FROM \"{}\"", T::NAME))?;
         let rows = stmt.query_map([], |row| row.get(1))?;
 
         let mut results = Vec::new();
@@ -113,7 +113,7 @@ impl Database for SqliteDatabase {
         // validated to only contain valid characters, so it's safe to interpolate here.
         transaction.execute(
             &format!(
-                "INSERT OR REPLACE INTO {} (key, value) VALUES (?1, ?2)",
+                "INSERT OR REPLACE INTO \"{}\" (key, value) VALUES (?1, ?2)",
                 T::NAME,
             ),
             [key, &value],
@@ -132,7 +132,7 @@ impl Database for SqliteDatabase {
 
         // SAFETY: SQLite tables cannot use ?, but `T::NAME` is not user controlled and is
         // validated to only contain valid characters, so it's safe to interpolate here.
-        transaction.execute(&format!("DELETE FROM {} WHERE key = ?1", T::NAME), [key])?;
+        transaction.execute(&format!("DELETE FROM \"{}\" WHERE key = ?1", T::NAME), [key])?;
 
         transaction.commit()?;
         Ok(())

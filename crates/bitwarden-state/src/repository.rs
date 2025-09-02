@@ -125,7 +125,8 @@ macro_rules! register_repository_item {
 #[doc(hidden)]
 pub mod ___internal {
 
-    // This trait is forbid users from implementing `RepositoryItem` directly.
+    // This trait is in an internal module to try to forbid users from implementing `RepositoryItem`
+    // directly.
     pub trait Internal {}
 }
 pub(crate) use ___internal::Internal;
