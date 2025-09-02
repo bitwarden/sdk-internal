@@ -83,7 +83,9 @@ impl RepositoryItemData {
 }
 
 /// Validate that the provided name will be a valid identifier at compile time.
-/// This is intentionally limited to ensure compatibility with various storage backends.
+/// This is intentionally limited to ensure compatibility with current and future storage backends.
+/// For example, SQLite tables must not begin with a number or contain special characters.
+/// Valid characters are a-z, A-Z, and underscore (_).
 pub const fn validate_registry_name(name: &str) -> bool {
     let bytes = name.as_bytes();
     let mut i = 0;
