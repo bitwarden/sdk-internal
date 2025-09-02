@@ -2,7 +2,6 @@ mod access_token_request;
 mod access_token_response;
 mod client;
 
-/// Submodule containing the Send Access API request and response types.
 pub mod api;
 
 pub use access_token_request::{

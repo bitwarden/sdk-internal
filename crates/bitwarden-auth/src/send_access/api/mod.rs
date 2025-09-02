@@ -1,3 +1,4 @@
+//! Submodule containing the Send Access API request and response types.
 mod token_api_error_response;
 mod token_api_success_response;
 mod token_request_payload;
