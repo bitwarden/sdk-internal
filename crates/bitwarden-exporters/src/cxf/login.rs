@@ -58,8 +58,12 @@ pub(super) fn to_login(
 ) -> Login {
     // Use basic_auth username first, fallback to non-empty passkey username
     let username = basic_auth
-        .and_then(|v| v.username.clone().map(|v| v.into()))
-        .or_else(|| passkey.and_then(|p| (!p.username.is_empty()).then_some(p.username.clone())));
+        .and_then(|v| v.username.clone().map(Into::into))
+        .or_else(|| {
+            passkey
+                .filter(|p| !p.username.is_empty())
+                .map(|p| p.username.clone())
+        });
 
     // Use scope URIs first, fallback to passkey rp_id
     let login_uris = scope
