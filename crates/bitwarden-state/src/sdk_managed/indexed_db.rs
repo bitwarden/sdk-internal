@@ -24,7 +24,7 @@ impl Database for IndexedDbDatabase {
         configuration: DatabaseConfiguration,
         registrations: &[RepositoryItemData],
     ) -> Result<Self, DatabaseError> {
-        let DatabaseConfiguration::IndexedDb { db_name: _db_name } = configuration else {
+        let DatabaseConfiguration::IndexedDb { db_name } = configuration else {
             return Err(DatabaseError::UnsupportedConfiguration(configuration));
         };
 
@@ -38,11 +38,11 @@ impl Database for IndexedDbDatabase {
 
         // Open the database, creating it if needed
         let db = factory
-            .open("bitwarden-sdk-test-db", version, async move |evt| {
+            .open(&db_name, version, async move |evt| {
                 let db = evt.database();
 
                 for reg in registrations {
-                    db.build_object_store(reg.name).create()?;
+                    db.build_object_store(reg.name()).create()?;
                 }
 
                 Ok(())
@@ -55,18 +55,16 @@ impl Database for IndexedDbDatabase {
 
     async fn get<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
-        namespace: &str,
         key: &str,
     ) -> Result<Option<T>, DatabaseError> {
-        let namespace = namespace.to_string();
         let key = key.to_string();
 
         let result = self
             .0
             .run_in_thread(move |db| async move {
-                db.transaction(&[&namespace])
+                db.transaction(&[T::NAME])
                     .run(|t| async move {
-                        let store = t.object_store(&namespace)?;
+                        let store = t.object_store(T::NAME)?;
                         let response = store.get(&JsString::from(key)).await?;
 
                         if let Some(value) = response {
@@ -85,16 +83,13 @@ impl Database for IndexedDbDatabase {
 
     async fn list<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
-        namespace: &str,
     ) -> Result<Vec<T>, DatabaseError> {
-        let namespace = namespace.to_string();
-
         let results = self
             .0
             .run_in_thread(move |db| async move {
-                db.transaction(&[&namespace])
+                db.transaction(&[T::NAME])
                     .run(|t| async move {
-                        let store = t.object_store(&namespace)?;
+                        let store = t.object_store(T::NAME)?;
                         let results = store.get_all(None).await?;
 
                         let mut items: Vec<T> = Vec::new();
@@ -116,19 +111,17 @@ impl Database for IndexedDbDatabase {
 
     async fn set<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
-        namespace: &str,
         key: &str,
         value: T,
     ) -> Result<(), DatabaseError> {
-        let namespace = namespace.to_string();
         let key = key.to_string();
 
         self.0
             .run_in_thread(move |db| async move {
-                db.transaction(&[&namespace])
+                db.transaction(&[T::NAME])
                     .rw()
                     .run(|t| async move {
-                        let store = t.object_store(&namespace)?;
+                        let store = t.object_store(T::NAME)?;
 
                         let value = ::tsify::serde_wasm_bindgen::to_value(&value)
                             .map_err(IndexedDbInternalError::from)?;
@@ -143,16 +136,18 @@ impl Database for IndexedDbDatabase {
         Ok(())
     }
 
-    async fn remove(&self, namespace: &str, key: &str) -> Result<(), DatabaseError> {
-        let namespace = namespace.to_string();
+    async fn remove<T: Serialize + DeserializeOwned + RepositoryItem>(
+        &self,
+        key: &str,
+    ) -> Result<(), DatabaseError> {
         let key = key.to_string();
 
         self.0
             .run_in_thread(move |db| async move {
-                db.transaction(&[&namespace])
+                db.transaction(&[T::NAME])
                     .rw()
                     .run(|t| async move {
-                        let store = t.object_store(&namespace)?;
+                        let store = t.object_store(T::NAME)?;
                         store.delete(&JsString::from(key)).await?;
                         Ok(())
                     })

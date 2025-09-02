@@ -50,23 +50,23 @@ pub trait Database {
 
     async fn get<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
-        namespace: &str,
         key: &str,
     ) -> Result<Option<T>, DatabaseError>;
 
     async fn list<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
-        namespace: &str,
     ) -> Result<Vec<T>, DatabaseError>;
 
     async fn set<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
-        namespace: &str,
         key: &str,
         value: T,
     ) -> Result<(), DatabaseError>;
 
-    async fn remove(&self, namespace: &str, key: &str) -> Result<(), DatabaseError>;
+    async fn remove<T: Serialize + DeserializeOwned + RepositoryItem>(
+        &self,
+        key: &str,
+    ) -> Result<(), DatabaseError>;
 }
 
 struct DBRepository<T: RepositoryItem> {
@@ -77,18 +77,18 @@ struct DBRepository<T: RepositoryItem> {
 #[async_trait::async_trait]
 impl<V: RepositoryItem + Serialize + DeserializeOwned> Repository<V> for DBRepository<V> {
     async fn get(&self, key: String) -> Result<Option<V>, RepositoryError> {
-        let value = self.database.get(V::NAME, &key).await?;
+        let value = self.database.get::<V>(&key).await?;
         Ok(value)
     }
     async fn list(&self) -> Result<Vec<V>, RepositoryError> {
-        let values = self.database.list(V::NAME).await?;
+        let values = self.database.list::<V>().await?;
         Ok(values)
     }
     async fn set(&self, key: String, value: V) -> Result<(), RepositoryError> {
-        Ok(self.database.set(V::NAME, &key, value).await?)
+        Ok(self.database.set::<V>(&key, value).await?)
     }
     async fn remove(&self, key: String) -> Result<(), RepositoryError> {
-        Ok(self.database.remove(V::NAME, &key).await?)
+        Ok(self.database.remove::<V>(&key).await?)
     }
 }
 

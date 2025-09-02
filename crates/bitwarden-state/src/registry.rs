@@ -158,9 +158,9 @@ mod tests {
     #[derive(PartialEq, Eq, Debug)]
     struct TestItem<T>(T);
 
-    register_repository_item!(TestItem<usize>, "TestItem<usize>");
-    register_repository_item!(TestItem<String>, "TestItem<String>");
-    register_repository_item!(TestItem<Vec<u8>>, "TestItem<Vec<u8>>");
+    register_repository_item!(TestItem<usize>, "TestItem_usize");
+    register_repository_item!(TestItem<String>, "TestItem_String");
+    register_repository_item!(TestItem<Vec<u8>>, "TestItem_Vec");
 
     impl_repository!(TestA, TestItem<usize>);
     impl_repository!(TestB, TestItem<String>);

@@ -11,7 +11,7 @@ keywords.workspace = true
 
 [features]
 uniffi = []
-wasm = []
+wasm = ["bitwarden-threading/wasm"]
 
 [dependencies]
 async-trait = { workspace = true }
