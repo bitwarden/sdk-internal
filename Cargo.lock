@@ -362,7 +362,6 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wiremock",
- "zeroize",
 ]
 
 [[package]]

@@ -42,7 +42,6 @@ wasm-bindgen-futures = { workspace = true, optional = true }
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt"] }
 wiremock = "0.6.0"
-zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
 
 [lints]
 workspace = true
