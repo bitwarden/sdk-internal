@@ -12,12 +12,11 @@ use bitwarden_auth::{
     AuthClientExt,
 };
 use bitwarden_core::{Client as CoreClient, ClientSettings, DeviceType};
+use bitwarden_test::start_api_mock;
 use wiremock::{
     matchers::{self, body_string_contains},
     Mock, MockServer, ResponseTemplate,
 };
-
-use bitwarden_test::start_api_mock;
 
 fn make_send_client(mock_server: &MockServer) -> SendAccessClient {
     let settings = ClientSettings {
