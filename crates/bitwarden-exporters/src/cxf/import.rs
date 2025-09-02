@@ -2,8 +2,9 @@ use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     Account as CxfAccount, AddressCredential, ApiKeyCredential, BasicAuthCredential, Credential,
     CreditCardCredential, CustomFieldsCredential, DriversLicenseCredential, EditableField,
-    EditableFieldString, IdentityDocumentCredential, Item, NoteCredential, PasskeyCredential,
-    PassportCredential, PersonNameCredential, SshKeyCredential, TotpCredential, WifiCredential,
+    EditableFieldString, EditableFieldValue, IdentityDocumentCredential, Item, NoteCredential,
+    PasskeyCredential, PassportCredential, PersonNameCredential, SshKeyCredential, TotpCredential,
+    WifiCredential,
 };
 
 use crate::{
@@ -50,28 +51,14 @@ fn custom_fields_to_fields(custom_fields: &CustomFieldsCredential) -> Vec<Field>
         .fields
         .iter()
         .map(|field_value| match field_value {
-            credential_exchange_format::EditableFieldValue::String(field) => {
-                create_field(field, None::<String>)
-            }
-            credential_exchange_format::EditableFieldValue::ConcealedString(field) => {
-                create_field(field, None::<String>)
-            }
-            credential_exchange_format::EditableFieldValue::Boolean(field) => {
-                create_field(field, None::<String>)
-            }
-            credential_exchange_format::EditableFieldValue::Date(field) => {
-                create_field(field, None::<String>)
-            }
-            credential_exchange_format::EditableFieldValue::YearMonth(field) => {
-                create_field(field, None::<String>)
-            }
-            credential_exchange_format::EditableFieldValue::SubdivisionCode(field) => {
-                create_field(field, None::<String>)
-            }
-            credential_exchange_format::EditableFieldValue::CountryCode(field) => {
-                create_field(field, None::<String>)
-            }
-            credential_exchange_format::EditableFieldValue::WifiNetworkSecurityType(field) => {
+            EditableFieldValue::String(field) => create_field(field, None::<String>),
+            EditableFieldValue::ConcealedString(field) => create_field(field, None::<String>),
+            EditableFieldValue::Boolean(field) => create_field(field, None::<String>),
+            EditableFieldValue::Date(field) => create_field(field, None::<String>),
+            EditableFieldValue::YearMonth(field) => create_field(field, None::<String>),
+            EditableFieldValue::SubdivisionCode(field) => create_field(field, None::<String>),
+            EditableFieldValue::CountryCode(field) => create_field(field, None::<String>),
+            EditableFieldValue::WifiNetworkSecurityType(field) => {
                 create_field(field, None::<String>)
             }
             _ => create_field(
