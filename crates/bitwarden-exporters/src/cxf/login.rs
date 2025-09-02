@@ -107,7 +107,7 @@ fn create_login_uri(uri: String) -> LoginUri {
 /// Creates URIs from a passkey's rp_id, adding https:// prefix for domain-like strings
 fn passkey_rp_id_to_uri(rp_id: &str) -> LoginUri {
     let uri = if rp_id.contains('.') && !rp_id.starts_with("http") {
-        format!("https://{}", rp_id)
+        format!("https://{rp_id}")
     } else {
         rp_id.to_string()
     };
