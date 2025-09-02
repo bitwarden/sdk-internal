@@ -4,13 +4,23 @@ use serde::{de::DeserializeOwned, ser::Serialize};
 use tokio::sync::Mutex;
 
 use crate::{
-    repository::{RepositoryItem, RepositoryItemData},
+    repository::{validate_registry_name, RepositoryItem, RepositoryItemData},
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError},
 };
 
 // TODO: Use connection pooling with r2d2 and r2d2_sqlite?
 #[derive(Clone)]
 pub struct SqliteDatabase(Arc<Mutex<rusqlite::Connection>>);
+
+fn validate_identifier(name: &'static str) -> Result<&'static str, DatabaseError> {
+    if validate_registry_name(name) {
+        Ok(name)
+    } else {
+        Err(DatabaseError::Internal(
+            rusqlite::Error::InvalidParameterName(name.to_string()),
+        ))
+    }
+}
 
 impl SqliteDatabase {
     fn initialize_internal(
@@ -26,11 +36,10 @@ impl SqliteDatabase {
             // SAFETY: SQLite tables cannot use ?, but `reg.name()` is not user controlled and
             // is validated to only contain valid characters, so it's safe to
             // interpolate here.
-
             transaction.execute(
                 &format!(
                     "CREATE TABLE IF NOT EXISTS \"{}\" (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
-                    reg.name(),
+                    validate_identifier(reg.name())?,
                 ),
                 [],
             )?;
@@ -67,7 +76,10 @@ impl Database for SqliteDatabase {
 
         // SAFETY: SQLite tables cannot use ?, but `T::NAME` is not user controlled and is
         // validated to only contain valid characters, so it's safe to interpolate here.
-        let mut stmt = conn.prepare(&format!("SELECT value FROM \"{}\" WHERE key = ?1", T::NAME))?;
+        let mut stmt = conn.prepare(&format!(
+            "SELECT value FROM \"{}\" WHERE key = ?1",
+            validate_identifier(T::NAME)?
+        ))?;
         let mut rows = stmt.query([key])?;
 
         if let Some(row) = rows.next()? {
@@ -86,7 +98,10 @@ impl Database for SqliteDatabase {
 
         // SAFETY: SQLite tables cannot use ?, but `T::NAME` is not user controlled and is
         // validated to only contain valid characters, so it's safe to interpolate here.
-        let mut stmt = conn.prepare(&format!("SELECT key, value FROM \"{}\"", T::NAME))?;
+        let mut stmt = conn.prepare(&format!(
+            "SELECT key, value FROM \"{}\"",
+            validate_identifier(T::NAME)?
+        ))?;
         let rows = stmt.query_map([], |row| row.get(1))?;
 
         let mut results = Vec::new();
@@ -114,7 +129,7 @@ impl Database for SqliteDatabase {
         transaction.execute(
             &format!(
                 "INSERT OR REPLACE INTO \"{}\" (key, value) VALUES (?1, ?2)",
-                T::NAME,
+                validate_identifier(T::NAME)?,
             ),
             [key, &value],
         )?;
@@ -132,7 +147,13 @@ impl Database for SqliteDatabase {
 
         // SAFETY: SQLite tables cannot use ?, but `T::NAME` is not user controlled and is
         // validated to only contain valid characters, so it's safe to interpolate here.
-        transaction.execute(&format!("DELETE FROM \"{}\" WHERE key = ?1", T::NAME), [key])?;
+        transaction.execute(
+            &format!(
+                "DELETE FROM \"{}\" WHERE key = ?1",
+                validate_identifier(T::NAME)?
+            ),
+            [key],
+        )?;
 
         transaction.commit()?;
         Ok(())
