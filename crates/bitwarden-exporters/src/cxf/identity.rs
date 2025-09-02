@@ -237,7 +237,10 @@ pub(super) fn identity_document_to_identity(
     (identity, custom_fields)
 }
 
-fn to_editable_field(field: &Option<String>) -> Option<EditableField<EditableFieldString>> {
+fn to_editable_field<T, U>(field: &Option<T>) -> Option<EditableField<U>>
+where
+    T: Clone + Into<EditableField<U>>,
+{
     field.clone().map(|v| v.into())
 }
 
