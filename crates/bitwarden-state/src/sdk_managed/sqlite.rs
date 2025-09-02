@@ -68,7 +68,7 @@ impl Database for SqliteDatabase {
         // SAFETY: SQLite tables cannot use ?, but `T::NAME` is not user controlled and is
         // validated to only contain valid characters, so it's safe to interpolate here.
         let mut stmt = conn.prepare(&format!("SELECT value FROM {} WHERE key = ?1", T::NAME))?;
-        let mut rows = stmt.query(rusqlite::params![key])?;
+        let mut rows = stmt.query([key])?;
 
         if let Some(row) = rows.next()? {
             let value = row.get::<_, String>(0)?;
@@ -116,7 +116,7 @@ impl Database for SqliteDatabase {
                 "INSERT OR REPLACE INTO {} (key, value) VALUES (?1, ?2)",
                 T::NAME,
             ),
-            rusqlite::params![key, value],
+            [key, &value],
         )?;
 
         transaction.commit()?;
@@ -132,10 +132,7 @@ impl Database for SqliteDatabase {
 
         // SAFETY: SQLite tables cannot use ?, but `T::NAME` is not user controlled and is
         // validated to only contain valid characters, so it's safe to interpolate here.
-        transaction.execute(
-            &format!("DELETE FROM {} WHERE key = ?1", T::NAME),
-            rusqlite::params![key],
-        )?;
+        transaction.execute(&format!("DELETE FROM {} WHERE key = ?1", T::NAME), [key])?;
 
         transaction.commit()?;
         Ok(())
