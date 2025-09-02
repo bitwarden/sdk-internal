@@ -24,6 +24,7 @@ pub struct Fido2CredentialAutofillView {
     pub rp_id: String,
     pub user_name_for_ui: Option<String>,
     pub user_handle: Vec<u8>,
+    pub has_counter: bool,
 }
 
 trait NoneWhitespace {
@@ -96,6 +97,9 @@ impl Fido2CredentialAutofillView {
                                     .as_ref()
                                     .and_then(|l| l.username.none_whitespace()))
                                 .or(cipher.name.none_whitespace()),
+                            has_counter: c.counter.none_whitespace().is_some_and(|counter_str| {
+                                counter_str.parse::<u64>().is_ok_and(|counter| counter > 0)
+                            }),
                         })
                     })
             })
@@ -132,6 +136,9 @@ impl Fido2CredentialAutofillView {
                                     .or(c.user_display_name.none_whitespace())
                                     .or(username.none_whitespace())
                                     .or(cipher.name.none_whitespace()),
+                                // `Fido2CredentialListView` doesn't expose the counter property, so
+                                // assume there is not one.
+                                has_counter: false,
                             })
                         })
                 })
