@@ -16,7 +16,7 @@ use crate::FromStrVisitor;
 #[serde(into = "String")]
 #[derive(Tsify)]
 #[tsify(into_wasm_abi, from_wasm_abi)]
-pub struct B64(#[tsify(type = "String")] Vec<u8>);
+pub struct B64(#[tsify(type = "string")] Vec<u8>);
 
 /// Base64 encoded data
 ///
