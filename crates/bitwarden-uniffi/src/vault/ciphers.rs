@@ -29,8 +29,13 @@ impl CiphersClient {
 
     /// Decrypt cipher list with failures
     /// Returns both successfully decrypted ciphers and any that failed to decrypt
-    pub fn decrypt_list_with_failures(&self, ciphers: Vec<Cipher>) -> DecryptCipherListResult {
-        self.0.decrypt_list_with_failures(ciphers)
+    // Note that this function still needs to return a Result, as the parameter conversion can still
+    // fail
+    pub fn decrypt_list_with_failures(
+        &self,
+        ciphers: Vec<Cipher>,
+    ) -> Result<DecryptCipherListResult> {
+        Ok(self.0.decrypt_list_with_failures(ciphers))
     }
 
     pub fn decrypt_fido2_credentials(

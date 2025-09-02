@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use data_encoding::BASE64URL;
+use data_encoding::BASE64URL_NOPAD;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -10,6 +10,13 @@ use thiserror::Error;
 #[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, Eq)]
 #[serde(try_from = "&str", into = "String")]
 pub struct B64Url(Vec<u8>);
+
+impl B64Url {
+    /// Returns a byte slice of the inner vector.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
 
 impl From<Vec<u8>> for B64Url {
     fn from(src: Vec<u8>) -> Self {
@@ -28,12 +35,6 @@ impl From<B64Url> for Vec<u8> {
     }
 }
 
-impl AsRef<[u8]> for B64Url {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
 impl From<B64Url> for String {
     fn from(src: B64Url) -> Self {
         String::from(&src)
@@ -42,7 +43,7 @@ impl From<B64Url> for String {
 
 impl From<&B64Url> for String {
     fn from(src: &B64Url) -> Self {
-        BASE64URL.encode(&src.0)
+        BASE64URL_NOPAD.encode(&src.0)
     }
 }
 
@@ -63,6 +64,14 @@ const BASE64URL_PERMISSIVE: data_encoding::Encoding = data_encoding_macro::new_e
     check_trailing_bits: false,
 };
 const BASE64URL_PADDING: &str = "=";
+
+impl TryFrom<String> for B64Url {
+    type Error = NotB64UrlEncoded;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::try_from(value.as_str())
+    }
+}
 
 impl TryFrom<&str> for B64Url {
     type Error = NotB64UrlEncoded;
@@ -99,7 +108,7 @@ mod tests {
     fn test_b64url_from_slice() {
         let data = b"Hello";
         let b64url = B64Url::from(data.as_slice());
-        assert_eq!(b64url.as_ref(), data);
+        assert_eq!(b64url.as_bytes(), data);
     }
 
     #[test]
@@ -107,22 +116,21 @@ mod tests {
         let data = b"Hello, World!";
         let b64url = B64Url::from(data.as_slice());
         let encoded = String::from(&b64url);
-        assert_eq!(encoded, "SGVsbG8sIFdvcmxkIQ==");
-        assert!(encoded.contains('='));
+        assert_eq!(encoded, "SGVsbG8sIFdvcmxkIQ");
     }
 
     #[test]
     fn test_b64url_decoding_with_padding() {
         let encoded_with_padding = "SGVsbG8sIFdvcmxkIQ==";
         let b64url = B64Url::try_from(encoded_with_padding).unwrap();
-        assert_eq!(b64url.as_ref(), b"Hello, World!");
+        assert_eq!(b64url.as_bytes(), b"Hello, World!");
     }
 
     #[test]
     fn test_b64url_decoding_without_padding() {
         let encoded_without_padding = "SGVsbG8sIFdvcmxkIQ";
         let b64url = B64Url::try_from(encoded_without_padding).unwrap();
-        assert_eq!(b64url.as_ref(), b"Hello, World!");
+        assert_eq!(b64url.as_bytes(), b"Hello, World!");
     }
 
     #[test]
@@ -131,7 +139,7 @@ mod tests {
         let b64url = B64Url::from(original.as_slice());
         let encoded = String::from(&b64url);
         let decoded = B64Url::try_from(encoded.as_str()).unwrap();
-        assert_eq!(decoded.as_ref(), original);
+        assert_eq!(decoded.as_bytes(), original);
     }
 
     #[test]
@@ -140,14 +148,14 @@ mod tests {
         let b64url = B64Url::from(original.as_slice());
         let encoded = String::from(&b64url);
         let decoded = B64Url::try_from(encoded.as_str()).unwrap();
-        assert_eq!(decoded.as_ref(), original);
+        assert_eq!(decoded.as_bytes(), original);
     }
 
     #[test]
     fn test_b64url_display() {
         let data = b"Hello";
         let b64url = B64Url::from(data.as_slice());
-        assert_eq!(b64url.to_string(), "SGVsbG8=");
+        assert_eq!(b64url.to_string(), "SGVsbG8");
     }
 
     #[test]
@@ -161,14 +169,14 @@ mod tests {
     fn test_b64url_empty_string() {
         let empty = "";
         let b64url = B64Url::try_from(empty).unwrap();
-        assert_eq!(b64url.as_ref().len(), 0);
+        assert_eq!(b64url.as_bytes().len(), 0);
     }
 
     #[test]
     fn test_b64url_padding_removal() {
         let encoded_with_padding = "SGVsbG8sIFdvcmxkIQ==";
         let b64url = B64Url::try_from(encoded_with_padding).unwrap();
-        assert_eq!(b64url.as_ref(), b"Hello, World!");
+        assert_eq!(b64url.as_bytes(), b"Hello, World!");
     }
 
     #[test]
@@ -180,7 +188,7 @@ mod tests {
         assert_eq!(serialized, "\"c2VyaWFsaXphdGlvbiB0ZXN0\"");
 
         let deserialized: B64Url = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(b64url.as_ref(), deserialized.as_ref());
+        assert_eq!(b64url.as_bytes(), deserialized.as_bytes());
     }
 
     #[test]
@@ -193,7 +201,7 @@ mod tests {
     fn test_b64url_from_str() {
         let encoded = "SGVsbG8sIFdvcmxkIQ==";
         let b64url: B64Url = encoded.parse().unwrap();
-        assert_eq!(b64url.as_ref(), b"Hello, World!");
+        assert_eq!(b64url.as_bytes(), b"Hello, World!");
     }
 
     #[test]

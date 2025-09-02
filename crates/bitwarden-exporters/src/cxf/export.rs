@@ -78,15 +78,13 @@ impl From<CipherType> for Vec<Credential> {
     fn from(value: CipherType) -> Self {
         match value {
             CipherType::Login(login) => (*login).into(),
-            // TODO(PM-15450): Add support for credit cards.
             CipherType::Card(card) => (*card).into(),
             // TODO(PM-15451): Add support for identities.
             CipherType::Identity(_) => vec![],
             // Secure Notes only contains a note field which is handled by `TryFrom<Cipher> for
             // Item`.
             CipherType::SecureNote(_) => vec![],
-            // TODO(PM-15448): Add support for SSH Keys.
-            CipherType::SshKey(_) => vec![],
+            CipherType::SshKey(ssh) => (*ssh).try_into().unwrap_or_default(),
         }
     }
 }
