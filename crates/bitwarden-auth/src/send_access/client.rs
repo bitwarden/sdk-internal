@@ -26,9 +26,6 @@ impl SendAccessClient {
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl SendAccessClient {
     /// Requests a new send access token.
-    ///
-    /// # Arguments
-    /// * `request` - The request containing the necessary information to obtain a token.
     pub async fn request_send_access_token(
         &self,
         request: SendAccessTokenRequest,
