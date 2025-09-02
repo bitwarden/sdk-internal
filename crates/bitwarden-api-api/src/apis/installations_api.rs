@@ -28,6 +28,7 @@ pub enum InstallationsPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Platform/Installations/Controllers/InstallationsController.cs#L33`]
 pub async fn installations_id_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -78,6 +79,7 @@ pub async fn installations_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Platform/Installations/Controllers/InstallationsController.cs#L46`]
 pub async fn installations_post(
     configuration: &configuration::Configuration,
     installation_request_model: Option<models::InstallationRequestModel>,

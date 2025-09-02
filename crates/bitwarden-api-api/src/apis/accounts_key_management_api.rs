@@ -42,6 +42,7 @@ pub enum AccountsSetKeyConnectorKeyPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/KeyManagement/Controllers/AccountsKeyManagementController.cs#L162`]
 pub async fn accounts_convert_to_key_connector_post(
     configuration: &configuration::Configuration,
 ) -> Result<(), Error<AccountsConvertToKeyConnectorPostError>> {
@@ -79,6 +80,7 @@ pub async fn accounts_convert_to_key_connector_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/KeyManagement/Controllers/AccountsKeyManagementController.cs#L82`]
 pub async fn accounts_key_management_regenerate_keys_post(
     configuration: &configuration::Configuration,
     key_regeneration_request_model: Option<models::KeyRegenerationRequestModel>,
@@ -121,6 +123,7 @@ pub async fn accounts_key_management_regenerate_keys_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/KeyManagement/Controllers/AccountsKeyManagementController.cs#L98`]
 pub async fn accounts_key_management_rotate_user_account_keys_post(
     configuration: &configuration::Configuration,
     rotate_user_account_keys_and_data_request_model: Option<
@@ -166,6 +169,7 @@ pub async fn accounts_key_management_rotate_user_account_keys_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/KeyManagement/Controllers/AccountsKeyManagementController.cs#L139`]
 pub async fn accounts_set_key_connector_key_post(
     configuration: &configuration::Configuration,
     set_key_connector_key_request_model: Option<models::SetKeyConnectorKeyRequestModel>,

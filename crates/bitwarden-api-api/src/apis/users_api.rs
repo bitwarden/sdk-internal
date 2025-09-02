@@ -21,6 +21,7 @@ pub enum UsersIdPublicKeyGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/UsersController.cs#L23`]
 pub async fn users_id_public_key_get(
     configuration: &configuration::Configuration,
     id: &str,

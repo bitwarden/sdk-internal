@@ -112,6 +112,7 @@ pub enum OrganizationsOrgIdCollectionsPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/CollectionsController.cs#L126`]
 pub async fn collections_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::CollectionDetailsResponseModelListResponseModel, Error<CollectionsGetError>> {
@@ -154,6 +155,7 @@ pub async fn collections_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/CollectionsController.cs#L203`]
 pub async fn organizations_org_id_collections_bulk_access_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -199,6 +201,7 @@ pub async fn organizations_org_id_collections_bulk_access_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/CollectionsController.cs#L241`]
 pub async fn organizations_org_id_collections_delete(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -244,6 +247,7 @@ pub async fn organizations_org_id_collections_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/CollectionsController.cs#L241`]
 pub async fn organizations_org_id_collections_delete_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -289,6 +293,7 @@ pub async fn organizations_org_id_collections_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/CollectionsController.cs#L83`]
 pub async fn organizations_org_id_collections_details_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -343,6 +348,7 @@ pub async fn organizations_org_id_collections_details_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/CollectionsController.cs#L106`]
 pub async fn organizations_org_id_collections_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -397,6 +403,7 @@ pub async fn organizations_org_id_collections_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/CollectionsController.cs#L227`]
 pub async fn organizations_org_id_collections_id_delete(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -442,6 +449,7 @@ pub async fn organizations_org_id_collections_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/CollectionsController.cs#L227`]
 pub async fn organizations_org_id_collections_id_delete_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -487,6 +495,7 @@ pub async fn organizations_org_id_collections_id_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/CollectionsController.cs#L68`]
 pub async fn organizations_org_id_collections_id_details_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -544,6 +553,7 @@ pub async fn organizations_org_id_collections_id_details_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/CollectionsController.cs#L55`]
 pub async fn organizations_org_id_collections_id_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -598,16 +608,17 @@ pub async fn organizations_org_id_collections_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/CollectionsController.cs#L178`]
 pub async fn organizations_org_id_collections_id_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     id: uuid::Uuid,
-    collection_request_model: Option<models::CollectionRequestModel>,
+    update_collection_request_model: Option<models::UpdateCollectionRequestModel>,
 ) -> Result<models::CollectionResponseModel, Error<OrganizationsOrgIdCollectionsIdPostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_id = id;
-    let p_collection_request_model = collection_request_model;
+    let p_update_collection_request_model = update_collection_request_model;
 
     let uri_str = format!(
         "{}/organizations/{orgId}/collections/{id}",
@@ -625,7 +636,7 @@ pub async fn organizations_org_id_collections_id_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_collection_request_model);
+    req_builder = req_builder.json(&p_update_collection_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -657,16 +668,17 @@ pub async fn organizations_org_id_collections_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/CollectionsController.cs#L178`]
 pub async fn organizations_org_id_collections_id_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     id: uuid::Uuid,
-    collection_request_model: Option<models::CollectionRequestModel>,
+    update_collection_request_model: Option<models::UpdateCollectionRequestModel>,
 ) -> Result<models::CollectionResponseModel, Error<OrganizationsOrgIdCollectionsIdPutError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_id = id;
-    let p_collection_request_model = collection_request_model;
+    let p_update_collection_request_model = update_collection_request_model;
 
     let uri_str = format!(
         "{}/organizations/{orgId}/collections/{id}",
@@ -682,7 +694,7 @@ pub async fn organizations_org_id_collections_id_put(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_collection_request_model);
+    req_builder = req_builder.json(&p_update_collection_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -714,6 +726,7 @@ pub async fn organizations_org_id_collections_id_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/CollectionsController.cs#L135`]
 pub async fn organizations_org_id_collections_id_users_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -771,14 +784,15 @@ pub async fn organizations_org_id_collections_id_users_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Controllers/CollectionsController.cs#L150`]
 pub async fn organizations_org_id_collections_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
-    collection_request_model: Option<models::CollectionRequestModel>,
+    create_collection_request_model: Option<models::CreateCollectionRequestModel>,
 ) -> Result<models::CollectionResponseModel, Error<OrganizationsOrgIdCollectionsPostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
-    let p_collection_request_model = collection_request_model;
+    let p_create_collection_request_model = create_collection_request_model;
 
     let uri_str = format!(
         "{}/organizations/{orgId}/collections",
@@ -795,7 +809,7 @@ pub async fn organizations_org_id_collections_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_collection_request_model);
+    req_builder = req_builder.json(&p_create_collection_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;

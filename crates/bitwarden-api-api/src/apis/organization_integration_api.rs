@@ -52,6 +52,7 @@ pub enum OrganizationsOrganizationIdIntegrationsPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationIntegrationController.cs#L24`]
 pub async fn organizations_organization_id_integrations_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -106,6 +107,7 @@ pub async fn organizations_organization_id_integrations_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationIntegrationController.cs#L69`]
 pub async fn organizations_organization_id_integrations_integration_id_delete(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -151,6 +153,7 @@ pub async fn organizations_organization_id_integrations_integration_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationIntegrationController.cs#L69`]
 pub async fn organizations_organization_id_integrations_integration_id_delete_post(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -196,6 +199,7 @@ pub async fn organizations_organization_id_integrations_integration_id_delete_po
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationIntegrationController.cs#L50`]
 pub async fn organizations_organization_id_integrations_integration_id_put(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -256,6 +260,7 @@ pub async fn organizations_organization_id_integrations_integration_id_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationIntegrationController.cs#L38`]
 pub async fn organizations_organization_id_integrations_post(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,

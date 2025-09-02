@@ -25,7 +25,7 @@ bitwarden-api-identity = { path = "./bitwarden-api-identity" }
 
 ## Documentation for API Endpoints
 
-All URIs are relative to _http://localhost_
+All URIs are relative to *https://identity.bitwarden.com*
 
 | Class         | Method                                                                                                                         | HTTP request                                           | Description |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ----------- |

@@ -21,6 +21,7 @@ pub enum InvoicesPreviewOrganizationPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Billing/Controllers/InvoicesController.cs#L24`]
 pub async fn invoices_preview_organization_post(
     configuration: &configuration::Configuration,
     preview_organization_invoice_request_body: Option<

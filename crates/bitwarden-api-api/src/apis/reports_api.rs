@@ -105,6 +105,7 @@ pub enum ReportsPasswordHealthReportApplicationsPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Dirt/Controllers/ReportsController.cs#L86`]
 pub async fn reports_member_access_org_id_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -158,6 +159,7 @@ pub async fn reports_member_access_org_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Dirt/Controllers/ReportsController.cs#L62`]
 pub async fn reports_member_cipher_details_org_id_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -212,6 +214,7 @@ pub async fn reports_member_cipher_details_org_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Dirt/Controllers/ReportsController.cs#L300`]
 pub async fn reports_organization_report_summary_org_id_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -276,6 +279,7 @@ pub async fn reports_organization_report_summary_org_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Dirt/Controllers/ReportsController.cs#L324`]
 pub async fn reports_organization_report_summary_post(
     configuration: &configuration::Configuration,
     organization_report_summary_model: Option<models::OrganizationReportSummaryModel>,
@@ -318,6 +322,7 @@ pub async fn reports_organization_report_summary_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Dirt/Controllers/ReportsController.cs#L340`]
 pub async fn reports_organization_report_summary_put(
     configuration: &configuration::Configuration,
     organization_report_summary_model: Option<models::OrganizationReportSummaryModel>,
@@ -358,6 +363,7 @@ pub async fn reports_organization_report_summary_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Dirt/Controllers/ReportsController.cs#L243`]
 pub async fn reports_organization_reports_delete(
     configuration: &configuration::Configuration,
     drop_organization_report_request: Option<models::DropOrganizationReportRequest>,
@@ -397,6 +403,7 @@ pub async fn reports_organization_reports_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Dirt/Controllers/ReportsController.cs#L277`]
 pub async fn reports_organization_reports_latest_org_id_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -448,6 +455,7 @@ pub async fn reports_organization_reports_latest_org_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Dirt/Controllers/ReportsController.cs#L260`]
 pub async fn reports_organization_reports_org_id_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -499,6 +507,7 @@ pub async fn reports_organization_reports_org_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Dirt/Controllers/ReportsController.cs#L226`]
 pub async fn reports_organization_reports_post(
     configuration: &configuration::Configuration,
     add_organization_report_request: Option<models::AddOrganizationReportRequest>,
@@ -549,6 +558,7 @@ pub async fn reports_organization_reports_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Dirt/Controllers/ReportsController.cs#L208`]
 pub async fn reports_password_health_report_application_delete(
     configuration: &configuration::Configuration,
     drop_password_health_report_application_request: Option<
@@ -594,6 +604,7 @@ pub async fn reports_password_health_report_application_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Dirt/Controllers/ReportsController.cs#L155`]
 pub async fn reports_password_health_report_application_post(
     configuration: &configuration::Configuration,
     password_health_report_application_model: Option<models::PasswordHealthReportApplicationModel>,
@@ -650,6 +661,7 @@ pub async fn reports_password_health_report_application_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Dirt/Controllers/ReportsController.cs#L136`]
 pub async fn reports_password_health_report_applications_org_id_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -704,6 +716,7 @@ pub async fn reports_password_health_report_applications_org_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Dirt/Controllers/ReportsController.cs#L180`]
 pub async fn reports_password_health_report_applications_post(
     configuration: &configuration::Configuration,
     password_health_report_application_model: Option<

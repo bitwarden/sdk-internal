@@ -427,6 +427,7 @@ pub enum CiphersSharePutError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L889`]
 pub async fn ciphers_admin_delete(
     configuration: &configuration::Configuration,
     cipher_bulk_delete_request_model: Option<models::CipherBulkDeleteRequestModel>,
@@ -465,6 +466,7 @@ pub async fn ciphers_admin_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L207`]
 pub async fn ciphers_admin_post(
     configuration: &configuration::Configuration,
     cipher_create_request_model: Option<models::CipherCreateRequestModel>,
@@ -514,6 +516,7 @@ pub async fn ciphers_admin_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1358`]
 pub async fn ciphers_attachment_validate_azure_post(
     configuration: &configuration::Configuration,
 ) -> Result<(), Error<CiphersAttachmentValidateAzurePostError>> {
@@ -551,6 +554,7 @@ pub async fn ciphers_attachment_validate_azure_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L826`]
 pub async fn ciphers_bulk_collections_post(
     configuration: &configuration::Configuration,
     cipher_bulk_update_collections_request_model: Option<
@@ -592,6 +596,7 @@ pub async fn ciphers_bulk_collections_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L182`]
 pub async fn ciphers_create_post(
     configuration: &configuration::Configuration,
     cipher_create_request_model: Option<models::CipherCreateRequestModel>,
@@ -641,6 +646,7 @@ pub async fn ciphers_create_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L875`]
 pub async fn ciphers_delete(
     configuration: &configuration::Configuration,
     cipher_bulk_delete_request_model: Option<models::CipherBulkDeleteRequestModel>,
@@ -679,6 +685,7 @@ pub async fn ciphers_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L889`]
 pub async fn ciphers_delete_admin_post(
     configuration: &configuration::Configuration,
     cipher_bulk_delete_request_model: Option<models::CipherBulkDeleteRequestModel>,
@@ -717,6 +724,7 @@ pub async fn ciphers_delete_admin_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L953`]
 pub async fn ciphers_delete_admin_put(
     configuration: &configuration::Configuration,
     cipher_bulk_delete_request_model: Option<models::CipherBulkDeleteRequestModel>,
@@ -753,6 +761,7 @@ pub async fn ciphers_delete_admin_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L875`]
 pub async fn ciphers_delete_post(
     configuration: &configuration::Configuration,
     cipher_bulk_delete_request_model: Option<models::CipherBulkDeleteRequestModel>,
@@ -791,6 +800,7 @@ pub async fn ciphers_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L941`]
 pub async fn ciphers_delete_put(
     configuration: &configuration::Configuration,
     cipher_bulk_delete_request_model: Option<models::CipherBulkDeleteRequestModel>,
@@ -827,6 +837,7 @@ pub async fn ciphers_delete_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L129`]
 pub async fn ciphers_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::CipherDetailsResponseModelListResponseModel, Error<CiphersGetError>> {
@@ -869,6 +880,7 @@ pub async fn ciphers_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L860`]
 pub async fn ciphers_id_admin_delete(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -910,6 +922,7 @@ pub async fn ciphers_id_admin_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L97`]
 pub async fn ciphers_id_admin_get(
     configuration: &configuration::Configuration,
     id: &str,
@@ -960,6 +973,7 @@ pub async fn ciphers_id_admin_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L279`]
 pub async fn ciphers_id_admin_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1015,6 +1029,7 @@ pub async fn ciphers_id_admin_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L279`]
 pub async fn ciphers_id_admin_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1068,6 +1083,7 @@ pub async fn ciphers_id_admin_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1261`]
 pub async fn ciphers_id_attachment_admin_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -1120,6 +1136,7 @@ pub async fn ciphers_id_attachment_admin_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1343`]
 pub async fn ciphers_id_attachment_attachment_id_admin_delete(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1179,6 +1196,7 @@ pub async fn ciphers_id_attachment_attachment_id_admin_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1284`]
 pub async fn ciphers_id_attachment_attachment_id_admin_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1233,6 +1251,7 @@ pub async fn ciphers_id_attachment_attachment_id_admin_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1329`]
 pub async fn ciphers_id_attachment_attachment_id_delete(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1290,6 +1309,7 @@ pub async fn ciphers_id_attachment_attachment_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1343`]
 pub async fn ciphers_id_attachment_attachment_id_delete_admin_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1349,6 +1369,7 @@ pub async fn ciphers_id_attachment_attachment_id_delete_admin_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1329`]
 pub async fn ciphers_id_attachment_attachment_id_delete_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1408,6 +1429,7 @@ pub async fn ciphers_id_attachment_attachment_id_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1298`]
 pub async fn ciphers_id_attachment_attachment_id_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1462,6 +1484,7 @@ pub async fn ciphers_id_attachment_attachment_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1209`]
 pub async fn ciphers_id_attachment_attachment_id_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1507,6 +1530,7 @@ pub async fn ciphers_id_attachment_attachment_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1187`]
 pub async fn ciphers_id_attachment_attachment_id_renew_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1564,6 +1588,7 @@ pub async fn ciphers_id_attachment_attachment_id_renew_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1309`]
 pub async fn ciphers_id_attachment_attachment_id_share_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -1614,6 +1639,7 @@ pub async fn ciphers_id_attachment_attachment_id_share_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1234`]
 pub async fn ciphers_id_attachment_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1666,6 +1692,7 @@ pub async fn ciphers_id_attachment_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1152`]
 pub async fn ciphers_id_attachment_v2_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1721,6 +1748,7 @@ pub async fn ciphers_id_attachment_v2_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L797`]
 pub async fn ciphers_id_collections_admin_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -1777,6 +1805,7 @@ pub async fn ciphers_id_collections_admin_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L797`]
 pub async fn ciphers_id_collections_admin_put(
     configuration: &configuration::Configuration,
     id: &str,
@@ -1830,6 +1859,7 @@ pub async fn ciphers_id_collections_admin_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L737`]
 pub async fn ciphers_id_collections_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1885,6 +1915,7 @@ pub async fn ciphers_id_collections_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L737`]
 pub async fn ciphers_id_collections_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1938,6 +1969,7 @@ pub async fn ciphers_id_collections_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L763`]
 pub async fn ciphers_id_collections_v2_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -1993,6 +2025,7 @@ pub async fn ciphers_id_collections_v2_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L763`]
 pub async fn ciphers_id_collections_v2_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2046,6 +2079,7 @@ pub async fn ciphers_id_collections_v2_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L846`]
 pub async fn ciphers_id_delete(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2087,6 +2121,7 @@ pub async fn ciphers_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L860`]
 pub async fn ciphers_id_delete_admin_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2128,6 +2163,7 @@ pub async fn ciphers_id_delete_admin_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L927`]
 pub async fn ciphers_id_delete_admin_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2167,6 +2203,7 @@ pub async fn ciphers_id_delete_admin_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L846`]
 pub async fn ciphers_id_delete_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2208,6 +2245,7 @@ pub async fn ciphers_id_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L915`]
 pub async fn ciphers_id_delete_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2247,6 +2285,7 @@ pub async fn ciphers_id_delete_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L114`]
 pub async fn ciphers_id_details_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2297,6 +2336,7 @@ pub async fn ciphers_id_details_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L114`]
 pub async fn ciphers_id_full_details_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2347,6 +2387,7 @@ pub async fn ciphers_id_full_details_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L82`]
 pub async fn ciphers_id_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2397,6 +2438,7 @@ pub async fn ciphers_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L683`]
 pub async fn ciphers_id_partial_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2452,6 +2494,7 @@ pub async fn ciphers_id_partial_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L683`]
 pub async fn ciphers_id_partial_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2505,6 +2548,7 @@ pub async fn ciphers_id_partial_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L237`]
 pub async fn ciphers_id_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2560,6 +2604,7 @@ pub async fn ciphers_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L237`]
 pub async fn ciphers_id_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2613,6 +2658,7 @@ pub async fn ciphers_id_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L996`]
 pub async fn ciphers_id_restore_admin_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2663,6 +2709,7 @@ pub async fn ciphers_id_restore_admin_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L978`]
 pub async fn ciphers_id_restore_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2713,6 +2760,7 @@ pub async fn ciphers_id_restore_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L700`]
 pub async fn ciphers_id_share_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2768,6 +2816,7 @@ pub async fn ciphers_id_share_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L700`]
 pub async fn ciphers_id_share_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -2821,6 +2870,7 @@ pub async fn ciphers_id_share_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1055`]
 pub async fn ciphers_move_post(
     configuration: &configuration::Configuration,
     cipher_bulk_move_request_model: Option<models::CipherBulkMoveRequestModel>,
@@ -2859,6 +2909,7 @@ pub async fn ciphers_move_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1055`]
 pub async fn ciphers_move_put(
     configuration: &configuration::Configuration,
     cipher_bulk_move_request_model: Option<models::CipherBulkMoveRequestModel>,
@@ -2895,6 +2946,7 @@ pub async fn ciphers_move_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L330`]
 pub async fn ciphers_organization_details_assigned_get(
     configuration: &configuration::Configuration,
     organization_id: Option<uuid::Uuid>,
@@ -2951,6 +3003,7 @@ pub async fn ciphers_organization_details_assigned_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L312`]
 pub async fn ciphers_organization_details_get(
     configuration: &configuration::Configuration,
     organization_id: Option<uuid::Uuid>,
@@ -3004,6 +3057,7 @@ pub async fn ciphers_organization_details_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L152`]
 pub async fn ciphers_post(
     configuration: &configuration::Configuration,
     cipher_request_model: Option<models::CipherRequestModel>,
@@ -3053,9 +3107,10 @@ pub async fn ciphers_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1117`]
 pub async fn ciphers_purge_post(
     configuration: &configuration::Configuration,
-    organization_id: Option<&str>,
+    organization_id: Option<uuid::Uuid>,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
 ) -> Result<(), Error<CiphersPurgePostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
@@ -3096,6 +3151,7 @@ pub async fn ciphers_purge_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1027`]
 pub async fn ciphers_restore_admin_put(
     configuration: &configuration::Configuration,
     cipher_bulk_restore_request_model: Option<models::CipherBulkRestoreRequestModel>,
@@ -3143,6 +3199,7 @@ pub async fn ciphers_restore_admin_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1011`]
 pub async fn ciphers_restore_put(
     configuration: &configuration::Configuration,
     cipher_bulk_restore_request_model: Option<models::CipherBulkRestoreRequestModel>,
@@ -3190,6 +3247,7 @@ pub async fn ciphers_restore_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1069`]
 pub async fn ciphers_share_post(
     configuration: &configuration::Configuration,
     cipher_bulk_share_request_model: Option<models::CipherBulkShareRequestModel>,
@@ -3239,6 +3297,7 @@ pub async fn ciphers_share_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Vault/Controllers/CiphersController.cs#L1069`]
 pub async fn ciphers_share_put(
     configuration: &configuration::Configuration,
     cipher_bulk_share_request_model: Option<models::CipherBulkShareRequestModel>,

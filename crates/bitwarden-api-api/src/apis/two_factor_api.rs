@@ -238,6 +238,7 @@ pub enum TwoFactorYubikeyPutError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L384`]
 pub async fn organizations_id_two_factor_disable_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -295,6 +296,7 @@ pub async fn organizations_id_two_factor_disable_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L384`]
 pub async fn organizations_id_two_factor_disable_put(
     configuration: &configuration::Configuration,
     id: &str,
@@ -350,6 +352,7 @@ pub async fn organizations_id_two_factor_disable_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L223`]
 pub async fn organizations_id_two_factor_duo_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -406,6 +409,7 @@ pub async fn organizations_id_two_factor_duo_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L223`]
 pub async fn organizations_id_two_factor_duo_put(
     configuration: &configuration::Configuration,
     id: &str,
@@ -460,6 +464,7 @@ pub async fn organizations_id_two_factor_duo_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L83`]
 pub async fn organizations_id_two_factor_get(
     configuration: &configuration::Configuration,
     id: &str,
@@ -513,6 +518,7 @@ pub async fn organizations_id_two_factor_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L205`]
 pub async fn organizations_id_two_factor_get_duo_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -569,6 +575,7 @@ pub async fn organizations_id_two_factor_get_duo_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L139`]
 pub async fn two_factor_authenticator_delete(
     configuration: &configuration::Configuration,
     two_factor_authenticator_disable_request_model: Option<
@@ -621,6 +628,7 @@ pub async fn two_factor_authenticator_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L116`]
 pub async fn two_factor_authenticator_post(
     configuration: &configuration::Configuration,
     update_two_factor_authenticator_request_model: Option<
@@ -673,6 +681,7 @@ pub async fn two_factor_authenticator_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L116`]
 pub async fn two_factor_authenticator_put(
     configuration: &configuration::Configuration,
     update_two_factor_authenticator_request_model: Option<
@@ -723,6 +732,7 @@ pub async fn two_factor_authenticator_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L438`]
 pub async fn two_factor_device_verification_settings_put(
     configuration: &configuration::Configuration,
     device_verification_request_model: Option<models::DeviceVerificationRequestModel>,
@@ -777,6 +787,7 @@ pub async fn two_factor_device_verification_settings_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L373`]
 pub async fn two_factor_disable_post(
     configuration: &configuration::Configuration,
     two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
@@ -826,6 +837,7 @@ pub async fn two_factor_disable_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L373`]
 pub async fn two_factor_disable_put(
     configuration: &configuration::Configuration,
     two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
@@ -873,6 +885,7 @@ pub async fn two_factor_disable_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L188`]
 pub async fn two_factor_duo_post(
     configuration: &configuration::Configuration,
     update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
@@ -922,6 +935,7 @@ pub async fn two_factor_duo_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L188`]
 pub async fn two_factor_duo_put(
     configuration: &configuration::Configuration,
     update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
@@ -969,6 +983,7 @@ pub async fn two_factor_duo_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L354`]
 pub async fn two_factor_email_post(
     configuration: &configuration::Configuration,
     update_two_factor_email_request_model: Option<models::UpdateTwoFactorEmailRequestModel>,
@@ -1018,6 +1033,7 @@ pub async fn two_factor_email_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L354`]
 pub async fn two_factor_email_put(
     configuration: &configuration::Configuration,
     update_two_factor_email_request_model: Option<models::UpdateTwoFactorEmailRequestModel>,
@@ -1065,6 +1081,7 @@ pub async fn two_factor_email_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L69`]
 pub async fn two_factor_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::TwoFactorProviderResponseModelListResponseModel, Error<TwoFactorGetError>> {
@@ -1107,6 +1124,7 @@ pub async fn two_factor_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L104`]
 pub async fn two_factor_get_authenticator_post(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
@@ -1158,6 +1176,7 @@ pub async fn two_factor_get_authenticator_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L430`]
 pub async fn two_factor_get_device_verification_settings_get(
     configuration: &configuration::Configuration,
 ) -> Result<
@@ -1207,6 +1226,7 @@ pub async fn two_factor_get_device_verification_settings_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L179`]
 pub async fn two_factor_get_duo_post(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
@@ -1256,6 +1276,7 @@ pub async fn two_factor_get_duo_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L292`]
 pub async fn two_factor_get_email_post(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
@@ -1305,6 +1326,7 @@ pub async fn two_factor_get_email_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L406`]
 pub async fn two_factor_get_recover_post(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
@@ -1354,6 +1376,7 @@ pub async fn two_factor_get_recover_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L248`]
 pub async fn two_factor_get_webauthn_post(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
@@ -1403,6 +1426,7 @@ pub async fn two_factor_get_webauthn_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L153`]
 pub async fn two_factor_get_yubikey_post(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
@@ -1452,6 +1476,7 @@ pub async fn two_factor_get_yubikey_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L419`]
 pub async fn two_factor_recover_post(
     configuration: &configuration::Configuration,
     two_factor_recovery_request_model: Option<models::TwoFactorRecoveryRequestModel>,
@@ -1490,6 +1515,7 @@ pub async fn two_factor_recover_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L315`]
 pub async fn two_factor_send_email_login_post(
     configuration: &configuration::Configuration,
     two_factor_email_request_model: Option<models::TwoFactorEmailRequestModel>,
@@ -1528,6 +1554,7 @@ pub async fn two_factor_send_email_login_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L305`]
 pub async fn two_factor_send_email_post(
     configuration: &configuration::Configuration,
     two_factor_email_request_model: Option<models::TwoFactorEmailRequestModel>,
@@ -1566,6 +1593,7 @@ pub async fn two_factor_send_email_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L283`]
 pub async fn two_factor_webauthn_delete(
     configuration: &configuration::Configuration,
     two_factor_web_authn_delete_request_model: Option<models::TwoFactorWebAuthnDeleteRequestModel>,
@@ -1615,6 +1643,7 @@ pub async fn two_factor_webauthn_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L266`]
 pub async fn two_factor_webauthn_post(
     configuration: &configuration::Configuration,
     two_factor_web_authn_request_model: Option<models::TwoFactorWebAuthnRequestModel>,
@@ -1664,6 +1693,7 @@ pub async fn two_factor_webauthn_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L266`]
 pub async fn two_factor_webauthn_put(
     configuration: &configuration::Configuration,
     two_factor_web_authn_request_model: Option<models::TwoFactorWebAuthnRequestModel>,
@@ -1711,6 +1741,7 @@ pub async fn two_factor_webauthn_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L162`]
 pub async fn two_factor_yubikey_post(
     configuration: &configuration::Configuration,
     update_two_factor_yubico_otp_request_model: Option<
@@ -1762,6 +1793,7 @@ pub async fn two_factor_yubikey_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/Auth/Controllers/TwoFactorController.cs#L162`]
 pub async fn two_factor_yubikey_put(
     configuration: &configuration::Configuration,
     update_two_factor_yubico_otp_request_model: Option<

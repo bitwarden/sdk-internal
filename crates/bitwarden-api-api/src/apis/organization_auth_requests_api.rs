@@ -42,6 +42,7 @@ pub enum OrganizationsOrgIdAuthRequestsRequestIdPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationAuthRequestsController.cs#L64`]
 pub async fn organizations_org_id_auth_requests_deny_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -89,6 +90,7 @@ pub async fn organizations_org_id_auth_requests_deny_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationAuthRequestsController.cs#L36`]
 pub async fn organizations_org_id_auth_requests_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -143,6 +145,7 @@ pub async fn organizations_org_id_auth_requests_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationAuthRequestsController.cs#L78`]
 pub async fn organizations_org_id_auth_requests_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -191,6 +194,7 @@ pub async fn organizations_org_id_auth_requests_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/9da263d1ebac2bd77dbe330d4ecd1c7df6d47ea6/src/Api/AdminConsole/Controllers/OrganizationAuthRequestsController.cs#L48`]
 pub async fn organizations_org_id_auth_requests_request_id_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
