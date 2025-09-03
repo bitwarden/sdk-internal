@@ -27,6 +27,10 @@ stored:
 - If the SDK itself will handle data storage, we call that approach `SDK-Managed State`. The
   implementation of this is will a work in progress.
 
+Note that these approaches aren't mutually exclusive: a repository item can use both client and SDK
+managed state at the same time. However, this mixed approach is only recommended during migration
+scenarios to avoid potential confusion.
+
 ## Client-Managed State
 
 With `Client-Managed State` the application and SDK will both access the same data pool, which
@@ -53,7 +57,7 @@ impl StateClient {
 }
 ```
 
-#### How to use it on web clients
+#### How to initialize Client-Managed State on the web clients
 
 Once we have the function defined in `bitwarden-wasm-internal`, we can use it from the web clients.
 For that, the first thing we need to do is create a mapper between the client and SDK types. This
@@ -113,7 +117,7 @@ impl StateClient {
 }
 ```
 
-#### How to use it on iOS
+#### How to initialize Client-Managed State on iOS
 
 Once we have the function defined in `bitwarden-uniffi`, we can use it from the iOS application:
 
@@ -144,7 +148,7 @@ let store = CipherStoreImpl(cipherDataStore: self.cipherDataStore, userId: userI
 try await self.clientService.platform().store().registerCipherStore(store: store);
 ```
 
-### How to use it on Android
+### How to initialize Client-Managed State on Android
 
 Once we have the function defined in `bitwarden-uniffi`, we can use it from the Android application:
 
@@ -181,7 +185,7 @@ that the clients don't need to make any changes themselves, as the implementatio
 SDK. To add support for an SDK managed `Repository`, it needs to be added to the initialization code
 for WASM and UniFFI. This example shows how to add support for `Cipher`s.
 
-### WASM
+### How to initialize SDK-Managed State on WASM
 
 Go to `crates/bitwarden-wasm-internal/src/platform/mod.rs` and add a line with your type, as shown:
 
@@ -207,7 +211,7 @@ Go to `crates/bitwarden-wasm-internal/src/platform/mod.rs` and add a line with y
     }
 ```
 
-### UniFFI
+### How to initialize SDK-Managed State on UniFFI
 
 Go to `crates/bitwarden-uniffi/src/platform/mod.rs` and add a line with your type, as shown:
 

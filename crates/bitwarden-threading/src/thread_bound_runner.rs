@@ -84,6 +84,11 @@ pub struct ThreadBoundRunner<ThreadState> {
     call_channel_tx: tokio::sync::mpsc::Sender<CallRequest<ThreadState>>,
 }
 
+/// Makes a clone of the runner handle.
+///
+/// This creates another handle to the same underlying runner object.
+/// The underlying state is not duplicated; all clones refer to the same
+/// instance.
 // This is not implemented using derive to remove the implicit bound on `ThreadState: Clone`
 impl<ThreadState> Clone for ThreadBoundRunner<ThreadState> {
     fn clone(&self) -> Self {
