@@ -4,6 +4,7 @@ use bitwarden_api_api::models::{
     master_password_unlock_response_model::MasterPasswordUnlockResponseModel, KdfType,
 };
 use bitwarden_crypto::{EncString, Kdf, MasterKey, SymmetricCryptoKey};
+use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -15,7 +16,7 @@ use crate::{require, MissingFieldError};
 #[allow(dead_code)]
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum MasterPasswordError {
+pub enum MasterPasswordError {
     /// The wrapped encryption key could not be parsed because the encstring is malformed
     #[error("Wrapped encryption key is malformed")]
     EncryptionKeyMalformed,
@@ -121,7 +122,7 @@ fn kdf_parse_nonzero_u32(value: impl TryInto<u32>) -> Result<NonZeroU32, MasterP
 pub struct MasterPasswordAuthenticationData {
     pub kdf: Kdf,
     pub salt: String,
-    pub master_password_authentication_hash: String,
+    pub master_password_authentication_hash: B64,
 }
 
 impl MasterPasswordAuthenticationData {
@@ -189,7 +190,7 @@ mod tests {
         assert_eq!(data.salt, salt);
         assert!(matches!(data.kdf, Kdf::PBKDF2 { iterations } if iterations.get() == 600_000));
         assert_eq!(
-            data.master_password_authentication_hash,
+            data.master_password_authentication_hash.to_string(),
             TEST_MASTER_PASSWORD_AUTHENTICATION_HASH
         );
     }

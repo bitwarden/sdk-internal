@@ -24,8 +24,9 @@ use crate::{
     client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
     error::StatefulCryptoError,
     key_management::{
-        non_generic_wrappers::PasswordProtectedKeyEnvelope, AsymmetricKeyId, SecurityState,
-        SignedSecurityState, SigningKeyId, SymmetricKeyId,
+        master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
+        non_generic_wrappers::PasswordProtectedKeyEnvelope,
+        AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
     },
     Client, NotAuthenticatedError, OrganizationId, UserId, VaultLockedError, WrongPasswordError,
 };
@@ -857,7 +858,7 @@ mod tests {
         initialize_user_crypto(
             & client,
             InitUserCryptoRequest {
-                user_id: Some(uuid::Uuid::new_v4()),
+                user_id: Some(UserId::new_v4()),
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),
@@ -882,7 +883,7 @@ mod tests {
         initialize_user_crypto(
             &client2,
             InitUserCryptoRequest {
-                user_id: Some(uuid::Uuid::new_v4()),
+                user_id: Some(UserId::new_v4()),
                 kdf_params: new_kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 private_key: priv_key.to_owned(),

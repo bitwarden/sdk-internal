@@ -1,8 +1,8 @@
 use bitwarden_core::key_management::crypto::{
     DeriveKeyConnectorRequest, DerivePinKeyResponse, EnrollPinResponse, InitOrgCryptoRequest,
-    InitUserCryptoRequest, UpdatePasswordResponse,
+    InitUserCryptoRequest, UpdateKdfResponse, UpdatePasswordResponse,
 };
-use bitwarden_crypto::{EncString, UnsignedSharedKey};
+use bitwarden_crypto::{EncString, Kdf, UnsignedSharedKey};
 use bitwarden_encoding::B64;
 
 use crate::error::{Error, Result};

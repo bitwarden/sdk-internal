@@ -234,14 +234,11 @@ mod tests {
             .into();
 
         assert_eq!(
-                    "PR6UjYmjmppTYcdyTiNbAhPJuQQOmynKbdEl1oyi/iQ=",
-                    master_key
-                        .derive_master_key_hash(password.as_bytes(), HashPurpose::ServerAuthorization)
-        <<<<<<< HEAD
-        =======
-                        .to_string(),
-        >>>>>>> main
-                );
+            "PR6UjYmjmppTYcdyTiNbAhPJuQQOmynKbdEl1oyi/iQ=",
+            master_key
+                .derive_master_key_hash(password.as_bytes(), HashPurpose::ServerAuthorization)
+                .to_string(),
+        );
     }
 
     #[test]

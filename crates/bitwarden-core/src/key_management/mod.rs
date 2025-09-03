@@ -31,8 +31,6 @@ mod security_state;
 mod user_decryption;
 #[cfg(feature = "internal")]
 pub use security_state::{SecurityState, SignedSecurityState};
-#[cfg(feature = "internal")]
-pub use user_decryption::*;
 
 use crate::OrganizationId;
 

@@ -16,8 +16,8 @@ use crate::key_management::PasswordProtectedKeyEnvelope;
 use crate::key_management::{
     crypto::{
         derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
-        initialize_org_crypto, initialize_user_crypto, update_password, DerivePinKeyResponse,
-        InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
+        initialize_org_crypto, initialize_user_crypto, DerivePinKeyResponse, InitOrgCryptoRequest,
+        InitUserCryptoRequest, UpdatePasswordResponse,
     },
     SymmetricKeyId,
 };
@@ -25,8 +25,9 @@ use crate::{
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
     key_management::crypto::{
-        enroll_pin, get_v2_rotated_account_keys, make_v2_keys_for_v1_user, CryptoClientError,
-        EnrollPinResponse, UserCryptoV2KeysResponse,
+        enroll_pin, get_v2_rotated_account_keys, make_update_kdf, make_update_password,
+        make_v2_keys_for_v1_user, CryptoClientError, EnrollPinResponse, UpdateKdfResponse,
+        UserCryptoV2KeysResponse,
     },
     Client,
 };
