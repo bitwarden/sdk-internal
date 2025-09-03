@@ -79,8 +79,7 @@ impl From<CipherType> for Vec<Credential> {
         match value {
             CipherType::Login(login) => (*login).into(),
             CipherType::Card(card) => (*card).into(),
-            // TODO(PM-15451): Add support for identities.
-            CipherType::Identity(_) => vec![],
+            CipherType::Identity(identity) => (*identity).into(),
             // Secure Notes only contains a note field which is handled by `TryFrom<Cipher> for
             // Item`.
             CipherType::SecureNote(_) => vec![],
