@@ -19,7 +19,7 @@ keywords.workspace = true
 wasm = [
     "bitwarden-error/wasm",
     "dep:tsify",
-    "dep:wasm-bindgen",
+    "dep:wasm-bindgen"
 ] # WASM support
 uniffi = ["dep:uniffi"] # Uniffi bindings
 
