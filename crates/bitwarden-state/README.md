@@ -187,7 +187,9 @@ for WASM and UniFFI. This example shows how to add support for `Cipher`s.
 
 ### How to initialize SDK-Managed State on WASM
 
-Go to `crates/bitwarden-wasm-internal/src/platform/mod.rs` and add a line with your type, as shown:
+Go to `crates/bitwarden-wasm-internal/src/platform/mod.rs` and add a line with your type, as shown
+below. In this example we're registering `Cipher` as both client and SDK managed to show how both
+are done, but you can also just do one or the other.
 
 ```rust,ignore
     pub async fn initialize_state(
@@ -195,6 +197,7 @@ Go to `crates/bitwarden-wasm-internal/src/platform/mod.rs` and add a line with y
         cipher_repository: CipherRepository,
     ) -> Result<(), bitwarden_state::registry::StateRegistryError> {
         let cipher = cipher_repository.into_channel_impl();
+        // Register the provided repository as client managed state
         self.0.platform().state().register_client_managed(cipher);
 
         let sdk_managed_repositories = vec![
@@ -213,7 +216,9 @@ Go to `crates/bitwarden-wasm-internal/src/platform/mod.rs` and add a line with y
 
 ### How to initialize SDK-Managed State on UniFFI
 
-Go to `crates/bitwarden-uniffi/src/platform/mod.rs` and add a line with your type, as shown:
+Go to `crates/bitwarden-uniffi/src/platform/mod.rs` and add a line with your type, as shown below.
+In this example we're registering `Cipher` as both client and SDK managed to show how both are done,
+but you can also just do one or the other.
 
 ```rust,ignore
     pub async fn initialize_state(
@@ -221,6 +226,7 @@ Go to `crates/bitwarden-uniffi/src/platform/mod.rs` and add a line with your typ
         cipher_repository: Arc<dyn CipherRepository>,
     ) -> Result<()> {
         let cipher = UniffiRepositoryBridge::new(cipher_repository);
+        // Register the provided repository as client managed state
         self.0.platform().state().register_client_managed(cipher);
 
         let sdk_managed_repositories = vec![
