@@ -47,6 +47,8 @@ mod workarounds {
     #[derive(uniffi::Object)]
     pub struct WorkaroundsCoreDoNotUse {}
 
+    /// Workaround for invalid code generation when an error type is not used directly by the crate.
+    /// See the comment in `bitwarden-uniffi/src/lib.rs` for more details.
     #[uniffi::export]
     impl WorkaroundsCoreDoNotUse {
         pub fn crypto(&self) -> Result<(), CryptoError> {
