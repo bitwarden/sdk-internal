@@ -3,7 +3,7 @@
 uniffi::setup_scaffolding!();
 
 use auth::AuthClient;
-use bitwarden_core::ClientSettings;
+use bitwarden_core::{auth::AuthValidateError, ClientSettings, WrongPasswordError};
 
 #[allow(missing_docs)]
 pub mod auth;
@@ -103,7 +103,7 @@ impl Client {
             .await
             .map_err(|e| Error::Api(e.into()))?;
 
-        Ok(res.text().await.map_err(|e| Error::Api(e.into()))?)
+        res.text().await.map_err(|e| Error::Api(e.into()))
     }
 }
 
@@ -129,6 +129,165 @@ fn init_logger() {
 /// Check [`bitwarden_uniffi_error`] for more details
 fn setup_error_converter() {
     bitwarden_uniffi_error::set_error_to_uniffi_error(|e| {
-        crate::error::BitwardenError::ConversionError(e).into()
+        crate::error::BitwardenError::ConversionError(e.to_string()).into()
     });
+}
+
+mod workarounds {
+    use bitwarden_core::{
+        auth::{auth_client::*, *},
+        client::encryption_settings::*,
+        key_management::crypto::*,
+        platform::*,
+        ApiError,
+    };
+    use bitwarden_crypto::*;
+    use bitwarden_exporters::*;
+    use bitwarden_fido::*;
+    use bitwarden_generators::*;
+    use bitwarden_send::*;
+    use bitwarden_ssh::error::*;
+    use bitwarden_vault::*;
+
+    #[derive(uniffi::Object)]
+    pub struct WorkaroundsDoNotUse {}
+
+    #[uniffi::export]
+    impl WorkaroundsDoNotUse {
+        pub fn api(&self) -> Result<(), ApiError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn approve_auth_request(&self) -> Result<(), ApproveAuthRequestError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn auth_validate(&self) -> Result<(), AuthValidateError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn cipher(&self) -> Result<(), CipherError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn credentials_for_autofill(&self) -> Result<(), CredentialsForAutofillError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn crypto_client(&self) -> Result<(), CryptoClientError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn crypto(&self) -> Result<(), CryptoError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn decrypt(&self) -> Result<(), DecryptError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn decrypt_fido2_autofill_credentials(
+            &self,
+        ) -> Result<(), DecryptFido2AutofillCredentialsError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn decrypt_file(&self) -> Result<(), DecryptFileError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn derive_key_connector(&self) -> Result<(), DeriveKeyConnectorError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn encrypt(&self) -> Result<(), EncryptError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn encrypt_file(&self) -> Result<(), EncryptFileError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn encryption_settings(&self) -> Result<(), EncryptionSettingsError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn enroll_admin_password_reset(&self) -> Result<(), EnrollAdminPasswordResetError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn export(&self) -> Result<(), ExportError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn fido2_client(&self) -> Result<(), Fido2ClientError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn fingerprint(&self) -> Result<(), FingerprintError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn get_assertion(&self) -> Result<(), GetAssertionError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn key_generation(&self) -> Result<(), KeyGenerationError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn make_credential(&self) -> Result<(), MakeCredentialError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn passphrase(&self) -> Result<(), PassphraseError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn password(&self) -> Result<(), PasswordError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn send_decrypt(&self) -> Result<(), SendDecryptError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn send_decrypt_file(&self) -> Result<(), SendDecryptFileError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn send_encrypt(&self) -> Result<(), SendEncryptError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn send_encrypt_file(&self) -> Result<(), SendEncryptFileError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn silently_discover_credentials(
+            &self,
+        ) -> Result<(), SilentlyDiscoverCredentialsError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn ssh_key_import(&self) -> Result<(), SshKeyImportError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn totp(&self) -> Result<(), TotpError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn trust_device(&self) -> Result<(), TrustDeviceError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn user_fingerprint(&self) -> Result<(), UserFingerprintError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+
+        pub fn username(&self) -> Result<(), UsernameError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+    }
 }

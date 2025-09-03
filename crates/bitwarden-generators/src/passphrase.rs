@@ -10,7 +10,7 @@ use tsify::Tsify;
 use crate::util::capitalize_first_letter;
 
 #[allow(missing_docs)]
-#[bitwarden_error(flat)]
+#[bitwarden_error(full)]
 #[derive(Debug, Error)]
 pub enum PassphraseError {
     #[error("'num_words' must be between {} and {}", minimum, maximum)]

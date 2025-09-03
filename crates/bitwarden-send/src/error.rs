@@ -8,5 +8,5 @@ pub enum SendParseError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
-    MissingFieldError(#[from] bitwarden_core::MissingFieldError),
+    MissingField(#[from] bitwarden_core::MissingFieldError),
 }

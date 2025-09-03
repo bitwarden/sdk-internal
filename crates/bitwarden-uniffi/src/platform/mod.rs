@@ -5,7 +5,7 @@ use bitwarden_fido::ClientFido2Ext;
 use bitwarden_vault::Cipher;
 use repository::UniffiRepositoryBridge;
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 mod fido2;
 mod repository;
@@ -17,20 +17,12 @@ pub struct PlatformClient(pub(crate) bitwarden_core::Client);
 impl PlatformClient {
     /// Fingerprint (public key)
     pub fn fingerprint(&self, req: FingerprintRequest) -> Result<String> {
-        Ok(self
-            .0
-            .platform()
-            .fingerprint(&req)
-            .map_err(Error::Fingerprint)?)
+        Ok(self.0.platform().fingerprint(&req)?)
     }
 
     /// Fingerprint using logged in user's public key
     pub fn user_fingerprint(&self, fingerprint_material: String) -> Result<String> {
-        Ok(self
-            .0
-            .platform()
-            .user_fingerprint(fingerprint_material)
-            .map_err(Error::UserFingerprint)?)
+        Ok(self.0.platform().user_fingerprint(fingerprint_material)?)
     }
 
     /// Load feature flags into the client

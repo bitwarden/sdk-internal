@@ -1,7 +1,7 @@
 use bitwarden_vault::{CipherListView, TotpResponse};
 use chrono::{DateTime, Utc};
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 #[allow(missing_docs)]
 pub mod attachments;
@@ -52,11 +52,7 @@ impl VaultClient {
     /// - OTP Auth URI
     /// - Steam URI
     pub fn generate_totp(&self, key: String, time: Option<DateTime<Utc>>) -> Result<TotpResponse> {
-        Ok(self
-            .0
-            .totp()
-            .generate_totp(key, time)
-            .map_err(Error::Totp)?)
+        Ok(self.0.totp().generate_totp(key, time)?)
     }
 
     /// Generate a TOTP code from a provided cipher list view.
@@ -65,10 +61,6 @@ impl VaultClient {
         view: CipherListView,
         time: Option<DateTime<Utc>>,
     ) -> Result<TotpResponse> {
-        Ok(self
-            .0
-            .totp()
-            .generate_totp_cipher_view(view, time)
-            .map_err(Error::Totp)?)
+        Ok(self.0.totp().generate_totp_cipher_view(view, time)?)
     }
 }

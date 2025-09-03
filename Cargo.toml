@@ -75,7 +75,7 @@ tokio = { version = "1.36.0", features = ["macros"] }
 tsify = { version = ">=0.5.5, <0.6", features = [
     "js",
 ], default-features = false }
-uniffi = "=0.29.1"
+uniffi = "=0.29.4"
 uuid = { version = ">=1.3.3, <2.0", features = ["serde", "v4", "js"] }
 validator = { version = ">=0.18.1, <0.21", features = ["derive"] }
 wasm-bindgen = { version = ">=0.2.91, <0.3", features = ["serde-serialize"] }
@@ -88,6 +88,13 @@ wiremock = ">=0.6.0, <0.7"
 # https://github.com/RustCrypto/formats/pull/1625
 [patch.crates-io]
 pkcs5 = { git = "https://github.com/bitwarden/rustcrypto-formats.git", rev = "2b27c63034217dd126bbf5ed874da51b84f8c705" }
+
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "c3a2127332d18ba9dbde1e23778b3af8f355cbac" }
+uniffi_core = { git = "https://github.com/mozilla/uniffi-rs", rev = "c3a2127332d18ba9dbde1e23778b3af8f355cbac" }
+uniffi_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "c3a2127332d18ba9dbde1e23778b3af8f355cbac" }
+uniffi_internal_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "c3a2127332d18ba9dbde1e23778b3af8f355cbac" }
+uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs", rev = "c3a2127332d18ba9dbde1e23778b3af8f355cbac" }
+uniffi_build = { git = "https://github.com/mozilla/uniffi-rs", rev = "c3a2127332d18ba9dbde1e23778b3af8f355cbac" }
 
 [workspace.lints.clippy]
 unused_async = "deny"

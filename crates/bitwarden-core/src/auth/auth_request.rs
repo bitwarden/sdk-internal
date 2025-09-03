@@ -75,6 +75,7 @@ pub(crate) fn auth_request_decrypt_master_key(
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum ApproveAuthRequestError {
     #[error(transparent)]
     Crypto(#[from] CryptoError),

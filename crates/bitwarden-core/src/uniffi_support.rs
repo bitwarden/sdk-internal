@@ -40,3 +40,17 @@ uniffi::custom_type!(PasswordProtectedKeyEnvelope, String, {
         .map(PasswordProtectedKeyEnvelope)),
     lower: |obj| obj.0.into(),
 });
+
+mod workarounds {
+    use bitwarden_crypto::*;
+
+    #[derive(uniffi::Object)]
+    pub struct WorkaroundsCoreDoNotUse {}
+
+    #[uniffi::export]
+    impl WorkaroundsCoreDoNotUse {
+        pub fn crypto(&self) -> Result<(), CryptoError> {
+            panic!("Do not use this function, it is only here to work around a uniffi limitation");
+        }
+    }
+}

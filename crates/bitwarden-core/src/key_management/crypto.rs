@@ -668,7 +668,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
     // V1 user must have a private key to upgrade. This should be ensured by the client before
     // calling the upgrade function.
     if !ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey) {
-        return Err(StatefulCryptoError::CryptoError(CryptoError::MissingKeyId(
+        return Err(StatefulCryptoError::Crypto(CryptoError::MissingKeyId(
             "UserPrivateKey".to_string(),
         )));
     }
