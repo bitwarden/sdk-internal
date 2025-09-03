@@ -1,9 +1,10 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     Account as CxfAccount, AddressCredential, ApiKeyCredential, BasicAuthCredential, Credential,
-    CreditCardCredential, CustomFieldsCredential, DriversLicenseCredential,
-    IdentityDocumentCredential, Item, NoteCredential, PasskeyCredential, PassportCredential,
-    PersonNameCredential, SshKeyCredential, TotpCredential, WifiCredential,
+    CreditCardCredential, CustomFieldsCredential, DriversLicenseCredential, EditableField,
+    EditableFieldString, EditableFieldValue, IdentityDocumentCredential, Item, NoteCredential,
+    PasskeyCredential, PassportCredential, PersonNameCredential, SshKeyCredential, TotpCredential,
+    WifiCredential,
 };
 
 use crate::{
@@ -49,7 +50,27 @@ fn custom_fields_to_fields(custom_fields: &CustomFieldsCredential) -> Vec<Field>
     custom_fields
         .fields
         .iter()
-        .map(|f| create_field(f, None::<String>))
+        .map(|field_value| match field_value {
+            EditableFieldValue::String(field) => create_field(field, None::<String>),
+            EditableFieldValue::ConcealedString(field) => create_field(field, None::<String>),
+            EditableFieldValue::Boolean(field) => create_field(field, None::<String>),
+            EditableFieldValue::Date(field) => create_field(field, None::<String>),
+            EditableFieldValue::YearMonth(field) => create_field(field, None::<String>),
+            EditableFieldValue::SubdivisionCode(field) => create_field(field, None::<String>),
+            EditableFieldValue::CountryCode(field) => create_field(field, None::<String>),
+            EditableFieldValue::WifiNetworkSecurityType(field) => {
+                create_field(field, None::<String>)
+            }
+            _ => create_field(
+                &EditableField {
+                    id: None,
+                    label: Some("Unknown Field".to_string()),
+                    value: EditableFieldString("".to_string()),
+                    extensions: None,
+                },
+                None::<String>,
+            ),
+        })
         .collect()
 }
 

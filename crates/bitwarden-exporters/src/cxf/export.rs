@@ -1,12 +1,16 @@
 use bitwarden_vault::{Totp, TotpAlgorithm};
 use credential_exchange_format::{
-    Account as CxfAccount, Credential, Item, NoteCredential, OTPHashAlgorithm, TotpCredential,
+    Account as CxfAccount, Credential, CustomFieldsCredential, EditableFieldValue, Item,
+    NoteCredential, OTPHashAlgorithm, TotpCredential,
 };
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
-use crate::{cxf::CxfError, Cipher, CipherType, Login};
+use crate::{
+    cxf::{editable_field::field_to_editable_field_value, CxfError},
+    Cipher, CipherType, Login,
+};
 
 /// Temporary struct to hold metadata related to current account
 ///
@@ -54,6 +58,24 @@ impl TryFrom<Cipher> for Item {
             credentials.push(Credential::Note(Box::new(NoteCredential {
                 content: note.into(),
             })));
+        }
+
+        // Convert Bitwarden custom fields to CustomFieldsCredential
+        if !value.fields.is_empty() {
+            let custom_fields: Vec<EditableFieldValue> = value
+                .fields
+                .into_iter()
+                .filter_map(field_to_editable_field_value)
+                .collect();
+
+            if !custom_fields.is_empty() {
+                credentials.push(Credential::CustomFields(Box::new(CustomFieldsCredential {
+                    id: None,
+                    label: None,
+                    fields: custom_fields,
+                    extensions: vec![],
+                })));
+            }
         }
 
         Ok(Self {
@@ -247,7 +269,7 @@ mod tests {
         );
         assert!(item.extensions.is_none());
 
-        assert_eq!(item.credentials.len(), 4);
+        assert_eq!(item.credentials.len(), 5);
 
         let credential = &item.credentials[0];
 
@@ -299,7 +321,61 @@ mod tests {
             Credential::Note(n) => {
                 assert_eq!(n.content.value.0, "My note");
             }
-            _ => panic!("Expected Credential::Passkey"),
+            _ => panic!("Expected Credential::Note"),
+        }
+
+        let credential = &item.credentials[4];
+
+        match credential {
+            Credential::CustomFields(custom_fields) => {
+                assert_eq!(custom_fields.fields.len(), 5); // Text, Hidden, Boolean true, Boolean false, Linked
+
+                // Check Text field
+                match &custom_fields.fields[0] {
+                    EditableFieldValue::String(field) => {
+                        assert_eq!(field.label.as_ref().unwrap(), "Text");
+                        assert_eq!(field.value.0, "A");
+                    }
+                    _ => panic!("Expected String field"),
+                }
+
+                // Check Hidden field
+                match &custom_fields.fields[1] {
+                    EditableFieldValue::ConcealedString(field) => {
+                        assert_eq!(field.label.as_ref().unwrap(), "Hidden");
+                        assert_eq!(field.value.0, "B");
+                    }
+                    _ => panic!("Expected ConcealedString field"),
+                }
+
+                // Check Boolean true field
+                match &custom_fields.fields[2] {
+                    EditableFieldValue::Boolean(field) => {
+                        assert_eq!(field.label.as_ref().unwrap(), "Boolean (true)");
+                        assert!(field.value.0);
+                    }
+                    _ => panic!("Expected Boolean field"),
+                }
+
+                // Check Boolean false field
+                match &custom_fields.fields[3] {
+                    EditableFieldValue::Boolean(field) => {
+                        assert_eq!(field.label.as_ref().unwrap(), "Boolean (false)");
+                        assert!(!field.value.0);
+                    }
+                    _ => panic!("Expected Boolean field"),
+                }
+
+                // Check Linked field
+                match &custom_fields.fields[4] {
+                    EditableFieldValue::String(field) => {
+                        assert_eq!(field.label.as_ref().unwrap(), "Linked");
+                        assert_eq!(field.value.0, "101"); // linked_id as string
+                    }
+                    _ => panic!("Expected String field for Linked"),
+                }
+            }
+            _ => panic!("Expected Credential::CustomFields"),
         }
     }
 }
