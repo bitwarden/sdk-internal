@@ -1,6 +1,7 @@
 use credential_exchange_format::{
     AddressCredential, Credential, CustomFieldsCredential, DriversLicenseCredential, EditableField,
-    EditableFieldString, IdentityDocumentCredential, PassportCredential, PersonNameCredential,
+    EditableFieldString, EditableFieldValue, IdentityDocumentCredential, PassportCredential,
+    PersonNameCredential,
 };
 
 use crate::{cxf::editable_field::create_field, Field, Identity};
@@ -421,18 +422,22 @@ impl From<Identity> for Vec<Credential> {
         }
 
         // Handle unmapped Identity fields as custom fields
-        let custom_fields: Vec<EditableField<EditableFieldString>> = [
-            identity.email.as_ref().map(|email| EditableField {
-                id: None,
-                label: Some("Email".to_string()),
-                value: EditableFieldString(email.clone()),
-                extensions: None,
+        let custom_fields: Vec<EditableFieldValue> = [
+            identity.email.as_ref().map(|email| {
+                EditableFieldValue::String(EditableField {
+                    id: None,
+                    label: Some("Email".to_string()),
+                    value: EditableFieldString(email.clone()),
+                    extensions: None,
+                })
             }),
-            identity.username.as_ref().map(|username| EditableField {
-                id: None,
-                label: Some("Username".to_string()),
-                value: EditableFieldString(username.clone()),
-                extensions: None,
+            identity.username.as_ref().map(|username| {
+                EditableFieldValue::String(EditableField {
+                    id: None,
+                    label: Some("Username".to_string()),
+                    value: EditableFieldString(username.clone()),
+                    extensions: None,
+                })
             }),
         ]
         .into_iter()
@@ -752,13 +757,21 @@ mod tests {
 
             // Check email field
             let email_field = &custom_fields.fields[0];
-            assert_eq!(email_field.label.as_ref().unwrap(), "Email");
-            assert_eq!(email_field.value.0, "john@example.com");
+            if let EditableFieldValue::String(email_field) = email_field {
+                assert_eq!(email_field.label.as_ref().unwrap(), "Email");
+                assert_eq!(email_field.value.0, "john@example.com");
+            } else {
+                panic!("Expected email field to be of type String");
+            }
 
             // Check username field
             let username_field = &custom_fields.fields[1];
-            assert_eq!(username_field.label.as_ref().unwrap(), "Username");
-            assert_eq!(username_field.value.0, "johndoe");
+            if let EditableFieldValue::String(username_field) = username_field {
+                assert_eq!(username_field.label.as_ref().unwrap(), "Username");
+                assert_eq!(username_field.value.0, "johndoe");
+            } else {
+                panic!("Expected username field to be of type String");
+            }
         } else {
             panic!("Expected CustomFields credential");
         }
