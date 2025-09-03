@@ -155,7 +155,7 @@ mod workarounds {
     /// UniFFI is not generating the correct code when an Error type is only used as part of another
     /// Error, instead of directly by the crate. This is an open issue in UniFFI, and the current
     /// workaround is to have a dummy function that uses each error type directly as an error. Open
-    /// issue: https://github.com/mozilla/uniffi-rs/issues/2636
+    /// issue: <https://github.com/mozilla/uniffi-rs/issues/2636>
     ///
     /// This also needs to be done in crates that also use error types from different crates. In
     /// those cases, a workaround like this needs to be added to their uniffi_support.rs file as
