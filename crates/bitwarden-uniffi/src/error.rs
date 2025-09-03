@@ -1,5 +1,3 @@
-use std::fmt::{Display, Formatter};
-
 use bitwarden_exporters::ExportError;
 use bitwarden_generators::{PassphraseError, PasswordError, UsernameError};
 
@@ -93,11 +91,6 @@ pub enum BitwardenError {
     #[error(transparent)]
     SshImport(#[from] bitwarden_ssh::error::SshKeyImportError),
 
+    #[error("A conversion error occurred: {0}")]
     ConversionError(String),
-}
-
-impl Display for BitwardenError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
 }

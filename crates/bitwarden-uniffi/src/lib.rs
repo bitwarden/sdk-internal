@@ -3,7 +3,7 @@
 uniffi::setup_scaffolding!();
 
 use auth::AuthClient;
-use bitwarden_core::{auth::AuthValidateError, ClientSettings, WrongPasswordError};
+use bitwarden_core::ClientSettings;
 
 #[allow(missing_docs)]
 pub mod auth;
