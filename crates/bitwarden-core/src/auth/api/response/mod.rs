@@ -6,6 +6,7 @@ mod identity_token_response;
 mod identity_two_factor_response;
 pub(crate) mod two_factor_provider_data;
 mod two_factor_providers;
+pub(crate) mod user_decryption_options_response;
 
 pub(crate) use identity_payload_response::*;
 pub(crate) use identity_refresh_response::*;
