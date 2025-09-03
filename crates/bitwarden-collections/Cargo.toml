@@ -14,7 +14,7 @@ keywords.workspace = true
 uniffi = [
     "bitwarden-core/uniffi",
     "bitwarden-crypto/uniffi",
-    "dep:uniffi"
+    "dep:uniffi",
 ] # Uniffi bindings
 wasm = ["bitwarden-core/wasm", "dep:tsify", "dep:wasm-bindgen"] # WASM support
 
