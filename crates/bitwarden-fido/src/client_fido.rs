@@ -19,7 +19,7 @@ pub enum DecryptFido2AutofillCredentialsError {
     #[error(transparent)]
     VaultLocked(#[from] bitwarden_core::VaultLockedError),
     #[error(transparent)]
-    Fido2CredentialAutofillViewError(#[from] Fido2CredentialAutofillViewError),
+    Fido2CredentialAutofillView(#[from] Fido2CredentialAutofillViewError),
 }
 
 impl ClientFido2 {

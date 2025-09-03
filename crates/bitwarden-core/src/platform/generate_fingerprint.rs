@@ -35,7 +35,7 @@ pub struct FingerprintResponse {
 #[derive(Debug, Error)]
 pub enum FingerprintError {
     #[error(transparent)]
-    CryptoError(#[from] bitwarden_crypto::CryptoError),
+    Crypto(#[from] bitwarden_crypto::CryptoError),
 }
 
 pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String, FingerprintError> {

@@ -94,7 +94,7 @@ pub enum StatefulCryptoError {
         got: u32,
     },
     #[error("Crypto error, {0}")]
-    CryptoError(#[from] bitwarden_crypto::CryptoError),
+    Crypto(#[from] bitwarden_crypto::CryptoError),
 }
 
 /// This macro is used to require that a value is present or return an error otherwise.

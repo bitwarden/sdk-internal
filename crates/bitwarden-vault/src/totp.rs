@@ -40,7 +40,7 @@ pub enum TotpError {
     MissingSecret,
 
     #[error(transparent)]
-    CryptoError(#[from] CryptoError),
+    Crypto(#[from] CryptoError),
     #[error(transparent)]
     VaultLocked(#[from] VaultLockedError),
 }

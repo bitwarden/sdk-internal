@@ -6,18 +6,18 @@ use validator::ValidationErrors;
 #[derive(Debug, thiserror::Error)]
 pub enum SecretsManagerError {
     #[error(transparent)]
-    ValidationError(ValidationError),
+    Validation(ValidationError),
     #[error(transparent)]
     VaultLocked(#[from] bitwarden_core::VaultLockedError),
     #[error(transparent)]
-    CryptoError(#[from] bitwarden_crypto::CryptoError),
+    Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
     Chrono(#[from] chrono::ParseError),
 
     #[error(transparent)]
-    ApiError(#[from] bitwarden_core::ApiError),
+    Api(#[from] bitwarden_core::ApiError),
     #[error(transparent)]
-    MissingFieldError(#[from] bitwarden_core::MissingFieldError),
+    MissingField(#[from] bitwarden_core::MissingFieldError),
 }
 
 // Validation
@@ -80,12 +80,12 @@ impl From<ValidationErrors> for ValidationError {
 
 impl From<ValidationErrors> for SecretsManagerError {
     fn from(e: ValidationErrors) -> Self {
-        SecretsManagerError::ValidationError(e.into())
+        SecretsManagerError::Validation(e.into())
     }
 }
 
 impl<T> From<ApiApisError<T>> for SecretsManagerError {
     fn from(e: bitwarden_api_api::apis::Error<T>) -> Self {
-        SecretsManagerError::ApiError(e.into())
+        SecretsManagerError::Api(e.into())
     }
 }
