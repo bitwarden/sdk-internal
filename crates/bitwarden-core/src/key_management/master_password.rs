@@ -12,9 +12,10 @@ use wasm_bindgen::prelude::*;
 use crate::{require, MissingFieldError};
 
 /// Error for master password related operations.
+#[allow(dead_code)]
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
-pub enum MasterPasswordError {
+pub(crate) enum MasterPasswordError {
     /// The wrapped encryption key could not be parsed because the encstring is malformed
     #[error("Wrapped encryption key is malformed")]
     EncryptionKeyMalformed,

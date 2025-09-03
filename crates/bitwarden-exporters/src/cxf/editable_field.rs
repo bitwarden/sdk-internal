@@ -1,22 +1,146 @@
 use bitwarden_vault::FieldType;
 use credential_exchange_format::{
     EditableField, EditableFieldBoolean, EditableFieldConcealedString, EditableFieldCountryCode,
-    EditableFieldDate, EditableFieldString, EditableFieldWifiNetworkSecurityType,
-    EditableFieldYearMonth,
+    EditableFieldDate, EditableFieldString, EditableFieldSubdivisionCode, EditableFieldValue,
+    EditableFieldWifiNetworkSecurityType, EditableFieldYearMonth,
 };
 
 use crate::Field;
 
 /// Helper function to create a Field from any EditableField type
-pub(super) fn create_field<T>(name: impl Into<String>, field: &T) -> Field
+pub(super) fn create_field<T>(field: &T, overridden_name: Option<impl Into<String>>) -> Field
 where
     T: EditableFieldToField,
 {
+    let field_name = overridden_name
+        .map(Into::into)
+        .or_else(|| field.label().clone());
+
     Field {
-        name: Some(name.into()),
+        name: field_name,
         value: Some(field.field_value()),
         r#type: T::FIELD_TYPE as u8,
         linked_id: None,
+    }
+}
+
+/// Helper function to create an EditableField with common properties
+fn create_editable_field<T>(name: String, value: T) -> EditableField<T> {
+    EditableField {
+        id: None,
+        label: Some(name),
+        value,
+        extensions: None,
+    }
+}
+
+/// Convert Bitwarden Field to CXF EditableFieldValue with proper type mapping
+pub(super) fn field_to_editable_field_value(field: Field) -> Option<EditableFieldValue> {
+    let name = field.name?;
+
+    match field.r#type {
+        x if x == FieldType::Text as u8 => field.value.map(|value| {
+            EditableFieldValue::String(create_editable_field(name, EditableFieldString(value)))
+        }),
+
+        x if x == FieldType::Hidden as u8 => field.value.map(|value| {
+            EditableFieldValue::ConcealedString(create_editable_field(
+                name,
+                EditableFieldConcealedString(value),
+            ))
+        }),
+
+        x if x == FieldType::Boolean as u8 => field.value?.parse::<bool>().ok().map(|bool_value| {
+            EditableFieldValue::Boolean(create_editable_field(
+                name,
+                EditableFieldBoolean(bool_value),
+            ))
+        }),
+
+        x if x == FieldType::Linked as u8 => {
+            let value = field
+                .value
+                .or_else(|| field.linked_id.map(|id| id.to_string()))?;
+            Some(EditableFieldValue::String(create_editable_field(
+                name,
+                EditableFieldString(value),
+            )))
+        }
+
+        _ => field.value.map(|value| {
+            EditableFieldValue::String(create_editable_field(name, EditableFieldString(value)))
+        }),
+    }
+}
+
+/// Trait to define field type and value conversion for inner field types
+pub(super) trait InnerFieldType {
+    const FIELD_TYPE: FieldType;
+
+    fn to_field_value(&self) -> String;
+}
+
+impl InnerFieldType for EditableFieldString {
+    const FIELD_TYPE: FieldType = FieldType::Text;
+
+    fn to_field_value(&self) -> String {
+        self.0.clone()
+    }
+}
+
+impl InnerFieldType for EditableFieldConcealedString {
+    const FIELD_TYPE: FieldType = FieldType::Hidden;
+
+    fn to_field_value(&self) -> String {
+        self.0.clone()
+    }
+}
+
+impl InnerFieldType for EditableFieldBoolean {
+    const FIELD_TYPE: FieldType = FieldType::Boolean;
+
+    fn to_field_value(&self) -> String {
+        self.0.to_string()
+    }
+}
+
+impl InnerFieldType for EditableFieldWifiNetworkSecurityType {
+    const FIELD_TYPE: FieldType = FieldType::Text;
+
+    fn to_field_value(&self) -> String {
+        security_type_to_string(self).to_string()
+    }
+}
+
+impl InnerFieldType for EditableFieldCountryCode {
+    const FIELD_TYPE: FieldType = FieldType::Text;
+
+    fn to_field_value(&self) -> String {
+        self.0.clone()
+    }
+}
+
+impl InnerFieldType for EditableFieldDate {
+    const FIELD_TYPE: FieldType = FieldType::Text;
+
+    fn to_field_value(&self) -> String {
+        self.0.to_string()
+    }
+}
+
+impl InnerFieldType for EditableFieldYearMonth {
+    const FIELD_TYPE: FieldType = FieldType::Text;
+
+    fn to_field_value(&self) -> String {
+        format!("{:04}-{:02}", self.year, self.month.number_from_month())
+    }
+}
+
+impl InnerFieldType for EditableFieldSubdivisionCode {
+    const FIELD_TYPE: FieldType = FieldType::Text;
+
+    fn to_field_value(&self) -> String {
+        self.0.clone()
     }
 }
 
@@ -25,65 +149,21 @@ pub(super) trait EditableFieldToField {
     const FIELD_TYPE: FieldType;
 
     fn field_value(&self) -> String;
+    fn label(&self) -> &Option<String>;
 }
 
-impl EditableFieldToField for EditableField<EditableFieldString> {
-    const FIELD_TYPE: FieldType = FieldType::Text;
+impl<T> EditableFieldToField for EditableField<T>
+where
+    T: InnerFieldType,
+{
+    const FIELD_TYPE: FieldType = T::FIELD_TYPE;
 
     fn field_value(&self) -> String {
-        self.value.0.clone()
+        self.value.to_field_value()
     }
-}
 
-impl EditableFieldToField for EditableField<EditableFieldConcealedString> {
-    const FIELD_TYPE: FieldType = FieldType::Hidden;
-
-    fn field_value(&self) -> String {
-        self.value.0.clone()
-    }
-}
-
-impl EditableFieldToField for EditableField<EditableFieldBoolean> {
-    const FIELD_TYPE: FieldType = FieldType::Boolean;
-
-    fn field_value(&self) -> String {
-        self.value.0.to_string()
-    }
-}
-
-impl EditableFieldToField for EditableField<EditableFieldWifiNetworkSecurityType> {
-    const FIELD_TYPE: FieldType = FieldType::Text;
-
-    fn field_value(&self) -> String {
-        security_type_to_string(&self.value).to_string()
-    }
-}
-
-impl EditableFieldToField for EditableField<EditableFieldCountryCode> {
-    const FIELD_TYPE: FieldType = FieldType::Text;
-
-    fn field_value(&self) -> String {
-        self.value.0.clone()
-    }
-}
-
-impl EditableFieldToField for EditableField<EditableFieldDate> {
-    const FIELD_TYPE: FieldType = FieldType::Text;
-
-    fn field_value(&self) -> String {
-        self.value.0.to_string()
-    }
-}
-
-impl EditableFieldToField for EditableField<EditableFieldYearMonth> {
-    const FIELD_TYPE: FieldType = FieldType::Text;
-
-    fn field_value(&self) -> String {
-        format!(
-            "{:04}-{:02}",
-            self.value.year,
-            self.value.month.number_from_month()
-        )
+    fn label(&self) -> &Option<String> {
+        &self.label
     }
 }
 
@@ -114,7 +194,7 @@ mod tests {
             extensions: None,
         };
 
-        let field = create_field("Test Name", &editable_field);
+        let field = create_field(&editable_field, Some("Test Name"));
 
         assert_eq!(
             field,
@@ -136,7 +216,7 @@ mod tests {
             extensions: None,
         };
 
-        let field = create_field("Password", &editable_field);
+        let field = create_field(&editable_field, Some("Password"));
 
         assert_eq!(
             field,
@@ -158,7 +238,7 @@ mod tests {
             extensions: None,
         };
 
-        let field = create_field("Is Enabled", &editable_field);
+        let field = create_field(&editable_field, Some("Is Enabled"));
 
         assert_eq!(
             field,
@@ -180,7 +260,7 @@ mod tests {
             extensions: None,
         };
 
-        let field = create_field("Is Hidden", &editable_field);
+        let field = create_field(&editable_field, Some("Is Hidden"));
 
         assert_eq!(
             field,
@@ -202,7 +282,7 @@ mod tests {
             extensions: None,
         };
 
-        let field = create_field("WiFi Security", &editable_field);
+        let field = create_field(&editable_field, Some("WiFi Security"));
 
         assert_eq!(
             field,
@@ -258,7 +338,7 @@ mod tests {
             extensions: None,
         };
 
-        let field = create_field("Expiry Date".to_string(), &editable_field);
+        let field = create_field(&editable_field, Some("Expiry Date".to_string()));
 
         assert_eq!(
             field,
@@ -285,13 +365,57 @@ mod tests {
             extensions: None,
         };
 
-        let field = create_field("Card Expiry", &editable_field);
+        let field = create_field(&editable_field, Some("Card Expiry"));
 
         assert_eq!(
             field,
             Field {
                 name: Some("Card Expiry".to_string()),
                 value: Some("2025-12".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_create_field_with_none_name_uses_label() {
+        let editable_field = EditableField {
+            id: None,
+            label: Some("Label From Field".to_string()),
+            value: EditableFieldString("Test Value".to_string()),
+            extensions: None,
+        };
+
+        let field = create_field(&editable_field, None::<String>);
+
+        assert_eq!(
+            field,
+            Field {
+                name: Some("Label From Field".to_string()),
+                value: Some("Test Value".to_string()),
+                r#type: FieldType::Text as u8,
+                linked_id: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_create_field_with_none_name_and_none_label() {
+        let editable_field = EditableField {
+            id: None,
+            label: None,
+            value: EditableFieldString("Test Value".to_string()),
+            extensions: None,
+        };
+
+        let field = create_field(&editable_field, None::<String>);
+
+        assert_eq!(
+            field,
+            Field {
+                name: None,
+                value: Some("Test Value".to_string()),
                 r#type: FieldType::Text as u8,
                 linked_id: None,
             }

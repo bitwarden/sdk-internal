@@ -1,11 +1,12 @@
 use bitwarden_crypto::{CryptoError, HashPurpose, Kdf, MasterKey};
+use bitwarden_encoding::B64;
 
 pub(super) async fn hash_password(
     email: String,
     password: String,
     kdf_params: Kdf,
     purpose: HashPurpose,
-) -> Result<String, CryptoError> {
+) -> Result<B64, CryptoError> {
     let master_key = MasterKey::derive(&password, &email, &kdf_params)?;
 
     Ok(master_key.derive_master_key_hash(password.as_bytes(), purpose))

@@ -352,7 +352,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_qs",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tsify",
  "uniffi",
  "wasm-bindgen",
@@ -377,9 +377,10 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-uuid",
  "serde",
  "serde_repr",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tsify",
  "uniffi",
  "uuid",
@@ -391,12 +392,13 @@ name = "bitwarden-core"
 version = "1.0.0"
 dependencies = [
  "async-trait",
- "base64",
  "bitwarden-api-api",
  "bitwarden-api-identity",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-state",
+ "bitwarden-uniffi-error",
  "bitwarden-uuid",
  "chrono",
  "getrandom 0.2.16",
@@ -429,8 +431,9 @@ version = "1.0.0"
 dependencies = [
  "aes",
  "argon2",
- "base64",
+ "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-uniffi-error",
  "cbc",
  "chacha20poly1305",
  "ciborium",
@@ -463,6 +466,23 @@ dependencies = [
  "wasm-bindgen",
  "zeroize",
  "zeroizing-alloc",
+]
+
+[[package]]
+name = "bitwarden-encoding"
+version = "1.0.0"
+dependencies = [
+ "bitwarden-uniffi-error",
+ "data-encoding",
+ "data-encoding-macro",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tsify",
+ "uniffi",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
 ]
 
 [[package]]
@@ -627,6 +647,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-vault",
  "ed25519",
+ "ed25519-dalek",
  "pem-rfc7468",
  "pkcs8",
  "rand 0.8.5",
@@ -690,12 +711,14 @@ dependencies = [
  "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-exporters",
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-send",
  "bitwarden-ssh",
  "bitwarden-state",
+ "bitwarden-uniffi-error",
  "bitwarden-vault",
  "chrono",
  "env_logger",
@@ -707,6 +730,14 @@ dependencies = [
  "thiserror 2.0.12",
  "uniffi",
  "uuid",
+]
+
+[[package]]
+name = "bitwarden-uniffi-error"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "uniffi",
 ]
 
 [[package]]
@@ -738,9 +769,11 @@ dependencies = [
  "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-state",
  "bitwarden-test",
+ "bitwarden-uuid",
  "chrono",
  "data-encoding",
  "hmac",
@@ -766,7 +799,6 @@ name = "bitwarden-wasm-internal"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "base64",
  "bitwarden-auth",
  "bitwarden-core",
  "bitwarden-crypto",
@@ -1168,7 +1200,7 @@ dependencies = [
 [[package]]
 name = "credential-exchange-format"
 version = "0.2.0"
-source = "git+https://github.com/bitwarden/credential-exchange?rev=38e8a013c13644f832c457555baaa536fe481b77#38e8a013c13644f832c457555baaa536fe481b77"
+source = "git+https://github.com/bitwarden/credential-exchange?rev=12702ad62ccc2a1e3cd9bdea40fc0f6399e1fffa#12702ad62ccc2a1e3cd9bdea40fc0f6399e1fffa"
 dependencies = [
  "chrono",
  "data-encoding",
@@ -1411,6 +1443,26 @@ name = "data-encoding"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
+
+[[package]]
+name = "data-encoding-macro"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47ce6c96ea0102f01122a185683611bd5ac8d99e62bc59dd12e6bda344ee673d"
+dependencies = [
+ "data-encoding",
+ "data-encoding-macro-internal",
+]
+
+[[package]]
+name = "data-encoding-macro-internal"
+version = "0.1.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d162beedaa69905488a8da94f5ac3edb4dd4788b732fadb7bd120b2625c1976"
+dependencies = [
+ "data-encoding",
+ "syn",
+]
 
 [[package]]
 name = "deadpool"

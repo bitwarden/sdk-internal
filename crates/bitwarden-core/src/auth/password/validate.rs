@@ -1,4 +1,5 @@
 use bitwarden_crypto::{HashPurpose, MasterKey};
+use bitwarden_encoding::B64;
 
 use crate::{
     auth::{password::determine_password_hash, AuthValidateError},
@@ -10,7 +11,7 @@ use crate::{
 pub(crate) fn validate_password(
     client: &Client,
     password: String,
-    password_hash: String,
+    password_hash: B64,
 ) -> Result<bool, AuthValidateError> {
     let login_method = client
         .internal
@@ -41,7 +42,7 @@ pub(crate) fn validate_password_user_key(
     client: &Client,
     password: String,
     encrypted_user_key: String,
-) -> Result<String, AuthValidateError> {
+) -> Result<B64, AuthValidateError> {
     use crate::key_management::SymmetricKeyId;
 
     let login_method = client
@@ -105,7 +106,9 @@ mod tests {
             }));
 
         let password = "password123".to_string();
-        let password_hash = "7kTqkF1pY/3JeOu73N9kR99fDDe9O1JOZaVc7KH3lsU=".to_string();
+        let password_hash = "7kTqkF1pY/3JeOu73N9kR99fDDe9O1JOZaVc7KH3lsU="
+            .parse()
+            .unwrap();
 
         let result = validate_password(&client, password, password_hash);
 
@@ -158,7 +161,10 @@ mod tests {
             validate_password_user_key(&client, "asdfasdfasdf".to_owned(), user_key.to_string())
                 .unwrap();
 
-        assert_eq!(result, "aOvkBXFhSdgrBWR3hZCMRoML9+h5yRblU3lFphCdkeA=");
+        assert_eq!(
+            result.to_string(),
+            "aOvkBXFhSdgrBWR3hZCMRoML9+h5yRblU3lFphCdkeA="
+        );
         assert!(validate_password(&client, password.to_owned(), result).unwrap())
     }
 
@@ -209,7 +215,10 @@ mod tests {
             validate_password_user_key(&client, "asdfasdfasdf".to_string(), user_key.to_string())
                 .unwrap();
 
-        assert_eq!(result, "aOvkBXFhSdgrBWR3hZCMRoML9+h5yRblU3lFphCdkeA=");
-        assert!(validate_password(&client, "asdfasdfasdf".to_string(), result.to_string()).unwrap())
+        assert_eq!(
+            result.to_string(),
+            "aOvkBXFhSdgrBWR3hZCMRoML9+h5yRblU3lFphCdkeA="
+        );
+        assert!(validate_password(&client, "asdfasdfasdf".to_string(), result).unwrap())
     }
 }

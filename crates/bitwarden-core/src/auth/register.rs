@@ -1,4 +1,5 @@
 use bitwarden_crypto::{CryptoError, EncString, HashPurpose, Kdf, MasterKey, RsaKeyPair};
+use bitwarden_encoding::B64;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -44,7 +45,7 @@ pub(super) fn make_register_keys(
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct RegisterKeyResponse {
-    pub master_password_hash: String,
+    pub master_password_hash: B64,
     pub encrypted_user_key: EncString,
     pub keys: RsaKeyPair,
 }

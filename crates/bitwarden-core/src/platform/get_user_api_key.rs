@@ -81,8 +81,11 @@ fn build_secret_verification_request(
             .map(|p| -> Result<String, CryptoError> {
                 let master_key = MasterKey::derive(p, email, kdf)?;
 
-                Ok(master_key
-                    .derive_master_key_hash(p.as_bytes(), HashPurpose::ServerAuthorization))
+                Ok::<String, CryptoError>(
+                    master_key
+                        .derive_master_key_hash(p.as_bytes(), HashPurpose::ServerAuthorization)
+                        .to_string(),
+                )
             })
             .transpose()?;
         Ok(SecretVerificationRequestModel {

@@ -1,8 +1,9 @@
 use bitwarden_core::key_management::crypto::{
-    DeriveKeyConnectorRequest, DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest,
-    UpdateKdfResponse, UpdatePasswordResponse,
+    DeriveKeyConnectorRequest, DerivePinKeyResponse, EnrollPinResponse, InitOrgCryptoRequest,
+    InitUserCryptoRequest, UpdatePasswordResponse,
 };
-use bitwarden_crypto::{EncString, Kdf, UnsignedSharedKey};
+use bitwarden_crypto::{EncString, UnsignedSharedKey};
+use bitwarden_encoding::B64;
 
 use crate::error::{Error, Result};
 
@@ -34,7 +35,7 @@ impl CryptoClient {
 
     /// Get the uses's decrypted encryption key. Note: It's very important
     /// to keep this key safe, as it can be used to decrypt all of the user's data
-    pub async fn get_user_encryption_key(&self) -> Result<String> {
+    pub async fn get_user_encryption_key(&self) -> Result<B64> {
         Ok(self
             .0
             .get_user_encryption_key()
@@ -77,7 +78,27 @@ impl CryptoClient {
             .map_err(Error::MobileCrypto)?)
     }
 
-    pub fn enroll_admin_password_reset(&self, public_key: String) -> Result<UnsignedSharedKey> {
+    /// Protects the current user key with the provided PIN. The result can be stored and later
+    /// used to initialize another client instance by using the PIN and the PIN key with
+    /// `initialize_user_crypto`.
+    pub fn enroll_pin(&self, pin: String) -> Result<EnrollPinResponse> {
+        Ok(self.0.enroll_pin(pin).map_err(Error::MobileCrypto)?)
+    }
+
+    /// Protects the current user key with the provided PIN. The result can be stored and later
+    /// used to initialize another client instance by using the PIN and the PIN key with
+    /// `initialize_user_crypto`. The provided pin is encrypted with the user key.
+    pub fn enroll_pin_with_encrypted_pin(
+        &self,
+        encrypted_pin: EncString,
+    ) -> Result<EnrollPinResponse> {
+        Ok(self
+            .0
+            .enroll_pin_with_encrypted_pin(encrypted_pin.to_string())
+            .map_err(Error::MobileCrypto)?)
+    }
+
+    pub fn enroll_admin_password_reset(&self, public_key: B64) -> Result<UnsignedSharedKey> {
         Ok(self
             .0
             .enroll_admin_password_reset(public_key)
@@ -85,7 +106,7 @@ impl CryptoClient {
     }
 
     /// Derive the master key for migrating to the key connector
-    pub fn derive_key_connector(&self, request: DeriveKeyConnectorRequest) -> Result<String> {
+    pub fn derive_key_connector(&self, request: DeriveKeyConnectorRequest) -> Result<B64> {
         Ok(self
             .0
             .derive_key_connector(request)

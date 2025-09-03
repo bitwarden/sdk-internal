@@ -1,0 +1,9 @@
+[bindings.kotlin]
+package_name = "com.bitwarden.encoding"
+generate_immutable_records = true
+android = true
+
+[bindings.swift]
+ffi_module_name = "BitwardenEncodingFFI"
+module_name = "BitwardenEncoding"
+generate_immutable_records = true

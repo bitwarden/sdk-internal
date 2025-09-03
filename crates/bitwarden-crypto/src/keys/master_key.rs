@@ -1,6 +1,6 @@
 use std::pin::Pin;
 
-use base64::{engine::general_purpose::STANDARD, Engine};
+use bitwarden_encoding::B64;
 use generic_array::GenericArray;
 use rand::Rng;
 use typenum::U32;
@@ -62,12 +62,10 @@ impl MasterKey {
     }
 
     /// Derive the master key hash, used for local and remote password validation.
-    pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> String {
-        STANDARD.encode(util::pbkdf2(
-            self.inner_bytes().as_slice(),
-            password,
-            purpose as u32,
-        ))
+    pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> B64 {
+        let hash = util::pbkdf2(self.inner_bytes().as_slice(), password, purpose as u32);
+
+        hash.as_slice().into()
     }
 
     /// Generate a new random user key and encrypt it with the master key.
@@ -86,8 +84,8 @@ impl MasterKey {
     }
 
     #[allow(missing_docs)]
-    pub fn to_base64(&self) -> String {
-        STANDARD.encode(self.inner_bytes().as_slice())
+    pub fn to_base64(&self) -> B64 {
+        B64::from(self.inner_bytes().as_slice())
     }
 }
 
@@ -211,8 +209,12 @@ mod tests {
 
             assert_eq!(
                 "wmyadRMyBZOH7P/a/ucTCbSghKgdzDpPqUnu/DAVtSw=",
-                master_key
-                    .derive_master_key_hash(password.as_bytes(), HashPurpose::ServerAuthorization)
+                String::from(
+                    master_key.derive_master_key_hash(
+                        password.as_bytes(),
+                        HashPurpose::ServerAuthorization
+                    )
+                ),
             );
         }
     }
@@ -232,10 +234,14 @@ mod tests {
             .into();
 
         assert_eq!(
-            "PR6UjYmjmppTYcdyTiNbAhPJuQQOmynKbdEl1oyi/iQ=",
-            master_key
-                .derive_master_key_hash(password.as_bytes(), HashPurpose::ServerAuthorization)
-        );
+                    "PR6UjYmjmppTYcdyTiNbAhPJuQQOmynKbdEl1oyi/iQ=",
+                    master_key
+                        .derive_master_key_hash(password.as_bytes(), HashPurpose::ServerAuthorization)
+        <<<<<<< HEAD
+        =======
+                        .to_string(),
+        >>>>>>> main
+                );
     }
 
     #[test]
