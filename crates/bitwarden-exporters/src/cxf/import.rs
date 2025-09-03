@@ -1,9 +1,10 @@
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     Account as CxfAccount, AddressCredential, ApiKeyCredential, BasicAuthCredential, Credential,
-    CreditCardCredential, CustomFieldsCredential, DriversLicenseCredential,
-    IdentityDocumentCredential, Item, NoteCredential, PasskeyCredential, PassportCredential,
-    PersonNameCredential, SshKeyCredential, TotpCredential, WifiCredential,
+    CreditCardCredential, CustomFieldsCredential, DriversLicenseCredential, EditableField,
+    EditableFieldString, EditableFieldValue, IdentityDocumentCredential, Item, NoteCredential,
+    PasskeyCredential, PassportCredential, PersonNameCredential, SshKeyCredential, TotpCredential,
+    WifiCredential,
 };
 
 use crate::{
@@ -49,7 +50,27 @@ fn custom_fields_to_fields(custom_fields: &CustomFieldsCredential) -> Vec<Field>
     custom_fields
         .fields
         .iter()
-        .map(|f| create_field(f, None::<String>))
+        .map(|field_value| match field_value {
+            EditableFieldValue::String(field) => create_field(field, None::<String>),
+            EditableFieldValue::ConcealedString(field) => create_field(field, None::<String>),
+            EditableFieldValue::Boolean(field) => create_field(field, None::<String>),
+            EditableFieldValue::Date(field) => create_field(field, None::<String>),
+            EditableFieldValue::YearMonth(field) => create_field(field, None::<String>),
+            EditableFieldValue::SubdivisionCode(field) => create_field(field, None::<String>),
+            EditableFieldValue::CountryCode(field) => create_field(field, None::<String>),
+            EditableFieldValue::WifiNetworkSecurityType(field) => {
+                create_field(field, None::<String>)
+            }
+            _ => create_field(
+                &EditableField {
+                    id: None,
+                    label: Some("Unknown Field".to_string()),
+                    value: EditableFieldString("".to_string()),
+                    extensions: None,
+                },
+                None::<String>,
+            ),
+        })
         .collect()
 }
 
@@ -306,7 +327,7 @@ mod tests {
                 .into(),
             creation_at: Some(1732181986),
             modified_at: Some(1732182026),
-            title: "opotonniee.github.io".to_string(),
+            title: "example.com".to_string(),
             subtitle: None,
             favorite: None,
             credentials: vec![Credential::Passkey(Box::new(PasskeyCredential {
@@ -315,9 +336,9 @@ mod tests {
                     .unwrap()
                     .as_slice()
                     .into(),
-                rp_id: "opotonniee.github.io".to_string(),
-                username: "alex muller".to_string(),
-                user_display_name: "alex muller".to_string(),
+                rp_id: "example.com".to_string(),
+                username: "pj-fry".to_string(),
+                user_display_name: "Philip J. Fry".to_string(),
                 user_handle: URL_SAFE_NO_PAD
                     .decode("YWxleCBtdWxsZXI")
                     .unwrap()
@@ -340,16 +361,20 @@ mod tests {
         let cipher = ciphers.first().unwrap();
 
         assert_eq!(cipher.folder_id, None);
-        assert_eq!(cipher.name, "opotonniee.github.io");
+        assert_eq!(cipher.name, "example.com");
 
         let login = match &cipher.r#type {
             CipherType::Login(login) => login,
             _ => panic!("Expected login"),
         };
 
-        assert_eq!(login.username, None);
+        assert_eq!(login.username, Some("pj-fry".to_string()));
         assert_eq!(login.password, None);
-        assert_eq!(login.login_uris.len(), 0);
+        assert_eq!(login.login_uris.len(), 1);
+        assert_eq!(
+            login.login_uris[0].uri,
+            Some("https://example.com".to_string())
+        );
         assert_eq!(login.totp, None);
 
         let passkey = login.fido2_credentials.as_ref().unwrap().first().unwrap();
@@ -361,19 +386,153 @@ mod tests {
             passkey.key_value,
             "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgPzvtWYWmIsvqqr3LsZB0K-cbjuhJSGTGziL1LksHAPShRANCAAT-vqHTyEDS9QBNNi2BNLyu6TunubJT_L3G3i7KLpEDhMD15hi24IjGBH0QylJIrvlT4JN2tdRGF436XGc-VoAl"
         );
-        assert_eq!(passkey.rp_id, "opotonniee.github.io");
+        assert_eq!(passkey.rp_id, "example.com");
         assert_eq!(
             passkey.user_handle.as_ref().map(|h| h.to_string()).unwrap(),
             "YWxleCBtdWxsZXI"
         );
-        assert_eq!(passkey.user_name, Some("alex muller".to_string()));
+        assert_eq!(passkey.user_name, Some("pj-fry".to_string()));
         assert_eq!(passkey.counter, 0);
-        assert_eq!(passkey.rp_name, Some("opotonniee.github.io".to_string()));
-        assert_eq!(passkey.user_display_name, Some("alex muller".to_string()));
+        assert_eq!(passkey.rp_name, Some("example.com".to_string()));
+        assert_eq!(passkey.user_display_name, Some("Philip J. Fry".to_string()));
         assert_eq!(passkey.discoverable, "true");
         assert_eq!(
             passkey.creation_date,
             "2024-11-21T09:39:46Z".parse::<DateTime<Utc>>().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_passkey_with_basic_auth_and_scope() {
+        use credential_exchange_format::{BasicAuthCredential, CredentialScope};
+
+        let item = Item {
+            id: URL_SAFE_NO_PAD
+                .decode("Njk1RERENTItNkQ0Ny00NERBLTlFN0EtNDM1MjNEQjYzNjVF")
+                .unwrap()
+                .as_slice()
+                .into(),
+            creation_at: Some(1732181986),
+            modified_at: Some(1732182026),
+            title: "Combined Login".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![
+                Credential::BasicAuth(Box::new(BasicAuthCredential {
+                    username: Some("basic_username".to_string().into()),
+                    password: Some("basic_password".to_string().into()),
+                })),
+                Credential::Passkey(Box::new(PasskeyCredential {
+                    credential_id: URL_SAFE_NO_PAD
+                        .decode("6NiHiekW4ZY8vYHa-ucbvA")
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    rp_id: "passkey-domain.com".to_string(),
+                    username: "passkey_username".to_string(),
+                    user_display_name: "Passkey User".to_string(),
+                    user_handle: URL_SAFE_NO_PAD
+                        .decode("YWxleCBtdWxsZXI")
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    key: URL_SAFE_NO_PAD
+                        .decode("MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgPzvtWYWmIsvqqr3LsZB0K-cbjuhJSGTGziL1LksHAPShRANCAAT-vqHTyEDS9QBNNi2BNLyu6TunubJT_L3G3i7KLpEDhMD15hi24IjGBH0QylJIrvlT4JN2tdRGF436XGc-VoAl")
+                        .unwrap()
+                        .as_slice()
+                        .into(),
+                    fido2_extensions: None,
+                }))
+            ],
+            tags: None,
+            extensions: None,
+            scope: Some(CredentialScope {
+                urls: vec!["https://example.com".to_string()],
+                android_apps: vec![],
+            }),
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        let login = match &cipher.r#type {
+            CipherType::Login(login) => login,
+            _ => panic!("Expected login"),
+        };
+
+        // Basic auth username should take priority over passkey username
+        assert_eq!(login.username, Some("basic_username".to_string()));
+        assert_eq!(login.password, Some("basic_password".to_string()));
+
+        // Scope URIs should take priority over passkey rp_id
+        assert_eq!(login.login_uris.len(), 1);
+        assert_eq!(
+            login.login_uris[0].uri,
+            Some("https://example.com".to_string())
+        );
+
+        // Passkey should still be present
+        assert!(login.fido2_credentials.is_some());
+    }
+
+    #[test]
+    fn test_passkey_with_empty_username() {
+        let item = Item {
+            id: URL_SAFE_NO_PAD
+                .decode("Njk1RERENTItNkQ0Ny00NERBLTlFN0EtNDM1MjNEQjYzNjVF")
+                .unwrap()
+                .as_slice()
+                .into(),
+            creation_at: Some(1732181986),
+            modified_at: Some(1732182026),
+            title: "Empty Username Passkey".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![Credential::Passkey(Box::new(PasskeyCredential {
+                credential_id: URL_SAFE_NO_PAD
+                    .decode("6NiHiekW4ZY8vYHa-ucbvA")
+                    .unwrap()
+                    .as_slice()
+                    .into(),
+                rp_id: "example.com".to_string(),
+                username: "".to_string(),  // Empty username
+                user_display_name: "User Display".to_string(),
+                user_handle: URL_SAFE_NO_PAD
+                    .decode("YWxleCBtdWxsZXI")
+                    .unwrap()
+                    .as_slice()
+                    .into(),
+                key: URL_SAFE_NO_PAD
+                    .decode("MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgPzvtWYWmIsvqqr3LsZB0K-cbjuhJSGTGziL1LksHAPShRANCAAT-vqHTyEDS9QBNNi2BNLyu6TunubJT_L3G3i7KLpEDhMD15hi24IjGBH0QylJIrvlT4JN2tdRGF436XGc-VoAl")
+                    .unwrap()
+                    .as_slice()
+                    .into(),
+                fido2_extensions: None,
+            }))],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        let login = match &cipher.r#type {
+            CipherType::Login(login) => login,
+            _ => panic!("Expected login"),
+        };
+
+        // Empty username should not be mapped
+        assert_eq!(login.username, None);
+        assert_eq!(login.password, None);
+
+        // Should still map rp_id to URI
+        assert_eq!(login.login_uris.len(), 1);
+        assert_eq!(
+            login.login_uris[0].uri,
+            Some("https://example.com".to_string())
         );
     }
 
