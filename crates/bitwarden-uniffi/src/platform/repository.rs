@@ -15,7 +15,6 @@ impl<T: std::fmt::Debug> std::fmt::Debug for UniffiRepositoryBridge<T> {
 }
 
 #[derive(uniffi::Error, thiserror::Error, Debug)]
-#[uniffi(flat_error)]
 pub enum RepositoryError {
     #[error("Internal error: {0}")]
     Internal(String),
@@ -64,12 +63,7 @@ macro_rules! create_uniffi_repository {
             async fn has(
                 &self,
                 id: String,
-            ) -> Result<bool, $crate::platform::repository::RepositoryError> {
-                match self.get(id).await {
-                    Ok(x) => Ok(x.is_some()),
-                    Err(e) => Err(e),
-                }
-            }
+            ) -> Result<bool, $crate::platform::repository::RepositoryError>;
         }
 
         #[async_trait::async_trait]

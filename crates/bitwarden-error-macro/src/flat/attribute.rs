@@ -41,6 +41,7 @@ pub(crate) fn bitwarden_error_flat(
             });
 
             quote! {
+                #[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
                 #input
                 #wasm
 

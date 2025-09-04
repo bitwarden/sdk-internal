@@ -6,7 +6,7 @@ use bitwarden_collections::{
 };
 use uuid::Uuid;
 
-use crate::{error::Error, Result};
+use crate::Result;
 
 #[allow(missing_docs)]
 #[derive(uniffi::Object)]
@@ -16,12 +16,12 @@ pub struct CollectionsClient(pub(crate) bitwarden_vault::collection_client::Coll
 impl CollectionsClient {
     /// Decrypt collection
     pub fn decrypt(&self, collection: Collection) -> Result<CollectionView> {
-        Ok(self.0.decrypt(collection).map_err(Error::Decrypt)?)
+        Ok(self.0.decrypt(collection)?)
     }
 
     /// Decrypt collection list
     pub fn decrypt_list(&self, collections: Vec<Collection>) -> Result<Vec<CollectionView>> {
-        Ok(self.0.decrypt_list(collections).map_err(Error::Decrypt)?)
+        Ok(self.0.decrypt_list(collections)?)
     }
 
     ///

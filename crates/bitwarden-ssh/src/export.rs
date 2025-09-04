@@ -26,27 +26,27 @@ fn convert_rsa_keypair(keypair: &RsaKeypair) -> Result<RsaPrivateKey, ssh_key::E
 pub fn export_pkcs8_der_key(private_key: &str) -> Result<Vec<u8>, SshKeyExportError> {
     // Parse the OpenSSH private key
     let private_key =
-        PrivateKey::from_openssh(private_key).map_err(|_| SshKeyExportError::KeyConversionError)?;
+        PrivateKey::from_openssh(private_key).map_err(|_| SshKeyExportError::KeyConversion)?;
 
     match private_key.key_data() {
         ssh_key::private::KeypairData::Ed25519(keypair) => {
             let sk: ed25519_dalek::SigningKey = keypair
                 .try_into()
-                .map_err(|_| SshKeyExportError::KeyConversionError)?;
+                .map_err(|_| SshKeyExportError::KeyConversion)?;
 
             Ok(sk
                 .to_pkcs8_der()
-                .map_err(|_| SshKeyExportError::KeyConversionError)?
+                .map_err(|_| SshKeyExportError::KeyConversion)?
                 .as_bytes()
                 .to_vec())
         }
         ssh_key::private::KeypairData::Rsa(keypair) => Ok(convert_rsa_keypair(keypair)
-            .map_err(|_| SshKeyExportError::KeyConversionError)?
+            .map_err(|_| SshKeyExportError::KeyConversion)?
             .to_pkcs8_der()
-            .map_err(|_| SshKeyExportError::KeyConversionError)?
+            .map_err(|_| SshKeyExportError::KeyConversion)?
             .as_bytes()
             .to_vec()),
-        _ => Err(SshKeyExportError::KeyConversionError),
+        _ => Err(SshKeyExportError::KeyConversion),
     }
 }
 

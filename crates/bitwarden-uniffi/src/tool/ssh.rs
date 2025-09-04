@@ -1,9 +1,6 @@
 use bitwarden_vault::SshKeyView;
 
-use crate::{
-    error::{BitwardenError, Error},
-    Result,
-};
+use crate::Result;
 
 #[derive(uniffi::Object)]
 pub struct SshClient();
@@ -14,8 +11,7 @@ impl SshClient {
         &self,
         key_algorithm: bitwarden_ssh::generator::KeyAlgorithm,
     ) -> Result<SshKeyView> {
-        bitwarden_ssh::generator::generate_sshkey(key_algorithm)
-            .map_err(|e| BitwardenError::E(Error::SshGeneration(e)))
+        bitwarden_ssh::generator::generate_sshkey(key_algorithm).map_err(Into::into)
     }
 
     pub fn import_ssh_key(
@@ -23,7 +19,6 @@ impl SshClient {
         imported_key: String,
         password: Option<String>,
     ) -> Result<SshKeyView> {
-        bitwarden_ssh::import::import_key(imported_key, password)
-            .map_err(|e| BitwardenError::E(Error::SshImport(e)))
+        bitwarden_ssh::import::import_key(imported_key, password).map_err(Into::into)
     }
 }
