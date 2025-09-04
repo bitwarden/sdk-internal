@@ -191,7 +191,18 @@ mod tests {
         struct TestA(usize);
         register_repository_item!(TestA, "TestItem_A");
 
-        let steps = vec![RepositoryMigrationStep::Add(TestA::data())];
+        #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+        struct TestB(usize);
+        register_repository_item!(TestB, "TestItem_B");
+
+        let steps = vec![
+            // Test that deleting a table that doesn't exist is fine
+            RepositoryMigrationStep::Remove(TestB::data()),
+            RepositoryMigrationStep::Add(TestA::data()),
+            RepositoryMigrationStep::Add(TestB::data()),
+            // Test that deleting a table that does exist is also fine
+            RepositoryMigrationStep::Remove(TestB::data()),
+        ];
         let migrations = RepositoryMigrations::new(steps);
 
         let db = SqliteDatabase::initialize_internal(db, migrations).unwrap();
