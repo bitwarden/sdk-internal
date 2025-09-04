@@ -1,0 +1,26 @@
+[package]
+name = "bit-bitwarden-wasm-internal"
+version = "0.1.0"
+publish = false
+
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde = { workspace = true }
+tsify = { workspace = true }
+# When upgrading wasm-bindgen, make sure to update the version in the workflows!
+wasm-bindgen = { version = "=0.2.100", features = ["serde-serialize"] }
+wasm-bindgen-futures = "0.4.41"
+
+[lints]
+workspace = true

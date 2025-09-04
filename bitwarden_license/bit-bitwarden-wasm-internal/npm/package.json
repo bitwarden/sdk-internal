@@ -1,0 +1,32 @@
+{
+  "name": "@bitwarden/bit-sdk-internal",
+  "version": "0.1.0",
+  "license": "BITWARDEN LICENSE AGREEMENT",
+  "files": [
+    "bit_bitwarden_wasm_internal_bg.js",
+    "bit_bitwarden_wasm_internal_bg.wasm.d.ts",
+    "bit_bitwarden_wasm_internal_bg.wasm.js",
+    "bit_bitwarden_wasm_internal_bg.wasm",
+    "bit_bitwarden_wasm_internal.d.ts",
+    "bit_bitwarden_wasm_internal.js",
+    "index.js",
+    "node/bit_bitwarden_wasm_internal_bg.wasm.d.ts",
+    "node/bit_bitwarden_wasm_internal_bg.wasm",
+    "node/bit_bitwarden_wasm_internal.d.ts",
+    "node/bit_bitwarden_wasm_internal.js",
+    "VERSION"
+  ],
+  "main": "node/bit_bitwarden_wasm_internal.js",
+  "module": "index.js",
+  "types": "bit_bitwarden_wasm_internal.d.ts",
+  "scripts": {},
+  "sideEffects": [
+    "./bit_bitwarden_wasm_internal.js"
+  ],
+  "dependencies": {
+    "type-fest": "^4.41.0"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2"
+  }
+}
