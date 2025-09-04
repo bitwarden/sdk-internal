@@ -12,6 +12,7 @@ use crate::auth::{
 use crate::{
     auth::{api::request::PasswordTokenRequest, login::LoginError, login::TwoFactorRequest},
     client::LoginMethod,
+    key_management::UserDecryptionData,
     Client,
 };
 
@@ -41,26 +42,48 @@ pub(crate) async fn login_password(
             r.refresh_token.clone(),
             r.expires_in,
         );
+
+        let private_key = r.private_key.as_deref();
+        let private_key: EncString = require!(private_key).parse()?;
+
+        let user_key_state = UserKeyState {
+            private_key,
+            signing_key: None,
+            security_state: None,
+        };
+
+        if let Some(master_password_unlock) = r
+            .user_decryption_options
+            .as_ref()
+            .map(UserDecryptionData::try_from)
+            .transpose()?
+            .and_then(|user_decryption| user_decryption.master_password_unlock)
+        {
+            client
+                .internal
+                .initialize_user_crypto_master_password_unlock(
+                    input.password.clone(),
+                    master_password_unlock,
+                    user_key_state,
+                )?;
+        } else {
+            let user_key = r.key.as_deref();
+            let user_key: EncString = require!(user_key).parse()?;
+
+            client.internal.initialize_user_crypto_master_key(
+                master_key,
+                user_key,
+                user_key_state,
+            )?;
+        }
+
         client
             .internal
             .set_login_method(LoginMethod::User(UserLoginMethod::Username {
                 client_id: "web".to_owned(),
-                email: input.email.to_owned(),
-                kdf: input.kdf.to_owned(),
+                email: input.email.clone(),
+                kdf: input.kdf.clone(),
             }));
-
-        let user_key: EncString = require!(r.key.as_deref()).parse()?;
-        let private_key: EncString = require!(r.private_key.as_deref()).parse()?;
-
-        client.internal.initialize_user_crypto_master_key(
-            master_key,
-            user_key,
-            UserKeyState {
-                private_key,
-                signing_key: None,
-                security_state: None,
-            },
-        )?;
     }
 
     Ok(PasswordLoginResponse::process_response(response))
