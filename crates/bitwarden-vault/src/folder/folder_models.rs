@@ -83,7 +83,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, FolderView> for Folder {
     ) -> Result<FolderView, CryptoError> {
         Ok(FolderView {
             id: self.id,
-            name: self.name.decrypt(ctx, key).ok().unwrap_or_default(),
+            name: self.name.decrypt(ctx, key)?,
             revision_date: self.revision_date,
         })
     }
