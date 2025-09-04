@@ -5,8 +5,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     repository::{
-        validate_registry_name, RepositoryItem, RepositoryItemData, RepositoryMigrationStep,
-        RepositoryMigrations,
+        validate_registry_name, RepositoryItem, RepositoryMigrationStep, RepositoryMigrations,
     },
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError},
 };
@@ -192,9 +191,10 @@ mod tests {
         struct TestA(usize);
         register_repository_item!(TestA, "TestItem_A");
 
-        let registrations = vec![TestA::data()];
+        let steps = vec![RepositoryMigrationStep::Add(TestA::data())];
+        let migrations = RepositoryMigrations::new(steps);
 
-        let db = SqliteDatabase::initialize_internal(db, &registrations).unwrap();
+        let db = SqliteDatabase::initialize_internal(db, migrations).unwrap();
 
         assert_eq!(db.list::<TestA>().await.unwrap(), Vec::<TestA>::new());
 
