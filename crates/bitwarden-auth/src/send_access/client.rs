@@ -71,9 +71,6 @@ impl SendAccessClient {
             return Ok(send_access_token.into());
         }
 
-        // save off error for status and use ref so we don't consume the response and can read json
-        // from it after. let error_for_status_result = response.error_for_status_ref();
-
         let err_response = match response.json::<SendAccessTokenApiErrorResponse>().await {
             // If the response is a 400 with a specific error type, we can deserialize it into
             // SendAccessTokenApiErrorResponse and then convert it into
