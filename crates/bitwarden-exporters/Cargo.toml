@@ -21,7 +21,7 @@ wasm = [
     "bitwarden-collections/wasm",
     "bitwarden-vault/wasm",
     "dep:tsify",
-    "dep:wasm-bindgen"
+    "dep:wasm-bindgen",
 ] # WebAssembly bindings
 
 [dependencies]
