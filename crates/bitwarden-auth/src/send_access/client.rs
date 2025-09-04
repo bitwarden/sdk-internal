@@ -74,8 +74,7 @@ impl SendAccessClient {
         let err_response = match response.json::<SendAccessTokenApiErrorResponse>().await {
             // If the response is a 400 with a specific error type, we can deserialize it into
             // SendAccessTokenApiErrorResponse and then convert it into
-            // SendAccessTokenError since we have implemented the required traits to do
-            // that conversion automatically.
+            // SendAccessTokenError::Expected later on.
             Ok(err) => err,
             Err(_) => {
                 // This handles any 4xx that aren't specifically handled and 5xx errors
