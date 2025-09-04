@@ -120,10 +120,12 @@ src/models/bulk_deny_admin_auth_request_request_model.rs
 src/models/change_plan_frequency_request.rs
 src/models/cipher.rs
 src/models/cipher_attachment_model.rs
+src/models/cipher_bulk_archive_request_model.rs
 src/models/cipher_bulk_delete_request_model.rs
 src/models/cipher_bulk_move_request_model.rs
 src/models/cipher_bulk_restore_request_model.rs
 src/models/cipher_bulk_share_request_model.rs
+src/models/cipher_bulk_unarchive_request_model.rs
 src/models/cipher_bulk_update_collections_request_model.rs
 src/models/cipher_card_model.rs
 src/models/cipher_collections_request_model.rs
