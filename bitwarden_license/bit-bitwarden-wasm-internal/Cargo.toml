@@ -16,6 +16,8 @@ keywords.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
+bitwarden-core = { workspace = true }
+bitwarden-wasm-internal = { workspace = true }
 serde = { workspace = true }
 tsify = { workspace = true }
 # When upgrading wasm-bindgen, make sure to update the version in the workflows!

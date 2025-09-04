@@ -18,6 +18,15 @@ use crate::platform::{
 #[wasm_bindgen]
 pub struct BitwardenClient(pub(crate) Client);
 
+impl BitwardenClient {
+    /// Create a new BitwardenClient from an existing Client.
+    ///
+    /// Used when wrapping an existing OSS client in a CommercialBitwardenClient.
+    pub fn new_with_existing_client(client: Client) -> Self {
+        Self(client)
+    }
+}
+
 #[wasm_bindgen]
 impl BitwardenClient {
     #[allow(missing_docs)]

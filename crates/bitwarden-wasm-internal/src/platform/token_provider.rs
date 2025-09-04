@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use bitwarden_core::client::internal::ClientManagedTokens;
 use bitwarden_threading::ThreadBoundRunner;
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
@@ -19,9 +21,10 @@ extern "C" {
 }
 
 /// Thread-bound runner for JavaScript token provider
-pub(crate) struct WasmClientManagedTokens(ThreadBoundRunner<JsTokenProvider>);
+pub struct WasmClientManagedTokens(ThreadBoundRunner<JsTokenProvider>);
 
 impl WasmClientManagedTokens {
+    /// Creates a new instance of `WasmClientManagedTokens`.
     pub fn new(js_provider: JsTokenProvider) -> Self {
         Self(ThreadBoundRunner::new(js_provider))
     }
