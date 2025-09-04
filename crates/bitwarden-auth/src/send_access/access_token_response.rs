@@ -55,7 +55,7 @@ pub enum SendAccessTokenError {
 // This is just a utility function so that the ? operator works correctly without manual mapping
 impl From<reqwest::Error> for SendAccessTokenError {
     fn from(value: reqwest::Error) -> Self {
-        Self::Unexpected(UnexpectedIdentityError(value))
+        Self::Unexpected(UnexpectedIdentityError::Reqwest(value))
     }
 }
 
@@ -67,7 +67,10 @@ impl From<reqwest::Error> for SendAccessTokenError {
 
 #[derive(Debug)]
 /// Any unexpected error that occurs when making requests to identity.
-pub struct UnexpectedIdentityError(reqwest::Error);
+pub enum UnexpectedIdentityError {
+    Reqwest(reqwest::Error),
+    Other(String),
+}
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
@@ -80,7 +83,11 @@ impl serde::Serialize for UnexpectedIdentityError {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&format!("{:?}", self.0))
+        let message = match self {
+            UnexpectedIdentityError::Reqwest(err) => format!("{:?}", err),
+            UnexpectedIdentityError::Other(msg) => msg.clone(),
+        };
+        serializer.serialize_str(&message)
     }
 }
 

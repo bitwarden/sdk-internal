@@ -3,6 +3,7 @@ use bitwarden_core::Client;
 use wasm_bindgen::prelude::*;
 
 use crate::send_access::{
+    access_token_response::UnexpectedIdentityError,
     api::{
         SendAccessTokenApiErrorResponse, SendAccessTokenApiSuccessResponse,
         SendAccessTokenRequestPayload,
@@ -41,13 +42,13 @@ impl SendAccessClient {
 
         let configurations = self.client.internal.get_api_configurations().await;
 
+        // save off url in variable for re-use
+        let url = format!("{}/connect/token", &configurations.identity.base_path);
+
         let request: reqwest::RequestBuilder = configurations
             .identity
             .client
-            .post(format!(
-                "{}/connect/token",
-                &configurations.identity.base_path
-            ))
+            .post(&url)
             .header(
                 reqwest::header::CONTENT_TYPE,
                 "application/x-www-form-urlencoded; charset=utf-8",
@@ -61,17 +62,38 @@ impl SendAccessClient {
 
         let response: reqwest::Response = request.send().await?;
 
+        let response_status = response.status();
+
         // handle success and error responses
-        // If the response is 200, we can deserialize it into SendAccessToken
-        if response.status().is_success() {
+        // If the response is 2xx, we can deserialize it into SendAccessToken
+        if response_status.is_success() {
             let send_access_token: SendAccessTokenApiSuccessResponse = response.json().await?;
             return Ok(send_access_token.into());
         }
 
-        // If the response is not 200, we can deserialize it into SendAccessTokenApiErrorResponse
-        //and then convert it into SendAccessTokenError since we have implemented the required
-        // traits to do that conversion automatically.
-        let err_response: SendAccessTokenApiErrorResponse = response.json().await?;
+        // save off error for status and use ref so we don't consume the response and can read json
+        // from it after. let error_for_status_result = response.error_for_status_ref();
+
+        let err_response = match response.json::<SendAccessTokenApiErrorResponse>().await {
+            // If the response is a 400 with a specific error type, we can deserialize it into
+            // SendAccessTokenApiErrorResponse and then convert it into
+            // SendAccessTokenError since we have implemented the required traits to do
+            // that conversion automatically.
+            Ok(err) => err,
+            Err(_) => {
+                // This handles any 4xx that aren't specifically handled and 5xx errors
+
+                let error_string = format!(
+                    "Received response status {} against {}",
+                    response_status, url
+                );
+
+                return Err(SendAccessTokenError::Unexpected(
+                    UnexpectedIdentityError::Other(error_string),
+                ));
+            }
+        };
+
         Err(SendAccessTokenError::Expected(err_response))
     }
 }
