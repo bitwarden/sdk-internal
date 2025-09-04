@@ -25,7 +25,7 @@ impl Database for IndexedDbDatabase {
         configuration: DatabaseConfiguration,
         migrations: RepositoryMigrations,
     ) -> Result<Self, DatabaseError> {
-        let DatabaseConfiguration::IndexedDb { ref db_name } = configuration else {
+        let DatabaseConfiguration::IndexedDb { db_name } = configuration else {
             return Err(DatabaseError::UnsupportedConfiguration(configuration));
         };
 
@@ -33,16 +33,16 @@ impl Database for IndexedDbDatabase {
 
         // Open the database, creating it if needed
         let db = factory
-            .open(db_name, migrations.version, async move |evt| {
+            .open(&db_name, migrations.version, async move |evt| {
                 let db = evt.database();
 
                 for step in &migrations.steps {
                     match step {
                         RepositoryMigrationStep::Add(data) => {
-                            db.build_object_store(data.name).create()?;
+                            db.build_object_store(data.name()).create()?;
                         }
                         RepositoryMigrationStep::Remove(data) => {
-                            match db.delete_object_store(data.name) {
+                            match db.delete_object_store(data.name()) {
                                 // If the store doesn't exist, we can ignore the error
                                 Ok(_) | Err(Error::DoesNotExist) => {}
                                 Err(e) => return Err(e),
