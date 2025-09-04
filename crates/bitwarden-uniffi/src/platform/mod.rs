@@ -70,8 +70,8 @@ impl StateClient {
             .platform()
             .state()
             .initialize_database(configuration.into(), sdk_managed_repositories)
-            .await
-            .map_err(Error::StateRegistry)?;
+            .await?;
+
         Ok(())
     }
 }

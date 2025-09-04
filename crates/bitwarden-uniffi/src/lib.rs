@@ -147,6 +147,7 @@ mod workarounds {
     use bitwarden_generators::*;
     use bitwarden_send::*;
     use bitwarden_ssh::error::*;
+    use bitwarden_state::registry::*;
     use bitwarden_vault::*;
 
     #[derive(uniffi::Object)]
@@ -204,6 +205,7 @@ mod workarounds {
         SendEncryptFileError
         SilentlyDiscoverCredentialsError
         SshKeyImportError
+        StateRegistryError
         TotpError
         TrustDeviceError
         UserFingerprintError
