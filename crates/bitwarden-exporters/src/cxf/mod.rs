@@ -16,9 +16,10 @@ mod api_key;
 mod card;
 mod editable_field;
 mod identity;
-#[cfg(test)]
-mod import_sample_tests;
 mod login;
 mod note;
 mod ssh;
 mod wifi;
+
+#[cfg(test)]
+mod tests;
