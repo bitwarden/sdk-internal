@@ -498,3 +498,98 @@ mod request_send_access_token_invalid_grant_tests {
         }
     }
 }
+
+mod request_send_access_token_unexpected_error_tests {
+    use bitwarden_auth::send_access::UnexpectedIdentityError;
+
+    use super::*;
+
+    async fn run_case(status_code: u16, reason: &str) {
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            .respond_with(ResponseTemplate::new(status_code));
+
+        let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
+        let send_access_client = make_send_client(&mock_server);
+
+        let req = SendAccessTokenRequest {
+            send_id: "test_send_id".into(),
+            send_access_credentials: None,
+        };
+
+        let result = send_access_client.request_send_access_token(req).await;
+
+        assert!(result.is_err());
+
+        let err = result.expect_err(&format!(
+            "expected Err for status {} {} against http://{}/identity/connect/token",
+            status_code,
+            reason,
+            mock_server.address()
+        ));
+
+        match err {
+            SendAccessTokenError::Unexpected(api_err) => {
+                let expected = UnexpectedIdentityError::Other(format!(
+                    "Received response status {} {} against http://{}/identity/connect/token",
+                    status_code,
+                    reason,
+                    mock_server.address()
+                ));
+                assert_eq!(api_err, expected, "mismatch for status {}", status_code);
+            }
+            other => panic!("expected Unexpected variant, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn request_send_access_token_unexpected_statuses() {
+        let cases = [
+            // 4xx (client errors) — excluding 400 Bad Request as we handle those as expected
+            // errors.
+            (401, "Unauthorized"),
+            (402, "Payment Required"),
+            (403, "Forbidden"),
+            (404, "Not Found"),
+            (405, "Method Not Allowed"),
+            (406, "Not Acceptable"),
+            (407, "Proxy Authentication Required"),
+            (408, "Request Timeout"),
+            (409, "Conflict"),
+            (410, "Gone"),
+            (411, "Length Required"),
+            (412, "Precondition Failed"),
+            (413, "Payload Too Large"),
+            (414, "URI Too Long"),
+            (415, "Unsupported Media Type"),
+            (416, "Range Not Satisfiable"),
+            (417, "Expectation Failed"),
+            (421, "Misdirected Request"),
+            (422, "Unprocessable Entity"),
+            (423, "Locked"),
+            (424, "Failed Dependency"),
+            (425, "Too Early"),
+            (426, "Upgrade Required"),
+            (428, "Precondition Required"),
+            (429, "Too Many Requests"),
+            (431, "Request Header Fields Too Large"),
+            (451, "Unavailable For Legal Reasons"),
+            // 5xx (server errors)
+            (500, "Internal Server Error"),
+            (501, "Not Implemented"),
+            (502, "Bad Gateway"),
+            (503, "Service Unavailable"),
+            (504, "Gateway Timeout"),
+            (505, "HTTP Version Not Supported"),
+            (506, "Variant Also Negotiates"),
+            (507, "Insufficient Storage"),
+            (508, "Loop Detected"),
+            (510, "Not Extended"),
+            (511, "Network Authentication Required"),
+        ];
+
+        for (code, reason) in cases {
+            run_case(code, reason).await;
+        }
+    }
+}

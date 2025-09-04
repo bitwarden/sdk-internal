@@ -8,5 +8,7 @@ pub use access_token_request::{
     SendAccessCredentials, SendAccessTokenRequest, SendEmailCredentials, SendEmailOtpCredentials,
     SendPasswordCredentials,
 };
-pub use access_token_response::{SendAccessTokenError, SendAccessTokenResponse};
+pub use access_token_response::{
+    SendAccessTokenError, SendAccessTokenResponse, UnexpectedIdentityError,
+};
 pub use client::SendAccessClient;

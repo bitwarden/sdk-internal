@@ -68,8 +68,22 @@ impl From<reqwest::Error> for SendAccessTokenError {
 #[derive(Debug)]
 /// Any unexpected error that occurs when making requests to identity.
 pub enum UnexpectedIdentityError {
+    // TODO: figure out when this would be used and document it.
+    #[allow(missing_docs)]
     Reqwest(reqwest::Error),
+    // TODO: figure out how to document this.
+    #[allow(missing_docs)]
     Other(String),
+}
+
+impl PartialEq for UnexpectedIdentityError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (UnexpectedIdentityError::Reqwest(_), UnexpectedIdentityError::Reqwest(_)) => false, /* reqwest::Error does not implement PartialEq */
+            (UnexpectedIdentityError::Other(a), UnexpectedIdentityError::Other(b)) => a == b,
+            _ => false,
+        }
+    }
 }
 
 #[cfg(feature = "wasm")]
