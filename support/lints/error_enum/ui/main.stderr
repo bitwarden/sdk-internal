@@ -1,0 +1,46 @@
+warning: enum variant `NetworkError` ends with 'Error'
+  --> $DIR/main.rs:2:5
+   |
+LL |     NetworkError,
+   |     ^^^^^^^^^^^^
+   |
+   = note: `#[warn(enum_variant_ends_with_error)]` on by default
+
+warning: enum variant `TimeoutError` ends with 'Error'
+  --> $DIR/main.rs:3:5
+   |
+LL |     TimeoutError,
+   |     ^^^^^^^^^^^^
+
+warning: enum variant `ParseError` ends with 'Error'
+  --> $DIR/main.rs:4:5
+   |
+LL |     ParseError,
+   |     ^^^^^^^^^^
+
+warning: enum variant `ConnectionError` ends with 'Error'
+  --> $DIR/main.rs:8:5
+   |
+LL |     ConnectionError,
+   |     ^^^^^^^^^^^^^^^
+
+warning: enum variant `QueryError` ends with 'Error'
+  --> $DIR/main.rs:9:5
+   |
+LL |     QueryError,
+   |     ^^^^^^^^^^
+
+warning: enum variant `FailureError` ends with 'Error'
+  --> $DIR/main.rs:20:5
+   |
+LL |     FailureError,
+   |     ^^^^^^^^^^^^
+
+warning: enum variant `InvalidError` ends with 'Error'
+  --> $DIR/main.rs:21:5
+   |
+LL |     InvalidError,
+   |     ^^^^^^^^^^^^
+
+warning: 7 warnings emitted
+
