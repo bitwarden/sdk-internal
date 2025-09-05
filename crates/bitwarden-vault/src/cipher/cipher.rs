@@ -924,6 +924,7 @@ mod tests {
                         user_handle: None,
                         user_name: None,
                         user_display_name: None,
+                        counter: "123".to_string(),
                     }]),
                     has_fido2: true,
                     username: Some("test_username".to_string()),

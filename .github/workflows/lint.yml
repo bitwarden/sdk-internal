@@ -87,7 +87,7 @@ jobs:
         run: cargo sort --workspace --check
 
       - name: Install cargo-udeps
-        run: cargo install cargo-udeps --version 0.1.53 --locked
+        run: cargo install cargo-udeps --version 0.1.57 --locked
 
       - name: Cargo udeps
         run: cargo +"${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}" udeps --workspace --all-features

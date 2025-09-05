@@ -114,6 +114,7 @@ pub struct Fido2CredentialListView {
     pub user_handle: Option<String>,
     pub user_name: Option<String>,
     pub user_display_name: Option<String>,
+    pub counter: String,
 }
 
 #[allow(missing_docs)]
@@ -478,6 +479,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialListView> for Fido2Crede
             user_handle: self.user_handle.decrypt(ctx, key)?,
             user_name: self.user_name.decrypt(ctx, key)?,
             user_display_name: self.user_display_name.decrypt(ctx, key)?,
+            counter: self.counter.decrypt(ctx, key)?,
         })
     }
 }
