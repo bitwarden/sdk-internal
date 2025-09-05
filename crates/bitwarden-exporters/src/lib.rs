@@ -78,7 +78,8 @@ pub struct Cipher {
 /// These are mostly duplicated from the `bitwarden` vault models to facilitate a stable export API
 /// that is not tied to the internal vault models. We may revisit this in the future.
 #[allow(missing_docs)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(Debug))]
 pub struct ImportingCipher {
     pub folder_id: Option<Uuid>,
 
@@ -179,7 +180,8 @@ pub struct Field {
 }
 
 #[allow(missing_docs)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(Debug))]
 pub enum CipherType {
     Login(Box<Login>),
     SecureNote(Box<SecureNote>),
@@ -201,7 +203,8 @@ impl fmt::Display for CipherType {
 }
 
 #[allow(missing_docs)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(Debug))]
 pub struct Login {
     pub username: Option<String>,
     pub password: Option<String>,
@@ -219,7 +222,8 @@ pub struct LoginUri {
 }
 
 #[allow(missing_docs)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(Debug))]
 pub struct Fido2Credential {
     pub credential_id: String,
     pub key_type: String,
@@ -257,7 +261,8 @@ impl From<Fido2Credential> for Fido2CredentialFullView {
 }
 
 #[allow(missing_docs)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(Debug))]
 pub struct Card {
     pub cardholder_name: Option<String>,
     pub exp_month: Option<String>,
@@ -268,13 +273,15 @@ pub struct Card {
 }
 
 #[allow(missing_docs)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(Debug))]
 pub struct SecureNote {
     pub r#type: SecureNoteType,
 }
 
 #[allow(missing_docs)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(Debug))]
 pub enum SecureNoteType {
     Generic = 0,
 }
@@ -303,7 +310,8 @@ pub struct Identity {
 }
 
 #[allow(missing_docs)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(Debug))]
 pub struct SshKey {
     /// [OpenSSH private key](https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key), in PEM encoding.
     pub private_key: String,
