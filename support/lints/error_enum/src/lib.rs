@@ -4,9 +4,9 @@
 
 extern crate rustc_hir;
 
-use rustc_lint::LateLintPass;
-use rustc_hir::{Item, ItemKind};
 use clippy_utils::diagnostics::span_lint;
+use rustc_hir::{Item, ItemKind};
+use rustc_lint::LateLintPass;
 
 dylint_linting::declare_late_lint! {
     /// ### What it does
