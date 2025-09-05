@@ -196,6 +196,14 @@ impl From<SecureNoteType> for crate::SecureNoteType {
     }
 }
 
+impl From<crate::SecureNoteType> for SecureNoteType {
+    fn from(value: crate::SecureNoteType) -> Self {
+        match value {
+            crate::SecureNoteType::Generic => SecureNoteType::Generic,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
