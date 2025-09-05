@@ -13,6 +13,8 @@ license-file.workspace = true
 keywords.workspace = true
 
 [lib]
+# TODO: implement this in another way, this causes a warning about collisions with the OSS lib
+name = "bitwarden_wasm_internal"
 crate-type = ["cdylib"]
 
 [dependencies]

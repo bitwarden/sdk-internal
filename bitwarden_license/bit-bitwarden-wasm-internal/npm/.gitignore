@@ -1,9 +1,9 @@
 **/snippets/**/*.js
-bit_bitwarden_wasm_internal_bg.js
-bit_bitwarden_wasm_internal_bg.wasm
-bit_bitwarden_wasm_internal_bg.wasm.d.ts
-bit_bitwarden_wasm_internal_bg.wasm.js
-bit_bitwarden_wasm_internal_bg.mvp.wasm
-bit_bitwarden_wasm_internal.d.ts
-bit_bitwarden_wasm_internal.js
+bitwarden_wasm_internal_bg.js
+bitwarden_wasm_internal_bg.wasm
+bitwarden_wasm_internal_bg.wasm.d.ts
+bitwarden_wasm_internal_bg.wasm.js
+bitwarden_wasm_internal_bg.mvp.wasm
+bitwarden_wasm_internal.d.ts
+bitwarden_wasm_internal.js
 VERSION
