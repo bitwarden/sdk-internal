@@ -78,8 +78,8 @@ pub struct Cipher {
 /// These are mostly duplicated from the `bitwarden` vault models to facilitate a stable export API
 /// that is not tied to the internal vault models. We may revisit this in the future.
 #[allow(missing_docs)]
-#[derive(Clone, PartialEq, Eq)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct ImportingCipher {
     pub folder_id: Option<Uuid>,
 
@@ -180,8 +180,8 @@ pub struct Field {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, PartialEq, Eq)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub enum CipherType {
     Login(Box<Login>),
     SecureNote(Box<SecureNote>),
@@ -203,8 +203,8 @@ impl fmt::Display for CipherType {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, PartialEq, Eq)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct Login {
     pub username: Option<String>,
     pub password: Option<String>,
@@ -222,8 +222,8 @@ pub struct LoginUri {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, PartialEq, Eq)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct Fido2Credential {
     pub credential_id: String,
     pub key_type: String,
