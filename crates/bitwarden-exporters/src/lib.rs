@@ -261,8 +261,8 @@ impl From<Fido2Credential> for Fido2CredentialFullView {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, PartialEq, Eq)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct Card {
     pub cardholder_name: Option<String>,
     pub exp_month: Option<String>,
@@ -273,15 +273,15 @@ pub struct Card {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, PartialEq, Eq)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct SecureNote {
     pub r#type: SecureNoteType,
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, PartialEq, Eq)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub enum SecureNoteType {
     Generic = 0,
 }
@@ -310,8 +310,8 @@ pub struct Identity {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, PartialEq, Eq)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct SshKey {
     /// [OpenSSH private key](https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key), in PEM encoding.
     pub private_key: String,
