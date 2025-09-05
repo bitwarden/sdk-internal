@@ -25,10 +25,10 @@ wasm = [
 ] # WebAssembly bindings
 
 [dependencies]
-base64 = ">=0.22.1, <0.23"
 bitwarden-collections = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
+bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-ssh = { workspace = true }
