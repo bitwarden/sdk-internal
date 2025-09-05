@@ -24,6 +24,9 @@ pub struct Fido2CredentialAutofillView {
     pub rp_id: String,
     pub user_name_for_ui: Option<String>,
     pub user_handle: Vec<u8>,
+    /// Indicates if this credential uses a signature counter (legacy passkeys).
+    /// When true, mobile clients must sync before authentication to ensure
+    /// counter values are current. Modern passkeys (counter = 0) can work offline.
     pub has_counter: bool,
 }
 
