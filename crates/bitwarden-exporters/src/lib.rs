@@ -97,110 +97,125 @@ pub struct ImportingCipher {
     pub deleted_date: Option<DateTime<Utc>>,
 }
 
+impl From<Login> for bitwarden_vault::LoginView {
+    fn from(login: Login) -> Self {
+        let l: Vec<LoginUriView> = login
+            .login_uris
+            .into_iter()
+            .map(LoginUriView::from)
+            .collect();
+
+        bitwarden_vault::LoginView {
+            username: login.username,
+            password: login.password,
+            password_revision_date: None,
+            uris: if l.is_empty() { None } else { Some(l) },
+            totp: login.totp,
+            autofill_on_page_load: None,
+            fido2_credentials: None,
+        }
+    }
+}
+
+impl From<SecureNote> for bitwarden_vault::SecureNoteView {
+    fn from(secure_note: SecureNote) -> Self {
+        bitwarden_vault::SecureNoteView {
+            r#type: secure_note.r#type.into(),
+        }
+    }
+}
+
+impl From<Card> for bitwarden_vault::CardView {
+    fn from(card: Card) -> Self {
+        bitwarden_vault::CardView {
+            cardholder_name: card.cardholder_name,
+            brand: card.brand,
+            number: card.number,
+            exp_month: card.exp_month,
+            exp_year: card.exp_year,
+            code: card.code,
+        }
+    }
+}
+
+impl From<Identity> for bitwarden_vault::IdentityView {
+    fn from(identity: Identity) -> Self {
+        bitwarden_vault::IdentityView {
+            title: identity.title,
+            first_name: identity.first_name,
+            middle_name: identity.middle_name,
+            last_name: identity.last_name,
+            address1: identity.address1,
+            address2: identity.address2,
+            address3: identity.address3,
+            city: identity.city,
+            state: identity.state,
+            postal_code: identity.postal_code,
+            country: identity.country,
+            company: identity.company,
+            email: identity.email,
+            phone: identity.phone,
+            ssn: identity.ssn,
+            username: identity.username,
+            passport_number: identity.passport_number,
+            license_number: identity.license_number,
+        }
+    }
+}
+
+impl From<SshKey> for bitwarden_vault::SshKeyView {
+    fn from(ssh_key: SshKey) -> Self {
+        bitwarden_vault::SshKeyView {
+            private_key: ssh_key.private_key,
+            public_key: ssh_key.public_key,
+            fingerprint: ssh_key.fingerprint,
+        }
+    }
+}
+
 impl From<ImportingCipher> for CipherView {
     fn from(value: ImportingCipher) -> Self {
         let (cipher_type, login, identity, card, secure_note, ssh_key) = match value.r#type {
-            CipherType::Login(login) => {
-                let l: Vec<LoginUriView> = login
-                    .login_uris
-                    .into_iter()
-                    .map(LoginUriView::from)
-                    .collect();
-
-                let login_view = bitwarden_vault::LoginView {
-                    username: login.username,
-                    password: login.password,
-                    password_revision_date: None,
-                    uris: if l.is_empty() { None } else { Some(l) },
-                    totp: login.totp,
-                    autofill_on_page_load: None,
-                    fido2_credentials: None,
-                };
-                (
-                    bitwarden_vault::CipherType::Login,
-                    Some(login_view),
-                    None,
-                    None,
-                    None,
-                    None,
-                )
-            }
-            CipherType::SecureNote(secure_note) => {
-                let secure_note_view = bitwarden_vault::SecureNoteView {
-                    r#type: secure_note.r#type.into(),
-                };
-                (
-                    bitwarden_vault::CipherType::SecureNote,
-                    None,
-                    None,
-                    None,
-                    Some(secure_note_view),
-                    None,
-                )
-            }
-            CipherType::Card(card) => {
-                let card_view = bitwarden_vault::CardView {
-                    cardholder_name: card.cardholder_name,
-                    brand: card.brand,
-                    number: card.number,
-                    exp_month: card.exp_month,
-                    exp_year: card.exp_year,
-                    code: card.code,
-                };
-                (
-                    bitwarden_vault::CipherType::Card,
-                    None,
-                    None,
-                    Some(card_view),
-                    None,
-                    None,
-                )
-            }
-            CipherType::Identity(identity) => {
-                let identity_view = bitwarden_vault::IdentityView {
-                    title: identity.title,
-                    first_name: identity.first_name,
-                    middle_name: identity.middle_name,
-                    last_name: identity.last_name,
-                    address1: identity.address1,
-                    address2: identity.address2,
-                    address3: identity.address3,
-                    city: identity.city,
-                    state: identity.state,
-                    postal_code: identity.postal_code,
-                    country: identity.country,
-                    company: identity.company,
-                    email: identity.email,
-                    phone: identity.phone,
-                    ssn: identity.ssn,
-                    username: identity.username,
-                    passport_number: identity.passport_number,
-                    license_number: identity.license_number,
-                };
-                (
-                    bitwarden_vault::CipherType::Identity,
-                    None,
-                    Some(identity_view),
-                    None,
-                    None,
-                    None,
-                )
-            }
-            CipherType::SshKey(ssh_key) => {
-                let ssh_key_view = bitwarden_vault::SshKeyView {
-                    private_key: ssh_key.private_key,
-                    public_key: ssh_key.public_key,
-                    fingerprint: ssh_key.fingerprint,
-                };
-                (
-                    bitwarden_vault::CipherType::SshKey,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(ssh_key_view),
-                )
-            }
+            CipherType::Login(login) => (
+                bitwarden_vault::CipherType::Login,
+                Some((*login).into()),
+                None,
+                None,
+                None,
+                None,
+            ),
+            CipherType::SecureNote(secure_note) => (
+                bitwarden_vault::CipherType::SecureNote,
+                None,
+                None,
+                None,
+                Some((*secure_note).into()),
+                None,
+            ),
+            CipherType::Card(card) => (
+                bitwarden_vault::CipherType::Card,
+                None,
+                None,
+                Some((*card).into()),
+                None,
+                None,
+            ),
+            CipherType::Identity(identity) => (
+                bitwarden_vault::CipherType::Identity,
+                None,
+                Some((*identity).into()),
+                None,
+                None,
+                None,
+            ),
+            CipherType::SshKey(ssh_key) => (
+                bitwarden_vault::CipherType::SshKey,
+                None,
+                None,
+                None,
+                None,
+                Some((*ssh_key).into()),
+            ),
         };
 
         Self {
