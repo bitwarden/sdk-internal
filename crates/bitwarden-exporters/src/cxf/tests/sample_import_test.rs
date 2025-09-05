@@ -2,8 +2,10 @@
 //!
 //! These tests validate the parsing of real CXF sample files against the specification.
 
-use super::import::parse_item;
-use crate::{cxf::CxfError, CipherType, ImportingCipher};
+use crate::{
+    cxf::{import::parse_item, CxfError},
+    CipherType, ImportingCipher,
+};
 
 /// Parse CXF payload in the format compatible with the CXF specification (At the
 /// Header-level).
