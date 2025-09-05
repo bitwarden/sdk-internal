@@ -89,20 +89,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2261d10cca569e4643e526d8dc2e62e433cc8aba21ab764233731f8d369bf394"
 
 [[package]]
-name = "bitwarden_error_enum"
+name = "bitwarden_lints"
 version = "0.1.0"
 dependencies = [
  "clippy_utils",
  "dylint_linting",
  "dylint_testing",
-]
-
-[[package]]
-name = "bitwarden_lints"
-version = "0.1.0"
-dependencies = [
- "bitwarden_error_enum",
- "dylint_linting",
 ]
 
 [[package]]

@@ -1,0 +1,23 @@
+[package]
+name = "bitwarden_error_enum"
+version = "0.1.0"
+authors = ["Bitwarden Inc"]
+description = "description goes here"
+edition = "2021"
+publish = false
+
+[features]
+rlib = ["dylint_linting/constituent"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+clippy_utils = { workspace = true }
+dylint_linting = { workspace = true }
+
+[dev-dependencies]
+dylint_testing = "4.1.0"
+
+[package.metadata.rust-analyzer]
+rustc_private = true
