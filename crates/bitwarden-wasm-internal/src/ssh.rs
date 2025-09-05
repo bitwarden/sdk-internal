@@ -36,3 +36,17 @@ pub fn import_ssh_key(
 ) -> Result<SshKeyView, bitwarden_ssh::error::SshKeyImportError> {
     bitwarden_ssh::import::import_key(imported_key.to_string(), password)
 }
+
+/// Decrypt an encrypted OpenSSH private key PEM into an unencrypted OpenSSH PEM for agent use.
+/// If the input is already unencrypted, returns it verbatim.
+///
+/// # Arguments
+/// - `encrypted_pem` - The original OpenSSH private key PEM (possibly encrypted)
+/// - `password` - The passphrase to decrypt the key
+#[wasm_bindgen]
+pub fn decrypt_ssh_key_for_agent(
+    encrypted_pem: &str,
+    password: &str,
+) -> Result<String, bitwarden_ssh::error::SshKeyImportError> {
+    bitwarden_ssh::import::decrypt_openssh_key(encrypted_pem.to_string(), password.to_string())
+}
