@@ -3,7 +3,7 @@
 use std::fmt;
 
 use bitwarden_vault::{
-    CipherRepromptType, CipherView, Fido2CredentialFullView, LoginUriView, UriMatchType,
+    CipherRepromptType, CipherView, Fido2CredentialFullView, FolderId, LoginUriView, UriMatchType,
 };
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
@@ -123,7 +123,7 @@ impl From<ImportingCipher> for CipherView {
         Self {
             id: None,
             organization_id: None,
-            folder_id: value.folder_id,
+            folder_id: value.folder_id.map(FolderId::new),
             collection_ids: vec![],
             key: None,
             name: value.name,
@@ -280,7 +280,7 @@ pub enum SecureNoteType {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub struct Identity {
     pub title: Option<String>,
     pub first_name: Option<String>,

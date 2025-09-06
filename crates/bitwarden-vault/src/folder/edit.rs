@@ -72,11 +72,12 @@ mod tests {
     use wiremock::{matchers, Mock, Request, ResponseTemplate};
 
     use super::*;
+    use crate::FolderId;
 
     async fn repository_add_folder(
         repository: &MemoryRepository<Folder>,
         store: &KeyStore<KeyIds>,
-        folder_id: uuid::Uuid,
+        folder_id: FolderId,
         name: &str,
     ) {
         repository
@@ -103,7 +104,7 @@ mod tests {
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 
-        let folder_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
+        let folder_id: FolderId = "25afb11c-9c95-4db5-8bac-c21cb204a3f1".parse().unwrap();
 
         let (_server, api_config) = start_api_mock(vec![Mock::given(matchers::path(format!(
             "/folders/{}",
@@ -113,7 +114,7 @@ mod tests {
             let body: FolderRequestModel = req.body_json().unwrap();
             ResponseTemplate::new(200).set_body_json(FolderResponseModel {
                 object: Some("folder".to_string()),
-                id: Some(folder_id),
+                id: Some(folder_id.into()),
                 name: Some(body.name),
                 revision_date: Some("2025-01-01T00:00:00Z".to_string()),
             })
@@ -180,7 +181,7 @@ mod tests {
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 
-        let folder_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
+        let folder_id: FolderId = "25afb11c-9c95-4db5-8bac-c21cb204a3f1".parse().unwrap();
 
         let (_server, api_config) = start_api_mock(vec![Mock::given(matchers::path(format!(
             "/folders/{}",

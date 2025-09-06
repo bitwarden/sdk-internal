@@ -1,6 +1,6 @@
-use std::{fmt::Display, str::FromStr};
+use std::{borrow::Cow, fmt::Display, str::FromStr};
 
-use base64::{engine::general_purpose::STANDARD, Engine};
+use bitwarden_encoding::{FromStrVisitor, B64};
 pub use internal::UnsignedSharedKey;
 use rsa::Oaep;
 use serde::Deserialize;
@@ -9,7 +9,6 @@ use super::{from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result},
     rsa::encrypt_rsa2048_oaep_sha1,
-    util::FromStrVisitor,
     AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, RawPrivateKey,
     RawPublicKey, SymmetricCryptoKey,
 };
@@ -130,7 +129,10 @@ impl Display for UnsignedSharedKey {
             }
         };
 
-        let encoded_parts: Vec<String> = parts.iter().map(|part| STANDARD.encode(part)).collect();
+        let encoded_parts: Vec<String> = parts
+            .iter()
+            .map(|part| B64::from(*part).to_string())
+            .collect();
 
         write!(f, "{}.{}", self.enc_type(), encoded_parts.join("|"))?;
 
@@ -227,11 +229,11 @@ impl UnsignedSharedKey {
 /// But during the transition phase we will expose endpoints using the UnsignedSharedKey
 /// type.
 impl schemars::JsonSchema for UnsignedSharedKey {
-    fn schema_name() -> String {
-        "UnsignedSharedKey".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "UnsignedSharedKey".into()
     }
 
-    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(generator: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
         generator.subschema_for::<String>()
     }
 }
@@ -355,7 +357,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
 
         assert_eq!(
             serde_json::to_string(&schema).unwrap(),
-            r#"{"$schema":"http://json-schema.org/draft-07/schema#","title":"UnsignedSharedKey","type":"string"}"#
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"UnsignedSharedKey","type":"string"}"#
         );
     }
 }

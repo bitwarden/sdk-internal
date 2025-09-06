@@ -1,13 +1,12 @@
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
-use base64::{engine::general_purpose::STANDARD, Engine};
+use bitwarden_encoding::{FromStrVisitor, B64};
 use coset::CborSerializable;
 use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
-    util::FromStrVisitor,
     Aes256CbcHmacKey, ContentFormat, KeyDecryptable, KeyEncryptable, KeyEncryptableWithContentType,
     SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
 };
@@ -187,8 +186,10 @@ impl EncString {
 impl ToString for EncString {
     fn to_string(&self) -> String {
         fn fmt_parts(enc_type: u8, parts: &[&[u8]]) -> String {
-            let encoded_parts: Vec<String> =
-                parts.iter().map(|part| STANDARD.encode(part)).collect();
+            let encoded_parts: Vec<String> = parts
+                .iter()
+                .map(|part| B64::from(*part).to_string())
+                .collect();
             format!("{}.{}", enc_type, encoded_parts.join("|"))
         }
 
@@ -210,8 +211,10 @@ impl std::fmt::Debug for EncString {
             enc_type: u8,
             parts: &[&[u8]],
         ) -> std::fmt::Result {
-            let encoded_parts: Vec<String> =
-                parts.iter().map(|part| STANDARD.encode(part)).collect();
+            let encoded_parts: Vec<String> = parts
+                .iter()
+                .map(|part| B64::from(*part).to_string())
+                .collect();
             write!(f, "{}.{}", enc_type, encoded_parts.join("|"))
         }
 
@@ -342,11 +345,11 @@ impl KeyDecryptable<SymmetricCryptoKey, String> for EncString {
 /// Usually we wouldn't want to expose EncStrings in the API or the schemas.
 /// But during the transition phase we will expose endpoints using the EncString type.
 impl schemars::JsonSchema for EncString {
-    fn schema_name() -> String {
-        "EncString".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "EncString".into()
     }
 
-    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(generator: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
         generator.subschema_for::<String>()
     }
 }
@@ -360,6 +363,44 @@ mod tests {
         derive_symmetric_key, CryptoError, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
         KEY_ID_SIZE,
     };
+
+    fn encrypt_with_xchacha20(plaintext: &str) -> EncString {
+        let key_id = [0u8; KEY_ID_SIZE];
+        let enc_key = [0u8; 32];
+        let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
+            key_id,
+            enc_key: Box::pin(enc_key.into()),
+        });
+
+        plaintext.encrypt_with_key(&key).expect("encryption works")
+    }
+
+    /// XChaCha20Poly1305 encstrings should be padded in blocks of 32 bytes. This ensures that the
+    /// encstring length does not reveal more than the 32-byte range of lengths that the contained
+    /// string falls into.
+    #[test]
+    fn test_xchacha20_encstring_string_padding_block_sizes() {
+        let cases = [
+            ("", 32),              // empty string, padded to 32
+            (&"a".repeat(31), 32), // largest in first block
+            (&"a".repeat(32), 64), // smallest in second block
+            (&"a".repeat(63), 64), // largest in second block
+            (&"a".repeat(64), 96), // smallest in third block
+        ];
+
+        let ciphertext_lengths: Vec<_> = cases
+            .iter()
+            .map(|(plaintext, _)| encrypt_with_xchacha20(plaintext).to_string().len())
+            .collect();
+
+        // Block 1: 0-31 (same length)
+        assert_eq!(ciphertext_lengths[0], ciphertext_lengths[1]);
+        // Block 2: 32-63 (same length, different from block 1)
+        assert_ne!(ciphertext_lengths[1], ciphertext_lengths[2]);
+        assert_eq!(ciphertext_lengths[2], ciphertext_lengths[3]);
+        // Block 3: 64+ (different from block 2)
+        assert_ne!(ciphertext_lengths[3], ciphertext_lengths[4]);
+    }
 
     #[test]
     fn test_enc_roundtrip_xchacha20() {
@@ -381,6 +422,32 @@ mod tests {
         let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
 
         let test_string = "encrypted_test_string";
+        let cipher = test_string.to_string().encrypt_with_key(&key).unwrap();
+
+        let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
+        assert_eq!(decrypted_str, test_string);
+    }
+
+    #[test]
+    fn test_enc_roundtrip_xchacha20_empty() {
+        let key_id = [0u8; KEY_ID_SIZE];
+        let enc_key = [0u8; 32];
+        let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
+            key_id,
+            enc_key: Box::pin(enc_key.into()),
+        });
+
+        let test_string = "";
+        let cipher = test_string.to_owned().encrypt_with_key(&key).unwrap();
+        let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
+        assert_eq!(decrypted_str, test_string);
+    }
+
+    #[test]
+    fn test_enc_string_roundtrip_empty() {
+        let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
+
+        let test_string = "";
         let cipher = test_string.to_string().encrypt_with_key(&key).unwrap();
 
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
@@ -514,7 +581,7 @@ mod tests {
 
         assert_eq!(
             serde_json::to_string(&schema).unwrap(),
-            r#"{"$schema":"http://json-schema.org/draft-07/schema#","title":"EncString","type":"string"}"#
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"EncString","type":"string"}"#
         );
     }
 }

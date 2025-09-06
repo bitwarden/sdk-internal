@@ -11,11 +11,24 @@ keywords.workspace = true
 
 [features]
 uniffi = []
-wasm = []
+wasm = ["bitwarden-threading/wasm"]
 
 [dependencies]
 async-trait = { workspace = true }
+bitwarden-error = { workspace = true }
+bitwarden-threading = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
+
+[target.'cfg(target_arch="wasm32")'.dependencies]
+indexed-db = ">=0.4.2, <0.5"
+js-sys = { workspace = true }
+tsify = { workspace = true }
+
+[target.'cfg(not(target_arch="wasm32"))'.dependencies]
+rusqlite = { version = ">=0.37.0, <0.38", features = ["bundled"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt"] }

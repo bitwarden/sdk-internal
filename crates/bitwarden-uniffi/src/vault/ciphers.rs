@@ -3,7 +3,6 @@ use bitwarden_vault::{
     Cipher, CipherListView, CipherView, DecryptCipherListResult, EncryptionContext,
     Fido2CredentialView,
 };
-use uuid::Uuid;
 
 use crate::{error::Error, Result};
 
@@ -30,8 +29,13 @@ impl CiphersClient {
 
     /// Decrypt cipher list with failures
     /// Returns both successfully decrypted ciphers and any that failed to decrypt
-    pub fn decrypt_list_with_failures(&self, ciphers: Vec<Cipher>) -> DecryptCipherListResult {
-        self.0.decrypt_list_with_failures(ciphers)
+    // Note that this function still needs to return a Result, as the parameter conversion can still
+    // fail
+    pub fn decrypt_list_with_failures(
+        &self,
+        ciphers: Vec<Cipher>,
+    ) -> Result<DecryptCipherListResult> {
+        Ok(self.0.decrypt_list_with_failures(ciphers))
     }
 
     pub fn decrypt_fido2_credentials(
@@ -48,11 +52,11 @@ impl CiphersClient {
     pub fn move_to_organization(
         &self,
         cipher: CipherView,
-        organization_id: Uuid,
+        organization_id: OrganizationId,
     ) -> Result<CipherView> {
         Ok(self
             .0
-            .move_to_organization(cipher, OrganizationId::new(organization_id))
+            .move_to_organization(cipher, organization_id)
             .map_err(Error::Cipher)?)
     }
 }

@@ -2,6 +2,8 @@
 
 #[allow(missing_docs)]
 pub mod error;
+mod export;
+pub use export::export_pkcs8_der_key;
 #[allow(missing_docs)]
 pub mod generator;
 #[allow(missing_docs)]
