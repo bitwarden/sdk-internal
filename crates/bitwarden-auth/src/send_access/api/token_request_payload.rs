@@ -132,17 +132,18 @@ mod tests {
             };
 
             let serialized = serde_json::to_string_pretty(&payload).unwrap();
-            println!("{}", serialized);
-            assert_eq!(
-                serialized,
-                r#"{
-  "client_id": "send",
-  "grant_type": "send_access",
-  "scope": "api.send.access",
-  "send_id": "example_send_id",
-  "password_hash_b64": "example_hash"
-}"#
-            );
+
+            // Parse both sides to JSON values and compare structurally.
+            let got: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+            let want = serde_json::json!({
+                "client_id": "send",
+                "grant_type": "send_access",
+                "scope": "api.send.access",
+                "send_id": "example_send_id",
+                "password_hash_b64": "example_hash"
+            });
+
+            assert_eq!(got, want);
         }
     }
 }
