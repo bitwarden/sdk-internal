@@ -7,15 +7,11 @@ on:
       build-run-id:
         description: "Workflow Run ID to use for artifact download. If not provided the latest build from the selected branch will be used."
         type: string
-        required: false
-      pre-release:
-        description: "Create a pre-release"
-        type: boolean
-        required: false
-        default: false
+        required: true
       build-run-number:
         description: "Build Run Number"
         type: string
+        required: true
       update-ios-repo:
         description: "Update iOS Repo - Opens a PR updating the SDK in bitwarden/ios"
         type: boolean

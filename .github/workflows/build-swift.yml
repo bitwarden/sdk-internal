@@ -132,7 +132,6 @@ jobs:
               ref: 'main',
               inputs: {
                 'build-run-id': '${{ github.run_id }}',
-                'pre-release': 'true',
                 'update-ios-repo': 'true',
                 'build-run-number': '${{ github.run_number }}'
               }
