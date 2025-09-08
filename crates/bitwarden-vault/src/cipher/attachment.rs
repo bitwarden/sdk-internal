@@ -341,7 +341,11 @@ mod tests {
             creation_date: "2023-07-24T12:05:09.466666700Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2023-07-27T19:28:05.240Z".parse().unwrap(),
+<<<<<<< HEAD
             archived_date: None,
+=======
+            data: None,
+>>>>>>> e946aa27 (Add data field to Cipher, and basic json deserialization in CiphersClient::migrate)
         };
 
         let enc_file = B64::try_from("Ao00qr1xLsV+ZNQpYZ/UwEwOWo3hheKwCYcOGIbsorZ6JIG2vLWfWEXCVqP0hDuzRvmx8otApNZr8pJYLNwCe1aQ+ySHQYGkdubFjoMojulMbQ959Y4SJ6Its/EnVvpbDnxpXTDpbutDxyhxfq1P3lstL2G9rObJRrxiwdGlRGu1h94UA1fCCkIUQux5LcqUee6W4MyQmRnsUziH8gGzmtI=").unwrap();

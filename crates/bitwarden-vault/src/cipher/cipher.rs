@@ -106,11 +106,10 @@ pub struct EncryptionContext {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Cipher {
-    pub id: Option<CipherId>,
-    pub organization_id: Option<OrganizationId>,
-    pub folder_id: Option<FolderId>,
-    pub collection_ids: Vec<CollectionId>,
-
+    pub id: Option<Uuid>,
+    pub organization_id: Option<Uuid>,
+    pub folder_id: Option<Uuid>,
+    pub collection_ids: Vec<Uuid>,
     /// More recent ciphers uses individual encryption keys to encrypt the other fields of the
     /// Cipher.
     pub key: Option<EncString>,
@@ -795,6 +794,12 @@ impl From<bitwarden_api_api::models::CipherRepromptType> for CipherRepromptType 
         }
     }
 }
+
+// impl From<&Cipher> for Option<Login> {
+//     fn from(value: &Cipher) -> Self {
+
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
