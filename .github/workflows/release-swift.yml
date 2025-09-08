@@ -2,25 +2,6 @@ name: Release Swift Package
 run-name: Release Swift Build ${{ inputs.build-run-number }}
 
 on:
-  workflow_call:
-    inputs:
-      build-run-id:
-        description: "Workflow Run ID to use for artifact download. If not provided the latest build from the selected branch will be used."
-        type: string
-        required: false
-      pre-release:
-        description: "Create a pre-release"
-        type: boolean
-        required: false
-        default: false
-      build-run-number:
-        description: "Build Run Number"
-        type: string
-      update-ios-repo:
-        description: "Update iOS Repo - Opens a PR updating the SDK in bitwarden/ios"
-        type: boolean
-        default: false
-
   workflow_dispatch:
     inputs:
       build-run-id:
