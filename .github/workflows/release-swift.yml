@@ -242,3 +242,12 @@ jobs:
             --notes "" \
             --prerelease \
             "BitwardenFFI-$_PKG_VERSION-$_SHORT_SHA.xcframework.zip"
+
+      - name: Trigger SDK Update in iOS repo
+        if: inputs.update-ios-repo
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          _SDK_SWIFT_REF: ${{ steps.push-changes.outputs.commit-hash }}
+        run: |
+          echo "🚀 Triggering sdlc-sdk-update.yml workflow in bitwarden/ios repo..."
+          gh workflow run sdlc-sdk-update.yml --repo bitwarden/ios --ref main -f run-mode=Update -f sdk-version=$_RELEASE_NAME -f sdk-swift-ref=$_SDK_SWIFT_REF
