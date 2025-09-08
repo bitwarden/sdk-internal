@@ -103,12 +103,14 @@ jobs:
 
       - name: Set release name
         id: set-release-name
+        env:
+          _BUILD_RUN_NUMBER: ${{ inputs.build-run-number }}
+          _SHORT_SHA: ${{ steps.set-sha.outputs.short_sha }}
+          _VERSION: ${{ steps.version.outputs.version }}
         run: |
-          if [[ ${{ inputs.pre-release }} == true ]]; then
-            echo "release_name=${{ steps.version.outputs.version }}-unstable-${{ steps.set-sha.outputs.short_sha }}" >> $GITHUB_OUTPUT
-          else
-            echo "release_name=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
-          fi
+          RELEASE_NAME="$_VERSION-$_BUILD_RUN_NUMBER-$_SHORT_SHA"
+          echo "👀 Release name: $RELEASE_NAME"
+          echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
 
       - name: Calculate swift file checksum
         id: calculate-swift-checksum
