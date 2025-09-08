@@ -17,9 +17,6 @@ on:
         type: boolean
         default: false
 
-env:
-  _KEY_VAULT: "bitwarden-ci"
-
 jobs:
   validate:
     name: Set Version and SHA
@@ -222,41 +219,9 @@ jobs:
           git tag v${{ env._RELEASE_NAME }}
           git push origin v${{ env._RELEASE_NAME }}
 
-  github-release:
-    name: GitHub Release
-    runs-on: ubuntu-24.04
-    needs:
-      - validate
-      - repo-sync
-    permissions:
-      actions: read
-      contents: write
-      id-token: write
-    env:
-      _PKG_VERSION: ${{ needs.validate.outputs.version }}
-      _RELEASE_NAME: ${{ needs.validate.outputs.release_name }}
-      _BUILD_RUN_ID: ${{ needs.validate.outputs.run_id }}
-    steps:
-      - name: Log in to Azure
-        uses: bitwarden/gh-actions/azure-login@main
-        with:
-          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          client_id: ${{ secrets.AZURE_CLIENT_ID }}
-
-      - name: Retrieve secrets
-        id: retrieve-secrets
-        uses: bitwarden/gh-actions/get-keyvault-secrets@main
-        with:
-          keyvault: ${{ env._KEY_VAULT }}
-          secrets: "github-pat-bitwarden-devops-bot-repo-scope"
-
-      - name: Log out from Azure
-        uses: bitwarden/gh-actions/azure-logout@main
-
-      - name: Download BitwardenEFI artifact
+      - name: Download BitwardenFFI artifact
         uses: bitwarden/gh-actions/download-artifacts@main
-        id: download-artifact
+        id: download-artifact-ffi
         with:
           workflow: build-swift.yml
           workflow_conclusion: success
@@ -265,14 +230,15 @@ jobs:
           skip_unpack: true
 
       - name: Create release
-        uses: ncipollo/release-action@cdcc88a9acf3ca41c16c37bb7d21b9ad48560d87 # v1.15.0
-        with:
-          tag: v${{ env._RELEASE_NAME }}
-          name: v${{ env._RELEASE_NAME }}
-          body: ""
-          token: ${{ steps.retrieve-secrets.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
-          draft: false
-          repo: sdk-swift
-          owner: bitwarden
-          artifacts: "BitwardenFFI-${{ env._PKG_VERSION }}-${{ needs.validate.outputs.short_sha }}.xcframework.zip"
-          prerelease: ${{ inputs.pre-release }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          _RELEASE_NAME: ${{ env._RELEASE_NAME }}
+          _PKG_VERSION: ${{ env._PKG_VERSION }}
+          _SHORT_SHA: ${{ needs.validate.outputs.short_sha }}
+        run: |
+          gh release create "v$_RELEASE_NAME" \
+            --repo bitwarden/sdk-swift \
+            --title "v$_RELEASE_NAME" \
+            --notes "" \
+            --prerelease \
+            "BitwardenFFI-$_PKG_VERSION-$_SHORT_SHA.xcframework.zip"
