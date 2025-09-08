@@ -50,25 +50,30 @@ jobs:
 
       - name: Set SHA
         id: set-sha
+        env:
+          _ARTIFACT_BUILD_COMMIT: ${{ steps.download-artifact.outputs.artifact-build-commit }}
         run: |
-          echo "sha=${{ steps.download-artifact.outputs.artifact-build-commit }}" >> $GITHUB_OUTPUT
-          echo "short_sha=$(echo ${{ steps.download-artifact.outputs.artifact-build-commit }} | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "sha=$_ARTIFACT_BUILD_COMMIT" >> $GITHUB_OUTPUT
+          echo "short_sha=$(echo $_ARTIFACT_BUILD_COMMIT | cut -c1-7)" >> $GITHUB_OUTPUT
 
       - name: Set release name
         id: set-release-name
         env:
           _BUILD_RUN_NUMBER: ${{ inputs.build-run-number }}
-          _SHORT_SHA: ${{ steps.set-sha.outputs.short_sha }}
+          _SDK_INTERNAL_SHORT_REF: ${{ steps.set-sha.outputs.short_sha }}
           _VERSION: ${{ steps.version.outputs.version }}
         run: |
-          RELEASE_NAME="$_VERSION-$_BUILD_RUN_NUMBER-$_SHORT_SHA"
+          RELEASE_NAME="$_VERSION-$_BUILD_RUN_NUMBER-$_SDK_INTERNAL_SHORT_REF"
           echo "👀 Release name: $RELEASE_NAME"
           echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
 
       - name: Calculate swift file checksum
         id: calculate-swift-checksum
+        env:
+          _VERSION: ${{ steps.version.outputs.version }}
+          _SDK_INTERNAL_SHORT_REF: ${{ steps.set-sha.outputs.short_sha }}
         run: |
-          CHECKSUM=$(swift package compute-checksum BitwardenFFI-${{ steps.version.outputs.version }}-${{ steps.set-sha.outputs.short_sha }}.xcframework.zip)
+          CHECKSUM=$(swift package compute-checksum BitwardenFFI-$_VERSION-$_SDK_INTERNAL_SHORT_REF.xcframework.zip)
           echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
 
   repo-sync:
@@ -86,6 +91,8 @@ jobs:
       _SWIFT_CHECKSUM: ${{ needs.validate.outputs.swift_checksum }}
       _BUILD_RUN_ID: ${{ inputs.build-run-id }}
       _BRANCH_NAME: TEST_BRANCH # TODO: replace with unstable before merging
+      _SDK_INTERNAL_SHORT_REF: ${{ needs.validate.outputs.short_sha }}
+      _SDK_INTERNAL_REF: ${{ needs.validate.outputs.sha }}
     steps:
       - name: Checkout SDK repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -139,7 +146,7 @@ jobs:
         with:
           workflow: build-swift.yml
           workflow_conclusion: success
-          artifacts: "BitwardenSdk-${{ env._PKG_VERSION }}-${{ needs.validate.outputs.short_sha }}-sources"
+          artifacts: "BitwardenSdk-${{ env._PKG_VERSION }}-${{ env._SDK_INTERNAL_SHORT_REF }}-sources"
           run_id: ${{ env._BUILD_RUN_ID }}
           path: sdk/crates/bitwarden-uniffi/swift/Sources/BitwardenSdk
 
@@ -155,8 +162,8 @@ jobs:
           # Update BitwardenFFI path
           sed -i 's|.binaryTarget(name: "BitwardenFFI", path: "BitwardenFFI.xcframework")|.binaryTarget(\
             name: "BitwardenFFI",\
-            url: "https://github.com/bitwarden/sdk-swift/releases/download/v${{ env._RELEASE_NAME }}/BitwardenFFI-${{ env._PKG_VERSION }}-${{ needs.validate.outputs.short_sha }}.xcframework.zip",\
-            checksum: "${{ env._SWIFT_CHECKSUM }}" )|' sdk/crates/bitwarden-uniffi/swift/Package.swift
+            url: "https://github.com/bitwarden/sdk-swift/releases/download/v$_RELEASE_NAME/BitwardenFFI-$_PKG_VERSION-$_SDK_INTERNAL_SHORT_REF.xcframework.zip",\
+            checksum: "$_SWIFT_CHECKSUM" )|' sdk/crates/bitwarden-uniffi/swift/Package.swift
 
           # Run swiftformat
           swiftformat sdk/crates/bitwarden-uniffi/swift/Package.swift
@@ -177,8 +184,8 @@ jobs:
         working-directory: sdk-swift
         run: |
           git add .
-          git commit -m "Update Swift SDK to ${{ needs.validate.outputs.sha }}"
-          git push origin ${{ env._BRANCH_NAME }}
+          git commit -m "Update Swift SDK to $_SDK_INTERNAL_REF"
+          git push origin $_BRANCH_NAME
           COMMIT_HASH=$(git rev-parse HEAD)
           echo "👀 Commit hash: $COMMIT_HASH"
           echo "commit-hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
@@ -186,8 +193,8 @@ jobs:
       - name: Create release tag on SDK Swift repo
         working-directory: sdk-swift
         run: |
-          git tag v${{ env._RELEASE_NAME }}
-          git push origin v${{ env._RELEASE_NAME }}
+          git tag v$_RELEASE_NAME
+          git push origin v$_RELEASE_NAME
 
       - name: Download BitwardenFFI artifact
         uses: bitwarden/gh-actions/download-artifacts@main
@@ -195,23 +202,20 @@ jobs:
         with:
           workflow: build-swift.yml
           workflow_conclusion: success
-          artifacts: "BitwardenFFI-${{ env._PKG_VERSION }}-${{ needs.validate.outputs.short_sha }}.xcframework"
+          artifacts: "BitwardenFFI-${{ env._PKG_VERSION }}-${{ env._SDK_INTERNAL_SHORT_REF }}.xcframework"
           run_id: ${{ env._BUILD_RUN_ID }}
           skip_unpack: true
 
       - name: Create release
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          _RELEASE_NAME: ${{ env._RELEASE_NAME }}
-          _PKG_VERSION: ${{ env._PKG_VERSION }}
-          _SHORT_SHA: ${{ needs.validate.outputs.short_sha }}
         run: |
           gh release create "v$_RELEASE_NAME" \
             --repo bitwarden/sdk-swift \
             --title "v$_RELEASE_NAME" \
             --notes "" \
             --prerelease \
-            "BitwardenFFI-$_PKG_VERSION-$_SHORT_SHA.xcframework.zip"
+            "BitwardenFFI-$_PKG_VERSION-$_SDK_INTERNAL_SHORT_REF.xcframework.zip"
 
       - name: Trigger SDK Update in iOS repo
         if: inputs.update-ios-repo
