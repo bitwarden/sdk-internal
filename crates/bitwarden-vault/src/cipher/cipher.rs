@@ -115,7 +115,6 @@ pub struct Cipher {
     pub organization_id: Option<Uuid>,
     pub folder_id: Option<Uuid>,
     pub collection_ids: Vec<Uuid>,
-
     /// More recent ciphers uses individual encryption keys to encrypt the other fields of the
     /// Cipher.
     pub key: Option<EncString>,
@@ -799,6 +798,12 @@ impl From<bitwarden_api_api::models::CipherRepromptType> for CipherRepromptType 
         }
     }
 }
+
+// impl From<&Cipher> for Option<Login> {
+//     fn from(value: &Cipher) -> Self {
+
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

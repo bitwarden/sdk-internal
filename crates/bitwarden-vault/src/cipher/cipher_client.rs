@@ -154,6 +154,26 @@ impl CiphersClient {
     }
 
     #[allow(missing_docs)]
+    pub fn migrate(&self, mut cipher: Cipher) -> Cipher {
+        let Ok(data) = serde_json::to_value(&cipher.data) else {
+            // If we can't deserialize the data, then we'll return the cipher as-is.
+            return cipher;
+        };
+        let version = data.get("version").and_then(|v| v.as_u64());
+
+        // TODO: Matching on version here - for now, just matching some types.
+        match cipher.r#type {
+            crate::CipherType::Login => cipher.login = serde_json::from_value(data).ok(),
+            crate::CipherType::SecureNote => cipher.secure_note = serde_json::from_value(data).ok(),
+            crate::CipherType::Card => cipher.card = serde_json::from_value(data).ok(),
+            crate::CipherType::Identity => cipher.identity = serde_json::from_value(data).ok(),
+            crate::CipherType::SshKey => cipher.ssh_key = serde_json::from_value(data).ok(),
+        }
+
+        cipher
+    }
+
+    #[allow(missing_docs)]
     pub fn move_to_organization(
         &self,
         mut cipher_view: CipherView,
