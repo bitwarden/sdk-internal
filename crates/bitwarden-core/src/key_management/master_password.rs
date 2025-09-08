@@ -37,7 +37,7 @@ pub enum MasterPasswordError {
 )]
 pub struct MasterPasswordUnlockData {
     /// The key derivation function used to derive the master key
-    pub kdf: Kdf,
+    pub(crate) kdf: Kdf,
     /// The master key wrapped user key
     pub(crate) master_key_wrapped_user_key: EncString,
     /// The salt used in the KDF, typically the user's email
