@@ -51,12 +51,12 @@ pub enum SendAccessTokenInvalidGrantError {
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "snake_case")]
 #[serde(tag = "error")]
 // ^ "error" becomes the variant discriminator which matches against the rename annotations;
 // "error_description" is the payload for that variant which can be optional.
 /// Represents the possible, expected errors that can occur when requesting a send access token.
 pub enum SendAccessTokenApiErrorResponse {
-    #[serde(rename = "invalid_request")]
     /// Invalid request error, typically due to missing parameters for a specific
     /// credential flow. Ex. `send_id` is required.
     InvalidRequest {
@@ -72,7 +72,6 @@ pub enum SendAccessTokenApiErrorResponse {
     },
 
     /// Invalid grant error, typically due to invalid credentials.
-    #[serde(rename = "invalid_grant")]
     InvalidGrant {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[cfg_attr(feature = "wasm", tsify(optional))]
@@ -85,7 +84,6 @@ pub enum SendAccessTokenApiErrorResponse {
         send_access_error_type: Option<SendAccessTokenInvalidGrantError>,
     },
 
-    #[serde(rename = "invalid_client")]
     /// Invalid client error, typically due to an invalid client secret or client ID.
     InvalidClient {
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -94,7 +92,6 @@ pub enum SendAccessTokenApiErrorResponse {
         error_description: Option<String>,
     },
 
-    #[serde(rename = "unauthorized_client")]
     /// Unauthorized client error, typically due to an unauthorized client.
     UnauthorizedClient {
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -103,7 +100,6 @@ pub enum SendAccessTokenApiErrorResponse {
         error_description: Option<String>,
     },
 
-    #[serde(rename = "unsupported_grant_type")]
     /// Unsupported grant type error, typically due to an unsupported credential flow.
     /// Note: during initial feature rollout, this will be used to indicate that the
     /// feature flag is disabled.
@@ -114,7 +110,6 @@ pub enum SendAccessTokenApiErrorResponse {
         error_description: Option<String>,
     },
 
-    #[serde(rename = "invalid_scope")]
     /// Invalid scope error, typically due to an invalid scope requested.
     InvalidScope {
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -123,8 +118,6 @@ pub enum SendAccessTokenApiErrorResponse {
         error_description: Option<String>,
     },
 
-    // add invalid target error
-    #[serde(rename = "invalid_target")]
     /// Invalid target error which is shown if the requested
     /// resource is invalid, missing, unknown, or malformed.
     InvalidTarget {
