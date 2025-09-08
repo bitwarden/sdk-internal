@@ -28,7 +28,6 @@ jobs:
       sha: ${{ steps.set-sha.outputs.sha }}
       short_sha: ${{ steps.set-sha.outputs.short_sha }}
       release_name: ${{ steps.set-release-name.outputs.release_name }}
-      run_id: ${{ steps.get-run-id.outputs.build-run-id }}
       swift_checksum: ${{ steps.calculate-swift-checksum.outputs.checksum }}
     steps:
       - name: Checkout repo
@@ -40,26 +39,6 @@ jobs:
           VERSION=$(grep -o '^version = ".*"' Cargo.toml | grep -Eo "[0-9]+\.[0-9]+\.[0-9]+")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Get run id
-        id: get-run-id
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OWNER: ${{ github.repository_owner }}
-          REPO: ${{ github.event.repository.name }}
-        run: |
-          if [ -z ${{ inputs.build-run-id }} ]; then
-            BRANCH=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
-            RUN_ID=$(gh api \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              /repos/$OWNER/$REPO/actions/workflows/build-swift.yml/runs \
-              | jq -r "[.workflow_runs[] | select(.head_branch == \"$BRANCH\").id ] | first")
-          else
-            RUN_ID=${{ inputs.build-run-id }}
-          fi
-
-          echo "build-run-id=$RUN_ID" >> $GITHUB_OUTPUT
-
       - name: Download BitwardenEFI artifact
         uses: bitwarden/gh-actions/download-artifacts@main
         id: download-artifact
@@ -67,7 +46,7 @@ jobs:
           workflow: build-swift.yml
           workflow_conclusion: success
           skip_unpack: true
-          run_id: ${{ steps.get-run-id.outputs.build-run-id }}
+          run_id: ${{ inputs.build-run-id }}
 
       - name: Set SHA
         id: set-sha
@@ -105,7 +84,7 @@ jobs:
       _PKG_VERSION: ${{ needs.validate.outputs.version }}
       _RELEASE_NAME: ${{ needs.validate.outputs.release_name }}
       _SWIFT_CHECKSUM: ${{ needs.validate.outputs.swift_checksum }}
-      _BUILD_RUN_ID: ${{ needs.validate.outputs.run_id }}
+      _BUILD_RUN_ID: ${{ inputs.build-run-id }}
       _BRANCH_NAME: unstable
     steps:
       - name: Checkout SDK repo
