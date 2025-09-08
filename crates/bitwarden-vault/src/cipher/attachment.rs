@@ -342,6 +342,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2023-07-27T19:28:05.240Z".parse().unwrap(),
             archived_date: None,
+            data: None,
         };
 
         let enc_file = B64::try_from("Ao00qr1xLsV+ZNQpYZ/UwEwOWo3hheKwCYcOGIbsorZ6JIG2vLWfWEXCVqP0hDuzRvmx8otApNZr8pJYLNwCe1aQ+ySHQYGkdubFjoMojulMbQ959Y4SJ6Its/EnVvpbDnxpXTDpbutDxyhxfq1P3lstL2G9rObJRrxiwdGlRGu1h94UA1fCCkIUQux5LcqUee6W4MyQmRnsUziH8gGzmtI=").unwrap();
