@@ -25,8 +25,8 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
-      sha: ${{ steps.set-sha.outputs.sha }}
-      short_sha: ${{ steps.set-sha.outputs.short_sha }}
+      sha: ${{ steps.get-sdk-internal-ref.outputs.sha }}
+      short_sha: ${{ steps.get-sdk-internal-ref.outputs.short_sha }}
       release_name: ${{ steps.set-release-name.outputs.release_name }}
       swift_checksum: ${{ steps.calculate-swift-checksum.outputs.checksum }}
     steps:
@@ -39,28 +39,21 @@ jobs:
           VERSION=$(grep -o '^version = ".*"' Cargo.toml | grep -Eo "[0-9]+\.[0-9]+\.[0-9]+")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Download BitwardenEFI artifact
-        uses: bitwarden/gh-actions/download-artifacts@main
-        id: download-artifact
-        with:
-          workflow: build-swift.yml
-          workflow_conclusion: success
-          skip_unpack: true
-          run_id: ${{ inputs.build-run-id }}
-
-      - name: Set SHA
-        id: set-sha
+      - name: Get workflow run commit ref
+        id: get-sdk-internal-ref
         env:
-          _ARTIFACT_BUILD_COMMIT: ${{ steps.download-artifact.outputs.artifact-build-commit }}
+          GH_TOKEN: ${{ github.token }}
+          _RUN_ID: ${{ inputs.build-run-id }}
         run: |
-          echo "sha=$_ARTIFACT_BUILD_COMMIT" >> $GITHUB_OUTPUT
-          echo "short_sha=$(echo $_ARTIFACT_BUILD_COMMIT | cut -c1-7)" >> $GITHUB_OUTPUT
+          COMMIT_SHA=$(gh run view $_RUN_ID --json headSha --jq '.headSha')
+          echo "sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          echo "short_sha=$(echo $COMMIT_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
 
       - name: Set release name
         id: set-release-name
         env:
           _BUILD_RUN_NUMBER: ${{ inputs.build-run-number }}
-          _SDK_INTERNAL_SHORT_REF: ${{ steps.set-sha.outputs.short_sha }}
+          _SDK_INTERNAL_SHORT_REF: ${{ steps.get-sdk-internal-ref.outputs.short_sha }}
           _VERSION: ${{ steps.version.outputs.version }}
         run: |
           RELEASE_NAME="$_VERSION-$_BUILD_RUN_NUMBER-$_SDK_INTERNAL_SHORT_REF"
@@ -71,7 +64,7 @@ jobs:
         id: calculate-swift-checksum
         env:
           _VERSION: ${{ steps.version.outputs.version }}
-          _SDK_INTERNAL_SHORT_REF: ${{ steps.set-sha.outputs.short_sha }}
+          _SDK_INTERNAL_SHORT_REF: ${{ steps.get-sdk-internal-ref.outputs.short_sha }}
         run: |
           CHECKSUM=$(swift package compute-checksum BitwardenFFI-$_VERSION-$_SDK_INTERNAL_SHORT_REF.xcframework.zip)
           echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
