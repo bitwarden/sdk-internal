@@ -530,7 +530,7 @@ mod request_send_access_token_unexpected_error_tests {
 
         match err {
             SendAccessTokenError::Unexpected(api_err) => {
-                let expected = UnexpectedIdentityError::Other(format!(
+                let expected = UnexpectedIdentityError(format!(
                     "Received response status {} {} against http://{}/identity/connect/token",
                     status_code,
                     reason,

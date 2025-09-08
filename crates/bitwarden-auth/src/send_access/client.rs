@@ -89,9 +89,9 @@ impl SendAccessClient {
                     response_status, url
                 );
 
-                return Err(SendAccessTokenError::Unexpected(
-                    UnexpectedIdentityError::Other(error_string),
-                ));
+                return Err(SendAccessTokenError::Unexpected(UnexpectedIdentityError(
+                    error_string,
+                )));
             }
         };
 
