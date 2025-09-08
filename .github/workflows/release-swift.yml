@@ -90,7 +90,7 @@ jobs:
       _RELEASE_NAME: ${{ needs.validate.outputs.release_name }}
       _SWIFT_CHECKSUM: ${{ needs.validate.outputs.swift_checksum }}
       _BUILD_RUN_ID: ${{ inputs.build-run-id }}
-      _BRANCH_NAME: TEST_BRANCH # TODO: replace with unstable before merging
+      _BRANCH_NAME: WORKFLOW_TEST # TODO: replace with unstable before merging
       _SDK_INTERNAL_SHORT_REF: ${{ needs.validate.outputs.short_sha }}
       _SDK_INTERNAL_REF: ${{ needs.validate.outputs.sha }}
     steps:
