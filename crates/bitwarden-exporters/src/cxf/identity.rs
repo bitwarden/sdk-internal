@@ -4,7 +4,10 @@ use credential_exchange_format::{
     PersonNameCredential,
 };
 
-use crate::{cxf::editable_field::create_field, Field, Identity};
+use crate::{
+    cxf::editable_field::{create_editable_field, create_field},
+    Field, Identity,
+};
 
 /// Convert address credentials to Identity (no custom fields needed for address)
 /// According to the mapping specification:
@@ -424,20 +427,16 @@ impl From<Identity> for Vec<Credential> {
         // Handle unmapped Identity fields as custom fields
         let custom_fields: Vec<EditableFieldValue> = [
             identity.email.as_ref().map(|email| {
-                EditableFieldValue::String(EditableField {
-                    id: None,
-                    label: Some("Email".to_string()),
-                    value: EditableFieldString(email.clone()),
-                    extensions: None,
-                })
+                EditableFieldValue::String(create_editable_field(
+                    "Email".to_string(),
+                    EditableFieldString(email.clone()),
+                ))
             }),
             identity.username.as_ref().map(|username| {
-                EditableFieldValue::String(EditableField {
-                    id: None,
-                    label: Some("Username".to_string()),
-                    value: EditableFieldString(username.clone()),
-                    extensions: None,
-                })
+                EditableFieldValue::String(create_editable_field(
+                    "Username".to_string(),
+                    EditableFieldString(username.clone()),
+                ))
             }),
         ]
         .into_iter()
