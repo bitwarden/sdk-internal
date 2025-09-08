@@ -1,0 +1,1066 @@
+{
+  "items": [
+    {
+      "creationAt": 2735237468,
+      "title": "John doe",
+      "id": "YXR6ZG9jc25wajRjYWVldXEydDN4djN6eGkvZGIzd3BwZGI2eXFmNTQ0M2Rtd3lyZzN5b2E",
+      "modifiedAt": 2735237468,
+      "credentials": [
+        {
+          "type": "person-name",
+          "surname": {
+            "label": "last name",
+            "fieldType": "string",
+            "id": "bGFzdG5hbWU",
+            "value": "Doe"
+          },
+          "given": {
+            "label": "first name",
+            "fieldType": "string",
+            "id": "Zmlyc3RuYW1l",
+            "value": "John"
+          }
+        },
+        { "type": "address" },
+        {
+          "type": "custom-fields",
+          "fields": [
+            {
+              "value": "JD",
+              "fieldType": "string",
+              "label": "initial",
+              "id": "aW5pdGlhbA"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "label": "gender",
+              "id": "Z2VuZGVy"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "label": "birth date",
+              "id": "YmlydGhkYXRl"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "label": "occupation",
+              "id": "b2NjdXBhdGlvbg"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "label": "company",
+              "id": "Y29tcGFueQ"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "label": "department",
+              "id": "ZGVwYXJ0bWVudA"
+            },
+            {
+              "value": "Dr.",
+              "fieldType": "string",
+              "label": "job title",
+              "id": "am9idGl0bGU"
+            }
+          ],
+          "id": "bmFtZQ",
+          "label": "Identification"
+        },
+        {
+          "type": "custom-fields",
+          "fields": [
+            {
+              "label": "address",
+              "id": "YWRkcmVzcw",
+              "value": "",
+              "fieldType": "string"
+            },
+            {
+              "label": "default phone",
+              "id": "ZGVmcGhvbmU",
+              "value": "",
+              "fieldType": "string"
+            },
+            {
+              "label": "home",
+              "id": "aG9tZXBob25l",
+              "value": "",
+              "fieldType": "string"
+            },
+            {
+              "label": "cell",
+              "id": "Y2VsbHBob25l",
+              "value": "",
+              "fieldType": "string"
+            },
+            {
+              "label": "business",
+              "id": "YnVzcGhvbmU",
+              "value": "",
+              "fieldType": "string"
+            }
+          ],
+          "id": "YWRkcmVzcw",
+          "label": "Address"
+        },
+        {
+          "type": "custom-fields",
+          "fields": [
+            {
+              "id": "dXNlcm5hbWU",
+              "value": "",
+              "fieldType": "string",
+              "label": "username"
+            },
+            {
+              "id": "cmVtaW5kZXJx",
+              "value": "",
+              "fieldType": "string",
+              "label": "reminder question"
+            },
+            {
+              "id": "cmVtaW5kZXJh",
+              "value": "",
+              "fieldType": "string",
+              "label": "reminder answer"
+            },
+            {
+              "id": "ZW1haWw",
+              "value": "",
+              "fieldType": "string",
+              "label": "email"
+            },
+            {
+              "id": "d2Vic2l0ZQ",
+              "value": "",
+              "fieldType": "string",
+              "label": "website"
+            },
+            {
+              "id": "aWNx",
+              "value": "",
+              "fieldType": "string",
+              "label": "ICQ"
+            },
+            {
+              "id": "c2t5cGU",
+              "value": "",
+              "fieldType": "string",
+              "label": "skype"
+            },
+            {
+              "id": "YWlt",
+              "value": "",
+              "fieldType": "string",
+              "label": "AOL/AIM"
+            },
+            {
+              "id": "eWFob28",
+              "value": "",
+              "fieldType": "string",
+              "label": "Yahoo"
+            },
+            {
+              "id": "bXNu",
+              "value": "",
+              "fieldType": "string",
+              "label": "MSN"
+            },
+            {
+              "id": "Zm9ydW1zaWc",
+              "value": "",
+              "fieldType": "string",
+              "label": "forum signature"
+            }
+          ],
+          "id": "aW50ZXJuZXQ",
+          "label": "Internet Details"
+        }
+      ],
+      "subtitle": "John Doe",
+      "scope": { "urls": [], "androidApps": [] }
+    },
+    {
+      "scope": { "urls": ["https://facebook.com"], "androidApps": [] },
+      "modifiedAt": 2735236929,
+      "creationAt": 2735236701,
+      "id": "YXR6ZG9jc25wajRjYWVldXEydDN4djN6eGkvNHVyNG5qeWpkNHg1ZGJzZDZnZnFxNWo3aHU",
+      "credentials": [
+        {
+          "type": "basic-auth",
+          "password": {
+            "id": "",
+            "fieldType": "concealed-string",
+            "label": "password",
+            "value": "securepassword123"
+          },
+          "username": {
+            "id": "",
+            "fieldType": "string",
+            "label": "username",
+            "value": "johndoe"
+          }
+        },
+        {
+          "type": "custom-fields",
+          "fields": [
+            {
+              "value": "Jane",
+              "id": "anE0YjM1Y2o0N2tnbXM2ZHp0ZzJjZ2VybXk",
+              "label": "First name",
+              "fieldType": "string"
+            },
+            {
+              "value": "Doe",
+              "id": "bnhqZzNwNG1pc3l1cmd5dWo0cjdyZml3d3k",
+              "label": "Last name",
+              "fieldType": "string"
+            },
+            {
+              "value": "631195260",
+              "id": "eGhoMm1obWY3Z3FhcDJqamZxN2N1bHF1bGk",
+              "label": "Birth Date",
+              "fieldType": "string"
+            },
+            {
+              "value": "Smith",
+              "id": "NGhxbWhpc3Zya2ZvbXRwYWx5bWNnbmNxcmU",
+              "label": "Mother's maiden name (security question)",
+              "fieldType": "string"
+            }
+          ],
+          "id": "NXp3dXppbHhkN2EyY2Rpa3d0d25qNTd0aXk",
+          "label": "Saved on facebook.com"
+        },
+        {
+          "type": "custom-fields",
+          "fields": [
+            {
+              "id": "VE9UUF9idGxmY2w3Zms1YjN1eHEzbmV4Nmd4MjV5YQ",
+              "value": "otpauth://totp/jane?secret=JBSWY3DPEHPK3PXP&digits=6&issuer=Facebook",
+              "fieldType": "string",
+              "label": "one-time password"
+            }
+          ],
+          "id": "YWRkIG1vcmU",
+          "label": ""
+        }
+      ],
+      "subtitle": "johndoe",
+      "title": "Facebook",
+      "tags": ["development", "git", "work"]
+    },
+    {
+      "subtitle": "",
+      "modifiedAt": 2735237480,
+      "id": "YXR6ZG9jc25wajRjYWVldXEydDN4djN6eGkvaHgybWVyZm1zYXI1ZHRnbmZ2em11d2tqZ3k",
+      "credentials": [
+        {
+          "type": "person-name",
+          "surname": {
+            "label": "last name",
+            "fieldType": "string",
+            "id": "bGFzdG5hbWU",
+            "value": ""
+          },
+          "given": {
+            "label": "first name",
+            "fieldType": "string",
+            "id": "Zmlyc3RuYW1l",
+            "value": ""
+          }
+        },
+        {
+          "type": "address",
+          "streetAddress": { "value": "123 Main Stree", "fieldType": "string" },
+          "territory": { "value": "CA", "fieldType": "subdivision-code" },
+          "country": { "value": "US", "fieldType": "country-code" },
+          "postalCode": { "value": "12345", "fieldType": "string" },
+          "city": { "value": "Springfield", "fieldType": "string" }
+        },
+        {
+          "type": "item-reference",
+          "reference": {
+            "item": "YXR6ZG9jc25wajRjYWVldXEydDN4djN6eGkvdWN3bTR6ajZqYjRtNWJ1bWI0emUzdmlqY2k"
+          }
+        },
+        {
+          "type": "custom-fields",
+          "fields": [
+            {
+              "id": "aW5pdGlhbA",
+              "label": "initial",
+              "value": "",
+              "fieldType": "string"
+            },
+            {
+              "id": "Z2VuZGVy",
+              "label": "gender",
+              "value": "",
+              "fieldType": "string"
+            },
+            {
+              "id": "YmlydGhkYXRl",
+              "label": "birth date",
+              "value": "",
+              "fieldType": "string"
+            },
+            {
+              "id": "b2NjdXBhdGlvbg",
+              "label": "occupation",
+              "value": "",
+              "fieldType": "string"
+            },
+            {
+              "id": "Y29tcGFueQ",
+              "label": "company",
+              "value": "",
+              "fieldType": "string"
+            },
+            {
+              "id": "ZGVwYXJ0bWVudA",
+              "label": "department",
+              "value": "",
+              "fieldType": "string"
+            },
+            {
+              "id": "am9idGl0bGU",
+              "label": "job title",
+              "value": "",
+              "fieldType": "string"
+            }
+          ],
+          "id": "bmFtZQ",
+          "label": "Identification"
+        },
+        {
+          "type": "custom-fields",
+          "fields": [
+            {
+              "value": "+1 555-123-4567",
+              "fieldType": "string",
+              "id": "ZGVmcGhvbmU",
+              "label": "default phone"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "id": "aG9tZXBob25l",
+              "label": "home"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "id": "Y2VsbHBob25l",
+              "label": "cell"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "id": "YnVzcGhvbmU",
+              "label": "business"
+            }
+          ],
+          "id": "YWRkcmVzcw",
+          "label": "Address"
+        },
+        {
+          "type": "custom-fields",
+          "fields": [
+            {
+              "id": "dXNlcm5hbWU",
+              "fieldType": "string",
+              "label": "username",
+              "value": ""
+            },
+            {
+              "id": "cmVtaW5kZXJx",
+              "fieldType": "string",
+              "label": "reminder question",
+              "value": ""
+            },
+            {
+              "id": "cmVtaW5kZXJh",
+              "fieldType": "string",
+              "label": "reminder answer",
+              "value": ""
+            },
+            {
+              "id": "ZW1haWw",
+              "fieldType": "string",
+              "label": "email",
+              "value": ""
+            },
+            {
+              "id": "d2Vic2l0ZQ",
+              "fieldType": "string",
+              "label": "website",
+              "value": ""
+            },
+            {
+              "id": "aWNx",
+              "fieldType": "string",
+              "label": "ICQ",
+              "value": ""
+            },
+            {
+              "id": "c2t5cGU",
+              "fieldType": "string",
+              "label": "skype",
+              "value": ""
+            },
+            {
+              "id": "YWlt",
+              "fieldType": "string",
+              "label": "AOL/AIM",
+              "value": ""
+            },
+            {
+              "id": "eWFob28",
+              "fieldType": "string",
+              "label": "Yahoo",
+              "value": ""
+            },
+            {
+              "id": "bXNu",
+              "fieldType": "string",
+              "label": "MSN",
+              "value": ""
+            },
+            {
+              "id": "Zm9ydW1zaWc",
+              "fieldType": "string",
+              "label": "forum signature",
+              "value": ""
+            }
+          ],
+          "id": "aW50ZXJuZXQ",
+          "label": "Internet Details"
+        }
+      ],
+      "title": "Address",
+      "creationAt": 2735237369,
+      "scope": { "urls": [], "androidApps": [] }
+    },
+    {
+      "scope": { "urls": [], "androidApps": [] },
+      "creationAt": 2735237614,
+      "credentials": [
+        {
+          "type": "identity-document",
+          "documentNumber": {
+            "fieldType": "string",
+            "value": "ID123456789",
+            "label": "number",
+            "id": "bnVtYmVy"
+          },
+          "fullName": {
+            "fieldType": "string",
+            "value": "Jane Doe",
+            "label": "name",
+            "id": "bmFtZQ"
+          }
+        }
+      ],
+      "id": "YXR6ZG9jc25wajRjYWVldXEydDN4djN6eGkvN3o0ZnJ0eGhndXZwMndkd21veHJrdXRnYWk",
+      "modifiedAt": 2735237614,
+      "subtitle": "Jane Doe",
+      "title": "Social Security Number"
+    },
+    {
+      "id": "YXR6ZG9jc25wajRjYWVldXEydDN4djN6eGkvNjd2bm96dDdwZWN6cGp5eTN3anhhb2Fpank",
+      "scope": { "urls": [], "androidApps": [] },
+      "title": "Home Wifi",
+      "subtitle": "Home_Network",
+      "modifiedAt": 2735237086,
+      "credentials": [
+        {
+          "type": "wifi",
+          "networkSecurityType": {
+            "id": "d2lyZWxlc3Nfc2VjdXJpdHk",
+            "value": "wpa2-personal",
+            "label": "wireless security",
+            "fieldType": "wifi-network-security-type"
+          },
+          "passphrase": {
+            "id": "d2lyZWxlc3NfcGFzc3dvcmQ",
+            "value": "mypassword123",
+            "label": "wireless network password",
+            "fieldType": "concealed-string"
+          },
+          "ssid": {
+            "id": "bmV0d29ya19uYW1l",
+            "value": "Home_Network",
+            "label": "network name",
+            "fieldType": "string"
+          }
+        },
+        {
+          "type": "custom-fields",
+          "fields": [
+            {
+              "value": "",
+              "fieldType": "string",
+              "label": "base station name",
+              "id": "bmFtZQ"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "label": "base station password",
+              "id": "cGFzc3dvcmQ"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "label": "server / IP address",
+              "id": "c2VydmVy"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "label": "AirPort ID",
+              "id": "YWlycG9ydF9pZA"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "label": "attached storage password",
+              "id": "ZGlza19wYXNzd29yZA"
+            }
+          ],
+          "id": "",
+          "label": ""
+        }
+      ],
+      "creationAt": 2735237086
+    },
+    {
+      "credentials": [
+        {
+          "expiryDate": {
+            "id": "ZXhwaXJ5",
+            "value": "2027-08",
+            "label": "expiry date",
+            "fieldType": "year-month"
+          },
+          "validFrom": {
+            "id": "dmFsaWRGcm9t",
+            "value": "2024-02",
+            "label": "valid from",
+            "fieldType": "year-month"
+          },
+          "number": {
+            "id": "Y2NudW0",
+            "value": "4111111111111111",
+            "label": "number",
+            "fieldType": "concealed-string"
+          },
+          "fullName": {
+            "id": "Y2FyZGhvbGRlcg",
+            "value": "John doe",
+            "label": "cardholder name",
+            "fieldType": "string"
+          },
+          "type": "credit-card",
+          "verificationNumber": {
+            "id": "Y3Z2",
+            "value": "123",
+            "label": "verification number",
+            "fieldType": "concealed-string"
+          },
+          "cardType": {
+            "id": "dHlwZQ",
+            "value": "visa",
+            "label": "type",
+            "fieldType": "string"
+          }
+        },
+        {
+          "type": "custom-fields",
+          "fields": [
+            {
+              "id": "YmFuaw",
+              "value": "",
+              "label": "issuing bank",
+              "fieldType": "string"
+            },
+            {
+              "id": "cGhvbmVMb2NhbA",
+              "value": "",
+              "label": "phone (local)",
+              "fieldType": "string"
+            },
+            {
+              "id": "cGhvbmVUb2xsRnJlZQ",
+              "value": "",
+              "label": "phone (toll free)",
+              "fieldType": "string"
+            },
+            {
+              "id": "cGhvbmVJbnRs",
+              "label": "phone (intl)",
+              "value": "",
+              "fieldType": "string"
+            },
+            {
+              "id": "d2Vic2l0ZQ",
+              "label": "website",
+              "value": "",
+              "fieldType": "string"
+            }
+          ],
+          "id": "Y29udGFjdEluZm8",
+          "label": "Contact Information"
+        },
+        {
+          "type": "custom-fields",
+          "fields": [
+            {
+              "value": "0000",
+              "fieldType": "string",
+              "id": "cGlu",
+              "label": "PIN"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "id": "Y3JlZGl0TGltaXQ",
+              "label": "credit limit"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "id": "Y2FzaExpbWl0",
+              "label": "cash withdrawal limit"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "id": "aW50ZXJlc3Q",
+              "label": "interest rate"
+            },
+            {
+              "value": "",
+              "fieldType": "string",
+              "id": "aXNzdWVudW1iZXI",
+              "label": "issue number"
+            }
+          ],
+          "id": "ZGV0YWlscw",
+          "label": "Additional Details"
+        }
+      ],
+      "title": "Personal Credit Card",
+      "creationAt": 2735237020,
+      "subtitle": "4111 **** 1111",
+      "scope": { "urls": [], "androidApps": [] },
+      "id": "YXR6ZG9jc25wajRjYWVldXEydDN4djN6eGkvaHhhZ2tlZ2FpZHdvdnFoZWJseW5raDdqZDQ",
+      "modifiedAt": 2735237020
+    },
+    {
+      "scope": { "urls": [], "androidApps": [] },
+      "subtitle": "A12345678",
+      "id": "YXR6ZG9jc25wajRjYWVldXEydDN4djN6eGkvbWh1a2Z4MjV6cDVmc28zMnh2bHRoMzM1eHU",
+      "creationAt": 2735237767,
+      "credentials": [
+        {
+          "issueDate": {
+            "id": "aXNzdWVfZGF0ZQ",
+            "fieldType": "date",
+            "label": "issued on",
+            "value": "2015-06-15"
+          },
+          "expiryDate": {
+            "id": "ZXhwaXJ5X2RhdGU",
+            "fieldType": "date",
+            "label": "expiry date",
+            "value": "2025-06-15"
+          },
+          "birthDate": {
+            "id": "YmlydGhkYXRl",
+            "fieldType": "date",
+            "label": "date of birth",
+            "value": "1990-01-01"
+          },
+          "passportNumber": {
+            "id": "bnVtYmVy",
+            "fieldType": "string",
+            "label": "number",
+            "value": "A12345678"
+          },
+          "passportType": {
+            "value": "Regular",
+            "fieldType": "string",
+            "label": "type",
+            "id": "dHlwZQ"
+          },
+          "issuingAuthority": {
+            "id": "aXNzdWluZ19hdXRob3JpdHk",
+            "fieldType": "string",
+            "label": "issuing authority",
+            "value": "U.S. Department of State"
+          },
+          "nationality": {
+            "id": "bmF0aW9uYWxpdHk",
+            "fieldType": "string",
+            "label": "nationality",
+            "value": "American"
+          },
+          "type": "passport",
+          "issuingCountry": {
+            "value": "US",
+            "fieldType": "country-code",
+            "label": "issuing country",
+            "id": "aXNzdWluZ19jb3VudHJ5"
+          },
+          "fullName": {
+            "id": "ZnVsbG5hbWU",
+            "fieldType": "string",
+            "label": "full name",
+            "value": "John Doe"
+          },
+          "birthPlace": {
+            "id": "YmlydGhwbGFjZQ",
+            "fieldType": "string",
+            "label": "place of birth",
+            "value": "Los Angeles, USA"
+          },
+          "sex": {
+            "id": "Z2VuZGVy",
+            "fieldType": "string",
+            "label": "gender",
+            "value": "M"
+          }
+        }
+      ],
+      "title": "Passport",
+      "modifiedAt": 2735237767
+    },
+    {
+      "title": "Driver License",
+      "creationAt": 2735237271,
+      "subtitle": "D12345678",
+      "modifiedAt": 2735237271,
+      "id": "YXR6ZG9jc25wajRjYWVldXEydDN4djN6eGkvaWNqbWRpaGdhcGc0cGRhNjZmdnVqNHJrYnk",
+      "credentials": [
+        {
+          "licenseNumber": {
+            "fieldType": "string",
+            "value": "D12345678",
+            "label": "number",
+            "id": "bnVtYmVy"
+          },
+          "birthDate": {
+            "fieldType": "date",
+            "value": "1990-05-15",
+            "label": "date of birth",
+            "id": "YmlydGhkYXRl"
+          },
+          "type": "drivers-license",
+          "country": {
+            "fieldType": "country-code",
+            "value": "US",
+            "label": "country",
+            "id": "Y291bnRyeQ"
+          },
+          "fullName": {
+            "fieldType": "string",
+            "value": "John Doe",
+            "label": "full name",
+            "id": "ZnVsbG5hbWU"
+          },
+          "licenseClass": {
+            "fieldType": "string",
+            "value": "C",
+            "label": "license class",
+            "id": "Y2xhc3M"
+          },
+          "territory": {
+            "fieldType": "subdivision-code",
+            "value": "CA",
+            "label": "state",
+            "id": "c3RhdGU"
+          }
+        },
+        {
+          "type": "custom-fields",
+          "id": "",
+          "fields": [
+            {
+              "fieldType": "string",
+              "value": "",
+              "label": "address",
+              "id": "YWRkcmVzcw"
+            },
+            {
+              "fieldType": "string",
+              "value": "",
+              "label": "gender",
+              "id": "Z2VuZGVy"
+            },
+            {
+              "fieldType": "string",
+              "value": "",
+              "label": "height",
+              "id": "aGVpZ2h0"
+            },
+            {
+              "fieldType": "string",
+              "value": "",
+              "label": "conditions / restrictions",
+              "id": "Y29uZGl0aW9ucw"
+            },
+            {
+              "fieldType": "string",
+              "value": "203006",
+              "label": "expiry date",
+              "id": "ZXhwaXJ5X2RhdGU"
+            }
+          ],
+          "label": ""
+        }
+      ],
+      "scope": { "urls": [], "androidApps": [] }
+    },
+    {
+      "scope": { "urls": [], "androidApps": [] },
+      "title": "EXPORTER",
+      "subtitle": "EXPORTER",
+      "tags": ["Starter Kit"],
+      "id": "YXR6ZG9jc25wajRjYWVldXEydDN4djN6eGkvbmI2N2Y3bWxneWt0bG9ia2RvY3p1YWxremU",
+      "creationAt": 2735302308,
+      "credentials": [
+        {
+          "type": "note",
+          "content": {
+            "value": "It’s you! 🖐 Select Edit to fill in more details, like your address and contact information.",
+            "fieldType": "string"
+          }
+        },
+        {
+          "type": "person-name",
+          "surname": {
+            "id": "bGFzdG5hbWU",
+            "label": "last name",
+            "value": "",
+            "fieldType": "string"
+          },
+          "given": {
+            "id": "Zmlyc3RuYW1l",
+            "label": "first name",
+            "value": "EXPORTER",
+            "fieldType": "string"
+          }
+        },
+        {
+          "type": "address",
+          "territory": { "fieldType": "subdivision-code", "value": "" },
+          "streetAddress": { "value": "", "fieldType": "string" },
+          "postalCode": { "value": "", "fieldType": "string" },
+          "city": { "fieldType": "string", "value": "" },
+          "country": { "fieldType": "country-code", "value": "" }
+        },
+        {
+          "type": "custom-fields",
+          "id": "bmFtZQ",
+          "fields": [
+            {
+              "id": "aW5pdGlhbA",
+              "label": "initial",
+              "fieldType": "string",
+              "value": ""
+            },
+            {
+              "id": "Z2VuZGVy",
+              "label": "gender",
+              "fieldType": "string",
+              "value": ""
+            },
+            {
+              "id": "YmlydGhkYXRl",
+              "label": "birth date",
+              "fieldType": "string",
+              "value": ""
+            },
+            {
+              "id": "b2NjdXBhdGlvbg",
+              "label": "occupation",
+              "fieldType": "string",
+              "value": ""
+            },
+            {
+              "id": "Y29tcGFueQ",
+              "label": "company",
+              "fieldType": "string",
+              "value": ""
+            },
+            {
+              "id": "ZGVwYXJ0bWVudA",
+              "label": "department",
+              "fieldType": "string",
+              "value": ""
+            },
+            {
+              "id": "am9idGl0bGU",
+              "label": "job title",
+              "fieldType": "string",
+              "value": ""
+            }
+          ],
+          "label": "Identification"
+        },
+        {
+          "type": "custom-fields",
+          "id": "YWRkcmVzcw",
+          "fields": [
+            {
+              "id": "ZGVmcGhvbmU",
+              "fieldType": "string",
+              "value": "",
+              "label": "default phone"
+            },
+            {
+              "id": "aG9tZXBob25l",
+              "fieldType": "string",
+              "value": "",
+              "label": "home"
+            },
+            {
+              "id": "Y2VsbHBob25l",
+              "fieldType": "string",
+              "value": "",
+              "label": "cell"
+            },
+            {
+              "id": "YnVzcGhvbmU",
+              "fieldType": "string",
+              "value": "",
+              "label": "business"
+            }
+          ],
+          "label": "Address"
+        },
+        {
+          "type": "custom-fields",
+          "id": "aW50ZXJuZXQ",
+          "fields": [
+            {
+              "label": "username",
+              "value": "",
+              "fieldType": "string",
+              "id": "dXNlcm5hbWU"
+            },
+            {
+              "label": "reminder question",
+              "value": "",
+              "fieldType": "string",
+              "id": "cmVtaW5kZXJx"
+            },
+            {
+              "label": "reminder answer",
+              "value": "",
+              "fieldType": "string",
+              "id": "cmVtaW5kZXJh"
+            },
+            {
+              "label": "email",
+              "value": "REDACTED@bitwarden.com",
+              "fieldType": "string",
+              "id": "ZW1haWw"
+            },
+            {
+              "label": "website",
+              "value": "",
+              "fieldType": "string",
+              "id": "d2Vic2l0ZQ"
+            },
+            {
+              "label": "ICQ",
+              "value": "",
+              "fieldType": "string",
+              "id": "aWNx"
+            },
+            {
+              "label": "skype",
+              "value": "",
+              "fieldType": "string",
+              "id": "c2t5cGU"
+            },
+            {
+              "label": "AOL/AIM",
+              "value": "",
+              "fieldType": "string",
+              "id": "YWlt"
+            },
+            {
+              "label": "Yahoo",
+              "value": "",
+              "fieldType": "string",
+              "id": "eWFob28"
+            },
+            {
+              "label": "MSN",
+              "value": "",
+              "fieldType": "string",
+              "id": "bXNu"
+            },
+            {
+              "label": "forum signature",
+              "value": "",
+              "fieldType": "string",
+              "id": "Zm9ydW1zaWc"
+            }
+          ],
+          "label": "Internet Details"
+        },
+        {
+          "type": "custom-fields",
+          "id": "bmtzZGJqZTR1djJqNHMyeGt1b2ZnNTR6amk",
+          "fields": [
+            {
+              "value": "1Password can fill names and addresses into webpages:",
+              "id": "dDZ0aDVqeHptbmg1bjd0cWFkbWlmM3pia3k",
+              "fieldType": "string",
+              "label": ""
+            },
+            {
+              "value": "https://support.1password.com/credit-card-address-filling/",
+              "id": "d3E3aHJoc3IzazI0cjVwdmxiNG5tbXRpYzQ",
+              "fieldType": "string",
+              "label": ""
+            }
+          ],
+          "label": "💡 Did you know?"
+        }
+      ],
+      "modifiedAt": 2735302308
+    },
+    {
+      "modifiedAt": 2735237113,
+      "title": "Home Alarm",
+      "scope": { "urls": [], "androidApps": [] },
+      "subtitle": "Some instructions to enable/disable the alarm",
+      "id": "YXR6ZG9jc25wajRjYWVldXEydDN4djN6eGkvMm52ejM2N3Z2dHk2bHdnNGFiaWRsa2FoN20",
+      "credentials": [
+        {
+          "type": "note",
+          "content": {
+            "fieldType": "string",
+            "value": "Some instructions to enable/disable the alarm"
+          }
+        }
+      ],
+      "creationAt": 2735237113
+    }
+  ],
+  "email": "IMPORTER@EXAMPLE.com",
+  "id": "RFFBVFBOUkNYNUFHTEdRNlFIREI1TUZWU0E",
+  "collections": [],
+  "username": "EXPORTER"
+}
