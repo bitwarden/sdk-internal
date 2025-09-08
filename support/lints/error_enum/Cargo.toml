@@ -2,7 +2,7 @@
 name = "bitwarden_error_enum"
 version = "0.1.0"
 authors = ["Bitwarden Inc"]
-description = "description goes here"
+description = "Lint forbidding enum variants from having Error suffix"
 edition = "2021"
 publish = false
 
