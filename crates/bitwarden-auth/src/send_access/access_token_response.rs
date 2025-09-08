@@ -68,11 +68,12 @@ impl From<reqwest::Error> for SendAccessTokenError {
 #[derive(Debug)]
 /// Any unexpected error that occurs when making requests to identity.
 pub enum UnexpectedIdentityError {
-    // TODO: figure out when this would be used and document it.
-    #[allow(missing_docs)]
+    /// Local/transport/decoding failure from the HTTP client (DNS/TLS/connect/read timeout,
+    /// connection reset, or JSON decode failure on a success response).
     Reqwest(reqwest::Error),
-    // TODO: figure out how to document this.
-    #[allow(missing_docs)]
+    /// Non-2xx response with an unexpected body or status. Used when decoding the server's
+    /// error payload into `SendAccessTokenApiErrorResponse` fails, or for 5xx responses
+    /// where no structured error is available.
     Other(String),
 }
 

@@ -60,6 +60,10 @@ impl SendAccessClient {
             // If we had nested structures, we have to use serde_qs::to_string instead.
             .body(serde_urlencoded::to_string(&payload).expect("Serialize should be infallible"));
 
+        // Because of the ? operator, any errors from sending the request are automatically
+        // wrapped in SendAccessTokenError::Unexpected as an UnexpectedIdentityError::Reqwest
+        // variant and returned.
+        // note: we had to manually built a trait to map reqwest::Error to SendAccessTokenError.
         let response: reqwest::Response = request.send().await?;
 
         let response_status = response.status();
@@ -77,7 +81,8 @@ impl SendAccessClient {
             // SendAccessTokenError::Expected later on.
             Ok(err) => err,
             Err(_) => {
-                // This handles any 4xx that aren't specifically handled and 5xx errors
+                // This handles any 4xx that aren't specifically handled above
+                // as well as any other non-2xx responses (5xx, etc).
 
                 let error_string = format!(
                     "Received response status {} against {}",
