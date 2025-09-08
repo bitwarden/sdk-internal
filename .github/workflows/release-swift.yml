@@ -183,11 +183,9 @@ jobs:
           echo "👀 Commit hash: $COMMIT_HASH"
           echo "commit-hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
 
-      - name: Create release tag on SDK Swift repo
-        working-directory: sdk-swift
-        run: |
-          git tag v$_RELEASE_NAME
-          git push origin v$_RELEASE_NAME
+          # git tag v$_RELEASE_NAME
+          # git push origin v$_RELEASE_NAME
+          # echo "👀 Release Tag: v$_RELEASE_NAME"
 
       - name: Download BitwardenFFI artifact
         uses: bitwarden/gh-actions/download-artifacts@main
