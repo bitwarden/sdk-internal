@@ -387,7 +387,7 @@ impl InternalClient {
             LoginMethod::User(UserLoginMethod::Username { kdf, .. }) => kdf,
             LoginMethod::User(UserLoginMethod::ApiKey { kdf, .. }) => kdf,
             #[cfg(feature = "secrets")]
-            LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
+            LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError),
         };
 
         if *kdf != new_kdf {
@@ -411,7 +411,7 @@ impl InternalClient {
                     kdf: new_kdf,
                 })),
                 #[cfg(feature = "secrets")]
-                LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
+                LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError),
             };
         }
 

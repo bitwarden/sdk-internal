@@ -33,8 +33,8 @@ pub(crate) async fn login_api_key(
         let kdf = client.auth().prelogin(email.clone()).await?;
 
         client.internal.set_tokens(
-            r.access_token.to_owned(),
-            r.refresh_token.to_owned(),
+            r.access_token.clone(),
+            r.refresh_token.clone(),
             r.expires_in,
         );
 
@@ -47,30 +47,34 @@ pub(crate) async fn login_api_key(
             security_state: None,
         };
 
-        if let Some(master_password_unlock) = r
+        let master_password_unlock = r
             .user_decryption_options
             .as_ref()
             .map(UserDecryptionData::try_from)
             .transpose()?
-            .and_then(|user_decryption| user_decryption.master_password_unlock)
-        {
-            client
-                .internal
-                .initialize_user_crypto_master_password_unlock(
-                    input.password.clone(),
-                    master_password_unlock,
+            .and_then(|user_decryption| user_decryption.master_password_unlock);
+
+        match master_password_unlock {
+            Some(master_password_unlock) => {
+                client
+                    .internal
+                    .initialize_user_crypto_master_password_unlock(
+                        input.password.clone(),
+                        master_password_unlock,
+                        user_key_state,
+                    )?;
+            }
+            None => {
+                let user_key = r.key.as_deref();
+                let user_key: EncString = require!(user_key).parse()?;
+                let master_key = MasterKey::derive(&input.password, &email, &kdf)?;
+
+                client.internal.initialize_user_crypto_master_key(
+                    master_key,
+                    user_key,
                     user_key_state,
                 )?;
-        } else {
-            let user_key = r.key.as_deref();
-            let user_key: EncString = require!(user_key).parse()?;
-            let master_key = MasterKey::derive(&input.password, &email, &kdf)?;
-
-            client.internal.initialize_user_crypto_master_key(
-                master_key,
-                user_key,
-                user_key_state,
-            )?;
+            }
         }
 
         client

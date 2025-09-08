@@ -12,7 +12,6 @@ use crate::{
         api::{request::AuthRequestTokenRequest, response::IdentityTokenResponse},
         auth_request::new_auth_request,
     },
-    client::{LoginMethod, UserLoginMethod},
     key_management::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
     require, ApiError, Client,
 };
@@ -110,7 +109,7 @@ pub(crate) async fn complete_auth_request(
             .initialize_user_crypto(InitUserCryptoRequest {
                 user_id: None,
                 kdf_params: Kdf::default(),
-                email: auth_req.email.to_owned(),
+                email: auth_req.email.clone(),
                 private_key: require!(r.private_key).parse()?,
                 signing_key: None,
                 security_state: None,
@@ -120,14 +119,6 @@ pub(crate) async fn complete_auth_request(
                 },
             })
             .await?;
-
-        client
-            .internal
-            .set_login_method(LoginMethod::User(UserLoginMethod::Username {
-                client_id: "web".to_owned(),
-                email: auth_req.email.to_owned(),
-                kdf: Kdf::default(),
-            }));
 
         Ok(())
     } else {

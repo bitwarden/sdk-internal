@@ -1421,11 +1421,16 @@ mod tests {
         assert!(context.has_symmetric_key(SymmetricKeyId::User));
         assert!(context.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey));
         let login_method = client.internal.get_login_method().unwrap();
-        if let LoginMethod::User(UserLoginMethod::Username { email, kdf, .. }) =
-            login_method.as_ref()
+        if let LoginMethod::User(UserLoginMethod::Username {
+            email,
+            kdf,
+            client_id,
+            ..
+        }) = login_method.as_ref()
         {
             assert_eq!(*email, test_account.user.email);
             assert_eq!(*kdf, test_account.user.kdf_params);
+            assert_eq!(*client_id, "");
         } else {
             panic!("Expected username login method");
         }
