@@ -228,10 +228,10 @@ mod tests {
         #[test]
         fn invalid_request_payload_without_description_is_allowed() {
             let payload = r#"
-    {
-        "error": "invalid_request",
-        "send_access_error_type": "email_required"
-    }"#;
+            {
+                "error": "invalid_request",
+                "send_access_error_type": "email_required"
+            }"#;
 
             let parsed: SendAccessTokenApiErrorResponse = serde_json::from_str(payload).unwrap();
             match parsed {
@@ -252,11 +252,11 @@ mod tests {
         #[test]
         fn invalid_request_unknown_code_maps_to_unknown() {
             let payload = r#"
-    {
-        "error": "invalid_request",
-        "error_description": "something new",
-        "send_access_error_type": "brand_new_code"
-    }"#;
+            {
+                "error": "invalid_request",
+                "error_description": "something new",
+                "send_access_error_type": "brand_new_code"
+            }"#;
 
             let parsed: SendAccessTokenApiErrorResponse = serde_json::from_str(payload).unwrap();
             match parsed {
@@ -293,11 +293,11 @@ mod tests {
         #[test]
         fn invalid_request_null_fields_become_none() {
             let payload = r#"
-        {
-          "error": "invalid_request",
-          "error_description": null,
-          "send_access_error_type": null
-        }"#;
+            {
+                "error": "invalid_request",
+                "error_description": null,
+                "send_access_error_type": null
+            }"#;
 
             let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
             match parsed {
@@ -408,10 +408,10 @@ mod tests {
         #[test]
         fn invalid_grant_payload_without_description_is_allowed() {
             let payload = r#"
-{
-    "error": "invalid_grant",
-    "send_access_error_type": "otp_invalid"
-}"#;
+            {
+                "error": "invalid_grant",
+                "send_access_error_type": "otp_invalid"
+            }"#;
 
             let parsed: SendAccessTokenApiErrorResponse = serde_json::from_str(payload).unwrap();
             match parsed {
@@ -432,11 +432,11 @@ mod tests {
         #[test]
         fn invalid_grant_unknown_code_maps_to_unknown() {
             let payload = r#"
-{
-    "error": "invalid_grant",
-    "error_description": "new server-side reason",
-    "send_access_error_type": "brand_new_grant_code"
-}"#;
+            {
+                "error": "invalid_grant",
+                "error_description": "new server-side reason",
+                "send_access_error_type": "brand_new_grant_code"
+            }"#;
 
             let parsed: SendAccessTokenApiErrorResponse = serde_json::from_str(payload).unwrap();
             match parsed {
@@ -473,11 +473,11 @@ mod tests {
         #[test]
         fn invalid_grant_null_fields_become_none() {
             let payload = r#"
-        {
-          "error": "invalid_grant",
-          "error_description": null,
-          "send_access_error_type": null
-        }"#;
+            {
+                "error": "invalid_grant",
+                "error_description": null,
+                "send_access_error_type": null
+            }"#;
 
             let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
             match parsed {
@@ -561,10 +561,10 @@ mod tests {
         #[test]
         fn invalid_client_null_description_becomes_none() {
             let payload = r#"
-        {
-          "error": "invalid_client",
-          "error_description": null
-        }"#;
+            {
+                "error": "invalid_client",
+                "error_description": null
+            }"#;
 
             let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
             match parsed {
@@ -578,12 +578,12 @@ mod tests {
         #[test]
         fn invalid_client_ignores_send_access_error_type_and_extra_fields() {
             let payload = r#"
-        {
-          "error": "invalid_client",
-          "send_access_error_type": "should_be_ignored",
-          "extra_field": 123,
-          "error_description": "desc"
-        }"#;
+            {
+                "error": "invalid_client",
+                "send_access_error_type": "should_be_ignored",
+                "extra_field": 123,
+                "error_description": "desc"
+            }"#;
 
             let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
             match parsed {
@@ -657,10 +657,10 @@ mod tests {
         #[test]
         fn unauthorized_client_null_description_becomes_none() {
             let payload = r#"
-        {
-          "error": "unauthorized_client",
-          "error_description": null
-        }"#;
+            {
+                "error": "unauthorized_client",
+                "error_description": null
+            }"#;
 
             let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
             match parsed {
@@ -674,11 +674,11 @@ mod tests {
         #[test]
         fn unauthorized_client_ignores_send_access_error_type_and_extra_fields() {
             let payload = r#"
-        {
-          "error": "unauthorized_client",
-          "send_access_error_type": "should_be_ignored",
-          "extra_field": true
-        }"#;
+            {
+                "error": "unauthorized_client",
+                "send_access_error_type": "should_be_ignored",
+                "extra_field": true
+            }"#;
 
             let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
             match parsed {
@@ -775,11 +775,11 @@ mod tests {
         #[test]
         fn unsupported_grant_type_ignores_send_access_error_type_and_extra_fields() {
             let payload = r#"
-        {
-          "error": "unsupported_grant_type",
-          "send_access_error_type": "should_be_ignored",
-          "extra_field": "noise"
-        }"#;
+            {
+                "error": "unsupported_grant_type",
+                "send_access_error_type": "should_be_ignored",
+                "extra_field": "noise"
+            }"#;
 
             let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
             match parsed {
@@ -870,11 +870,11 @@ mod tests {
         #[test]
         fn invalid_scope_ignores_send_access_error_type_and_extra_fields() {
             let payload = r#"
-        {
-          "error": "invalid_scope",
-          "send_access_error_type": "should_be_ignored",
-          "extra_field": [1,2,3]
-        }"#;
+            {
+                "error": "invalid_scope",
+                "send_access_error_type": "should_be_ignored",
+                "extra_field": [1,2,3]
+            }"#;
 
             let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
             match parsed {
@@ -971,11 +971,11 @@ mod tests {
         #[test]
         fn invalid_target_ignores_send_access_error_type_and_extra_fields() {
             let payload = r#"
-        {
-          "error": "invalid_target",
-          "send_access_error_type": "should_be_ignored",
-          "extra_field": {"k":"v"}
-        }"#;
+            {
+                "error": "invalid_target",
+                "send_access_error_type": "should_be_ignored",
+                "extra_field": {"k":"v"}
+            }"#;
 
             let parsed: SendAccessTokenApiErrorResponse = from_str(payload).unwrap();
             match parsed {
