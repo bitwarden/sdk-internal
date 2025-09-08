@@ -72,7 +72,7 @@ jobs:
           echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
 
   repo-sync:
-    name: Push changed files to SDK Swift repo
+    name: Push changed files to SDK Swift repo and create GitHub
     runs-on: ubuntu-24.04
     needs: validate
     permissions:
