@@ -103,24 +103,15 @@ jobs:
       _BOT_EMAIL: 178206702+bw-ghapp[bot]@users.noreply.github.com
       _BOT_NAME: bw-ghapp[bot]
       _PKG_VERSION: ${{ needs.validate.outputs.version }}
-      _PRE_RELEASE: ${{ inputs.pre-release }}
       _RELEASE_NAME: ${{ needs.validate.outputs.release_name }}
       _SWIFT_CHECKSUM: ${{ needs.validate.outputs.swift_checksum }}
       _BUILD_RUN_ID: ${{ needs.validate.outputs.run_id }}
+      _BRANCH_NAME: unstable
     steps:
       - name: Checkout SDK repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: sdk
-
-      - name: Get ref from SDK repo
-        id: get-ref
-        run: |
-          if [[ $_PRE_RELEASE == true ]]; then
-            echo "ref=unstable" >> $GITHUB_OUTPUT
-          else
-            echo "ref=main" >> $GITHUB_OUTPUT
-          fi
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -154,7 +145,7 @@ jobs:
         with:
           repository: bitwarden/sdk-swift
           path: sdk-swift
-          ref: ${{ steps.get-ref.outputs.ref }}
+          ref: ${{ env._BRANCH_NAME }}
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Setup Git
@@ -208,7 +199,7 @@ jobs:
         run: |
           git add .
           git commit -m "Update Swift SDK to ${{ needs.validate.outputs.sha }}"
-          git push origin ${{ steps.get-ref.outputs.ref }}
+          git push origin ${{ env._BRANCH_NAME }}
           COMMIT_HASH=$(git rev-parse HEAD)
           echo "👀 Commit hash: $COMMIT_HASH"
           echo "commit-hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
