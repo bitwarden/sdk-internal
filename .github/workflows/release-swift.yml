@@ -210,11 +210,15 @@ jobs:
           cp --verbose -rf sdk/crates/bitwarden-uniffi/swift/Tests sdk-swift
 
       - name: Push changes
+        id: push-changes
         working-directory: sdk-swift
         run: |
           git add .
           git commit -m "Update Swift SDK to ${{ needs.validate.outputs.sha }}"
           git push origin ${{ steps.get-ref.outputs.ref }}
+          COMMIT_HASH=$(git rev-parse HEAD)
+          echo "👀 Commit hash: $COMMIT_HASH"
+          echo "commit-hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
 
       - name: Create release tag on SDK Swift repo
         working-directory: sdk-swift
