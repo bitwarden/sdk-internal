@@ -85,7 +85,7 @@ jobs:
       _RELEASE_NAME: ${{ needs.validate.outputs.release_name }}
       _SWIFT_CHECKSUM: ${{ needs.validate.outputs.swift_checksum }}
       _BUILD_RUN_ID: ${{ inputs.build-run-id }}
-      _BRANCH_NAME: unstable
+      _BRANCH_NAME: TEST_BRANCH # TODO: replace with unstable before merging
     steps:
       - name: Checkout SDK repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
