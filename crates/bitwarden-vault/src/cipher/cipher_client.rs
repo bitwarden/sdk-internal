@@ -153,25 +153,6 @@ impl CiphersClient {
         Ok(cipher_view)
     }
 
-    #[allow(missing_docs)]
-    pub fn migrate(&self, mut cipher: Cipher) -> Cipher {
-        let Ok(data) = serde_json::to_value(&cipher.data) else {
-            // If we can't deserialize the data, then we'll return the cipher as-is.
-            return cipher;
-        };
-        let version = data.get("version").and_then(|v| v.as_u64());
-
-        // TODO: Matching on version here - for now, just matching some types.
-        match cipher.r#type {
-            crate::CipherType::Login => cipher.login = serde_json::from_value(data).ok(),
-            crate::CipherType::SecureNote => cipher.secure_note = serde_json::from_value(data).ok(),
-            crate::CipherType::Card => cipher.card = serde_json::from_value(data).ok(),
-            crate::CipherType::Identity => cipher.identity = serde_json::from_value(data).ok(),
-            crate::CipherType::SshKey => cipher.ssh_key = serde_json::from_value(data).ok(),
-        }
-
-        cipher
-    }
 
     #[allow(missing_docs)]
     pub fn move_to_organization(
@@ -196,41 +177,73 @@ impl CiphersClient {
     }
 
     #[allow(missing_docs)]
+    fn extract_cipher_types(&self, mut cipher: Cipher) -> Cipher {
+        let Ok(mut data) = serde_json::to_value(&cipher.data) else {
+            // If we can't deserialize the data, then we'll return the cipher as-is.
+            // Should maybe return a result instead?
+            return cipher;
+        };
+        let _version = data.get("version").and_then(|v| v.as_u64()).unwrap_or(1);
+        if let Some(data) = data.as_object_mut() {
+            data.insert("version".to_string(), _version.into());
+        }
+
+
+        // TODO: Matching on version here - for now, just matching some types.
+        match cipher.r#type {
+            crate::CipherType::Login => cipher.login = serde_json::from_value(data).ok(),
+            crate::CipherType::SecureNote => cipher.secure_note = serde_json::from_value(data).ok(),
+            crate::CipherType::Card => cipher.card = serde_json::from_value(data).ok(),
+            crate::CipherType::Identity => cipher.identity = serde_json::from_value(data).ok(),
+            crate::CipherType::SshKey => cipher.ssh_key = serde_json::from_value(data).ok(),
+        }
+
+
+        cipher
+    }
+
+    #[allow(missing_docs)]
     pub fn migrate(&self, ciphers: Vec<Cipher>) -> Result<Vec<Cipher>, CipherError> {
-        let registry = MigrationRegistry::new();
+        // let registry = MigrationRegistry::new();
         let mut migrated_responses = Vec::new();
 
         for mut cipher in ciphers {
-            let key = cipher.key_identifier();
-            let key_store = self.client.internal.get_key_store();
-            let mut ctx = key_store.context();
-            let cipher_key = Cipher::decrypt_cipher_key(&mut ctx, key, &cipher.key)
-                .map_err(CipherError::CryptoError)?;
 
-            if let Some(data_str) = &mut cipher.data {
-                let mut data_json: serde_json::Value = serde_json::from_str(data_str)
-                    .map_err(|e| CipherError::MigrationFailed(e.to_string()))?;
+            let cipher = self.extract_cipher_types(cipher);
+            // self.extract_cipher_types(&mut cipher);
+            // let key = cipher.key_identifier();
+            // let key_store = self.client.internal.get_key_store();
+            // let mut ctx = key_store.context();
+            // let cipher_key = Cipher::decrypt_cipher_key(&mut ctx, key, &cipher.key)
+            //     .map_err(CipherError::CryptoError)?;
 
-                let response_version = data_json
-                    .get("version")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(1) as u32;
+            // if let Some(data_str) = &mut cipher.data {
+            //     let mut data_json: serde_json::Value = serde_json::from_str(data_str)
+            //         .map_err(|e| CipherError::MigrationFailed(e.to_string()))?;
 
-                if response_version < CURRENT_CIPHER_VERSION {
-                    registry.migrate(
-                        &mut data_json,
-                        response_version,
-                        CURRENT_CIPHER_VERSION,
-                        Some(&mut ctx),
-                        Some(cipher_key),
-                    )?;
+            //     let response_version = data_json
+            //         .get("version")
+            //         .and_then(|v| v.as_u64())
+            //         .unwrap_or(1) as u32;
 
-                    data_json["version"] = serde_json::json!(CURRENT_CIPHER_VERSION);
 
-                    *data_str = serde_json::to_string(&data_json)
-                        .map_err(|e| CipherError::MigrationFailed(e.to_string()))?;
-                }
-            }
+                
+
+                // if response_version < CURRENT_CIPHER_VERSION {
+                //     registry.migrate(
+                //         &mut data_json,
+                //         response_version,
+                //         CURRENT_CIPHER_VERSION,
+                //         Some(&mut ctx),
+                //         Some(cipher_key),
+                //     )?;
+
+                //     data_json["version"] = serde_json::json!(CURRENT_CIPHER_VERSION);
+
+                //     *data_str = serde_json::to_string(&data_json)
+                //         .map_err(|e| CipherError::MigrationFailed(e.to_string()))?;
+                // }
+            // }
 
             migrated_responses.push(cipher);
         }
