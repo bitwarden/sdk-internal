@@ -154,26 +154,6 @@ impl CiphersClient {
     }
 
     #[allow(missing_docs)]
-    pub fn migrate(&self, mut cipher: Cipher) -> Cipher {
-        let Ok(data) = serde_json::to_value(&cipher.data) else {
-            // If we can't deserialize the data, then we'll return the cipher as-is.
-            return cipher;
-        };
-        let version = data.get("version").and_then(|v| v.as_u64());
-
-        // TODO: Matching on version here - for now, just matching some types.
-        match cipher.r#type {
-            crate::CipherType::Login => cipher.login = serde_json::from_value(data).ok(),
-            crate::CipherType::SecureNote => cipher.secure_note = serde_json::from_value(data).ok(),
-            crate::CipherType::Card => cipher.card = serde_json::from_value(data).ok(),
-            crate::CipherType::Identity => cipher.identity = serde_json::from_value(data).ok(),
-            crate::CipherType::SshKey => cipher.ssh_key = serde_json::from_value(data).ok(),
-        }
-
-        cipher
-    }
-
-    #[allow(missing_docs)]
     pub fn move_to_organization(
         &self,
         mut cipher_view: CipherView,
@@ -193,6 +173,29 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
         Ok(decrypted_key)
+    }
+
+    #[allow(missing_docs)]
+    fn extract_cipher_types(&self, mut cipher: Cipher) -> Cipher {
+        let Ok(mut data) = serde_json::to_value(&cipher.data) else {
+            // If we can't deserialize the data, then we'll return the cipher as-is.
+            // Should maybe return a result instead?
+            return cipher;
+        };
+        let _version = data.get("version").and_then(|v| v.as_u64()).unwrap_or(1);
+        if let Some(data) = data.as_object_mut() {
+            data.insert("version".to_string(), _version.into());
+        }
+
+        match cipher.r#type {
+            crate::CipherType::Login => cipher.login = serde_json::from_value(data).ok(),
+            crate::CipherType::SecureNote => cipher.secure_note = serde_json::from_value(data).ok(),
+            crate::CipherType::Card => cipher.card = serde_json::from_value(data).ok(),
+            crate::CipherType::Identity => cipher.identity = serde_json::from_value(data).ok(),
+            crate::CipherType::SshKey => cipher.ssh_key = serde_json::from_value(data).ok(),
+        }
+
+        cipher
     }
 }
 
