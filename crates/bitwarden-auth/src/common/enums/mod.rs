@@ -1,3 +1,5 @@
+//! Module for common auth enums
+
 mod grant_type;
 mod scope;
 
