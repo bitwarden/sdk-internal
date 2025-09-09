@@ -168,6 +168,7 @@ pub enum DevicesUpdateTrustPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L79`]
 pub async fn devices_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::DeviceAuthRequestResponseModelListResponseModel, Error<DevicesGetError>> {
@@ -210,6 +211,7 @@ pub async fn devices_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L236`]
 pub async fn devices_id_deactivate_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -251,6 +253,7 @@ pub async fn devices_id_deactivate_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L236`]
 pub async fn devices_id_delete(
     configuration: &configuration::Configuration,
     id: &str,
@@ -292,6 +295,7 @@ pub async fn devices_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L53`]
 pub async fn devices_id_get(
     configuration: &configuration::Configuration,
     id: &str,
@@ -342,6 +346,7 @@ pub async fn devices_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L104`]
 pub async fn devices_id_post(
     configuration: &configuration::Configuration,
     id: &str,
@@ -397,6 +402,7 @@ pub async fn devices_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L104`]
 pub async fn devices_id_put(
     configuration: &configuration::Configuration,
     id: &str,
@@ -450,6 +456,7 @@ pub async fn devices_id_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L223`]
 pub async fn devices_identifier_identifier_clear_token_post(
     configuration: &configuration::Configuration,
     identifier: &str,
@@ -492,6 +499,7 @@ pub async fn devices_identifier_identifier_clear_token_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L223`]
 pub async fn devices_identifier_identifier_clear_token_put(
     configuration: &configuration::Configuration,
     identifier: &str,
@@ -532,6 +540,7 @@ pub async fn devices_identifier_identifier_clear_token_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L66`]
 pub async fn devices_identifier_identifier_get(
     configuration: &configuration::Configuration,
     identifier: &str,
@@ -583,6 +592,7 @@ pub async fn devices_identifier_identifier_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L192`]
 pub async fn devices_identifier_identifier_token_post(
     configuration: &configuration::Configuration,
     identifier: &str,
@@ -628,6 +638,7 @@ pub async fn devices_identifier_identifier_token_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L192`]
 pub async fn devices_identifier_identifier_token_put(
     configuration: &configuration::Configuration,
     identifier: &str,
@@ -671,6 +682,7 @@ pub async fn devices_identifier_identifier_token_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L205`]
 pub async fn devices_identifier_identifier_web_push_auth_post(
     configuration: &configuration::Configuration,
     identifier: &str,
@@ -716,6 +728,7 @@ pub async fn devices_identifier_identifier_web_push_auth_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L205`]
 pub async fn devices_identifier_identifier_web_push_auth_put(
     configuration: &configuration::Configuration,
     identifier: &str,
@@ -759,6 +772,7 @@ pub async fn devices_identifier_identifier_web_push_auth_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L120`]
 pub async fn devices_identifier_keys_post(
     configuration: &configuration::Configuration,
     identifier: &str,
@@ -814,6 +828,7 @@ pub async fn devices_identifier_keys_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L120`]
 pub async fn devices_identifier_keys_put(
     configuration: &configuration::Configuration,
     identifier: &str,
@@ -867,6 +882,7 @@ pub async fn devices_identifier_keys_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L136`]
 pub async fn devices_identifier_retrieve_keys_post(
     configuration: &configuration::Configuration,
     identifier: &str,
@@ -920,6 +936,7 @@ pub async fn devices_identifier_retrieve_keys_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L257`]
 pub async fn devices_knowndevice_email_identifier_get(
     configuration: &configuration::Configuration,
     email: &str,
@@ -974,6 +991,7 @@ pub async fn devices_knowndevice_email_identifier_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L251`]
 pub async fn devices_knowndevice_get(
     configuration: &configuration::Configuration,
     x_request_email: &str,
@@ -1024,6 +1042,7 @@ pub async fn devices_knowndevice_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L275`]
 pub async fn devices_lost_trust_post(
     configuration: &configuration::Configuration,
 ) -> Result<(), Error<DevicesLostTrustPostError>> {
@@ -1057,6 +1076,7 @@ pub async fn devices_lost_trust_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L93`]
 pub async fn devices_post(
     configuration: &configuration::Configuration,
     device_request_model: Option<models::DeviceRequestModel>,
@@ -1106,6 +1126,7 @@ pub async fn devices_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L178`]
 pub async fn devices_untrust_post(
     configuration: &configuration::Configuration,
     untrust_devices_request_model: Option<models::UntrustDevicesRequestModel>,
@@ -1144,6 +1165,7 @@ pub async fn devices_untrust_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L155`]
 pub async fn devices_update_trust_post(
     configuration: &configuration::Configuration,
     update_devices_trust_request_model: Option<models::UpdateDevicesTrustRequestModel>,

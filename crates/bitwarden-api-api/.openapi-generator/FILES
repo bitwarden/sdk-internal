@@ -156,13 +156,13 @@ src/models/collection_access_details_response_model_list_response_model.rs
 src/models/collection_bulk_delete_request_model.rs
 src/models/collection_details_response_model.rs
 src/models/collection_details_response_model_list_response_model.rs
-src/models/collection_request_model.rs
 src/models/collection_response_model.rs
 src/models/collection_response_model_list_response_model.rs
 src/models/collection_type.rs
 src/models/collection_with_id_request_model.rs
 src/models/config_response_model.rs
 src/models/create_client_organization_request_body.rs
+src/models/create_collection_request_model.rs
 src/models/credential_create_options.rs
 src/models/delete_attachment_response_data.rs
 src/models/delete_recover_request_model.rs
@@ -434,6 +434,7 @@ src/models/secrets_sync_response_model.rs
 src/models/secrets_with_projects_inner_secret.rs
 src/models/secure_note_type.rs
 src/models/security_task_create_request.rs
+src/models/security_task_metrics_response_model.rs
 src/models/security_task_status.rs
 src/models/security_task_type.rs
 src/models/security_tasks_response_model.rs
@@ -505,6 +506,7 @@ src/models/unlock_data_request_model.rs
 src/models/untrust_devices_request_model.rs
 src/models/update_avatar_request_model.rs
 src/models/update_client_organization_request_body.rs
+src/models/update_collection_request_model.rs
 src/models/update_devices_trust_request_model.rs
 src/models/update_domains_request_model.rs
 src/models/update_payment_method_request_body.rs

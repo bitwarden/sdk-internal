@@ -28,6 +28,7 @@ pub enum SmOrganizationIdImportPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/SecretsManagerPortingController.cs#L42`]
 pub async fn sm_organization_id_export_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -78,6 +79,7 @@ pub async fn sm_organization_id_export_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/SecretsManagerPortingController.cs#L62`]
 pub async fn sm_organization_id_import_post(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,

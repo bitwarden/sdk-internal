@@ -58,6 +58,7 @@ pub enum OrganizationsConnectionsPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationConnectionsController.cs#L53`]
 pub async fn organizations_connections_enabled_get(
     configuration: &configuration::Configuration,
 ) -> Result<bool, Error<OrganizationsConnectionsEnabledGetError>> {
@@ -104,6 +105,7 @@ pub async fn organizations_connections_enabled_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationConnectionsController.cs#L145`]
 pub async fn organizations_connections_organization_connection_id_delete(
     configuration: &configuration::Configuration,
     organization_connection_id: uuid::Uuid,
@@ -146,6 +148,7 @@ pub async fn organizations_connections_organization_connection_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationConnectionsController.cs#L145`]
 pub async fn organizations_connections_organization_connection_id_delete_post(
     configuration: &configuration::Configuration,
     organization_connection_id: uuid::Uuid,
@@ -188,6 +191,7 @@ pub async fn organizations_connections_organization_connection_id_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationConnectionsController.cs#L83`]
 pub async fn organizations_connections_organization_connection_id_put(
     configuration: &configuration::Configuration,
     organization_connection_id: uuid::Uuid,
@@ -245,6 +249,7 @@ pub async fn organizations_connections_organization_connection_id_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationConnectionsController.cs#L118`]
 pub async fn organizations_connections_organization_id_type_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -297,6 +302,7 @@ pub async fn organizations_connections_organization_id_type_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationConnectionsController.cs#L59`]
 pub async fn organizations_connections_post(
     configuration: &configuration::Configuration,
     organization_connection_request_model: Option<models::OrganizationConnectionRequestModel>,

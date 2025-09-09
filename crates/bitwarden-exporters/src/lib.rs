@@ -147,7 +147,7 @@ impl From<ImportingCipher> for CipherView {
             creation_date: value.creation_date,
             deleted_date: None,
             revision_date: value.revision_date,
-            version: None,
+            // version: None,
         }
     }
 }

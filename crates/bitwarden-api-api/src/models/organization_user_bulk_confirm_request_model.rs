@@ -16,12 +16,20 @@ use crate::models;
 pub struct OrganizationUserBulkConfirmRequestModel {
     #[serde(rename = "keys")]
     pub keys: Vec<models::OrganizationUserBulkConfirmRequestModelEntry>,
+    #[serde(
+        rename = "defaultUserCollectionName",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_user_collection_name: Option<String>,
 }
 
 impl OrganizationUserBulkConfirmRequestModel {
     pub fn new(
         keys: Vec<models::OrganizationUserBulkConfirmRequestModelEntry>,
     ) -> OrganizationUserBulkConfirmRequestModel {
-        OrganizationUserBulkConfirmRequestModel { keys }
+        OrganizationUserBulkConfirmRequestModel {
+            keys,
+            default_user_collection_name: None,
+        }
     }
 }

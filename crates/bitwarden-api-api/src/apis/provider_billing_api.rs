@@ -64,6 +64,7 @@ pub enum ProvidersProviderIdBillingTaxInformationPutError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/ProviderBillingController.cs#L40`]
 pub async fn providers_provider_id_billing_invoices_get(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -104,6 +105,7 @@ pub async fn providers_provider_id_billing_invoices_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/ProviderBillingController.cs#L60`]
 pub async fn providers_provider_id_billing_invoices_invoice_id_get(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -147,6 +149,7 @@ pub async fn providers_provider_id_billing_invoices_invoice_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/ProviderBillingController.cs#L84`]
 pub async fn providers_provider_id_billing_payment_method_put(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -190,6 +193,7 @@ pub async fn providers_provider_id_billing_payment_method_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/ProviderBillingController.cs#L107`]
 pub async fn providers_provider_id_billing_payment_method_verify_bank_account_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -235,6 +239,7 @@ pub async fn providers_provider_id_billing_payment_method_verify_bank_account_po
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/ProviderBillingController.cs#L127`]
 pub async fn providers_provider_id_billing_subscription_get(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -275,6 +280,7 @@ pub async fn providers_provider_id_billing_subscription_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/ProviderBillingController.cs#L179`]
 pub async fn providers_provider_id_billing_tax_information_get(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -315,6 +321,7 @@ pub async fn providers_provider_id_billing_tax_information_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/ProviderBillingController.cs#L198`]
 pub async fn providers_provider_id_billing_tax_information_put(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,

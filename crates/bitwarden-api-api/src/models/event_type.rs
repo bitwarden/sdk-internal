@@ -98,6 +98,12 @@ pub enum EventType {
     Secret_Created = 2101,
     Secret_Edited = 2102,
     Secret_Deleted = 2103,
+    Secret_Permanently_Deleted = 2104,
+    Secret_Restored = 2105,
+    Project_Retrieved = 2200,
+    Project_Created = 2201,
+    Project_Edited = 2202,
+    Project_Deleted = 2203,
 }
 
 impl std::fmt::Display for EventType {
@@ -186,6 +192,12 @@ impl std::fmt::Display for EventType {
                 Self::Secret_Created => "2101",
                 Self::Secret_Edited => "2102",
                 Self::Secret_Deleted => "2103",
+                Self::Secret_Permanently_Deleted => "2104",
+                Self::Secret_Restored => "2105",
+                Self::Project_Retrieved => "2200",
+                Self::Project_Created => "2201",
+                Self::Project_Edited => "2202",
+                Self::Project_Deleted => "2203",
             }
         )
     }

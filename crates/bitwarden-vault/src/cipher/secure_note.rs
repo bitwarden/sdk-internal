@@ -139,7 +139,7 @@ mod tests {
             creation_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-01T00:00:00.000Z".parse().unwrap(),
-            version: None,
+            // version: None,
             data: None,
         }
     }

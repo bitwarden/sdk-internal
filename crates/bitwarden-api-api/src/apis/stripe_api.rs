@@ -35,6 +35,7 @@ pub enum TaxIsCountrySupportedGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/StripeController.cs#L17`]
 pub async fn setup_intent_bank_account_post(
     configuration: &configuration::Configuration,
 ) -> Result<(), Error<SetupIntentBankAccountPostError>> {
@@ -68,6 +69,7 @@ pub async fn setup_intent_bank_account_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/StripeController.cs#L39`]
 pub async fn setup_intent_card_post(
     configuration: &configuration::Configuration,
 ) -> Result<(), Error<SetupIntentCardPostError>> {
@@ -101,6 +103,7 @@ pub async fn setup_intent_card_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/StripeController.cs#L56`]
 pub async fn tax_is_country_supported_get(
     configuration: &configuration::Configuration,
     country: Option<&str>,

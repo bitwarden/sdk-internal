@@ -146,7 +146,7 @@ pub struct Cipher {
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
 
-    pub version: Option<u32>,
+    // pub version: Option<u32>,
     pub data: Option<String>,
 }
 
@@ -191,8 +191,7 @@ pub struct CipherView {
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
-
-    pub version: Option<u32>,
+    // pub version: Option<u32>,
 }
 
 #[allow(missing_docs)]
@@ -347,7 +346,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             deleted_date: cipher_view.deleted_date,
             revision_date: cipher_view.revision_date,
             permissions: cipher_view.permissions,
-            version: cipher_view.version,
+            // version: cipher_view.version,
             data: None,
         })
     }
@@ -392,7 +391,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
-            version: self.version,
+            // version: self.version,
         };
 
         // For compatibility we only remove URLs with invalid checksums if the cipher has a key
@@ -774,7 +773,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             deleted_date: cipher.deleted_date.map(|d| d.parse()).transpose()?,
             revision_date: require!(cipher.revision_date).parse()?,
             key: EncString::try_from_optional(cipher.key)?,
-            version: cipher.version.map(|v| v as u32),
+            // version: cipher.version.map(|v| v as u32),
             data: cipher.data,
         })
     }
@@ -850,7 +849,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            version: None,
+            // version: None,
         }
     }
 
@@ -915,7 +914,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            version: None,
+            // version: None,
             data: None,
         };
 

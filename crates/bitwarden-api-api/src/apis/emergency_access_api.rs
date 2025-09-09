@@ -147,6 +147,7 @@ pub enum EmergencyAccessTrustedGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L55`]
 pub async fn emergency_access_granted_get(
     configuration: &configuration::Configuration,
 ) -> Result<
@@ -192,6 +193,7 @@ pub async fn emergency_access_granted_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L119`]
 pub async fn emergency_access_id_accept_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -236,6 +238,7 @@ pub async fn emergency_access_id_accept_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L140`]
 pub async fn emergency_access_id_approve_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -277,6 +280,7 @@ pub async fn emergency_access_id_approve_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L177`]
 pub async fn emergency_access_id_cipher_id_attachment_attachment_id_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -337,6 +341,7 @@ pub async fn emergency_access_id_cipher_id_attachment_attachment_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L126`]
 pub async fn emergency_access_id_confirm_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -381,6 +386,7 @@ pub async fn emergency_access_id_confirm_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L98`]
 pub async fn emergency_access_id_delete(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -422,6 +428,7 @@ pub async fn emergency_access_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L98`]
 pub async fn emergency_access_id_delete_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -463,6 +470,7 @@ pub async fn emergency_access_id_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L66`]
 pub async fn emergency_access_id_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -513,6 +521,7 @@ pub async fn emergency_access_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L133`]
 pub async fn emergency_access_id_initiate_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -555,6 +564,7 @@ pub async fn emergency_access_id_initiate_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L162`]
 pub async fn emergency_access_id_password_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -600,6 +610,7 @@ pub async fn emergency_access_id_password_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L74`]
 pub async fn emergency_access_id_policies_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -651,6 +662,7 @@ pub async fn emergency_access_id_policies_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L84`]
 pub async fn emergency_access_id_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -695,6 +707,7 @@ pub async fn emergency_access_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L84`]
 pub async fn emergency_access_id_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -737,6 +750,7 @@ pub async fn emergency_access_id_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L112`]
 pub async fn emergency_access_id_reinvite_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -779,6 +793,7 @@ pub async fn emergency_access_id_reinvite_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L147`]
 pub async fn emergency_access_id_reject_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -820,6 +835,7 @@ pub async fn emergency_access_id_reject_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L154`]
 pub async fn emergency_access_id_takeover_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -874,6 +890,7 @@ pub async fn emergency_access_id_takeover_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L169`]
 pub async fn emergency_access_id_view_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -926,6 +943,7 @@ pub async fn emergency_access_id_view_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L105`]
 pub async fn emergency_access_invite_post(
     configuration: &configuration::Configuration,
     emergency_access_invite_request_model: Option<models::EmergencyAccessInviteRequestModel>,
@@ -964,6 +982,7 @@ pub async fn emergency_access_invite_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/EmergencyAccessController.cs#L43`]
 pub async fn emergency_access_trusted_get(
     configuration: &configuration::Configuration,
 ) -> Result<

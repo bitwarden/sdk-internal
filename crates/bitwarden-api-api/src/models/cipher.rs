@@ -40,8 +40,6 @@ pub struct Cipher {
     pub reprompt: Option<models::CipherRepromptType>,
     #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(rename = "version", skip_serializing_if = "Option::is_none")]
-    pub version: Option<i32>,
 }
 
 impl Cipher {
@@ -60,7 +58,6 @@ impl Cipher {
             deleted_date: None,
             reprompt: None,
             key: None,
-            version: None,
         }
     }
 }

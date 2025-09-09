@@ -49,6 +49,7 @@ pub enum ProvidersProviderIdOrganizationsPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/ProviderOrganizationsController.cs#L65`]
 pub async fn providers_provider_id_organizations_add_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -94,6 +95,7 @@ pub async fn providers_provider_id_organizations_add_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/ProviderOrganizationsController.cs#L52`]
 pub async fn providers_provider_id_organizations_get(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -148,6 +150,7 @@ pub async fn providers_provider_id_organizations_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/ProviderOrganizationsController.cs#L98`]
 pub async fn providers_provider_id_organizations_id_delete(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -193,6 +196,7 @@ pub async fn providers_provider_id_organizations_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/ProviderOrganizationsController.cs#L98`]
 pub async fn providers_provider_id_organizations_id_delete_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -238,6 +242,7 @@ pub async fn providers_provider_id_organizations_id_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/ProviderOrganizationsController.cs#L77`]
 pub async fn providers_provider_id_organizations_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
