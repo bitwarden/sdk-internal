@@ -1,5 +1,4 @@
 #![feature(rustc_private)]
-#![feature(let_chains)]
 #![warn(unused_extern_crates)]
 
 extern crate rustc_hir;
@@ -43,7 +42,7 @@ dylint_linting::declare_late_lint! {
 
 impl<'tcx> LateLintPass<'tcx> for EnumVariantEndsWithError {
     fn check_item(&mut self, cx: &rustc_lint::LateContext<'tcx>, item: &'tcx Item<'tcx>) {
-        if let ItemKind::Enum(enum_def, _) = &item.kind {
+        if let ItemKind::Enum(_, _, enum_def) = &item.kind {
             for variant in enum_def.variants {
                 let variant_name = variant.ident.name.as_str();
                 if variant_name.ends_with("Error") {

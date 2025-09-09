@@ -16,10 +16,15 @@ dylint_linting::declare_late_lint! {
 
 impl<'tcx> LateLintPass<'tcx> for ErrorSuffix {
     fn check_item(&mut self, cx: &rustc_lint::LateContext<'tcx>, item: &'tcx Item<'tcx>) {
-        let item_name = item.ident.name.as_str();
+        let ident = match item.kind {
+            ItemKind::Enum(ident, ..) | ItemKind::Struct(ident, ..) => ident,
+            _ => return,
+        };
+
+        let item_name = ident.name.as_str();
 
         match &item.kind {
-            ItemKind::Enum(_, _) | ItemKind::Struct(_, _) => {
+            ItemKind::Enum(_, _, _) | ItemKind::Struct(_, _, _) => {
                 let ty = cx.tcx.type_of(item.owner_id.def_id).instantiate_identity();
                 let implements_error = cx
                     .tcx
@@ -28,15 +33,15 @@ impl<'tcx> LateLintPass<'tcx> for ErrorSuffix {
 
                 if implements_error && !item_name.ends_with("Error") {
                     let item_type = match &item.kind {
-                        ItemKind::Enum(_, _) => "enum",
-                        ItemKind::Struct(_, _) => "struct",
+                        ItemKind::Enum(_, _, _) => "enum",
+                        ItemKind::Struct(_, _, _) => "struct",
                         _ => unreachable!(),
                     };
 
                     span_lint(
                         cx,
                         ERROR_SUFFIX,
-                        item.ident.span,
+                        ident.span,
                         format!(
                             "{} `{}` implements Error but doesn't end with 'Error'",
                             item_type, item_name
