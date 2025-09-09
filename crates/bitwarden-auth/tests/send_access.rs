@@ -30,7 +30,10 @@ fn make_send_client(mock_server: &MockServer) -> SendAccessClient {
 }
 
 mod request_send_access_token_success_tests {
-    use bitwarden_auth::common::enums::{GrantType, Scope};
+    use bitwarden_auth::{
+        common::enums::{GrantType, Scope},
+        send_access::SendEmailOtpCredentials,
+    };
 
     use super::*;
 
@@ -79,6 +82,152 @@ mod request_send_access_token_success_tests {
             )))
             .and(body_string_contains(format!("scope={}", scope_str)))
             .and(body_string_contains(format!("send_id={}", req.send_id)))
+            // respond with the mock success response
+            .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
+
+        // Spin up a server and register mock with it
+        let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
+
+        // Create a send access client
+        let send_access_client = make_send_client(&mock_server);
+
+        let token: SendAccessTokenResponse = send_access_client
+            .request_send_access_token(req)
+            .await
+            .unwrap();
+
+        assert_eq!(token.token, "token");
+        assert!(token.expires_at > 0);
+    }
+
+    #[tokio::test]
+    async fn request_send_access_token_password_protected_send_success() {
+        let scope_value = serde_json::to_value(Scope::ApiSendAccess).unwrap();
+        let scope_str = scope_value.as_str().unwrap();
+
+        let grant_type_value = serde_json::to_value(GrantType::SendAccess).unwrap();
+        let grant_type_str = grant_type_value.as_str().unwrap();
+
+        // Create a mock success response
+        let raw_success = serde_json::json!({
+            "access_token": "token",
+            "token_type": "bearer",
+            "expires_in":   3600,
+            "scope": scope_str
+        });
+
+        let password_hash_b64 = "valid-hash";
+
+        let password_credentials = SendPasswordCredentials {
+            password_hash_b64: password_hash_b64.into(),
+        };
+
+        let req = SendAccessTokenRequest {
+            send_id: "valid-send-id".into(),
+            send_access_credentials: Some(SendAccessCredentials::Password(password_credentials)),
+        };
+
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            // expect the headers we set in the client
+            .and(matchers::header(
+                reqwest::header::CONTENT_TYPE.as_str(),
+                "application/x-www-form-urlencoded; charset=utf-8",
+            ))
+            .and(matchers::header(
+                reqwest::header::ACCEPT.as_str(),
+                "application/json",
+            ))
+            .and(matchers::header(
+                reqwest::header::CACHE_CONTROL.as_str(),
+                "no-store",
+            ))
+            // expect the body to contain the fields we set in our payload object
+            .and(body_string_contains("client_id=send"))
+            .and(body_string_contains(format!(
+                "grant_type={}",
+                grant_type_str
+            )))
+            .and(body_string_contains(format!("scope={}", scope_str)))
+            .and(body_string_contains(format!("send_id={}", req.send_id)))
+            .and(body_string_contains(format!(
+                "password_hash_b64={}",
+                password_hash_b64
+            )))
+            // respond with the mock success response
+            .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
+
+        // Spin up a server and register mock with it
+        let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
+
+        // Create a send access client
+        let send_access_client = make_send_client(&mock_server);
+
+        let token: SendAccessTokenResponse = send_access_client
+            .request_send_access_token(req)
+            .await
+            .unwrap();
+
+        assert_eq!(token.token, "token");
+        assert!(token.expires_at > 0);
+    }
+
+    #[tokio::test]
+    async fn request_send_access_token_email_otp_protected_send_success() {
+        let scope_value = serde_json::to_value(Scope::ApiSendAccess).unwrap();
+        let scope_str = scope_value.as_str().unwrap();
+
+        let grant_type_value = serde_json::to_value(GrantType::SendAccess).unwrap();
+        let grant_type_str = grant_type_value.as_str().unwrap();
+
+        // Create a mock success response
+        let raw_success = serde_json::json!({
+            "access_token": "token",
+            "token_type": "bearer",
+            "expires_in":   3600,
+            "scope": scope_str
+        });
+
+        let email = "valid@email.com";
+        let otp: &str = "valid_otp";
+
+        let email_otp_credentials = SendEmailOtpCredentials {
+            email: email.into(),
+            otp: otp.into(),
+        };
+
+        let email_param = serde_urlencoded::to_string([("email", email)]).unwrap(); // "email=valid%40email.com"
+
+        let req = SendAccessTokenRequest {
+            send_id: "valid-send-id".into(),
+            send_access_credentials: Some(SendAccessCredentials::EmailOtp(email_otp_credentials)),
+        };
+
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            // expect the headers we set in the client
+            .and(matchers::header(
+                reqwest::header::CONTENT_TYPE.as_str(),
+                "application/x-www-form-urlencoded; charset=utf-8",
+            ))
+            .and(matchers::header(
+                reqwest::header::ACCEPT.as_str(),
+                "application/json",
+            ))
+            .and(matchers::header(
+                reqwest::header::CACHE_CONTROL.as_str(),
+                "no-store",
+            ))
+            // expect the body to contain the fields we set in our payload object
+            .and(body_string_contains("client_id=send"))
+            .and(body_string_contains(format!(
+                "grant_type={}",
+                grant_type_str
+            )))
+            .and(body_string_contains(format!("scope={}", scope_str)))
+            .and(body_string_contains(format!("send_id={}", req.send_id)))
+            .and(body_string_contains(email_param))
+            .and(body_string_contains(format!("otp={}", otp)))
             // respond with the mock success response
             .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
 
