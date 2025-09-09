@@ -30,16 +30,24 @@ fn make_send_client(mock_server: &MockServer) -> SendAccessClient {
 }
 
 mod request_send_access_token_success_tests {
+    use bitwarden_auth::common::enums::{GrantType, Scope};
+
     use super::*;
 
     #[tokio::test]
-    async fn request_send_access_token_success() {
+    async fn request_send_access_token_anon_send_success() {
+        let scope_value = serde_json::to_value(Scope::ApiSendAccess).unwrap();
+        let scope_str = scope_value.as_str().unwrap();
+
+        let grant_type_value = serde_json::to_value(GrantType::SendAccess).unwrap();
+        let grant_type_str = grant_type_value.as_str().unwrap();
+
         // Create a mock success response
         let raw_success = serde_json::json!({
             "access_token": "token",
             "token_type": "bearer",
             "expires_in":   3600,
-            "scope": "api.send"
+            "scope": scope_str
         });
 
         // Construct the real Request type
@@ -65,7 +73,11 @@ mod request_send_access_token_success_tests {
             ))
             // expect the body to contain the fields we set in our payload object
             .and(body_string_contains("client_id=send"))
-            .and(body_string_contains("grant_type=send_access"))
+            .and(body_string_contains(format!(
+                "grant_type={}",
+                grant_type_str
+            )))
+            .and(body_string_contains(format!("scope={}", scope_str)))
             .and(body_string_contains(format!("send_id={}", req.send_id)))
             // respond with the mock success response
             .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
