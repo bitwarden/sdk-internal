@@ -55,7 +55,7 @@ pub enum SendAccessTokenError {
 // This is just a utility function so that the ? operator works correctly without manual mapping
 impl From<reqwest::Error> for SendAccessTokenError {
     fn from(value: reqwest::Error) -> Self {
-        Self::Unexpected(UnexpectedIdentityError::Reqwest(value))
+        Self::Unexpected(UnexpectedIdentityError(format!("{value:?}")))
     }
 }
 
@@ -64,53 +64,17 @@ impl From<reqwest::Error> for SendAccessTokenError {
 // the contents of the `Response` variant, so ideally the macro would support a way of marking the
 // `Api` variant somehow so it gets serialized as a plain string.
 // As that is not the case, we have to implement it manually.
-
-#[derive(Debug)]
-/// Any unexpected error that occurs when making requests to identity.
-pub enum UnexpectedIdentityError {
-    /// Local/transport/decoding failure from the HTTP client (DNS/TLS/connect/read timeout,
-    /// connection reset, or JSON decode failure on a success response).
-    Reqwest(reqwest::Error),
-    /// Non-2xx response with an unexpected body or status. Used when decoding the server's
-    /// error payload into `SendAccessTokenApiErrorResponse` fails, or for 5xx responses
-    /// where no structured error is available.
-    Other(String),
-}
-
-impl PartialEq for UnexpectedIdentityError {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (UnexpectedIdentityError::Reqwest(_), UnexpectedIdentityError::Reqwest(_)) => false, /* reqwest::Error does not implement PartialEq */
-            (UnexpectedIdentityError::Other(a), UnexpectedIdentityError::Other(b)) => a == b,
-            _ => false,
-        }
-    }
-}
-
-#[cfg(feature = "wasm")]
-#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_CUSTOM_TYPES: &'static str = r#"
-export type UnexpectedIdentityError = string;
-"#;
-
-impl serde::Serialize for UnexpectedIdentityError {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let message = match self {
-            UnexpectedIdentityError::Reqwest(err) => format!("{:?}", err),
-            UnexpectedIdentityError::Other(msg) => msg.clone(),
-        };
-        serializer.serialize_str(&message)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for UnexpectedIdentityError {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Err(serde::de::Error::custom("deserialization not supported"))
-    }
-}
+/// Any unexpected error that occurs when making requests to identity. This could be
+/// local/transport/decoding failure from the HTTP client (DNS/TLS/connect/read timeout,
+/// connection reset, or JSON decode failure on a success response) or non-2xx response with an
+/// unexpected body or status. Used when decoding the server's error payload into
+/// `SendAccessTokenApiErrorResponse` fails, or for 5xx responses where no structured error is
+/// available.
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+pub struct UnexpectedIdentityError(pub String);
