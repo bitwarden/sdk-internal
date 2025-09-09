@@ -120,7 +120,7 @@ mod tests {
     mod send_access_token_payload_tests {
         use super::*;
         #[test]
-        fn test_serialize_send_access_token_payload() {
+        fn test_serialize_send_access_token_password_payload() {
             let payload = SendAccessTokenRequestPayload {
                 client_id: SendAccessClientType::Send,
                 grant_type: GrantType::SendAccess,
@@ -141,6 +141,60 @@ mod tests {
                 "scope": "api.send.access",
                 "send_id": "example_send_id",
                 "password_hash_b64": "example_hash"
+            });
+
+            assert_eq!(got, want);
+        }
+
+        #[test]
+        fn test_serialize_send_access_token_email_payload() {
+            let payload = SendAccessTokenRequestPayload {
+                client_id: SendAccessClientType::Send,
+                grant_type: GrantType::SendAccess,
+                scope: Scope::ApiSendAccess,
+                send_id: "example_send_id".into(),
+                credentials: SendAccessTokenPayloadCredentials::Email {
+                    email: "example_email".into(),
+                },
+            };
+
+            let serialized = serde_json::to_string_pretty(&payload).unwrap();
+
+            // Parse both sides to JSON values and compare structurally.
+            let got: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+            let want = serde_json::json!({
+                "client_id": "send",
+                "grant_type": "send_access",
+                "scope": "api.send.access",
+                "send_id": "example_send_id",
+                "email": "example_email"
+            });
+
+            assert_eq!(got, want);
+        }
+
+        #[test]
+        fn test_serialize_send_access_token_email_otp_payload() {
+            let payload = SendAccessTokenRequestPayload {
+                client_id: SendAccessClientType::Send,
+                grant_type: GrantType::SendAccess,
+                scope: Scope::ApiSendAccess,
+                send_id: "example_send_id".into(),
+                credentials: SendAccessTokenPayloadCredentials::EmailOtp {
+                    email: "example_email".into(),
+                    otp: "example_otp".into(),
+                },
+            };
+            let serialized = serde_json::to_string_pretty(&payload).unwrap();
+            // Parse both sides to JSON values and compare structurally.
+            let got: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+            let want = serde_json::json!({
+                "client_id": "send",
+                "grant_type": "send_access",
+                "scope": "api.send.access",
+                "send_id": "example_send_id",
+                "email": "example_email",
+                "otp": "example_otp"
             });
 
             assert_eq!(got, want);
