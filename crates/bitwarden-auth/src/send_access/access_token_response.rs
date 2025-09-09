@@ -59,11 +59,6 @@ impl From<reqwest::Error> for SendAccessTokenError {
     }
 }
 
-// This wrapper needs to exist because the `bitwarden_error(full)` macro requires every variant to
-// implement serialize+tsify, which is not the case for the `Api` variant. We only really care about
-// the contents of the `Response` variant, so ideally the macro would support a way of marking the
-// `Api` variant somehow so it gets serialized as a plain string.
-// As that is not the case, we have to implement it manually.
 /// Any unexpected error that occurs when making requests to identity. This could be
 /// local/transport/decoding failure from the HTTP client (DNS/TLS/connect/read timeout,
 /// connection reset, or JSON decode failure on a success response) or non-2xx response with an
