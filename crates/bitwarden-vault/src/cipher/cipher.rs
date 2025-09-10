@@ -736,8 +736,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             identity: cipher.identity.map(|i| (*i).try_into()).transpose()?,
             card: cipher.card.map(|c| (*c).try_into()).transpose()?,
             secure_note: cipher.secure_note.map(|s| (*s).try_into()).transpose()?,
-            // TODO: add ssh_key when api bindings have been updated
-            ssh_key: None,
+            ssh_key: cipher.ssh_key.map(|s| (*s).try_into()).transpose()?,
             favorite: cipher.favorite.unwrap_or(false),
             reprompt: cipher
                 .reprompt
@@ -745,8 +744,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
                 .unwrap_or(CipherRepromptType::None),
             organization_use_totp: cipher.organization_use_totp.unwrap_or(true),
             edit: cipher.edit.unwrap_or(true),
-            // TODO: add permissions when api bindings have been updated
-            permissions: None,
+            permissions: cipher.permissions.map(|p| (*p).try_into()).transpose()?,
             view_password: cipher.view_password.unwrap_or(true),
             local_data: None, // Not sent from server
             attachments: cipher
