@@ -16,38 +16,49 @@ on:
         description: "Update iOS Repo - Opens a PR updating the SDK in bitwarden/ios"
         type: boolean
         default: false
+      branch-name:
+        description: "Branch Name - can be used for testing purposes"
+        type: string
+        required: true
+        default: "WORKFLOW_TEST" # TODO: replace with unstable before merging
 
 jobs:
-  validate:
-    name: Set Version and SHA
+  release:
+    name: Push changed files to SDK Swift repo and create GitHub
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      sha: ${{ steps.get-sdk-internal-ref.outputs.sha }}
-      short_sha: ${{ steps.get-sdk-internal-ref.outputs.short_sha }}
-      release_name: ${{ steps.set-release-name.outputs.release_name }}
-      swift_checksum: ${{ steps.calculate-swift-checksum.outputs.checksum }}
+      id-token: write
+    env:
+      _BOT_EMAIL: 178206702+bw-ghapp[bot]@users.noreply.github.com
+      _BOT_NAME: bw-ghapp[bot]
     steps:
-      - name: Checkout repo
+      - name: Checkout SDK repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: sdk
 
       - name: Get version
         id: version
+        working-directory: sdk
         run: |
           VERSION=$(grep -o '^version = ".*"' Cargo.toml | grep -Eo "[0-9]+\.[0-9]+\.[0-9]+")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "👀 Version: $VERSION"
 
       - name: Get workflow run commit ref
         id: get-sdk-internal-ref
         env:
           GH_TOKEN: ${{ github.token }}
           _RUN_ID: ${{ inputs.build-run-id }}
+        working-directory: sdk
         run: |
           COMMIT_SHA=$(gh run view $_RUN_ID --json headSha --jq '.headSha')
+          SHORT_SHA=$(echo $COMMIT_SHA | cut -c1-7)
           echo "sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
-          echo "short_sha=$(echo $COMMIT_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "👀 Commit SHA: $COMMIT_SHA"
+          echo "👀 Short SHA: $SHORT_SHA"
 
       - name: Set release name
         id: set-release-name
@@ -60,6 +71,16 @@ jobs:
           echo "👀 Release name: $RELEASE_NAME"
           echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
 
+      - name: Download BitwardenFFI artifact
+        uses: bitwarden/gh-actions/download-artifacts@main
+        id: download-artifact-ffi
+        with:
+          workflow: build-swift.yml
+          workflow_conclusion: success
+          artifacts: "BitwardenFFI-${{ steps.version.outputs.version }}-${{ steps.get-sdk-internal-ref.outputs.short_sha }}.xcframework"
+          run_id: ${{ inputs.build-run-id }}
+          skip_unpack: true
+
       - name: Calculate swift file checksum
         id: calculate-swift-checksum
         env:
@@ -68,29 +89,6 @@ jobs:
         run: |
           CHECKSUM=$(swift package compute-checksum BitwardenFFI-$_VERSION-$_SDK_INTERNAL_SHORT_REF.xcframework.zip)
           echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
-
-  repo-sync:
-    name: Push changed files to SDK Swift repo and create GitHub
-    runs-on: ubuntu-24.04
-    needs: validate
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      _BOT_EMAIL: 178206702+bw-ghapp[bot]@users.noreply.github.com
-      _BOT_NAME: bw-ghapp[bot]
-      _PKG_VERSION: ${{ needs.validate.outputs.version }}
-      _RELEASE_NAME: ${{ needs.validate.outputs.release_name }}
-      _SWIFT_CHECKSUM: ${{ needs.validate.outputs.swift_checksum }}
-      _BUILD_RUN_ID: ${{ inputs.build-run-id }}
-      _BRANCH_NAME: WORKFLOW_TEST # TODO: replace with unstable before merging
-      _SDK_INTERNAL_SHORT_REF: ${{ needs.validate.outputs.short_sha }}
-      _SDK_INTERNAL_REF: ${{ needs.validate.outputs.sha }}
-    steps:
-      - name: Checkout SDK repo
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          path: sdk
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -124,7 +122,7 @@ jobs:
         with:
           repository: bitwarden/sdk-swift
           path: sdk-swift
-          ref: ${{ env._BRANCH_NAME }}
+          ref: ${{ inputs.branch-name }}
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Setup Git
@@ -139,8 +137,8 @@ jobs:
         with:
           workflow: build-swift.yml
           workflow_conclusion: success
-          artifacts: "BitwardenSdk-${{ env._PKG_VERSION }}-${{ env._SDK_INTERNAL_SHORT_REF }}-sources"
-          run_id: ${{ env._BUILD_RUN_ID }}
+          artifacts: "BitwardenSdk-${{ steps.version.outputs.version }}-${{ steps.get-sdk-internal-ref.outputs.short_sha }}-sources"
+          run_id: ${{ inputs.build-run-id }}
           path: sdk/crates/bitwarden-uniffi/swift/Sources/BitwardenSdk
 
       - name: Install Swift formatter
@@ -151,6 +149,11 @@ jobs:
           cp -f .build/release/swiftformat /usr/local/bin/swiftformat
 
       - name: Update files
+        env:
+          _RELEASE_NAME: ${{ steps.set-release-name.outputs.release_name }}
+          _PKG_VERSION: ${{ steps.version.outputs.version }}
+          _SDK_INTERNAL_SHORT_REF: ${{ steps.get-sdk-internal-ref.outputs.short_sha }}
+          _SWIFT_CHECKSUM: ${{ steps.calculate-swift-checksum.outputs.checksum }}
         run: |
           # Update BitwardenFFI path
           sed -i 's|.binaryTarget(name: "BitwardenFFI", path: "BitwardenFFI.xcframework")|.binaryTarget(\
@@ -175,6 +178,10 @@ jobs:
       - name: Push changes
         id: push-changes
         working-directory: sdk-swift
+        env:
+          _RELEASE_NAME: ${{ steps.set-release-name.outputs.release_name }}
+          _SDK_INTERNAL_REF: ${{ steps.get-sdk-internal-ref.outputs.sha }}
+          _BRANCH_NAME: ${{ inputs.branch-name }}
         run: |
           git add .
           git commit -m "Update Swift SDK to $_SDK_INTERNAL_REF"
@@ -187,19 +194,11 @@ jobs:
           # git push origin v$_RELEASE_NAME
           # echo "👀 Release Tag: v$_RELEASE_NAME"
 
-      - name: Download BitwardenFFI artifact
-        uses: bitwarden/gh-actions/download-artifacts@main
-        id: download-artifact-ffi
-        with:
-          workflow: build-swift.yml
-          workflow_conclusion: success
-          artifacts: "BitwardenFFI-${{ env._PKG_VERSION }}-${{ env._SDK_INTERNAL_SHORT_REF }}.xcframework"
-          run_id: ${{ env._BUILD_RUN_ID }}
-          skip_unpack: true
 
       # - name: Create release
       #   env:
       #     GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      #   working-directory: sdk
       #   run: |
       #     gh release create "v$_RELEASE_NAME" \
       #       --repo bitwarden/sdk-swift \
@@ -213,6 +212,7 @@ jobs:
       #   env:
       #     GH_TOKEN: ${{ steps.app-token.outputs.token }}
       #     _SDK_SWIFT_REF: ${{ steps.push-changes.outputs.commit-hash }}
+      #   working-directory: sdk
       #   run: |
       #     echo "🚀 Triggering sdlc-sdk-update.yml workflow in bitwarden/ios repo..."
       #     gh workflow run sdlc-sdk-update.yml --repo bitwarden/ios --ref main -f run-mode=Update -f sdk-version=$_RELEASE_NAME -f sdk-swift-ref=$_SDK_SWIFT_REF
