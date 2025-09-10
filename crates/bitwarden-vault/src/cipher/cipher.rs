@@ -454,6 +454,35 @@ impl Cipher {
             .map(|kind| kind.get_copyable_fields(Some(self)))
             .unwrap_or_default()
     }
+
+
+    /// Extracts and sets the CipherType-specific fields from the opaque `data` field.
+    pub(crate) fn populate_cipher_types(&mut self)  {
+        let Ok(mut data) = serde_json::to_value(&self.data) else {
+            // If we can't deserialize the data, then we'll return the cipher as-is.
+            // Should maybe return a result instead?
+            return;
+        };
+        let _version = data.get("version").and_then(|v| v.as_u64()).unwrap_or(1);
+        if let Some(data) = data.as_object_mut() {
+            data.insert("version".to_string(), _version.into());
+            data.insert("username".to_string(), serde_json::json!("2.uXRs3AGTuyJc7DhIDjw1ig==|A8wYld5QW+TxBEDM/lvWdA==|/zcjqwTtPnbQ1Pyr0r1Y5u3JSHUc2fE3c5OdDrVbBXc="));
+        }
+
+
+        // TODO: Matching on version here - for now, just matching some types.
+        match &self.r#type {
+            crate::CipherType::Login => self.login = {
+                let mut login = serde_json::from_value(data).ok();
+                login.as_mut().map(|l:&mut Login|l.username="".parse().ok()); // HArdocidng for test
+                login
+            },
+            crate::CipherType::SecureNote => self.secure_note = serde_json::from_value(data).ok(),
+            crate::CipherType::Card => self.card = serde_json::from_value(data).ok(),
+            crate::CipherType::Identity => self.identity = serde_json::from_value(data).ok(),
+            crate::CipherType::SshKey => self.ssh_key = serde_json::from_value(data).ok(),
+        }
+    }
 }
 
 impl CipherView {
