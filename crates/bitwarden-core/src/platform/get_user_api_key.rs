@@ -78,7 +78,7 @@ fn build_secret_verification_request(
         let master_password_hash = input
             .master_password
             .as_ref()
-            .map(|p| -> Result<String, CryptoError> {
+            .map(|p| {
                 let master_key = MasterKey::derive(p, email, kdf)?;
 
                 Ok::<String, CryptoError>(
