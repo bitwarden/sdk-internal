@@ -66,7 +66,7 @@ impl MasterPasswordUnlockData {
             .map_err(MasterPasswordError::Crypto)?;
 
         Ok(Self {
-            kdf: kdf.clone(),
+            kdf: kdf.to_owned(),
             salt: salt.to_owned(),
             master_key_wrapped_user_key,
         })
@@ -139,7 +139,7 @@ impl MasterPasswordAuthenticationData {
         );
 
         Ok(Self {
-            kdf: kdf.clone(),
+            kdf: kdf.to_owned(),
             salt: salt.to_owned(),
             master_password_authentication_hash: hash,
         })
