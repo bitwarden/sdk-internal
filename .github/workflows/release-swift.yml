@@ -130,8 +130,8 @@ jobs:
       - name: Setup Git
         working-directory: sdk-swift
         run: |
-          git config --local user.email "${{ env._BOT_EMAIL }}"
-          git config --local user.name "${{ env._BOT_NAME }}"
+          git config --local user.email "$_BOT_EMAIL"
+          git config --local user.name "$_BOT_NAME"
 
       - name: Download BitwardenSdk sources artifact
         uses: bitwarden/gh-actions/download-artifacts@main
