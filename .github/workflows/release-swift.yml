@@ -204,26 +204,29 @@ jobs:
           echo "👀 Commit hash: $COMMIT_HASH"
           echo "commit-hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
 
-          # git tag v$_RELEASE_NAME
-          # git push origin v$_RELEASE_NAME
-          # echo "👀 Release Tag: v$_RELEASE_NAME"
+          git tag v$_RELEASE_NAME
+          git push origin v$_RELEASE_NAME
+          echo "👀 Release Tag: v$_RELEASE_NAME"
 
           echo "# 🚀 Swift SDK Updated Successfully!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📋 **Branch:** [\`$_BRANCH_NAME\`](https://github.com/bitwarden/sdk-swift/commits/$_BRANCH_NAME)" >> $GITHUB_STEP_SUMMARY
           echo "📝 **Commit:** bitwarden/sdk-swift@$COMMIT_HASH" >> $GITHUB_STEP_SUMMARY
 
-      # - name: Create release
-      #   env:
-      #     GH_TOKEN: ${{ steps.app-token-sdk-swift.outputs.token }}
-      #   working-directory: sdk
-      #   run: |
-      #     gh release create "v$_RELEASE_NAME" \
-      #       --repo bitwarden/sdk-swift \
-      #       --title "v$_RELEASE_NAME" \
-      #       --notes "" \
-      #       --prerelease \
-      #       "BitwardenFFI-$_PKG_VERSION-$_SDK_INTERNAL_SHORT_REF.xcframework.zip"
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ steps.app-token-sdk-swift.outputs.token }}
+          _RELEASE_NAME: ${{ steps.set-release-name.outputs.release_name }}
+          _PKG_VERSION: ${{ steps.version.outputs.version }}
+          _SDK_INTERNAL_SHORT_REF: ${{ steps.get-sdk-internal-ref.outputs.short_sha }}
+        working-directory: sdk
+        run: |
+          gh release create "v$_RELEASE_NAME" \
+            --repo bitwarden/sdk-swift \
+            --title "v$_RELEASE_NAME" \
+            --notes "" \
+            --prerelease \
+            "BitwardenFFI-$_PKG_VERSION-$_SDK_INTERNAL_SHORT_REF.xcframework.zip"
 
       - name: Generate GH App token
         uses: actions/create-github-app-token@0f859bf9e69e887678d5bbfbee594437cb440ffe # v2.1.1
