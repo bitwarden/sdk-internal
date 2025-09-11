@@ -91,4 +91,4 @@ jobs:
 
       - name: Publish NPM
         if: ${{ inputs.release_type != 'Dry Run' }}
-        run: npm publish --access public
+        run: npm publish --access public --tag latest
