@@ -5,26 +5,24 @@ on:
   workflow_dispatch:
     inputs:
       build-run-id:
-        description: "Workflow Run ID to use for artifact download. If not provided the latest build from the selected branch will be used."
+        description: "Build Swift Workflow Run ID"
         type: string
         required: true
       build-run-number:
-        description: "Build Run Number"
+        description: "Build Swift Workflow Run Number - used for workflow run-name"
         type: string
         required: true
+      branch-name:
+          description: "Branch Name - can be used for testing purposes"
+          type: string
+          required: true
       update-ios-repo:
         description: "Update iOS Repo - Opens a PR updating the SDK in bitwarden/ios"
         type: boolean
-        default: false
-      branch-name:
-        description: "Branch Name - can be used for testing purposes"
-        type: string
-        required: true
-        default: "WORKFLOW_TEST" # TODO: replace with unstable before merging
 
 jobs:
   release:
-    name: Push changed files to SDK Swift repo and create GitHub
+    name: Release to sdk-swift
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -251,7 +249,8 @@ jobs:
 
           echo "# 📱 **iOS SDK Update Triggered!**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🔗 **Links:**" >> $GITHUB_STEP_SUMMARY
+          echo "👀 **Release Name:** $_RELEASE_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **Quick Links:**" >> $GITHUB_STEP_SUMMARY
           echo "- [Workflow Runs](https://github.com/bitwarden/ios/actions/workflows/sdlc-sdk-update.yml)" >> $GITHUB_STEP_SUMMARY
           echo "- [Pull Requests](https://github.com/bitwarden/ios/pulls?q=head:sdlc/sdk-update)" >> $GITHUB_STEP_SUMMARY
 
