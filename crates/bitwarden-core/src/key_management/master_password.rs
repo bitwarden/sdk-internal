@@ -109,7 +109,7 @@ fn kdf_parse_nonzero_u32(value: impl TryInto<u32>) -> Result<NonZeroU32, MasterP
         .ok_or(MasterPasswordError::KdfMalformed)
 }
 
-/// Represents the data required to unlock with the master password.
+/// Represents the data required to authenticate with the master password.
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
