@@ -200,6 +200,10 @@ jobs:
           # git push origin v$_RELEASE_NAME
           # echo "👀 Release Tag: v$_RELEASE_NAME"
 
+          echo "# 🚀 Swift SDK Updated Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📋 **Branch:** [\`$_BRANCH_NAME\`](https://github.com/bitwarden/sdk-swift/commits/$_BRANCH_NAME)" >> $GITHUB_STEP_SUMMARY
+          echo "📝 **Commit:** bitwarden/sdk-swift@$COMMIT_HASH" >> $GITHUB_STEP_SUMMARY
 
       # - name: Create release
       #   env:
