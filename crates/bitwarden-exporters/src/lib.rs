@@ -3,7 +3,8 @@
 use std::fmt;
 
 use bitwarden_vault::{
-    CipherRepromptType, CipherView, Fido2CredentialFullView, FolderId, LoginUriView, UriMatchType,
+    CipherRepromptType, CipherView, Fido2CredentialFullView, FieldView, FolderId, LoginUriView,
+    UriMatchType,
 };
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
@@ -242,7 +243,14 @@ impl From<ImportingCipher> for CipherView {
             view_password: true,
             local_data: None,
             attachments: None,
-            fields: None,
+            fields: {
+                let fields: Vec<FieldView> = value.fields.into_iter().map(Into::into).collect();
+                if fields.is_empty() {
+                    None
+                } else {
+                    Some(fields)
+                }
+            },
             password_history: None,
             creation_date: value.creation_date,
             deleted_date: None,
@@ -422,7 +430,7 @@ pub struct SshKey {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_vault::CipherType as VaultCipherType;
+    use bitwarden_vault::{CipherType as VaultCipherType, FieldType};
     use chrono::{DateTime, Utc};
 
     use super::*;
@@ -448,7 +456,12 @@ mod tests {
             })),
             favorite: true,
             reprompt: 1,
-            fields: vec![],
+            fields: vec![Field {
+                name: Some("CustomField".to_string()),
+                value: Some("CustomValue".to_string()),
+                r#type: 0,
+                linked_id: None,
+            }],
             revision_date: test_date,
             creation_date: test_date,
             deleted_date: None,
@@ -468,6 +481,15 @@ mod tests {
         assert!(cipher_view.favorite);
         assert_eq!(cipher_view.creation_date, test_date);
         assert_eq!(cipher_view.revision_date, test_date);
+
+        let fields = cipher_view.fields.unwrap();
+        assert_eq!(fields.len(), 1);
+
+        let field = fields.first().unwrap();
+        assert_eq!(field.name, Some("CustomField".to_string()));
+        assert_eq!(field.value, Some("CustomValue".to_string()));
+        assert_eq!(field.r#type, FieldType::Text);
+        assert_eq!(field.linked_id, None);
 
         let login = cipher_view.login.expect("Login should be present");
         assert_eq!(login.username, Some("test@example.com".to_string()));
