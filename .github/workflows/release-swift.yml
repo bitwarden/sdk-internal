@@ -239,10 +239,11 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token-ios.outputs.token }}
           _SDK_SWIFT_REF: ${{ steps.push-changes.outputs.commit-hash }}
+          _RELEASE_NAME: ${{ steps.set-release-name.outputs.release_name }}
         working-directory: sdk
         run: |
           echo "🚀 Triggering sdlc-sdk-update.yml workflow in bitwarden/ios repo..."
-          gh workflow run sdlc-sdk-update.yml --repo bitwarden/ios --ref main -f run-mode=Update -f sdk-version=$_RELEASE_NAME -f sdk-swift-ref=$_SDK_SWIFT_REF
+          gh workflow run sdlc-sdk-update.yml --repo bitwarden/ios --ref main -f run-mode="Update" -f sdk-version="$_RELEASE_NAME" -f sdk-swift-ref="$_SDK_SWIFT_REF"
 
           echo "# 📱 **iOS SDK Update Triggered!**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
