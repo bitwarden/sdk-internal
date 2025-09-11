@@ -54,11 +54,16 @@ jobs:
         working-directory: sdk
         run: |
           COMMIT_SHA=$(gh run view $_RUN_ID --json headSha --jq '.headSha')
+          COMMIT_MSG=$(gh api repos/bitwarden/sdk-internal/commits/$COMMIT_SHA --jq '.commit.message' | head -n1)
+          COMMIT_MSG=$(echo "$COMMIT_MSG" | sed 's/(#\([0-9]*\))/(bitwarden\/sdk-internal#\1)/') # formats the PR ID for github autolink
           SHORT_SHA=$(echo $COMMIT_SHA | cut -c1-7)
+
           echo "sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
           echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "commit_message=$COMMIT_MSG" >> $GITHUB_OUTPUT
           echo "👀 Commit SHA: $COMMIT_SHA"
           echo "👀 Short SHA: $SHORT_SHA"
+          echo "👀 Commit Message: $COMMIT_MSG"
 
       - name: Set release name
         id: set-release-name
@@ -187,10 +192,12 @@ jobs:
         env:
           _RELEASE_NAME: ${{ steps.set-release-name.outputs.release_name }}
           _SDK_INTERNAL_REF: ${{ steps.get-sdk-internal-ref.outputs.sha }}
+          _SDK_INTERNAL_COMMIT_MSG: ${{ steps.get-sdk-internal-ref.outputs.commit_message }}
           _BRANCH_NAME: ${{ inputs.branch-name }}
         run: |
+          # NOTE: bitwarden/ios repo expects the full sdk-internal commit hash in sdk-swift commit message
           git add .
-          git commit -m "Update Swift SDK to $_SDK_INTERNAL_REF"
+          git commit -m "bitwarden/sdk-internal@$_SDK_INTERNAL_REF $_RELEASE_NAME - $_SDK_INTERNAL_COMMIT_MSG"
           git push origin $_BRANCH_NAME
           COMMIT_HASH=$(git rev-parse HEAD)
           echo "👀 Commit hash: $COMMIT_HASH"
