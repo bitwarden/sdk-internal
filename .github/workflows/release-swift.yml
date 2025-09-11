@@ -121,7 +121,7 @@ jobs:
 
       - name: Generate GH App token
         uses: actions/create-github-app-token@0f859bf9e69e887678d5bbfbee594437cb440ffe # v2.1.1
-        id: app-token
+        id: app-token-sdk-swift
         with:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
           private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
@@ -135,7 +135,7 @@ jobs:
           repository: bitwarden/sdk-swift
           path: sdk-swift
           ref: ${{ inputs.branch-name }}
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ steps.app-token-sdk-swift.outputs.token }}
 
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
@@ -214,7 +214,7 @@ jobs:
 
       # - name: Create release
       #   env:
-      #     GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      #     GH_TOKEN: ${{ steps.app-token-sdk-swift.outputs.token }}
       #   working-directory: sdk
       #   run: |
       #     gh release create "v$_RELEASE_NAME" \
@@ -224,10 +224,20 @@ jobs:
       #       --prerelease \
       #       "BitwardenFFI-$_PKG_VERSION-$_SDK_INTERNAL_SHORT_REF.xcframework.zip"
 
+      - name: Generate GH App token
+        uses: actions/create-github-app-token@0f859bf9e69e887678d5bbfbee594437cb440ffe # v2.1.1
+        id: app-token-ios
+        with:
+          app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
+          private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
+          owner: bitwarden
+          repositories: ios
+          permission-actions: write # used for: trigger update workflow
+
       - name: Trigger SDK Update in iOS repo
         if: inputs.update-ios-repo
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token-ios.outputs.token }}
           _SDK_SWIFT_REF: ${{ steps.push-changes.outputs.commit-hash }}
         working-directory: sdk
         run: |
