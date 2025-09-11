@@ -5,11 +5,11 @@ on:
   workflow_dispatch:
     inputs:
       build-run-id:
-        description: "Build Swift Workflow Run ID"
+        description: "Build Swift Run ID"
         type: string
         required: true
       build-run-number:
-        description: "Build Swift Workflow Run Number - used for workflow run-name"
+        description: "Build Swift Run Number - used for workflow run-name"
         type: string
         required: true
       branch-name:
