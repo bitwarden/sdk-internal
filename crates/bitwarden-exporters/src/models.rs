@@ -193,13 +193,7 @@ impl From<crate::Field> for FieldView {
         Self {
             name: value.name,
             value: value.value,
-            r#type: match value.r#type {
-                0 => FieldType::Text,
-                1 => FieldType::Hidden,
-                2 => FieldType::Boolean,
-                3 => FieldType::Linked,
-                _ => FieldType::Text, // Default to Text for unknown types
-            },
+            r#type: value.r#type.try_into().unwrap_or(FieldType::Text),
             linked_id: value.linked_id.and_then(|id| id.try_into().ok()),
         }
     }
