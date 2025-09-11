@@ -1,0 +1,30 @@
+[package]
+name = "bit-bitwarden-wasm-internal"
+version = "0.1.0"
+publish = false
+
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[lib]
+# TODO: implement this in another way, this causes a warning about collisions with the OSS lib
+name = "bitwarden_wasm_internal"
+crate-type = ["cdylib"]
+
+[dependencies]
+bitwarden-core = { workspace = true }
+bitwarden-wasm-internal = { workspace = true }
+serde = { workspace = true }
+tsify = { workspace = true }
+# When upgrading wasm-bindgen, make sure to update the version in the workflows!
+wasm-bindgen = { version = "=0.2.100", features = ["serde-serialize"] }
+wasm-bindgen-futures = "0.4.41"
+
+[lints]
+workspace = true
