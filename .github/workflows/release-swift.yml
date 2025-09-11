@@ -157,13 +157,6 @@ jobs:
           run_id: ${{ inputs.build-run-id }}
           path: sdk/crates/bitwarden-uniffi/swift/Sources/BitwardenSdk
 
-      - name: Install Swift formatter
-        run: |
-          git clone https://github.com/nicklockwood/SwiftFormat
-          cd SwiftFormat
-          swift build -c release
-          cp -f .build/release/swiftformat /usr/local/bin/swiftformat
-
       - name: Update files
         env:
           _RELEASE_NAME: ${{ steps.set-release-name.outputs.release_name }}
@@ -176,9 +169,6 @@ jobs:
             name: "BitwardenFFI",\
             url: "https://github.com/bitwarden/sdk-swift/releases/download/v'$_RELEASE_NAME'/BitwardenFFI-'$_PKG_VERSION'-'$_SDK_INTERNAL_SHORT_REF'.xcframework.zip",\
             checksum: "'$_SWIFT_CHECKSUM'")|' sdk/crates/bitwarden-uniffi/swift/Package.swift
-
-          # Run swiftformat
-          swiftformat sdk/crates/bitwarden-uniffi/swift/Package.swift
 
           find sdk/crates/bitwarden-uniffi/swift/Sources/ -name ".gitignore" -exec rm -f {} \;
 
