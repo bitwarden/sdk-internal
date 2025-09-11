@@ -200,7 +200,7 @@ impl From<crate::Field> for FieldView {
                 3 => FieldType::Linked,
                 _ => FieldType::Text, // Default to Text for unknown types
             },
-            linked_id: value.linked_id.map(|id| id.try_into().ok()).flatten(),
+            linked_id: value.linked_id.and_then(|id| id.try_into().ok()),
         }
     }
 }
