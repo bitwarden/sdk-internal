@@ -294,7 +294,7 @@ impl<'a> Fido2Authenticator<'a> {
     pub(super) fn get_authenticator(
         &self,
         create_credential: bool,
-    ) -> Authenticator<CredentialStoreImpl, UserValidationMethodImpl> {
+    ) -> Authenticator<CredentialStoreImpl<'_>, UserValidationMethodImpl<'_>> {
         Authenticator::new(
             AAGUID,
             CredentialStoreImpl {
