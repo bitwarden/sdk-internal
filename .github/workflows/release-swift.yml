@@ -12,10 +12,10 @@ on:
         description: "Build Swift Run Number - used for workflow run-name"
         type: string
         required: true
-      branch-name:
-          description: "Branch Name - can be used for testing purposes"
-          type: string
-          required: true
+      sdk-swift-branch-name:
+        description: "sdk-swift Branch Name"
+        type: string
+        required: true
       update-ios-repo:
         description: "Update iOS Repo - Opens a PR updating the SDK in bitwarden/ios"
         type: boolean
@@ -133,7 +133,7 @@ jobs:
         with:
           repository: bitwarden/sdk-swift
           path: sdk-swift
-          ref: ${{ inputs.branch-name }}
+          ref: ${{ inputs.sdk-swift-branch-name }}
           token: ${{ steps.app-token-sdk-swift.outputs.token }}
 
       - name: Import GPG key
@@ -192,7 +192,7 @@ jobs:
           _RELEASE_NAME: ${{ steps.set-release-name.outputs.release_name }}
           _SDK_INTERNAL_REF: ${{ steps.get-sdk-internal-ref.outputs.sha }}
           _SDK_INTERNAL_COMMIT_MSG: ${{ steps.get-sdk-internal-ref.outputs.commit_message }}
-          _BRANCH_NAME: ${{ inputs.branch-name }}
+          _BRANCH_NAME: ${{ inputs.sdk-swift-branch-name }}
         run: |
           # NOTE: bitwarden/ios repo expects the full sdk-internal commit hash in sdk-swift commit message
           git add .
@@ -253,4 +253,3 @@ jobs:
           echo "🔗 **Quick Links:**" >> $GITHUB_STEP_SUMMARY
           echo "- [Workflow Runs](https://github.com/bitwarden/ios/actions/workflows/sdlc-sdk-update.yml)" >> $GITHUB_STEP_SUMMARY
           echo "- [Pull Requests](https://github.com/bitwarden/ios/pulls?q=head:sdlc/sdk-update)" >> $GITHUB_STEP_SUMMARY
-
