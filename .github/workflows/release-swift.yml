@@ -243,3 +243,10 @@ jobs:
         run: |
           echo "🚀 Triggering sdlc-sdk-update.yml workflow in bitwarden/ios repo..."
           gh workflow run sdlc-sdk-update.yml --repo bitwarden/ios --ref main -f run-mode=Update -f sdk-version=$_RELEASE_NAME -f sdk-swift-ref=$_SDK_SWIFT_REF
+
+          echo "# 📱 **iOS SDK Update Triggered!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **Links:**" >> $GITHUB_STEP_SUMMARY
+          echo "- [Workflow Runs](https://github.com/bitwarden/ios/actions/workflows/sdlc-sdk-update.yml)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Pull Requests](https://github.com/bitwarden/ios/pulls?q=head:sdlc/sdk-update)" >> $GITHUB_STEP_SUMMARY
+
