@@ -30,8 +30,8 @@ jobs:
       contents: read
       id-token: write
     env:
-      _BOT_EMAIL: 178206702+bw-ghapp[bot]@users.noreply.github.com
-      _BOT_NAME: bw-ghapp[bot]
+      _BOT_EMAIL: 106330231+bitwarden-devops-bot@users.noreply.github.com
+      _BOT_NAME: bitwarden-devops-bot
     steps:
       - name: Checkout SDK repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
