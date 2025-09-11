@@ -18,7 +18,7 @@ use super::linked_id::LinkedIdType;
 use crate::VaultParseError;
 
 /// Represents the type of a [FieldView].
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug)]
+#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq, Eq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]

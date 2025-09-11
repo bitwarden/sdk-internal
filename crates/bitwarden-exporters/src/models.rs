@@ -1,8 +1,8 @@
 use bitwarden_core::{key_management::KeyIds, require, MissingFieldError};
 use bitwarden_crypto::KeyStore;
 use bitwarden_vault::{
-    CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldView, FolderView,
-    IdentityView, LoginUriView, SecureNoteType, SecureNoteView, SshKeyView,
+    CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldType, FieldView,
+    FolderView, IdentityView, LoginUriView, SecureNoteType, SecureNoteView, SshKeyView,
 };
 
 impl TryFrom<FolderView> for crate::Folder {
@@ -184,6 +184,23 @@ impl From<FieldView> for crate::Field {
             value: value.value,
             r#type: value.r#type as u8,
             linked_id: value.linked_id.map(|id| id.into()),
+        }
+    }
+}
+
+impl From<crate::Field> for FieldView {
+    fn from(value: crate::Field) -> Self {
+        Self {
+            name: value.name,
+            value: value.value,
+            r#type: match value.r#type {
+                0 => FieldType::Text,
+                1 => FieldType::Hidden,
+                2 => FieldType::Boolean,
+                3 => FieldType::Linked,
+                _ => FieldType::Text, // Default to Text for unknown types
+            },
+            linked_id: value.linked_id.map(|id| id.try_into().ok()).flatten(),
         }
     }
 }
