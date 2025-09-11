@@ -124,7 +124,7 @@ fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passk
         key,
         credential_id: string_to_guid_bytes(&value.credential_id)?.into(),
         rp_id: value.rp_id.clone(),
-        user_handle: user_handle.map(|u| u.as_bytes().to_vec().into()),
+        user_handle: user_handle.map(|u| u.into_bytes().into()),
         counter,
     })
 }

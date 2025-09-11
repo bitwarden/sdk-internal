@@ -86,7 +86,7 @@ impl Fido2CredentialAutofillView {
                                 .ok_or(Fido2CredentialAutofillViewError::MissingCipherId)?
                                 .into(),
                             rp_id: c.rp_id.clone(),
-                            user_handle: user_handle?.as_bytes().to_vec(),
+                            user_handle: user_handle?.into_bytes(),
                             user_name_for_ui: c
                                 .user_name
                                 .none_whitespace()
@@ -125,7 +125,7 @@ impl Fido2CredentialAutofillView {
                                     .ok_or(Fido2CredentialAutofillViewError::MissingCipherId)?
                                     .into(),
                                 rp_id: c.rp_id.clone(),
-                                user_handle: user_handle?.as_bytes().to_vec(),
+                                user_handle: user_handle?.into_bytes(),
                                 user_name_for_ui: c
                                     .user_name
                                     .none_whitespace()
