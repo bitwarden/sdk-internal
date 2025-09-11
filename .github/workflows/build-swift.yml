@@ -132,7 +132,8 @@ jobs:
               ref: 'main',
               inputs: {
                 'build-run-id': '${{ github.run_id }}',
+                'build-run-number': '${{ github.run_number }}',
+                'branch-name': 'unstable',
                 'update-ios-repo': 'true',
-                'build-run-number': '${{ github.run_number }}'
               }
             })
