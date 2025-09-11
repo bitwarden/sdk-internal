@@ -97,12 +97,19 @@ jobs:
           tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
-      - name: Get Azure Key Vault secrets
+      - name: Get Azure Key Vault secrets - GH Org
         id: get-kv-secrets
         uses: bitwarden/gh-actions/get-keyvault-secrets@main
         with:
           keyvault: gh-org-bitwarden
           secrets: "BW-GHAPP-ID,BW-GHAPP-KEY"
+
+      - name: Get Azure Key Vault secrets - BW CI
+        id: get-kv-secrets-ci
+        uses: bitwarden/gh-actions/get-keyvault-secrets@main
+        with:
+          keyvault: "bitwarden-ci"
+          secrets: "github-gpg-private-key,github-gpg-private-key-passphrase"
 
       - name: Log out from Azure
         uses: bitwarden/gh-actions/azure-logout@main
@@ -124,6 +131,15 @@ jobs:
           path: sdk-swift
           ref: ${{ inputs.branch-name }}
           token: ${{ steps.app-token.outputs.token }}
+
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@cb9bde2e2525e640591a934b1fd28eef1dcaf5e5 # v6.2.0
+        with:
+          gpg_private_key: ${{ steps.get-kv-secrets-ci.outputs.github-gpg-private-key }}
+          passphrase: ${{ steps.get-kv-secrets-ci.outputs.github-gpg-private-key-passphrase }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+          workdir: sdk-swift
 
       - name: Setup Git
         working-directory: sdk-swift
