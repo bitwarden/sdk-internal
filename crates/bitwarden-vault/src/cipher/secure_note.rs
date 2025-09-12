@@ -26,7 +26,7 @@ pub enum SecureNoteType {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SecureNote {
