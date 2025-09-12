@@ -3,14 +3,13 @@
 //! Handles conversion between internal [Login] and credential exchange [BasicAuthCredential] and
 //! [PasskeyCredential].
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::MissingFieldError;
 use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
 use bitwarden_vault::{FieldType, Totp, TotpAlgorithm};
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
-    AndroidAppIdCredential, BasicAuthCredential, CredentialScope, OTPHashAlgorithm,
-    PasskeyCredential, TotpCredential,
+    AndroidAppIdCredential, B64Url, BasicAuthCredential, CredentialScope, NotB64UrlEncoded,
+    OTPHashAlgorithm, PasskeyCredential, TotpCredential,
 };
 use thiserror::Error;
 
@@ -82,7 +81,7 @@ pub(super) fn to_login(
                 key_type: "public-key".to_string(),
                 key_algorithm: "ECDSA".to_string(),
                 key_curve: "P-256".to_string(),
-                key_value: URL_SAFE_NO_PAD.encode(&p.key),
+                key_value: p.key.to_string(),
                 rp_id: p.rp_id.clone(),
                 user_handle: Some(p.user_handle.to_string()),
                 user_name: Some(p.username.clone()),
@@ -191,8 +190,8 @@ pub enum PasskeyError {
     InvalidGuid(InvalidGuid),
     #[error(transparent)]
     MissingField(MissingFieldError),
-    #[error(transparent)]
-    InvalidBase64(#[from] base64::DecodeError),
+    #[error("Data isn't base64url encoded")]
+    InvalidBase64(NotB64UrlEncoded),
 }
 
 impl TryFrom<Fido2Credential> for PasskeyCredential {
@@ -212,11 +211,11 @@ impl TryFrom<Fido2Credential> for PasskeyCredential {
             user_display_name: value.user_display_name.unwrap_or_default(),
             user_handle: value
                 .user_handle
-                .map(|v| URL_SAFE_NO_PAD.decode(v))
-                .transpose()?
-                .map(|v| v.into())
+                .map(|v| B64Url::try_from(v.as_str()))
+                .transpose()
+                .map_err(PasskeyError::InvalidBase64)?
                 .ok_or(PasskeyError::MissingField(MissingFieldError("user_handle")))?,
-            key: URL_SAFE_NO_PAD.decode(value.key_value)?.into(),
+            key: B64Url::try_from(value.key_value.as_str()).map_err(PasskeyError::InvalidBase64)?,
             fido2_extensions: None,
         })
     }

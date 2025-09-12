@@ -19,9 +19,9 @@ uniffi = ["dep:uniffi", "bitwarden-core/uniffi", "bitwarden-vault/uniffi"]
 
 [dependencies]
 async-trait = { workspace = true }
-base64 = ">=0.22.1, <0.23"
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
+bitwarden-encoding = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
 coset = ">=0.3.7, <0.4"
