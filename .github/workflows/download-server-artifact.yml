@@ -12,9 +12,10 @@ env:
 
 jobs:
   download:
-    name: Download internal.json from bitwarden/server
-
+    name: Update API Bindings
     runs-on: ubuntu-24.04
+    permissions:
+      id-token: write
 
     steps:
       - name: Log in to Azure
