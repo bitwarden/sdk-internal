@@ -30,5 +30,4 @@ npx openapi-generator-cli generate \
     -t ./support/openapi-template \
     --additional-properties=packageVersion=$VERSION,packageDescription=\"Api bindings for the Bitwarden Identity API.\"
 
-cargo +nightly fmt
 npm run prettier
