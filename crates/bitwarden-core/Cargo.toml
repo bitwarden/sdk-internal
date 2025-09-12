@@ -21,11 +21,13 @@ no-memory-hardening = [
 ] # Disable memory hardening features
 secrets = [] # Secrets manager API
 uniffi = [
+    "internal",
     "bitwarden-crypto/uniffi",
     "bitwarden-encoding/uniffi",
     "dep:uniffi"
 ] # Uniffi bindings
 wasm = [
+    "bitwarden-encoding/wasm",
     "bitwarden-error/wasm",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
