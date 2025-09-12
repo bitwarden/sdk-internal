@@ -24,7 +24,7 @@ impl<'tcx> LateLintPass<'tcx> for ErrorSuffix {
         let item_name = ident.name.as_str();
 
         match &item.kind {
-            ItemKind::Enum(_, _, _) | ItemKind::Struct(_, _, _) => {
+            ItemKind::Enum(..) | ItemKind::Struct(..) => {
                 let ty = cx.tcx.type_of(item.owner_id.def_id).instantiate_identity();
                 let implements_error = cx
                     .tcx
@@ -33,8 +33,8 @@ impl<'tcx> LateLintPass<'tcx> for ErrorSuffix {
 
                 if implements_error && !item_name.ends_with("Error") {
                     let item_type = match &item.kind {
-                        ItemKind::Enum(_, _, _) => "enum",
-                        ItemKind::Struct(_, _, _) => "struct",
+                        ItemKind::Enum(..) => "enum",
+                        ItemKind::Struct(..) => "struct",
                         _ => unreachable!(),
                     };
 
