@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::enums::{GrantType, Scope},
+    api::enums::{GrantType, Scope},
     send_access::{SendAccessCredentials, SendAccessTokenRequest},
 };
 
