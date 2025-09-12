@@ -113,6 +113,7 @@ pub enum OrganizationsOrgIdGroupsPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/GroupsController.cs#L267`]
 pub async fn organizations_org_id_groups_delete(
     configuration: &configuration::Configuration,
     org_id: &str,
@@ -158,6 +159,7 @@ pub async fn organizations_org_id_groups_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/GroupsController.cs#L284`]
 pub async fn organizations_org_id_groups_delete_post(
     configuration: &configuration::Configuration,
     org_id: &str,
@@ -203,6 +205,7 @@ pub async fn organizations_org_id_groups_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/GroupsController.cs#L110`]
 pub async fn organizations_org_id_groups_details_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -257,6 +260,7 @@ pub async fn organizations_org_id_groups_details_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/GroupsController.cs#L96`]
 pub async fn organizations_org_id_groups_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -307,6 +311,7 @@ pub async fn organizations_org_id_groups_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/GroupsController.cs#L248`]
 pub async fn organizations_org_id_groups_id_delete(
     configuration: &configuration::Configuration,
     org_id: &str,
@@ -352,6 +357,7 @@ pub async fn organizations_org_id_groups_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/GroupsController.cs#L261`]
 pub async fn organizations_org_id_groups_id_delete_post(
     configuration: &configuration::Configuration,
     org_id: &str,
@@ -397,6 +403,7 @@ pub async fn organizations_org_id_groups_id_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/GroupsController.cs#L303`]
 pub async fn organizations_org_id_groups_id_delete_user_org_user_id_post(
     configuration: &configuration::Configuration,
     org_id: &str,
@@ -445,6 +452,7 @@ pub async fn organizations_org_id_groups_id_delete_user_org_user_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/GroupsController.cs#L84`]
 pub async fn organizations_org_id_groups_id_details_get(
     configuration: &configuration::Configuration,
     org_id: &str,
@@ -499,6 +507,7 @@ pub async fn organizations_org_id_groups_id_details_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/GroupsController.cs#L72`]
 pub async fn organizations_org_id_groups_id_get(
     configuration: &configuration::Configuration,
     org_id: &str,
@@ -553,6 +562,7 @@ pub async fn organizations_org_id_groups_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/GroupsController.cs#L242`]
 pub async fn organizations_org_id_groups_id_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -612,6 +622,7 @@ pub async fn organizations_org_id_groups_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/GroupsController.cs#L167`]
 pub async fn organizations_org_id_groups_id_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -669,6 +680,7 @@ pub async fn organizations_org_id_groups_id_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/GroupsController.cs#L290`]
 pub async fn organizations_org_id_groups_id_user_org_user_id_delete(
     configuration: &configuration::Configuration,
     org_id: &str,
@@ -717,6 +729,7 @@ pub async fn organizations_org_id_groups_id_user_org_user_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/GroupsController.cs#L125`]
 pub async fn organizations_org_id_groups_id_users_get(
     configuration: &configuration::Configuration,
     org_id: &str,
@@ -771,6 +784,7 @@ pub async fn organizations_org_id_groups_id_users_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/GroupsController.cs#L139`]
 pub async fn organizations_org_id_groups_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,

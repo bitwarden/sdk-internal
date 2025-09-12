@@ -59,14 +59,14 @@ pub enum OrganizationsOrganizationIdBillingVnextPaymentMethodPutError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_organization_id_billing_vnext_payment_method_verify_bank_account_post`]
+/// struct for typed errors of method [`organizations_organization_id_billing_vnext_warnings_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingVnextPaymentMethodVerifyBankAccountPostError {
+pub enum OrganizationsOrganizationIdBillingVnextWarningsGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/VNext/OrganizationBillingVNextController.cs#L35`]
 pub async fn organizations_organization_id_billing_vnext_address_get(
     configuration: &configuration::Configuration,
     organization_id: &str,
@@ -128,6 +128,7 @@ pub async fn organizations_organization_id_billing_vnext_address_get(
     use_risk_insights: Option<bool>,
     use_organization_domains: Option<bool>,
     use_admin_sponsored_families: Option<bool>,
+    sync_seats: Option<bool>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextAddressGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
@@ -189,6 +190,7 @@ pub async fn organizations_organization_id_billing_vnext_address_get(
     let p_use_risk_insights = use_risk_insights;
     let p_use_organization_domains = use_organization_domains;
     let p_use_admin_sponsored_families = use_admin_sponsored_families;
+    let p_sync_seats = sync_seats;
 
     let uri_str = format!(
         "{}/organizations/{organizationId}/billing/vnext/address",
@@ -376,6 +378,9 @@ pub async fn organizations_organization_id_billing_vnext_address_get(
     if let Some(ref param_value) = p_use_admin_sponsored_families {
         req_builder = req_builder.query(&[("useAdminSponsoredFamilies", &param_value.to_string())]);
     }
+    if let Some(ref param_value) = p_sync_seats {
+        req_builder = req_builder.query(&[("syncSeats", &param_value.to_string())]);
+    }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
@@ -402,6 +407,7 @@ pub async fn organizations_organization_id_billing_vnext_address_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/VNext/OrganizationBillingVNextController.cs#L46`]
 pub async fn organizations_organization_id_billing_vnext_address_put(
     configuration: &configuration::Configuration,
     organization_id: &str,
@@ -463,6 +469,7 @@ pub async fn organizations_organization_id_billing_vnext_address_put(
     use_risk_insights: Option<bool>,
     use_organization_domains: Option<bool>,
     use_admin_sponsored_families: Option<bool>,
+    sync_seats: Option<bool>,
     billing_address_request: Option<models::BillingAddressRequest>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextAddressPutError>> {
     // add a prefix to parameters to efficiently prevent name collisions
@@ -525,6 +532,7 @@ pub async fn organizations_organization_id_billing_vnext_address_put(
     let p_use_risk_insights = use_risk_insights;
     let p_use_organization_domains = use_organization_domains;
     let p_use_admin_sponsored_families = use_admin_sponsored_families;
+    let p_sync_seats = sync_seats;
     let p_billing_address_request = billing_address_request;
 
     let uri_str = format!(
@@ -713,6 +721,9 @@ pub async fn organizations_organization_id_billing_vnext_address_put(
     if let Some(ref param_value) = p_use_admin_sponsored_families {
         req_builder = req_builder.query(&[("useAdminSponsoredFamilies", &param_value.to_string())]);
     }
+    if let Some(ref param_value) = p_sync_seats {
+        req_builder = req_builder.query(&[("syncSeats", &param_value.to_string())]);
+    }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
@@ -740,6 +751,7 @@ pub async fn organizations_organization_id_billing_vnext_address_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/VNext/OrganizationBillingVNextController.cs#L68`]
 pub async fn organizations_organization_id_billing_vnext_credit_bitpay_post(
     configuration: &configuration::Configuration,
     organization_id: &str,
@@ -801,6 +813,7 @@ pub async fn organizations_organization_id_billing_vnext_credit_bitpay_post(
     use_risk_insights: Option<bool>,
     use_organization_domains: Option<bool>,
     use_admin_sponsored_families: Option<bool>,
+    sync_seats: Option<bool>,
     bit_pay_credit_request: Option<models::BitPayCreditRequest>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextCreditBitpayPostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
@@ -863,6 +876,7 @@ pub async fn organizations_organization_id_billing_vnext_credit_bitpay_post(
     let p_use_risk_insights = use_risk_insights;
     let p_use_organization_domains = use_organization_domains;
     let p_use_admin_sponsored_families = use_admin_sponsored_families;
+    let p_sync_seats = sync_seats;
     let p_bit_pay_credit_request = bit_pay_credit_request;
 
     let uri_str = format!(
@@ -1053,6 +1067,9 @@ pub async fn organizations_organization_id_billing_vnext_credit_bitpay_post(
     if let Some(ref param_value) = p_use_admin_sponsored_families {
         req_builder = req_builder.query(&[("useAdminSponsoredFamilies", &param_value.to_string())]);
     }
+    if let Some(ref param_value) = p_sync_seats {
+        req_builder = req_builder.query(&[("syncSeats", &param_value.to_string())]);
+    }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
@@ -1080,6 +1097,7 @@ pub async fn organizations_organization_id_billing_vnext_credit_bitpay_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/VNext/OrganizationBillingVNextController.cs#L57`]
 pub async fn organizations_organization_id_billing_vnext_credit_get(
     configuration: &configuration::Configuration,
     organization_id: &str,
@@ -1141,6 +1159,7 @@ pub async fn organizations_organization_id_billing_vnext_credit_get(
     use_risk_insights: Option<bool>,
     use_organization_domains: Option<bool>,
     use_admin_sponsored_families: Option<bool>,
+    sync_seats: Option<bool>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextCreditGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
@@ -1202,6 +1221,7 @@ pub async fn organizations_organization_id_billing_vnext_credit_get(
     let p_use_risk_insights = use_risk_insights;
     let p_use_organization_domains = use_organization_domains;
     let p_use_admin_sponsored_families = use_admin_sponsored_families;
+    let p_sync_seats = sync_seats;
 
     let uri_str = format!(
         "{}/organizations/{organizationId}/billing/vnext/credit",
@@ -1389,6 +1409,9 @@ pub async fn organizations_organization_id_billing_vnext_credit_get(
     if let Some(ref param_value) = p_use_admin_sponsored_families {
         req_builder = req_builder.query(&[("useAdminSponsoredFamilies", &param_value.to_string())]);
     }
+    if let Some(ref param_value) = p_sync_seats {
+        req_builder = req_builder.query(&[("syncSeats", &param_value.to_string())]);
+    }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
@@ -1415,6 +1438,7 @@ pub async fn organizations_organization_id_billing_vnext_credit_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/VNext/OrganizationBillingVNextController.cs#L81`]
 pub async fn organizations_organization_id_billing_vnext_payment_method_get(
     configuration: &configuration::Configuration,
     organization_id: &str,
@@ -1476,6 +1500,7 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_get(
     use_risk_insights: Option<bool>,
     use_organization_domains: Option<bool>,
     use_admin_sponsored_families: Option<bool>,
+    sync_seats: Option<bool>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextPaymentMethodGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
@@ -1537,6 +1562,7 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_get(
     let p_use_risk_insights = use_risk_insights;
     let p_use_organization_domains = use_organization_domains;
     let p_use_admin_sponsored_families = use_admin_sponsored_families;
+    let p_sync_seats = sync_seats;
 
     let uri_str = format!(
         "{}/organizations/{organizationId}/billing/vnext/payment-method",
@@ -1724,6 +1750,9 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_get(
     if let Some(ref param_value) = p_use_admin_sponsored_families {
         req_builder = req_builder.query(&[("useAdminSponsoredFamilies", &param_value.to_string())]);
     }
+    if let Some(ref param_value) = p_sync_seats {
+        req_builder = req_builder.query(&[("syncSeats", &param_value.to_string())]);
+    }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
@@ -1750,6 +1779,7 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/VNext/OrganizationBillingVNextController.cs#L92`]
 pub async fn organizations_organization_id_billing_vnext_payment_method_put(
     configuration: &configuration::Configuration,
     organization_id: &str,
@@ -1811,6 +1841,7 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_put(
     use_risk_insights: Option<bool>,
     use_organization_domains: Option<bool>,
     use_admin_sponsored_families: Option<bool>,
+    sync_seats: Option<bool>,
     tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
 ) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextPaymentMethodPutError>> {
     // add a prefix to parameters to efficiently prevent name collisions
@@ -1873,6 +1904,7 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_put(
     let p_use_risk_insights = use_risk_insights;
     let p_use_organization_domains = use_organization_domains;
     let p_use_admin_sponsored_families = use_admin_sponsored_families;
+    let p_sync_seats = sync_seats;
     let p_tokenized_payment_method_request = tokenized_payment_method_request;
 
     let uri_str = format!(
@@ -2061,6 +2093,9 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_put(
     if let Some(ref param_value) = p_use_admin_sponsored_families {
         req_builder = req_builder.query(&[("useAdminSponsoredFamilies", &param_value.to_string())]);
     }
+    if let Some(ref param_value) = p_sync_seats {
+        req_builder = req_builder.query(&[("syncSeats", &param_value.to_string())]);
+    }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
@@ -2088,7 +2123,8 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_put(
     }
 }
 
-pub async fn organizations_organization_id_billing_vnext_payment_method_verify_bank_account_post(
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/VNext/OrganizationBillingVNextController.cs#L103`]
+pub async fn organizations_organization_id_billing_vnext_warnings_get(
     configuration: &configuration::Configuration,
     organization_id: &str,
     id: Option<uuid::Uuid>,
@@ -2149,9 +2185,8 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_verify_b
     use_risk_insights: Option<bool>,
     use_organization_domains: Option<bool>,
     use_admin_sponsored_families: Option<bool>,
-    verify_bank_account_request: Option<models::VerifyBankAccountRequest>,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextPaymentMethodVerifyBankAccountPostError>>
-{
+    sync_seats: Option<bool>,
+) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextWarningsGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_id = id;
@@ -2212,16 +2247,14 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_verify_b
     let p_use_risk_insights = use_risk_insights;
     let p_use_organization_domains = use_organization_domains;
     let p_use_admin_sponsored_families = use_admin_sponsored_families;
-    let p_verify_bank_account_request = verify_bank_account_request;
+    let p_sync_seats = sync_seats;
 
     let uri_str = format!(
-        "{}/organizations/{organizationId}/billing/vnext/payment-method/verify-bank-account",
+        "{}/organizations/{organizationId}/billing/vnext/warnings",
         configuration.base_path,
         organizationId = crate::apis::urlencode(p_organization_id)
     );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
     if let Some(ref param_value) = p_id {
         req_builder = req_builder.query(&[("id", &param_value.to_string())]);
@@ -2402,13 +2435,15 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_verify_b
     if let Some(ref param_value) = p_use_admin_sponsored_families {
         req_builder = req_builder.query(&[("useAdminSponsoredFamilies", &param_value.to_string())]);
     }
+    if let Some(ref param_value) = p_sync_seats {
+        req_builder = req_builder.query(&[("syncSeats", &param_value.to_string())]);
+    }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_verify_bank_account_request);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -2419,9 +2454,8 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_verify_b
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<
-            OrganizationsOrganizationIdBillingVnextPaymentMethodVerifyBankAccountPostError,
-        > = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationsOrganizationIdBillingVnextWarningsGetError> =
+            serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

@@ -35,6 +35,7 @@ pub enum SecretsOrganizationIdTrashRestorePostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/SecretsTrashController.cs#L60`]
 pub async fn secrets_organization_id_trash_empty_post(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -80,6 +81,7 @@ pub async fn secrets_organization_id_trash_empty_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/SecretsTrashController.cs#L43`]
 pub async fn secrets_organization_id_trash_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -132,6 +134,7 @@ pub async fn secrets_organization_id_trash_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/SecretsTrashController.cs#L78`]
 pub async fn secrets_organization_id_trash_restore_post(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,

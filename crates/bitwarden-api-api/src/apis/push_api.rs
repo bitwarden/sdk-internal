@@ -49,6 +49,7 @@ pub enum PushSendPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Platform/Push/Controllers/PushController.cs#L66`]
 pub async fn push_add_organization_put(
     configuration: &configuration::Configuration,
     push_update_request_model: Option<models::PushUpdateRequestModel>,
@@ -85,6 +86,7 @@ pub async fn push_add_organization_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Platform/Push/Controllers/PushController.cs#L75`]
 pub async fn push_delete_organization_put(
     configuration: &configuration::Configuration,
     push_update_request_model: Option<models::PushUpdateRequestModel>,
@@ -121,6 +123,7 @@ pub async fn push_delete_organization_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Platform/Push/Controllers/PushController.cs#L59`]
 pub async fn push_delete_post(
     configuration: &configuration::Configuration,
     push_device_request_model: Option<models::PushDeviceRequestModel>,
@@ -159,6 +162,7 @@ pub async fn push_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Platform/Push/Controllers/PushController.cs#L50`]
 pub async fn push_register_post(
     configuration: &configuration::Configuration,
     push_registration_request_model: Option<models::PushRegistrationRequestModel>,
@@ -197,6 +201,7 @@ pub async fn push_register_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Platform/Push/Controllers/PushController.cs#L84`]
 pub async fn push_send_post(
     configuration: &configuration::Configuration,
     json_element_push_send_request_model: Option<models::JsonElementPushSendRequestModel>,

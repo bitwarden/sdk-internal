@@ -28,6 +28,7 @@ pub enum SetupPaymentPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Controllers/MiscController.cs#L27`]
 pub async fn bitpay_invoice_post(
     configuration: &configuration::Configuration,
     bit_pay_invoice_request_model: Option<models::BitPayInvoiceRequestModel>,
@@ -77,6 +78,7 @@ pub async fn bitpay_invoice_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Controllers/MiscController.cs#L36`]
 pub async fn setup_payment_post(
     configuration: &configuration::Configuration,
 ) -> Result<String, Error<SetupPaymentPostError>> {

@@ -21,6 +21,7 @@ pub enum HibpBreachGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Dirt/Controllers/HibpController.cs#L47`]
 pub async fn hibp_breach_get(
     configuration: &configuration::Configuration,
     username: Option<&str>,

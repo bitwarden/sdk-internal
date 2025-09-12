@@ -109,13 +109,7 @@ pub enum OrganizationsOrganizationIdBillingTransactionsGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_organization_id_billing_warnings_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingWarningsGetError {
-    UnknownValue(serde_json::Value),
-}
-
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/OrganizationBillingController.cs#L365`]
 pub async fn organizations_organization_id_billing_change_frequency_post(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -161,6 +155,7 @@ pub async fn organizations_organization_id_billing_change_frequency_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/OrganizationBillingController.cs#L126`]
 pub async fn organizations_organization_id_billing_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -201,6 +196,7 @@ pub async fn organizations_organization_id_billing_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/OrganizationBillingController.cs#L58`]
 pub async fn organizations_organization_id_billing_history_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -241,6 +237,7 @@ pub async fn organizations_organization_id_billing_history_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/OrganizationBillingController.cs#L78`]
 pub async fn organizations_organization_id_billing_invoices_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -291,6 +288,7 @@ pub async fn organizations_organization_id_billing_invoices_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/OrganizationBillingController.cs#L38`]
 pub async fn organizations_organization_id_billing_metadata_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -331,6 +329,7 @@ pub async fn organizations_organization_id_billing_metadata_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/OrganizationBillingController.cs#L148`]
 pub async fn organizations_organization_id_billing_payment_method_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -371,6 +370,7 @@ pub async fn organizations_organization_id_billing_payment_method_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/OrganizationBillingController.cs#L172`]
 pub async fn organizations_organization_id_billing_payment_method_put(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -414,6 +414,7 @@ pub async fn organizations_organization_id_billing_payment_method_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/OrganizationBillingController.cs#L198`]
 pub async fn organizations_organization_id_billing_payment_method_verify_bank_account_post(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -460,6 +461,7 @@ pub async fn organizations_organization_id_billing_payment_method_verify_bank_ac
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/OrganizationBillingController.cs#L270`]
 pub async fn organizations_organization_id_billing_restart_subscription_post(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -505,6 +507,7 @@ pub async fn organizations_organization_id_billing_restart_subscription_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/OrganizationBillingController.cs#L337`]
 pub async fn organizations_organization_id_billing_setup_business_unit_post(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -550,6 +553,7 @@ pub async fn organizations_organization_id_billing_setup_business_unit_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/OrganizationBillingController.cs#L223`]
 pub async fn organizations_organization_id_billing_tax_information_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -590,6 +594,7 @@ pub async fn organizations_organization_id_billing_tax_information_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/OrganizationBillingController.cs#L247`]
 pub async fn organizations_organization_id_billing_tax_information_put(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -633,6 +638,7 @@ pub async fn organizations_organization_id_billing_tax_information_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Billing/Controllers/OrganizationBillingController.cs#L102`]
 pub async fn organizations_organization_id_billing_transactions_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -669,46 +675,6 @@ pub async fn organizations_organization_id_billing_transactions_get(
     } else {
         let content = resp.text().await?;
         let entity: Option<OrganizationsOrganizationIdBillingTransactionsGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_organization_id_billing_warnings_get(
-    configuration: &configuration::Configuration,
-    organization_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingWarningsGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
-
-    let uri_str = format!(
-        "{}/organizations/{organizationId}/billing/warnings",
-        configuration.base_path,
-        organizationId = crate::apis::urlencode(p_organization_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdBillingWarningsGetError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

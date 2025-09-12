@@ -70,6 +70,7 @@ pub enum OrganizationsOrgIdDomainPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/OrganizationDomainController.cs#L132`]
 pub async fn organizations_domain_sso_details_post(
     configuration: &configuration::Configuration,
     organization_domain_sso_details_request_model: Option<
@@ -129,6 +130,7 @@ pub async fn organizations_domain_sso_details_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/OrganizationDomainController.cs#L146`]
 pub async fn organizations_domain_sso_verified_post(
     configuration: &configuration::Configuration,
     organization_domain_sso_details_request_model: Option<
@@ -188,6 +190,7 @@ pub async fn organizations_domain_sso_verified_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/OrganizationDomainController.cs#L50`]
 pub async fn organizations_org_id_domain_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -241,6 +244,7 @@ pub async fn organizations_org_id_domain_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/OrganizationDomainController.cs#L109`]
 pub async fn organizations_org_id_domain_id_delete(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -286,6 +290,7 @@ pub async fn organizations_org_id_domain_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/OrganizationDomainController.cs#L61`]
 pub async fn organizations_org_id_domain_id_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -340,6 +345,7 @@ pub async fn organizations_org_id_domain_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/OrganizationDomainController.cs#L124`]
 pub async fn organizations_org_id_domain_id_remove_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -385,6 +391,7 @@ pub async fn organizations_org_id_domain_id_remove_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/OrganizationDomainController.cs#L93`]
 pub async fn organizations_org_id_domain_id_verify_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -442,6 +449,7 @@ pub async fn organizations_org_id_domain_id_verify_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/OrganizationDomainController.cs#L77`]
 pub async fn organizations_org_id_domain_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,

@@ -70,6 +70,7 @@ pub enum ServiceAccountsIdPutError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L83`]
 pub async fn organizations_organization_id_service_accounts_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -129,6 +130,7 @@ pub async fn organizations_organization_id_service_accounts_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L119`]
 pub async fn organizations_organization_id_service_accounts_post(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -188,6 +190,7 @@ pub async fn organizations_organization_id_service_accounts_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L166`]
 pub async fn service_accounts_delete_post(
     configuration: &configuration::Configuration,
     uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
@@ -238,6 +241,7 @@ pub async fn service_accounts_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L206`]
 pub async fn service_accounts_id_access_tokens_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -292,6 +296,7 @@ pub async fn service_accounts_id_access_tokens_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L225`]
 pub async fn service_accounts_id_access_tokens_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -349,6 +354,7 @@ pub async fn service_accounts_id_access_tokens_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L242`]
 pub async fn service_accounts_id_access_tokens_revoke_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -394,6 +400,7 @@ pub async fn service_accounts_id_access_tokens_revoke_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L103`]
 pub async fn service_accounts_id_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -444,6 +451,7 @@ pub async fn service_accounts_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L150`]
 pub async fn service_accounts_id_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,

@@ -70,6 +70,7 @@ pub enum SecretsIdPutError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/SecretsController.cs#L73`]
 pub async fn organizations_organization_id_secrets_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -124,6 +125,7 @@ pub async fn organizations_organization_id_secrets_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/SecretsController.cs#L91`]
 pub async fn organizations_organization_id_secrets_post(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -180,6 +182,7 @@ pub async fn organizations_organization_id_secrets_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/SecretsController.cs#L266`]
 pub async fn organizations_organization_id_secrets_sync_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -237,6 +240,7 @@ pub async fn organizations_organization_id_secrets_sync_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/SecretsController.cs#L148`]
 pub async fn projects_project_id_secrets_get(
     configuration: &configuration::Configuration,
     project_id: uuid::Uuid,
@@ -287,6 +291,7 @@ pub async fn projects_project_id_secrets_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/SecretsController.cs#L202`]
 pub async fn secrets_delete_post(
     configuration: &configuration::Configuration,
     uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
@@ -336,6 +341,7 @@ pub async fn secrets_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/SecretsController.cs#L244`]
 pub async fn secrets_get_by_ids_post(
     configuration: &configuration::Configuration,
     get_secrets_request_model: Option<models::GetSecretsRequestModel>,
@@ -385,6 +391,7 @@ pub async fn secrets_get_by_ids_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/SecretsController.cs#L122`]
 pub async fn secrets_id_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -435,6 +442,7 @@ pub async fn secrets_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/SecretsManager/Controllers/SecretsController.cs#L166`]
 pub async fn secrets_id_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,

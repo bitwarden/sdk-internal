@@ -28,6 +28,20 @@ pub enum EventsGetError {
     UnknownValue(serde_json::Value),
 }
 
+/// struct for typed errors of method [`organization_org_id_projects_id_events_get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationOrgIdProjectsIdEventsGetError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organization_org_id_secrets_id_events_get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationOrgIdSecretsIdEventsGetError {
+    UnknownValue(serde_json::Value),
+}
+
 /// struct for typed errors of method [`organizations_id_events_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -56,6 +70,7 @@ pub enum ProvidersProviderIdUsersIdEventsGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/EventsController.cs#L69`]
 pub async fn ciphers_id_events_get(
     configuration: &configuration::Configuration,
     id: &str,
@@ -121,6 +136,7 @@ pub async fn ciphers_id_events_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/EventsController.cs#L57`]
 pub async fn events_get(
     configuration: &configuration::Configuration,
     start: Option<String>,
@@ -180,6 +196,153 @@ pub async fn events_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/EventsController.cs#L167`]
+pub async fn organization_org_id_projects_id_events_get(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    org_id: uuid::Uuid,
+    start: Option<String>,
+    end: Option<String>,
+    continuation_token: Option<&str>,
+) -> Result<
+    models::EventResponseModelListResponseModel,
+    Error<OrganizationOrgIdProjectsIdEventsGetError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_org_id = org_id;
+    let p_start = start;
+    let p_end = end;
+    let p_continuation_token = continuation_token;
+
+    let uri_str = format!(
+        "{}/organization/{orgId}/projects/{id}/events",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string()),
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref param_value) = p_start {
+        req_builder = req_builder.query(&[("start", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_end {
+        req_builder = req_builder.query(&[("end", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_continuation_token {
+        req_builder = req_builder.query(&[("continuationToken", &param_value.to_string())]);
+    }
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationOrgIdProjectsIdEventsGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/EventsController.cs#L122`]
+pub async fn organization_org_id_secrets_id_events_get(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    org_id: uuid::Uuid,
+    start: Option<String>,
+    end: Option<String>,
+    continuation_token: Option<&str>,
+) -> Result<
+    models::EventResponseModelListResponseModel,
+    Error<OrganizationOrgIdSecretsIdEventsGetError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_org_id = org_id;
+    let p_start = start;
+    let p_end = end;
+    let p_continuation_token = continuation_token;
+
+    let uri_str = format!(
+        "{}/organization/{orgId}/secrets/{id}/events",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string()),
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref param_value) = p_start {
+        req_builder = req_builder.query(&[("start", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_end {
+        req_builder = req_builder.query(&[("end", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_continuation_token {
+        req_builder = req_builder.query(&[("continuationToken", &param_value.to_string())]);
+    }
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationOrgIdSecretsIdEventsGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/EventsController.cs#L102`]
 pub async fn organizations_id_events_get(
     configuration: &configuration::Configuration,
     id: &str,
@@ -245,6 +408,7 @@ pub async fn organizations_id_events_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/EventsController.cs#L190`]
 pub async fn organizations_org_id_users_id_events_get(
     configuration: &configuration::Configuration,
     org_id: &str,
@@ -317,6 +481,7 @@ pub async fn organizations_org_id_users_id_events_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/EventsController.cs#L209`]
 pub async fn providers_provider_id_events_get(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -382,6 +547,7 @@ pub async fn providers_provider_id_events_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/AdminConsole/Controllers/EventsController.cs#L225`]
 pub async fn providers_provider_id_users_id_events_get(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,

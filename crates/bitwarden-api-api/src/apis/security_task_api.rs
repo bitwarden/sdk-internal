@@ -35,6 +35,13 @@ pub enum TasksOrganizationGetError {
     UnknownValue(serde_json::Value),
 }
 
+/// struct for typed errors of method [`tasks_organization_id_metrics_get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TasksOrganizationIdMetricsGetError {
+    UnknownValue(serde_json::Value),
+}
+
 /// struct for typed errors of method [`tasks_task_id_complete_patch`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -42,6 +49,7 @@ pub enum TasksTaskIdCompletePatchError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Vault/Controllers/SecurityTaskController.cs#L54`]
 pub async fn tasks_get(
     configuration: &configuration::Configuration,
     status: Option<models::SecurityTaskStatus>,
@@ -91,6 +99,7 @@ pub async fn tasks_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Vault/Controllers/SecurityTaskController.cs#L107`]
 pub async fn tasks_org_id_bulk_create_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -147,6 +156,7 @@ pub async fn tasks_org_id_bulk_create_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Vault/Controllers/SecurityTaskController.cs#L80`]
 pub async fn tasks_organization_get(
     configuration: &configuration::Configuration,
     organization_id: Option<uuid::Uuid>,
@@ -201,6 +211,59 @@ pub async fn tasks_organization_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Vault/Controllers/SecurityTaskController.cs#L92`]
+pub async fn tasks_organization_id_metrics_get(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+) -> Result<models::SecurityTaskMetricsResponseModel, Error<TasksOrganizationIdMetricsGetError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+
+    let uri_str = format!(
+        "{}/tasks/{organizationId}/metrics",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::SecurityTaskMetricsResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::SecurityTaskMetricsResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TasksOrganizationIdMetricsGetError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/7eb5035d94ed67927d3f638ebd34d89003507441/src/Api/Vault/Controllers/SecurityTaskController.cs#L67`]
 pub async fn tasks_task_id_complete_patch(
     configuration: &configuration::Configuration,
     task_id: uuid::Uuid,
