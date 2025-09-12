@@ -23,9 +23,8 @@ jobs:
           repo: bitwarden/server
           branch: main
           workflow: build.yml
-          artifacts: (internal|identity).json
+          artifacts: identity.json
           path: artifacts/
-          name_is_regexp: true
 
       - name: List downloaded files
         run: |
