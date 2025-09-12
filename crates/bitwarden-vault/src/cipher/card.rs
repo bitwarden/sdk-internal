@@ -90,7 +90,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CardListView> for Card {
         key: SymmetricKeyId,
     ) -> Result<CardListView, CryptoError> {
         Ok(CardListView {
-            brand: self.brand.decrypt(ctx, key).ok().flatten(),
+            brand: self.brand.decrypt(ctx, key)?,
         })
     }
 }
@@ -102,12 +102,12 @@ impl Decryptable<KeyIds, SymmetricKeyId, CardView> for Card {
         key: SymmetricKeyId,
     ) -> Result<CardView, CryptoError> {
         Ok(CardView {
-            cardholder_name: self.cardholder_name.decrypt(ctx, key).ok().flatten(),
-            exp_month: self.exp_month.decrypt(ctx, key).ok().flatten(),
-            exp_year: self.exp_year.decrypt(ctx, key).ok().flatten(),
-            code: self.code.decrypt(ctx, key).ok().flatten(),
-            brand: self.brand.decrypt(ctx, key).ok().flatten(),
-            number: self.number.decrypt(ctx, key).ok().flatten(),
+            cardholder_name: self.cardholder_name.decrypt(ctx, key)?,
+            exp_month: self.exp_month.decrypt(ctx, key)?,
+            exp_year: self.exp_year.decrypt(ctx, key)?,
+            code: self.code.decrypt(ctx, key)?,
+            brand: self.brand.decrypt(ctx, key)?,
+            number: self.number.decrypt(ctx, key)?,
         })
     }
 }

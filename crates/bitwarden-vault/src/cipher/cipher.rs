@@ -358,23 +358,23 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
             key: self.key.clone(),
-            name: self.name.decrypt(ctx, ciphers_key).ok().unwrap_or_default(),
-            notes: self.notes.decrypt(ctx, ciphers_key).ok().flatten(),
+            name: self.name.decrypt(ctx, ciphers_key)?,
+            notes: self.notes.decrypt(ctx, ciphers_key)?,
             r#type: self.r#type,
-            login: self.login.decrypt(ctx, ciphers_key).ok().flatten(),
-            identity: self.identity.decrypt(ctx, ciphers_key).ok().flatten(),
-            card: self.card.decrypt(ctx, ciphers_key).ok().flatten(),
-            secure_note: self.secure_note.decrypt(ctx, ciphers_key).ok().flatten(),
-            ssh_key: self.ssh_key.decrypt(ctx, ciphers_key).ok().flatten(),
+            login: self.login.decrypt(ctx, ciphers_key)?,
+            identity: self.identity.decrypt(ctx, ciphers_key)?,
+            card: self.card.decrypt(ctx, ciphers_key)?,
+            secure_note: self.secure_note.decrypt(ctx, ciphers_key)?,
+            ssh_key: self.ssh_key.decrypt(ctx, ciphers_key)?,
             favorite: self.favorite,
             reprompt: self.reprompt,
             organization_use_totp: self.organization_use_totp,
             edit: self.edit,
             permissions: self.permissions,
             view_password: self.view_password,
-            local_data: self.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
-            attachments: self.attachments.decrypt(ctx, ciphers_key).ok().flatten(),
-            fields: self.fields.decrypt(ctx, ciphers_key).ok().flatten(),
+            local_data: self.local_data.decrypt(ctx, ciphers_key)?,
+            attachments: self.attachments.decrypt(ctx, ciphers_key)?,
+            fields: self.fields.decrypt(ctx, ciphers_key)?,
             password_history: self
                 .password_history
                 .decrypt(ctx, ciphers_key)
@@ -644,7 +644,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
             key: self.key.clone(),
-            name: self.name.decrypt(ctx, ciphers_key).ok().unwrap_or_default(),
+            name: self.name.decrypt(ctx, ciphers_key)?,
             subtitle: self
                 .decrypt_subtitle(ctx, ciphers_key)
                 .ok()
