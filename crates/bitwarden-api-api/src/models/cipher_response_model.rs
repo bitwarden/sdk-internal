@@ -59,6 +59,8 @@ pub struct CipherResponseModel {
     pub reprompt: Option<models::CipherRepromptType>,
     #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
+    #[serde(rename = "archivedDate", skip_serializing_if = "Option::is_none")]
+    pub archived_date: Option<String>,
     #[serde(rename = "folderId", skip_serializing_if = "Option::is_none")]
     pub folder_id: Option<uuid::Uuid>,
     #[serde(rename = "favorite", skip_serializing_if = "Option::is_none")]
@@ -95,6 +97,7 @@ impl CipherResponseModel {
             deleted_date: None,
             reprompt: None,
             key: None,
+            archived_date: None,
             folder_id: None,
             favorite: None,
             edit: None,

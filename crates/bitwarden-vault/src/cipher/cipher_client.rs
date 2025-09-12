@@ -290,6 +290,7 @@ mod tests {
             creation_date: "2024-05-31T11:20:58.4566667Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-05-31T11:20:58.4566667Z".parse().unwrap(),
+            archived_date: None,
         }
     }
 
@@ -330,6 +331,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
         }
     }
 
@@ -392,6 +394,7 @@ mod tests {
                 creation_date: "2024-05-31T09:35:55.12Z".parse().unwrap(),
                 deleted_date: None,
                 revision_date: "2024-05-31T09:35:55.12Z".parse().unwrap(),
+                archived_date: None,
             }])
 
             .unwrap();
