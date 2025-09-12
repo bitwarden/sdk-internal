@@ -116,6 +116,7 @@ jobs:
       - name: Create branch and commit
         env:
           _HASH: ${{ steps.commit-info.outputs.HASH }}
+          _BRANCH_NAME: ${{ steps.commit-info.outputs.BRANCH_NAME }}
         run: |
           echo "👀 Committing SDK version update..."
 
@@ -124,7 +125,7 @@ jobs:
 
           git add crates/bitwarden-api-api crates/bitwarden-api-identity
           git commit -m "Update API bindings - $_HASH" --no-verify
-          git push origin api/$_HASH
+          git push origin $_BRANCH_NAME
 
       - name: Create or Update Pull Request
         env:
