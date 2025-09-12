@@ -28,6 +28,7 @@ pub enum CiphersImportPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Tools/Controllers/ImportCiphersController.cs#L68`]
 pub async fn ciphers_import_organization_post(
     configuration: &configuration::Configuration,
     organization_id: Option<&str>,
@@ -74,6 +75,7 @@ pub async fn ciphers_import_organization_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Tools/Controllers/ImportCiphersController.cs#L51`]
 pub async fn ciphers_import_post(
     configuration: &configuration::Configuration,
     import_ciphers_request_model: Option<models::ImportCiphersRequestModel>,

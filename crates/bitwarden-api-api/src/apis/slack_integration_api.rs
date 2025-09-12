@@ -29,6 +29,7 @@ pub enum OrganizationsOrganizationIdIntegrationsSlackRedirectGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/AdminConsole/Controllers/SlackIntegrationController.cs#L51`]
 pub async fn create_async(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -73,6 +74,7 @@ pub async fn create_async(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/AdminConsole/Controllers/SlackIntegrationController.cs#L30`]
 pub async fn organizations_organization_id_integrations_slack_redirect_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,

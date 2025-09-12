@@ -49,6 +49,7 @@ pub enum AccountsBillingTransactionsGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Billing/Controllers/AccountsBillingController.cs#L22`]
 pub async fn accounts_billing_history_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::BillingHistoryResponseModel, Error<AccountsBillingHistoryGetError>> {
@@ -91,6 +92,7 @@ pub async fn accounts_billing_history_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Billing/Controllers/AccountsBillingController.cs#L49`]
 pub async fn accounts_billing_invoices_get(
     configuration: &configuration::Configuration,
     status: Option<&str>,
@@ -134,6 +136,7 @@ pub async fn accounts_billing_invoices_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Billing/Controllers/AccountsBillingController.cs#L36`]
 pub async fn accounts_billing_payment_method_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::BillingPaymentResponseModel, Error<AccountsBillingPaymentMethodGetError>> {
@@ -180,6 +183,7 @@ pub async fn accounts_billing_payment_method_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Billing/Controllers/AccountsBillingController.cs#L84`]
 pub async fn accounts_billing_preview_invoice_post(
     configuration: &configuration::Configuration,
     preview_individual_invoice_request_body: Option<models::PreviewIndividualInvoiceRequestBody>,
@@ -222,6 +226,7 @@ pub async fn accounts_billing_preview_invoice_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Billing/Controllers/AccountsBillingController.cs#L67`]
 pub async fn accounts_billing_transactions_get(
     configuration: &configuration::Configuration,
     start_after: Option<String>,

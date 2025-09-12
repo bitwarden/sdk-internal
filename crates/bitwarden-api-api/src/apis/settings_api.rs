@@ -35,6 +35,7 @@ pub enum SettingsDomainsPutError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Controllers/SettingsController.cs#L23`]
 pub async fn settings_domains_get(
     configuration: &configuration::Configuration,
     excluded: Option<bool>,
@@ -84,6 +85,7 @@ pub async fn settings_domains_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Controllers/SettingsController.cs#L52`]
 pub async fn settings_domains_post(
     configuration: &configuration::Configuration,
     update_domains_request_model: Option<models::UpdateDomainsRequestModel>,
@@ -133,6 +135,7 @@ pub async fn settings_domains_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Controllers/SettingsController.cs#L36`]
 pub async fn settings_domains_put(
     configuration: &configuration::Configuration,
     update_domains_request_model: Option<models::UpdateDomainsRequestModel>,

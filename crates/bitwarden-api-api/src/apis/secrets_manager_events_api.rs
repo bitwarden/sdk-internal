@@ -21,6 +21,7 @@ pub enum SmEventsServiceAccountsServiceAccountIdGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/SecretsManager/Controllers/SecretsManagerEventsController.cs#L37`]
 pub async fn sm_events_service_accounts_service_account_id_get(
     configuration: &configuration::Configuration,
     service_account_id: uuid::Uuid,

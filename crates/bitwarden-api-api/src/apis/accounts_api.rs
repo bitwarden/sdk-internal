@@ -315,6 +315,7 @@ pub enum AccountsVerifyPasswordPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L543`]
 pub async fn accounts_api_key_post(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
@@ -364,6 +365,7 @@ pub async fn accounts_api_key_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L393`]
 pub async fn accounts_avatar_post(
     configuration: &configuration::Configuration,
     update_avatar_request_model: Option<models::UpdateAvatarRequestModel>,
@@ -413,6 +415,7 @@ pub async fn accounts_avatar_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L374`]
 pub async fn accounts_avatar_put(
     configuration: &configuration::Configuration,
     update_avatar_request_model: Option<models::UpdateAvatarRequestModel>,
@@ -460,6 +463,7 @@ pub async fn accounts_avatar_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Billing/Controllers/AccountsController.cs#L162`]
 pub async fn accounts_cancel_post(
     configuration: &configuration::Configuration,
     subscription_cancellation_request_model: Option<models::SubscriptionCancellationRequestModel>,
@@ -498,6 +502,7 @@ pub async fn accounts_cancel_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L446`]
 pub async fn accounts_delete(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
@@ -536,6 +541,7 @@ pub async fn accounts_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L484`]
 pub async fn accounts_delete_post(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
@@ -574,6 +580,7 @@ pub async fn accounts_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L491`]
 pub async fn accounts_delete_recover_post(
     configuration: &configuration::Configuration,
     delete_recover_request_model: Option<models::DeleteRecoverRequestModel>,
@@ -612,6 +619,7 @@ pub async fn accounts_delete_recover_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L498`]
 pub async fn accounts_delete_recover_token_post(
     configuration: &configuration::Configuration,
     verify_delete_recover_request_model: Option<models::VerifyDeleteRecoverRequestModel>,
@@ -651,6 +659,7 @@ pub async fn accounts_delete_recover_token_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L110`]
 pub async fn accounts_email_post(
     configuration: &configuration::Configuration,
     email_request_model: Option<models::EmailRequestModel>,
@@ -689,6 +698,7 @@ pub async fn accounts_email_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L80`]
 pub async fn accounts_email_token_post(
     configuration: &configuration::Configuration,
     email_token_request_model: Option<models::EmailTokenRequestModel>,
@@ -727,6 +737,7 @@ pub async fn accounts_email_token_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L260`]
 pub async fn accounts_kdf_post(
     configuration: &configuration::Configuration,
     kdf_request_model: Option<models::KdfRequestModel>,
@@ -765,6 +776,7 @@ pub async fn accounts_kdf_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L434`]
 pub async fn accounts_keys_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::KeysResponseModel, Error<AccountsKeysGetError>> {
@@ -807,6 +819,7 @@ pub async fn accounts_keys_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L413`]
 pub async fn accounts_keys_post(
     configuration: &configuration::Configuration,
     keys_request_model: Option<models::KeysRequestModel>,
@@ -856,6 +869,7 @@ pub async fn accounts_keys_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Billing/Controllers/AccountsController.cs#L142`]
 pub async fn accounts_license_post(
     configuration: &configuration::Configuration,
     license: std::path::PathBuf,
@@ -896,6 +910,7 @@ pub async fn accounts_license_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L336`]
 pub async fn accounts_organizations_get(
     configuration: &configuration::Configuration,
 ) -> Result<
@@ -941,6 +956,7 @@ pub async fn accounts_organizations_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L74`]
 pub async fn accounts_password_hint_post(
     configuration: &configuration::Configuration,
     password_hint_request_model: Option<models::PasswordHintRequestModel>,
@@ -979,6 +995,7 @@ pub async fn accounts_password_hint_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L176`]
 pub async fn accounts_password_post(
     configuration: &configuration::Configuration,
     password_request_model: Option<models::PasswordRequestModel>,
@@ -1017,6 +1034,7 @@ pub async fn accounts_password_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Billing/Controllers/AccountsController.cs#L103`]
 pub async fn accounts_payment_post(
     configuration: &configuration::Configuration,
     payment_request_model: Option<models::PaymentRequestModel>,
@@ -1055,6 +1073,7 @@ pub async fn accounts_payment_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Billing/Controllers/AccountsController.cs#L30`]
 pub async fn accounts_premium_post(
     configuration: &configuration::Configuration,
     payment_method_type: models::PaymentMethodType,
@@ -1129,6 +1148,7 @@ pub async fn accounts_premium_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L309`]
 pub async fn accounts_profile_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::ProfileResponseModel, Error<AccountsProfileGetError>> {
@@ -1171,6 +1191,7 @@ pub async fn accounts_profile_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L368`]
 pub async fn accounts_profile_post(
     configuration: &configuration::Configuration,
     update_profile_request_model: Option<models::UpdateProfileRequestModel>,
@@ -1220,6 +1241,7 @@ pub async fn accounts_profile_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L348`]
 pub async fn accounts_profile_put(
     configuration: &configuration::Configuration,
     update_profile_request_model: Option<models::UpdateProfileRequestModel>,
@@ -1267,6 +1289,7 @@ pub async fn accounts_profile_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Billing/Controllers/AccountsController.cs#L178`]
 pub async fn accounts_reinstate_premium_post(
     configuration: &configuration::Configuration,
 ) -> Result<(), Error<AccountsReinstatePremiumPostError>> {
@@ -1300,6 +1323,7 @@ pub async fn accounts_reinstate_premium_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L627`]
 pub async fn accounts_request_otp_post(
     configuration: &configuration::Configuration,
 ) -> Result<(), Error<AccountsRequestOtpPostError>> {
@@ -1333,6 +1357,7 @@ pub async fn accounts_request_otp_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L648`]
 pub async fn accounts_resend_new_device_otp_post(
     configuration: &configuration::Configuration,
     unauthenticated_secret_verification_request_model: Option<
@@ -1375,6 +1400,7 @@ pub async fn accounts_resend_new_device_otp_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L399`]
 pub async fn accounts_revision_date_get(
     configuration: &configuration::Configuration,
 ) -> Result<i64, Error<AccountsRevisionDateGetError>> {
@@ -1417,6 +1443,7 @@ pub async fn accounts_revision_date_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L561`]
 pub async fn accounts_rotate_api_key_post(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
@@ -1466,6 +1493,7 @@ pub async fn accounts_rotate_api_key_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L285`]
 pub async fn accounts_security_stamp_post(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
@@ -1504,6 +1532,7 @@ pub async fn accounts_security_stamp_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L201`]
 pub async fn accounts_set_password_post(
     configuration: &configuration::Configuration,
     set_password_request_model: Option<models::SetPasswordRequestModel>,
@@ -1542,6 +1571,7 @@ pub async fn accounts_set_password_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L522`]
 pub async fn accounts_sso_organization_id_delete(
     configuration: &configuration::Configuration,
     organization_id: &str,
@@ -1584,6 +1614,7 @@ pub async fn accounts_sso_organization_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L534`]
 pub async fn accounts_sso_user_identifier_get(
     configuration: &configuration::Configuration,
 ) -> Result<String, Error<AccountsSsoUserIdentifierGetError>> {
@@ -1626,6 +1657,7 @@ pub async fn accounts_sso_user_identifier_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Billing/Controllers/AccountsController.cs#L126`]
 pub async fn accounts_storage_post(
     configuration: &configuration::Configuration,
     storage_request_model: Option<models::StorageRequestModel>,
@@ -1675,6 +1707,7 @@ pub async fn accounts_storage_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Billing/Controllers/AccountsController.cs#L76`]
 pub async fn accounts_subscription_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::SubscriptionResponseModel, Error<AccountsSubscriptionGetError>> {
@@ -1717,6 +1750,7 @@ pub async fn accounts_subscription_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Billing/Controllers/AccountsController.cs#L192`]
 pub async fn accounts_tax_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::TaxInfoResponseModel, Error<AccountsTaxGetError>> {
@@ -1759,6 +1793,7 @@ pub async fn accounts_tax_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Billing/Controllers/AccountsController.cs#L208`]
 pub async fn accounts_tax_put(
     configuration: &configuration::Configuration,
     tax_info_update_request_model: Option<models::TaxInfoUpdateRequestModel>,
@@ -1795,6 +1830,7 @@ pub async fn accounts_tax_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L604`]
 pub async fn accounts_update_tde_offboarding_password_put(
     configuration: &configuration::Configuration,
     update_tde_offboarding_password_request_model: Option<
@@ -1838,6 +1874,7 @@ pub async fn accounts_update_tde_offboarding_password_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L581`]
 pub async fn accounts_update_temp_password_put(
     configuration: &configuration::Configuration,
     update_temp_password_request_model: Option<models::UpdateTempPasswordRequestModel>,
@@ -1875,6 +1912,7 @@ pub async fn accounts_update_temp_password_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L677`]
 pub async fn accounts_verify_devices_post(
     configuration: &configuration::Configuration,
     set_verify_devices_request_model: Option<models::SetVerifyDevicesRequestModel>,
@@ -1913,6 +1951,7 @@ pub async fn accounts_verify_devices_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L661`]
 pub async fn accounts_verify_devices_put(
     configuration: &configuration::Configuration,
     set_verify_devices_request_model: Option<models::SetVerifyDevicesRequestModel>,
@@ -1949,6 +1988,7 @@ pub async fn accounts_verify_devices_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L140`]
 pub async fn accounts_verify_email_post(
     configuration: &configuration::Configuration,
 ) -> Result<(), Error<AccountsVerifyEmailPostError>> {
@@ -1982,6 +2022,7 @@ pub async fn accounts_verify_email_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L153`]
 pub async fn accounts_verify_email_token_post(
     configuration: &configuration::Configuration,
     verify_email_request_model: Option<models::VerifyEmailRequestModel>,
@@ -2020,6 +2061,7 @@ pub async fn accounts_verify_email_token_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L635`]
 pub async fn accounts_verify_otp_post(
     configuration: &configuration::Configuration,
     verify_otp_request_model: Option<models::VerifyOtpRequestModel>,
@@ -2058,6 +2100,7 @@ pub async fn accounts_verify_otp_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AccountsController.cs#L239`]
 pub async fn accounts_verify_password_post(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,

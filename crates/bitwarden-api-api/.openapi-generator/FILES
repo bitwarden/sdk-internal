@@ -34,6 +34,7 @@ src/apis/organization_domain_api.rs
 src/apis/organization_export_api.rs
 src/apis/organization_integration_api.rs
 src/apis/organization_integration_configuration_api.rs
+src/apis/organization_reports_api.rs
 src/apis/organization_sponsorships_api.rs
 src/apis/organization_users_api.rs
 src/apis/organizations_api.rs
@@ -54,6 +55,7 @@ src/apis/secrets_api.rs
 src/apis/secrets_manager_events_api.rs
 src/apis/secrets_manager_porting_api.rs
 src/apis/security_task_api.rs
+src/apis/self_hosted_account_billing_api.rs
 src/apis/self_hosted_organization_licenses_api.rs
 src/apis/self_hosted_organization_sponsorships_api.rs
 src/apis/sends_api.rs
@@ -156,13 +158,13 @@ src/models/collection_access_details_response_model_list_response_model.rs
 src/models/collection_bulk_delete_request_model.rs
 src/models/collection_details_response_model.rs
 src/models/collection_details_response_model_list_response_model.rs
-src/models/collection_request_model.rs
 src/models/collection_response_model.rs
 src/models/collection_response_model_list_response_model.rs
 src/models/collection_type.rs
 src/models/collection_with_id_request_model.rs
 src/models/config_response_model.rs
 src/models/create_client_organization_request_body.rs
+src/models/create_collection_request_model.rs
 src/models/credential_create_options.rs
 src/models/delete_attachment_response_data.rs
 src/models/delete_recover_request_model.rs
@@ -177,7 +179,6 @@ src/models/device_type.rs
 src/models/device_verification_request_model.rs
 src/models/device_verification_response_model.rs
 src/models/domains_response_model.rs
-src/models/drop_organization_report_request.rs
 src/models/drop_password_health_report_application_request.rs
 src/models/email_request_model.rs
 src/models/email_token_request_model.rs
@@ -248,6 +249,7 @@ src/models/member_access_detail_report_response_model.rs
 src/models/member_cipher_details_response_model.rs
 src/models/member_decryption_type.rs
 src/models/minimal_billing_address_request.rs
+src/models/minimal_tokenized_payment_method_request.rs
 src/models/mod.rs
 src/models/notification_response_model.rs
 src/models/notification_response_model_list_response_model.rs
@@ -280,8 +282,6 @@ src/models/organization_license.rs
 src/models/organization_no_payment_create_request.rs
 src/models/organization_password_manager_request_model.rs
 src/models/organization_public_key_response_model.rs
-src/models/organization_report.rs
-src/models/organization_report_summary_model.rs
 src/models/organization_response_model.rs
 src/models/organization_seat_request_model.rs
 src/models/organization_sponsorship_create_request_model.rs
@@ -352,6 +352,7 @@ src/models/policy_type.rs
 src/models/potential_grantee_response_model.rs
 src/models/potential_grantee_response_model_list_response_model.rs
 src/models/pre_validate_sponsorship_response_model.rs
+src/models/premium_cloud_hosted_subscription_request.rs
 src/models/preview_individual_invoice_request_body.rs
 src/models/preview_organization_invoice_request_body.rs
 src/models/preview_tax_amount_for_organization_trial_request_body.rs
@@ -417,6 +418,7 @@ src/models/rotate_user_account_keys_and_data_request_model.rs
 src/models/saml2_binding_type.rs
 src/models/saml2_name_id_format.rs
 src/models/saml2_signing_behavior.rs
+src/models/save_policy_request.rs
 src/models/secret_access_policies_requests_model.rs
 src/models/secret_access_policies_response_model.rs
 src/models/secret_create_request_model.rs
@@ -434,6 +436,7 @@ src/models/secrets_sync_response_model.rs
 src/models/secrets_with_projects_inner_secret.rs
 src/models/secure_note_type.rs
 src/models/security_task_create_request.rs
+src/models/security_task_metrics_response_model.rs
 src/models/security_task_status.rs
 src/models/security_task_type.rs
 src/models/security_tasks_response_model.rs
@@ -495,7 +498,6 @@ src/models/two_factor_provider_response_model.rs
 src/models/two_factor_provider_response_model_list_response_model.rs
 src/models/two_factor_provider_type.rs
 src/models/two_factor_recover_response_model.rs
-src/models/two_factor_recovery_request_model.rs
 src/models/two_factor_web_authn_delete_request_model.rs
 src/models/two_factor_web_authn_request_model.rs
 src/models/two_factor_web_authn_response_model.rs
@@ -505,8 +507,13 @@ src/models/unlock_data_request_model.rs
 src/models/untrust_devices_request_model.rs
 src/models/update_avatar_request_model.rs
 src/models/update_client_organization_request_body.rs
+src/models/update_collection_request_model.rs
 src/models/update_devices_trust_request_model.rs
 src/models/update_domains_request_model.rs
+src/models/update_organization_report_application_data_request.rs
+src/models/update_organization_report_data_request.rs
+src/models/update_organization_report_request.rs
+src/models/update_organization_report_summary_request.rs
 src/models/update_payment_method_request_body.rs
 src/models/update_profile_request_model.rs
 src/models/update_tde_offboarding_password_request_model.rs
@@ -523,7 +530,6 @@ src/models/user_license.rs
 src/models/user_verification_requirement.rs
 src/models/verified_organization_domain_sso_detail_response_model.rs
 src/models/verified_organization_domain_sso_details_response_model.rs
-src/models/verify_bank_account_request.rs
 src/models/verify_bank_account_request_body.rs
 src/models/verify_delete_recover_request_model.rs
 src/models/verify_email_request_model.rs

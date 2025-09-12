@@ -63,6 +63,7 @@ pub enum AuthRequestsPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AuthRequestsController.cs#L95`]
 pub async fn auth_requests_admin_request_post(
     configuration: &configuration::Configuration,
     auth_request_create_request_model: Option<models::AuthRequestCreateRequestModel>,
@@ -112,6 +113,7 @@ pub async fn auth_requests_admin_request_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AuthRequestsController.cs#L35`]
 pub async fn auth_requests_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::AuthRequestResponseModelListResponseModel, Error<AuthRequestsGetError>> {
@@ -154,6 +156,7 @@ pub async fn auth_requests_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AuthRequestsController.cs#L44`]
 pub async fn auth_requests_id_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -204,6 +207,7 @@ pub async fn auth_requests_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AuthRequestsController.cs#L103`]
 pub async fn auth_requests_id_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -257,6 +261,7 @@ pub async fn auth_requests_id_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AuthRequestsController.cs#L69`]
 pub async fn auth_requests_id_response_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -312,6 +317,7 @@ pub async fn auth_requests_id_response_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AuthRequestsController.cs#L59`]
 pub async fn auth_requests_pending_get(
     configuration: &configuration::Configuration,
 ) -> Result<
@@ -357,6 +363,7 @@ pub async fn auth_requests_pending_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Auth/Controllers/AuthRequestsController.cs#L83`]
 pub async fn auth_requests_post(
     configuration: &configuration::Configuration,
     auth_request_create_request_model: Option<models::AuthRequestCreateRequestModel>,

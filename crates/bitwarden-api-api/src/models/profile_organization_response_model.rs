@@ -184,6 +184,13 @@ pub struct ProfileOrganizationResponseModel {
     pub use_admin_sponsored_families: Option<bool>,
     #[serde(rename = "isAdminInitiated", skip_serializing_if = "Option::is_none")]
     pub is_admin_initiated: Option<bool>,
+    #[serde(rename = "ssoEnabled", skip_serializing_if = "Option::is_none")]
+    pub sso_enabled: Option<bool>,
+    #[serde(
+        rename = "ssoMemberDecryptionType",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub sso_member_decryption_type: Option<models::MemberDecryptionType>,
 }
 
 impl ProfileOrganizationResponseModel {
@@ -245,6 +252,8 @@ impl ProfileOrganizationResponseModel {
             use_organization_domains: None,
             use_admin_sponsored_families: None,
             is_admin_initiated: None,
+            sso_enabled: None,
+            sso_member_decryption_type: None,
         }
     }
 }

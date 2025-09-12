@@ -21,6 +21,7 @@ pub enum TaxPreviewAmountOrganizationTrialPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/18aed0bd798c20abf82c64b5e17a94e483e6d23c/src/Api/Billing/Controllers/TaxController.cs#L16`]
 pub async fn tax_preview_amount_organization_trial_post(
     configuration: &configuration::Configuration,
     preview_tax_amount_for_organization_trial_request_body: Option<
