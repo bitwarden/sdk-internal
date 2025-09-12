@@ -113,8 +113,11 @@ jobs:
       - name: Set Commit Info
         id: commit-info
         run: |
-          HASH=cat ./artifacts/identity.json | jq -r '.["x-git-commit"]'
+          HASH=$(cat ./artifacts/identity.json | jq -r '.["x-git-commit"]')
           BRANCH_NAME=api/$HASH
+
+          echo "HASH=$HASH" >> $GITHUB_OUTPUT
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
       - name: Create branch and commit
         env:
