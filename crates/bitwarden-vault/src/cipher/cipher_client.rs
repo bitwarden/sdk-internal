@@ -178,40 +178,40 @@ impl CiphersClient {
 
     #[allow(missing_docs)]
     pub fn migrate(&self, mut ciphers: Vec<Cipher>) -> Result<Vec<Cipher>, CipherError> {
-        // let registry = MigrationRegistry::new();
+        let registry = MigrationRegistry::new();
         for cipher in &mut ciphers {
-            cipher.populate_cipher_types();
 
-            // let key = cipher.key_identifier();
-            // let key_store = self.client.internal.get_key_store();
-            // let mut ctx = key_store.context();
-            // let cipher_key = Cipher::decrypt_cipher_key(&mut ctx, key, &cipher.key)
-            //     .map_err(CipherError::CryptoError)?;
+            let key = cipher.key_identifier();
+            let key_store = self.client.internal.get_key_store();
+            let mut ctx = key_store.context();
+            let cipher_key = Cipher::decrypt_cipher_key(&mut ctx, key, &cipher.key)
+                .map_err(CipherError::CryptoError)?;
 
-            // if let Some(data_str) = &mut cipher.data {
-            //     let mut data_json: serde_json::Value = serde_json::from_str(data_str)
-            //         .map_err(|e| CipherError::MigrationFailed(e.to_string()))?;
+            if let Some(data_str) = &mut cipher.data {
+                let mut data_json: serde_json::Value = serde_json::from_str(data_str)
+                    .map_err(|e| CipherError::MigrationFailed(e.to_string()))?;
 
-            //     let response_version = data_json
-            //         .get("version")
-            //         .and_then(|v| v.as_u64())
-            //         .unwrap_or(1) as u32;
+                let response_version = data_json
+                    .get("version")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(1) as u32;
 
-                // if response_version < CURRENT_CIPHER_VERSION {
-                //     registry.migrate(
-                //         &mut data_json,
-                //         response_version,
-                //         CURRENT_CIPHER_VERSION,
-                //         Some(&mut ctx),
-                //         Some(cipher_key),
-                //     )?;
+                if response_version < CURRENT_CIPHER_VERSION {
+                    registry.migrate(
+                        &mut data_json,
+                        response_version,
+                        CURRENT_CIPHER_VERSION,
+                        Some(&mut ctx),
+                        Some(cipher_key),
+                    )?;
 
-                //     data_json["version"] = serde_json::json!(CURRENT_CIPHER_VERSION);
+                    data_json["version"] = serde_json::json!(CURRENT_CIPHER_VERSION);
 
-                //     *data_str = serde_json::to_string(&data_json)
-                //         .map_err(|e| CipherError::MigrationFailed(e.to_string()))?;
-                // }
-            // }
+                    *data_str = serde_json::to_string(&data_json)
+                        .map_err(|e| CipherError::MigrationFailed(e.to_string()))?;
+                }
+                cipher.populate_cipher_types();
+            }
         }
 
         Ok(ciphers)
