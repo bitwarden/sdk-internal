@@ -9,6 +9,7 @@ use crate::{
         JwtToken,
     },
     client::{internal::UserKeyState, LoginMethod, UserLoginMethod},
+    key_management::UserDecryptionData,
     require, Client,
 };
 
@@ -37,29 +38,53 @@ pub(crate) async fn login_api_key(
             r.expires_in,
         );
 
-        let master_key = MasterKey::derive(&input.password, &email, &kdf)?;
+        let private_key = r.private_key.as_deref();
+        let private_key: EncString = require!(private_key).parse()?;
+
+        let user_key_state = UserKeyState {
+            private_key,
+            signing_key: None,
+            security_state: None,
+        };
+
+        let master_password_unlock = r
+            .user_decryption_options
+            .as_ref()
+            .map(UserDecryptionData::try_from)
+            .transpose()?
+            .and_then(|user_decryption| user_decryption.master_password_unlock);
+
+        match master_password_unlock {
+            Some(master_password_unlock) => {
+                client
+                    .internal
+                    .initialize_user_crypto_master_password_unlock(
+                        input.password.clone(),
+                        master_password_unlock,
+                        user_key_state,
+                    )?;
+            }
+            None => {
+                let user_key = r.key.as_deref();
+                let user_key: EncString = require!(user_key).parse()?;
+                let master_key = MasterKey::derive(&input.password, &email, &kdf)?;
+
+                client.internal.initialize_user_crypto_master_key(
+                    master_key,
+                    user_key,
+                    user_key_state,
+                )?;
+            }
+        }
 
         client
             .internal
             .set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
-                client_id: input.client_id.to_owned(),
-                client_secret: input.client_secret.to_owned(),
+                client_id: input.client_id.clone(),
+                client_secret: input.client_secret.clone(),
                 email,
                 kdf,
             }));
-
-        let user_key: EncString = require!(r.key.as_deref()).parse()?;
-        let private_key: EncString = require!(r.private_key.as_deref()).parse()?;
-
-        client.internal.initialize_user_crypto_master_key(
-            master_key,
-            user_key,
-            UserKeyState {
-                private_key,
-                signing_key: None,
-                security_state: None,
-            },
-        )?;
     }
 
     Ok(ApiKeyLoginResponse::process_response(response))
