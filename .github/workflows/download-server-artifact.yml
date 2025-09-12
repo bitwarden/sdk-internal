@@ -15,40 +15,14 @@ jobs:
     name: Update API Bindings
     runs-on: ubuntu-24.04
     permissions:
-      id-token: write
+      pull-requests: write
+      actions: read
+      contents: write
 
     steps:
-      - name: Log in to Azure
-        uses: bitwarden/gh-actions/azure-login@main
-        with:
-          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          client_id: ${{ secrets.AZURE_CLIENT_ID }}
-
-      - name: Get Azure Key Vault secrets
-        id: get-kv-secrets
-        uses: bitwarden/gh-actions/get-keyvault-secrets@main
-        with:
-          keyvault: gh-org-bitwarden
-          secrets: "BW-GHAPP-ID,BW-GHAPP-KEY"
-
-      - name: Log out from Azure
-        uses: bitwarden/gh-actions/azure-logout@main
-
-      - name: Generate GH App token
-        uses: actions/create-github-app-token@a8d616148505b5069dccd32f177bb87d7f39123b # v2.1.1
-        id: app-token
-        with:
-          app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
-          private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
-          permission-pull-requests: write
-          permission-actions: read
-          permission-contents: write
-
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
 
       - name: Switch to branch
@@ -69,7 +43,6 @@ jobs:
       - name: Prevent updating the branch when the last committer isn't the bot
         if: ${{ steps.switch-branch.outputs.updating_existing_branch == 'true' }}
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           _BRANCH_NAME: ${{ steps.switch-branch.outputs.branch_name }}
         run: |
           LATEST_COMMIT_AUTHOR=$(git log -1 --format='%ae' $_BRANCH_NAME)
@@ -176,7 +149,6 @@ jobs:
 
       - name: Create or Update Pull Request
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           _HASH: ${{ steps.commit-info.outputs.HASH }}
           _BRANCH_NAME: ${{ steps.switch-branch.outputs.BRANCH_NAME }}
         run: |
