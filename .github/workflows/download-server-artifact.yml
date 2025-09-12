@@ -47,6 +47,9 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
 
       - name: Download json artifacts
         uses: bitwarden/gh-actions/download-artifacts@main
