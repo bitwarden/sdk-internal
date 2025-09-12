@@ -1395,7 +1395,10 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            data: Some(format!(r#"{{"version": 2, "username": "{}", "password": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#, TEST_ENC_STRING_1, TEST_ENC_STRING_2)),
+            data: Some(format!(
+                r#"{{"version": 2, "username": "{}", "password": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#,
+                TEST_ENC_STRING_1, TEST_ENC_STRING_2
+            )),
         };
 
         cipher.populate_cipher_types();
@@ -1472,17 +1475,34 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            data: Some(format!(r#"{{"cardholderName": "{}", "number": "{}", "expMonth": "{}", "expYear": "{}", "code": "{}", "brand": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#, TEST_ENC_STRING_1, TEST_ENC_STRING_2, TEST_ENC_STRING_3, TEST_ENC_STRING_4, TEST_ENC_STRING_5, TEST_ENC_STRING_1)),
+            data: Some(format!(
+                r#"{{"cardholderName": "{}", "number": "{}", "expMonth": "{}", "expYear": "{}", "code": "{}", "brand": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#,
+                TEST_ENC_STRING_1,
+                TEST_ENC_STRING_2,
+                TEST_ENC_STRING_3,
+                TEST_ENC_STRING_4,
+                TEST_ENC_STRING_5,
+                TEST_ENC_STRING_1
+            )),
         };
 
         cipher.populate_cipher_types();
 
         assert!(cipher.card.is_some());
         let card = cipher.card.unwrap();
-        assert_eq!(card.cardholder_name.as_ref().unwrap().to_string(), TEST_ENC_STRING_1);
+        assert_eq!(
+            card.cardholder_name.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_1
+        );
         assert_eq!(card.number.as_ref().unwrap().to_string(), TEST_ENC_STRING_2);
-        assert_eq!(card.exp_month.as_ref().unwrap().to_string(), TEST_ENC_STRING_3);
-        assert_eq!(card.exp_year.as_ref().unwrap().to_string(), TEST_ENC_STRING_4);
+        assert_eq!(
+            card.exp_month.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_3
+        );
+        assert_eq!(
+            card.exp_year.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_4
+        );
         assert_eq!(card.code.as_ref().unwrap().to_string(), TEST_ENC_STRING_5);
         assert_eq!(card.brand.as_ref().unwrap().to_string(), TEST_ENC_STRING_1);
     }
@@ -1516,23 +1536,65 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            data: Some(format!(r#"{{"firstName": "{}", "lastName": "{}", "email": "{}", "phone": "{}", "company": "{}", "address1": "{}", "city": "{}", "state": "{}", "postalCode": "{}", "country": "{}", "organizationUseTotp": false, "favorite": true, "deletedDate": null}}"#, TEST_ENC_STRING_1, TEST_ENC_STRING_2, TEST_ENC_STRING_3, TEST_ENC_STRING_4, TEST_ENC_STRING_5, TEST_ENC_STRING_1, TEST_ENC_STRING_2, TEST_ENC_STRING_3, TEST_ENC_STRING_4, TEST_ENC_STRING_5)),
+            data: Some(format!(
+                r#"{{"firstName": "{}", "lastName": "{}", "email": "{}", "phone": "{}", "company": "{}", "address1": "{}", "city": "{}", "state": "{}", "postalCode": "{}", "country": "{}", "organizationUseTotp": false, "favorite": true, "deletedDate": null}}"#,
+                TEST_ENC_STRING_1,
+                TEST_ENC_STRING_2,
+                TEST_ENC_STRING_3,
+                TEST_ENC_STRING_4,
+                TEST_ENC_STRING_5,
+                TEST_ENC_STRING_1,
+                TEST_ENC_STRING_2,
+                TEST_ENC_STRING_3,
+                TEST_ENC_STRING_4,
+                TEST_ENC_STRING_5
+            )),
         };
 
         cipher.populate_cipher_types();
 
         assert!(cipher.identity.is_some());
         let identity = cipher.identity.unwrap();
-        assert_eq!(identity.first_name.as_ref().unwrap().to_string(), TEST_ENC_STRING_1);
-        assert_eq!(identity.last_name.as_ref().unwrap().to_string(), TEST_ENC_STRING_2);
-        assert_eq!(identity.email.as_ref().unwrap().to_string(), TEST_ENC_STRING_3);
-        assert_eq!(identity.phone.as_ref().unwrap().to_string(), TEST_ENC_STRING_4);
-        assert_eq!(identity.company.as_ref().unwrap().to_string(), TEST_ENC_STRING_5);
-        assert_eq!(identity.address1.as_ref().unwrap().to_string(), TEST_ENC_STRING_1);
-        assert_eq!(identity.city.as_ref().unwrap().to_string(), TEST_ENC_STRING_2);
-        assert_eq!(identity.state.as_ref().unwrap().to_string(), TEST_ENC_STRING_3);
-        assert_eq!(identity.postal_code.as_ref().unwrap().to_string(), TEST_ENC_STRING_4);
-        assert_eq!(identity.country.as_ref().unwrap().to_string(), TEST_ENC_STRING_5);
+        assert_eq!(
+            identity.first_name.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_1
+        );
+        assert_eq!(
+            identity.last_name.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_2
+        );
+        assert_eq!(
+            identity.email.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_3
+        );
+        assert_eq!(
+            identity.phone.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_4
+        );
+        assert_eq!(
+            identity.company.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_5
+        );
+        assert_eq!(
+            identity.address1.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_1
+        );
+        assert_eq!(
+            identity.city.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_2
+        );
+        assert_eq!(
+            identity.state.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_3
+        );
+        assert_eq!(
+            identity.postal_code.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_4
+        );
+        assert_eq!(
+            identity.country.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_5
+        );
     }
 
     #[test]
@@ -1564,7 +1626,10 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            data: Some(format!(r#"{{"privateKey": "{}", "publicKey": "{}", "fingerprint": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#, TEST_ENC_STRING_1, TEST_ENC_STRING_2, TEST_ENC_STRING_3)),
+            data: Some(format!(
+                r#"{{"privateKey": "{}", "publicKey": "{}", "fingerprint": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#,
+                TEST_ENC_STRING_1, TEST_ENC_STRING_2, TEST_ENC_STRING_3
+            )),
         };
 
         cipher.populate_cipher_types();
@@ -1654,5 +1719,4 @@ mod tests {
         // Should not crash and login should remain None
         assert!(cipher.login.is_none());
     }
-
 }
