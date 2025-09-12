@@ -6,8 +6,8 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
-    PrimitiveEncryptable,
+    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey,
+    KeyStoreContext, PrimitiveEncryptable,
 };
 use bitwarden_error::bitwarden_error;
 use bitwarden_uuid::uuid_newtype;
@@ -448,28 +448,18 @@ impl Cipher {
             .unwrap_or_default()
     }
 
-
     /// Extracts and sets the CipherType-specific fields from the opaque `data` field.
-    pub(crate) fn populate_cipher_types(&mut self)  {
-        let Ok(mut data) = serde_json::to_value(&self.data) else {
+    pub(crate) fn populate_cipher_types(&mut self) {
+        let Ok(data) =
+            serde_json::from_str::<serde_json::Value>(&self.data.as_deref().unwrap_or("{}"))
+        else {
             // If we can't deserialize the data, then we'll return the cipher as-is.
             // Should maybe return a result instead?
             return;
         };
-        let _version = data.get("version").and_then(|v| v.as_u64()).unwrap_or(1);
-        if let Some(data) = data.as_object_mut() {
-            data.insert("version".to_string(), _version.into());
-            data.insert("username".to_string(), serde_json::json!("2.uXRs3AGTuyJc7DhIDjw1ig==|A8wYld5QW+TxBEDM/lvWdA==|/zcjqwTtPnbQ1Pyr0r1Y5u3JSHUc2fE3c5OdDrVbBXc="));
-        }
 
-
-        // TODO: Matching on version here - for now, just matching some types.
         match &self.r#type {
-            crate::CipherType::Login => self.login = {
-                let mut login = serde_json::from_value(data).ok();
-                login.as_mut().map(|l:&mut Login|l.username="".parse().ok()); // HArdocidng for test
-                login
-            },
+            crate::CipherType::Login => self.login = serde_json::from_value(data).ok(),
             crate::CipherType::SecureNote => self.secure_note = serde_json::from_value(data).ok(),
             crate::CipherType::Card => self.card = serde_json::from_value(data).ok(),
             crate::CipherType::Identity => self.identity = serde_json::from_value(data).ok(),
