@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use bitwarden_core::{Client, VaultLockedError};
+use bitwarden_core::Client;
 use bitwarden_crypto::CryptoError;
 use bitwarden_vault::{CipherError, CipherView, EncryptionContext};
 use itertools::Itertools;
@@ -30,8 +30,6 @@ pub enum GetSelectedCredentialError {
     #[error("No fido2 credentials found")]
     NoCredentialFound,
 
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     CryptoError(#[from] CryptoError),
 }
@@ -74,8 +72,6 @@ pub enum SilentlyDiscoverCredentialsError {
     #[error(transparent)]
     CipherError(#[from] CipherError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
-    #[error(transparent)]
     InvalidGuid(#[from] InvalidGuid),
     #[error(transparent)]
     Fido2CallbackError(#[from] Fido2CallbackError),
@@ -88,8 +84,6 @@ pub enum SilentlyDiscoverCredentialsError {
 pub enum CredentialsForAutofillError {
     #[error(transparent)]
     CipherError(#[from] CipherError),
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     InvalidGuid(#[from] InvalidGuid),
     #[error(transparent)]
@@ -359,13 +353,11 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         #[derive(Debug, Error)]
         enum InnerError {
             #[error(transparent)]
-            VaultLocked(#[from] VaultLockedError),
+            Cipher(#[from] CipherError),
             #[error(transparent)]
-            CipherError(#[from] CipherError),
+            Crypto(#[from] CryptoError),
             #[error(transparent)]
-            CryptoError(#[from] CryptoError),
-            #[error(transparent)]
-            Fido2CallbackError(#[from] Fido2CallbackError),
+            Fido2Callback(#[from] Fido2CallbackError),
         }
 
         // This is just a wrapper around the actual implementation to allow for ? error handling
@@ -443,8 +435,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             #[error("Client User Id has not been set")]
             MissingUserId,
             #[error(transparent)]
-            VaultLocked(#[from] VaultLockedError),
-            #[error(transparent)]
             FillCredentialError(#[from] FillCredentialError),
             #[error(transparent)]
             CipherError(#[from] CipherError),
@@ -520,8 +510,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         enum InnerError {
             #[error("Client User Id has not been set")]
             MissingUserId,
-            #[error(transparent)]
-            VaultLocked(#[from] VaultLockedError),
             #[error(transparent)]
             InvalidGuid(#[from] InvalidGuid),
             #[error("Credential ID does not match selected credential")]

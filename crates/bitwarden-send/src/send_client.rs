@@ -14,8 +14,6 @@ use crate::{Send, SendListView, SendView};
 pub enum SendEncryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
-    #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLockedError),
 }
 
 /// Generic error type for send decryption errors
@@ -24,8 +22,6 @@ pub enum SendEncryptError {
 pub enum SendDecryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
-    #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLockedError),
 }
 
 /// Generic error type for send encryption errors.

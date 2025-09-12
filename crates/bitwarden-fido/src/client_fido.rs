@@ -17,8 +17,6 @@ pub struct ClientFido2 {
 #[derive(Debug, Error)]
 pub enum DecryptFido2AutofillCredentialsError {
     #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLockedError),
-    #[error(transparent)]
     Fido2CredentialAutofillViewError(#[from] Fido2CredentialAutofillViewError),
 }
 

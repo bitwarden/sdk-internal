@@ -19,7 +19,7 @@ use crate::key_management::{AsymmetricKeyId, SecurityState, SignedSecurityState,
 use crate::key_management::{KeyIds, SymmetricKeyId};
 #[cfg(any(feature = "secrets", feature = "internal"))]
 use crate::OrganizationId;
-use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError, VaultLockedError};
+use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -27,9 +27,6 @@ use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError, VaultLockedErr
 pub enum EncryptionSettingsError {
     #[error("Cryptography error, {0}")]
     Crypto(#[from] bitwarden_crypto::CryptoError),
-
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
 
     #[error("Invalid private key")]
     InvalidPrivateKey,

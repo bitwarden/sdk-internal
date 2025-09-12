@@ -4,7 +4,7 @@
 
 use thiserror::Error;
 
-use crate::{NotAuthenticatedError, VaultLockedError, WrongPasswordError};
+use crate::{NotAuthenticatedError, WrongPasswordError};
 
 mod access_token;
 // API is intentionally not visible outside of `auth` as these should be considered private.
@@ -56,8 +56,6 @@ pub enum AuthValidateError {
     NotAuthenticated(#[from] NotAuthenticatedError),
     #[error(transparent)]
     WrongPassword(#[from] WrongPasswordError),
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
     #[error("wrong user key")]
     WrongUserKey,
     #[error(transparent)]
