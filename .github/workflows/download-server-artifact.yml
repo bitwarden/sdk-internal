@@ -16,14 +16,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Download internal.json artifact
+      - name: Download json artifacts
         uses: bitwarden/gh-actions/download-artifacts@main
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           repo: bitwarden/server
           branch: main
           workflow: build.yml
-          artifacts: identity.json
+          artifacts: "*.json"
           path: artifacts/
 
       - name: List downloaded files
