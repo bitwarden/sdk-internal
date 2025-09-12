@@ -100,7 +100,6 @@ impl SendAccessClient {
 }
 
 #[cfg(test)]
-
 mod tests {
     use bitwarden_core::{Client as CoreClient, ClientSettings, DeviceType};
     use bitwarden_test::start_api_mock;
