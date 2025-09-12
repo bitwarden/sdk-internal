@@ -451,7 +451,7 @@ impl Cipher {
     /// Extracts and sets the CipherType-specific fields from the opaque `data` field.
     pub(crate) fn populate_cipher_types(&mut self) {
         let Ok(data) =
-            serde_json::from_str::<serde_json::Value>(&self.data.as_deref().unwrap_or("{}"))
+            serde_json::from_str::<serde_json::Value>(self.data.as_deref().unwrap_or("{}"))
         else {
             // If we can't deserialize the data, then we'll return the cipher as-is.
             // Should maybe return a result instead?
