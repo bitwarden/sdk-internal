@@ -342,7 +342,6 @@ mod tests {
             creation_date: "2023-07-24T12:05:09.466666700Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2023-07-27T19:28:05.240Z".parse().unwrap(),
-            // version: None,
             data: None,
         };
 
