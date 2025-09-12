@@ -461,7 +461,6 @@ impl Cipher {
             serde_json::from_str::<serde_json::Value>(&self.data.as_deref().unwrap_or("{}"))
         else {
             // If we can't deserialize the data, then we'll return the cipher as-is.
-            // Should maybe return a result instead?
             return;
         };
 
@@ -817,12 +816,6 @@ impl From<bitwarden_api_api::models::CipherRepromptType> for CipherRepromptType 
         }
     }
 }
-
-// impl From<&Cipher> for Option<Login> {
-//     fn from(value: &Cipher) -> Self {
-
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
