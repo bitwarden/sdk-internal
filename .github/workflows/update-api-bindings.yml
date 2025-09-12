@@ -1,4 +1,4 @@
-name: Generate api bindings
+name: Update API Bindings
 
 on:
   workflow_dispatch:
