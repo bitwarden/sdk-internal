@@ -123,7 +123,7 @@ jobs:
           git config user.email "$_BOT_EMAIL"
 
           git add crates/bitwarden-api-api crates/bitwarden-api-identity
-          git commit -m "Update API bindings - $_HASH"
+          git commit -m "Update API bindings - $_HASH" --no-verify
           git push origin api/$_HASH
 
       - name: Create or Update Pull Request
