@@ -22,6 +22,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           repo: bitwarden/server
           branch: main
+          workflow: build.yml
           artifacts: (internal|identity).json
           path: artifacts/
           name_is_regexp: true
