@@ -353,11 +353,11 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         #[derive(Debug, Error)]
         enum InnerError {
             #[error(transparent)]
-            CipherError(#[from] CipherError),
+            Cipher(#[from] CipherError),
             #[error(transparent)]
-            CryptoError(#[from] CryptoError),
+            Crypto(#[from] CryptoError),
             #[error(transparent)]
-            Fido2CallbackError(#[from] Fido2CallbackError),
+            Fido2Callback(#[from] Fido2CallbackError),
         }
 
         // This is just a wrapper around the actual implementation to allow for ? error handling
