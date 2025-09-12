@@ -1,0 +1,16 @@
+warning: struct `BadExample` implements Error but doesn't end with 'Error'
+  --> $DIR/main.rs:3:8
+   |
+LL | struct BadExample {}
+   |        ^^^^^^^^^^
+   |
+   = note: `#[warn(error_suffix)]` on by default
+
+warning: struct `BadManualExample` implements Error but doesn't end with 'Error'
+  --> $DIR/main.rs:10:8
+   |
+LL | struct BadManualExample {}
+   |        ^^^^^^^^^^^^^^^^
+
+warning: 2 warnings emitted
+

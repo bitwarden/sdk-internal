@@ -1,0 +1,28 @@
+[package]
+name = "bitwarden_error_suffix"
+version = "0.1.0"
+authors = ["Bitwarden Inc"]
+description = "Lints for Error suffix naming"
+edition = "2021"
+publish = false
+
+[features]
+rlib = ["dylint_linting/constituent"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[example]]
+name = "ui"
+path = "ui/main.rs"
+
+[dependencies]
+clippy_utils = { workspace = true }
+dylint_linting = { workspace = true }
+
+[dev-dependencies]
+dylint_testing = { workspace = true }
+thiserror = ">=1.0.40, <3"
+
+[package.metadata.rust-analyzer]
+rustc_private = true
