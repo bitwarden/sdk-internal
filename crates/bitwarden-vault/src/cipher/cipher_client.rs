@@ -153,7 +153,6 @@ impl CiphersClient {
         Ok(cipher_view)
     }
 
-
     #[allow(missing_docs)]
     pub fn move_to_organization(
         &self,
@@ -180,7 +179,6 @@ impl CiphersClient {
     pub fn migrate(&self, mut ciphers: Vec<Cipher>) -> Result<Vec<Cipher>, CipherError> {
         let registry = MigrationRegistry::new();
         for cipher in &mut ciphers {
-
             let key = cipher.key_identifier();
             let key_store = self.client.internal.get_key_store();
             let mut ctx = key_store.context();
