@@ -197,8 +197,6 @@ jobs:
               --title "Update API to $_HASH" \
               --body-file - \
               --base main \
-              --head $_BRANCH_NAME \
-              --label "automated-pr" \
-              --label "t:ci")
+              --head $_BRANCH_NAME)
             echo "## 🚀 Created PR: $PR_URL" >> $GITHUB_STEP_SUMMARY
           fi
