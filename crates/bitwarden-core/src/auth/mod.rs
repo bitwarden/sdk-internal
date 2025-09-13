@@ -51,6 +51,7 @@ pub use key_connector::KeyConnectorResponse;
 /// Error for authentication related operations
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum AuthValidateError {
     #[error(transparent)]
     NotAuthenticated(#[from] NotAuthenticatedError),

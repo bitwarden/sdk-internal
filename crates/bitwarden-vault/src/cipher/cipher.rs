@@ -40,13 +40,13 @@ uuid_newtype!(pub CipherId);
 #[derive(Debug, Error)]
 pub enum CipherError {
     #[error(transparent)]
-    MissingFieldError(#[from] MissingFieldError),
+    MissingField(#[from] MissingFieldError),
     #[error(transparent)]
     VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
-    CryptoError(#[from] CryptoError),
+    Crypto(#[from] CryptoError),
     #[error(transparent)]
-    EncryptError(#[from] EncryptError),
+    Encrypt(#[from] EncryptError),
     #[error("This cipher contains attachments without keys. Those attachments will need to be reuploaded to complete the operation")]
     AttachmentsWithoutKeys,
 }

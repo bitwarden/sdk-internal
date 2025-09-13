@@ -78,7 +78,7 @@ impl CipherViewContainer {
 #[derive(Debug, Error)]
 pub enum Fido2Error {
     #[error(transparent)]
-    DecodeError(#[from] base64::DecodeError),
+    Decode(#[from] base64::DecodeError),
 
     #[error(transparent)]
     UnknownEnum(#[from] UnknownEnum),
@@ -87,7 +87,7 @@ pub enum Fido2Error {
     InvalidGuid(#[from] InvalidGuid),
 
     #[error(transparent)]
-    PrivateKeyFromSecretKeyError(#[from] PrivateKeyFromSecretKeyError),
+    PrivateKeyFromSecretKey(#[from] PrivateKeyFromSecretKeyError),
 
     #[error("No Fido2 credentials found")]
     NoFido2CredentialsFound,

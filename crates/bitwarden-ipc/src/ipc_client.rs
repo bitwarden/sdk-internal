@@ -127,7 +127,7 @@ pub enum RequestError {
     Send(String),
 
     #[error("Error occured on the remote target: {0}")]
-    RpcError(#[from] RpcError),
+    Rpc(#[from] RpcError),
 }
 
 impl<Crypto, Com, Ses> IpcClient<Crypto, Com, Ses>
@@ -313,7 +313,7 @@ where
         }
         .try_into()
         .map_err(|e: serde_utils::DeserializeError| {
-            RequestError::RpcError(RpcError::RequestSerializationError(e.to_string()))
+            RequestError::Rpc(RpcError::RequestSerialization(e.to_string()))
         })?;
 
         self.send(message)

@@ -30,6 +30,7 @@ macro_rules! impl_bitwarden_error {
 /// Errors from performing network requests.
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum ApiError {
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
@@ -94,7 +95,7 @@ pub enum StatefulCryptoError {
         got: u32,
     },
     #[error("Crypto error, {0}")]
-    CryptoError(#[from] bitwarden_crypto::CryptoError),
+    Crypto(#[from] bitwarden_crypto::CryptoError),
 }
 
 /// This macro is used to require that a value is present or return an error otherwise.

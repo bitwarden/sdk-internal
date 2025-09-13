@@ -1,0 +1,9 @@
+[bindings.kotlin]
+package_name = "com.bitwarden.state"
+generate_immutable_records = true
+android = true
+
+[bindings.swift]
+ffi_module_name = "BitwardenStateFFI"
+module_name = "BitwardenState"
+generate_immutable_records = true

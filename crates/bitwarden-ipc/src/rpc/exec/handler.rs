@@ -46,21 +46,19 @@ where
     type Request = T::Request;
 
     fn serialize_request(&self, request: Self::Request) -> Result<Vec<u8>, RpcError> {
-        serde_utils::to_vec(&request)
-            .map_err(|e| RpcError::RequestSerializationError(e.to_string()))
+        serde_utils::to_vec(&request).map_err(|e| RpcError::RequestSerialization(e.to_string()))
     }
 
     fn deserialize_request(&self, request: Vec<u8>) -> Result<Self::Request, RpcError> {
         serde_utils::from_slice(&request)
-            .map_err(|e| RpcError::RequestDeserializationError(e.to_string()))
+            .map_err(|e| RpcError::RequestDeserialization(e.to_string()))
     }
 
     fn serialize_response(
         &self,
         request: <Self::Request as RpcRequest>::Response,
     ) -> Result<Vec<u8>, RpcError> {
-        serde_utils::to_vec(&request)
-            .map_err(|e| RpcError::ResponseSerializationError(e.to_string()))
+        serde_utils::to_vec(&request).map_err(|e| RpcError::ResponseSerialization(e.to_string()))
     }
 
     fn deserialize_response(
@@ -68,7 +66,7 @@ where
         request: Vec<u8>,
     ) -> Result<<Self::Request as RpcRequest>::Response, RpcError> {
         serde_utils::from_slice(&request)
-            .map_err(|e| RpcError::ResponseDeserializationError(e.to_string()))
+            .map_err(|e| RpcError::ResponseDeserialization(e.to_string()))
     }
 }
 

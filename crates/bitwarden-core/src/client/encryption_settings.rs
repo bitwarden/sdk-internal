@@ -44,7 +44,7 @@ pub enum EncryptionSettingsError {
     MissingPrivateKey(#[from] MissingPrivateKeyError),
 
     #[error(transparent)]
-    UserIdAlreadySetError(#[from] UserIdAlreadySetError),
+    UserIdAlreadySet(#[from] UserIdAlreadySetError),
 
     #[error("Wrong Pin")]
     WrongPin,

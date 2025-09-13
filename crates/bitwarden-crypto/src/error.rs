@@ -39,10 +39,10 @@ pub enum CryptoError {
     EncString(#[from] EncStringParseError),
 
     #[error("Rsa error, {0}")]
-    RsaError(#[from] RsaError),
+    Rsa(#[from] RsaError),
 
     #[error("Fingerprint error, {0}")]
-    FingerprintError(#[from] FingerprintError),
+    Fingerprint(#[from] FingerprintError),
 
     #[error("Argon2 error, {0}")]
     ArgonError(#[from] argon2::Error),
@@ -66,10 +66,10 @@ pub enum CryptoError {
     InvalidPadding,
 
     #[error("Signature error, {0}")]
-    SignatureError(#[from] SignatureError),
+    Signature(#[from] SignatureError),
 
     #[error("Encoding error, {0}")]
-    EncodingError(#[from] EncodingError),
+    Encoding(#[from] EncodingError),
 }
 
 #[derive(Debug, Error)]

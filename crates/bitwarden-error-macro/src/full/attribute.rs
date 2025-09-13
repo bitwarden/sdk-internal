@@ -21,6 +21,7 @@ pub(crate) fn bitwarden_error_full(
 
     quote! {
         #[derive(serde::Serialize)]
+        #[cfg_attr(feature = "uniffi", derive(uniffi::Error))]
         #wasm_attributes
         #input
     }

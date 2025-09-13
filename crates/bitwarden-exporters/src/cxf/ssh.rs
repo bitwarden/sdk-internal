@@ -79,7 +79,7 @@ fn extract_key_type(public_key: &str) -> Result<String, SshKeyExportError> {
     let key_type = public_key
         .split_whitespace()
         .next()
-        .ok_or(SshKeyExportError::KeyConversionError)?;
+        .ok_or(SshKeyExportError::KeyConversion)?;
 
     Ok(key_type.to_string())
 }

@@ -15,14 +15,14 @@ pub enum ExportError {
     #[error("CSV error: {0}")]
     Csv(#[from] crate::csv::CsvError),
     #[error("Credential Exchange error: {0}")]
-    CxfError(#[from] crate::cxf::CxfError),
+    Cxf(#[from] crate::cxf::CxfError),
     #[error("JSON error: {0}")]
     Json(#[from] crate::json::JsonError),
     #[error("Encrypted JSON error: {0}")]
-    EncryptedJsonError(#[from] crate::encrypted_json::EncryptedJsonError),
+    EncryptedJson(#[from] crate::encrypted_json::EncryptedJsonError),
 
     #[error(transparent)]
-    BitwardenCryptoError(#[from] bitwarden_crypto::CryptoError),
+    BitwardenCrypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
-    CipherError(#[from] bitwarden_vault::CipherError),
+    Cipher(#[from] bitwarden_vault::CipherError),
 }
