@@ -8,5 +8,5 @@ mod pure_crypto;
 mod ssh;
 
 pub use bitwarden_ipc::wasm::*;
-pub use client::BitwardenClient;
+pub use client::PasswordManagerClient;
 pub use init::init_sdk;

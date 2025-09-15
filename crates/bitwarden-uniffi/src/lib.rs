@@ -33,10 +33,10 @@ use vault::VaultClient;
 
 #[allow(missing_docs)]
 #[derive(uniffi::Object)]
-pub struct Client(pub(crate) bitwarden_core::Client);
+pub struct PasswordManagerClient(pub(crate) bitwarden_core::Client);
 
 #[uniffi::export(async_runtime = "tokio")]
-impl Client {
+impl PasswordManagerClient {
     /// Initialize a new instance of the SDK client
     #[uniffi::constructor]
     pub fn new(settings: Option<ClientSettings>) -> Self {

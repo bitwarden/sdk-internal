@@ -28,7 +28,7 @@ let PIN = "1234"
 struct ContentView: View {
     private var http: URLSession
 
-    @State private var client: Client
+    @State private var client: PasswordManagerClient
 
     @State private var accessToken: String = ""
 
@@ -38,7 +38,7 @@ struct ContentView: View {
             configuration: URLSessionConfiguration.default, delegate: IgnoreHttpsDelegate(),
             delegateQueue: nil)
 
-        client = Client(settings: nil)
+        client = PasswordManagerClient(settings: nil)
     }
 
     @State var setupBiometrics: Bool = true
@@ -104,7 +104,7 @@ struct ContentView: View {
             })
 
             Button(action: {
-                client = Client(settings: nil)
+                client = PasswordManagerClient(settings: nil)
             }, label: {
                 Text("Lock & reset client")
             }).padding()

@@ -31,7 +31,7 @@ import com.bitwarden.core.Uuid
 import com.bitwarden.crypto.HashPurpose
 import com.bitwarden.crypto.Kdf
 import com.bitwarden.myapplication.ui.theme.MyApplicationTheme
-import com.bitwarden.sdk.Client
+import com.bitwarden.sdk.PasswordManagerClient
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
@@ -84,7 +84,7 @@ const val BIOMETRIC_KEY = "biometric_key"
 
 class MainActivity : FragmentActivity() {
     private lateinit var biometric: Biometric
-    private lateinit var client: Client
+    private lateinit var client: PasswordManagerClient
     private lateinit var http: HttpClient
 
     private var accessToken = ""
@@ -98,7 +98,7 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         biometric = Biometric(this)
-        client = Client(null)
+        client = PasswordManagerClient(null)
         http = httpClient()
 
         setContent {
@@ -172,7 +172,7 @@ class MainActivity : FragmentActivity() {
                         Button({
                             GlobalScope.launch {
                                 client.destroy()
-                                client = Client(null)
+                                client = PasswordManagerClient(null)
                                 outputText.value = "OK"
                             }
                         }) {
@@ -190,7 +190,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private suspend fun clientExamplePassword(
-        client: Client,
+        client: PasswordManagerClient,
         http: HttpClient,
         outputText: MutableState<String>,
         setupBiometrics: Boolean,
@@ -309,7 +309,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private suspend fun clientExampleBiometrics(
-        client: Client, http: HttpClient, outputText: MutableState<String>
+        client: PasswordManagerClient, http: HttpClient, outputText: MutableState<String>
     ) {
         println("### Unlocking with Biometrics ###")
 
@@ -352,7 +352,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private suspend fun clientExamplePin(
-        client: Client, http: HttpClient, outputText: MutableState<String>
+        client: PasswordManagerClient, http: HttpClient, outputText: MutableState<String>
     ) {
         println("### Unlocking with PIN ###")
 
@@ -392,7 +392,7 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    suspend fun decryptVault(client: Client, http: HttpClient, outputText: MutableState<String>) {
+    suspend fun decryptVault(client: PasswordManagerClient, http: HttpClient, outputText: MutableState<String>) {
         ///////////////////////////// Sync /////////////////////////////
 
         val syncBody = http.get(API_URL + "sync?excludeDomains=true") {

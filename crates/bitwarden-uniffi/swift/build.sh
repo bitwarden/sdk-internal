@@ -31,6 +31,13 @@ cargo run -p uniffi-bindgen generate \
   --no-format \
   --out-dir tmp/bindings
 
+# Insert a temporary alias for the deprecated Client type
+ALIAS='
+@available(*, deprecated, message: "Use PasswordManagerClient instead")
+public typealias Client = PasswordManagerClient
+'
+echo -e "$ALIAS" >> ./tmp/bindings/BitwardenSDK.swift
+
 # Move generated swift bindings
 mv ./tmp/bindings/*.swift ./Sources/BitwardenSdk/
 

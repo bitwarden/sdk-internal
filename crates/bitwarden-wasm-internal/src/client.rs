@@ -14,12 +14,20 @@ use crate::platform::{
     PlatformClient,
 };
 
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_COMPAT_TYPE: &'static str = r#"
+/**
+ * @deprecated Use PasswordManagerClient instead.
+ */
+export type BitwardenClient = PasswordManagerClient;
+"#;
+
 #[allow(missing_docs)]
 #[wasm_bindgen]
-pub struct BitwardenClient(pub(crate) Client);
+pub struct PasswordManagerClient(pub(crate) Client);
 
 #[wasm_bindgen]
-impl BitwardenClient {
+impl PasswordManagerClient {
     #[allow(missing_docs)]
     #[wasm_bindgen(constructor)]
     pub fn new(token_provider: JsTokenProvider, settings: Option<ClientSettings>) -> Self {
