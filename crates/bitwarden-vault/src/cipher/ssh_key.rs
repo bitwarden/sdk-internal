@@ -95,6 +95,16 @@ impl TryFrom<CipherSshKeyModel> for SshKey {
     }
 }
 
+impl From<SshKey> for CipherSshKeyModel {
+    fn from(ssh_key: SshKey) -> Self {
+        Self {
+            private_key: Some(ssh_key.private_key.to_string()),
+            public_key: Some(ssh_key.public_key.to_string()),
+            key_fingerprint: Some(ssh_key.fingerprint.to_string()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
