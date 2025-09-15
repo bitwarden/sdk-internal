@@ -11,7 +11,6 @@ use crate::{Send, SendListView, SendView};
 /// Generic error type for send encryption errors.
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum SendEncryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
@@ -20,7 +19,6 @@ pub enum SendEncryptError {
 /// Generic error type for send decryption errors
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum SendDecryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
@@ -29,7 +27,6 @@ pub enum SendDecryptError {
 /// Generic error type for send encryption errors.
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum SendEncryptFileError {
     #[error(transparent)]
     Encrypt(#[from] SendEncryptError),
@@ -40,7 +37,6 @@ pub enum SendEncryptFileError {
 /// Generic error type for send decryption errors
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum SendDecryptFileError {
     #[error(transparent)]
     Decrypt(#[from] SendDecryptError),
