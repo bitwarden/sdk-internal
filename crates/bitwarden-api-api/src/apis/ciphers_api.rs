@@ -28,6 +28,13 @@ pub enum CiphersAdminPostError {
     UnknownValue(serde_json::Value),
 }
 
+/// struct for typed errors of method [`ciphers_archive_put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CiphersArchivePutError {
+    UnknownValue(serde_json::Value),
+}
+
 /// struct for typed errors of method [`ciphers_attachment_validate_azure_post`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -116,6 +123,13 @@ pub enum CiphersIdAdminPostError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum CiphersIdAdminPutError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`ciphers_id_archive_put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CiphersIdArchivePutError {
     UnknownValue(serde_json::Value),
 }
 
@@ -357,6 +371,13 @@ pub enum CiphersIdSharePutError {
     UnknownValue(serde_json::Value),
 }
 
+/// struct for typed errors of method [`ciphers_id_unarchive_put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CiphersIdUnarchivePutError {
+    UnknownValue(serde_json::Value),
+}
+
 /// struct for typed errors of method [`ciphers_move_post`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -424,6 +445,13 @@ pub enum CiphersSharePostError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum CiphersSharePutError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`ciphers_unarchive_put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CiphersUnarchivePutError {
     UnknownValue(serde_json::Value),
 }
 
@@ -506,6 +534,53 @@ pub async fn ciphers_admin_post(
     } else {
         let content = resp.text().await?;
         let entity: Option<CiphersAdminPostError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn ciphers_archive_put(
+    configuration: &configuration::Configuration,
+    cipher_bulk_archive_request_model: Option<models::CipherBulkArchiveRequestModel>,
+) -> Result<models::CipherMiniResponseModelListResponseModel, Error<CiphersArchivePutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_cipher_bulk_archive_request_model = cipher_bulk_archive_request_model;
+
+    let uri_str = format!("{}/ciphers/archive", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_cipher_bulk_archive_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CipherMiniResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CipherMiniResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<CiphersArchivePutError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1060,6 +1135,56 @@ pub async fn ciphers_id_admin_put(
     } else {
         let content = resp.text().await?;
         let entity: Option<CiphersIdAdminPutError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn ciphers_id_archive_put(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+) -> Result<models::CipherMiniResponseModel, Error<CiphersIdArchivePutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/ciphers/{id}/archive",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CipherMiniResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CipherMiniResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<CiphersIdArchivePutError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -2821,6 +2946,56 @@ pub async fn ciphers_id_share_put(
     }
 }
 
+pub async fn ciphers_id_unarchive_put(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+) -> Result<models::CipherMiniResponseModel, Error<CiphersIdUnarchivePutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/ciphers/{id}/unarchive",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CipherMiniResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CipherMiniResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<CiphersIdUnarchivePutError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
 pub async fn ciphers_move_post(
     configuration: &configuration::Configuration,
     cipher_bulk_move_request_model: Option<models::CipherBulkMoveRequestModel>,
@@ -3055,7 +3230,7 @@ pub async fn ciphers_post(
 
 pub async fn ciphers_purge_post(
     configuration: &configuration::Configuration,
-    organization_id: Option<&str>,
+    organization_id: Option<uuid::Uuid>,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
 ) -> Result<(), Error<CiphersPurgePostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
@@ -3278,6 +3453,53 @@ pub async fn ciphers_share_put(
     } else {
         let content = resp.text().await?;
         let entity: Option<CiphersSharePutError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn ciphers_unarchive_put(
+    configuration: &configuration::Configuration,
+    cipher_bulk_unarchive_request_model: Option<models::CipherBulkUnarchiveRequestModel>,
+) -> Result<models::CipherMiniResponseModelListResponseModel, Error<CiphersUnarchivePutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_cipher_bulk_unarchive_request_model = cipher_bulk_unarchive_request_model;
+
+    let uri_str = format!("{}/ciphers/unarchive", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_cipher_bulk_unarchive_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CipherMiniResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CipherMiniResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<CiphersUnarchivePutError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

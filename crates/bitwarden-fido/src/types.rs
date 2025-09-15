@@ -24,6 +24,10 @@ pub struct Fido2CredentialAutofillView {
     pub rp_id: String,
     pub user_name_for_ui: Option<String>,
     pub user_handle: Vec<u8>,
+    /// Indicates if this credential uses a signature counter (legacy passkeys).
+    /// When true, mobile clients must sync before authentication to ensure
+    /// counter values are current. Modern passkeys (counter = 0) can work offline.
+    pub has_counter: bool,
 }
 
 trait NoneWhitespace {
@@ -96,6 +100,7 @@ impl Fido2CredentialAutofillView {
                                     .as_ref()
                                     .and_then(|l| l.username.none_whitespace()))
                                 .or(cipher.name.none_whitespace()),
+                            has_counter: Self::has_signature_counter(&c.counter),
                         })
                     })
             })
@@ -132,12 +137,18 @@ impl Fido2CredentialAutofillView {
                                     .or(c.user_display_name.none_whitespace())
                                     .or(username.none_whitespace())
                                     .or(cipher.name.none_whitespace()),
+                                has_counter: Self::has_signature_counter(&c.counter),
                             })
                         })
                 })
                 .collect(),
             _ => Ok(vec![]),
         }
+    }
+
+    fn has_signature_counter(str: &String) -> bool {
+        str.none_whitespace()
+            .is_some_and(|counter_str| counter_str.parse::<u64>().is_ok_and(|counter| counter > 0))
     }
 }
 
