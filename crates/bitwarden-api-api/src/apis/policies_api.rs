@@ -56,6 +56,14 @@ pub enum OrganizationsOrgIdPoliciesTypePutError {
     UnknownValue(serde_json::Value),
 }
 
+/// struct for typed errors of method [`organizations_org_id_policies_type_vnext_put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsOrgIdPoliciesTypeVnextPutError {
+    UnknownValue(serde_json::Value),
+}
+
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/PoliciesController.cs#L94`]
 pub async fn organizations_org_id_policies_get(
     configuration: &configuration::Configuration,
     org_id: &str,
@@ -108,6 +116,7 @@ pub async fn organizations_org_id_policies_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/PoliciesController.cs#L147`]
 pub async fn organizations_org_id_policies_invited_user_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -167,6 +176,7 @@ pub async fn organizations_org_id_policies_invited_user_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/PoliciesController.cs#L171`]
 pub async fn organizations_org_id_policies_master_password_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -218,6 +228,7 @@ pub async fn organizations_org_id_policies_master_password_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/PoliciesController.cs#L110`]
 pub async fn organizations_org_id_policies_token_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -287,6 +298,7 @@ pub async fn organizations_org_id_policies_token_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/PoliciesController.cs#L73`]
 pub async fn organizations_org_id_policies_type_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -336,6 +348,7 @@ pub async fn organizations_org_id_policies_type_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/PoliciesController.cs#L200`]
 pub async fn organizations_org_id_policies_type_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -379,6 +392,59 @@ pub async fn organizations_org_id_policies_type_put(
     } else {
         let content = resp.text().await?;
         let entity: Option<OrganizationsOrgIdPoliciesTypePutError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/PoliciesController.cs#L221`]
+pub async fn organizations_org_id_policies_type_vnext_put(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    r#type: &str,
+    save_policy_request: Option<models::SavePolicyRequest>,
+) -> Result<models::PolicyResponseModel, Error<OrganizationsOrgIdPoliciesTypeVnextPutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_type = r#type;
+    let p_save_policy_request = save_policy_request;
+
+    let uri_str = format!("{}/organizations/{orgId}/policies/{type}/vnext", configuration.base_path, orgId=crate::apis::urlencode(p_org_id.to_string()), type=crate::apis::urlencode(p_type));
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_save_policy_request);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PolicyResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PolicyResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsOrgIdPoliciesTypeVnextPutError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

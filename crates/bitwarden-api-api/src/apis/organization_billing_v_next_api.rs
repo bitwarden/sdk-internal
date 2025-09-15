@@ -59,14 +59,14 @@ pub enum OrganizationsOrganizationIdBillingVnextPaymentMethodPutError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_organization_id_billing_vnext_payment_method_verify_bank_account_post`]
+/// struct for typed errors of method [`organizations_organization_id_billing_vnext_warnings_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingVnextPaymentMethodVerifyBankAccountPostError {
+pub enum OrganizationsOrganizationIdBillingVnextWarningsGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Billing/Controllers/VNext/OrganizationBillingVNextController.cs#L35`]
 pub async fn organizations_organization_id_billing_vnext_address_get(
     configuration: &configuration::Configuration,
     organization_id: &str,
@@ -407,6 +407,7 @@ pub async fn organizations_organization_id_billing_vnext_address_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Billing/Controllers/VNext/OrganizationBillingVNextController.cs#L46`]
 pub async fn organizations_organization_id_billing_vnext_address_put(
     configuration: &configuration::Configuration,
     organization_id: &str,
@@ -750,6 +751,7 @@ pub async fn organizations_organization_id_billing_vnext_address_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Billing/Controllers/VNext/OrganizationBillingVNextController.cs#L68`]
 pub async fn organizations_organization_id_billing_vnext_credit_bitpay_post(
     configuration: &configuration::Configuration,
     organization_id: &str,
@@ -1095,6 +1097,7 @@ pub async fn organizations_organization_id_billing_vnext_credit_bitpay_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Billing/Controllers/VNext/OrganizationBillingVNextController.cs#L57`]
 pub async fn organizations_organization_id_billing_vnext_credit_get(
     configuration: &configuration::Configuration,
     organization_id: &str,
@@ -1435,6 +1438,7 @@ pub async fn organizations_organization_id_billing_vnext_credit_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Billing/Controllers/VNext/OrganizationBillingVNextController.cs#L81`]
 pub async fn organizations_organization_id_billing_vnext_payment_method_get(
     configuration: &configuration::Configuration,
     organization_id: &str,
@@ -1775,6 +1779,7 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Billing/Controllers/VNext/OrganizationBillingVNextController.cs#L92`]
 pub async fn organizations_organization_id_billing_vnext_payment_method_put(
     configuration: &configuration::Configuration,
     organization_id: &str,
@@ -2118,7 +2123,8 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_put(
     }
 }
 
-pub async fn organizations_organization_id_billing_vnext_payment_method_verify_bank_account_post(
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Billing/Controllers/VNext/OrganizationBillingVNextController.cs#L103`]
+pub async fn organizations_organization_id_billing_vnext_warnings_get(
     configuration: &configuration::Configuration,
     organization_id: &str,
     id: Option<uuid::Uuid>,
@@ -2180,9 +2186,7 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_verify_b
     use_organization_domains: Option<bool>,
     use_admin_sponsored_families: Option<bool>,
     sync_seats: Option<bool>,
-    verify_bank_account_request: Option<models::VerifyBankAccountRequest>,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextPaymentMethodVerifyBankAccountPostError>>
-{
+) -> Result<(), Error<OrganizationsOrganizationIdBillingVnextWarningsGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_id = id;
@@ -2244,16 +2248,13 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_verify_b
     let p_use_organization_domains = use_organization_domains;
     let p_use_admin_sponsored_families = use_admin_sponsored_families;
     let p_sync_seats = sync_seats;
-    let p_verify_bank_account_request = verify_bank_account_request;
 
     let uri_str = format!(
-        "{}/organizations/{organizationId}/billing/vnext/payment-method/verify-bank-account",
+        "{}/organizations/{organizationId}/billing/vnext/warnings",
         configuration.base_path,
         organizationId = crate::apis::urlencode(p_organization_id)
     );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
     if let Some(ref param_value) = p_id {
         req_builder = req_builder.query(&[("id", &param_value.to_string())]);
@@ -2443,7 +2444,6 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_verify_b
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_verify_bank_account_request);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -2454,9 +2454,8 @@ pub async fn organizations_organization_id_billing_vnext_payment_method_verify_b
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<
-            OrganizationsOrganizationIdBillingVnextPaymentMethodVerifyBankAccountPostError,
-        > = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationsOrganizationIdBillingVnextWarningsGetError> =
+            serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

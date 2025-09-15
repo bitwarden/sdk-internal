@@ -21,6 +21,7 @@ pub enum ConfigGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Controllers/ConfigController.cs#L25`]
 pub async fn config_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::ConfigResponseModel, Error<ConfigGetError>> {

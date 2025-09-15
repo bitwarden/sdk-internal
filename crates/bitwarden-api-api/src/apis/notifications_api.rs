@@ -35,6 +35,7 @@ pub enum NotificationsIdReadPatchError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/NotificationCenter/Controllers/NotificationsController.cs#L35`]
 pub async fn notifications_get(
     configuration: &configuration::Configuration,
     read_status_filter: Option<bool>,
@@ -99,6 +100,7 @@ pub async fn notifications_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/NotificationCenter/Controllers/NotificationsController.cs#L62`]
 pub async fn notifications_id_delete_patch(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -140,6 +142,7 @@ pub async fn notifications_id_delete_patch(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/NotificationCenter/Controllers/NotificationsController.cs#L68`]
 pub async fn notifications_id_read_patch(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,

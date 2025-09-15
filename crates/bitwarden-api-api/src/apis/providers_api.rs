@@ -63,6 +63,7 @@ pub enum ProvidersIdSetupPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/ProvidersController.cs#L130`]
 pub async fn providers_id_delete(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -104,6 +105,7 @@ pub async fn providers_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/ProvidersController.cs#L154`]
 pub async fn providers_id_delete_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -145,6 +147,7 @@ pub async fn providers_id_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/ProvidersController.cs#L119`]
 pub async fn providers_id_delete_recover_token_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -193,6 +196,7 @@ pub async fn providers_id_delete_recover_token_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/ProvidersController.cs#L40`]
 pub async fn providers_id_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -243,6 +247,7 @@ pub async fn providers_id_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/ProvidersController.cs#L76`]
 pub async fn providers_id_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -298,6 +303,7 @@ pub async fn providers_id_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/ProvidersController.cs#L57`]
 pub async fn providers_id_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
@@ -351,6 +357,7 @@ pub async fn providers_id_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/ProvidersController.cs#L82`]
 pub async fn providers_id_setup_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,

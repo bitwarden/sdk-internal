@@ -53,6 +53,7 @@ pub enum OrganizationSponsorshipSelfHostedSponsoringOrgIdSponsoredFriendlyNameRe
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Controllers/SelfHosted/SelfHostedOrganizationSponsorshipsController.cs#L119`]
 pub async fn organization_sponsorship_self_hosted_org_id_sponsored_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
@@ -107,6 +108,7 @@ pub async fn organization_sponsorship_self_hosted_org_id_sponsored_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Controllers/SelfHosted/SelfHostedOrganizationSponsorshipsController.cs#L83`]
 pub async fn organization_sponsorship_self_hosted_sponsoring_org_id_delete(
     configuration: &configuration::Configuration,
     sponsoring_org_id: uuid::Uuid,
@@ -149,6 +151,7 @@ pub async fn organization_sponsorship_self_hosted_sponsoring_org_id_delete(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Controllers/SelfHosted/SelfHostedOrganizationSponsorshipsController.cs#L100`]
 pub async fn organization_sponsorship_self_hosted_sponsoring_org_id_delete_post(
     configuration: &configuration::Configuration,
     sponsoring_org_id: uuid::Uuid,
@@ -191,6 +194,7 @@ pub async fn organization_sponsorship_self_hosted_sponsoring_org_id_delete_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Controllers/SelfHosted/SelfHostedOrganizationSponsorshipsController.cs#L57`]
 pub async fn organization_sponsorship_self_hosted_sponsoring_org_id_families_for_enterprise_post(
     configuration: &configuration::Configuration,
     sponsoring_org_id: uuid::Uuid,
@@ -241,6 +245,7 @@ pub async fn organization_sponsorship_self_hosted_sponsoring_org_id_families_for
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Controllers/SelfHosted/SelfHostedOrganizationSponsorshipsController.cs#L106`]
 pub async fn organization_sponsorship_self_hosted_sponsoring_org_id_sponsored_friendly_name_revoke_delete(
     configuration: &configuration::Configuration,
     sponsoring_org_id: uuid::Uuid,

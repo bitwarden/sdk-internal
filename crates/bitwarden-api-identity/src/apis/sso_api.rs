@@ -42,6 +42,7 @@ pub enum SsoPreValidateGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Identity/Controllers/SsoController.cs#L147`]
 pub async fn sso_external_callback_get(
     configuration: &configuration::Configuration,
 ) -> Result<(), Error<SsoExternalCallbackGetError>> {
@@ -70,6 +71,7 @@ pub async fn sso_external_callback_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Identity/Controllers/SsoController.cs#L107`]
 pub async fn sso_external_challenge_get(
     configuration: &configuration::Configuration,
     domain_hint: Option<&str>,
@@ -120,6 +122,7 @@ pub async fn sso_external_challenge_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Identity/Controllers/SsoController.cs#L80`]
 pub async fn sso_login_get(
     configuration: &configuration::Configuration,
     return_url: Option<&str>,
@@ -155,6 +158,7 @@ pub async fn sso_login_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Identity/Controllers/SsoController.cs#L45`]
 pub async fn sso_pre_validate_get(
     configuration: &configuration::Configuration,
     domain_hint: Option<&str>,

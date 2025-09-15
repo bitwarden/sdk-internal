@@ -21,6 +21,7 @@ pub enum OrganizationsOrganizationIdExportGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Tools/Controllers/OrganizationExportController.cs#L40`]
 pub async fn organizations_organization_id_export_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,

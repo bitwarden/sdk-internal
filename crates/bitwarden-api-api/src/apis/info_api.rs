@@ -35,6 +35,7 @@ pub enum VersionGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Controllers/InfoController.cs#L10`]
 pub async fn alive_get(
     configuration: &configuration::Configuration,
 ) -> Result<String, Error<AliveGetError>> {
@@ -77,6 +78,7 @@ pub async fn alive_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Controllers/InfoController.cs#L17`]
 pub async fn now_get(
     configuration: &configuration::Configuration,
 ) -> Result<String, Error<NowGetError>> {
@@ -119,6 +121,7 @@ pub async fn now_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Controllers/InfoController.cs#L23`]
 pub async fn version_get(
     configuration: &configuration::Configuration,
 ) -> Result<(), Error<VersionGetError>> {

@@ -56,14 +56,14 @@ pub enum ProvidersProviderIdBillingVnextPaymentMethodPutError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`providers_provider_id_billing_vnext_payment_method_verify_bank_account_post`]
+/// struct for typed errors of method [`providers_provider_id_billing_vnext_warnings_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdBillingVnextPaymentMethodVerifyBankAccountPostError {
+pub enum ProvidersProviderIdBillingVnextWarningsGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Billing/Controllers/VNext/ProviderBillingVNextController.cs#L32`]
 pub async fn providers_provider_id_billing_vnext_address_get(
     configuration: &configuration::Configuration,
     provider_id: &str,
@@ -204,6 +204,7 @@ pub async fn providers_provider_id_billing_vnext_address_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Billing/Controllers/VNext/ProviderBillingVNextController.cs#L42`]
 pub async fn providers_provider_id_billing_vnext_address_put(
     configuration: &configuration::Configuration,
     provider_id: &str,
@@ -347,6 +348,7 @@ pub async fn providers_provider_id_billing_vnext_address_put(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Billing/Controllers/VNext/ProviderBillingVNextController.cs#L62`]
 pub async fn providers_provider_id_billing_vnext_credit_bitpay_post(
     configuration: &configuration::Configuration,
     provider_id: &str,
@@ -492,6 +494,7 @@ pub async fn providers_provider_id_billing_vnext_credit_bitpay_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Billing/Controllers/VNext/ProviderBillingVNextController.cs#L52`]
 pub async fn providers_provider_id_billing_vnext_credit_get(
     configuration: &configuration::Configuration,
     provider_id: &str,
@@ -632,6 +635,7 @@ pub async fn providers_provider_id_billing_vnext_credit_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Billing/Controllers/VNext/ProviderBillingVNextController.cs#L74`]
 pub async fn providers_provider_id_billing_vnext_payment_method_get(
     configuration: &configuration::Configuration,
     provider_id: &str,
@@ -772,6 +776,7 @@ pub async fn providers_provider_id_billing_vnext_payment_method_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Billing/Controllers/VNext/ProviderBillingVNextController.cs#L84`]
 pub async fn providers_provider_id_billing_vnext_payment_method_put(
     configuration: &configuration::Configuration,
     provider_id: &str,
@@ -915,7 +920,8 @@ pub async fn providers_provider_id_billing_vnext_payment_method_put(
     }
 }
 
-pub async fn providers_provider_id_billing_vnext_payment_method_verify_bank_account_post(
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/Billing/Controllers/VNext/ProviderBillingVNextController.cs#L103`]
+pub async fn providers_provider_id_billing_vnext_warnings_get(
     configuration: &configuration::Configuration,
     provider_id: &str,
     id: Option<uuid::Uuid>,
@@ -938,8 +944,7 @@ pub async fn providers_provider_id_billing_vnext_payment_method_verify_bank_acco
     gateway_customer_id: Option<&str>,
     gateway_subscription_id: Option<&str>,
     discount_id: Option<&str>,
-    verify_bank_account_request: Option<models::VerifyBankAccountRequest>,
-) -> Result<(), Error<ProvidersProviderIdBillingVnextPaymentMethodVerifyBankAccountPostError>> {
+) -> Result<(), Error<ProvidersProviderIdBillingVnextWarningsGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_provider_id = provider_id;
     let p_id = id;
@@ -962,16 +967,13 @@ pub async fn providers_provider_id_billing_vnext_payment_method_verify_bank_acco
     let p_gateway_customer_id = gateway_customer_id;
     let p_gateway_subscription_id = gateway_subscription_id;
     let p_discount_id = discount_id;
-    let p_verify_bank_account_request = verify_bank_account_request;
 
     let uri_str = format!(
-        "{}/providers/{providerId}/billing/vnext/payment-method/verify-bank-account",
+        "{}/providers/{providerId}/billing/vnext/warnings",
         configuration.base_path,
         providerId = crate::apis::urlencode(p_provider_id)
     );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
     if let Some(ref param_value) = p_id {
         req_builder = req_builder.query(&[("id", &param_value.to_string())]);
@@ -1039,7 +1041,6 @@ pub async fn providers_provider_id_billing_vnext_payment_method_verify_bank_acco
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_verify_bank_account_request);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -1050,7 +1051,7 @@ pub async fn providers_provider_id_billing_vnext_payment_method_verify_bank_acco
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdBillingVnextPaymentMethodVerifyBankAccountPostError> =
+        let entity: Option<ProvidersProviderIdBillingVnextWarningsGetError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

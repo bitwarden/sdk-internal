@@ -21,6 +21,7 @@ pub enum RequestAccessRequestSmAccessPostError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/SecretsManager/Controllers/RequestSMAccessController.cs#L34`]
 pub async fn request_access_request_sm_access_post(
     configuration: &configuration::Configuration,
     request_sm_access_request_model: Option<models::RequestSmAccessRequestModel>,

@@ -42,6 +42,7 @@ pub enum ProvidersProviderIdClientsProviderOrganizationIdPutError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/ProviderClientsController.cs#L143`]
 pub async fn providers_provider_id_clients_addable_get(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -82,6 +83,7 @@ pub async fn providers_provider_id_clients_addable_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/ProviderClientsController.cs#L169`]
 pub async fn providers_provider_id_clients_existing_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -127,6 +129,7 @@ pub async fn providers_provider_id_clients_existing_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/ProviderClientsController.cs#L37`]
 pub async fn providers_provider_id_clients_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
@@ -172,6 +175,7 @@ pub async fn providers_provider_id_clients_post(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/ProviderClientsController.cs#L96`]
 pub async fn providers_provider_id_clients_provider_organization_id_put(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,

@@ -56,7 +56,7 @@ pub enum OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsPostE
     UnknownValue(serde_json::Value),
 }
 
-
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/OrganizationIntegrationConfigurationController.cs#L102`]
 pub async fn organizations_organization_id_integrations_integration_id_configurations_configuration_id_delete(configuration: &configuration::Configuration, organization_id: uuid::Uuid, integration_id: uuid::Uuid, configuration_id: uuid::Uuid) -> Result<(), Error<OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsConfigurationIdDeleteError>>{
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
@@ -93,6 +93,7 @@ pub async fn organizations_organization_id_integrations_integration_id_configura
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/OrganizationIntegrationConfigurationController.cs#L125`]
 pub async fn organizations_organization_id_integrations_integration_id_configurations_configuration_id_delete_post(configuration: &configuration::Configuration, organization_id: uuid::Uuid, integration_id: uuid::Uuid, configuration_id: uuid::Uuid) -> Result<(), Error<OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsConfigurationIdDeletePostError>>{
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
@@ -129,6 +130,7 @@ pub async fn organizations_organization_id_integrations_integration_id_configura
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/OrganizationIntegrationConfigurationController.cs#L73`]
 pub async fn organizations_organization_id_integrations_integration_id_configurations_configuration_id_put(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -190,6 +192,7 @@ pub async fn organizations_organization_id_integrations_integration_id_configura
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/OrganizationIntegrationConfigurationController.cs#L25`]
 pub async fn organizations_organization_id_integrations_integration_id_configurations_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
@@ -248,6 +251,7 @@ pub async fn organizations_organization_id_integrations_integration_id_configura
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/main/src/Api/AdminConsole/Controllers/OrganizationIntegrationConfigurationController.cs#L47`]
 pub async fn organizations_organization_id_integrations_integration_id_configurations_post(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,

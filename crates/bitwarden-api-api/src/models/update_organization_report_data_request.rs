@@ -13,30 +13,21 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct AddOrganizationReportRequest {
+pub struct UpdateOrganizationReportDataRequest {
     #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
     pub organization_id: Option<uuid::Uuid>,
+    #[serde(rename = "reportId", skip_serializing_if = "Option::is_none")]
+    pub report_id: Option<uuid::Uuid>,
     #[serde(rename = "reportData", skip_serializing_if = "Option::is_none")]
     pub report_data: Option<String>,
-    #[serde(
-        rename = "contentEncryptionKey",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub content_encryption_key: Option<String>,
-    #[serde(rename = "summaryData", skip_serializing_if = "Option::is_none")]
-    pub summary_data: Option<String>,
-    #[serde(rename = "applicationData", skip_serializing_if = "Option::is_none")]
-    pub application_data: Option<String>,
 }
 
-impl AddOrganizationReportRequest {
-    pub fn new() -> AddOrganizationReportRequest {
-        AddOrganizationReportRequest {
+impl UpdateOrganizationReportDataRequest {
+    pub fn new() -> UpdateOrganizationReportDataRequest {
+        UpdateOrganizationReportDataRequest {
             organization_id: None,
+            report_id: None,
             report_data: None,
-            content_encryption_key: None,
-            summary_data: None,
-            application_data: None,
         }
     }
 }

@@ -23,6 +23,7 @@ pub enum IntegrationType {
     Slack = 3,
     Webhook = 4,
     Hec = 5,
+    Datadog = 6,
 }
 
 impl std::fmt::Display for IntegrationType {
@@ -36,6 +37,7 @@ impl std::fmt::Display for IntegrationType {
                 Self::Slack => "3",
                 Self::Webhook => "4",
                 Self::Hec => "5",
+                Self::Datadog => "6",
             }
         )
     }
