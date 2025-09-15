@@ -3,5 +3,5 @@
 mod grant_type;
 mod scope;
 
-pub use grant_type::GrantType;
-pub use scope::Scope;
+pub(crate) use grant_type::GrantType;
+pub(crate) use scope::Scope;
