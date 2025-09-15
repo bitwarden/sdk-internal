@@ -6,6 +6,7 @@ cargo run -p uniffi-bindgen generate \
   --out-dir sdk/src/main/java
 
 # Insert a temporary alias for the deprecated Client type
+# TODO(PM-23512): Remove this alias in the future once the clients are updated
 ALIAS='
 @Deprecated("Use PasswordManagerClient instead", ReplaceWith("PasswordManagerClient"))
 typealias Client = PasswordManagerClient

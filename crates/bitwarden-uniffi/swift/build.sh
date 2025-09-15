@@ -32,6 +32,7 @@ cargo run -p uniffi-bindgen generate \
   --out-dir tmp/bindings
 
 # Insert a temporary alias for the deprecated Client type
+# TODO(PM-23512): Remove this alias in the future once the clients are updated
 ALIAS='
 @available(*, deprecated, message: "Use PasswordManagerClient instead")
 public typealias Client = PasswordManagerClient

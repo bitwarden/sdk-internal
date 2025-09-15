@@ -14,6 +14,8 @@ use crate::platform::{
     PlatformClient,
 };
 
+// Insert a temporary alias for the deprecated BitwardenClient type
+// TODO(PM-23512): Remove this alias in the future once the clients are updated
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_COMPAT_TYPE: &'static str = r#"
 /**
