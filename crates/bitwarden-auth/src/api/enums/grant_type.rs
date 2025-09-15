@@ -13,4 +13,3 @@ pub enum GrantType {
     SendAccess,
     // TODO: Add other grant types as needed.
 }
-
