@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 /// They are requested by the client during token acquisition and enforced by the
 /// resource server when the token is used.
 #[derive(Serialize, Deserialize, Debug)]
-enum Scope {
+pub(crate) enum Scope {
     /// The scope for accessing send resources outside the context of a Bitwarden user.
     #[serde(rename = "api.send.access")]
     ApiSendAccess,

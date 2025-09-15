@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 /// of a token request.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "snake_case")]
-enum GrantType {
+pub(crate) enum GrantType {
     /// A custom extension grant type for requesting send access tokens outside the context of a
     /// Bitwarden user.
     SendAccess,
