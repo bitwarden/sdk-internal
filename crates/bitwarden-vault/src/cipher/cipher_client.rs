@@ -1,14 +1,21 @@
+use std::sync::Arc;
+
 use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
+use bitwarden_state::repository::{Repository, RepositoryError};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
 use crate::{
-    cipher::cipher::DecryptCipherListResult, Cipher, CipherError, CipherListView, CipherView,
-    DecryptError, EncryptError, Fido2CredentialFullView,
+    cipher::cipher::DecryptCipherListResult,
+    create::{create_cipher, CipherAddEditRequest, CreateCipherError},
+    edit::{edit_cipher, EditCipherError},
+    get_list::{get_cipher, list_ciphers, GetCipherError},
+    Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
+    Fido2CredentialFullView,
 };
 
 #[allow(missing_docs)]
@@ -173,6 +180,68 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
         Ok(decrypted_key)
+    }
+
+    /// Get all ciphers from state and decrypt them to a list of [CipherView].
+    pub async fn list(&self) -> Result<Vec<CipherView>, GetCipherError> {
+        let key_store = self.client.internal.get_key_store();
+        let repository = self.get_repository()?;
+
+        list_ciphers(key_store, repository.as_ref()).await
+    }
+
+    /// Get [Cipher] by ID from state and decrypt it to a [CipherView].
+    pub async fn get(&self, cipher_id: &str) -> Result<CipherView, GetCipherError> {
+        let key_store = self.client.internal.get_key_store();
+        let repository = self.get_repository()?;
+
+        get_cipher(key_store, repository.as_ref(), cipher_id).await
+    }
+
+    /// Create a new [Cipher] and save it to the server.
+    pub async fn create(
+        &self,
+        mut request: CipherAddEditRequest,
+    ) -> Result<CipherView, CreateCipherError> {
+        let key_store = self.client.internal.get_key_store();
+        let config = self.client.internal.get_api_configurations().await;
+        let repository = self.get_repository()?;
+
+        request.encrypted_for = self.client.internal.get_user_id();
+
+        create_cipher(key_store, &config.api, repository.as_ref(), request).await
+    }
+
+    /// Edit an existing [Cipher] and save it to the server.
+    pub async fn edit(
+        &self,
+        cipher_id: &str,
+        mut request: CipherAddEditRequest,
+    ) -> Result<CipherView, EditCipherError> {
+        let key_store = self.client.internal.get_key_store();
+        let config = self.client.internal.get_api_configurations().await;
+        let repository = self.get_repository()?;
+
+        request.encrypted_for = self.client.internal.get_user_id();
+
+        edit_cipher(
+            key_store,
+            &config.api,
+            repository.as_ref(),
+            cipher_id,
+            request,
+        )
+        .await
+    }
+}
+
+impl CiphersClient {
+    fn get_repository(&self) -> Result<Arc<dyn Repository<Cipher>>, RepositoryError> {
+        Ok(self
+            .client
+            .platform()
+            .state()
+            .get_client_managed::<Cipher>()?)
     }
 }
 
