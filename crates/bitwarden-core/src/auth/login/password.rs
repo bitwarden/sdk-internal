@@ -43,8 +43,7 @@ pub(crate) async fn login_password(
             r.expires_in,
         );
 
-        let private_key = r.private_key.as_deref();
-        let private_key: EncString = require!(private_key).parse()?;
+        let private_key: EncString = require!(&r.private_key).parse()?;
 
         let user_key_state = UserKeyState {
             private_key,
@@ -69,8 +68,7 @@ pub(crate) async fn login_password(
                     )?;
             }
             None => {
-                let user_key = r.key.as_deref();
-                let user_key: EncString = require!(user_key).parse()?;
+                let user_key: EncString = require!(&r.key).parse()?;
 
                 client.internal.initialize_user_crypto_master_key(
                     master_key,
