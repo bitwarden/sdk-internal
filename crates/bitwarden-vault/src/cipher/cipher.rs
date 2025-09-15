@@ -2,7 +2,7 @@ use bitwarden_api_api::models::CipherDetailsResponseModel;
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
-    require, MissingFieldError, OrganizationId, UserId, VaultLockedError,
+    require, MissingFieldError, OrganizationId, UserId,
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
@@ -41,8 +41,6 @@ uuid_newtype!(pub CipherId);
 pub enum CipherError {
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error(transparent)]

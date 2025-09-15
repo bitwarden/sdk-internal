@@ -8,8 +8,6 @@ pub enum SecretsManagerError {
     #[error(transparent)]
     Validation(ValidationError),
     #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLockedError),
-    #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
     Chrono(#[from] chrono::ParseError),

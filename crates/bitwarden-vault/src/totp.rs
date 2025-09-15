@@ -4,7 +4,7 @@ use std::{
     str::FromStr,
 };
 
-use bitwarden_core::{key_management::KeyIds, VaultLockedError};
+use bitwarden_core::key_management::KeyIds;
 use bitwarden_crypto::{CryptoError, KeyStoreContext};
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
@@ -41,8 +41,6 @@ pub enum TotpError {
 
     #[error(transparent)]
     Crypto(#[from] CryptoError),
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
 }
 
 #[allow(missing_docs)]
