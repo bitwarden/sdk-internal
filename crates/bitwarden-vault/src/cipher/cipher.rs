@@ -846,8 +846,8 @@ impl TryFrom<CipherResponseModel> for Cipher {
                 .reprompt
                 .map(|r| r.into())
                 .unwrap_or(CipherRepromptType::None),
-            organization_use_totp: cipher.organization_use_totp.unwrap_or(true),
-            edit: cipher.edit.unwrap_or(true),
+            organization_use_totp: cipher.organization_use_totp.unwrap_or(false),
+            edit: cipher.edit.unwrap_or(false),
             // TODO: add permissions
             permissions: None,
             view_password: cipher.view_password.unwrap_or(true),
