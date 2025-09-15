@@ -31,6 +31,11 @@ impl B64 {
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
+
+    /// Returns the inner byte vector.
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0
+    }
 }
 
 // We manually implement this to handle both `String` and `&str`
