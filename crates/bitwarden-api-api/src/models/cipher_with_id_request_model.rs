@@ -56,6 +56,8 @@ pub struct CipherWithIdRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub last_known_revision_date: Option<String>,
+    #[serde(rename = "archivedDate", skip_serializing_if = "Option::is_none")]
+    pub archived_date: Option<String>,
     #[serde(rename = "id")]
     pub id: uuid::Uuid,
 }
@@ -82,6 +84,7 @@ impl CipherWithIdRequestModel {
             secure_note: None,
             ssh_key: None,
             last_known_revision_date: None,
+            archived_date: None,
             id,
         }
     }
