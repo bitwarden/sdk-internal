@@ -14,5 +14,3 @@ pub enum GrantType {
     // TODO: Add other grant types as needed.
 }
 
-// TODO: rename common to api (as in dealing with API specific concerns)
-// TODO: make things pub(crate) as much as possible.
