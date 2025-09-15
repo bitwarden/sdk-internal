@@ -84,7 +84,7 @@ impl LoginUriView {
 }
 
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -296,7 +296,7 @@ pub struct Login {
 }
 
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -559,6 +559,70 @@ impl TryFrom<bitwarden_api_api::models::CipherFido2CredentialModel> for Fido2Cre
             discoverable: require!(value.discoverable).parse()?,
             creation_date: value.creation_date.parse()?,
         })
+    }
+}
+
+impl From<LoginUri> for bitwarden_api_api::models::CipherLoginUriModel {
+    fn from(uri: LoginUri) -> Self {
+        bitwarden_api_api::models::CipherLoginUriModel {
+            uri: uri.uri.map(|u| u.to_string()),
+            uri_checksum: uri.uri_checksum.map(|c| c.to_string()),
+            r#match: uri.r#match.map(|m| m.into()),
+        }
+    }
+}
+
+impl From<UriMatchType> for bitwarden_api_api::models::UriMatchType {
+    fn from(match_type: UriMatchType) -> Self {
+        match match_type {
+            UriMatchType::Domain => bitwarden_api_api::models::UriMatchType::Domain,
+            UriMatchType::Host => bitwarden_api_api::models::UriMatchType::Host,
+            UriMatchType::StartsWith => bitwarden_api_api::models::UriMatchType::StartsWith,
+            UriMatchType::Exact => bitwarden_api_api::models::UriMatchType::Exact,
+            UriMatchType::RegularExpression => {
+                bitwarden_api_api::models::UriMatchType::RegularExpression
+            }
+            UriMatchType::Never => bitwarden_api_api::models::UriMatchType::Never,
+        }
+    }
+}
+
+impl From<Fido2Credential> for bitwarden_api_api::models::CipherFido2CredentialModel {
+    fn from(cred: Fido2Credential) -> Self {
+        bitwarden_api_api::models::CipherFido2CredentialModel {
+            credential_id: Some(cred.credential_id.to_string()),
+            key_type: Some(cred.key_type.to_string()),
+            key_algorithm: Some(cred.key_algorithm.to_string()),
+            key_curve: Some(cred.key_curve.to_string()),
+            key_value: Some(cred.key_value.to_string()),
+            rp_id: Some(cred.rp_id.to_string()),
+            user_handle: cred.user_handle.map(|h| h.to_string()),
+            user_name: cred.user_name.map(|n| n.to_string()),
+            counter: Some(cred.counter.to_string()),
+            rp_name: cred.rp_name.map(|n| n.to_string()),
+            user_display_name: cred.user_display_name.map(|n| n.to_string()),
+            discoverable: Some(cred.discoverable.to_string()),
+            creation_date: cred.creation_date.to_rfc3339(),
+        }
+    }
+}
+
+impl From<Login> for bitwarden_api_api::models::CipherLoginModel {
+    fn from(login: Login) -> Self {
+        bitwarden_api_api::models::CipherLoginModel {
+            uri: None,
+            uris: login
+                .uris
+                .map(|u| u.into_iter().map(|u| u.into()).collect()),
+            username: login.username.map(|u| u.to_string()),
+            password: login.password.map(|p| p.to_string()),
+            password_revision_date: login.password_revision_date.map(|d| d.to_rfc3339()),
+            totp: login.totp.map(|t| t.to_string()),
+            autofill_on_page_load: login.autofill_on_page_load,
+            fido2_credentials: login
+                .fido2_credentials
+                .map(|c| c.into_iter().map(|c| c.into()).collect()),
+        }
     }
 }
 

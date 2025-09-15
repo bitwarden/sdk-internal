@@ -1,4 +1,4 @@
-use bitwarden_api_api::models::CipherDetailsResponseModel;
+use bitwarden_api_api::models::{CipherDetailsResponseModel, CipherResponseModel};
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
@@ -688,6 +688,15 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
     }
 }
 
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::__rt::VectorIntoJsValue for CipherView {
+    fn vector_into_jsvalue(
+        vector: wasm_bindgen::__rt::std::boxed::Box<[Self]>,
+    ) -> wasm_bindgen::JsValue {
+        wasm_bindgen::__rt::js_value_vector_into_jsvalue(vector)
+    }
+}
+
 impl IdentifyKey<SymmetricKeyId> for Cipher {
     fn key_identifier(&self) -> SymmetricKeyId {
         match self.organization_id {
@@ -785,6 +794,76 @@ impl From<bitwarden_api_api::models::CipherRepromptType> for CipherRepromptType 
             bitwarden_api_api::models::CipherRepromptType::None => CipherRepromptType::None,
             bitwarden_api_api::models::CipherRepromptType::Password => CipherRepromptType::Password,
         }
+    }
+}
+
+impl From<CipherType> for bitwarden_api_api::models::CipherType {
+    fn from(t: CipherType) -> Self {
+        match t {
+            CipherType::Login => bitwarden_api_api::models::CipherType::Login,
+            CipherType::SecureNote => bitwarden_api_api::models::CipherType::SecureNote,
+            CipherType::Card => bitwarden_api_api::models::CipherType::Card,
+            CipherType::Identity => bitwarden_api_api::models::CipherType::Identity,
+            CipherType::SshKey => bitwarden_api_api::models::CipherType::SSHKey,
+        }
+    }
+}
+
+impl From<CipherRepromptType> for bitwarden_api_api::models::CipherRepromptType {
+    fn from(t: CipherRepromptType) -> Self {
+        match t {
+            CipherRepromptType::None => bitwarden_api_api::models::CipherRepromptType::None,
+            CipherRepromptType::Password => bitwarden_api_api::models::CipherRepromptType::Password,
+        }
+    }
+}
+
+impl TryFrom<CipherResponseModel> for Cipher {
+    type Error = VaultParseError;
+
+    fn try_from(cipher: CipherResponseModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: cipher.id.map(CipherId::new),
+            organization_id: cipher.organization_id.map(OrganizationId::new),
+            folder_id: cipher.folder_id.map(FolderId::new),
+            collection_ids: vec![], // CipherResponseModel doesn't include collection_ids
+            name: require!(EncString::try_from_optional(cipher.name)?),
+            notes: EncString::try_from_optional(cipher.notes)?,
+            r#type: require!(cipher.r#type).into(),
+            login: cipher.login.map(|l| (*l).try_into()).transpose()?,
+            identity: cipher.identity.map(|i| (*i).try_into()).transpose()?,
+            card: cipher.card.map(|c| (*c).try_into()).transpose()?,
+            secure_note: cipher.secure_note.map(|s| (*s).try_into()).transpose()?,
+            // TODO: add ssh_key
+            ssh_key: None,
+            favorite: cipher.favorite.unwrap_or(false),
+            reprompt: cipher
+                .reprompt
+                .map(|r| r.into())
+                .unwrap_or(CipherRepromptType::None),
+            organization_use_totp: cipher.organization_use_totp.unwrap_or(true),
+            edit: cipher.edit.unwrap_or(true),
+            // TODO: add permissions
+            permissions: None,
+            view_password: cipher.view_password.unwrap_or(true),
+            local_data: None, // Not sent from server
+            attachments: cipher
+                .attachments
+                .map(|a| a.into_iter().map(|a| a.try_into()).collect())
+                .transpose()?,
+            fields: cipher
+                .fields
+                .map(|f| f.into_iter().map(|f| f.try_into()).collect())
+                .transpose()?,
+            password_history: cipher
+                .password_history
+                .map(|p| p.into_iter().map(|p| p.try_into()).collect())
+                .transpose()?,
+            creation_date: require!(cipher.creation_date).parse()?,
+            deleted_date: cipher.deleted_date.map(|d| d.parse()).transpose()?,
+            revision_date: require!(cipher.revision_date).parse()?,
+            key: EncString::try_from_optional(cipher.key)?,
+        })
     }
 }
 
