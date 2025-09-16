@@ -28,7 +28,7 @@ pub enum CreateCipherError {
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
     #[error(transparent)]
-    RepositoryError(#[from] RepositoryError),
+    Repository(#[from] RepositoryError),
 }
 
 /// Request to add or edit a cipher.
