@@ -34,7 +34,7 @@ pub enum DatabaseError {
     Serialization(#[from] serde_json::Error),
 
     #[error("JS error: {0}")]
-    JSError(String),
+    JS(String),
 
     #[error(transparent)]
     Internal(#[from] InternalError),

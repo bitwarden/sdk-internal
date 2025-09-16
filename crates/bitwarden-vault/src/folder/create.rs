@@ -58,7 +58,7 @@ pub enum CreateFolderError {
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
     #[error(transparent)]
-    RepositoryError(#[from] RepositoryError),
+    Repository(#[from] RepositoryError),
 }
 
 pub(super) async fn create_folder<R: Repository<Folder> + ?Sized>(

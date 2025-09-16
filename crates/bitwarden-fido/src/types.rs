@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use bitwarden_core::key_management::KeyIds;
 use bitwarden_crypto::{CryptoError, KeyStoreContext};
-use bitwarden_encoding::{B64Url, NotB64UrlEncoded};
+use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use bitwarden_vault::{CipherListView, CipherListViewType, CipherView, LoginListView};
 use passkey::types::webauthn::UserVerificationRequirement;
 use reqwest::Url;
@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{
-    get_enum_from_string_name, string_to_guid_bytes, InvalidGuid, SelectedCredential, UnknownEnum,
-    Verification,
+    get_enum_from_string_name, string_to_guid_bytes, InvalidGuidError, SelectedCredential,
+    UnknownEnumError, Verification,
 };
 
 #[allow(missing_docs)]
@@ -59,13 +59,13 @@ pub enum Fido2CredentialAutofillViewError {
     MissingCipherId,
 
     #[error(transparent)]
-    InvalidGuid(#[from] InvalidGuid),
+    InvalidGuid(#[from] InvalidGuidError),
 
     #[error(transparent)]
     Crypto(#[from] CryptoError),
 
     #[error(transparent)]
-    Base64Decode(#[from] NotB64UrlEncoded),
+    Base64Decode(#[from] NotB64UrlEncodedError),
 }
 
 impl Fido2CredentialAutofillView {
@@ -179,7 +179,7 @@ pub enum PublicKeyCredentialParametersError {
     InvalidAlgorithm,
 
     #[error("Unknown type")]
-    UnknownEnum(#[from] UnknownEnum),
+    UnknownEnum(#[from] UnknownEnumError),
 }
 
 impl TryFrom<PublicKeyCredentialParameters>
@@ -207,7 +207,7 @@ pub struct PublicKeyCredentialDescriptor {
 impl TryFrom<PublicKeyCredentialDescriptor>
     for passkey::types::webauthn::PublicKeyCredentialDescriptor
 {
-    type Error = UnknownEnum;
+    type Error = UnknownEnumError;
 
     fn try_from(value: PublicKeyCredentialDescriptor) -> Result<Self, Self::Error> {
         Ok(Self {

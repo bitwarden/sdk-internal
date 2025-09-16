@@ -24,7 +24,7 @@ pub enum EditFolderError {
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
     #[error(transparent)]
-    RepositoryError(#[from] RepositoryError),
+    Repository(#[from] RepositoryError),
     #[error(transparent)]
     Uuid(#[from] uuid::Error),
 }
