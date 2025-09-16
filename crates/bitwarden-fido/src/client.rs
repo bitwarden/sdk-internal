@@ -21,7 +21,7 @@ pub enum Fido2ClientError {
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
-    GetSelectedCredentialError(#[from] GetSelectedCredentialError),
+    GetSelectedCredential(#[from] GetSelectedCredentialError),
 
     #[error("Webauthn error: {0:?}")]
     Webauthn(WebauthnError),
