@@ -20,7 +20,7 @@ uniffi::setup_scaffolding!();
 fn ssh_private_key_to_view(value: PrivateKey) -> Result<SshKeyView, SshKeyExportError> {
     let private_key_openssh = value
         .to_openssh(LineEnding::LF)
-        .map_err(|_| SshKeyExportError::KeyConversionError)?;
+        .map_err(|_| SshKeyExportError::KeyConversion)?;
 
     Ok(SshKeyView {
         private_key: private_key_openssh.to_string(),

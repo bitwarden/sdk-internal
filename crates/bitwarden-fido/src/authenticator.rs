@@ -31,14 +31,14 @@ pub enum GetSelectedCredentialError {
     NoCredentialFound,
 
     #[error(transparent)]
-    CryptoError(#[from] CryptoError),
+    Crypto(#[from] CryptoError),
 }
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum MakeCredentialError {
     #[error(transparent)]
-    PublicKeyCredentialParametersError(#[from] PublicKeyCredentialParametersError),
+    PublicKeyCredentialParameters(#[from] PublicKeyCredentialParametersError),
     #[error(transparent)]
     UnknownEnum(#[from] UnknownEnum),
     #[error(transparent)]
@@ -57,7 +57,7 @@ pub enum GetAssertionError {
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
-    GetSelectedCredentialError(#[from] GetSelectedCredentialError),
+    GetSelectedCredential(#[from] GetSelectedCredentialError),
     #[error(transparent)]
     InvalidGuid(#[from] InvalidGuid),
     #[error("missing user")]
@@ -70,26 +70,26 @@ pub enum GetAssertionError {
 #[derive(Debug, Error)]
 pub enum SilentlyDiscoverCredentialsError {
     #[error(transparent)]
-    CipherError(#[from] CipherError),
+    Cipher(#[from] CipherError),
     #[error(transparent)]
     InvalidGuid(#[from] InvalidGuid),
     #[error(transparent)]
-    Fido2CallbackError(#[from] Fido2CallbackError),
+    Fido2Callback(#[from] Fido2CallbackError),
     #[error(transparent)]
-    FromCipherViewError(#[from] Fido2CredentialAutofillViewError),
+    FromCipherView(#[from] Fido2CredentialAutofillViewError),
 }
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum CredentialsForAutofillError {
     #[error(transparent)]
-    CipherError(#[from] CipherError),
+    Cipher(#[from] CipherError),
     #[error(transparent)]
     InvalidGuid(#[from] InvalidGuid),
     #[error(transparent)]
-    Fido2CallbackError(#[from] Fido2CallbackError),
+    Fido2Callback(#[from] Fido2CallbackError),
     #[error(transparent)]
-    FromCipherViewError(#[from] Fido2CredentialAutofillViewError),
+    FromCipherView(#[from] Fido2CredentialAutofillViewError),
 }
 
 #[allow(missing_docs)]
@@ -435,13 +435,13 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             #[error("Client User Id has not been set")]
             MissingUserId,
             #[error(transparent)]
-            FillCredentialError(#[from] FillCredentialError),
+            FillCredential(#[from] FillCredentialError),
             #[error(transparent)]
-            CipherError(#[from] CipherError),
+            Cipher(#[from] CipherError),
             #[error(transparent)]
-            CryptoError(#[from] CryptoError),
+            Crypto(#[from] CryptoError),
             #[error(transparent)]
-            Fido2CallbackError(#[from] Fido2CallbackError),
+            Fido2Callback(#[from] Fido2CallbackError),
 
             #[error("No selected credential available")]
             NoSelectedCredential,
@@ -515,15 +515,15 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             #[error("Credential ID does not match selected credential")]
             CredentialIdMismatch,
             #[error(transparent)]
-            FillCredentialError(#[from] FillCredentialError),
+            FillCredential(#[from] FillCredentialError),
             #[error(transparent)]
-            CipherError(#[from] CipherError),
+            Cipher(#[from] CipherError),
             #[error(transparent)]
-            CryptoError(#[from] CryptoError),
+            Crypto(#[from] CryptoError),
             #[error(transparent)]
-            Fido2CallbackError(#[from] Fido2CallbackError),
+            Fido2Callback(#[from] Fido2CallbackError),
             #[error(transparent)]
-            GetSelectedCredentialError(#[from] GetSelectedCredentialError),
+            GetSelectedCredential(#[from] GetSelectedCredentialError),
         }
 
         // This is just a wrapper around the actual implementation to allow for ? error handling

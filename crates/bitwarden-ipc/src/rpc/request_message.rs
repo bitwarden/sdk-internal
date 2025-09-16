@@ -37,7 +37,7 @@ impl RpcRequestPayload {
         T: RpcRequest,
     {
         serde_utils::from_slice(&self.data)
-            .map_err(|e| RpcError::RequestDeserializationError(e.to_string()))
+            .map_err(|e| RpcError::RequestDeserialization(e.to_string()))
     }
 }
 

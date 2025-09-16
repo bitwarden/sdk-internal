@@ -62,10 +62,10 @@ pub enum Fido2CredentialAutofillViewError {
     InvalidGuid(#[from] InvalidGuid),
 
     #[error(transparent)]
-    CryptoError(#[from] CryptoError),
+    Crypto(#[from] CryptoError),
 
     #[error(transparent)]
-    Base64DecodeError(#[from] NotB64UrlEncoded),
+    Base64Decode(#[from] NotB64UrlEncoded),
 }
 
 impl Fido2CredentialAutofillView {

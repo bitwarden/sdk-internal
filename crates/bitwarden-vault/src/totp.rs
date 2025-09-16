@@ -40,7 +40,7 @@ pub enum TotpError {
     MissingSecret,
 
     #[error(transparent)]
-    CryptoError(#[from] CryptoError),
+    Crypto(#[from] CryptoError),
 }
 
 #[allow(missing_docs)]
