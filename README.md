@@ -127,6 +127,7 @@ versions. Here are the cli tools we use:
 - Nightly [cargo fmt](https://github.com/rust-lang/rustfmt) and
   [cargo udeps](https://github.com/est31/cargo-udeps)
 - [rust clippy](https://github.com/rust-lang/rust-clippy)
+- [cargo dylint](https://github.com/trailofbits/dylint)
 - [cargo sort](https://github.com/DevinR528/cargo-sort)
 - [prettier](https://github.com/prettier/prettier)
 
@@ -140,6 +141,7 @@ export RUSTFLAGS="-D warnings"
 cargo +nightly fmt --check
 cargo +nightly udeps --workspace --all-features
 cargo clippy --all-features --all-targets
+cargo dylint --all
 cargo sort --workspace --check
 npm run lint
 ```
