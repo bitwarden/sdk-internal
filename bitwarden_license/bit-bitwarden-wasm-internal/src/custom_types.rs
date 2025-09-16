@@ -27,4 +27,7 @@ export type Utc = unknown;
  * An integer that is known not to equal zero.
  */
 export type NonZeroU32 = number;
+
+// TODO: FIX
+export type Repository<T> = any;
 "#;

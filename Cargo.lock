@@ -291,6 +291,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bit-bitwarden-wasm-internal"
+version = "0.1.0"
+dependencies = [
+ "bitwarden-core",
+ "bitwarden-wasm-internal",
+ "serde",
+ "tsify",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bit-set"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

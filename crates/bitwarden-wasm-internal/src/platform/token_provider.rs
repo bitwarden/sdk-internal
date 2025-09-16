@@ -22,6 +22,7 @@ extern "C" {
 pub(crate) struct WasmClientManagedTokens(ThreadBoundRunner<JsTokenProvider>);
 
 impl WasmClientManagedTokens {
+    /// Creates a new instance of `WasmClientManagedTokens`.
     pub fn new(js_provider: JsTokenProvider) -> Self {
         Self(ThreadBoundRunner::new(js_provider))
     }
