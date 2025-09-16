@@ -7,7 +7,7 @@ use bitwarden_encoding::B64;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{key_management::AsymmetricKeyId, MissingPrivateKeyError, VaultLockedError};
+use crate::{key_management::AsymmetricKeyId, MissingPrivateKeyError};
 
 /// Request to generate a fingerprint.
 #[derive(Serialize, Deserialize, Debug)]
@@ -53,8 +53,6 @@ pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String,
 pub enum UserFingerprintError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     MissingPrivateKey(#[from] MissingPrivateKeyError),
 }

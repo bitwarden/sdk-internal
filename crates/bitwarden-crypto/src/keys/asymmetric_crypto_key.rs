@@ -76,11 +76,9 @@ pub struct AsymmetricCryptoKey {
 
 // Note that RsaPrivateKey already implements ZeroizeOnDrop, so we don't need to do anything
 // We add this assertion to make sure that this is still true in the future
-const _: () = {
+const _: fn() = || {
     fn assert_zeroize_on_drop<T: zeroize::ZeroizeOnDrop>() {}
-    fn assert_all() {
-        assert_zeroize_on_drop::<RsaPrivateKey>();
-    }
+    assert_zeroize_on_drop::<RsaPrivateKey>();
 };
 impl zeroize::ZeroizeOnDrop for AsymmetricCryptoKey {}
 impl CryptoKey for AsymmetricCryptoKey {}

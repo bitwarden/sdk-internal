@@ -2,7 +2,7 @@ use bitwarden_api_api::models::CipherDetailsResponseModel;
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
-    require, MissingFieldError, OrganizationId, UserId, VaultLockedError,
+    require, MissingFieldError, OrganizationId, UserId,
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
@@ -41,8 +41,6 @@ uuid_newtype!(pub CipherId);
 pub enum CipherError {
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error(transparent)]
@@ -139,6 +137,7 @@ pub struct Cipher {
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
+    pub archived_date: Option<DateTime<Utc>>,
 }
 
 bitwarden_state::register_repository_item!(Cipher, "Cipher");
@@ -182,6 +181,7 @@ pub struct CipherView {
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
+    pub archived_date: Option<DateTime<Utc>>,
 }
 
 #[allow(missing_docs)]
@@ -250,6 +250,7 @@ pub struct CipherListView {
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
+    pub archived_date: Option<DateTime<Utc>>,
 
     /// Hints for the presentation layer for which fields can be copied.
     pub copyable_fields: Vec<CopyableCipherFields>,
@@ -336,6 +337,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             deleted_date: cipher_view.deleted_date,
             revision_date: cipher_view.revision_date,
             permissions: cipher_view.permissions,
+            archived_date: cipher_view.archived_date,
         })
     }
 }
@@ -379,6 +381,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
+            archived_date: self.archived_date,
         };
 
         // For compatibility we only remove URLs with invalid checksums if the cipher has a key
@@ -684,6 +687,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             revision_date: self.revision_date,
             copyable_fields: self.get_copyable_fields(),
             local_data: self.local_data.decrypt(ctx, ciphers_key)?,
+            archived_date: self.archived_date,
         })
     }
 }
@@ -736,8 +740,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             identity: cipher.identity.map(|i| (*i).try_into()).transpose()?,
             card: cipher.card.map(|c| (*c).try_into()).transpose()?,
             secure_note: cipher.secure_note.map(|s| (*s).try_into()).transpose()?,
-            // TODO: add ssh_key when api bindings have been updated
-            ssh_key: None,
+            ssh_key: cipher.ssh_key.map(|s| (*s).try_into()).transpose()?,
             favorite: cipher.favorite.unwrap_or(false),
             reprompt: cipher
                 .reprompt
@@ -745,8 +748,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
                 .unwrap_or(CipherRepromptType::None),
             organization_use_totp: cipher.organization_use_totp.unwrap_or(true),
             edit: cipher.edit.unwrap_or(true),
-            // TODO: add permissions when api bindings have been updated
-            permissions: None,
+            permissions: cipher.permissions.map(|p| (*p).try_into()).transpose()?,
             view_password: cipher.view_password.unwrap_or(true),
             local_data: None, // Not sent from server
             attachments: cipher
@@ -765,6 +767,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             deleted_date: cipher.deleted_date.map(|d| d.parse()).transpose()?,
             revision_date: require!(cipher.revision_date).parse()?,
             key: EncString::try_from_optional(cipher.key)?,
+            archived_date: cipher.archived_date.map(|d| d.parse()).transpose()?,
         })
     }
 }
@@ -839,6 +842,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
         }
     }
 
@@ -903,6 +907,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
         };
 
         let view: CipherListView = key_store.decrypt(&cipher).unwrap();
@@ -924,6 +929,7 @@ mod tests {
                         user_handle: None,
                         user_name: None,
                         user_display_name: None,
+                        counter: "123".to_string(),
                     }]),
                     has_fido2: true,
                     username: Some("test_username".to_string()),
@@ -947,6 +953,7 @@ mod tests {
                     CopyableCipherFields::LoginTotp
                 ],
                 local_data: None,
+                archived_date: cipher.archived_date,
             }
         )
     }

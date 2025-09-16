@@ -1,8 +1,8 @@
 use bitwarden_core::{key_management::KeyIds, require, MissingFieldError};
 use bitwarden_crypto::KeyStore;
 use bitwarden_vault::{
-    CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldView, FolderView,
-    IdentityView, LoginUriView, SecureNoteType, SecureNoteView, SshKeyView,
+    CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldType, FieldView,
+    FolderView, IdentityView, LoginUriView, SecureNoteType, SecureNoteView, SshKeyView,
 };
 
 impl TryFrom<FolderView> for crate::Folder {
@@ -188,10 +188,29 @@ impl From<FieldView> for crate::Field {
     }
 }
 
+impl From<crate::Field> for FieldView {
+    fn from(value: crate::Field) -> Self {
+        Self {
+            name: value.name,
+            value: value.value,
+            r#type: value.r#type.try_into().unwrap_or(FieldType::Text),
+            linked_id: value.linked_id.and_then(|id| id.try_into().ok()),
+        }
+    }
+}
+
 impl From<SecureNoteType> for crate::SecureNoteType {
     fn from(value: SecureNoteType) -> Self {
         match value {
             SecureNoteType::Generic => crate::SecureNoteType::Generic,
+        }
+    }
+}
+
+impl From<crate::SecureNoteType> for SecureNoteType {
+    fn from(value: crate::SecureNoteType) -> Self {
+        match value {
+            crate::SecureNoteType::Generic => SecureNoteType::Generic,
         }
     }
 }
@@ -261,6 +280,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
         };
 
         let login = from_login(&view, &key_store).unwrap();
@@ -312,6 +332,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
         };
         let encrypted = key_store.encrypt(cipher_view).unwrap();
 

@@ -209,8 +209,6 @@ impl AuthClient {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum TrustDeviceError {
     #[error(transparent)]
-    VaultLocked(#[from] crate::VaultLockedError),
-    #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
 }
 

@@ -560,10 +560,10 @@ dependencies = [
 name = "bitwarden-exporters"
 version = "1.0.0"
 dependencies = [
- "base64",
  "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-fido",
  "bitwarden-ssh",
@@ -586,9 +586,9 @@ name = "bitwarden-fido"
 version = "1.0.0"
 dependencies = [
  "async-trait",
- "base64",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-vault",
  "chrono",
  "coset",
@@ -650,10 +650,10 @@ dependencies = [
 name = "bitwarden-send"
 version = "1.0.0"
 dependencies = [
- "base64",
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "chrono",
  "serde",
  "serde_repr",
@@ -815,7 +815,6 @@ dependencies = [
 name = "bitwarden-vault"
 version = "1.0.0"
 dependencies = [
- "base64",
  "bitwarden-api-api",
  "bitwarden-collections",
  "bitwarden-core",
@@ -1250,8 +1249,9 @@ dependencies = [
 
 [[package]]
 name = "credential-exchange-format"
-version = "0.2.0"
-source = "git+https://github.com/bitwarden/credential-exchange?rev=12702ad62ccc2a1e3cd9bdea40fc0f6399e1fffa#12702ad62ccc2a1e3cd9bdea40fc0f6399e1fffa"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d1ea47a553efe5bd0a5ab9cd8dda95c99540a3873f0f599f9e1fc67ccf13ab3"
 dependencies = [
  "chrono",
  "data-encoding",

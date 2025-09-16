@@ -10,7 +10,7 @@ use thiserror::Error;
 
 #[cfg(feature = "internal")]
 use crate::client::encryption_settings::EncryptionSettingsError;
-use crate::{key_management::SymmetricKeyId, Client, VaultLockedError};
+use crate::{key_management::SymmetricKeyId, Client};
 
 /// Response for `new_auth_request`.
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -79,8 +79,6 @@ pub(crate) fn auth_request_decrypt_master_key(
 pub enum ApproveAuthRequestError {
     #[error(transparent)]
     Crypto(#[from] CryptoError),
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
 }
 
 /// Approve an auth request.

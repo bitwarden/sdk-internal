@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use bitwarden_core::{Client, VaultLockedError};
+use bitwarden_core::Client;
 use bitwarden_crypto::CryptoError;
 use bitwarden_vault::{CipherError, CipherView, EncryptionContext};
 use itertools::Itertools;
@@ -30,8 +30,6 @@ pub enum GetSelectedCredentialError {
     #[error("No fido2 credentials found")]
     NoCredentialFound,
 
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     Crypto(#[from] CryptoError),
 }
@@ -77,8 +75,6 @@ pub enum SilentlyDiscoverCredentialsError {
     #[error(transparent)]
     Cipher(#[from] CipherError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
-    #[error(transparent)]
     InvalidGuid(#[from] InvalidGuid),
     #[error(transparent)]
     Fido2Callback(#[from] Fido2CallbackError),
@@ -92,8 +88,6 @@ pub enum SilentlyDiscoverCredentialsError {
 pub enum CredentialsForAutofillError {
     #[error(transparent)]
     Cipher(#[from] CipherError),
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     InvalidGuid(#[from] InvalidGuid),
     #[error(transparent)]
@@ -298,7 +292,7 @@ impl<'a> Fido2Authenticator<'a> {
     pub(super) fn get_authenticator(
         &self,
         create_credential: bool,
-    ) -> Authenticator<CredentialStoreImpl, UserValidationMethodImpl> {
+    ) -> Authenticator<CredentialStoreImpl<'_>, UserValidationMethodImpl<'_>> {
         Authenticator::new(
             AAGUID,
             CredentialStoreImpl {
@@ -362,8 +356,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
     ) -> Result<Vec<Self::PasskeyItem>, StatusCode> {
         #[derive(Debug, Error)]
         enum InnerError {
-            #[error(transparent)]
-            VaultLocked(#[from] VaultLockedError),
             #[error(transparent)]
             Cipher(#[from] CipherError),
             #[error(transparent)]
@@ -447,8 +439,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             #[error("Client User Id has not been set")]
             MissingUserId,
             #[error(transparent)]
-            VaultLocked(#[from] VaultLockedError),
-            #[error(transparent)]
             FillCredential(#[from] FillCredentialError),
             #[error(transparent)]
             Cipher(#[from] CipherError),
@@ -524,8 +514,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         enum InnerError {
             #[error("Client User Id has not been set")]
             MissingUserId,
-            #[error(transparent)]
-            VaultLocked(#[from] VaultLockedError),
             #[error(transparent)]
             InvalidGuid(#[from] InvalidGuid),
             #[error("Credential ID does not match selected credential")]

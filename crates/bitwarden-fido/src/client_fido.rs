@@ -18,8 +18,6 @@ pub struct ClientFido2 {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum DecryptFido2AutofillCredentialsError {
     #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLockedError),
-    #[error(transparent)]
     Fido2CredentialAutofillView(#[from] Fido2CredentialAutofillViewError),
 }
 

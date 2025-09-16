@@ -27,7 +27,7 @@ use crate::{
         non_generic_wrappers::PasswordProtectedKeyEnvelope, AsymmetricKeyId, SecurityState,
         SignedSecurityState, SigningKeyId, SymmetricKeyId,
     },
-    Client, NotAuthenticatedError, OrganizationId, UserId, VaultLockedError, WrongPasswordError,
+    Client, NotAuthenticatedError, OrganizationId, UserId, WrongPasswordError,
 };
 
 /// Catch all error for mobile crypto operations.
@@ -37,8 +37,6 @@ use crate::{
 pub enum CryptoClientError {
     #[error(transparent)]
     NotAuthenticated(#[from] NotAuthenticatedError),
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
@@ -233,7 +231,7 @@ pub(super) async fn initialize_user_crypto(
             master_key,
             user_key,
         } => {
-            let mut bytes = master_key.as_bytes().to_vec();
+            let mut bytes = master_key.into_bytes();
             let master_key = MasterKey::try_from(bytes.as_mut_slice())?;
 
             client
@@ -444,8 +442,6 @@ fn derive_pin_protected_user_key(
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub enum EnrollAdminPasswordResetError {
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
 }

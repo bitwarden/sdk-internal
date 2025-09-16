@@ -9,8 +9,6 @@ pub enum ExportError {
     MissingField(#[from] bitwarden_core::MissingFieldError),
     #[error(transparent)]
     NotAuthenticated(#[from] bitwarden_core::NotAuthenticatedError),
-    #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLockedError),
 
     #[error("CSV error: {0}")]
     Csv(#[from] crate::csv::CsvError),

@@ -61,11 +61,6 @@ pub struct UserIdAlreadySetError;
 #[error("The response received was missing a required field: {0}")]
 pub struct MissingFieldError(pub &'static str);
 
-/// Client vault is locked.
-#[derive(Debug, Error)]
-#[error("The client vault is locked and needs to be unlocked before use")]
-pub struct VaultLockedError;
-
 /// Wrong password.
 #[derive(Debug, thiserror::Error)]
 #[error("Wrong password")]
