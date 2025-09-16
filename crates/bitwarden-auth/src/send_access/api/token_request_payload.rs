@@ -62,24 +62,24 @@ pub enum SendAccessClientType {
 /// Represents the actual request payload for requesting a send access token.
 /// It converts the `SendAccessTokenRequest` into a format suitable for sending to the API.
 #[derive(Serialize, Debug)]
-pub struct SendAccessTokenRequestPayload {
+pub(crate) struct SendAccessTokenRequestPayload {
     // Standard OAuth2 fields
     /// The client ID for the send access client.
-    pub client_id: SendAccessClientType,
+    pub(crate) client_id: SendAccessClientType,
 
     /// The grant type for the send access token request.
     /// SendAccess is a custom grant type for send access tokens.
     /// It is used to differentiate send access requests from other OAuth2 flows.
-    pub grant_type: GrantType,
+    pub(crate) grant_type: GrantType,
 
     /// The scope for the send access token request.
     /// This is set to "api.send" to indicate that the token is for send access.
     /// It allows the token to be used for accessing send-related resources.
-    pub scope: Scope,
+    pub(crate) scope: Scope,
 
     // Custom fields
     /// The ID of the send for which the access token is being requested.
-    pub send_id: String,
+    pub(crate) send_id: String,
 
     /// The credentials used for the send access request.
     /// This can be password, email, email OTP, or anonymous.
@@ -87,7 +87,7 @@ pub struct SendAccessTokenRequestPayload {
     // example: { "password_hash_b64": "example_hash" } instead of { "variant": {
     // "password_hash_b64": "example_hash" } }
     #[serde(flatten)]
-    pub credentials: SendAccessTokenPayloadCredentials,
+    pub(crate) credentials: SendAccessTokenPayloadCredentials,
 }
 
 const SEND_ACCESS_CLIENT_ID: SendAccessClientType = SendAccessClientType::Send;
