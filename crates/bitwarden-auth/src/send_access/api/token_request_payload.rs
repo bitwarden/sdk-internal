@@ -11,7 +11,7 @@ use crate::{
 // example: { "password_hash_b64": "example_hash" } instead of { "Password": { "password_hash_b64":
 // "example_hash" } }
 #[serde(untagged)]
-pub enum SendAccessTokenPayloadCredentials {
+pub(crate) enum SendAccessTokenPayloadCredentials {
     // Uses inline variant syntax for these as we don't need to reference them as independent
     // types elsewhere.
     #[allow(missing_docs)]
