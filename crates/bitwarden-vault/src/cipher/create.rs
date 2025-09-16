@@ -131,9 +131,8 @@ mod tests {
     use bitwarden_test::{start_api_mock, MemoryRepository};
     use wiremock::{matchers, Mock, Request, ResponseTemplate};
 
-    use crate::{CipherId, CipherRepromptType, CipherType, LoginView};
-
     use super::*;
+    use crate::{CipherId, CipherRepromptType, CipherType, LoginView};
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_USER_ID: &str = "550e8400-e29b-41d4-a716-446655440000";
