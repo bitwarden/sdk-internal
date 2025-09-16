@@ -4,7 +4,7 @@ use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
 
-use crate::{Cipher, CipherView, ItemNotFoundError};
+use crate::{Cipher, CipherView, DecryptCipherListResult, ItemNotFoundError};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -38,4 +38,16 @@ pub(super) async fn list_ciphers(
     let ciphers = repository.list().await?;
     let views = store.decrypt_list(&ciphers)?;
     Ok(views)
+}
+
+pub(super) async fn list_ciphers_with_failures(
+    store: &KeyStore<KeyIds>,
+    repository: &dyn Repository<Cipher>,
+) -> Result<DecryptCipherListResult, GetCipherError> {
+    let ciphers = repository.list().await?;
+    let (successes, failures) = store.decrypt_list_with_failures(&ciphers);
+    Ok(DecryptCipherListResult {
+        successes,
+        failures: failures.into_iter().cloned().collect(),
+    })
 }

@@ -13,7 +13,7 @@ use crate::{
     cipher::cipher::DecryptCipherListResult,
     create::{create_cipher, CipherAddEditRequest, CreateCipherError},
     edit::{edit_cipher, EditCipherError},
-    get_list::{get_cipher, list_ciphers, GetCipherError},
+    get_list::{get_cipher, list_ciphers, list_ciphers_with_failures, GetCipherError},
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
     Fido2CredentialFullView,
 };
@@ -188,6 +188,16 @@ impl CiphersClient {
         let repository = self.get_repository()?;
 
         list_ciphers(key_store, repository.as_ref()).await
+    }
+
+    /// Get all ciphers from state and decrypt them, returning both successes and failures.
+    /// This method will not fail when some ciphers fail to decrypt, allowing for graceful
+    /// handling of corrupted or problematic cipher data.
+    pub async fn list_with_failures(&self) -> Result<DecryptCipherListResult, GetCipherError> {
+        let key_store = self.client.internal.get_key_store();
+        let repository = self.get_repository()?;
+
+        list_ciphers_with_failures(key_store, repository.as_ref()).await
     }
 
     /// Get [Cipher] by ID from state and decrypt it to a [CipherView].
