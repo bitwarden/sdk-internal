@@ -91,6 +91,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
                 .map(|note| Box::new(note.into())),
             ssh_key: encrypted_cipher.ssh_key.map(|key| Box::new(key.into())),
             last_known_revision_date: Some(encrypted_cipher.revision_date.to_rfc3339()),
+            archived_date: None,
         };
 
         Ok(cipher_request)
@@ -173,6 +174,7 @@ mod tests {
             creation_date: "2025-01-01T00:00:00Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2025-01-01T00:00:00Z".parse().unwrap(),
+            archived_date: None,
         }
     }
 
@@ -224,6 +226,7 @@ mod tests {
                     attachments: None,
                     permissions: None,
                     data: None,
+                    archived_date: None,
                 })
             })
             .expect(1)])

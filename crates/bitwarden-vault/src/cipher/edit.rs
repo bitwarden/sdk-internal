@@ -112,6 +112,7 @@ mod tests {
             creation_date: "2025-01-01T00:00:00Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2025-01-01T00:00:00Z".parse().unwrap(),
+            archived_date: None,
         }
     }
 
@@ -167,6 +168,7 @@ mod tests {
                     creation_date: "2024-01-01T00:00:00Z".parse().unwrap(),
                     deleted_date: None,
                     revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+                    archived_date: None,
                 },
             )
             .await
@@ -224,6 +226,7 @@ mod tests {
                 attachments: None,
                 permissions: None,
                 data: None,
+                archived_date: None,
             })
         })
         .expect(1)])
