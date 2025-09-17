@@ -91,12 +91,12 @@ wiremock = ">=0.6.0, <0.7"
 [patch.crates-io]
 pkcs5 = { git = "https://github.com/bitwarden/rustcrypto-formats.git", rev = "2b27c63034217dd126bbf5ed874da51b84f8c705" }
 
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "c3a2127332d18ba9dbde1e23778b3af8f355cbac" }
-uniffi_core = { git = "https://github.com/mozilla/uniffi-rs", rev = "c3a2127332d18ba9dbde1e23778b3af8f355cbac" }
-uniffi_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "c3a2127332d18ba9dbde1e23778b3af8f355cbac" }
-uniffi_internal_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "c3a2127332d18ba9dbde1e23778b3af8f355cbac" }
-uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs", rev = "c3a2127332d18ba9dbde1e23778b3af8f355cbac" }
-uniffi_build = { git = "https://github.com/mozilla/uniffi-rs", rev = "c3a2127332d18ba9dbde1e23778b3af8f355cbac" }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_core = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_internal_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_build = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
 
 [workspace.lints.clippy]
 unused_async = "deny"
