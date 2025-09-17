@@ -208,7 +208,7 @@ impl CiphersClient {
                     *data_str = serde_json::to_string(&data_json)
                         .map_err(|e| CipherError::MigrationFailed(e.to_string()))?;
                 }
-                cipher.populate_cipher_types();
+                cipher.populate_cipher_types()?;
             }
         }
 
