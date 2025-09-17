@@ -217,7 +217,6 @@ jobs:
           _RELEASE_NAME: ${{ steps.set-release-name.outputs.release_name }}
           _PKG_VERSION: ${{ steps.version.outputs.version }}
           _SDK_INTERNAL_SHORT_REF: ${{ steps.get-sdk-internal-ref.outputs.short_sha }}
-        working-directory: sdk
         run: |
           gh release create "v$_RELEASE_NAME" \
             --repo bitwarden/sdk-swift \
