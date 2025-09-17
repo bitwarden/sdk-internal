@@ -1,8 +1,8 @@
 use bitwarden_core::key_management::crypto::{
     DeriveKeyConnectorRequest, DerivePinKeyResponse, EnrollPinResponse, InitOrgCryptoRequest,
-    InitUserCryptoRequest, UpdatePasswordResponse,
+    InitUserCryptoRequest, UpdateKdfResponse, UpdatePasswordResponse,
 };
-use bitwarden_crypto::{EncString, UnsignedSharedKey};
+use bitwarden_crypto::{EncString, Kdf, UnsignedSharedKey};
 use bitwarden_encoding::B64;
 
 use crate::error::Result;
@@ -31,10 +31,20 @@ impl CryptoClient {
         Ok(self.0.get_user_encryption_key().await?)
     }
 
-    /// Update the user's password, which will re-encrypt the user's encryption key with the new
-    /// password. This returns the new encrypted user key and the new password hash.
+    /// Create the data necessary to update the user's password. The user's encryption key is
+    /// re-encrypted with the new password. This returns the new encrypted user key and the new
+    /// password hash but does not update sdk state.
+    ///
+    /// Note: This is deprecated and `make_update_password` should be used instead
     pub fn update_password(&self, new_password: String) -> Result<UpdatePasswordResponse> {
-        Ok(self.0.update_password(new_password)?)
+        self.make_update_password(new_password)
+    }
+
+    /// Create the data necessary to update the user's password. The user's encryption key is
+    /// re-encrypted with the new password. This returns the new encrypted user key and the new
+    /// password hash but does not update sdk state.
+    pub fn make_update_password(&self, new_password: String) -> Result<UpdatePasswordResponse> {
+        Ok(self.0.make_update_password(new_password)?)
     }
 
     /// Generates a PIN protected user key from the provided PIN. The result can be stored and later
@@ -76,5 +86,15 @@ impl CryptoClient {
     /// Derive the master key for migrating to the key connector
     pub fn derive_key_connector(&self, request: DeriveKeyConnectorRequest) -> Result<B64> {
         Ok(self.0.derive_key_connector(request)?)
+    }
+
+    /// Create the data necessary to update the user's kdf settings. The user's encryption key is
+    /// re-encrypted for the password under the new kdf settings. This returns the new encrypted
+    /// user key and the new password hash but does not update sdk state.
+    pub fn make_update_kdf(&self, password: String, kdf: Kdf) -> Result<UpdateKdfResponse> {
+        Ok(self
+            .0
+            .make_update_kdf(password, kdf)
+            .map_err(Error::MobileCrypto)?)
     }
 }

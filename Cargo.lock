@@ -391,14 +391,20 @@ version = "1.0.0"
 dependencies = [
  "bitwarden-core",
  "bitwarden-error",
+ "bitwarden-test",
+ "chrono",
+ "reqwest",
  "serde",
  "serde_json",
  "serde_qs",
+ "serde_urlencoded",
  "thiserror 2.0.12",
+ "tokio",
  "tsify",
  "uniffi",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wiremock",
 ]
 
 [[package]]
@@ -722,6 +728,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-state-migrations"
+version = "1.0.0"
+dependencies = [
+ "bitwarden-state",
+ "bitwarden-vault",
+]
+
+[[package]]
 name = "bitwarden-test"
 version = "1.0.0"
 dependencies = [
@@ -769,6 +783,7 @@ dependencies = [
  "bitwarden-send",
  "bitwarden-ssh",
  "bitwarden-state",
+ "bitwarden-state-migrations",
  "bitwarden-uniffi-error",
  "bitwarden-vault",
  "chrono",
@@ -858,6 +873,7 @@ dependencies = [
  "bitwarden-ipc",
  "bitwarden-ssh",
  "bitwarden-state",
+ "bitwarden-state-migrations",
  "bitwarden-threading",
  "bitwarden-vault",
  "console_error_panic_hook",

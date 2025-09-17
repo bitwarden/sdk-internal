@@ -38,6 +38,7 @@ bitwarden-send = { path = "crates/bitwarden-send", version = "=1.0.0" }
 bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=1.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=1.0.0" }
 bitwarden-state = { path = "crates/bitwarden-state", version = "=1.0.0" }
+bitwarden-state-migrations = { path = "crates/bitwarden-state-migrations", version = "=1.0.0" }
 bitwarden-test = { path = "crates/bitwarden-test", version = "=1.0.0" }
 bitwarden-threading = { path = "crates/bitwarden-threading", version = "=1.0.0" }
 bitwarden-uniffi-error = { path = "crates/bitwarden-uniffi-error", version = "=1.0.0" }
