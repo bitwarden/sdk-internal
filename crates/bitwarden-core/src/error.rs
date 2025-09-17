@@ -30,6 +30,7 @@ macro_rules! impl_bitwarden_error {
 /// Errors from performing network requests.
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum ApiError {
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),

@@ -33,6 +33,7 @@ pub struct FingerprintResponse {
 /// Errors that can occur when computing a fingerprint.
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error))]
 pub enum FingerprintError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
@@ -48,6 +49,7 @@ pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String,
 /// Errors that can occur when computing a fingerprint.
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum UserFingerprintError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),

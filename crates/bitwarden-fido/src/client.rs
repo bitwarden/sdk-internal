@@ -15,6 +15,7 @@ use crate::types::InvalidOriginError;
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum Fido2ClientError {
     #[error(transparent)]
     InvalidOrigin(#[from] InvalidOriginError),

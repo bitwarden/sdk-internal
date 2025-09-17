@@ -2,7 +2,7 @@ use std::path::Path;
 
 use bitwarden_vault::{Attachment, AttachmentEncryptResult, AttachmentView, Cipher};
 
-use crate::{error::Error, Result};
+use crate::Result;
 
 #[derive(uniffi::Object)]
 pub struct AttachmentsClient(pub(crate) bitwarden_vault::AttachmentsClient);
@@ -16,10 +16,7 @@ impl AttachmentsClient {
         attachment: AttachmentView,
         buffer: Vec<u8>,
     ) -> Result<AttachmentEncryptResult> {
-        Ok(self
-            .0
-            .encrypt_buffer(cipher, attachment, &buffer)
-            .map_err(Error::Encrypt)?)
+        Ok(self.0.encrypt_buffer(cipher, attachment, &buffer)?)
     }
 
     /// Encrypt an attachment file located in the file system
@@ -30,15 +27,12 @@ impl AttachmentsClient {
         decrypted_file_path: String,
         encrypted_file_path: String,
     ) -> Result<Attachment> {
-        Ok(self
-            .0
-            .encrypt_file(
-                cipher,
-                attachment,
-                Path::new(&decrypted_file_path),
-                Path::new(&encrypted_file_path),
-            )
-            .map_err(Error::EncryptFile)?)
+        Ok(self.0.encrypt_file(
+            cipher,
+            attachment,
+            Path::new(&decrypted_file_path),
+            Path::new(&encrypted_file_path),
+        )?)
     }
     /// Decrypt an attachment file in memory
     pub fn decrypt_buffer(
@@ -47,10 +41,7 @@ impl AttachmentsClient {
         attachment: AttachmentView,
         buffer: Vec<u8>,
     ) -> Result<Vec<u8>> {
-        Ok(self
-            .0
-            .decrypt_buffer(cipher, attachment, &buffer)
-            .map_err(Error::Decrypt)?)
+        Ok(self.0.decrypt_buffer(cipher, attachment, &buffer)?)
     }
 
     /// Decrypt an attachment file located in the file system
@@ -61,14 +52,11 @@ impl AttachmentsClient {
         encrypted_file_path: String,
         decrypted_file_path: String,
     ) -> Result<()> {
-        Ok(self
-            .0
-            .decrypt_file(
-                cipher,
-                attachment,
-                Path::new(&encrypted_file_path),
-                Path::new(&decrypted_file_path),
-            )
-            .map_err(Error::DecryptFile)?)
+        Ok(self.0.decrypt_file(
+            cipher,
+            attachment,
+            Path::new(&encrypted_file_path),
+            Path::new(&decrypted_file_path),
+        )?)
     }
 }
