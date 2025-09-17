@@ -176,11 +176,9 @@ impl CiphersClient {
     }
 
     #[allow(missing_docs)]
-    pub fn migrate(&self, ciphers: Vec<Cipher>) -> Result<Vec<Cipher>, CipherError> {
+    pub fn migrate(&self, mut ciphers: Vec<Cipher>) -> Result<Vec<Cipher>, CipherError> {
         let registry = MigrationRegistry::new();
-        let mut migrated_responses = Vec::new();
-
-        for mut cipher in ciphers {
+        for cipher in &mut ciphers {
             let key = cipher.key_identifier();
             let key_store = self.client.internal.get_key_store();
             let mut ctx = key_store.context();
@@ -210,12 +208,11 @@ impl CiphersClient {
                     *data_str = serde_json::to_string(&data_json)
                         .map_err(|e| CipherError::MigrationFailed(e.to_string()))?;
                 }
+                cipher.populate_cipher_types()?;
             }
-
-            migrated_responses.push(cipher);
         }
 
-        Ok(migrated_responses)
+        Ok(ciphers)
     }
 }
 
@@ -400,7 +397,6 @@ mod tests {
                 creation_date: "2024-05-31T09:35:55.12Z".parse().unwrap(),
                 deleted_date: None,
                 revision_date: "2024-05-31T09:35:55.12Z".parse().unwrap(),
-                // version: None,
                 data: None,
             }])
 
