@@ -50,6 +50,10 @@ pub enum CipherError {
         "This cipher contains attachments without keys. Those attachments will need to be reuploaded to complete the operation"
     )]
     AttachmentsWithoutKeys,
+    #[error(transparent)]
+    Chrono(#[from] chrono::ParseError),
+    #[error(transparent)]
+    SerdeJson(#[from] serde_json::Error),
 }
 
 /// Helper trait for operations on cipher types.
@@ -448,26 +452,27 @@ impl Cipher {
             .unwrap_or_default()
     }
 
-    /// Extracts and sets the CipherType-specific fields from the opaque `data` field.
-    pub(crate) fn populate_cipher_types(&mut self) {
-        let Ok(data) =
-            serde_json::from_str::<serde_json::Value>(self.data.as_deref().unwrap_or("{}"))
-        else {
-            // If we can't deserialize the data, then we'll return the cipher as-is.
-            // Should maybe return a result instead?
-            return;
-        };
+    /// This replaces the values provided by the API in the `login`, `secure_note`, `card`,
+    /// `identity`, and `ssh_key` fields, relying instead on client-side parsing of the
+    /// `data` field.
+    pub(crate) fn populate_cipher_types(&mut self) -> Result<(), VaultParseError> {
+        let data = self
+            .data
+            .as_ref()
+            .ok_or(VaultParseError::MissingFieldError(MissingFieldError(
+                "data",
+            )))?;
 
         match &self.r#type {
-            crate::CipherType::Login => self.login = serde_json::from_value(data).ok(),
-            crate::CipherType::SecureNote => self.secure_note = serde_json::from_value(data).ok(),
-            crate::CipherType::Card => self.card = serde_json::from_value(data).ok(),
-            crate::CipherType::Identity => self.identity = serde_json::from_value(data).ok(),
-            crate::CipherType::SshKey => self.ssh_key = serde_json::from_value(data).ok(),
+            crate::CipherType::Login => self.login = serde_json::from_str(data)?,
+            crate::CipherType::SecureNote => self.secure_note = serde_json::from_str(data)?,
+            crate::CipherType::Card => self.card = serde_json::from_str(data)?,
+            crate::CipherType::Identity => self.identity = serde_json::from_str(data)?,
+            crate::CipherType::SshKey => self.ssh_key = serde_json::from_str(data)?,
         }
+        Ok(())
     }
 }
-
 impl CipherView {
     #[allow(missing_docs)]
     pub fn generate_cipher_key(
@@ -1402,10 +1407,15 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            data: Some(format!(r#"{{"version": 2, "username": "{}", "password": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#, TEST_ENC_STRING_1, TEST_ENC_STRING_2)),
+            data: Some(format!(
+                r#"{{"version": 2, "username": "{}", "password": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#,
+                TEST_ENC_STRING_1, TEST_ENC_STRING_2
+            )),
         };
 
-        cipher.populate_cipher_types();
+        cipher
+            .populate_cipher_types()
+            .expect("populate_cipher_types failed");
 
         assert!(cipher.login.is_some());
         let login = cipher.login.unwrap();
@@ -1445,7 +1455,9 @@ mod tests {
             data: Some(r#"{"type": 0, "organizationUseTotp": false, "favorite": false, "deletedDate": null}"#.to_string()),
         };
 
-        cipher.populate_cipher_types();
+        cipher
+            .populate_cipher_types()
+            .expect("populate_cipher_types failed");
 
         assert!(cipher.secure_note.is_some());
     }
@@ -1479,17 +1491,36 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            data: Some(format!(r#"{{"cardholderName": "{}", "number": "{}", "expMonth": "{}", "expYear": "{}", "code": "{}", "brand": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#, TEST_ENC_STRING_1, TEST_ENC_STRING_2, TEST_ENC_STRING_3, TEST_ENC_STRING_4, TEST_ENC_STRING_5, TEST_ENC_STRING_1)),
+            data: Some(format!(
+                r#"{{"cardholderName": "{}", "number": "{}", "expMonth": "{}", "expYear": "{}", "code": "{}", "brand": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#,
+                TEST_ENC_STRING_1,
+                TEST_ENC_STRING_2,
+                TEST_ENC_STRING_3,
+                TEST_ENC_STRING_4,
+                TEST_ENC_STRING_5,
+                TEST_ENC_STRING_1
+            )),
         };
 
-        cipher.populate_cipher_types();
+        cipher
+            .populate_cipher_types()
+            .expect("populate_cipher_types failed");
 
         assert!(cipher.card.is_some());
         let card = cipher.card.unwrap();
-        assert_eq!(card.cardholder_name.as_ref().unwrap().to_string(), TEST_ENC_STRING_1);
+        assert_eq!(
+            card.cardholder_name.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_1
+        );
         assert_eq!(card.number.as_ref().unwrap().to_string(), TEST_ENC_STRING_2);
-        assert_eq!(card.exp_month.as_ref().unwrap().to_string(), TEST_ENC_STRING_3);
-        assert_eq!(card.exp_year.as_ref().unwrap().to_string(), TEST_ENC_STRING_4);
+        assert_eq!(
+            card.exp_month.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_3
+        );
+        assert_eq!(
+            card.exp_year.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_4
+        );
         assert_eq!(card.code.as_ref().unwrap().to_string(), TEST_ENC_STRING_5);
         assert_eq!(card.brand.as_ref().unwrap().to_string(), TEST_ENC_STRING_1);
     }
@@ -1523,23 +1554,67 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            data: Some(format!(r#"{{"firstName": "{}", "lastName": "{}", "email": "{}", "phone": "{}", "company": "{}", "address1": "{}", "city": "{}", "state": "{}", "postalCode": "{}", "country": "{}", "organizationUseTotp": false, "favorite": true, "deletedDate": null}}"#, TEST_ENC_STRING_1, TEST_ENC_STRING_2, TEST_ENC_STRING_3, TEST_ENC_STRING_4, TEST_ENC_STRING_5, TEST_ENC_STRING_1, TEST_ENC_STRING_2, TEST_ENC_STRING_3, TEST_ENC_STRING_4, TEST_ENC_STRING_5)),
+            data: Some(format!(
+                r#"{{"firstName": "{}", "lastName": "{}", "email": "{}", "phone": "{}", "company": "{}", "address1": "{}", "city": "{}", "state": "{}", "postalCode": "{}", "country": "{}", "organizationUseTotp": false, "favorite": true, "deletedDate": null}}"#,
+                TEST_ENC_STRING_1,
+                TEST_ENC_STRING_2,
+                TEST_ENC_STRING_3,
+                TEST_ENC_STRING_4,
+                TEST_ENC_STRING_5,
+                TEST_ENC_STRING_1,
+                TEST_ENC_STRING_2,
+                TEST_ENC_STRING_3,
+                TEST_ENC_STRING_4,
+                TEST_ENC_STRING_5
+            )),
         };
 
-        cipher.populate_cipher_types();
+        cipher
+            .populate_cipher_types()
+            .expect("populate_cipher_types failed");
 
         assert!(cipher.identity.is_some());
         let identity = cipher.identity.unwrap();
-        assert_eq!(identity.first_name.as_ref().unwrap().to_string(), TEST_ENC_STRING_1);
-        assert_eq!(identity.last_name.as_ref().unwrap().to_string(), TEST_ENC_STRING_2);
-        assert_eq!(identity.email.as_ref().unwrap().to_string(), TEST_ENC_STRING_3);
-        assert_eq!(identity.phone.as_ref().unwrap().to_string(), TEST_ENC_STRING_4);
-        assert_eq!(identity.company.as_ref().unwrap().to_string(), TEST_ENC_STRING_5);
-        assert_eq!(identity.address1.as_ref().unwrap().to_string(), TEST_ENC_STRING_1);
-        assert_eq!(identity.city.as_ref().unwrap().to_string(), TEST_ENC_STRING_2);
-        assert_eq!(identity.state.as_ref().unwrap().to_string(), TEST_ENC_STRING_3);
-        assert_eq!(identity.postal_code.as_ref().unwrap().to_string(), TEST_ENC_STRING_4);
-        assert_eq!(identity.country.as_ref().unwrap().to_string(), TEST_ENC_STRING_5);
+        assert_eq!(
+            identity.first_name.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_1
+        );
+        assert_eq!(
+            identity.last_name.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_2
+        );
+        assert_eq!(
+            identity.email.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_3
+        );
+        assert_eq!(
+            identity.phone.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_4
+        );
+        assert_eq!(
+            identity.company.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_5
+        );
+        assert_eq!(
+            identity.address1.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_1
+        );
+        assert_eq!(
+            identity.city.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_2
+        );
+        assert_eq!(
+            identity.state.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_3
+        );
+        assert_eq!(
+            identity.postal_code.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_4
+        );
+        assert_eq!(
+            identity.country.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_5
+        );
     }
 
     #[test]
@@ -1571,10 +1646,15 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            data: Some(format!(r#"{{"privateKey": "{}", "publicKey": "{}", "fingerprint": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#, TEST_ENC_STRING_1, TEST_ENC_STRING_2, TEST_ENC_STRING_3)),
+            data: Some(format!(
+                r#"{{"privateKey": "{}", "publicKey": "{}", "fingerprint": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#,
+                TEST_ENC_STRING_1, TEST_ENC_STRING_2, TEST_ENC_STRING_3
+            )),
         };
 
-        cipher.populate_cipher_types();
+        cipher
+            .populate_cipher_types()
+            .expect("populate_cipher_types failed");
 
         assert!(cipher.ssh_key.is_some());
         let ssh_key = cipher.ssh_key.unwrap();
@@ -1615,13 +1695,13 @@ mod tests {
             data: None,
         };
 
-        cipher.populate_cipher_types();
-
-        // Should not crash and login should be created (empty Login with None fields)
-        assert!(cipher.login.is_some());
-        let login = cipher.login.unwrap();
-        assert!(login.username.is_none());
-        assert!(login.password.is_none());
+        let result = cipher.populate_cipher_types();
+        assert!(matches!(
+            result,
+            Err(VaultParseError::MissingFieldError(MissingFieldError(
+                "data"
+            )))
+        ));
     }
 
     #[test]
@@ -1656,10 +1736,8 @@ mod tests {
             data: Some("invalid json".to_string()),
         };
 
-        cipher.populate_cipher_types();
+        let result = cipher.populate_cipher_types();
 
-        // Should not crash and login should remain None
-        assert!(cipher.login.is_none());
+        assert!(matches!(result, Err(VaultParseError::SerdeJson(_))));
     }
-
 }
