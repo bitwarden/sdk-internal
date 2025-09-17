@@ -92,9 +92,6 @@ impl CryptoClient {
     /// re-encrypted for the password under the new kdf settings. This returns the new encrypted
     /// user key and the new password hash but does not update sdk state.
     pub fn make_update_kdf(&self, password: String, kdf: Kdf) -> Result<UpdateKdfResponse> {
-        Ok(self
-            .0
-            .make_update_kdf(password, kdf)
-            .map_err(Error::MobileCrypto)?)
+        Ok(self.0.make_update_kdf(password, kdf)?)
     }
 }
