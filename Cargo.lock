@@ -401,7 +401,6 @@ dependencies = [
  "thiserror 2.0.12",
  "tokio",
  "tsify",
- "uniffi",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wiremock",
