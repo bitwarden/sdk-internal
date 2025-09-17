@@ -349,14 +349,20 @@ version = "1.0.0"
 dependencies = [
  "bitwarden-core",
  "bitwarden-error",
+ "bitwarden-test",
+ "chrono",
+ "reqwest",
  "serde",
  "serde_json",
  "serde_qs",
+ "serde_urlencoded",
  "thiserror 2.0.12",
+ "tokio",
  "tsify",
  "uniffi",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wiremock",
 ]
 
 [[package]]
@@ -518,10 +524,10 @@ dependencies = [
 name = "bitwarden-exporters"
 version = "1.0.0"
 dependencies = [
- "base64",
  "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-fido",
  "bitwarden-ssh",
@@ -544,9 +550,9 @@ name = "bitwarden-fido"
 version = "1.0.0"
 dependencies = [
  "async-trait",
- "base64",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-vault",
  "chrono",
  "coset",
@@ -608,10 +614,10 @@ dependencies = [
 name = "bitwarden-send"
 version = "1.0.0"
 dependencies = [
- "base64",
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "chrono",
  "serde",
  "serde_repr",
@@ -781,7 +787,6 @@ dependencies = [
 name = "bitwarden-vault"
 version = "1.0.0"
 dependencies = [
- "base64",
  "bitwarden-api-api",
  "bitwarden-collections",
  "bitwarden-core",

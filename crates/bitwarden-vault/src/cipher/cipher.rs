@@ -2,7 +2,7 @@ use bitwarden_api_api::models::CipherDetailsResponseModel;
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
-    require, MissingFieldError, OrganizationId, UserId, VaultLockedError,
+    require, MissingFieldError, OrganizationId, UserId,
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
@@ -40,13 +40,11 @@ uuid_newtype!(pub CipherId);
 #[derive(Debug, Error)]
 pub enum CipherError {
     #[error(transparent)]
-    MissingFieldError(#[from] MissingFieldError),
+    MissingField(#[from] MissingFieldError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
+    Crypto(#[from] CryptoError),
     #[error(transparent)]
-    CryptoError(#[from] CryptoError),
-    #[error(transparent)]
-    EncryptError(#[from] EncryptError),
+    Encrypt(#[from] EncryptError),
     #[error("This cipher contains attachments without keys. Those attachments will need to be reuploaded to complete the operation")]
     AttachmentsWithoutKeys,
 }

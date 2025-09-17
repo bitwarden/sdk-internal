@@ -60,11 +60,6 @@ pub struct UserIdAlreadySetError;
 #[error("The response received was missing a required field: {0}")]
 pub struct MissingFieldError(pub &'static str);
 
-/// Client vault is locked.
-#[derive(Debug, Error)]
-#[error("The client vault is locked and needs to be unlocked before use")]
-pub struct VaultLockedError;
-
 /// Wrong password.
 #[derive(Debug, thiserror::Error)]
 #[error("Wrong password")]
@@ -94,7 +89,7 @@ pub enum StatefulCryptoError {
         got: u32,
     },
     #[error("Crypto error, {0}")]
-    CryptoError(#[from] bitwarden_crypto::CryptoError),
+    Crypto(#[from] bitwarden_crypto::CryptoError),
 }
 
 /// This macro is used to require that a value is present or return an error otherwise.

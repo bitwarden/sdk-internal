@@ -208,8 +208,6 @@ impl AuthClient {
 #[derive(Debug, thiserror::Error)]
 pub enum TrustDeviceError {
     #[error(transparent)]
-    VaultLocked(#[from] crate::VaultLockedError),
-    #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
 }
 
