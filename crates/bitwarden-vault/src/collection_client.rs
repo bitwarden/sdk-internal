@@ -72,6 +72,7 @@ pub struct AncestorMap {
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "uniffi", uniffi::export)]
 impl CollectionViewNodeItem {
     pub fn get_item(&self) -> CollectionView {
         self.node_item.item.clone()
@@ -93,6 +94,7 @@ impl CollectionViewNodeItem {
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "uniffi", uniffi::export)]
 impl CollectionViewTree {
     pub fn get_item_by_id(
         &self,
