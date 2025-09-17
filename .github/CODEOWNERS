@@ -22,3 +22,8 @@ crates/bitwarden-vault/** @bitwarden/team-vault-dev @bitwarden/team-platform-dev
 ## Multiple owners
 .github/workflows/build-* @bitwarden/team-platform-dev
 .github/workflows/version-bump.yml @bitwarden/team-platform-dev
+
+# Default shared ownership of Dockerfile
+**/Dockerfile @bitwarden/team-appsec @bitwarden/dept-bre
+**/*.dockerignore @bitwarden/team-appsec @bitwarden/dept-bre
+**/entrypoint.sh @bitwarden/team-appsec @bitwarden/dept-bre
