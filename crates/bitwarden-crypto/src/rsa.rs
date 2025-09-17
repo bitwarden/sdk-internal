@@ -61,5 +61,5 @@ pub(super) fn encrypt_rsa2048_oaep_sha1(public_key: &RsaPublicKey, data: &[u8]) 
     let padding = Oaep::new::<Sha1>();
     public_key
         .encrypt(&mut rng, padding, data)
-        .map_err(|e| CryptoError::RsaError(e.into()))
+        .map_err(|e| CryptoError::Rsa(e.into()))
 }

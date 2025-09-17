@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["bitwarden_license/*", "crates/*"]
+exclude = ["support/lints"]
 
 # Global settings for all crates should be defined here
 [workspace.package]
@@ -37,6 +38,7 @@ bitwarden-send = { path = "crates/bitwarden-send", version = "=1.0.0" }
 bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=1.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=1.0.0" }
 bitwarden-state = { path = "crates/bitwarden-state", version = "=1.0.0" }
+bitwarden-state-migrations = { path = "crates/bitwarden-state-migrations", version = "=1.0.0" }
 bitwarden-test = { path = "crates/bitwarden-test", version = "=1.0.0" }
 bitwarden-threading = { path = "crates/bitwarden-threading", version = "=1.0.0" }
 bitwarden-uniffi-error = { path = "crates/bitwarden-uniffi-error", version = "=1.0.0" }
@@ -96,6 +98,9 @@ string_slice = "warn"
 
 [workspace.lints.rust]
 missing_docs = "warn"
+
+[workspace.metadata.dylint]
+libraries = [{ path = "support/lints" }]
 
 # Compile all dependencies with some optimizations when building this crate on debug
 # This slows down clean builds by about 50%, but the resulting binaries can be orders of magnitude faster

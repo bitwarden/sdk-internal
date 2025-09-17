@@ -1,8 +1,8 @@
 #![doc = include_str!("../README.md")]
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::key_management::KeyIds;
 use bitwarden_crypto::KeyStoreContext;
+use bitwarden_encoding::{B64Url, NotB64UrlEncoded};
 use bitwarden_vault::{
     CipherError, CipherView, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView,
 };
@@ -78,7 +78,7 @@ impl CipherViewContainer {
 #[derive(Debug, Error)]
 pub enum Fido2Error {
     #[error(transparent)]
-    DecodeError(#[from] base64::DecodeError),
+    Decode(#[from] NotB64UrlEncoded),
 
     #[error(transparent)]
     UnknownEnum(#[from] UnknownEnum),
@@ -87,7 +87,7 @@ pub enum Fido2Error {
     InvalidGuid(#[from] InvalidGuid),
 
     #[error(transparent)]
-    PrivateKeyFromSecretKeyError(#[from] PrivateKeyFromSecretKeyError),
+    PrivateKeyFromSecretKey(#[from] PrivateKeyFromSecretKeyError),
 
     #[error("No Fido2 credentials found")]
     NoFido2CredentialsFound,
@@ -115,19 +115,16 @@ fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passk
         .parse()
         .map_err(|_| Fido2Error::InvalidCounter)?;
     let counter = (counter != 0).then_some(counter);
-    let key_value = URL_SAFE_NO_PAD.decode(value.key_value)?;
-    let user_handle = value
-        .user_handle
-        .map(|u| URL_SAFE_NO_PAD.decode(u))
-        .transpose()?;
+    let key_value = B64Url::try_from(value.key_value)?;
+    let user_handle = value.user_handle.map(B64Url::try_from).transpose()?;
 
-    let key = pkcs8_to_cose_key(&key_value)?;
+    let key = pkcs8_to_cose_key(key_value.as_bytes())?;
 
     Ok(Passkey {
         key,
         credential_id: string_to_guid_bytes(&value.credential_id)?.into(),
         rp_id: value.rp_id.clone(),
-        user_handle: user_handle.map(|u| u.into()),
+        user_handle: user_handle.map(|u| u.into_bytes().into()),
         counter,
     })
 }
@@ -149,8 +146,8 @@ pub fn fill_with_credential(
     let cred_id: Vec<u8> = value.credential_id.into();
     let user_handle = value
         .user_handle
-        .map(|u| URL_SAFE_NO_PAD.encode(u.to_vec()));
-    let key_value = URL_SAFE_NO_PAD.encode(cose_key_to_pkcs8(&value.key)?);
+        .map(|u| B64Url::from(u.to_vec()).to_string());
+    let key_value = B64Url::from(cose_key_to_pkcs8(&value.key)?).to_string();
 
     Ok(Fido2CredentialFullView {
         credential_id: guid_bytes_to_string(&cred_id)?,
@@ -175,7 +172,7 @@ pub(crate) fn try_from_credential_new_view(
     rp: &passkey::types::ctap2::make_credential::PublicKeyCredentialRpEntity,
 ) -> Result<Fido2CredentialNewView, InvalidInputLength> {
     let cred_id: Vec<u8> = vec![0; 16];
-    let user_handle = URL_SAFE_NO_PAD.encode(user.id.to_vec());
+    let user_handle = B64Url::from(user.id.to_vec()).to_string();
 
     Ok(Fido2CredentialNewView {
         // TODO: Why do we have a credential id here?
@@ -201,8 +198,8 @@ pub(crate) fn try_from_credential_full(
     options: passkey::types::ctap2::get_assertion::Options,
 ) -> Result<Fido2CredentialFullView, FillCredentialError> {
     let cred_id: Vec<u8> = value.credential_id.into();
-    let key_value = URL_SAFE_NO_PAD.encode(cose_key_to_pkcs8(&value.key)?);
-    let user_handle = URL_SAFE_NO_PAD.encode(user.id.to_vec());
+    let key_value = B64Url::from(cose_key_to_pkcs8(&value.key)?).to_string();
+    let user_handle = B64Url::from(user.id.to_vec()).to_string();
 
     Ok(Fido2CredentialFullView {
         credential_id: guid_bytes_to_string(&cred_id)?,
@@ -243,10 +240,8 @@ pub struct InvalidGuid;
 #[allow(missing_docs)]
 pub fn string_to_guid_bytes(source: &str) -> Result<Vec<u8>, InvalidGuid> {
     if source.starts_with("b64.") {
-        let bytes = URL_SAFE_NO_PAD
-            .decode(source.trim_start_matches("b64."))
-            .map_err(|_| InvalidGuid)?;
-        Ok(bytes)
+        let bytes = B64Url::try_from(source.trim_start_matches("b64.")).map_err(|_| InvalidGuid)?;
+        Ok(bytes.as_bytes().to_vec())
     } else {
         let Ok(uuid) = uuid::Uuid::try_parse(source) else {
             return Err(InvalidGuid);

@@ -16,6 +16,11 @@ impl B64Url {
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
+
+    /// Returns the inner byte vector.
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0
+    }
 }
 
 impl From<Vec<u8>> for B64Url {

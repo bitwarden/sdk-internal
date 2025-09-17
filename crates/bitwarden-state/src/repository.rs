@@ -100,6 +100,51 @@ pub const fn validate_registry_name(name: &str) -> bool {
     true
 }
 
+/// Represents a set of migrations for multiple repositories in a database migration process.
+#[derive(Debug, Clone)]
+pub struct RepositoryMigrations {
+    pub(crate) steps: Vec<RepositoryMigrationStep>,
+    // This is used only by indexedDB
+    #[allow(dead_code)]
+    pub(crate) version: u32,
+}
+
+/// Represents a single step for a repository in a database migration process.
+#[derive(Debug, Clone, Copy)]
+pub enum RepositoryMigrationStep {
+    /// Add a new repository.
+    Add(RepositoryItemData),
+    /// Remove an existing repository.
+    Remove(RepositoryItemData),
+}
+
+impl RepositoryMigrations {
+    /// Create a new `RepositoryMigrations` with the given steps. The version is derived from the
+    /// number of steps.
+    pub fn new(steps: Vec<RepositoryMigrationStep>) -> Self {
+        Self {
+            version: steps.len() as u32,
+            steps,
+        }
+    }
+
+    /// Converts the migration steps into a list of unique repository item data.
+    pub fn into_repository_items(self) -> Vec<RepositoryItemData> {
+        let mut map = std::collections::HashMap::new();
+        for step in self.steps {
+            match step {
+                RepositoryMigrationStep::Add(data) => {
+                    map.insert(data.type_id, data);
+                }
+                RepositoryMigrationStep::Remove(data) => {
+                    map.remove(&data.type_id);
+                }
+            }
+        }
+        map.into_values().collect()
+    }
+}
+
 /// Register a type for use in a repository. The type must only be registered once in the crate
 /// where it's defined. The provided name must be unique and not be changed.
 #[macro_export]

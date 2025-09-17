@@ -31,12 +31,11 @@ wasm = [
 ] # WASM support
 
 [dependencies]
-base64 = ">=0.22.1, <0.23"
 bitwarden-api-api = { workspace = true }
 bitwarden-collections = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
-bitwarden-encoding.workspace = true
+bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-uuid = { workspace = true }
