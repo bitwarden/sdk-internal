@@ -51,6 +51,9 @@ pub struct CipherWithIdRequestModel {
     pub secure_note: Option<Box<models::CipherSecureNoteModel>>,
     #[serde(rename = "sshKey", skip_serializing_if = "Option::is_none")]
     pub ssh_key: Option<Box<models::CipherSshKeyModel>>,
+    /// JSON string containing cipher-specific data
+    #[serde(rename = "data", skip_serializing_if = "Option::is_none")]
+    pub data: Option<String>,
     #[serde(
         rename = "lastKnownRevisionDate",
         skip_serializing_if = "Option::is_none"
@@ -83,6 +86,7 @@ impl CipherWithIdRequestModel {
             identity: None,
             secure_note: None,
             ssh_key: None,
+            data: None,
             last_known_revision_date: None,
             archived_date: None,
             id,
