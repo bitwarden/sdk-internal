@@ -1,5 +1,5 @@
 use bitwarden_api_api::{
-    apis::auth_requests_api::{auth_requests_id_response_get, auth_requests_post},
+    apis::auth_requests_api::{auth_requests_get_response, auth_requests_post},
     models::{AuthRequestCreateRequestModel, AuthRequestType},
 };
 use bitwarden_crypto::Kdf;
@@ -64,7 +64,7 @@ pub(crate) async fn complete_auth_request(
 ) -> Result<(), LoginError> {
     let config = client.internal.get_api_configurations().await;
 
-    let res = auth_requests_id_response_get(
+    let res = auth_requests_get_response(
         &config.api,
         auth_req.auth_request_id,
         Some(&auth_req.access_code),
