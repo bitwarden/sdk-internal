@@ -46,7 +46,7 @@ pub(crate) async fn send_two_factor_email(
     )?;
 
     let config = client.internal.get_api_configurations().await;
-    bitwarden_api_api::apis::two_factor_api::two_factor_send_email_login_post(
+    bitwarden_api_api::apis::two_factor_api::two_factor_send_email_login(
         &config.api,
         Some(TwoFactorEmailRequestModel {
             master_password_hash: Some(password_hash.to_string()),

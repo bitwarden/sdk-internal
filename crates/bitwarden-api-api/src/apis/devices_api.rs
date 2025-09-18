@@ -14,6 +14,13 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
+/// struct for typed errors of method [`devices_deactivate`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DevicesDeactivateError {
+    UnknownValue(serde_json::Value),
+}
+
 /// struct for typed errors of method [`devices_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -21,129 +28,38 @@ pub enum DevicesGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`devices_id_deactivate_post`]
+/// struct for typed errors of method [`devices_get_all`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum DevicesIdDeactivatePostError {
+pub enum DevicesGetAllError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`devices_id_delete`]
+/// struct for typed errors of method [`devices_get_by_email_and_identifier`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum DevicesIdDeleteError {
+pub enum DevicesGetByEmailAndIdentifierError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`devices_id_get`]
+/// struct for typed errors of method [`devices_get_by_identifier`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum DevicesIdGetError {
+pub enum DevicesGetByIdentifierError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`devices_id_post`]
+/// struct for typed errors of method [`devices_get_by_identifier_query`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum DevicesIdPostError {
+pub enum DevicesGetByIdentifierQueryError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`devices_id_put`]
+/// struct for typed errors of method [`devices_get_device_keys`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum DevicesIdPutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`devices_identifier_identifier_clear_token_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DevicesIdentifierIdentifierClearTokenPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`devices_identifier_identifier_clear_token_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DevicesIdentifierIdentifierClearTokenPutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`devices_identifier_identifier_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DevicesIdentifierIdentifierGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`devices_identifier_identifier_token_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DevicesIdentifierIdentifierTokenPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`devices_identifier_identifier_token_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DevicesIdentifierIdentifierTokenPutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`devices_identifier_identifier_web_push_auth_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DevicesIdentifierIdentifierWebPushAuthPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`devices_identifier_identifier_web_push_auth_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DevicesIdentifierIdentifierWebPushAuthPutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`devices_identifier_keys_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DevicesIdentifierKeysPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`devices_identifier_keys_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DevicesIdentifierKeysPutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`devices_identifier_retrieve_keys_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DevicesIdentifierRetrieveKeysPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`devices_knowndevice_email_identifier_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DevicesKnowndeviceEmailIdentifierGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`devices_knowndevice_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DevicesKnowndeviceGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`devices_lost_trust_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DevicesLostTrustPostError {
+pub enum DevicesGetDeviceKeysError {
     UnknownValue(serde_json::Value),
 }
 
@@ -154,23 +70,198 @@ pub enum DevicesPostError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`devices_untrust_post`]
+/// struct for typed errors of method [`devices_post_clear_token`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum DevicesUntrustPostError {
+pub enum DevicesPostClearTokenError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`devices_update_trust_post`]
+/// struct for typed errors of method [`devices_post_deactivate`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum DevicesUpdateTrustPostError {
+pub enum DevicesPostDeactivateError {
     UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`devices_post_keys`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DevicesPostKeysError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`devices_post_lost_trust`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DevicesPostLostTrustError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`devices_post_put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DevicesPostPutError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`devices_post_token`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DevicesPostTokenError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`devices_post_untrust`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DevicesPostUntrustError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`devices_post_update_trust`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DevicesPostUpdateTrustError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`devices_post_web_push_auth`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DevicesPostWebPushAuthError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`devices_put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DevicesPutError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`devices_put_clear_token`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DevicesPutClearTokenError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`devices_put_keys`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DevicesPutKeysError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`devices_put_token`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DevicesPutTokenError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`devices_put_web_push_auth`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DevicesPutWebPushAuthError {
+    UnknownValue(serde_json::Value),
+}
+
+pub async fn devices_deactivate(
+    configuration: &configuration::Configuration,
+    id: &str,
+) -> Result<(), Error<DevicesDeactivateError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/devices/{id}",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesDeactivateError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
 }
 
 pub async fn devices_get(
     configuration: &configuration::Configuration,
-) -> Result<models::DeviceAuthRequestResponseModelListResponseModel, Error<DevicesGetError>> {
+    id: &str,
+) -> Result<models::DeviceResponseModel, Error<DevicesGetError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/devices/{id}",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeviceResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeviceResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn devices_get_all(
+    configuration: &configuration::Configuration,
+) -> Result<models::DeviceAuthRequestResponseModelListResponseModel, Error<DevicesGetAllError>> {
     let uri_str = format!("{}/devices", configuration.base_path);
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
@@ -201,7 +292,7 @@ pub async fn devices_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<DevicesGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<DevicesGetAllError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -210,721 +301,11 @@ pub async fn devices_get(
     }
 }
 
-pub async fn devices_id_deactivate_post(
-    configuration: &configuration::Configuration,
-    id: &str,
-) -> Result<(), Error<DevicesIdDeactivatePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/devices/{id}/deactivate",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<DevicesIdDeactivatePostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn devices_id_delete(
-    configuration: &configuration::Configuration,
-    id: &str,
-) -> Result<(), Error<DevicesIdDeleteError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/devices/{id}",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<DevicesIdDeleteError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn devices_id_get(
-    configuration: &configuration::Configuration,
-    id: &str,
-) -> Result<models::DeviceResponseModel, Error<DevicesIdGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/devices/{id}",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeviceResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeviceResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<DevicesIdGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn devices_id_post(
-    configuration: &configuration::Configuration,
-    id: &str,
-    device_request_model: Option<models::DeviceRequestModel>,
-) -> Result<models::DeviceResponseModel, Error<DevicesIdPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_device_request_model = device_request_model;
-
-    let uri_str = format!(
-        "{}/devices/{id}",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_device_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeviceResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeviceResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<DevicesIdPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn devices_id_put(
-    configuration: &configuration::Configuration,
-    id: &str,
-    device_request_model: Option<models::DeviceRequestModel>,
-) -> Result<models::DeviceResponseModel, Error<DevicesIdPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_device_request_model = device_request_model;
-
-    let uri_str = format!(
-        "{}/devices/{id}",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_device_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeviceResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeviceResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<DevicesIdPutError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn devices_identifier_identifier_clear_token_post(
-    configuration: &configuration::Configuration,
-    identifier: &str,
-) -> Result<(), Error<DevicesIdentifierIdentifierClearTokenPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_identifier = identifier;
-
-    let uri_str = format!(
-        "{}/devices/identifier/{identifier}/clear-token",
-        configuration.base_path,
-        identifier = crate::apis::urlencode(p_identifier)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<DevicesIdentifierIdentifierClearTokenPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn devices_identifier_identifier_clear_token_put(
-    configuration: &configuration::Configuration,
-    identifier: &str,
-) -> Result<(), Error<DevicesIdentifierIdentifierClearTokenPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_identifier = identifier;
-
-    let uri_str = format!(
-        "{}/devices/identifier/{identifier}/clear-token",
-        configuration.base_path,
-        identifier = crate::apis::urlencode(p_identifier)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<DevicesIdentifierIdentifierClearTokenPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn devices_identifier_identifier_get(
-    configuration: &configuration::Configuration,
-    identifier: &str,
-) -> Result<models::DeviceResponseModel, Error<DevicesIdentifierIdentifierGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_identifier = identifier;
-
-    let uri_str = format!(
-        "{}/devices/identifier/{identifier}",
-        configuration.base_path,
-        identifier = crate::apis::urlencode(p_identifier)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeviceResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeviceResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<DevicesIdentifierIdentifierGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn devices_identifier_identifier_token_post(
-    configuration: &configuration::Configuration,
-    identifier: &str,
-    device_token_request_model: Option<models::DeviceTokenRequestModel>,
-) -> Result<(), Error<DevicesIdentifierIdentifierTokenPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_identifier = identifier;
-    let p_device_token_request_model = device_token_request_model;
-
-    let uri_str = format!(
-        "{}/devices/identifier/{identifier}/token",
-        configuration.base_path,
-        identifier = crate::apis::urlencode(p_identifier)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_device_token_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<DevicesIdentifierIdentifierTokenPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn devices_identifier_identifier_token_put(
-    configuration: &configuration::Configuration,
-    identifier: &str,
-    device_token_request_model: Option<models::DeviceTokenRequestModel>,
-) -> Result<(), Error<DevicesIdentifierIdentifierTokenPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_identifier = identifier;
-    let p_device_token_request_model = device_token_request_model;
-
-    let uri_str = format!(
-        "{}/devices/identifier/{identifier}/token",
-        configuration.base_path,
-        identifier = crate::apis::urlencode(p_identifier)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_device_token_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<DevicesIdentifierIdentifierTokenPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn devices_identifier_identifier_web_push_auth_post(
-    configuration: &configuration::Configuration,
-    identifier: &str,
-    web_push_auth_request_model: Option<models::WebPushAuthRequestModel>,
-) -> Result<(), Error<DevicesIdentifierIdentifierWebPushAuthPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_identifier = identifier;
-    let p_web_push_auth_request_model = web_push_auth_request_model;
-
-    let uri_str = format!(
-        "{}/devices/identifier/{identifier}/web-push-auth",
-        configuration.base_path,
-        identifier = crate::apis::urlencode(p_identifier)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_web_push_auth_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<DevicesIdentifierIdentifierWebPushAuthPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn devices_identifier_identifier_web_push_auth_put(
-    configuration: &configuration::Configuration,
-    identifier: &str,
-    web_push_auth_request_model: Option<models::WebPushAuthRequestModel>,
-) -> Result<(), Error<DevicesIdentifierIdentifierWebPushAuthPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_identifier = identifier;
-    let p_web_push_auth_request_model = web_push_auth_request_model;
-
-    let uri_str = format!(
-        "{}/devices/identifier/{identifier}/web-push-auth",
-        configuration.base_path,
-        identifier = crate::apis::urlencode(p_identifier)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_web_push_auth_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<DevicesIdentifierIdentifierWebPushAuthPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn devices_identifier_keys_post(
-    configuration: &configuration::Configuration,
-    identifier: &str,
-    device_keys_request_model: Option<models::DeviceKeysRequestModel>,
-) -> Result<models::DeviceResponseModel, Error<DevicesIdentifierKeysPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_identifier = identifier;
-    let p_device_keys_request_model = device_keys_request_model;
-
-    let uri_str = format!(
-        "{}/devices/{identifier}/keys",
-        configuration.base_path,
-        identifier = crate::apis::urlencode(p_identifier)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_device_keys_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeviceResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeviceResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<DevicesIdentifierKeysPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn devices_identifier_keys_put(
-    configuration: &configuration::Configuration,
-    identifier: &str,
-    device_keys_request_model: Option<models::DeviceKeysRequestModel>,
-) -> Result<models::DeviceResponseModel, Error<DevicesIdentifierKeysPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_identifier = identifier;
-    let p_device_keys_request_model = device_keys_request_model;
-
-    let uri_str = format!(
-        "{}/devices/{identifier}/keys",
-        configuration.base_path,
-        identifier = crate::apis::urlencode(p_identifier)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_device_keys_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeviceResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeviceResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<DevicesIdentifierKeysPutError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn devices_identifier_retrieve_keys_post(
-    configuration: &configuration::Configuration,
-    identifier: &str,
-) -> Result<models::ProtectedDeviceResponseModel, Error<DevicesIdentifierRetrieveKeysPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_identifier = identifier;
-
-    let uri_str = format!(
-        "{}/devices/{identifier}/retrieve-keys",
-        configuration.base_path,
-        identifier = crate::apis::urlencode(p_identifier)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProtectedDeviceResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProtectedDeviceResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<DevicesIdentifierRetrieveKeysPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn devices_knowndevice_email_identifier_get(
+pub async fn devices_get_by_email_and_identifier(
     configuration: &configuration::Configuration,
     email: &str,
     identifier: &str,
-) -> Result<bool, Error<DevicesKnowndeviceEmailIdentifierGetError>> {
+) -> Result<bool, Error<DevicesGetByEmailAndIdentifierError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_email = email;
     let p_identifier = identifier;
@@ -964,7 +345,7 @@ pub async fn devices_knowndevice_email_identifier_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<DevicesKnowndeviceEmailIdentifierGetError> =
+        let entity: Option<DevicesGetByEmailAndIdentifierError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -974,11 +355,61 @@ pub async fn devices_knowndevice_email_identifier_get(
     }
 }
 
-pub async fn devices_knowndevice_get(
+pub async fn devices_get_by_identifier(
+    configuration: &configuration::Configuration,
+    identifier: &str,
+) -> Result<models::DeviceResponseModel, Error<DevicesGetByIdentifierError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_identifier = identifier;
+
+    let uri_str = format!(
+        "{}/devices/identifier/{identifier}",
+        configuration.base_path,
+        identifier = crate::apis::urlencode(p_identifier)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeviceResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeviceResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesGetByIdentifierError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn devices_get_by_identifier_query(
     configuration: &configuration::Configuration,
     x_request_email: &str,
     x_device_identifier: &str,
-) -> Result<bool, Error<DevicesKnowndeviceGetError>> {
+) -> Result<bool, Error<DevicesGetByIdentifierQueryError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_x_request_email = x_request_email;
     let p_x_device_identifier = x_device_identifier;
@@ -1015,7 +446,7 @@ pub async fn devices_knowndevice_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<DevicesKnowndeviceGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<DevicesGetByIdentifierQueryError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1024,10 +455,18 @@ pub async fn devices_knowndevice_get(
     }
 }
 
-pub async fn devices_lost_trust_post(
+pub async fn devices_get_device_keys(
     configuration: &configuration::Configuration,
-) -> Result<(), Error<DevicesLostTrustPostError>> {
-    let uri_str = format!("{}/devices/lost-trust", configuration.base_path);
+    identifier: &str,
+) -> Result<models::ProtectedDeviceResponseModel, Error<DevicesGetDeviceKeysError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_identifier = identifier;
+
+    let uri_str = format!(
+        "{}/devices/{identifier}/retrieve-keys",
+        configuration.base_path,
+        identifier = crate::apis::urlencode(p_identifier)
+    );
     let mut req_builder = configuration
         .client
         .request(reqwest::Method::POST, &uri_str);
@@ -1043,12 +482,23 @@ pub async fn devices_lost_trust_post(
     let resp = configuration.client.execute(req).await?;
 
     let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
     if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProtectedDeviceResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProtectedDeviceResponseModel`")))),
+        }
     } else {
         let content = resp.text().await?;
-        let entity: Option<DevicesLostTrustPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<DevicesGetDeviceKeysError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1106,10 +556,279 @@ pub async fn devices_post(
     }
 }
 
-pub async fn devices_untrust_post(
+pub async fn devices_post_clear_token(
+    configuration: &configuration::Configuration,
+    identifier: &str,
+) -> Result<(), Error<DevicesPostClearTokenError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_identifier = identifier;
+
+    let uri_str = format!(
+        "{}/devices/identifier/{identifier}/clear-token",
+        configuration.base_path,
+        identifier = crate::apis::urlencode(p_identifier)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesPostClearTokenError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn devices_post_deactivate(
+    configuration: &configuration::Configuration,
+    id: &str,
+) -> Result<(), Error<DevicesPostDeactivateError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/devices/{id}/deactivate",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesPostDeactivateError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn devices_post_keys(
+    configuration: &configuration::Configuration,
+    identifier: &str,
+    device_keys_request_model: Option<models::DeviceKeysRequestModel>,
+) -> Result<models::DeviceResponseModel, Error<DevicesPostKeysError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_identifier = identifier;
+    let p_device_keys_request_model = device_keys_request_model;
+
+    let uri_str = format!(
+        "{}/devices/{identifier}/keys",
+        configuration.base_path,
+        identifier = crate::apis::urlencode(p_identifier)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_device_keys_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeviceResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeviceResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesPostKeysError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn devices_post_lost_trust(
+    configuration: &configuration::Configuration,
+) -> Result<(), Error<DevicesPostLostTrustError>> {
+    let uri_str = format!("{}/devices/lost-trust", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesPostLostTrustError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn devices_post_put(
+    configuration: &configuration::Configuration,
+    id: &str,
+    device_request_model: Option<models::DeviceRequestModel>,
+) -> Result<models::DeviceResponseModel, Error<DevicesPostPutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_device_request_model = device_request_model;
+
+    let uri_str = format!(
+        "{}/devices/{id}",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_device_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeviceResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeviceResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesPostPutError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn devices_post_token(
+    configuration: &configuration::Configuration,
+    identifier: &str,
+    device_token_request_model: Option<models::DeviceTokenRequestModel>,
+) -> Result<(), Error<DevicesPostTokenError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_identifier = identifier;
+    let p_device_token_request_model = device_token_request_model;
+
+    let uri_str = format!(
+        "{}/devices/identifier/{identifier}/token",
+        configuration.base_path,
+        identifier = crate::apis::urlencode(p_identifier)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_device_token_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesPostTokenError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn devices_post_untrust(
     configuration: &configuration::Configuration,
     untrust_devices_request_model: Option<models::UntrustDevicesRequestModel>,
-) -> Result<(), Error<DevicesUntrustPostError>> {
+) -> Result<(), Error<DevicesPostUntrustError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_untrust_devices_request_model = untrust_devices_request_model;
 
@@ -1135,7 +854,7 @@ pub async fn devices_untrust_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<DevicesUntrustPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<DevicesPostUntrustError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1144,10 +863,10 @@ pub async fn devices_untrust_post(
     }
 }
 
-pub async fn devices_update_trust_post(
+pub async fn devices_post_update_trust(
     configuration: &configuration::Configuration,
     update_devices_trust_request_model: Option<models::UpdateDevicesTrustRequestModel>,
-) -> Result<(), Error<DevicesUpdateTrustPostError>> {
+) -> Result<(), Error<DevicesPostUpdateTrustError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_update_devices_trust_request_model = update_devices_trust_request_model;
 
@@ -1173,7 +892,280 @@ pub async fn devices_update_trust_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<DevicesUpdateTrustPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<DevicesPostUpdateTrustError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn devices_post_web_push_auth(
+    configuration: &configuration::Configuration,
+    identifier: &str,
+    web_push_auth_request_model: Option<models::WebPushAuthRequestModel>,
+) -> Result<(), Error<DevicesPostWebPushAuthError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_identifier = identifier;
+    let p_web_push_auth_request_model = web_push_auth_request_model;
+
+    let uri_str = format!(
+        "{}/devices/identifier/{identifier}/web-push-auth",
+        configuration.base_path,
+        identifier = crate::apis::urlencode(p_identifier)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_web_push_auth_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesPostWebPushAuthError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn devices_put(
+    configuration: &configuration::Configuration,
+    id: &str,
+    device_request_model: Option<models::DeviceRequestModel>,
+) -> Result<models::DeviceResponseModel, Error<DevicesPutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_device_request_model = device_request_model;
+
+    let uri_str = format!(
+        "{}/devices/{id}",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_device_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeviceResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeviceResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesPutError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn devices_put_clear_token(
+    configuration: &configuration::Configuration,
+    identifier: &str,
+) -> Result<(), Error<DevicesPutClearTokenError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_identifier = identifier;
+
+    let uri_str = format!(
+        "{}/devices/identifier/{identifier}/clear-token",
+        configuration.base_path,
+        identifier = crate::apis::urlencode(p_identifier)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesPutClearTokenError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn devices_put_keys(
+    configuration: &configuration::Configuration,
+    identifier: &str,
+    device_keys_request_model: Option<models::DeviceKeysRequestModel>,
+) -> Result<models::DeviceResponseModel, Error<DevicesPutKeysError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_identifier = identifier;
+    let p_device_keys_request_model = device_keys_request_model;
+
+    let uri_str = format!(
+        "{}/devices/{identifier}/keys",
+        configuration.base_path,
+        identifier = crate::apis::urlencode(p_identifier)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_device_keys_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeviceResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeviceResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesPutKeysError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn devices_put_token(
+    configuration: &configuration::Configuration,
+    identifier: &str,
+    device_token_request_model: Option<models::DeviceTokenRequestModel>,
+) -> Result<(), Error<DevicesPutTokenError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_identifier = identifier;
+    let p_device_token_request_model = device_token_request_model;
+
+    let uri_str = format!(
+        "{}/devices/identifier/{identifier}/token",
+        configuration.base_path,
+        identifier = crate::apis::urlencode(p_identifier)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_device_token_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesPutTokenError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn devices_put_web_push_auth(
+    configuration: &configuration::Configuration,
+    identifier: &str,
+    web_push_auth_request_model: Option<models::WebPushAuthRequestModel>,
+) -> Result<(), Error<DevicesPutWebPushAuthError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_identifier = identifier;
+    let p_web_push_auth_request_model = web_push_auth_request_model;
+
+    let uri_str = format!(
+        "{}/devices/identifier/{identifier}/web-push-auth",
+        configuration.base_path,
+        identifier = crate::apis::urlencode(p_identifier)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_web_push_auth_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<DevicesPutWebPushAuthError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

@@ -18,7 +18,7 @@ pub(crate) async fn get_secret(
     input: &SecretGetRequest,
 ) -> Result<SecretResponse, SecretsManagerError> {
     let config = client.internal.get_api_configurations().await;
-    let res = bitwarden_api_api::apis::secrets_api::secrets_id_get(&config.api, input.id).await?;
+    let res = bitwarden_api_api::apis::secrets_api::secrets_get(&config.api, input.id).await?;
 
     let key_store = client.internal.get_key_store();
 

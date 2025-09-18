@@ -14,23 +14,23 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`phishing_domains_checksum_get`]
+/// struct for typed errors of method [`phishing_domains_get_checksum`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum PhishingDomainsChecksumGetError {
+pub enum PhishingDomainsGetChecksumError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`phishing_domains_get`]
+/// struct for typed errors of method [`phishing_domains_get_phishing_domains`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum PhishingDomainsGetError {
+pub enum PhishingDomainsGetPhishingDomainsError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn phishing_domains_checksum_get(
+pub async fn phishing_domains_get_checksum(
     configuration: &configuration::Configuration,
-) -> Result<String, Error<PhishingDomainsChecksumGetError>> {
+) -> Result<String, Error<PhishingDomainsGetChecksumError>> {
     let uri_str = format!("{}/phishing-domains/checksum", configuration.base_path);
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
@@ -61,7 +61,7 @@ pub async fn phishing_domains_checksum_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<PhishingDomainsChecksumGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<PhishingDomainsGetChecksumError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -70,9 +70,9 @@ pub async fn phishing_domains_checksum_get(
     }
 }
 
-pub async fn phishing_domains_get(
+pub async fn phishing_domains_get_phishing_domains(
     configuration: &configuration::Configuration,
-) -> Result<Vec<String>, Error<PhishingDomainsGetError>> {
+) -> Result<Vec<String>, Error<PhishingDomainsGetPhishingDomainsError>> {
     let uri_str = format!("{}/phishing-domains", configuration.base_path);
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
@@ -103,7 +103,8 @@ pub async fn phishing_domains_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<PhishingDomainsGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<PhishingDomainsGetPhishingDomainsError> =
+            serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

@@ -22,7 +22,7 @@ pub(crate) async fn delete_projects(
 ) -> Result<ProjectsDeleteResponse, SecretsManagerError> {
     let config = client.internal.get_api_configurations().await;
     let res =
-        bitwarden_api_api::apis::projects_api::projects_delete_post(&config.api, Some(input.ids))
+        bitwarden_api_api::apis::projects_api::projects_bulk_delete(&config.api, Some(input.ids))
             .await?;
 
     ProjectsDeleteResponse::process_response(res)

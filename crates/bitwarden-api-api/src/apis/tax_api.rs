@@ -14,19 +14,19 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`tax_preview_amount_organization_trial_post`]
+/// struct for typed errors of method [`tax_preview_tax_amount_for_organization_trial`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TaxPreviewAmountOrganizationTrialPostError {
+pub enum TaxPreviewTaxAmountForOrganizationTrialError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn tax_preview_amount_organization_trial_post(
+pub async fn tax_preview_tax_amount_for_organization_trial(
     configuration: &configuration::Configuration,
     preview_tax_amount_for_organization_trial_request_body: Option<
         models::PreviewTaxAmountForOrganizationTrialRequestBody,
     >,
-) -> Result<(), Error<TaxPreviewAmountOrganizationTrialPostError>> {
+) -> Result<(), Error<TaxPreviewTaxAmountForOrganizationTrialError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_preview_tax_amount_for_organization_trial_request_body =
         preview_tax_amount_for_organization_trial_request_body;
@@ -56,7 +56,7 @@ pub async fn tax_preview_amount_organization_trial_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<TaxPreviewAmountOrganizationTrialPostError> =
+        let entity: Option<TaxPreviewTaxAmountForOrganizationTrialError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

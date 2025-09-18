@@ -14,78 +14,73 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organizations_organization_id_secrets_get`]
+/// struct for typed errors of method [`secrets_bulk_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdSecretsGetError {
+pub enum SecretsBulkDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_organization_id_secrets_post`]
+/// struct for typed errors of method [`secrets_create`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdSecretsPostError {
+pub enum SecretsCreateError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_organization_id_secrets_sync_get`]
+/// struct for typed errors of method [`secrets_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdSecretsSyncGetError {
+pub enum SecretsGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`projects_project_id_secrets_get`]
+/// struct for typed errors of method [`secrets_get_secrets_by_ids`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProjectsProjectIdSecretsGetError {
+pub enum SecretsGetSecretsByIdsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`secrets_delete_post`]
+/// struct for typed errors of method [`secrets_get_secrets_by_project`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SecretsDeletePostError {
+pub enum SecretsGetSecretsByProjectError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`secrets_get_by_ids_post`]
+/// struct for typed errors of method [`secrets_get_secrets_sync`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SecretsGetByIdsPostError {
+pub enum SecretsGetSecretsSyncError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`secrets_id_get`]
+/// struct for typed errors of method [`secrets_list_by_organization`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SecretsIdGetError {
+pub enum SecretsListByOrganizationError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`secrets_id_put`]
+/// struct for typed errors of method [`secrets_update_secret`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SecretsIdPutError {
+pub enum SecretsUpdateSecretError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn organizations_organization_id_secrets_get(
+pub async fn secrets_bulk_delete(
     configuration: &configuration::Configuration,
-    organization_id: uuid::Uuid,
-) -> Result<
-    models::SecretWithProjectsListResponseModel,
-    Error<OrganizationsOrganizationIdSecretsGetError>,
-> {
+    uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
+) -> Result<models::BulkDeleteResponseModelListResponseModel, Error<SecretsBulkDeleteError>> {
     // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
+    let p_uuid_colon_colon_uuid = uuid_colon_colon_uuid;
 
-    let uri_str = format!(
-        "{}/organizations/{organizationId}/secrets",
-        configuration.base_path,
-        organizationId = crate::apis::urlencode(p_organization_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+    let uri_str = format!("{}/secrets/delete", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -93,6 +88,7 @@ pub async fn organizations_organization_id_secrets_get(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
+    req_builder = req_builder.json(&p_uuid_colon_colon_uuid);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -109,13 +105,12 @@ pub async fn organizations_organization_id_secrets_get(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::SecretWithProjectsListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::SecretWithProjectsListResponseModel`")))),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`")))),
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdSecretsGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<SecretsBulkDeleteError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -124,11 +119,11 @@ pub async fn organizations_organization_id_secrets_get(
     }
 }
 
-pub async fn organizations_organization_id_secrets_post(
+pub async fn secrets_create(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     secret_create_request_model: Option<models::SecretCreateRequestModel>,
-) -> Result<models::SecretResponseModel, Error<OrganizationsOrganizationIdSecretsPostError>> {
+) -> Result<models::SecretResponseModel, Error<SecretsCreateError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_secret_create_request_model = secret_create_request_model;
@@ -170,8 +165,7 @@ pub async fn organizations_organization_id_secrets_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdSecretsPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<SecretsCreateError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -180,12 +174,160 @@ pub async fn organizations_organization_id_secrets_post(
     }
 }
 
-pub async fn organizations_organization_id_secrets_sync_get(
+pub async fn secrets_get(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+) -> Result<models::SecretResponseModel, Error<SecretsGetError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/secrets/{id}",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::SecretResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::SecretResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<SecretsGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn secrets_get_secrets_by_ids(
+    configuration: &configuration::Configuration,
+    get_secrets_request_model: Option<models::GetSecretsRequestModel>,
+) -> Result<models::BaseSecretResponseModelListResponseModel, Error<SecretsGetSecretsByIdsError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_get_secrets_request_model = get_secrets_request_model;
+
+    let uri_str = format!("{}/secrets/get-by-ids", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_get_secrets_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::BaseSecretResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::BaseSecretResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<SecretsGetSecretsByIdsError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn secrets_get_secrets_by_project(
+    configuration: &configuration::Configuration,
+    project_id: uuid::Uuid,
+) -> Result<models::SecretWithProjectsListResponseModel, Error<SecretsGetSecretsByProjectError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_project_id = project_id;
+
+    let uri_str = format!(
+        "{}/projects/{projectId}/secrets",
+        configuration.base_path,
+        projectId = crate::apis::urlencode(p_project_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::SecretWithProjectsListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::SecretWithProjectsListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<SecretsGetSecretsByProjectError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn secrets_get_secrets_sync(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     last_synced_date: Option<String>,
-) -> Result<models::SecretsSyncResponseModel, Error<OrganizationsOrganizationIdSecretsSyncGetError>>
-{
+) -> Result<models::SecretsSyncResponseModel, Error<SecretsGetSecretsSyncError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_last_synced_date = last_synced_date;
@@ -227,8 +369,7 @@ pub async fn organizations_organization_id_secrets_sync_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdSecretsSyncGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<SecretsGetSecretsSyncError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -237,17 +378,17 @@ pub async fn organizations_organization_id_secrets_sync_get(
     }
 }
 
-pub async fn projects_project_id_secrets_get(
+pub async fn secrets_list_by_organization(
     configuration: &configuration::Configuration,
-    project_id: uuid::Uuid,
-) -> Result<models::SecretWithProjectsListResponseModel, Error<ProjectsProjectIdSecretsGetError>> {
+    organization_id: uuid::Uuid,
+) -> Result<models::SecretWithProjectsListResponseModel, Error<SecretsListByOrganizationError>> {
     // add a prefix to parameters to efficiently prevent name collisions
-    let p_project_id = project_id;
+    let p_organization_id = organization_id;
 
     let uri_str = format!(
-        "{}/projects/{projectId}/secrets",
+        "{}/organizations/{organizationId}/secrets",
         configuration.base_path,
-        projectId = crate::apis::urlencode(p_project_id.to_string())
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
     );
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
@@ -278,7 +419,7 @@ pub async fn projects_project_id_secrets_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProjectsProjectIdSecretsGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<SecretsListByOrganizationError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -287,159 +428,11 @@ pub async fn projects_project_id_secrets_get(
     }
 }
 
-pub async fn secrets_delete_post(
-    configuration: &configuration::Configuration,
-    uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-) -> Result<models::BulkDeleteResponseModelListResponseModel, Error<SecretsDeletePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_uuid_colon_colon_uuid = uuid_colon_colon_uuid;
-
-    let uri_str = format!("{}/secrets/delete", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_uuid_colon_colon_uuid);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<SecretsDeletePostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn secrets_get_by_ids_post(
-    configuration: &configuration::Configuration,
-    get_secrets_request_model: Option<models::GetSecretsRequestModel>,
-) -> Result<models::BaseSecretResponseModelListResponseModel, Error<SecretsGetByIdsPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_get_secrets_request_model = get_secrets_request_model;
-
-    let uri_str = format!("{}/secrets/get-by-ids", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_get_secrets_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::BaseSecretResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::BaseSecretResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<SecretsGetByIdsPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn secrets_id_get(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-) -> Result<models::SecretResponseModel, Error<SecretsIdGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/secrets/{id}",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::SecretResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::SecretResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<SecretsIdGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn secrets_id_put(
+pub async fn secrets_update_secret(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
     secret_update_request_model: Option<models::SecretUpdateRequestModel>,
-) -> Result<models::SecretResponseModel, Error<SecretsIdPutError>> {
+) -> Result<models::SecretResponseModel, Error<SecretsUpdateSecretError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
     let p_secret_update_request_model = secret_update_request_model;
@@ -479,7 +472,7 @@ pub async fn secrets_id_put(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<SecretsIdPutError> = serde_json::from_str(&content).ok();
+        let entity: Option<SecretsUpdateSecretError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
