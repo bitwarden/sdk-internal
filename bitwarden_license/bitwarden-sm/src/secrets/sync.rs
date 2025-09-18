@@ -25,7 +25,7 @@ pub(crate) async fn sync_secrets(
     let config = client.internal.get_api_configurations().await;
     let last_synced_date = input.last_synced_date.map(|date| date.to_rfc3339());
 
-    let res = bitwarden_api_api::apis::secrets_api::organizations_organization_id_secrets_sync_get(
+    let res = bitwarden_api_api::apis::secrets_api::secrets_get_secrets_sync(
         &config.api,
         input.organization_id,
         last_synced_date,

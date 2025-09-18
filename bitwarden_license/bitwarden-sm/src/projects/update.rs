@@ -43,7 +43,7 @@ pub(crate) async fn update_project(
 
     let config = client.internal.get_api_configurations().await;
     let res =
-        bitwarden_api_api::apis::projects_api::projects_id_put(&config.api, input.id, project)
+        bitwarden_api_api::apis::projects_api::projects_update(&config.api, input.id, project)
             .await?;
 
     ProjectResponse::process_response(res, &mut key_store.context())

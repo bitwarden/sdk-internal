@@ -1,8 +1,9 @@
+use indexed_db::Error;
 use js_sys::JsString;
 use serde::{de::DeserializeOwned, ser::Serialize};
 
 use crate::{
-    repository::{RepositoryItem, RepositoryItemData},
+    repository::{RepositoryItem, RepositoryMigrationStep, RepositoryMigrations},
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError},
 };
 
@@ -22,7 +23,7 @@ pub struct IndexedDbDatabase(
 impl Database for IndexedDbDatabase {
     async fn initialize(
         configuration: DatabaseConfiguration,
-        registrations: &[RepositoryItemData],
+        migrations: RepositoryMigrations,
     ) -> Result<Self, DatabaseError> {
         let DatabaseConfiguration::IndexedDb { db_name } = configuration else {
             return Err(DatabaseError::UnsupportedConfiguration(configuration));
@@ -30,19 +31,24 @@ impl Database for IndexedDbDatabase {
 
         let factory = indexed_db::Factory::get()?;
 
-        let registrations = registrations.to_vec();
-
-        // TODO: This version will be replaced by a proper migration system in a followup PR:
-        // https://github.com/bitwarden/sdk-internal/pull/410
-        let version: u32 = 1;
-
         // Open the database, creating it if needed
         let db = factory
-            .open(&db_name, version, async move |evt| {
+            .open(&db_name, migrations.version, async move |evt| {
                 let db = evt.database();
 
-                for reg in registrations {
-                    db.build_object_store(reg.name()).create()?;
+                for step in &migrations.steps {
+                    match step {
+                        RepositoryMigrationStep::Add(data) => {
+                            db.build_object_store(data.name()).create()?;
+                        }
+                        RepositoryMigrationStep::Remove(data) => {
+                            match db.delete_object_store(data.name()) {
+                                // If the store doesn't exist, we can ignore the error
+                                Ok(_) | Err(Error::DoesNotExist) => {}
+                                Err(e) => return Err(e),
+                            }
+                        }
+                    }
                 }
 
                 Ok(())

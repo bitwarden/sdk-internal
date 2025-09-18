@@ -182,65 +182,23 @@ getClient(userId = userId).platform().store().registerCipherStore(CipherStoreImp
 
 With `SDK-Managed State`, the SDK will be exclusively responsible for the data storage. This means
 that the clients don't need to make any changes themselves, as the implementation is internal to the
-SDK. To add support for an SDK managed `Repository`, it needs to be added to the initialization code
-for WASM and UniFFI. This example shows how to add support for `Cipher`s.
+SDK. To add support for an SDK managed `Repository`, a new migration step needs to be added to the
+`bitwarden-state-migrations` crate.
 
-### How to initialize SDK-Managed State on WASM
+### How to initialize SDK-Managed State
 
-Go to `crates/bitwarden-wasm-internal/src/platform/mod.rs` and add a line with your type, as shown
-below. In this example we're registering `Cipher` as both client and SDK managed to show how both
-are done, but you can also just do one or the other.
-
-```rust,ignore
-    pub async fn initialize_state(
-        &self,
-        cipher_repository: CipherRepository,
-    ) -> Result<(), bitwarden_state::registry::StateRegistryError> {
-        let cipher = cipher_repository.into_channel_impl();
-        // Register the provided repository as client managed state
-        self.0.platform().state().register_client_managed(cipher);
-
-        let sdk_managed_repositories = vec![
-            // This should list all the SDK-managed repositories
-            <Cipher as RepositoryItem>::data(),
-            // Add your type here
-        ];
-
-        self.0
-            .platform()
-            .state()
-            .initialize_database(sdk_managed_repositories)
-            .await
-    }
-```
-
-### How to initialize SDK-Managed State on UniFFI
-
-Go to `crates/bitwarden-uniffi/src/platform/mod.rs` and add a line with your type, as shown below.
-In this example we're registering `Cipher` as both client and SDK managed to show how both are done,
-but you can also just do one or the other.
+Go to `crates/bitwarden-state-migrations/src/lib.rs` and add a line with your type, as shown below.
+In this example we're registering `Cipher` and `Folder` as SDK managed.
 
 ```rust,ignore
-    pub async fn initialize_state(
-        &self,
-        cipher_repository: Arc<dyn CipherRepository>,
-    ) -> Result<()> {
-        let cipher = UniffiRepositoryBridge::new(cipher_repository);
-        // Register the provided repository as client managed state
-        self.0.platform().state().register_client_managed(cipher);
-
-        let sdk_managed_repositories = vec![
-            // This should list all the SDK-managed repositories
-            <Cipher as RepositoryItem>::data(),
-            // Add your type here
-        ];
-
-        self.0
-            .platform()
-            .state()
-            .initialize_database(sdk_managed_repositories)
-            .await
-            .map_err(Error::StateRegistry)?;
-        Ok(())
-    }
+/// Returns a list of all SDK-managed repository migrations.
+pub fn get_sdk_managed_migrations() -> RepositoryMigrations {
+    use RepositoryMigrationStep::*;
+    RepositoryMigrations::new(vec![
+        // Add any new migrations here. Note that order matters, and that removing a repository
+        // requires a separate migration step using `Remove(...)`.
+        Add(Cipher::data()),
+        Add(Folder::data()),
+    ])
+}
 ```

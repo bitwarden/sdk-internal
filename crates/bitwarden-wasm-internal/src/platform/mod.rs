@@ -1,5 +1,5 @@
 use bitwarden_core::Client;
-use bitwarden_state::{repository::RepositoryItem, DatabaseConfiguration};
+use bitwarden_state::DatabaseConfiguration;
 use bitwarden_vault::{Cipher, Folder};
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
@@ -64,25 +64,23 @@ impl StateClient {
         self.0.platform().state().register_client_managed(cipher);
     }
 
+    pub fn register_folder_repository(&self, store: FolderRepository) {
+        let store = store.into_channel_impl();
+        self.0.platform().state().register_client_managed(store)
+    }
+
+    /// Initialize the database for SDK managed repositories.
     pub async fn initialize_state(
         &self,
         configuration: IndexedDbConfiguration,
     ) -> Result<(), bitwarden_state::registry::StateRegistryError> {
-        let sdk_managed_repositories = vec![
-            // This should list all the SDK-managed repositories
-            <Cipher as RepositoryItem>::data(),
-        ];
+        let sdk_managed_repositories = bitwarden_state_migrations::get_sdk_managed_migrations();
 
         self.0
             .platform()
             .state()
             .initialize_database(configuration.into(), sdk_managed_repositories)
             .await
-    }
-
-    pub fn register_folder_repository(&self, store: FolderRepository) {
-        let store = store.into_channel_impl();
-        self.0.platform().state().register_client_managed(store)
     }
 }
 

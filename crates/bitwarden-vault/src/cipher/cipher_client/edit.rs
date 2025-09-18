@@ -46,8 +46,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     let cipher_request = key_store.encrypt(request)?;
 
     let parsed_cipher_id = uuid::Uuid::parse_str(cipher_id)?;
-
-    let response = ciphers_api::ciphers_id_put(api_config, parsed_cipher_id, Some(cipher_request))
+    let response = ciphers_api::ciphers_put(api_config, parsed_cipher_id, Some(cipher_request))
         .await
         .map_err(ApiError::from)?;
 
