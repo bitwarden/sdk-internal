@@ -13,6 +13,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
+use super::CiphersClient;
 use crate::{Cipher, CipherView, VaultParseError};
 
 #[allow(missing_docs)]
@@ -104,7 +105,7 @@ impl IdentifyKey<SymmetricKeyId> for CipherAddEditRequest {
     }
 }
 
-pub(super) async fn create_cipher<R: Repository<Cipher> + ?Sized>(
+async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     key_store: &KeyStore<KeyIds>,
     api_config: &bitwarden_api_api::apis::configuration::Configuration,
     repository: &R,
@@ -122,6 +123,22 @@ pub(super) async fn create_cipher<R: Repository<Cipher> + ?Sized>(
         .await?;
 
     Ok(key_store.decrypt(&cipher)?)
+}
+
+impl CiphersClient {
+    /// Create a new [Cipher] and save it to the server.
+    pub async fn create(
+        &self,
+        mut request: CipherAddEditRequest,
+    ) -> Result<CipherView, CreateCipherError> {
+        let key_store = self.client.internal.get_key_store();
+        let config = self.client.internal.get_api_configurations().await;
+        let repository = self.get_repository()?;
+
+        request.encrypted_for = self.client.internal.get_user_id();
+
+        create_cipher(key_store, &config.api, repository.as_ref(), request).await
+    }
 }
 
 #[cfg(test)]

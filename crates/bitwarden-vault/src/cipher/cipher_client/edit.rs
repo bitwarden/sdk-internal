@@ -5,7 +5,11 @@ use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
 
-use crate::{create::CipherAddEditRequest, Cipher, CipherView, ItemNotFoundError, VaultParseError};
+use super::CiphersClient;
+use crate::{
+    cipher_client::create::CipherAddEditRequest, Cipher, CipherView, ItemNotFoundError,
+    VaultParseError,
+};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -27,7 +31,7 @@ pub enum EditCipherError {
     Uuid(#[from] uuid::Error),
 }
 
-pub(super) async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
+async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     key_store: &KeyStore<KeyIds>,
     api_config: &bitwarden_api_api::apis::configuration::Configuration,
     repository: &R,
@@ -56,6 +60,30 @@ pub(super) async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
         .await?;
 
     Ok(key_store.decrypt(&cipher)?)
+}
+
+impl CiphersClient {
+    /// Edit an existing [Cipher] and save it to the server.
+    pub async fn edit(
+        &self,
+        cipher_id: &str,
+        mut request: CipherAddEditRequest,
+    ) -> Result<CipherView, EditCipherError> {
+        let key_store = self.client.internal.get_key_store();
+        let config = self.client.internal.get_api_configurations().await;
+        let repository = self.get_repository()?;
+
+        request.encrypted_for = self.client.internal.get_user_id();
+
+        edit_cipher(
+            key_store,
+            &config.api,
+            repository.as_ref(),
+            cipher_id,
+            request,
+        )
+        .await
+    }
 }
 
 #[cfg(test)]
