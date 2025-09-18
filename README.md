@@ -141,7 +141,7 @@ export RUSTFLAGS="-D warnings"
 cargo +nightly fmt --check
 cargo +nightly udeps --workspace --all-features
 cargo clippy --all-features --all-targets
-cargo dylint --all
+cargo dylint --all -- --all-features --all-targets
 cargo sort --workspace --check
 npm run lint
 ```
