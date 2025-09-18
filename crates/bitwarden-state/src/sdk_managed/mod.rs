@@ -2,7 +2,7 @@ use bitwarden_error::bitwarden_error;
 use serde::{de::DeserializeOwned, ser::Serialize};
 use thiserror::Error;
 
-use crate::repository::{Repository, RepositoryError, RepositoryItem, RepositoryItemData};
+use crate::repository::{Repository, RepositoryError, RepositoryItem, RepositoryMigrations};
 
 mod configuration;
 pub use configuration::DatabaseConfiguration;
@@ -43,7 +43,7 @@ pub enum DatabaseError {
 pub trait Database {
     async fn initialize(
         configuration: DatabaseConfiguration,
-        registrations: &[RepositoryItemData],
+        registrations: RepositoryMigrations,
     ) -> Result<Self, DatabaseError>
     where
         Self: Sized;

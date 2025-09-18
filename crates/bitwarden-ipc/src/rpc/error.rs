@@ -6,16 +6,16 @@ use crate::serde_utils;
 #[derive(Debug, Error, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RpcError {
     #[error("Failed to read request: {0}")]
-    RequestDeserializationError(String),
+    RequestDeserialization(String),
 
     #[error("Failed to serialize request: {0}")]
-    RequestSerializationError(String),
+    RequestSerialization(String),
 
     #[error("Failed to read response: {0}")]
-    ResponseDeserializationError(String),
+    ResponseDeserialization(String),
 
     #[error("Failed to serialize response: {0}")]
-    ResponseSerializationError(String),
+    ResponseSerialization(String),
 
     #[error("Request could not be completed because no handler has been registered for")]
     NoHandlerFound,
