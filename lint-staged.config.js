@@ -2,7 +2,8 @@ export default {
   "*": "prettier --cache --ignore-unknown --write",
   "*.rs": (stagedFiles) => [
     "cargo +nightly fmt",
-    "cargo dylint --all -- --all-features --all-targets",
+    "cargo clippy --all-features --all-targets",
+    "cargo dylint --all",
   ],
   "Cargo.toml": (stagedFiles) => [
     "cargo +nightly fmt",
