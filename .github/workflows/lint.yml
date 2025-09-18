@@ -59,8 +59,11 @@ jobs:
       - name: Install clippy-sarif and sarif-fmt
         run: cargo install clippy-sarif sarif-fmt --locked --git https://github.com/psastras/sarif-rs.git --rev 11c33a53f6ffeaed736856b86fb6b7b09fabdfd8
 
-      - name: Cargo clippy-sarif
-        run: cargo clippy --all-features --all-targets --message-format=json |
+      - name: Install cargo-dylint
+        run: cargo install cargo-dylint dylint-link --version 4.1.0 --locked
+
+      - name: Cargo dylint-sarif
+        run: cargo dylint --all -- --all-features --all-targets --message-format=json |
           clippy-sarif | tee clippy_result.sarif | sarif-fmt
         env:
           RUSTFLAGS: "-D warnings"
@@ -75,8 +78,8 @@ jobs:
       # Run it again but this time without the sarif output so that the
       # status code of the command is caught and reported as failed in GitHub.
       # This should be cached from the previous step and should be fast.
-      - name: Cargo clippy
-        run: cargo clippy --all-features --all-targets
+      - name: Cargo dylint
+        run: cargo dylint --all -- --all-features --all-targets
         env:
           RUSTFLAGS: "-D warnings"
 
@@ -91,12 +94,6 @@ jobs:
 
       - name: Cargo udeps
         run: cargo +"${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}" udeps --workspace --all-features
-
-      - name: Install cargo-dylint
-        run: cargo install cargo-dylint dylint-link --version 4.1.0 --locked
-
-      - name: Cargo dylint
-        run: cargo dylint --all
 
       - name: Set up Node
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
