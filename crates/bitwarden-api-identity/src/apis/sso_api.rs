@@ -14,37 +14,37 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`sso_external_callback_get`]
+/// struct for typed errors of method [`sso_external_callback`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SsoExternalCallbackGetError {
+pub enum SsoExternalCallbackError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`sso_external_challenge_get`]
+/// struct for typed errors of method [`sso_external_challenge`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SsoExternalChallengeGetError {
+pub enum SsoExternalChallengeError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`sso_login_get`]
+/// struct for typed errors of method [`sso_login`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SsoLoginGetError {
+pub enum SsoLoginError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`sso_pre_validate_get`]
+/// struct for typed errors of method [`sso_pre_validate`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SsoPreValidateGetError {
+pub enum SsoPreValidateError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn sso_external_callback_get(
+pub async fn sso_external_callback(
     configuration: &configuration::Configuration,
-) -> Result<(), Error<SsoExternalCallbackGetError>> {
+) -> Result<(), Error<SsoExternalCallbackError>> {
     let uri_str = format!("{}/sso/ExternalCallback", configuration.base_path);
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
@@ -61,7 +61,7 @@ pub async fn sso_external_callback_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<SsoExternalCallbackGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<SsoExternalCallbackError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -70,13 +70,13 @@ pub async fn sso_external_callback_get(
     }
 }
 
-pub async fn sso_external_challenge_get(
+pub async fn sso_external_challenge(
     configuration: &configuration::Configuration,
     domain_hint: Option<&str>,
     return_url: Option<&str>,
     user_identifier: Option<&str>,
     sso_token: Option<&str>,
-) -> Result<(), Error<SsoExternalChallengeGetError>> {
+) -> Result<(), Error<SsoExternalChallengeError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_domain_hint = domain_hint;
     let p_return_url = return_url;
@@ -111,7 +111,7 @@ pub async fn sso_external_challenge_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<SsoExternalChallengeGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<SsoExternalChallengeError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -120,10 +120,10 @@ pub async fn sso_external_challenge_get(
     }
 }
 
-pub async fn sso_login_get(
+pub async fn sso_login(
     configuration: &configuration::Configuration,
     return_url: Option<&str>,
-) -> Result<(), Error<SsoLoginGetError>> {
+) -> Result<(), Error<SsoLoginError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_return_url = return_url;
 
@@ -146,7 +146,7 @@ pub async fn sso_login_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<SsoLoginGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<SsoLoginError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -155,10 +155,10 @@ pub async fn sso_login_get(
     }
 }
 
-pub async fn sso_pre_validate_get(
+pub async fn sso_pre_validate(
     configuration: &configuration::Configuration,
     domain_hint: Option<&str>,
-) -> Result<(), Error<SsoPreValidateGetError>> {
+) -> Result<(), Error<SsoPreValidateError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_domain_hint = domain_hint;
 
@@ -181,7 +181,7 @@ pub async fn sso_pre_validate_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<SsoPreValidateGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<SsoPreValidateError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

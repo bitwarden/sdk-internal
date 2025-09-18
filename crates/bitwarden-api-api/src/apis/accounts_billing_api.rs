@@ -14,44 +14,44 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`accounts_billing_history_get`]
+/// struct for typed errors of method [`accounts_billing_get_billing_history`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsBillingHistoryGetError {
+pub enum AccountsBillingGetBillingHistoryError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_billing_invoices_get`]
+/// struct for typed errors of method [`accounts_billing_get_invoices`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsBillingInvoicesGetError {
+pub enum AccountsBillingGetInvoicesError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_billing_payment_method_get`]
+/// struct for typed errors of method [`accounts_billing_get_payment_method`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsBillingPaymentMethodGetError {
+pub enum AccountsBillingGetPaymentMethodError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_billing_preview_invoice_post`]
+/// struct for typed errors of method [`accounts_billing_get_transactions`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsBillingPreviewInvoicePostError {
+pub enum AccountsBillingGetTransactionsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_billing_transactions_get`]
+/// struct for typed errors of method [`accounts_billing_preview_invoice`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsBillingTransactionsGetError {
+pub enum AccountsBillingPreviewInvoiceError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn accounts_billing_history_get(
+pub async fn accounts_billing_get_billing_history(
     configuration: &configuration::Configuration,
-) -> Result<models::BillingHistoryResponseModel, Error<AccountsBillingHistoryGetError>> {
+) -> Result<models::BillingHistoryResponseModel, Error<AccountsBillingGetBillingHistoryError>> {
     let uri_str = format!("{}/accounts/billing/history", configuration.base_path);
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
@@ -82,7 +82,8 @@ pub async fn accounts_billing_history_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsBillingHistoryGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsBillingGetBillingHistoryError> =
+            serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -91,11 +92,11 @@ pub async fn accounts_billing_history_get(
     }
 }
 
-pub async fn accounts_billing_invoices_get(
+pub async fn accounts_billing_get_invoices(
     configuration: &configuration::Configuration,
     status: Option<&str>,
     start_after: Option<&str>,
-) -> Result<(), Error<AccountsBillingInvoicesGetError>> {
+) -> Result<(), Error<AccountsBillingGetInvoicesError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_status = status;
     let p_start_after = start_after;
@@ -125,7 +126,7 @@ pub async fn accounts_billing_invoices_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsBillingInvoicesGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsBillingGetInvoicesError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -134,9 +135,9 @@ pub async fn accounts_billing_invoices_get(
     }
 }
 
-pub async fn accounts_billing_payment_method_get(
+pub async fn accounts_billing_get_payment_method(
     configuration: &configuration::Configuration,
-) -> Result<models::BillingPaymentResponseModel, Error<AccountsBillingPaymentMethodGetError>> {
+) -> Result<models::BillingPaymentResponseModel, Error<AccountsBillingGetPaymentMethodError>> {
     let uri_str = format!(
         "{}/accounts/billing/payment-method",
         configuration.base_path
@@ -170,7 +171,7 @@ pub async fn accounts_billing_payment_method_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsBillingPaymentMethodGetError> =
+        let entity: Option<AccountsBillingGetPaymentMethodError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -180,10 +181,49 @@ pub async fn accounts_billing_payment_method_get(
     }
 }
 
-pub async fn accounts_billing_preview_invoice_post(
+pub async fn accounts_billing_get_transactions(
+    configuration: &configuration::Configuration,
+    start_after: Option<String>,
+) -> Result<(), Error<AccountsBillingGetTransactionsError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_start_after = start_after;
+
+    let uri_str = format!("{}/accounts/billing/transactions", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref param_value) = p_start_after {
+        req_builder = req_builder.query(&[("startAfter", &param_value.to_string())]);
+    }
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsBillingGetTransactionsError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_billing_preview_invoice(
     configuration: &configuration::Configuration,
     preview_individual_invoice_request_body: Option<models::PreviewIndividualInvoiceRequestBody>,
-) -> Result<(), Error<AccountsBillingPreviewInvoicePostError>> {
+) -> Result<(), Error<AccountsBillingPreviewInvoiceError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_preview_individual_invoice_request_body = preview_individual_invoice_request_body;
 
@@ -212,46 +252,7 @@ pub async fn accounts_billing_preview_invoice_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsBillingPreviewInvoicePostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_billing_transactions_get(
-    configuration: &configuration::Configuration,
-    start_after: Option<String>,
-) -> Result<(), Error<AccountsBillingTransactionsGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_start_after = start_after;
-
-    let uri_str = format!("{}/accounts/billing/transactions", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref param_value) = p_start_after {
-        req_builder = req_builder.query(&[("startAfter", &param_value.to_string())]);
-    }
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsBillingTransactionsGetError> =
+        let entity: Option<AccountsBillingPreviewInvoiceError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

@@ -14,37 +14,37 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`accounts_convert_to_key_connector_post`]
+/// struct for typed errors of method [`accounts_key_management_post_convert_to_key_connector`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsConvertToKeyConnectorPostError {
+pub enum AccountsKeyManagementPostConvertToKeyConnectorError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_key_management_regenerate_keys_post`]
+/// struct for typed errors of method [`accounts_key_management_post_set_key_connector_key`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsKeyManagementRegenerateKeysPostError {
+pub enum AccountsKeyManagementPostSetKeyConnectorKeyError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_key_management_rotate_user_account_keys_post`]
+/// struct for typed errors of method [`accounts_key_management_regenerate_keys`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsKeyManagementRotateUserAccountKeysPostError {
+pub enum AccountsKeyManagementRegenerateKeysError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_set_key_connector_key_post`]
+/// struct for typed errors of method [`accounts_key_management_rotate_user_account_keys`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsSetKeyConnectorKeyPostError {
+pub enum AccountsKeyManagementRotateUserAccountKeysError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn accounts_convert_to_key_connector_post(
+pub async fn accounts_key_management_post_convert_to_key_connector(
     configuration: &configuration::Configuration,
-) -> Result<(), Error<AccountsConvertToKeyConnectorPostError>> {
+) -> Result<(), Error<AccountsKeyManagementPostConvertToKeyConnectorError>> {
     let uri_str = format!(
         "{}/accounts/convert-to-key-connector",
         configuration.base_path
@@ -69,7 +69,7 @@ pub async fn accounts_convert_to_key_connector_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsConvertToKeyConnectorPostError> =
+        let entity: Option<AccountsKeyManagementPostConvertToKeyConnectorError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -79,10 +79,49 @@ pub async fn accounts_convert_to_key_connector_post(
     }
 }
 
-pub async fn accounts_key_management_regenerate_keys_post(
+pub async fn accounts_key_management_post_set_key_connector_key(
+    configuration: &configuration::Configuration,
+    set_key_connector_key_request_model: Option<models::SetKeyConnectorKeyRequestModel>,
+) -> Result<(), Error<AccountsKeyManagementPostSetKeyConnectorKeyError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_set_key_connector_key_request_model = set_key_connector_key_request_model;
+
+    let uri_str = format!("{}/accounts/set-key-connector-key", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_set_key_connector_key_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsKeyManagementPostSetKeyConnectorKeyError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_key_management_regenerate_keys(
     configuration: &configuration::Configuration,
     key_regeneration_request_model: Option<models::KeyRegenerationRequestModel>,
-) -> Result<(), Error<AccountsKeyManagementRegenerateKeysPostError>> {
+) -> Result<(), Error<AccountsKeyManagementRegenerateKeysError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_key_regeneration_request_model = key_regeneration_request_model;
 
@@ -111,7 +150,7 @@ pub async fn accounts_key_management_regenerate_keys_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsKeyManagementRegenerateKeysPostError> =
+        let entity: Option<AccountsKeyManagementRegenerateKeysError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -121,12 +160,12 @@ pub async fn accounts_key_management_regenerate_keys_post(
     }
 }
 
-pub async fn accounts_key_management_rotate_user_account_keys_post(
+pub async fn accounts_key_management_rotate_user_account_keys(
     configuration: &configuration::Configuration,
     rotate_user_account_keys_and_data_request_model: Option<
         models::RotateUserAccountKeysAndDataRequestModel,
     >,
-) -> Result<(), Error<AccountsKeyManagementRotateUserAccountKeysPostError>> {
+) -> Result<(), Error<AccountsKeyManagementRotateUserAccountKeysError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_rotate_user_account_keys_and_data_request_model =
         rotate_user_account_keys_and_data_request_model;
@@ -156,46 +195,7 @@ pub async fn accounts_key_management_rotate_user_account_keys_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsKeyManagementRotateUserAccountKeysPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_set_key_connector_key_post(
-    configuration: &configuration::Configuration,
-    set_key_connector_key_request_model: Option<models::SetKeyConnectorKeyRequestModel>,
-) -> Result<(), Error<AccountsSetKeyConnectorKeyPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_set_key_connector_key_request_model = set_key_connector_key_request_model;
-
-    let uri_str = format!("{}/accounts/set-key-connector-key", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_set_key_connector_key_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsSetKeyConnectorKeyPostError> =
+        let entity: Option<AccountsKeyManagementRotateUserAccountKeysError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

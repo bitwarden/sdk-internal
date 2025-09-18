@@ -14,41 +14,41 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organizations_org_id_auth_requests_deny_post`]
+/// struct for typed errors of method [`organization_auth_requests_bulk_deny_requests`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdAuthRequestsDenyPostError {
+pub enum OrganizationAuthRequestsBulkDenyRequestsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_auth_requests_get`]
+/// struct for typed errors of method [`organization_auth_requests_get_pending_requests`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdAuthRequestsGetError {
+pub enum OrganizationAuthRequestsGetPendingRequestsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_auth_requests_post`]
+/// struct for typed errors of method [`organization_auth_requests_update_auth_request`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdAuthRequestsPostError {
+pub enum OrganizationAuthRequestsUpdateAuthRequestError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_auth_requests_request_id_post`]
+/// struct for typed errors of method [`organization_auth_requests_update_many_auth_requests`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdAuthRequestsRequestIdPostError {
+pub enum OrganizationAuthRequestsUpdateManyAuthRequestsError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn organizations_org_id_auth_requests_deny_post(
+pub async fn organization_auth_requests_bulk_deny_requests(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     bulk_deny_admin_auth_request_request_model: Option<
         models::BulkDenyAdminAuthRequestRequestModel,
     >,
-) -> Result<(), Error<OrganizationsOrgIdAuthRequestsDenyPostError>> {
+) -> Result<(), Error<OrganizationAuthRequestsBulkDenyRequestsError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_bulk_deny_admin_auth_request_request_model = bulk_deny_admin_auth_request_request_model;
@@ -79,7 +79,7 @@ pub async fn organizations_org_id_auth_requests_deny_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdAuthRequestsDenyPostError> =
+        let entity: Option<OrganizationAuthRequestsBulkDenyRequestsError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -89,12 +89,12 @@ pub async fn organizations_org_id_auth_requests_deny_post(
     }
 }
 
-pub async fn organizations_org_id_auth_requests_get(
+pub async fn organization_auth_requests_get_pending_requests(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
 ) -> Result<
     models::PendingOrganizationAuthRequestResponseModelListResponseModel,
-    Error<OrganizationsOrgIdAuthRequestsGetError>,
+    Error<OrganizationAuthRequestsGetPendingRequestsError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
@@ -133,7 +133,7 @@ pub async fn organizations_org_id_auth_requests_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdAuthRequestsGetError> =
+        let entity: Option<OrganizationAuthRequestsGetPendingRequestsError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -143,60 +143,12 @@ pub async fn organizations_org_id_auth_requests_get(
     }
 }
 
-pub async fn organizations_org_id_auth_requests_post(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    organization_auth_request_update_many_request_model: Option<
-        Vec<models::OrganizationAuthRequestUpdateManyRequestModel>,
-    >,
-) -> Result<(), Error<OrganizationsOrgIdAuthRequestsPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_organization_auth_request_update_many_request_model =
-        organization_auth_request_update_many_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/auth-requests",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_auth_request_update_many_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdAuthRequestsPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_auth_requests_request_id_post(
+pub async fn organization_auth_requests_update_auth_request(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     request_id: uuid::Uuid,
     admin_auth_request_update_request_model: Option<models::AdminAuthRequestUpdateRequestModel>,
-) -> Result<(), Error<OrganizationsOrgIdAuthRequestsRequestIdPostError>> {
+) -> Result<(), Error<OrganizationAuthRequestsUpdateAuthRequestError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_request_id = request_id;
@@ -229,7 +181,55 @@ pub async fn organizations_org_id_auth_requests_request_id_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdAuthRequestsRequestIdPostError> =
+        let entity: Option<OrganizationAuthRequestsUpdateAuthRequestError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_auth_requests_update_many_auth_requests(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    organization_auth_request_update_many_request_model: Option<
+        Vec<models::OrganizationAuthRequestUpdateManyRequestModel>,
+    >,
+) -> Result<(), Error<OrganizationAuthRequestsUpdateManyAuthRequestsError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_auth_request_update_many_request_model =
+        organization_auth_request_update_many_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/auth-requests",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_auth_request_update_many_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationAuthRequestsUpdateManyAuthRequestsError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

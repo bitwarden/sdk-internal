@@ -14,27 +14,65 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`ciphers_import_organization_post`]
+/// struct for typed errors of method [`import_ciphers_post_import`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum CiphersImportOrganizationPostError {
+pub enum ImportCiphersPostImportError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`ciphers_import_post`]
+/// struct for typed errors of method [`import_ciphers_post_import_organization`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum CiphersImportPostError {
+pub enum ImportCiphersPostImportOrganizationError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn ciphers_import_organization_post(
+pub async fn import_ciphers_post_import(
+    configuration: &configuration::Configuration,
+    import_ciphers_request_model: Option<models::ImportCiphersRequestModel>,
+) -> Result<(), Error<ImportCiphersPostImportError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_import_ciphers_request_model = import_ciphers_request_model;
+
+    let uri_str = format!("{}/ciphers/import", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_import_ciphers_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ImportCiphersPostImportError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn import_ciphers_post_import_organization(
     configuration: &configuration::Configuration,
     organization_id: Option<&str>,
     import_organization_ciphers_request_model: Option<
         models::ImportOrganizationCiphersRequestModel,
     >,
-) -> Result<(), Error<CiphersImportOrganizationPostError>> {
+) -> Result<(), Error<ImportCiphersPostImportOrganizationError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_import_organization_ciphers_request_model = import_organization_ciphers_request_model;
@@ -64,46 +102,8 @@ pub async fn ciphers_import_organization_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<CiphersImportOrganizationPostError> =
+        let entity: Option<ImportCiphersPostImportOrganizationError> =
             serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn ciphers_import_post(
-    configuration: &configuration::Configuration,
-    import_ciphers_request_model: Option<models::ImportCiphersRequestModel>,
-) -> Result<(), Error<CiphersImportPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_import_ciphers_request_model = import_ciphers_request_model;
-
-    let uri_str = format!("{}/ciphers/import", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_import_ciphers_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<CiphersImportPostError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
