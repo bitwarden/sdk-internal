@@ -1,8 +1,12 @@
-use crate::{error::Error, Result};
-use bitwarden_collections::collection::{Collection, CollectionView};
-use bitwarden_collections::tree::{NodeItem, Tree};
-use bitwarden_vault::collection_client::{AncestorMap};
 use std::sync::Arc;
+
+use bitwarden_collections::{
+    collection::{Collection, CollectionView},
+    tree::{NodeItem, Tree},
+};
+use bitwarden_vault::collection_client::AncestorMap;
+
+use crate::{error::Error, Result};
 
 #[allow(missing_docs)]
 #[derive(uniffi::Object)]
