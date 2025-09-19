@@ -3,6 +3,7 @@
 
 extern crate rustc_hir;
 extern crate rustc_span;
+
 use clippy_utils::{diagnostics::span_lint, ty::implements_trait};
 use rustc_hir::{Item, ItemKind};
 use rustc_lint::LateLintPass;

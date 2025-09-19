@@ -1,7 +1,7 @@
 use std::{fmt::Debug, str::FromStr};
 
 use bitwarden_crypto::{derive_shareable_key, SymmetricCryptoKey};
-use bitwarden_encoding::{NotB64Encoded, B64};
+use bitwarden_encoding::{NotB64EncodedError, B64};
 use thiserror::Error;
 use uuid::Uuid;
 use zeroize::Zeroizing;
@@ -19,7 +19,7 @@ pub enum AccessTokenInvalidError {
     InvalidUuid,
 
     #[error("Error decoding base64: {0}")]
-    InvalidBase64(#[from] NotB64Encoded),
+    InvalidBase64(#[from] NotB64EncodedError),
 
     #[error("Invalid base64 length: expected {expected}, got {got}")]
     InvalidBase64Length { expected: usize, got: usize },
