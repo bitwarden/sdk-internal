@@ -1,9 +1,8 @@
-use std::sync::Arc;
-
-use bitwarden_collections::collection::{Collection, CollectionView};
-use bitwarden_vault::collection_client::CollectionViewTree;
-
 use crate::{error::Error, Result};
+use bitwarden_collections::collection::{Collection, CollectionView};
+use bitwarden_collections::tree::{NodeItem, Tree};
+use bitwarden_vault::collection_client::{AncestorMap};
+use std::sync::Arc;
 
 #[allow(missing_docs)]
 #[derive(uniffi::Object)]
@@ -25,6 +24,67 @@ impl CollectionsClient {
     /// Returns the vector of CollectionView objects in a tree structure based on its implemented
     /// path().
     pub fn get_collection_tree(&self, collections: Vec<CollectionView>) -> Arc<CollectionViewTree> {
-        Arc::new(self.0.get_collection_tree(collections))
+        Arc::new(CollectionViewTree {
+            tree: Tree::from_items(collections),
+        })
+    }
+}
+
+#[derive(uniffi::Object)]
+pub struct CollectionViewTree {
+    tree: Tree<CollectionView>,
+}
+
+#[derive(uniffi::Object)]
+pub struct CollectionViewNodeItem {
+    node_item: NodeItem<CollectionView>,
+}
+
+#[uniffi::export]
+impl CollectionViewTree {
+    pub fn get_item_by_id(
+        &self,
+        collection_view: CollectionView,
+    ) -> Option<Arc<CollectionViewNodeItem>> {
+        self.tree
+            .get_item_by_id(collection_view.id.unwrap_or_default().into())
+            .map(|n| Arc::new(CollectionViewNodeItem { node_item: n }))
+    }
+
+    pub fn get_root_items(&self) -> Vec<Arc<CollectionViewNodeItem>> {
+        self.tree
+            .get_root_items()
+            .into_iter()
+            .map(|n| Arc::new(CollectionViewNodeItem { node_item: n }))
+            .collect()
+    }
+
+    pub fn get_flat_items(&self) -> Vec<Arc<CollectionViewNodeItem>> {
+        self.tree
+            .get_flat_items()
+            .into_iter()
+            .map(|n| Arc::new(CollectionViewNodeItem { node_item: n }))
+            .collect()
+    }
+}
+
+#[uniffi::export]
+impl CollectionViewNodeItem {
+    pub fn get_item(&self) -> CollectionView {
+        self.node_item.item.clone()
+    }
+
+    pub fn get_parent(&self) -> Option<CollectionView> {
+        self.node_item.parent.clone()
+    }
+
+    pub fn get_children(&self) -> Vec<CollectionView> {
+        self.node_item.children.clone()
+    }
+
+    pub fn get_ancestors(&self) -> AncestorMap {
+        AncestorMap {
+            ancestors: self.node_item.ancestors.clone(),
+        }
     }
 }

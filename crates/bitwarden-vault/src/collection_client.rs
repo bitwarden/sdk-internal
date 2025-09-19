@@ -53,13 +53,11 @@ impl CollectionsClient {
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 pub struct CollectionViewTree {
     tree: Tree<CollectionView>,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 pub struct CollectionViewNodeItem {
     node_item: NodeItem<CollectionView>,
 }
@@ -68,11 +66,10 @@ pub struct CollectionViewNodeItem {
 #[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AncestorMap {
-    ancestors: HashMap<Uuid, String>,
+    pub ancestors: HashMap<Uuid, String>,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-#[cfg_attr(feature = "uniffi", uniffi::export)]
 impl CollectionViewNodeItem {
     pub fn get_item(&self) -> CollectionView {
         self.node_item.item.clone()
@@ -94,7 +91,6 @@ impl CollectionViewNodeItem {
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-#[cfg_attr(feature = "uniffi", uniffi::export)]
 impl CollectionViewTree {
     pub fn get_item_by_id(
         &self,
