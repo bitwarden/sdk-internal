@@ -13,13 +13,15 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct VerifyBankAccountRequest {
-    #[serde(rename = "descriptorCode")]
-    pub descriptor_code: String,
+pub struct MinimalTokenizedPaymentMethodRequest {
+    #[serde(rename = "type")]
+    pub r#type: String,
+    #[serde(rename = "token")]
+    pub token: String,
 }
 
-impl VerifyBankAccountRequest {
-    pub fn new(descriptor_code: String) -> VerifyBankAccountRequest {
-        VerifyBankAccountRequest { descriptor_code }
+impl MinimalTokenizedPaymentMethodRequest {
+    pub fn new(r#type: String, token: String) -> MinimalTokenizedPaymentMethodRequest {
+        MinimalTokenizedPaymentMethodRequest { r#type, token }
     }
 }

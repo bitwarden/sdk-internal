@@ -14,81 +14,25 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`licenses_organization_id_get`]
+/// struct for typed errors of method [`licenses_get_user`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum LicensesOrganizationIdGetError {
+pub enum LicensesGetUserError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`licenses_user_id_get`]
+/// struct for typed errors of method [`licenses_organization_sync`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum LicensesUserIdGetError {
+pub enum LicensesOrganizationSyncError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn licenses_organization_id_get(
-    configuration: &configuration::Configuration,
-    id: &str,
-    self_hosted_organization_license_request_model: Option<
-        models::SelfHostedOrganizationLicenseRequestModel,
-    >,
-) -> Result<models::OrganizationLicense, Error<LicensesOrganizationIdGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_self_hosted_organization_license_request_model =
-        self_hosted_organization_license_request_model;
-
-    let uri_str = format!(
-        "{}/licenses/organization/{id}",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_self_hosted_organization_license_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationLicense`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationLicense`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<LicensesOrganizationIdGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn licenses_user_id_get(
+pub async fn licenses_get_user(
     configuration: &configuration::Configuration,
     id: &str,
     key: Option<&str>,
-) -> Result<models::UserLicense, Error<LicensesUserIdGetError>> {
+) -> Result<models::UserLicense, Error<LicensesGetUserError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
     let p_key = key;
@@ -130,7 +74,63 @@ pub async fn licenses_user_id_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<LicensesUserIdGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<LicensesGetUserError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn licenses_organization_sync(
+    configuration: &configuration::Configuration,
+    id: &str,
+    self_hosted_organization_license_request_model: Option<
+        models::SelfHostedOrganizationLicenseRequestModel,
+    >,
+) -> Result<models::OrganizationLicense, Error<LicensesOrganizationSyncError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_self_hosted_organization_license_request_model =
+        self_hosted_organization_license_request_model;
+
+    let uri_str = format!(
+        "{}/licenses/organization/{id}",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_self_hosted_organization_license_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationLicense`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationLicense`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<LicensesOrganizationSyncError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

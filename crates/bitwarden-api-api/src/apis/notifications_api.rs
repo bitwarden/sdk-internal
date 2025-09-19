@@ -14,34 +14,34 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`notifications_get`]
+/// struct for typed errors of method [`notifications_list`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum NotificationsGetError {
+pub enum NotificationsListError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`notifications_id_delete_patch`]
+/// struct for typed errors of method [`notifications_mark_as_deleted`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum NotificationsIdDeletePatchError {
+pub enum NotificationsMarkAsDeletedError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`notifications_id_read_patch`]
+/// struct for typed errors of method [`notifications_mark_as_read`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum NotificationsIdReadPatchError {
+pub enum NotificationsMarkAsReadError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn notifications_get(
+pub async fn notifications_list(
     configuration: &configuration::Configuration,
     read_status_filter: Option<bool>,
     deleted_status_filter: Option<bool>,
     continuation_token: Option<&str>,
     page_size: Option<i32>,
-) -> Result<models::NotificationResponseModelListResponseModel, Error<NotificationsGetError>> {
+) -> Result<models::NotificationResponseModelListResponseModel, Error<NotificationsListError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_read_status_filter = read_status_filter;
     let p_deleted_status_filter = deleted_status_filter;
@@ -90,7 +90,7 @@ pub async fn notifications_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<NotificationsGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<NotificationsListError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -99,10 +99,10 @@ pub async fn notifications_get(
     }
 }
 
-pub async fn notifications_id_delete_patch(
+pub async fn notifications_mark_as_deleted(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-) -> Result<(), Error<NotificationsIdDeletePatchError>> {
+) -> Result<(), Error<NotificationsMarkAsDeletedError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -131,7 +131,7 @@ pub async fn notifications_id_delete_patch(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<NotificationsIdDeletePatchError> = serde_json::from_str(&content).ok();
+        let entity: Option<NotificationsMarkAsDeletedError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -140,10 +140,10 @@ pub async fn notifications_id_delete_patch(
     }
 }
 
-pub async fn notifications_id_read_patch(
+pub async fn notifications_mark_as_read(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-) -> Result<(), Error<NotificationsIdReadPatchError>> {
+) -> Result<(), Error<NotificationsMarkAsReadError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -172,7 +172,7 @@ pub async fn notifications_id_read_patch(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<NotificationsIdReadPatchError> = serde_json::from_str(&content).ok();
+        let entity: Option<NotificationsMarkAsReadError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

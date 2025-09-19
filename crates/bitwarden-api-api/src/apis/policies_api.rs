@@ -14,53 +14,107 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organizations_org_id_policies_get`]
+/// struct for typed errors of method [`policies_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdPoliciesGetError {
+pub enum PoliciesGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_policies_invited_user_get`]
+/// struct for typed errors of method [`policies_get_all`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdPoliciesInvitedUserGetError {
+pub enum PoliciesGetAllError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_policies_master_password_get`]
+/// struct for typed errors of method [`policies_get_by_invited_user`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdPoliciesMasterPasswordGetError {
+pub enum PoliciesGetByInvitedUserError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_policies_token_get`]
+/// struct for typed errors of method [`policies_get_by_token`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdPoliciesTokenGetError {
+pub enum PoliciesGetByTokenError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_policies_type_get`]
+/// struct for typed errors of method [`policies_get_master_password_policy`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdPoliciesTypeGetError {
+pub enum PoliciesGetMasterPasswordPolicyError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_policies_type_put`]
+/// struct for typed errors of method [`policies_put`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdPoliciesTypePutError {
+pub enum PoliciesPutError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn organizations_org_id_policies_get(
+/// struct for typed errors of method [`policies_put_v_next`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PoliciesPutVNextError {
+    UnknownValue(serde_json::Value),
+}
+
+pub async fn policies_get(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    r#type: i32,
+) -> Result<models::PolicyDetailResponseModel, Error<PoliciesGetError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_type = r#type;
+
+    let uri_str = format!("{}/organizations/{orgId}/policies/{type}", configuration.base_path, orgId=crate::apis::urlencode(p_org_id.to_string()), type=p_type);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PolicyDetailResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PolicyDetailResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<PoliciesGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn policies_get_all(
     configuration: &configuration::Configuration,
     org_id: &str,
-) -> Result<models::PolicyResponseModelListResponseModel, Error<OrganizationsOrgIdPoliciesGetError>>
-{
+) -> Result<models::PolicyResponseModelListResponseModel, Error<PoliciesGetAllError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
 
@@ -98,8 +152,7 @@ pub async fn organizations_org_id_policies_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdPoliciesGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<PoliciesGetAllError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -108,14 +161,11 @@ pub async fn organizations_org_id_policies_get(
     }
 }
 
-pub async fn organizations_org_id_policies_invited_user_get(
+pub async fn policies_get_by_invited_user(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     user_id: Option<uuid::Uuid>,
-) -> Result<
-    models::PolicyResponseModelListResponseModel,
-    Error<OrganizationsOrgIdPoliciesInvitedUserGetError>,
-> {
+) -> Result<models::PolicyResponseModelListResponseModel, Error<PoliciesGetByInvitedUserError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_user_id = user_id;
@@ -157,8 +207,7 @@ pub async fn organizations_org_id_policies_invited_user_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdPoliciesInvitedUserGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<PoliciesGetByInvitedUserError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -167,67 +216,13 @@ pub async fn organizations_org_id_policies_invited_user_get(
     }
 }
 
-pub async fn organizations_org_id_policies_master_password_get(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-) -> Result<models::PolicyResponseModel, Error<OrganizationsOrgIdPoliciesMasterPasswordGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/policies/master-password",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PolicyResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PolicyResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdPoliciesMasterPasswordGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_policies_token_get(
+pub async fn policies_get_by_token(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     email: Option<&str>,
     token: Option<&str>,
     organization_user_id: Option<uuid::Uuid>,
-) -> Result<
-    models::PolicyResponseModelListResponseModel,
-    Error<OrganizationsOrgIdPoliciesTokenGetError>,
-> {
+) -> Result<models::PolicyResponseModelListResponseModel, Error<PoliciesGetByTokenError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_email = email;
@@ -277,8 +272,7 @@ pub async fn organizations_org_id_policies_token_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdPoliciesTokenGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<PoliciesGetByTokenError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -287,16 +281,18 @@ pub async fn organizations_org_id_policies_token_get(
     }
 }
 
-pub async fn organizations_org_id_policies_type_get(
+pub async fn policies_get_master_password_policy(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
-    r#type: i32,
-) -> Result<models::PolicyDetailResponseModel, Error<OrganizationsOrgIdPoliciesTypeGetError>> {
+) -> Result<models::PolicyResponseModel, Error<PoliciesGetMasterPasswordPolicyError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
-    let p_type = r#type;
 
-    let uri_str = format!("{}/organizations/{orgId}/policies/{type}", configuration.base_path, orgId=crate::apis::urlencode(p_org_id.to_string()), type=p_type);
+    let uri_str = format!(
+        "{}/organizations/{orgId}/policies/master-password",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
@@ -321,12 +317,12 @@ pub async fn organizations_org_id_policies_type_get(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PolicyDetailResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PolicyDetailResponseModel`")))),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PolicyResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PolicyResponseModel`")))),
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdPoliciesTypeGetError> =
+        let entity: Option<PoliciesGetMasterPasswordPolicyError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -336,12 +332,12 @@ pub async fn organizations_org_id_policies_type_get(
     }
 }
 
-pub async fn organizations_org_id_policies_type_put(
+pub async fn policies_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     r#type: models::PolicyType,
     policy_request_model: Option<models::PolicyRequestModel>,
-) -> Result<models::PolicyResponseModel, Error<OrganizationsOrgIdPoliciesTypePutError>> {
+) -> Result<models::PolicyResponseModel, Error<PoliciesPutError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_type = r#type;
@@ -378,8 +374,58 @@ pub async fn organizations_org_id_policies_type_put(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdPoliciesTypePutError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<PoliciesPutError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn policies_put_v_next(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    r#type: &str,
+    save_policy_request: Option<models::SavePolicyRequest>,
+) -> Result<models::PolicyResponseModel, Error<PoliciesPutVNextError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_type = r#type;
+    let p_save_policy_request = save_policy_request;
+
+    let uri_str = format!("{}/organizations/{orgId}/policies/{type}/vnext", configuration.base_path, orgId=crate::apis::urlencode(p_org_id.to_string()), type=crate::apis::urlencode(p_type));
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_save_policy_request);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PolicyResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PolicyResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<PoliciesPutVNextError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

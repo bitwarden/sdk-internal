@@ -129,6 +129,6 @@ fn init_logger() {
 /// Check [`bitwarden_uniffi_error`] for more details
 fn setup_error_converter() {
     bitwarden_uniffi_error::set_error_to_uniffi_error(|e| {
-        crate::error::BitwardenError::ConversionError(e).into()
+        crate::error::BitwardenError::Conversion(e).into()
     });
 }

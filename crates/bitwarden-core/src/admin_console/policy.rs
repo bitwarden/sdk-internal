@@ -48,6 +48,7 @@ pub enum PolicyType {
     FreeFamiliesSponsorshipPolicy = 13,
     RemoveUnlockWithPin = 14,
     RestrictedItemTypesPolicy = 15,
+    UriMatchDefaults = 16,
 }
 
 impl TryFrom<PolicyResponseModel> for Policy {
@@ -101,6 +102,7 @@ impl From<bitwarden_api_api::models::PolicyType> for PolicyType {
             bitwarden_api_api::models::PolicyType::RestrictedItemTypesPolicy => {
                 PolicyType::RestrictedItemTypesPolicy
             }
+            bitwarden_api_api::models::PolicyType::UriMatchDefaults => PolicyType::UriMatchDefaults,
         }
     }
 }

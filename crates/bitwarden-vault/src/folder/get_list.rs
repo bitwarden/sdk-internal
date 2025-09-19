@@ -15,7 +15,7 @@ pub enum GetFolderError {
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error(transparent)]
-    RepositoryError(#[from] RepositoryError),
+    Repository(#[from] RepositoryError),
 }
 
 pub(super) async fn get_folder(

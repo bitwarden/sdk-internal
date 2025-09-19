@@ -2,7 +2,7 @@
 
 use bitwarden_core::key_management::KeyIds;
 use bitwarden_crypto::KeyStoreContext;
-use bitwarden_encoding::{B64Url, NotB64UrlEncoded};
+use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use bitwarden_vault::{
     CipherError, CipherView, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView,
 };
@@ -78,13 +78,13 @@ impl CipherViewContainer {
 #[derive(Debug, Error)]
 pub enum Fido2Error {
     #[error(transparent)]
-    Decode(#[from] NotB64UrlEncoded),
+    Decode(#[from] NotB64UrlEncodedError),
 
     #[error(transparent)]
-    UnknownEnum(#[from] UnknownEnum),
+    UnknownEnum(#[from] UnknownEnumError),
 
     #[error(transparent)]
-    InvalidGuid(#[from] InvalidGuid),
+    InvalidGuid(#[from] InvalidGuidError),
 
     #[error(transparent)]
     PrivateKeyFromSecretKey(#[from] PrivateKeyFromSecretKeyError),
@@ -133,9 +133,9 @@ fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passk
 #[derive(Debug, Error)]
 pub enum FillCredentialError {
     #[error(transparent)]
-    InvalidInputLength(#[from] InvalidInputLength),
+    InvalidInputLength(#[from] InvalidInputLengthError),
     #[error(transparent)]
-    CoseKeyToPkcs8Error(#[from] CoseKeyToPkcs8Error),
+    CoseKeyToPkcs8(#[from] CoseKeyToPkcs8Error),
 }
 
 #[allow(missing_docs)]
@@ -170,7 +170,7 @@ pub fn fill_with_credential(
 pub(crate) fn try_from_credential_new_view(
     user: &passkey::types::ctap2::make_credential::PublicKeyCredentialUserEntity,
     rp: &passkey::types::ctap2::make_credential::PublicKeyCredentialRpEntity,
-) -> Result<Fido2CredentialNewView, InvalidInputLength> {
+) -> Result<Fido2CredentialNewView, InvalidInputLengthError> {
     let cred_id: Vec<u8> = vec![0; 16];
     let user_handle = B64Url::from(user.id.to_vec()).to_string();
 
@@ -222,12 +222,12 @@ pub(crate) fn try_from_credential_full(
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 #[error("Input should be a 16 byte array")]
-pub struct InvalidInputLength;
+pub struct InvalidInputLengthError;
 
 #[allow(missing_docs)]
-pub fn guid_bytes_to_string(source: &[u8]) -> Result<String, InvalidInputLength> {
+pub fn guid_bytes_to_string(source: &[u8]) -> Result<String, InvalidInputLengthError> {
     if source.len() != 16 {
-        return Err(InvalidInputLength);
+        return Err(InvalidInputLengthError);
     }
     Ok(uuid::Uuid::from_bytes(source.try_into().expect("Invalid length")).to_string())
 }
@@ -235,16 +235,17 @@ pub fn guid_bytes_to_string(source: &[u8]) -> Result<String, InvalidInputLength>
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 #[error("Invalid GUID")]
-pub struct InvalidGuid;
+pub struct InvalidGuidError;
 
 #[allow(missing_docs)]
-pub fn string_to_guid_bytes(source: &str) -> Result<Vec<u8>, InvalidGuid> {
+pub fn string_to_guid_bytes(source: &str) -> Result<Vec<u8>, InvalidGuidError> {
     if source.starts_with("b64.") {
-        let bytes = B64Url::try_from(source.trim_start_matches("b64.")).map_err(|_| InvalidGuid)?;
+        let bytes =
+            B64Url::try_from(source.trim_start_matches("b64.")).map_err(|_| InvalidGuidError)?;
         Ok(bytes.as_bytes().to_vec())
     } else {
         let Ok(uuid) = uuid::Uuid::try_parse(source) else {
-            return Err(InvalidGuid);
+            return Err(InvalidGuidError);
         };
         Ok(uuid.as_bytes().to_vec())
     }
@@ -253,12 +254,14 @@ pub fn string_to_guid_bytes(source: &str) -> Result<Vec<u8>, InvalidGuid> {
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 #[error("Unknown enum value")]
-pub struct UnknownEnum;
+pub struct UnknownEnumError;
 
 // Some utilities to convert back and forth between enums and strings
-fn get_enum_from_string_name<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, UnknownEnum> {
+fn get_enum_from_string_name<T: serde::de::DeserializeOwned>(
+    s: &str,
+) -> Result<T, UnknownEnumError> {
     let serialized = format!(r#""{s}""#);
-    let deserialized: T = serde_json::from_str(&serialized).map_err(|_| UnknownEnum)?;
+    let deserialized: T = serde_json::from_str(&serialized).map_err(|_| UnknownEnumError)?;
     Ok(deserialized)
 }
 

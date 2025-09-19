@@ -55,7 +55,7 @@ pub(crate) async fn create_secret(
     };
 
     let config = client.internal.get_api_configurations().await;
-    let res = bitwarden_api_api::apis::secrets_api::organizations_organization_id_secrets_post(
+    let res = bitwarden_api_api::apis::secrets_api::secrets_create(
         &config.api,
         input.organization_id,
         secret,
