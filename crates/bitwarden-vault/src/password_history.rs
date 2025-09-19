@@ -78,3 +78,12 @@ impl TryFrom<CipherPasswordHistoryModel> for PasswordHistory {
         })
     }
 }
+
+impl From<PasswordHistory> for CipherPasswordHistoryModel {
+    fn from(history: PasswordHistory) -> Self {
+        Self {
+            password: history.password.to_string(),
+            last_used_date: history.last_used_date.to_rfc3339(),
+        }
+    }
+}

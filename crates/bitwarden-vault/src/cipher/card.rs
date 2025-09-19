@@ -127,6 +127,19 @@ impl TryFrom<CipherCardModel> for Card {
     }
 }
 
+impl From<Card> for bitwarden_api_api::models::CipherCardModel {
+    fn from(card: Card) -> Self {
+        Self {
+            cardholder_name: card.cardholder_name.map(|n| n.to_string()),
+            brand: card.brand.map(|b| b.to_string()),
+            number: card.number.map(|n| n.to_string()),
+            exp_month: card.exp_month.map(|m| m.to_string()),
+            exp_year: card.exp_year.map(|y| y.to_string()),
+            code: card.code.map(|c| c.to_string()),
+        }
+    }
+}
+
 impl CipherKind for Card {
     fn decrypt_subtitle(
         &self,

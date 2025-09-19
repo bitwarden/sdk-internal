@@ -84,6 +84,22 @@ impl From<bitwarden_api_api::models::SecureNoteType> for SecureNoteType {
     }
 }
 
+impl From<SecureNoteType> for bitwarden_api_api::models::SecureNoteType {
+    fn from(model: SecureNoteType) -> Self {
+        match model {
+            SecureNoteType::Generic => bitwarden_api_api::models::SecureNoteType::Generic,
+        }
+    }
+}
+
+impl From<SecureNote> for CipherSecureNoteModel {
+    fn from(model: SecureNote) -> Self {
+        Self {
+            r#type: Some(model.r#type.into()),
+        }
+    }
+}
+
 impl CipherKind for SecureNote {
     fn get_copyable_fields(&self, cipher: Option<&Cipher>) -> Vec<CopyableCipherFields> {
         [cipher
