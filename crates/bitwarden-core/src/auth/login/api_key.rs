@@ -32,6 +32,8 @@ pub(crate) async fn login_api_key(
 
         let kdf = client.auth().prelogin(email.clone()).await?;
 
+        let master_key = MasterKey::derive(&input.password, &email, &kdf)?;
+
         client.internal.set_tokens(
             r.access_token.clone(),
             r.refresh_token.clone(),
@@ -52,37 +54,42 @@ pub(crate) async fn login_api_key(
             .map(UserDecryptionData::try_from)
             .transpose()?
             .and_then(|user_decryption| user_decryption.master_password_unlock);
-
         match master_password_unlock {
             Some(master_password_unlock) => {
+                client.internal.initialize_user_crypto_master_key(
+                    master_key,
+                    master_password_unlock.master_key_wrapped_user_key,
+                    user_key_state,
+                )?;
+
                 client
                     .internal
-                    .initialize_user_crypto_master_password_unlock(
-                        input.password.clone(),
-                        master_password_unlock,
-                        user_key_state,
-                    )?;
+                    .set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
+                        client_id: input.client_id.clone(),
+                        client_secret: input.client_secret.clone(),
+                        email: master_password_unlock.salt,
+                        kdf: master_password_unlock.kdf,
+                    }));
             }
             None => {
                 let user_key: EncString = require!(&r.key).parse()?;
-                let master_key = MasterKey::derive(&input.password, &email, &kdf)?;
 
                 client.internal.initialize_user_crypto_master_key(
                     master_key,
                     user_key,
                     user_key_state,
                 )?;
+
+                client
+                    .internal
+                    .set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
+                        client_id: input.client_id.clone(),
+                        client_secret: input.client_secret.clone(),
+                        email,
+                        kdf,
+                    }));
             }
         }
-
-        client
-            .internal
-            .set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
-                client_id: input.client_id.clone(),
-                client_secret: input.client_secret.clone(),
-                email,
-                kdf,
-            }));
     }
 
     Ok(ApiKeyLoginResponse::process_response(response))

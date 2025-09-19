@@ -261,23 +261,6 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
-    pub(crate) fn initialize_user_crypto_master_password_unlock(
-        &self,
-        password: String,
-        master_password_unlock: MasterPasswordUnlockData,
-        key_state: UserKeyState,
-    ) -> Result<(), EncryptionSettingsError> {
-        let master_key = MasterKey::derive(
-            &password,
-            &master_password_unlock.salt,
-            &master_password_unlock.kdf,
-        )?;
-        let user_key =
-            master_key.decrypt_user_key(master_password_unlock.master_key_wrapped_user_key)?;
-        self.initialize_user_crypto_decrypted_key(user_key, key_state)
-    }
-
-    #[cfg(feature = "internal")]
     pub(crate) fn initialize_user_crypto_decrypted_key(
         &self,
         user_key: SymmetricCryptoKey,
