@@ -103,11 +103,11 @@ impl Client {
                 login_method: RwLock::new(None),
                 #[cfg(feature = "internal")]
                 flags: RwLock::new(Flags::default()),
-                __api_configurations: RwLock::new(Arc::new(ApiConfigurations {
+                __api_configurations: RwLock::new(ApiConfigurations::new(
                     identity,
                     api,
-                    device_type: settings.device_type,
-                })),
+                    settings.device_type,
+                )),
                 external_client,
                 key_store: KeyStore::default(),
                 #[cfg(feature = "internal")]

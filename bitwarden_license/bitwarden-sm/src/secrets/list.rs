@@ -26,11 +26,11 @@ pub(crate) async fn list_secrets(
     input: &SecretIdentifiersRequest,
 ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
     let config = client.internal.get_api_configurations().await;
-    let res = bitwarden_api_api::apis::secrets_api::secrets_list_by_organization(
-        &config.api,
-        input.organization_id,
-    )
-    .await?;
+    let res = config
+        .api_client
+        .secrets_api()
+        .list_by_organization(input.organization_id)
+        .await?;
 
     let key_store = client.internal.get_key_store();
 
@@ -50,11 +50,11 @@ pub(crate) async fn list_secrets_by_project(
     input: &SecretIdentifiersByProjectRequest,
 ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
     let config = client.internal.get_api_configurations().await;
-    let res = bitwarden_api_api::apis::secrets_api::secrets_get_secrets_by_project(
-        &config.api,
-        input.project_id,
-    )
-    .await?;
+    let res = config
+        .api_client
+        .secrets_api()
+        .get_secrets_by_project(input.project_id)
+        .await?;
 
     let key_store = client.internal.get_key_store();
 
