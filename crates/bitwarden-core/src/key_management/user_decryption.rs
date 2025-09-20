@@ -11,18 +11,19 @@ use crate::{
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct UserDecryptionData {
+pub struct UserDecryptionData {
     /// Optional master password unlock data.
-    master_password_unlock: Option<MasterPasswordUnlockData>,
+    pub master_password_unlock: Option<MasterPasswordUnlockData>,
 }
 
-impl TryFrom<UserDecryptionResponseModel> for UserDecryptionData {
+impl TryFrom<&UserDecryptionResponseModel> for UserDecryptionData {
     type Error = MasterPasswordError;
 
-    fn try_from(response: UserDecryptionResponseModel) -> Result<Self, Self::Error> {
+    fn try_from(response: &UserDecryptionResponseModel) -> Result<Self, Self::Error> {
         let master_password_unlock = response
             .master_password_unlock
-            .map(|response| MasterPasswordUnlockData::try_from(*response))
+            .as_deref()
+            .map(MasterPasswordUnlockData::try_from)
             .transpose()?;
 
         Ok(UserDecryptionData {
@@ -31,12 +32,13 @@ impl TryFrom<UserDecryptionResponseModel> for UserDecryptionData {
     }
 }
 
-impl TryFrom<UserDecryptionOptionsResponseModel> for UserDecryptionData {
+impl TryFrom<&UserDecryptionOptionsResponseModel> for UserDecryptionData {
     type Error = MasterPasswordError;
 
-    fn try_from(response: UserDecryptionOptionsResponseModel) -> Result<Self, Self::Error> {
+    fn try_from(response: &UserDecryptionOptionsResponseModel) -> Result<Self, Self::Error> {
         let master_password_unlock = response
             .master_password_unlock
+            .as_ref()
             .map(MasterPasswordUnlockData::try_from)
             .transpose()?;
 
