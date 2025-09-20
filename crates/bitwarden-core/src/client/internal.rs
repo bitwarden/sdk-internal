@@ -406,13 +406,17 @@ impl InternalClient {
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::{Kdf, MasterKey, SymmetricCryptoKey};
+    use bitwarden_crypto::{EncString, Kdf, MasterKey, SymmetricCryptoKey};
 
     use crate::{
         client::{test_accounts::test_bitwarden_com_account, LoginMethod, UserLoginMethod},
-        key_management::{crypto::InitUserCryptoMethod, MasterPasswordUnlockData, SymmetricKeyId},
+        key_management::{MasterPasswordUnlockData, SymmetricKeyId},
         Client, OrganizationId,
     };
+
+    const TEST_ACCOUNT_EMAIL: &str = "test@bitwarden.com";
+    const TEST_ACCOUNT_USER_KEY: &str = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=";
+    const TEST_ACCOUNT_ORGANIZATION_ID: &str = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8";
 
     #[test]
     fn initializing_user_multiple_times() {
@@ -442,11 +446,8 @@ mod tests {
         };
 
         let test_account = test_bitwarden_com_account();
-        let InitUserCryptoMethod::Password { user_key, .. } = &test_account.user.method else {
-            panic!("Test account must use password method");
-        };
-        let user_key = user_key.clone();
-        let email = test_account.user.email.clone();
+        let user_key: EncString = TEST_ACCOUNT_USER_KEY.parse().expect("Invalid user key");
+        let email = TEST_ACCOUNT_EMAIL.to_owned();
 
         let client = Client::init_test_account(test_account).await;
 
@@ -466,18 +467,13 @@ mod tests {
     #[tokio::test]
     async fn test_update_user_master_password_unlock_email_and_keys_not_updated() {
         let password = "asdfasdfasdf".to_string();
-        let new_email = "test2@example.com".to_string();
+        let new_email = format!("{}@example.com", uuid::Uuid::new_v4());
         let test_account = test_bitwarden_com_account();
-        let kdf = test_account.user.kdf_params.clone();
-        let expected_email = test_account.user.email.clone();
-        let organization_id = *test_account
-            .org
-            .as_ref()
-            .unwrap()
-            .organization_keys
-            .keys()
-            .next()
-            .unwrap();
+        let kdf = Kdf::default();
+        let expected_email = TEST_ACCOUNT_EMAIL.to_owned();
+        let organization_id: OrganizationId = TEST_ACCOUNT_ORGANIZATION_ID
+            .parse()
+            .expect("Invalid organization ID");
 
         let (_, new_encrypted_user_key) = {
             let master_key = MasterKey::derive(&password, &new_email, &kdf).unwrap();
