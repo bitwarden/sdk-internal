@@ -341,8 +341,9 @@ impl PureCrypto {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::EncString;
     use std::{num::NonZero, str::FromStr};
+
+    use bitwarden_crypto::EncString;
 
     use super::*;
 
