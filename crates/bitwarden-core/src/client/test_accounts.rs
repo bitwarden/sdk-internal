@@ -5,12 +5,12 @@ use bitwarden_crypto::{EncString, Kdf};
 
 use crate::{
     key_management::crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
-    Client, UserId,
+    Client, ClientSettings, UserId,
 };
 
 impl Client {
-    pub async fn init_test_account(account: TestAccount) -> Self {
-        let client = Client::new(None);
+    pub async fn init_test_account(account: TestAccount, settings: Option<ClientSettings>) -> Self {
+        let client = Client::new(settings);
 
         client.internal.load_flags(HashMap::from([(
             "enableCipherKeyEncryption".to_owned(),

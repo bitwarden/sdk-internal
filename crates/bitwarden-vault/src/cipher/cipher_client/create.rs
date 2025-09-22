@@ -3,9 +3,9 @@ use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require, ApiError, MissingFieldError, UserId,
 };
-use bitwarden_crypto::{CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext};
+use bitwarden_crypto::{CompositeEncryptable, CryptoError, IdentifyKey, KeyStoreContext};
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::{Repository, RepositoryError};
+use bitwarden_state::repository::RepositoryError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -105,26 +105,6 @@ impl IdentifyKey<SymmetricKeyId> for CipherAddEditRequest {
     }
 }
 
-async fn create_cipher<R: Repository<Cipher> + ?Sized>(
-    key_store: &KeyStore<KeyIds>,
-    api_config: &bitwarden_api_api::apis::configuration::Configuration,
-    repository: &R,
-    request: CipherAddEditRequest,
-) -> Result<CipherView, CreateCipherError> {
-    let cipher_request = key_store.encrypt(request)?;
-    let resp = ciphers_api::ciphers_post(api_config, Some(cipher_request))
-        .await
-        .map_err(ApiError::from)?;
-
-    let cipher: Cipher = resp.try_into()?;
-
-    repository
-        .set(require!(cipher.id).to_string(), cipher.clone())
-        .await?;
-
-    Ok(key_store.decrypt(&cipher)?)
-}
-
 impl CiphersClient {
     /// Create a new [Cipher] and save it to the server.
     pub async fn create(
@@ -137,19 +117,35 @@ impl CiphersClient {
 
         request.encrypted_for = self.client.internal.get_user_id();
 
-        create_cipher(key_store, &config.api, repository.as_ref(), request).await
+        let cipher_request = key_store.encrypt(request)?;
+        let resp = ciphers_api::ciphers_post(&config.api, Some(cipher_request))
+            .await
+            .map_err(ApiError::from)?;
+
+        let cipher: Cipher = resp.try_into()?;
+
+        repository
+            .set(require!(cipher.id).to_string(), cipher.clone())
+            .await?;
+
+        Ok(key_store.decrypt(&cipher)?)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use bitwarden_api_api::models::CipherResponseModel;
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_core::{
+        client::test_accounts::test_bitwarden_com_account, Client, ClientSettings, DeviceType,
+    };
+    use bitwarden_state::repository::Repository;
     use bitwarden_test::{start_api_mock, MemoryRepository};
     use wiremock::{matchers, Mock, Request, ResponseTemplate};
 
     use super::*;
-    use crate::{CipherId, CipherRepromptType, CipherType, LoginView};
+    use crate::{CipherId, CipherRepromptType, CipherType, LoginView, VaultClientExt};
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_USER_ID: &str = "550e8400-e29b-41d4-a716-446655440000";
@@ -196,59 +192,66 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_cipher() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
-        #[allow(deprecated)]
-        let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-        );
-
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
         let user_id: UserId = TEST_USER_ID.parse().unwrap();
 
-        let (_server, api_config) = start_api_mock(vec![Mock::given(matchers::path("/ciphers"))
-            .respond_with(move |req: &Request| {
-                let body: CipherRequestModel = req.body_json().unwrap();
-                ResponseTemplate::new(201).set_body_json(CipherResponseModel {
-                    object: Some("cipher".to_string()),
-                    id: Some(cipher_id.into()),
-                    name: Some(body.name.clone()),
-                    r#type: body.r#type,
-                    organization_id: body
-                        .organization_id
-                        .as_ref()
-                        .and_then(|id| uuid::Uuid::parse_str(id).ok()),
-                    folder_id: body
-                        .folder_id
-                        .as_ref()
-                        .and_then(|id| uuid::Uuid::parse_str(id).ok()),
-                    favorite: body.favorite,
-                    reprompt: body.reprompt,
-                    key: body.key.clone(),
-                    notes: body.notes.clone(),
-                    view_password: Some(true),
-                    edit: Some(true),
-                    organization_use_totp: Some(true),
-                    revision_date: Some("2025-01-01T00:00:00Z".to_string()),
-                    creation_date: Some("2025-01-01T00:00:00Z".to_string()),
-                    deleted_date: None,
-                    login: body.login,
-                    card: body.card,
-                    identity: body.identity,
-                    secure_note: body.secure_note,
-                    ssh_key: body.ssh_key,
-                    fields: body.fields,
-                    password_history: body.password_history,
-                    attachments: None,
-                    permissions: None,
-                    data: None,
-                    archived_date: None,
+        let (mock_server, _api_config) =
+            start_api_mock(vec![Mock::given(matchers::path("/api/ciphers"))
+                .respond_with(move |req: &Request| {
+                    let body: CipherRequestModel = req.body_json().unwrap();
+                    ResponseTemplate::new(201).set_body_json(CipherResponseModel {
+                        object: Some("cipher".to_string()),
+                        id: Some(cipher_id.into()),
+                        name: Some(body.name.clone()),
+                        r#type: body.r#type,
+                        organization_id: body
+                            .organization_id
+                            .as_ref()
+                            .and_then(|id| uuid::Uuid::parse_str(id).ok()),
+                        folder_id: body
+                            .folder_id
+                            .as_ref()
+                            .and_then(|id| uuid::Uuid::parse_str(id).ok()),
+                        favorite: body.favorite,
+                        reprompt: body.reprompt,
+                        key: body.key.clone(),
+                        notes: body.notes.clone(),
+                        view_password: Some(true),
+                        edit: Some(true),
+                        organization_use_totp: Some(true),
+                        revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        creation_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        deleted_date: None,
+                        login: body.login,
+                        card: body.card,
+                        identity: body.identity,
+                        secure_note: body.secure_note,
+                        ssh_key: body.ssh_key,
+                        fields: body.fields,
+                        password_history: body.password_history,
+                        attachments: None,
+                        permissions: None,
+                        data: None,
+                        archived_date: None,
+                    })
                 })
-            })
-            .expect(1)])
-        .await;
+                .expect(1)])
+            .await;
 
-        let repository = MemoryRepository::<Cipher>::default();
+        let settings = ClientSettings {
+            identity_url: format!("http://{}/identity", mock_server.address()),
+            api_url: format!("http://{}/api", mock_server.address()),
+            user_agent: "Bitwarden Rust-SDK [TEST]".into(),
+            device_type: DeviceType::SDK,
+        };
+        let client = Client::init_test_account(test_bitwarden_com_account(), Some(settings)).await;
+
+        let repository = Arc::new(MemoryRepository::<Cipher>::default());
+        client
+            .platform()
+            .state()
+            .register_client_managed(repository.clone());
+
         let cipher_view = generate_test_cipher();
 
         let request = CipherAddEditRequest {
@@ -256,9 +259,7 @@ mod tests {
             encrypted_for: Some(user_id),
         };
 
-        let result = create_cipher(&store, &api_config, &repository, request)
-            .await
-            .unwrap();
+        let result = client.vault().ciphers().create(request).await.unwrap();
 
         assert_eq!(result.id, Some(cipher_id));
         assert_eq!(result.name, "Test Login");
@@ -275,8 +276,9 @@ mod tests {
             })
         );
 
+        let key_store = client.internal.get_key_store();
         // Confirm the cipher was stored in the repository
-        let stored_cipher_view: CipherView = store
+        let stored_cipher_view: CipherView = key_store
             .decrypt(
                 &repository
                     .get(cipher_id.to_string())
@@ -295,19 +297,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_cipher_http_error() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
-        #[allow(deprecated)]
-        let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-        );
+        let (mock_server, _api_config) =
+            start_api_mock(vec![Mock::given(matchers::path("/api/ciphers"))
+                .respond_with(ResponseTemplate::new(500))])
+            .await;
 
-        let (_server, api_config) = start_api_mock(vec![
-            Mock::given(matchers::path("/ciphers")).respond_with(ResponseTemplate::new(500))
-        ])
-        .await;
+        let settings = ClientSettings {
+            identity_url: format!("http://{}/identity", mock_server.address()),
+            api_url: format!("http://{}/api", mock_server.address()),
+            user_agent: "Bitwarden Rust-SDK [TEST]".into(),
+            device_type: DeviceType::SDK,
+        };
+        let client = Client::init_test_account(test_bitwarden_com_account(), Some(settings)).await;
+        let repository = Arc::new(MemoryRepository::<Cipher>::default());
+        client
+            .platform()
+            .state()
+            .register_client_managed(repository.clone());
 
-        let repository = MemoryRepository::<Cipher>::default();
         let cipher_view = generate_test_cipher();
 
         let request = CipherAddEditRequest {
@@ -315,7 +322,7 @@ mod tests {
             encrypted_for: None,
         };
 
-        let result = create_cipher(&store, &api_config, &repository, request).await;
+        let result = client.vault().ciphers().create(request).await;
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), CreateCipherError::Api(_)));

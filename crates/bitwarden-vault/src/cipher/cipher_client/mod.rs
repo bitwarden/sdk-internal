@@ -307,7 +307,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_decrypt_list() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let client = Client::init_test_account(test_bitwarden_com_account(), None).await;
 
         let dec = client
             .vault()
@@ -352,7 +352,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_decrypt_list_with_failures_all_success() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let client = Client::init_test_account(test_bitwarden_com_account(), None).await;
 
         let valid_cipher = test_cipher();
 
@@ -368,7 +368,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_decrypt_list_with_failures_mixed_results() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let client = Client::init_test_account(test_bitwarden_com_account(), None).await;
         let valid_cipher = test_cipher();
         let mut invalid_cipher = test_cipher();
         // Set an invalid encryptedkey to cause decryption failure
@@ -386,7 +386,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_move_user_cipher_with_attachment_without_key_to_org_fails() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let client = Client::init_test_account(test_bitwarden_com_account(), None).await;
 
         let mut cipher = test_cipher();
         cipher.attachments = Some(vec![test_attachment_legacy()]);
@@ -404,7 +404,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_encrypt_cipher_with_legacy_attachment_without_key() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let client = Client::init_test_account(test_bitwarden_com_account(), None).await;
 
         let mut cipher = test_cipher();
         let attachment = test_attachment_legacy();
@@ -446,7 +446,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_encrypt_cipher_with_v1_attachment_without_key() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let client = Client::init_test_account(test_bitwarden_com_account(), None).await;
 
         let mut cipher = test_cipher();
         let attachment = test_attachment_v2();
@@ -534,7 +534,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_encrypt_cipher_for_rotation() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let client = Client::init_test_account(test_bitwarden_com_account(), None).await;
 
         let new_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
 
