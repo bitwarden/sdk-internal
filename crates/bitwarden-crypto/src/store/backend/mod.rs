@@ -36,8 +36,3 @@ pub trait StoreBackend<Key: KeyId>: ZeroizeOnDrop + Send + Sync {
     /// In other words, remove all keys for which `f` returns false.
     fn retain(&mut self, f: fn(Key) -> bool);
 }
-
-#[cfg(test)]
-trait StoreBackendDebug<Key: KeyId>: StoreBackend<Key> {
-    fn elements(&self) -> Vec<(Key, &Key::KeyValue)>;
-}

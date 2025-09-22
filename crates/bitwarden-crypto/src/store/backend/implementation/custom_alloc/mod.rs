@@ -19,6 +19,11 @@ impl<Key: KeyId, Alloc: Allocator + Send + Sync> CustomAllocBackend<Key, Alloc> 
             map: hashbrown::HashMap::new_in(alloc),
         }
     }
+
+    #[cfg(test)]
+    pub(super) fn elements(&self) -> Vec<(Key, &Key::KeyValue)> {
+        self.map.iter().map(|(k, v)| (*k, v)).collect()
+    }
 }
 
 impl<Key: KeyId, Alloc: Allocator + Send + Sync> ZeroizeOnDrop for CustomAllocBackend<Key, Alloc> {}
@@ -44,14 +49,5 @@ impl<Key: KeyId, Alloc: Allocator + Send + Sync> StoreBackend<Key>
 
     fn retain(&mut self, f: fn(Key) -> bool) {
         self.map.retain(|key, _| f(*key));
-    }
-}
-
-#[cfg(test)]
-impl<Key: KeyId, Alloc: Allocator + Send + Sync> super::super::StoreBackendDebug<Key>
-    for CustomAllocBackend<Key, Alloc>
-{
-    fn elements(&self) -> Vec<(Key, &Key::KeyValue)> {
-        self.map.iter().map(|(k, v)| (*k, v)).collect()
     }
 }

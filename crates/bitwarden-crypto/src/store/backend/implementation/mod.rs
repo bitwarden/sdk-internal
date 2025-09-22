@@ -1,7 +1,7 @@
-use super::StoreBackend;
-use crate::store::KeyId;
+use allocator_api2::alloc::Global;
 
-mod basic;
+use super::StoreBackend;
+use crate::store::{backend::implementation::custom_alloc::CustomAllocBackend, KeyId};
 
 #[cfg(any(target_os = "linux", all(not(target_arch = "wasm32"), not(windows))))]
 mod custom_alloc;
@@ -11,24 +11,22 @@ pub fn create_store<Key: KeyId>() -> Box<dyn StoreBackend<Key>> {
     if !cfg!(feature = "no-memory-hardening") {
         #[cfg(target_os = "linux")]
         if let Some(alloc) = custom_alloc::linux_memfd_secret::LinuxMemfdSecretAlloc::new() {
-            return Box::new(custom_alloc::CustomAllocBackend::new(alloc));
+            return Box::new(CustomAllocBackend::new(alloc));
         }
 
         #[cfg(all(not(target_arch = "wasm32"), not(windows)))]
-        return Box::new(custom_alloc::CustomAllocBackend::new(
+        return Box::new(CustomAllocBackend::new(
             custom_alloc::malloc::MlockAlloc::new(),
         ));
     }
 
-    Box::new(basic::BasicBackend::new())
+    Box::new(CustomAllocBackend::new(Global))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        store::backend::StoreBackendDebug, traits::tests::TestSymmKey, SymmetricCryptoKey,
-    };
+    use crate::{traits::tests::TestSymmKey, SymmetricCryptoKey};
 
     #[test]
     fn test_creates_a_valid_store() {
@@ -46,34 +44,30 @@ mod tests {
     #[cfg(all(not(target_arch = "wasm32"), not(windows)))]
     #[test]
     fn validate_mlock_store() {
-        let basic_store: Box<dyn StoreBackendDebug<TestSymmKey>> =
-            Box::new(basic::BasicBackend::new());
-
-        let mlock_store: Box<dyn StoreBackendDebug<TestSymmKey>> = Box::new(
-            custom_alloc::CustomAllocBackend::new(custom_alloc::malloc::MlockAlloc::new()),
-        );
+        let basic_store = CustomAllocBackend::new(Global);
+        let mlock_store = CustomAllocBackend::new(custom_alloc::malloc::MlockAlloc::new());
         compare_stores(100_000, basic_store, mlock_store);
     }
 
     #[cfg(target_os = "linux")]
     #[test]
     fn validate_memfd_store() {
-        let basic_store: Box<dyn StoreBackendDebug<TestSymmKey>> =
-            Box::new(basic::BasicBackend::new());
-
-        let memfd_store: Box<dyn StoreBackendDebug<TestSymmKey>> =
-            Box::new(custom_alloc::CustomAllocBackend::new(
-                custom_alloc::linux_memfd_secret::LinuxMemfdSecretAlloc::new().unwrap(),
-            ));
+        let basic_store = CustomAllocBackend::new(Global);
+        let memfd_store = CustomAllocBackend::new(
+            custom_alloc::linux_memfd_secret::LinuxMemfdSecretAlloc::new().unwrap(),
+        );
         compare_stores(100_000, basic_store, memfd_store);
     }
 
     /// This function will perform a number of random operations on two stores,
     /// and compare the results between them to make sure they match.
-    fn compare_stores(
+    fn compare_stores<
+        AllocA: allocator_api2::alloc::Allocator + Send + Sync,
+        AllocB: allocator_api2::alloc::Allocator + Send + Sync,
+    >(
         num_iterations: usize,
-        mut a: Box<dyn StoreBackendDebug<TestSymmKey>>,
-        mut b: Box<dyn StoreBackendDebug<TestSymmKey>>,
+        mut a: CustomAllocBackend<TestSymmKey, AllocA>,
+        mut b: CustomAllocBackend<TestSymmKey, AllocB>,
     ) {
         use rand::{distributions::Standard, prelude::*};
 
@@ -145,7 +139,6 @@ mod tests {
             b_elements.sort_by(|a, b| a.0.cmp(&b.0));
 
             // Compare the two stores, as they should be the same
-
             assert_eq!(
                 a_elements.len(),
                 b_elements.len(),
