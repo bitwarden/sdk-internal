@@ -21,10 +21,6 @@ pub mod vault;
 #[cfg(target_os = "android")]
 mod android_support;
 
-use bitwarden_exporters::ExporterClientExt;
-use bitwarden_generators::GeneratorClientsExt;
-use bitwarden_send::SendClientExt;
-use bitwarden_vault::VaultClientExt;
 use crypto::CryptoClient;
 use error::{Error, Result};
 use platform::PlatformClient;
@@ -33,7 +29,7 @@ use vault::VaultClient;
 
 #[allow(missing_docs)]
 #[derive(uniffi::Object)]
-pub struct Client(pub(crate) bitwarden_core::Client);
+pub struct Client(pub(crate) bitwarden_pm::PasswordManagerClient);
 
 #[uniffi::export(async_runtime = "tokio")]
 impl Client {
@@ -46,7 +42,7 @@ impl Client {
         #[cfg(target_os = "android")]
         android_support::init();
 
-        Self(bitwarden_core::Client::new(settings))
+        Self(bitwarden_pm::PasswordManagerClient::new(settings))
     }
 
     /// Crypto operations
@@ -61,7 +57,7 @@ impl Client {
 
     #[allow(missing_docs)]
     pub fn platform(&self) -> PlatformClient {
-        PlatformClient(self.0.clone())
+        PlatformClient(self.0.0.clone())
     }
 
     /// Generator operations
@@ -86,7 +82,7 @@ impl Client {
 
     /// Auth operations
     pub fn auth(&self) -> AuthClient {
-        AuthClient(self.0.clone())
+        AuthClient(self.0.0.clone())
     }
 
     /// Test method, echoes back the input
@@ -96,7 +92,7 @@ impl Client {
 
     /// Test method, calls http endpoint
     pub async fn http_get(&self, url: String) -> Result<String> {
-        let client = self.0.internal.get_http_client();
+        let client = self.0.0.internal.get_http_client();
         let res = client
             .get(&url)
             .send()
