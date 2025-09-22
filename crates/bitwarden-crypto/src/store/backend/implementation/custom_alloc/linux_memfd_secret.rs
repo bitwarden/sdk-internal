@@ -9,21 +9,12 @@ impl LinuxMemfdSecretAlloc {
         // To test if memfd_secret is supported, we try to allocate a 1 byte and see if that
         // succeeds.
         static IS_SUPPORTED: LazyLock<bool> = LazyLock::new(|| {
-            let Some(ptr): Option<NonNull<[u8]>> = (unsafe { memsec::memfd_secret_sized(1) })
-            else {
-                return false;
-            };
-
-            // Check that the pointer is readable and writable
-            let result = unsafe {
-                let ptr = ptr.as_ptr() as *mut u8;
-                *ptr = 30;
-                *ptr += 107;
-                *ptr == 137
-            };
-
-            unsafe { memsec::free_memfd_secret(ptr) };
-            result
+            if let Some(ptr) = unsafe { memsec::memfd_secret_sized(1) } {
+                unsafe { memsec::free_memfd_secret(ptr) };
+                true
+            } else {
+                false
+            }
         });
 
         (*IS_SUPPORTED).then_some(Self)
