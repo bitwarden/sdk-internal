@@ -330,7 +330,7 @@ impl PureCrypto {
     ) -> Result<Vec<u8>, CryptoError> {
         let master_key = &BitwardenLegacyKeyBytes::from(master_key);
         let master_key = &SymmetricCryptoKey::try_from(master_key)?;
-        let master_key = MasterKey::try_from(master_key).map_err(|_| CryptoError::InvalidKey)?;
+        let master_key = MasterKey::try_from(master_key)?;
         let encrypted_user_key = EncString::from_str(&encrypted_user_key)?;
         let result = master_key
             .decrypt_user_key(encrypted_user_key)
