@@ -82,16 +82,18 @@ mod tests {
 
         impl Distribution<Operation> for Standard {
             fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Operation {
-                match rng.gen_range(0..=4) {
-                    0 => Operation::Upsert(
+                // Randomly choose an operation, with different weights
+                // to try to simulate real usage
+                match rng.gen_range(0..100) {
+                    0..50 => Operation::Upsert(
                         TestSymmKey::A(rng.gen_range(0..=1000)),
                         SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
                     ),
-                    1 => Operation::Get(TestSymmKey::A(rng.gen_range(0..=1000))),
-                    2 => Operation::Remove(TestSymmKey::A(rng.gen_range(0..=1000))),
-                    3 => Operation::Clear,
+                    50..80 => Operation::Get(TestSymmKey::A(rng.gen_range(0..=1000))),
+                    80..90 => Operation::Remove(TestSymmKey::A(rng.gen_range(0..=1000))),
+                    90..93 => Operation::Clear,
                     // This one has to be constant as we can't capture variables
-                    4 => Operation::Retain(|key| match key {
+                    93..100 => Operation::Retain(|key| match key {
                         TestSymmKey::A(a) => a % 9 == 0,
                         TestSymmKey::B((a, b)) => (a + b) % 10 == 3,
                         TestSymmKey::C(a) => a % 11 == 6,
@@ -102,9 +104,7 @@ mod tests {
         }
 
         for _ in 0..num_iterations {
-            let operation = rand::random::<Operation>();
-
-            match operation {
+            match rand::random::<Operation>() {
                 Operation::Upsert(key, value) => {
                     a.upsert(key, value.clone());
                     b.upsert(key, value);
