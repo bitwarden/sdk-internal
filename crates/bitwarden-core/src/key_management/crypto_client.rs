@@ -209,7 +209,7 @@ mod tests {
     #[tokio::test]
     async fn test_enroll_pin_envelope() {
         // Initialize a test client with user crypto
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let client = Client::init_test_account(test_bitwarden_com_account(), None).await;
         let user_key_initial =
             SymmetricCryptoKey::try_from(client.crypto().get_user_encryption_key().await.unwrap())
                 .unwrap();
