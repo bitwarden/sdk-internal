@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bitwarden_collections::{
-    collection::{Collection, CollectionView},
+    collection::{Collection, CollectionId, CollectionView},
     tree::{NodeItem, Tree},
 };
 use bitwarden_vault::collection_client::AncestorMap;
@@ -88,7 +88,12 @@ impl CollectionViewNodeItem {
 
     pub fn get_ancestors(&self) -> AncestorMap {
         AncestorMap {
-            ancestors: self.node_item.ancestors.clone(),
+            ancestors: self
+                .node_item
+                .ancestors
+                .iter()
+                .map(|(&uuid, name)| (CollectionId::new(uuid), name.clone()))
+                .collect(),
         }
     }
 }

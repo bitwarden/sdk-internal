@@ -1,16 +1,13 @@
 use std::collections::HashMap;
 
 use bitwarden_collections::{
-    collection::{Collection, CollectionView},
+    collection::{Collection, CollectionId, CollectionView},
     tree::{NodeItem, Tree},
 };
 use bitwarden_core::Client;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
-#[cfg(feature = "uniffi")]
-use uniffi;
-use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -62,11 +59,14 @@ pub struct CollectionViewNodeItem {
     node_item: NodeItem<CollectionView>,
 }
 
-#[cfg_attr(feature = "wasm", derive(Tsify, Serialize, Deserialize))]
-#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(Tsify, Serialize, Deserialize),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AncestorMap {
-    pub ancestors: HashMap<Uuid, String>,
+    pub ancestors: HashMap<CollectionId, String>,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -85,7 +85,12 @@ impl CollectionViewNodeItem {
 
     pub fn get_ancestors(&self) -> AncestorMap {
         AncestorMap {
-            ancestors: self.node_item.ancestors.clone(),
+            ancestors: self
+                .node_item
+                .ancestors
+                .iter()
+                .map(|(&uuid, name)| (CollectionId::new(uuid), name.clone()))
+                .collect(),
         }
     }
 }
