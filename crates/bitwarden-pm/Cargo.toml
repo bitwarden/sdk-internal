@@ -21,27 +21,18 @@ no-memory-hardening = [
 uniffi = [
     "bitwarden-auth/uniffi",
     "bitwarden-core/uniffi",
-    "bitwarden-crypto/uniffi",
-    "bitwarden-encoding/uniffi",
     "bitwarden-exporters/uniffi",
     "bitwarden-fido/uniffi",
     "bitwarden-generators/uniffi",
     "bitwarden-send/uniffi",
-    "bitwarden-ssh/uniffi",
-    "bitwarden-state/uniffi",
     "bitwarden-vault/uniffi",
     "dep:uniffi"
 ] # Uniffi bindings
 wasm = [
     "bitwarden-auth/wasm",
     "bitwarden-core/wasm",
-    "bitwarden-crypto/wasm",
-    "bitwarden-encoding/wasm",
-    "bitwarden-error/wasm",
     "bitwarden-exporters/wasm",
     "bitwarden-generators/wasm",
-    "bitwarden-ssh/wasm",
-    "bitwarden-state/wasm",
     "bitwarden-vault/wasm",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
@@ -51,16 +42,10 @@ wasm = [
 [dependencies]
 bitwarden-auth = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
-bitwarden-crypto = { workspace = true }
-bitwarden-encoding = { workspace = true }
-bitwarden-error = { workspace = true }
 bitwarden-exporters = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-send = { workspace = true }
-bitwarden-ssh = { workspace = true }
-bitwarden-state = { workspace = true }
-bitwarden-uuid = { workspace = true }
 bitwarden-vault = { workspace = true }
 
 thiserror = { workspace = true }
