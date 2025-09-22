@@ -541,7 +541,7 @@ pub(super) fn derive_prf_key(
     let wrapping_key_id = SymmetricKeyId::Local("wrapping_key");
     // TODO: Is this OK to use here?
     #[allow(deprecated)]
-    ctx.set_symmetric_key(wrapping_key_id, user_key.clone());
+    ctx.set_symmetric_key(wrapping_key_id, user_key.clone())?;
     let encrypted_encapsulation_key = encapsulation_key.encrypt(&mut ctx, wrapping_key_id)?;
 
     Ok(DerivePrfKeyResponse {
