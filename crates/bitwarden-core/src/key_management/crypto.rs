@@ -8,10 +8,10 @@ use std::collections::HashMap;
 
 use bitwarden_crypto::{
     dangerous_get_v2_rotated_account_keys, safe::PasswordProtectedKeyEnvelopeError,
-    AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, SignatureAlgorithm,
-    SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
-    UserKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CoseSerializable, CryptoError, EncString, Kdf,
+    KeyDecryptable, KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable,
+    SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    UnsignedSharedKey, UserKey,
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
@@ -497,6 +497,58 @@ fn derive_pin_protected_user_key(
     };
 
     Ok(derived_key.encrypt_user_key(user_key)?)
+}
+
+/// Request for deriving a prf protected user key
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct DerivePrfKeyResponse {
+    /// [UserKey] protected by encapsulation key
+    encapsulated_user_key: UnsignedSharedKey,
+    /// Encapsulation key protected by [UserKey]
+    encrypted_encapsulation_key: EncString,
+    /// Decapsulation key protected by PRF key
+    prf_key_encrypted_decapsulation_key: EncString,
+}
+
+pub(super) fn derive_prf_key(
+    client: &Client,
+    prf: B64,
+) -> Result<DerivePrfKeyResponse, CryptoClientError> {
+    // TODO: The make_key_pair field names say "user_key", but we're using the prf as input rather than the user_key.
+    // We should probably require that make_key_pair takes an enum of either UserKey | PrfKey instead of just taking B64 directly.
+    let key_pair = make_key_pair(prf)?;
+    let prf_key_encrypted_decapsulation_key = key_pair.user_key_encrypted_private_key;
+
+    let key_store = client.internal.get_key_store();
+    let mut ctx = key_store.context();
+    // FIXME: [PM-18099] Once PrfKey deals with KeyIds, this should be updated
+    #[allow(deprecated)]
+    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+
+    // Encapsulate user key
+    // TODO: Don't feel like unencrypting private key just to add to KeyStore context, so using encapsulation key directly
+    let raw_encapsulation_key = key_pair.user_public_key.as_bytes();
+    let encapsulation_key = SpkiPublicKeyBytes::from(raw_encapsulation_key);
+    let encapsulated_user_key = UnsignedSharedKey::encapsulate_key_unsigned(
+        user_key,
+        &AsymmetricPublicCryptoKey::from_der(&encapsulation_key)?,
+    )?;
+
+    // Wrap encapsulation key with user key
+    let wrapping_key_id = SymmetricKeyId::Local("wrapping_key");
+    // TODO: Is this OK to use here?
+    #[allow(deprecated)]
+    ctx.set_symmetric_key(wrapping_key_id, user_key.clone());
+    let encrypted_encapsulation_key = encapsulation_key.encrypt(&mut ctx, wrapping_key_id)?;
+
+    Ok(DerivePrfKeyResponse {
+        encapsulated_user_key,
+        encrypted_encapsulation_key,
+        prf_key_encrypted_decapsulation_key,
+    })
 }
 
 #[allow(missing_docs)]

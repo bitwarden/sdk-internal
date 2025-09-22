@@ -15,9 +15,9 @@ use crate::key_management::PasswordProtectedKeyEnvelope;
 #[cfg(feature = "internal")]
 use crate::key_management::{
     crypto::{
-        derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
-        initialize_org_crypto, initialize_user_crypto, DerivePinKeyResponse, InitOrgCryptoRequest,
-        InitUserCryptoRequest, UpdatePasswordResponse,
+        derive_pin_key, derive_pin_user_key, derive_prf_key, enroll_admin_password_reset,
+        get_user_encryption_key, initialize_org_crypto, initialize_user_crypto,
+        DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
     },
     SymmetricKeyId,
 };
@@ -26,8 +26,8 @@ use crate::{
     error::StatefulCryptoError,
     key_management::crypto::{
         enroll_pin, get_v2_rotated_account_keys, make_update_kdf, make_update_password,
-        make_v2_keys_for_v1_user, CryptoClientError, EnrollPinResponse, UpdateKdfResponse,
-        UserCryptoV2KeysResponse,
+        make_v2_keys_for_v1_user, CryptoClientError, DerivePrfKeyResponse, EnrollPinResponse,
+        UpdateKdfResponse, UserCryptoV2KeysResponse,
     },
     Client,
 };
@@ -170,6 +170,12 @@ impl CryptoClient {
         encrypted_pin: EncString,
     ) -> Result<EncString, CryptoClientError> {
         derive_pin_user_key(&self.client, encrypted_pin)
+    }
+
+    /// Generates a PRF-protected user key from the provided PRF secret. The result can be stored and later
+    /// used to initialize another client instance by using the PRF and the PRF key with `initialize_user_crypto`.
+    pub fn derive_prf_key(&self, prf: B64) -> Result<DerivePrfKeyResponse, CryptoClientError> {
+        derive_prf_key(&self.client, prf)
     }
 
     /// Prepares the account for being enrolled in the admin password reset feature. This encrypts
