@@ -14,124 +14,38 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organizations_licenses_self_hosted_id_post`]
+/// struct for typed errors of method [`self_hosted_organization_licenses_create_license`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsLicensesSelfHostedIdPostError {
+pub enum SelfHostedOrganizationLicensesCreateLicenseError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_licenses_self_hosted_id_sync_post`]
+/// struct for typed errors of method [`self_hosted_organization_licenses_sync_license`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsLicensesSelfHostedIdSyncPostError {
+pub enum SelfHostedOrganizationLicensesSyncLicenseError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_licenses_self_hosted_post`]
+/// struct for typed errors of method [`self_hosted_organization_licenses_update_license`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsLicensesSelfHostedPostError {
+pub enum SelfHostedOrganizationLicensesUpdateLicenseError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn organizations_licenses_self_hosted_id_post(
-    configuration: &configuration::Configuration,
-    id: &str,
-    license: std::path::PathBuf,
-) -> Result<(), Error<OrganizationsLicensesSelfHostedIdPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_license = license;
-
-    let uri_str = format!(
-        "{}/organizations/licenses/self-hosted/{id}",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    let mut multipart_form = reqwest::multipart::Form::new();
-    // TODO: support file upload for 'license' parameter
-    req_builder = req_builder.multipart(multipart_form);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsLicensesSelfHostedIdPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_licenses_self_hosted_id_sync_post(
-    configuration: &configuration::Configuration,
-    id: &str,
-) -> Result<(), Error<OrganizationsLicensesSelfHostedIdSyncPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/licenses/self-hosted/{id}/sync",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsLicensesSelfHostedIdSyncPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_licenses_self_hosted_post(
+pub async fn self_hosted_organization_licenses_create_license(
     configuration: &configuration::Configuration,
     key: &str,
     keys_period_public_key: &str,
     keys_period_encrypted_private_key: &str,
     license: std::path::PathBuf,
     collection_name: Option<&str>,
-) -> Result<models::OrganizationResponseModel, Error<OrganizationsLicensesSelfHostedPostError>> {
+) -> Result<
+    models::OrganizationResponseModel,
+    Error<SelfHostedOrganizationLicensesCreateLicenseError>,
+> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_key = key;
     let p_keys_period_public_key = keys_period_public_key;
@@ -186,7 +100,96 @@ pub async fn organizations_licenses_self_hosted_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsLicensesSelfHostedPostError> =
+        let entity: Option<SelfHostedOrganizationLicensesCreateLicenseError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn self_hosted_organization_licenses_sync_license(
+    configuration: &configuration::Configuration,
+    id: &str,
+) -> Result<(), Error<SelfHostedOrganizationLicensesSyncLicenseError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/licenses/self-hosted/{id}/sync",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<SelfHostedOrganizationLicensesSyncLicenseError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn self_hosted_organization_licenses_update_license(
+    configuration: &configuration::Configuration,
+    id: &str,
+    license: std::path::PathBuf,
+) -> Result<(), Error<SelfHostedOrganizationLicensesUpdateLicenseError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_license = license;
+
+    let uri_str = format!(
+        "{}/organizations/licenses/self-hosted/{id}",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    let mut multipart_form = reqwest::multipart::Form::new();
+    // TODO: support file upload for 'license' parameter
+    req_builder = req_builder.multipart(multipart_form);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<SelfHostedOrganizationLicensesUpdateLicenseError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

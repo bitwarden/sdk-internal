@@ -9,7 +9,7 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct AuthRequestTokenRequest {
+pub(crate) struct AuthRequestTokenRequest {
     scope: String,
     client_id: String,
     #[serde(rename = "deviceType")]
@@ -29,7 +29,7 @@ pub struct AuthRequestTokenRequest {
 
 #[allow(dead_code)]
 impl AuthRequestTokenRequest {
-    pub fn new(
+    pub(crate) fn new(
         email: &str,
         auth_request_id: &Uuid,
         access_code: &str,
@@ -47,7 +47,7 @@ impl AuthRequestTokenRequest {
             auth_request_id: *auth_request_id,
             access_code: access_code.to_string(),
         };
-        debug!("initializing {:?}", obj);
+        debug!("initializing {obj:?}");
         obj
     }
 
@@ -55,6 +55,6 @@ impl AuthRequestTokenRequest {
         &self,
         configurations: &ApiConfigurations,
     ) -> Result<IdentityTokenResponse, LoginError> {
-        super::send_identity_connect_request(configurations, Some(&self.email), &self).await
+        super::send_identity_connect_request(configurations, &self).await
     }
 }

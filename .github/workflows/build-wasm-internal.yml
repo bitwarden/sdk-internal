@@ -18,6 +18,8 @@ jobs:
   build:
     name: Building @bitwarden/sdk-wasm-internal
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repo
@@ -94,11 +96,15 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     needs: build
+    permissions:
+      id-token: write
     steps:
-      - name: Login to Azure - CI Subscription
-        uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
+      - name: Log in to Azure
+        uses: bitwarden/gh-actions/azure-login@main
         with:
-          creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Retrieve github PAT secrets
         id: retrieve-secret-pat
@@ -106,6 +112,9 @@ jobs:
         with:
           keyvault: "bitwarden-ci"
           secrets: "github-pat-bitwarden-devops-bot-repo-scope"
+
+      - name: Log out from Azure
+        uses: bitwarden/gh-actions/azure-logout@main
 
       - name: Trigger WASM publish
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1

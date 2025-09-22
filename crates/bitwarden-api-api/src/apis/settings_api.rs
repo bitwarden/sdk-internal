@@ -14,31 +14,31 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`settings_domains_get`]
+/// struct for typed errors of method [`settings_get_domains`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SettingsDomainsGetError {
+pub enum SettingsGetDomainsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`settings_domains_post`]
+/// struct for typed errors of method [`settings_post_domains`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SettingsDomainsPostError {
+pub enum SettingsPostDomainsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`settings_domains_put`]
+/// struct for typed errors of method [`settings_put_domains`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SettingsDomainsPutError {
+pub enum SettingsPutDomainsError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn settings_domains_get(
+pub async fn settings_get_domains(
     configuration: &configuration::Configuration,
     excluded: Option<bool>,
-) -> Result<models::DomainsResponseModel, Error<SettingsDomainsGetError>> {
+) -> Result<models::DomainsResponseModel, Error<SettingsGetDomainsError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_excluded = excluded;
 
@@ -75,7 +75,7 @@ pub async fn settings_domains_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<SettingsDomainsGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<SettingsGetDomainsError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -84,10 +84,10 @@ pub async fn settings_domains_get(
     }
 }
 
-pub async fn settings_domains_post(
+pub async fn settings_post_domains(
     configuration: &configuration::Configuration,
     update_domains_request_model: Option<models::UpdateDomainsRequestModel>,
-) -> Result<models::DomainsResponseModel, Error<SettingsDomainsPostError>> {
+) -> Result<models::DomainsResponseModel, Error<SettingsPostDomainsError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_update_domains_request_model = update_domains_request_model;
 
@@ -124,7 +124,7 @@ pub async fn settings_domains_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<SettingsDomainsPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<SettingsPostDomainsError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -133,10 +133,10 @@ pub async fn settings_domains_post(
     }
 }
 
-pub async fn settings_domains_put(
+pub async fn settings_put_domains(
     configuration: &configuration::Configuration,
     update_domains_request_model: Option<models::UpdateDomainsRequestModel>,
-) -> Result<models::DomainsResponseModel, Error<SettingsDomainsPutError>> {
+) -> Result<models::DomainsResponseModel, Error<SettingsPutDomainsError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_update_domains_request_model = update_domains_request_model;
 
@@ -171,7 +171,7 @@ pub async fn settings_domains_put(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<SettingsDomainsPutError> = serde_json::from_str(&content).ok();
+        let entity: Option<SettingsPutDomainsError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

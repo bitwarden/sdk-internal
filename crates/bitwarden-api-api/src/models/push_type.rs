@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-///
+/// PushType :
 #[repr(i64)]
 #[derive(
     Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
@@ -40,7 +40,9 @@ pub enum PushType {
     SyncOrganizationCollectionSettingChanged = 19,
     Notification = 20,
     NotificationStatus = 21,
-    PendingSecurityTasks = 22,
+    RefreshSecurityTasks = 22,
+    OrganizationBankAccountVerified = 23,
+    ProviderBankAccountVerified = 24,
 }
 
 impl std::fmt::Display for PushType {
@@ -71,7 +73,9 @@ impl std::fmt::Display for PushType {
                 Self::SyncOrganizationCollectionSettingChanged => "19",
                 Self::Notification => "20",
                 Self::NotificationStatus => "21",
-                Self::PendingSecurityTasks => "22",
+                Self::RefreshSecurityTasks => "22",
+                Self::OrganizationBankAccountVerified => "23",
+                Self::ProviderBankAccountVerified => "24",
             }
         )
     }

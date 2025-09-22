@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::ProjectUpdateRequestModel;
-use bitwarden_core::{key_management::SymmetricKeyId, Client};
-use bitwarden_crypto::Encryptable;
+use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId};
+use bitwarden_crypto::PrimitiveEncryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -30,7 +30,7 @@ pub(crate) async fn update_project(
     input.validate()?;
 
     let key_store = client.internal.get_key_store();
-    let key = SymmetricKeyId::Organization(input.organization_id);
+    let key = SymmetricKeyId::Organization(OrganizationId::new(input.organization_id));
 
     let project = Some(ProjectUpdateRequestModel {
         name: input
@@ -43,7 +43,7 @@ pub(crate) async fn update_project(
 
     let config = client.internal.get_api_configurations().await;
     let res =
-        bitwarden_api_api::apis::projects_api::projects_id_put(&config.api, input.id, project)
+        bitwarden_api_api::apis::projects_api::projects_update(&config.api, input.id, project)
             .await?;
 
     ProjectResponse::process_response(res, &mut key_store.context())

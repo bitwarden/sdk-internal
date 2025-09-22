@@ -1,6 +1,8 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
+#[cfg(feature = "internal")]
+use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
 
 use super::internal::InternalClient;
@@ -8,7 +10,7 @@ use super::internal::InternalClient;
 use crate::client::flags::Flags;
 use crate::client::{
     client_settings::ClientSettings,
-    internal::{ApiConfigurations, Tokens},
+    internal::{ApiConfigurations, ClientManagedTokens, SdkManagedTokens, Tokens},
 };
 
 /// The main struct to interact with the Bitwarden SDK.
@@ -23,8 +25,20 @@ pub struct Client {
 }
 
 impl Client {
-    #[allow(missing_docs)]
-    pub fn new(settings_input: Option<ClientSettings>) -> Self {
+    /// Create a new Bitwarden client with SDK-managed tokens.
+    pub fn new(settings: Option<ClientSettings>) -> Self {
+        Self::new_internal(settings, Tokens::SdkManaged(SdkManagedTokens::default()))
+    }
+
+    /// Create a new Bitwarden client with client-managed tokens.
+    pub fn new_with_client_tokens(
+        settings: Option<ClientSettings>,
+        tokens: Arc<dyn ClientManagedTokens>,
+    ) -> Self {
+        Self::new_internal(settings, Tokens::ClientManaged(tokens))
+    }
+
+    fn new_internal(settings_input: Option<ClientSettings>, tokens: Tokens) -> Self {
         let settings = settings_input.unwrap_or_default();
 
         fn new_client_builder() -> reqwest::ClientBuilder {
@@ -35,8 +49,16 @@ impl Client {
             {
                 use rustls::ClientConfig;
                 use rustls_platform_verifier::ConfigVerifierExt;
-                client_builder =
-                    client_builder.use_preconfigured_tls(ClientConfig::with_platform_verifier());
+                client_builder = client_builder.use_preconfigured_tls(
+                    ClientConfig::with_platform_verifier()
+                        .expect("Failed to create platform verifier"),
+                );
+
+                // Enforce HTTPS for all requests in non-debug builds
+                #[cfg(not(debug_assertions))]
+                {
+                    client_builder = client_builder.https_only(true);
+                }
             }
 
             client_builder
@@ -77,7 +99,7 @@ impl Client {
         Self {
             internal: Arc::new(InternalClient {
                 user_id: OnceLock::new(),
-                tokens: RwLock::new(Tokens::default()),
+                tokens: RwLock::new(tokens),
                 login_method: RwLock::new(None),
                 #[cfg(feature = "internal")]
                 flags: RwLock::new(Flags::default()),
@@ -88,6 +110,10 @@ impl Client {
                 })),
                 external_client,
                 key_store: KeyStore::default(),
+                #[cfg(feature = "internal")]
+                security_state: RwLock::new(None),
+                #[cfg(feature = "internal")]
+                repository_map: StateRegistry::new(),
             }),
         }
     }

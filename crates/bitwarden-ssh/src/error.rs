@@ -6,9 +6,9 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum KeyGenerationError {
     #[error("Failed to generate key: {0}")]
-    KeyGenerationError(ssh_key::Error),
+    KeyGeneration(ssh_key::Error),
     #[error("Failed to convert key")]
-    KeyConversionError,
+    KeyConversion,
 }
 
 #[allow(missing_docs)]
@@ -16,7 +16,7 @@ pub enum KeyGenerationError {
 #[derive(Error, Debug, PartialEq)]
 pub enum SshKeyImportError {
     #[error("Failed to parse key")]
-    ParsingError,
+    Parsing,
     #[error("Password required")]
     PasswordRequired,
     #[error("Wrong password")]
@@ -30,5 +30,5 @@ pub enum SshKeyImportError {
 #[derive(Error, Debug, PartialEq)]
 pub enum SshKeyExportError {
     #[error("Failed to convert key")]
-    KeyConversionError,
+    KeyConversion,
 }

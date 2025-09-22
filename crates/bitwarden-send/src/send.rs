@@ -1,16 +1,13 @@
-use base64::{
-    engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
-    Engine,
-};
 use bitwarden_api_api::models::{SendFileModel, SendResponseModel, SendTextModel};
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
 use bitwarden_crypto::{
-    generate_random_bytes, CryptoError, Decryptable, EncString, Encryptable, IdentifyKey,
-    KeyStoreContext,
+    generate_random_bytes, CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey,
+    KeyStoreContext, OctetStreamBytes, PrimitiveEncryptable,
 };
+use bitwarden_encoding::{B64Url, B64};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -193,8 +190,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendTextView> for SendText {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, SendText> for SendTextView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, SendText> for SendTextView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -221,8 +218,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendFileView> for SendFile {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, SendFile> for SendFileView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, SendFile> for SendFileView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -254,7 +251,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendView> for Send {
 
             name: self.name.decrypt(ctx, key).ok().unwrap_or_default(),
             notes: self.notes.decrypt(ctx, key).ok().flatten(),
-            key: Some(URL_SAFE_NO_PAD.encode(k)),
+            key: Some(B64Url::from(k).to_string()),
             new_password: None,
             has_password: self.password.is_some(),
 
@@ -301,8 +298,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendListView> for Send {
     }
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, Send> for SendView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Send> for SendView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -312,9 +309,10 @@ impl Encryptable<KeyIds, SymmetricKeyId, Send> for SendView {
         // the stretched key
         let k = match (&self.key, &self.id) {
             // Existing send, decrypt key
-            (Some(k), _) => URL_SAFE_NO_PAD
-                .decode(k)
-                .map_err(|_| CryptoError::InvalidKey)?,
+            (Some(k), _) => B64Url::try_from(k.as_str())
+                .map_err(|_| CryptoError::InvalidKey)?
+                .as_bytes()
+                .to_vec(),
             // New send, generate random key
             (None, None) => {
                 let key = generate_random_bytes::<[u8; 16]>();
@@ -331,15 +329,15 @@ impl Encryptable<KeyIds, SymmetricKeyId, Send> for SendView {
 
             name: self.name.encrypt(ctx, send_key)?,
             notes: self.notes.encrypt(ctx, send_key)?,
-            key: k.encrypt(ctx, key)?,
+            key: OctetStreamBytes::from(k.clone()).encrypt(ctx, key)?,
             password: self.new_password.as_ref().map(|password| {
                 let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
-                STANDARD.encode(password)
+                B64::from(password.as_slice()).to_string()
             }),
 
             r#type: self.r#type,
-            file: self.file.encrypt(ctx, send_key)?,
-            text: self.text.encrypt(ctx, send_key)?,
+            file: self.file.encrypt_composite(ctx, send_key)?,
+            text: self.text.encrypt_composite(ctx, send_key)?,
 
             max_access_count: self.max_access_count,
             access_count: self.access_count,
@@ -434,7 +432,7 @@ mod tests {
         #[allow(deprecated)]
         let send_key = ctx.dangerous_get_symmetric_key(send_key).unwrap();
         let send_key_b64 = send_key.to_base64();
-        assert_eq!(send_key_b64, "IR9ImHGm6rRuIjiN7csj94bcZR5WYTJj5GtNfx33zm6tJCHUl+QZlpNPba8g2yn70KnOHsAODLcR0um6E3MAlg==");
+        assert_eq!(send_key_b64.to_string(), "IR9ImHGm6rRuIjiN7csj94bcZR5WYTJj5GtNfx33zm6tJCHUl+QZlpNPba8g2yn70KnOHsAODLcR0um6E3MAlg==");
     }
 
     #[test]

@@ -1,0 +1,21 @@
+[package]
+name = "bitwarden-state-migrations"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[features]
+uniffi = ["bitwarden-vault/uniffi"]
+wasm = ["bitwarden-vault/wasm"]
+
+[dependencies]
+bitwarden-state = { workspace = true }
+bitwarden-vault = { workspace = true }
+
+[lints]
+workspace = true

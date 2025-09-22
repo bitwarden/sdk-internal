@@ -2,6 +2,8 @@
 use bitwarden_crypto::{
     CryptoError, DeviceKey, EncString, Kdf, TrustDeviceResponse, UnsignedSharedKey,
 };
+#[cfg(feature = "internal")]
+use bitwarden_encoding::B64;
 
 #[cfg(feature = "secrets")]
 use crate::auth::login::{login_access_token, AccessTokenLoginRequest, AccessTokenLoginResponse};
@@ -20,10 +22,9 @@ use crate::{
             MasterPasswordPolicyOptions,
         },
         pin::validate_pin,
-        register::{make_register_keys, register},
+        register::make_register_keys,
         tde::{make_register_tde_keys, RegisterTdeKeyResponse},
-        AuthRequestResponse, AuthValidateError, RegisterError, RegisterKeyResponse,
-        RegisterRequest,
+        AuthRequestResponse, AuthValidateError, RegisterKeyResponse,
     },
     client::encryption_settings::EncryptionSettingsError,
 };
@@ -89,7 +90,7 @@ impl AuthClient {
     pub fn make_register_tde_keys(
         &self,
         email: String,
-        org_public_key: String,
+        org_public_key: B64,
         remember_device: bool,
     ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
         make_register_tde_keys(&self.client, email, org_public_key, remember_device)
@@ -99,11 +100,6 @@ impl AuthClient {
     pub fn make_key_connector_keys(&self) -> Result<KeyConnectorResponse, CryptoError> {
         let mut rng = rand::thread_rng();
         make_key_connector_keys(&mut rng)
-    }
-
-    #[allow(missing_docs)]
-    pub async fn register(&self, input: &RegisterRequest) -> Result<(), RegisterError> {
-        register(&self.client, input).await
     }
 
     #[allow(missing_docs)]
@@ -141,7 +137,7 @@ impl AuthClient {
     pub fn validate_password(
         &self,
         password: String,
-        password_hash: String,
+        password_hash: B64,
     ) -> Result<bool, AuthValidateError> {
         validate_password(&self.client, password, password_hash)
     }
@@ -151,7 +147,7 @@ impl AuthClient {
         &self,
         password: String,
         encrypted_user_key: String,
-    ) -> Result<String, AuthValidateError> {
+    ) -> Result<B64, AuthValidateError> {
         validate_password_user_key(&self.client, password, encrypted_user_key)
     }
 
@@ -172,7 +168,7 @@ impl AuthClient {
     #[allow(missing_docs)]
     pub fn approve_auth_request(
         &self,
-        public_key: String,
+        public_key: B64,
     ) -> Result<UnsignedSharedKey, ApproveAuthRequestError> {
         approve_auth_request(&self.client, public_key)
     }
@@ -211,8 +207,6 @@ impl AuthClient {
 #[cfg(feature = "internal")]
 #[derive(Debug, thiserror::Error)]
 pub enum TrustDeviceError {
-    #[error(transparent)]
-    VaultLocked(#[from] crate::VaultLockedError),
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
 }

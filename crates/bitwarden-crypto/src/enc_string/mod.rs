@@ -10,7 +10,7 @@ mod asymmetric;
 mod symmetric;
 
 pub use asymmetric::UnsignedSharedKey;
-use base64::{engine::general_purpose::STANDARD, Engine};
+use bitwarden_encoding::B64;
 pub use symmetric::EncString;
 
 use crate::error::{EncStringParseError, Result};
@@ -27,9 +27,10 @@ fn check_length(buf: &[u8], expected: usize) -> Result<()> {
 }
 
 fn from_b64_vec(s: &str) -> Result<Vec<u8>> {
-    Ok(STANDARD
-        .decode(s)
-        .map_err(EncStringParseError::InvalidBase64)?)
+    Ok(B64::try_from(s)
+        .map_err(EncStringParseError::InvalidBase64)?
+        .as_bytes()
+        .to_vec())
 }
 
 fn from_b64<const N: usize>(s: &str) -> Result<[u8; N]> {

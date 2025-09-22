@@ -14,38 +14,10 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`accounts_api_key_post`]
+/// struct for typed errors of method [`accounts_api_key`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsApiKeyPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`accounts_avatar_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AccountsAvatarPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`accounts_avatar_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AccountsAvatarPutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`accounts_cancel_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AccountsCancelPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`accounts_convert_to_key_connector_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AccountsConvertToKeyConnectorPostError {
+pub enum AccountsApiKeyError {
     UnknownValue(serde_json::Value),
 }
 
@@ -56,290 +28,297 @@ pub enum AccountsDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_delete_post`]
+/// struct for typed errors of method [`accounts_delete_sso_user`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsDeletePostError {
+pub enum AccountsDeleteSsoUserError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_delete_recover_post`]
+/// struct for typed errors of method [`accounts_get_account_revision_date`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsDeleteRecoverPostError {
+pub enum AccountsGetAccountRevisionDateError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_delete_recover_token_post`]
+/// struct for typed errors of method [`accounts_get_keys`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsDeleteRecoverTokenPostError {
+pub enum AccountsGetKeysError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_email_post`]
+/// struct for typed errors of method [`accounts_get_organizations`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsEmailPostError {
+pub enum AccountsGetOrganizationsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_email_token_post`]
+/// struct for typed errors of method [`accounts_get_profile`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsEmailTokenPostError {
+pub enum AccountsGetProfileError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_kdf_post`]
+/// struct for typed errors of method [`accounts_get_sso_user_identifier`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsKdfPostError {
+pub enum AccountsGetSsoUserIdentifierError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_key_post`]
+/// struct for typed errors of method [`accounts_get_subscription`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsKeyPostError {
+pub enum AccountsGetSubscriptionError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_keys_get`]
+/// struct for typed errors of method [`accounts_get_tax_info`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsKeysGetError {
+pub enum AccountsGetTaxInfoError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_keys_post`]
+/// struct for typed errors of method [`accounts_post_avatar`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsKeysPostError {
+pub enum AccountsPostAvatarError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_license_post`]
+/// struct for typed errors of method [`accounts_post_cancel`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsLicensePostError {
+pub enum AccountsPostCancelError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_organizations_get`]
+/// struct for typed errors of method [`accounts_post_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsOrganizationsGetError {
+pub enum AccountsPostDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_password_hint_post`]
+/// struct for typed errors of method [`accounts_post_delete_recover`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsPasswordHintPostError {
+pub enum AccountsPostDeleteRecoverError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_password_post`]
+/// struct for typed errors of method [`accounts_post_delete_recover_token`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsPasswordPostError {
+pub enum AccountsPostDeleteRecoverTokenError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_payment_post`]
+/// struct for typed errors of method [`accounts_post_email`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsPaymentPostError {
+pub enum AccountsPostEmailError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_premium_post`]
+/// struct for typed errors of method [`accounts_post_email_token`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsPremiumPostError {
+pub enum AccountsPostEmailTokenError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_profile_get`]
+/// struct for typed errors of method [`accounts_post_kdf`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsProfileGetError {
+pub enum AccountsPostKdfError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_profile_post`]
+/// struct for typed errors of method [`accounts_post_keys`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsProfilePostError {
+pub enum AccountsPostKeysError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_profile_put`]
+/// struct for typed errors of method [`accounts_post_license`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsProfilePutError {
+pub enum AccountsPostLicenseError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_reinstate_premium_post`]
+/// struct for typed errors of method [`accounts_post_password`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsReinstatePremiumPostError {
+pub enum AccountsPostPasswordError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_request_otp_post`]
+/// struct for typed errors of method [`accounts_post_password_hint`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsRequestOtpPostError {
+pub enum AccountsPostPasswordHintError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_resend_new_device_otp_post`]
+/// struct for typed errors of method [`accounts_post_payment`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsResendNewDeviceOtpPostError {
+pub enum AccountsPostPaymentError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_revision_date_get`]
+/// struct for typed errors of method [`accounts_post_premium`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsRevisionDateGetError {
+pub enum AccountsPostPremiumError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_rotate_api_key_post`]
+/// struct for typed errors of method [`accounts_post_profile`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsRotateApiKeyPostError {
+pub enum AccountsPostProfileError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_security_stamp_post`]
+/// struct for typed errors of method [`accounts_post_reinstate`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsSecurityStampPostError {
+pub enum AccountsPostReinstateError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_set_key_connector_key_post`]
+/// struct for typed errors of method [`accounts_post_request_otp`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsSetKeyConnectorKeyPostError {
+pub enum AccountsPostRequestOtpError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_set_password_post`]
+/// struct for typed errors of method [`accounts_post_security_stamp`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsSetPasswordPostError {
+pub enum AccountsPostSecurityStampError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_sso_organization_id_delete`]
+/// struct for typed errors of method [`accounts_post_set_password`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsSsoOrganizationIdDeleteError {
+pub enum AccountsPostSetPasswordError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_sso_user_identifier_get`]
+/// struct for typed errors of method [`accounts_post_set_user_verify_devices`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsSsoUserIdentifierGetError {
+pub enum AccountsPostSetUserVerifyDevicesError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_storage_post`]
+/// struct for typed errors of method [`accounts_post_storage`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsStoragePostError {
+pub enum AccountsPostStorageError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_subscription_get`]
+/// struct for typed errors of method [`accounts_post_verify_email`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsSubscriptionGetError {
+pub enum AccountsPostVerifyEmailError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_tax_get`]
+/// struct for typed errors of method [`accounts_post_verify_email_token`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsTaxGetError {
+pub enum AccountsPostVerifyEmailTokenError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_tax_put`]
+/// struct for typed errors of method [`accounts_post_verify_password`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsTaxPutError {
+pub enum AccountsPostVerifyPasswordError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_update_tde_offboarding_password_put`]
+/// struct for typed errors of method [`accounts_put_avatar`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsUpdateTdeOffboardingPasswordPutError {
+pub enum AccountsPutAvatarError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_update_temp_password_put`]
+/// struct for typed errors of method [`accounts_put_profile`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsUpdateTempPasswordPutError {
+pub enum AccountsPutProfileError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_verify_devices_post`]
+/// struct for typed errors of method [`accounts_put_tax_info`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsVerifyDevicesPostError {
+pub enum AccountsPutTaxInfoError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_verify_devices_put`]
+/// struct for typed errors of method [`accounts_put_update_tde_password`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsVerifyDevicesPutError {
+pub enum AccountsPutUpdateTdePasswordError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_verify_email_post`]
+/// struct for typed errors of method [`accounts_put_update_temp_password`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsVerifyEmailPostError {
+pub enum AccountsPutUpdateTempPasswordError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_verify_email_token_post`]
+/// struct for typed errors of method [`accounts_resend_new_device_otp`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsVerifyEmailTokenPostError {
+pub enum AccountsResendNewDeviceOtpError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_verify_otp_post`]
+/// struct for typed errors of method [`accounts_rotate_api_key`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsVerifyOtpPostError {
+pub enum AccountsRotateApiKeyError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_verify_password_post`]
+/// struct for typed errors of method [`accounts_set_user_verify_devices`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsVerifyPasswordPostError {
+pub enum AccountsSetUserVerifyDevicesError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn accounts_api_key_post(
+/// struct for typed errors of method [`accounts_verify_otp`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AccountsVerifyOtpError {
+    UnknownValue(serde_json::Value),
+}
+
+pub async fn accounts_api_key(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<models::ApiKeyResponseModel, Error<AccountsApiKeyPostError>> {
+) -> Result<models::ApiKeyResponseModel, Error<AccountsApiKeyError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_secret_verification_request_model = secret_verification_request_model;
 
@@ -376,178 +355,7 @@ pub async fn accounts_api_key_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsApiKeyPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_avatar_post(
-    configuration: &configuration::Configuration,
-    update_avatar_request_model: Option<models::UpdateAvatarRequestModel>,
-) -> Result<models::ProfileResponseModel, Error<AccountsAvatarPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_update_avatar_request_model = update_avatar_request_model;
-
-    let uri_str = format!("{}/accounts/avatar", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_avatar_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsAvatarPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_avatar_put(
-    configuration: &configuration::Configuration,
-    update_avatar_request_model: Option<models::UpdateAvatarRequestModel>,
-) -> Result<models::ProfileResponseModel, Error<AccountsAvatarPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_update_avatar_request_model = update_avatar_request_model;
-
-    let uri_str = format!("{}/accounts/avatar", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_avatar_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsAvatarPutError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_cancel_post(
-    configuration: &configuration::Configuration,
-    subscription_cancellation_request_model: Option<models::SubscriptionCancellationRequestModel>,
-) -> Result<(), Error<AccountsCancelPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_subscription_cancellation_request_model = subscription_cancellation_request_model;
-
-    let uri_str = format!("{}/accounts/cancel", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_subscription_cancellation_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsCancelPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_convert_to_key_connector_post(
-    configuration: &configuration::Configuration,
-) -> Result<(), Error<AccountsConvertToKeyConnectorPostError>> {
-    let uri_str = format!(
-        "{}/accounts/convert-to-key-connector",
-        configuration.base_path
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsConvertToKeyConnectorPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<AccountsApiKeyError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -594,17 +402,21 @@ pub async fn accounts_delete(
     }
 }
 
-pub async fn accounts_delete_post(
+pub async fn accounts_delete_sso_user(
     configuration: &configuration::Configuration,
-    secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<(), Error<AccountsDeletePostError>> {
+    organization_id: &str,
+) -> Result<(), Error<AccountsDeleteSsoUserError>> {
     // add a prefix to parameters to efficiently prevent name collisions
-    let p_secret_verification_request_model = secret_verification_request_model;
+    let p_organization_id = organization_id;
 
-    let uri_str = format!("{}/accounts/delete", configuration.base_path);
+    let uri_str = format!(
+        "{}/accounts/sso/{organizationId}",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id)
+    );
     let mut req_builder = configuration
         .client
-        .request(reqwest::Method::POST, &uri_str);
+        .request(reqwest::Method::DELETE, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -612,7 +424,6 @@ pub async fn accounts_delete_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_secret_verification_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -623,7 +434,7 @@ pub async fn accounts_delete_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsDeletePostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsDeleteSsoUserError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -632,17 +443,11 @@ pub async fn accounts_delete_post(
     }
 }
 
-pub async fn accounts_delete_recover_post(
+pub async fn accounts_get_account_revision_date(
     configuration: &configuration::Configuration,
-    delete_recover_request_model: Option<models::DeleteRecoverRequestModel>,
-) -> Result<(), Error<AccountsDeleteRecoverPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_delete_recover_request_model = delete_recover_request_model;
-
-    let uri_str = format!("{}/accounts/delete-recover", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
+) -> Result<i64, Error<AccountsGetAccountRevisionDateError>> {
+    let uri_str = format!("{}/accounts/revision-date", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -650,56 +455,28 @@ pub async fn accounts_delete_recover_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_delete_recover_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
 
     let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
     if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `i64`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `i64`")))),
+        }
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsDeleteRecoverPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_delete_recover_token_post(
-    configuration: &configuration::Configuration,
-    verify_delete_recover_request_model: Option<models::VerifyDeleteRecoverRequestModel>,
-) -> Result<(), Error<AccountsDeleteRecoverTokenPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_verify_delete_recover_request_model = verify_delete_recover_request_model;
-
-    let uri_str = format!("{}/accounts/delete-recover-token", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_verify_delete_recover_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsDeleteRecoverTokenPostError> =
+        let entity: Option<AccountsGetAccountRevisionDateError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -709,161 +486,9 @@ pub async fn accounts_delete_recover_token_post(
     }
 }
 
-pub async fn accounts_email_post(
+pub async fn accounts_get_keys(
     configuration: &configuration::Configuration,
-    email_request_model: Option<models::EmailRequestModel>,
-) -> Result<(), Error<AccountsEmailPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_email_request_model = email_request_model;
-
-    let uri_str = format!("{}/accounts/email", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_email_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsEmailPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_email_token_post(
-    configuration: &configuration::Configuration,
-    email_token_request_model: Option<models::EmailTokenRequestModel>,
-) -> Result<(), Error<AccountsEmailTokenPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_email_token_request_model = email_token_request_model;
-
-    let uri_str = format!("{}/accounts/email-token", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_email_token_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsEmailTokenPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_kdf_post(
-    configuration: &configuration::Configuration,
-    kdf_request_model: Option<models::KdfRequestModel>,
-) -> Result<(), Error<AccountsKdfPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_kdf_request_model = kdf_request_model;
-
-    let uri_str = format!("{}/accounts/kdf", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_kdf_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsKdfPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_key_post(
-    configuration: &configuration::Configuration,
-    update_key_request_model: Option<models::UpdateKeyRequestModel>,
-) -> Result<(), Error<AccountsKeyPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_update_key_request_model = update_key_request_model;
-
-    let uri_str = format!("{}/accounts/key", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_key_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsKeyPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_keys_get(
-    configuration: &configuration::Configuration,
-) -> Result<models::KeysResponseModel, Error<AccountsKeysGetError>> {
+) -> Result<models::KeysResponseModel, Error<AccountsGetKeysError>> {
     let uri_str = format!("{}/accounts/keys", configuration.base_path);
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
@@ -894,7 +519,7 @@ pub async fn accounts_keys_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsKeysGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsGetKeysError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -903,10 +528,539 @@ pub async fn accounts_keys_get(
     }
 }
 
-pub async fn accounts_keys_post(
+pub async fn accounts_get_organizations(
+    configuration: &configuration::Configuration,
+) -> Result<
+    models::ProfileOrganizationResponseModelListResponseModel,
+    Error<AccountsGetOrganizationsError>,
+> {
+    let uri_str = format!("{}/accounts/organizations", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileOrganizationResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileOrganizationResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsGetOrganizationsError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_get_profile(
+    configuration: &configuration::Configuration,
+) -> Result<models::ProfileResponseModel, Error<AccountsGetProfileError>> {
+    let uri_str = format!("{}/accounts/profile", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsGetProfileError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_get_sso_user_identifier(
+    configuration: &configuration::Configuration,
+) -> Result<String, Error<AccountsGetSsoUserIdentifierError>> {
+    let uri_str = format!("{}/accounts/sso/user-identifier", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Ok(content),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `String`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsGetSsoUserIdentifierError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_get_subscription(
+    configuration: &configuration::Configuration,
+) -> Result<models::SubscriptionResponseModel, Error<AccountsGetSubscriptionError>> {
+    let uri_str = format!("{}/accounts/subscription", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::SubscriptionResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::SubscriptionResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsGetSubscriptionError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_get_tax_info(
+    configuration: &configuration::Configuration,
+) -> Result<models::TaxInfoResponseModel, Error<AccountsGetTaxInfoError>> {
+    let uri_str = format!("{}/accounts/tax", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TaxInfoResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TaxInfoResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsGetTaxInfoError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_post_avatar(
+    configuration: &configuration::Configuration,
+    update_avatar_request_model: Option<models::UpdateAvatarRequestModel>,
+) -> Result<models::ProfileResponseModel, Error<AccountsPostAvatarError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_update_avatar_request_model = update_avatar_request_model;
+
+    let uri_str = format!("{}/accounts/avatar", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_avatar_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsPostAvatarError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_post_cancel(
+    configuration: &configuration::Configuration,
+    subscription_cancellation_request_model: Option<models::SubscriptionCancellationRequestModel>,
+) -> Result<(), Error<AccountsPostCancelError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_subscription_cancellation_request_model = subscription_cancellation_request_model;
+
+    let uri_str = format!("{}/accounts/cancel", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_subscription_cancellation_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsPostCancelError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_post_delete(
+    configuration: &configuration::Configuration,
+    secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
+) -> Result<(), Error<AccountsPostDeleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_secret_verification_request_model = secret_verification_request_model;
+
+    let uri_str = format!("{}/accounts/delete", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_secret_verification_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsPostDeleteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_post_delete_recover(
+    configuration: &configuration::Configuration,
+    delete_recover_request_model: Option<models::DeleteRecoverRequestModel>,
+) -> Result<(), Error<AccountsPostDeleteRecoverError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_delete_recover_request_model = delete_recover_request_model;
+
+    let uri_str = format!("{}/accounts/delete-recover", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_delete_recover_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsPostDeleteRecoverError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_post_delete_recover_token(
+    configuration: &configuration::Configuration,
+    verify_delete_recover_request_model: Option<models::VerifyDeleteRecoverRequestModel>,
+) -> Result<(), Error<AccountsPostDeleteRecoverTokenError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_verify_delete_recover_request_model = verify_delete_recover_request_model;
+
+    let uri_str = format!("{}/accounts/delete-recover-token", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_verify_delete_recover_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsPostDeleteRecoverTokenError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_post_email(
+    configuration: &configuration::Configuration,
+    email_request_model: Option<models::EmailRequestModel>,
+) -> Result<(), Error<AccountsPostEmailError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_email_request_model = email_request_model;
+
+    let uri_str = format!("{}/accounts/email", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_email_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsPostEmailError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_post_email_token(
+    configuration: &configuration::Configuration,
+    email_token_request_model: Option<models::EmailTokenRequestModel>,
+) -> Result<(), Error<AccountsPostEmailTokenError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_email_token_request_model = email_token_request_model;
+
+    let uri_str = format!("{}/accounts/email-token", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_email_token_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsPostEmailTokenError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_post_kdf(
+    configuration: &configuration::Configuration,
+    kdf_request_model: Option<models::KdfRequestModel>,
+) -> Result<(), Error<AccountsPostKdfError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_kdf_request_model = kdf_request_model;
+
+    let uri_str = format!("{}/accounts/kdf", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_kdf_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsPostKdfError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_post_keys(
     configuration: &configuration::Configuration,
     keys_request_model: Option<models::KeysRequestModel>,
-) -> Result<models::KeysResponseModel, Error<AccountsKeysPostError>> {
+) -> Result<models::KeysResponseModel, Error<AccountsPostKeysError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_keys_request_model = keys_request_model;
 
@@ -943,7 +1097,7 @@ pub async fn accounts_keys_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsKeysPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostKeysError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -952,10 +1106,10 @@ pub async fn accounts_keys_post(
     }
 }
 
-pub async fn accounts_license_post(
+pub async fn accounts_post_license(
     configuration: &configuration::Configuration,
     license: std::path::PathBuf,
-) -> Result<(), Error<AccountsLicensePostError>> {
+) -> Result<(), Error<AccountsPostLicenseError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_license = license;
 
@@ -983,7 +1137,7 @@ pub async fn accounts_license_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsLicensePostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostLicenseError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -992,93 +1146,10 @@ pub async fn accounts_license_post(
     }
 }
 
-pub async fn accounts_organizations_get(
-    configuration: &configuration::Configuration,
-) -> Result<
-    models::ProfileOrganizationResponseModelListResponseModel,
-    Error<AccountsOrganizationsGetError>,
-> {
-    let uri_str = format!("{}/accounts/organizations", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileOrganizationResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileOrganizationResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsOrganizationsGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_password_hint_post(
-    configuration: &configuration::Configuration,
-    password_hint_request_model: Option<models::PasswordHintRequestModel>,
-) -> Result<(), Error<AccountsPasswordHintPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_password_hint_request_model = password_hint_request_model;
-
-    let uri_str = format!("{}/accounts/password-hint", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_password_hint_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsPasswordHintPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_password_post(
+pub async fn accounts_post_password(
     configuration: &configuration::Configuration,
     password_request_model: Option<models::PasswordRequestModel>,
-) -> Result<(), Error<AccountsPasswordPostError>> {
+) -> Result<(), Error<AccountsPostPasswordError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_password_request_model = password_request_model;
 
@@ -1104,7 +1175,7 @@ pub async fn accounts_password_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsPasswordPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostPasswordError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1113,10 +1184,48 @@ pub async fn accounts_password_post(
     }
 }
 
-pub async fn accounts_payment_post(
+pub async fn accounts_post_password_hint(
+    configuration: &configuration::Configuration,
+    password_hint_request_model: Option<models::PasswordHintRequestModel>,
+) -> Result<(), Error<AccountsPostPasswordHintError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_password_hint_request_model = password_hint_request_model;
+
+    let uri_str = format!("{}/accounts/password-hint", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_password_hint_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsPostPasswordHintError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_post_payment(
     configuration: &configuration::Configuration,
     payment_request_model: Option<models::PaymentRequestModel>,
-) -> Result<(), Error<AccountsPaymentPostError>> {
+) -> Result<(), Error<AccountsPostPaymentError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_payment_request_model = payment_request_model;
 
@@ -1142,7 +1251,7 @@ pub async fn accounts_payment_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsPaymentPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostPaymentError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1151,7 +1260,7 @@ pub async fn accounts_payment_post(
     }
 }
 
-pub async fn accounts_premium_post(
+pub async fn accounts_post_premium(
     configuration: &configuration::Configuration,
     payment_method_type: models::PaymentMethodType,
     payment_token: Option<&str>,
@@ -1159,7 +1268,7 @@ pub async fn accounts_premium_post(
     country: Option<&str>,
     postal_code: Option<&str>,
     license: Option<std::path::PathBuf>,
-) -> Result<models::PaymentResponseModel, Error<AccountsPremiumPostError>> {
+) -> Result<models::PaymentResponseModel, Error<AccountsPostPremiumError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_payment_method_type = payment_method_type;
     let p_payment_token = payment_token;
@@ -1216,7 +1325,7 @@ pub async fn accounts_premium_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsPremiumPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostPremiumError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1225,52 +1334,10 @@ pub async fn accounts_premium_post(
     }
 }
 
-pub async fn accounts_profile_get(
-    configuration: &configuration::Configuration,
-) -> Result<models::ProfileResponseModel, Error<AccountsProfileGetError>> {
-    let uri_str = format!("{}/accounts/profile", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsProfileGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_profile_post(
+pub async fn accounts_post_profile(
     configuration: &configuration::Configuration,
     update_profile_request_model: Option<models::UpdateProfileRequestModel>,
-) -> Result<models::ProfileResponseModel, Error<AccountsProfilePostError>> {
+) -> Result<models::ProfileResponseModel, Error<AccountsPostProfileError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_update_profile_request_model = update_profile_request_model;
 
@@ -1307,7 +1374,7 @@ pub async fn accounts_profile_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsProfilePostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostProfileError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1316,56 +1383,9 @@ pub async fn accounts_profile_post(
     }
 }
 
-pub async fn accounts_profile_put(
+pub async fn accounts_post_reinstate(
     configuration: &configuration::Configuration,
-    update_profile_request_model: Option<models::UpdateProfileRequestModel>,
-) -> Result<models::ProfileResponseModel, Error<AccountsProfilePutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_update_profile_request_model = update_profile_request_model;
-
-    let uri_str = format!("{}/accounts/profile", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_profile_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsProfilePutError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_reinstate_premium_post(
-    configuration: &configuration::Configuration,
-) -> Result<(), Error<AccountsReinstatePremiumPostError>> {
+) -> Result<(), Error<AccountsPostReinstateError>> {
     let uri_str = format!("{}/accounts/reinstate-premium", configuration.base_path);
     let mut req_builder = configuration
         .client
@@ -1387,7 +1407,7 @@ pub async fn accounts_reinstate_premium_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsReinstatePremiumPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostReinstateError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1396,9 +1416,9 @@ pub async fn accounts_reinstate_premium_post(
     }
 }
 
-pub async fn accounts_request_otp_post(
+pub async fn accounts_post_request_otp(
     configuration: &configuration::Configuration,
-) -> Result<(), Error<AccountsRequestOtpPostError>> {
+) -> Result<(), Error<AccountsPostRequestOtpError>> {
     let uri_str = format!("{}/accounts/request-otp", configuration.base_path);
     let mut req_builder = configuration
         .client
@@ -1420,7 +1440,7 @@ pub async fn accounts_request_otp_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsRequestOtpPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostRequestOtpError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1429,143 +1449,10 @@ pub async fn accounts_request_otp_post(
     }
 }
 
-pub async fn accounts_resend_new_device_otp_post(
-    configuration: &configuration::Configuration,
-    unauthenticated_secret_verification_request_model: Option<
-        models::UnauthenticatedSecretVerificationRequestModel,
-    >,
-) -> Result<(), Error<AccountsResendNewDeviceOtpPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_unauthenticated_secret_verification_request_model =
-        unauthenticated_secret_verification_request_model;
-
-    let uri_str = format!("{}/accounts/resend-new-device-otp", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_unauthenticated_secret_verification_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsResendNewDeviceOtpPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_revision_date_get(
-    configuration: &configuration::Configuration,
-) -> Result<i64, Error<AccountsRevisionDateGetError>> {
-    let uri_str = format!("{}/accounts/revision-date", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `i64`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `i64`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsRevisionDateGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_rotate_api_key_post(
+pub async fn accounts_post_security_stamp(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<models::ApiKeyResponseModel, Error<AccountsRotateApiKeyPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_secret_verification_request_model = secret_verification_request_model;
-
-    let uri_str = format!("{}/accounts/rotate-api-key", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_secret_verification_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ApiKeyResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ApiKeyResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsRotateApiKeyPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_security_stamp_post(
-    configuration: &configuration::Configuration,
-    secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<(), Error<AccountsSecurityStampPostError>> {
+) -> Result<(), Error<AccountsPostSecurityStampError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_secret_verification_request_model = secret_verification_request_model;
 
@@ -1591,7 +1478,7 @@ pub async fn accounts_security_stamp_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsSecurityStampPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostSecurityStampError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1600,49 +1487,10 @@ pub async fn accounts_security_stamp_post(
     }
 }
 
-pub async fn accounts_set_key_connector_key_post(
-    configuration: &configuration::Configuration,
-    set_key_connector_key_request_model: Option<models::SetKeyConnectorKeyRequestModel>,
-) -> Result<(), Error<AccountsSetKeyConnectorKeyPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_set_key_connector_key_request_model = set_key_connector_key_request_model;
-
-    let uri_str = format!("{}/accounts/set-key-connector-key", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_set_key_connector_key_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsSetKeyConnectorKeyPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_set_password_post(
+pub async fn accounts_post_set_password(
     configuration: &configuration::Configuration,
     set_password_request_model: Option<models::SetPasswordRequestModel>,
-) -> Result<(), Error<AccountsSetPasswordPostError>> {
+) -> Result<(), Error<AccountsPostSetPasswordError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_set_password_request_model = set_password_request_model;
 
@@ -1668,7 +1516,7 @@ pub async fn accounts_set_password_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsSetPasswordPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostSetPasswordError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1677,21 +1525,17 @@ pub async fn accounts_set_password_post(
     }
 }
 
-pub async fn accounts_sso_organization_id_delete(
+pub async fn accounts_post_set_user_verify_devices(
     configuration: &configuration::Configuration,
-    organization_id: &str,
-) -> Result<(), Error<AccountsSsoOrganizationIdDeleteError>> {
+    set_verify_devices_request_model: Option<models::SetVerifyDevicesRequestModel>,
+) -> Result<(), Error<AccountsPostSetUserVerifyDevicesError>> {
     // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
+    let p_set_verify_devices_request_model = set_verify_devices_request_model;
 
-    let uri_str = format!(
-        "{}/accounts/sso/{organizationId}",
-        configuration.base_path,
-        organizationId = crate::apis::urlencode(p_organization_id)
-    );
+    let uri_str = format!("{}/accounts/verify-devices", configuration.base_path);
     let mut req_builder = configuration
         .client
-        .request(reqwest::Method::DELETE, &uri_str);
+        .request(reqwest::Method::POST, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -1699,6 +1543,7 @@ pub async fn accounts_sso_organization_id_delete(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
+    req_builder = req_builder.json(&p_set_verify_devices_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -1709,7 +1554,7 @@ pub async fn accounts_sso_organization_id_delete(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsSsoOrganizationIdDeleteError> =
+        let entity: Option<AccountsPostSetUserVerifyDevicesError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -1719,52 +1564,10 @@ pub async fn accounts_sso_organization_id_delete(
     }
 }
 
-pub async fn accounts_sso_user_identifier_get(
-    configuration: &configuration::Configuration,
-) -> Result<String, Error<AccountsSsoUserIdentifierGetError>> {
-    let uri_str = format!("{}/accounts/sso/user-identifier", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Ok(content),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `String`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsSsoUserIdentifierGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_storage_post(
+pub async fn accounts_post_storage(
     configuration: &configuration::Configuration,
     storage_request_model: Option<models::StorageRequestModel>,
-) -> Result<models::PaymentResponseModel, Error<AccountsStoragePostError>> {
+) -> Result<models::PaymentResponseModel, Error<AccountsPostStorageError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_storage_request_model = storage_request_model;
 
@@ -1801,7 +1604,7 @@ pub async fn accounts_storage_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsStoragePostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostStorageError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1810,283 +1613,9 @@ pub async fn accounts_storage_post(
     }
 }
 
-pub async fn accounts_subscription_get(
+pub async fn accounts_post_verify_email(
     configuration: &configuration::Configuration,
-) -> Result<models::SubscriptionResponseModel, Error<AccountsSubscriptionGetError>> {
-    let uri_str = format!("{}/accounts/subscription", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::SubscriptionResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::SubscriptionResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsSubscriptionGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_tax_get(
-    configuration: &configuration::Configuration,
-) -> Result<models::TaxInfoResponseModel, Error<AccountsTaxGetError>> {
-    let uri_str = format!("{}/accounts/tax", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TaxInfoResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TaxInfoResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsTaxGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_tax_put(
-    configuration: &configuration::Configuration,
-    tax_info_update_request_model: Option<models::TaxInfoUpdateRequestModel>,
-) -> Result<(), Error<AccountsTaxPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_tax_info_update_request_model = tax_info_update_request_model;
-
-    let uri_str = format!("{}/accounts/tax", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_tax_info_update_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsTaxPutError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_update_tde_offboarding_password_put(
-    configuration: &configuration::Configuration,
-    update_tde_offboarding_password_request_model: Option<
-        models::UpdateTdeOffboardingPasswordRequestModel,
-    >,
-) -> Result<(), Error<AccountsUpdateTdeOffboardingPasswordPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_update_tde_offboarding_password_request_model =
-        update_tde_offboarding_password_request_model;
-
-    let uri_str = format!(
-        "{}/accounts/update-tde-offboarding-password",
-        configuration.base_path
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_tde_offboarding_password_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsUpdateTdeOffboardingPasswordPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_update_temp_password_put(
-    configuration: &configuration::Configuration,
-    update_temp_password_request_model: Option<models::UpdateTempPasswordRequestModel>,
-) -> Result<(), Error<AccountsUpdateTempPasswordPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_update_temp_password_request_model = update_temp_password_request_model;
-
-    let uri_str = format!("{}/accounts/update-temp-password", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_temp_password_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsUpdateTempPasswordPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_verify_devices_post(
-    configuration: &configuration::Configuration,
-    set_verify_devices_request_model: Option<models::SetVerifyDevicesRequestModel>,
-) -> Result<(), Error<AccountsVerifyDevicesPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_set_verify_devices_request_model = set_verify_devices_request_model;
-
-    let uri_str = format!("{}/accounts/verify-devices", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_set_verify_devices_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsVerifyDevicesPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_verify_devices_put(
-    configuration: &configuration::Configuration,
-    set_verify_devices_request_model: Option<models::SetVerifyDevicesRequestModel>,
-) -> Result<(), Error<AccountsVerifyDevicesPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_set_verify_devices_request_model = set_verify_devices_request_model;
-
-    let uri_str = format!("{}/accounts/verify-devices", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_set_verify_devices_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsVerifyDevicesPutError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_verify_email_post(
-    configuration: &configuration::Configuration,
-) -> Result<(), Error<AccountsVerifyEmailPostError>> {
+) -> Result<(), Error<AccountsPostVerifyEmailError>> {
     let uri_str = format!("{}/accounts/verify-email", configuration.base_path);
     let mut req_builder = configuration
         .client
@@ -2108,7 +1637,7 @@ pub async fn accounts_verify_email_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsVerifyEmailPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostVerifyEmailError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -2117,10 +1646,10 @@ pub async fn accounts_verify_email_post(
     }
 }
 
-pub async fn accounts_verify_email_token_post(
+pub async fn accounts_post_verify_email_token(
     configuration: &configuration::Configuration,
     verify_email_request_model: Option<models::VerifyEmailRequestModel>,
-) -> Result<(), Error<AccountsVerifyEmailTokenPostError>> {
+) -> Result<(), Error<AccountsPostVerifyEmailTokenError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_verify_email_request_model = verify_email_request_model;
 
@@ -2146,7 +1675,7 @@ pub async fn accounts_verify_email_token_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsVerifyEmailTokenPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostVerifyEmailTokenError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -2155,48 +1684,10 @@ pub async fn accounts_verify_email_token_post(
     }
 }
 
-pub async fn accounts_verify_otp_post(
-    configuration: &configuration::Configuration,
-    verify_otp_request_model: Option<models::VerifyOtpRequestModel>,
-) -> Result<(), Error<AccountsVerifyOtpPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_verify_otp_request_model = verify_otp_request_model;
-
-    let uri_str = format!("{}/accounts/verify-otp", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_verify_otp_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsVerifyOtpPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_verify_password_post(
+pub async fn accounts_post_verify_password(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<models::MasterPasswordPolicyResponseModel, Error<AccountsVerifyPasswordPostError>> {
+) -> Result<models::MasterPasswordPolicyResponseModel, Error<AccountsPostVerifyPasswordError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_secret_verification_request_model = secret_verification_request_model;
 
@@ -2233,7 +1724,380 @@ pub async fn accounts_verify_password_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsVerifyPasswordPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostVerifyPasswordError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_put_avatar(
+    configuration: &configuration::Configuration,
+    update_avatar_request_model: Option<models::UpdateAvatarRequestModel>,
+) -> Result<models::ProfileResponseModel, Error<AccountsPutAvatarError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_update_avatar_request_model = update_avatar_request_model;
+
+    let uri_str = format!("{}/accounts/avatar", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_avatar_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsPutAvatarError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_put_profile(
+    configuration: &configuration::Configuration,
+    update_profile_request_model: Option<models::UpdateProfileRequestModel>,
+) -> Result<models::ProfileResponseModel, Error<AccountsPutProfileError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_update_profile_request_model = update_profile_request_model;
+
+    let uri_str = format!("{}/accounts/profile", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_profile_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsPutProfileError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_put_tax_info(
+    configuration: &configuration::Configuration,
+    tax_info_update_request_model: Option<models::TaxInfoUpdateRequestModel>,
+) -> Result<(), Error<AccountsPutTaxInfoError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_tax_info_update_request_model = tax_info_update_request_model;
+
+    let uri_str = format!("{}/accounts/tax", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_tax_info_update_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsPutTaxInfoError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_put_update_tde_password(
+    configuration: &configuration::Configuration,
+    update_tde_offboarding_password_request_model: Option<
+        models::UpdateTdeOffboardingPasswordRequestModel,
+    >,
+) -> Result<(), Error<AccountsPutUpdateTdePasswordError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_update_tde_offboarding_password_request_model =
+        update_tde_offboarding_password_request_model;
+
+    let uri_str = format!(
+        "{}/accounts/update-tde-offboarding-password",
+        configuration.base_path
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_tde_offboarding_password_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsPutUpdateTdePasswordError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_put_update_temp_password(
+    configuration: &configuration::Configuration,
+    update_temp_password_request_model: Option<models::UpdateTempPasswordRequestModel>,
+) -> Result<(), Error<AccountsPutUpdateTempPasswordError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_update_temp_password_request_model = update_temp_password_request_model;
+
+    let uri_str = format!("{}/accounts/update-temp-password", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_temp_password_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsPutUpdateTempPasswordError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_resend_new_device_otp(
+    configuration: &configuration::Configuration,
+    unauthenticated_secret_verification_request_model: Option<
+        models::UnauthenticatedSecretVerificationRequestModel,
+    >,
+) -> Result<(), Error<AccountsResendNewDeviceOtpError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_unauthenticated_secret_verification_request_model =
+        unauthenticated_secret_verification_request_model;
+
+    let uri_str = format!("{}/accounts/resend-new-device-otp", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_unauthenticated_secret_verification_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsResendNewDeviceOtpError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_rotate_api_key(
+    configuration: &configuration::Configuration,
+    secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
+) -> Result<models::ApiKeyResponseModel, Error<AccountsRotateApiKeyError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_secret_verification_request_model = secret_verification_request_model;
+
+    let uri_str = format!("{}/accounts/rotate-api-key", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_secret_verification_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ApiKeyResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ApiKeyResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsRotateApiKeyError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_set_user_verify_devices(
+    configuration: &configuration::Configuration,
+    set_verify_devices_request_model: Option<models::SetVerifyDevicesRequestModel>,
+) -> Result<(), Error<AccountsSetUserVerifyDevicesError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_set_verify_devices_request_model = set_verify_devices_request_model;
+
+    let uri_str = format!("{}/accounts/verify-devices", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_set_verify_devices_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsSetUserVerifyDevicesError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_verify_otp(
+    configuration: &configuration::Configuration,
+    verify_otp_request_model: Option<models::VerifyOtpRequestModel>,
+) -> Result<(), Error<AccountsVerifyOtpError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_verify_otp_request_model = verify_otp_request_model;
+
+    let uri_str = format!("{}/accounts/verify-otp", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_verify_otp_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsVerifyOtpError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

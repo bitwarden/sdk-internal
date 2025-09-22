@@ -14,45 +14,45 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`push_add_organization_put`]
+/// struct for typed errors of method [`push_add_organization`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum PushAddOrganizationPutError {
+pub enum PushAddOrganizationError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`push_delete_organization_put`]
+/// struct for typed errors of method [`push_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum PushDeleteOrganizationPutError {
+pub enum PushDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`push_delete_post`]
+/// struct for typed errors of method [`push_delete_organization`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum PushDeletePostError {
+pub enum PushDeleteOrganizationError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`push_register_post`]
+/// struct for typed errors of method [`push_register`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum PushRegisterPostError {
+pub enum PushRegisterError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`push_send_post`]
+/// struct for typed errors of method [`push_send`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum PushSendPostError {
+pub enum PushSendError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn push_add_organization_put(
+pub async fn push_add_organization(
     configuration: &configuration::Configuration,
     push_update_request_model: Option<models::PushUpdateRequestModel>,
-) -> Result<(), Error<PushAddOrganizationPutError>> {
+) -> Result<(), Error<PushAddOrganizationError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_push_update_request_model = push_update_request_model;
 
@@ -76,7 +76,7 @@ pub async fn push_add_organization_put(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<PushAddOrganizationPutError> = serde_json::from_str(&content).ok();
+        let entity: Option<PushAddOrganizationError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -85,46 +85,10 @@ pub async fn push_add_organization_put(
     }
 }
 
-pub async fn push_delete_organization_put(
-    configuration: &configuration::Configuration,
-    push_update_request_model: Option<models::PushUpdateRequestModel>,
-) -> Result<(), Error<PushDeleteOrganizationPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_push_update_request_model = push_update_request_model;
-
-    let uri_str = format!("{}/push/delete-organization", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_push_update_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<PushDeleteOrganizationPutError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn push_delete_post(
+pub async fn push_delete(
     configuration: &configuration::Configuration,
     push_device_request_model: Option<models::PushDeviceRequestModel>,
-) -> Result<(), Error<PushDeletePostError>> {
+) -> Result<(), Error<PushDeleteError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_push_device_request_model = push_device_request_model;
 
@@ -150,7 +114,7 @@ pub async fn push_delete_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<PushDeletePostError> = serde_json::from_str(&content).ok();
+        let entity: Option<PushDeleteError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -159,10 +123,46 @@ pub async fn push_delete_post(
     }
 }
 
-pub async fn push_register_post(
+pub async fn push_delete_organization(
+    configuration: &configuration::Configuration,
+    push_update_request_model: Option<models::PushUpdateRequestModel>,
+) -> Result<(), Error<PushDeleteOrganizationError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_push_update_request_model = push_update_request_model;
+
+    let uri_str = format!("{}/push/delete-organization", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_push_update_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<PushDeleteOrganizationError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn push_register(
     configuration: &configuration::Configuration,
     push_registration_request_model: Option<models::PushRegistrationRequestModel>,
-) -> Result<(), Error<PushRegisterPostError>> {
+) -> Result<(), Error<PushRegisterError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_push_registration_request_model = push_registration_request_model;
 
@@ -188,7 +188,7 @@ pub async fn push_register_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<PushRegisterPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<PushRegisterError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -197,12 +197,12 @@ pub async fn push_register_post(
     }
 }
 
-pub async fn push_send_post(
+pub async fn push_send(
     configuration: &configuration::Configuration,
-    push_send_request_model: Option<models::PushSendRequestModel>,
-) -> Result<(), Error<PushSendPostError>> {
+    json_element_push_send_request_model: Option<models::JsonElementPushSendRequestModel>,
+) -> Result<(), Error<PushSendError>> {
     // add a prefix to parameters to efficiently prevent name collisions
-    let p_push_send_request_model = push_send_request_model;
+    let p_json_element_push_send_request_model = json_element_push_send_request_model;
 
     let uri_str = format!("{}/push/send", configuration.base_path);
     let mut req_builder = configuration
@@ -215,7 +215,7 @@ pub async fn push_send_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_push_send_request_model);
+    req_builder = req_builder.json(&p_json_element_push_send_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -226,7 +226,7 @@ pub async fn push_send_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<PushSendPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<PushSendError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

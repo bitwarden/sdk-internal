@@ -1,5 +1,6 @@
 mod encryptable;
-pub use encryptable::Encryptable;
+pub(crate) use encryptable::PrimitiveEncryptableWithContentType;
+pub use encryptable::{CompositeEncryptable, PrimitiveEncryptable};
 mod decryptable;
 pub use decryptable::Decryptable;
 

@@ -8,8 +8,6 @@ use thiserror::Error;
 pub enum EncryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
-    #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLockedError),
     #[error("Client User Id has not been set")]
     MissingUserId,
 }
@@ -21,8 +19,6 @@ pub enum EncryptError {
 pub enum DecryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
-    #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLockedError),
 }
 
 #[allow(missing_docs)]
@@ -33,5 +29,5 @@ pub enum VaultParseError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
-    MissingFieldError(#[from] bitwarden_core::MissingFieldError),
+    MissingField(#[from] bitwarden_core::MissingFieldError),
 }

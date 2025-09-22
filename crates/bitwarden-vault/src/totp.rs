@@ -4,7 +4,7 @@ use std::{
     str::FromStr,
 };
 
-use bitwarden_core::{key_management::KeyIds, VaultLockedError};
+use bitwarden_core::key_management::KeyIds;
 use bitwarden_crypto::{CryptoError, KeyStoreContext};
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
@@ -15,7 +15,7 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use tsify_next::Tsify;
+use tsify::Tsify;
 
 use crate::CipherListView;
 
@@ -40,9 +40,7 @@ pub enum TotpError {
     MissingSecret,
 
     #[error(transparent)]
-    CryptoError(#[from] CryptoError),
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
+    Crypto(#[from] CryptoError),
 }
 
 #[allow(missing_docs)]
@@ -269,7 +267,7 @@ impl fmt::Display for Totp {
         let secret_b32 = BASE32_NOPAD.encode(&self.secret);
 
         if let TotpAlgorithm::Steam = self.algorithm {
-            return write!(f, "steam://{}", secret_b32);
+            return write!(f, "steam://{secret_b32}");
         }
 
         let mut url = Url::parse("otpauth://totp").map_err(|_| fmt::Error)?;
@@ -290,7 +288,7 @@ impl fmt::Display for Totp {
             .map(|account| percent_encode(account.as_bytes(), NON_ALPHANUMERIC));
 
         let label = match (&encoded_issuer, &encoded_account) {
-            (Some(issuer), Some(account)) => format!("{}:{}", issuer, account),
+            (Some(issuer), Some(account)) => format!("{issuer}:{account}"),
             (None, Some(account)) => account.to_string(),
             _ => String::new(),
         };
@@ -298,10 +296,10 @@ impl fmt::Display for Totp {
         url.set_path(&label);
 
         let mut query_params = Vec::new();
-        query_params.push(format!("secret={}", secret_b32));
+        query_params.push(format!("secret={secret_b32}"));
 
         if let Some(issuer) = &encoded_issuer {
-            query_params.push(format!("issuer={}", issuer));
+            query_params.push(format!("issuer={issuer}"));
         }
 
         if self.period != DEFAULT_PERIOD {
@@ -356,7 +354,7 @@ fn decode_b32(s: &str) -> Vec<u8> {
     let mut bits = String::new();
     for c in s.chars() {
         if let Some(i) = BASE32_CHARS.find(c) {
-            bits.push_str(&format!("{:05b}", i));
+            bits.push_str(&format!("{i:05b}"));
         }
     }
     let mut bytes = Vec::new();
@@ -720,7 +718,7 @@ mod tests {
             secret: vec![1, 2, 3, 4],
         };
         let secret_b32 = BASE32_NOPAD.encode(&totp.secret);
-        assert_eq!(totp.to_string(), format!("steam://{}", secret_b32));
+        assert_eq!(totp.to_string(), format!("steam://{secret_b32}"));
     }
 
     #[test]
@@ -753,6 +751,7 @@ mod tests {
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             copyable_fields: vec![CopyableCipherFields::LoginTotp],
             local_data: None,
+            archived_date: None,
         };
 
         let key = SymmetricCryptoKey::try_from("w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string()).unwrap();

@@ -1,23 +1,29 @@
 extern crate console_error_panic_hook;
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 
-use bitwarden_core::{key_management::CryptoClient, Client, ClientSettings};
+use bitwarden_core::ClientSettings;
 use bitwarden_error::bitwarden_error;
-use bitwarden_exporters::ExporterClientExt;
-use bitwarden_generators::GeneratorClientsExt;
-use bitwarden_vault::{VaultClient, VaultClientExt};
+use bitwarden_pm::{clients::*, PasswordManagerClient};
 use wasm_bindgen::prelude::*;
 
-#[allow(missing_docs)]
+use crate::platform::{
+    token_provider::{JsTokenProvider, WasmClientManagedTokens},
+    PlatformClient,
+};
+
+/// The main entry point for the Bitwarden SDK in WebAssembly environments
 #[wasm_bindgen]
-pub struct BitwardenClient(pub(crate) Client);
+pub struct BitwardenClient(pub(crate) PasswordManagerClient);
 
 #[wasm_bindgen]
 impl BitwardenClient {
-    #[allow(missing_docs)]
+    /// Initialize a new instance of the SDK client
     #[wasm_bindgen(constructor)]
-    pub fn new(settings: Option<ClientSettings>) -> Self {
-        Self(Client::new(settings))
+    pub fn new(token_provider: JsTokenProvider, settings: Option<ClientSettings>) -> Self {
+        let tokens = Arc::new(WasmClientManagedTokens::new(token_provider));
+        Self(PasswordManagerClient::new_with_client_tokens(
+            settings, tokens,
+        ))
     }
 
     /// Test method, echoes back the input
@@ -25,41 +31,51 @@ impl BitwardenClient {
         msg
     }
 
-    #[allow(missing_docs)]
+    /// Returns the current SDK version
     pub fn version(&self) -> String {
         env!("SDK_VERSION").to_owned()
     }
 
-    #[allow(missing_docs)]
+    /// Test method, always throws an error
     pub fn throw(&self, msg: String) -> Result<(), TestError> {
         Err(TestError(msg))
     }
 
     /// Test method, calls http endpoint
     pub async fn http_get(&self, url: String) -> Result<String, String> {
-        let client = self.0.internal.get_http_client();
+        let client = self.0 .0.internal.get_http_client();
         let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
 
         res.text().await.map_err(|e| e.to_string())
     }
 
-    #[allow(missing_docs)]
-    pub fn crypto(&self) -> CryptoClient {
-        self.0.crypto()
+    /// Auth related operations.
+    pub fn auth(&self) -> AuthClient {
+        self.0.auth()
     }
 
-    #[allow(missing_docs)]
+    /// Crypto related operations.
+    pub fn crypto(&self) -> CryptoClient {
+        self.0 .0.crypto()
+    }
+
+    /// Vault item related operations.
     pub fn vault(&self) -> VaultClient {
         self.0.vault()
     }
 
+    /// Constructs a specific client for platform-specific functionality
+    pub fn platform(&self) -> PlatformClient {
+        PlatformClient::new(self.0 .0.clone())
+    }
+
     /// Constructs a specific client for generating passwords and passphrases
-    pub fn generator(&self) -> bitwarden_generators::GeneratorClient {
+    pub fn generator(&self) -> GeneratorClient {
         self.0.generator()
     }
 
-    #[allow(missing_docs)]
-    pub fn exporters(&self) -> bitwarden_exporters::ExporterClient {
+    /// Exporter related operations.
+    pub fn exporters(&self) -> ExporterClient {
         self.0.exporters()
     }
 }

@@ -1,11 +1,18 @@
-use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-use bitwarden_crypto::{CryptoError, Decryptable, EncString, Encryptable, KeyStoreContext};
+use bitwarden_api_api::models::CipherSshKeyModel;
+use bitwarden_core::{
+    key_management::{KeyIds, SymmetricKeyId},
+    require,
+};
+use bitwarden_crypto::{
+    CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
+    PrimitiveEncryptable,
+};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use tsify_next::Tsify;
+use tsify::Tsify;
 
 use super::cipher::CipherKind;
-use crate::{cipher::cipher::CopyableCipherFields, Cipher};
+use crate::{cipher::cipher::CopyableCipherFields, Cipher, VaultParseError};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -34,8 +41,8 @@ pub struct SshKeyView {
     pub fingerprint: String,
 }
 
-impl Encryptable<KeyIds, SymmetricKeyId, SshKey> for SshKeyView {
-    fn encrypt(
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, SshKey> for SshKeyView {
+    fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -73,6 +80,18 @@ impl CipherKind for SshKey {
 
     fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
         [CopyableCipherFields::SshKey].into_iter().collect()
+    }
+}
+
+impl TryFrom<CipherSshKeyModel> for SshKey {
+    type Error = VaultParseError;
+
+    fn try_from(ssh_key: CipherSshKeyModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            private_key: require!(EncString::try_from_optional(ssh_key.private_key)?),
+            public_key: require!(EncString::try_from_optional(ssh_key.public_key)?),
+            fingerprint: require!(EncString::try_from_optional(ssh_key.key_fingerprint)?),
+        })
     }
 }
 

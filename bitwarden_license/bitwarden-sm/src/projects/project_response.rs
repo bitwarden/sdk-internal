@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::ProjectResponseModel;
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
-    require,
+    require, OrganizationId,
 };
 use bitwarden_crypto::{Decryptable, EncString, KeyStoreContext};
 use chrono::{DateTime, Utc};
@@ -28,7 +28,7 @@ impl ProjectResponse {
         ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<Self, SecretsManagerError> {
         let organization_id = require!(response.organization_id);
-        let key = SymmetricKeyId::Organization(organization_id);
+        let key = SymmetricKeyId::Organization(OrganizationId::new(organization_id));
 
         let name = require!(response.name)
             .parse::<EncString>()?

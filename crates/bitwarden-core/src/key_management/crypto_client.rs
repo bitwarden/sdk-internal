@@ -1,24 +1,35 @@
-use bitwarden_crypto::CryptoError;
+use bitwarden_crypto::{CryptoError, Decryptable, Kdf};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
+use bitwarden_encoding::B64;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use super::crypto::{
-    derive_key_connector, make_key_pair, make_user_signing_keys_for_enrollment,
-    verify_asymmetric_keys, DeriveKeyConnectorError, DeriveKeyConnectorRequest,
-    EnrollAdminPasswordResetError, MakeKeyPairResponse, MakeUserSigningKeysResponse,
+    derive_key_connector, make_key_pair, verify_asymmetric_keys, DeriveKeyConnectorError,
+    DeriveKeyConnectorRequest, EnrollAdminPasswordResetError, MakeKeyPairResponse,
     VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
 };
+#[cfg(any(feature = "wasm", test))]
+use crate::key_management::PasswordProtectedKeyEnvelope;
 #[cfg(feature = "internal")]
-use crate::key_management::crypto::{
-    derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
-    initialize_org_crypto, initialize_user_crypto, update_password, DerivePinKeyResponse,
-    InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
+use crate::key_management::{
+    crypto::{
+        derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
+        initialize_org_crypto, initialize_user_crypto, DerivePinKeyResponse, InitOrgCryptoRequest,
+        InitUserCryptoRequest, UpdatePasswordResponse,
+    },
+    SymmetricKeyId,
 };
 use crate::{
     client::encryption_settings::EncryptionSettingsError,
-    key_management::crypto::CryptoClientError, Client,
+    error::StatefulCryptoError,
+    key_management::crypto::{
+        enroll_pin, get_v2_rotated_account_keys, make_update_kdf, make_update_password,
+        make_v2_keys_for_v1_user, CryptoClientError, EnrollPinResponse, UpdateKdfResponse,
+        UserCryptoV2KeysResponse,
+    },
+    Client,
 };
 
 /// A client for the crypto operations.
@@ -49,7 +60,7 @@ impl CryptoClient {
 
     /// Generates a new key pair and encrypts the private key with the provided user key.
     /// Crypto initialization not required.
-    pub fn make_key_pair(&self, user_key: String) -> Result<MakeKeyPairResponse, CryptoError> {
+    pub fn make_key_pair(&self, user_key: B64) -> Result<MakeKeyPairResponse, CryptoError> {
         make_key_pair(user_key)
     }
 
@@ -64,27 +75,85 @@ impl CryptoClient {
     }
 
     /// Makes a new signing key pair and signs the public key for the user
-    pub fn make_user_signing_keys_for_enrollment(
+    pub fn make_keys_for_user_crypto_v2(
         &self,
-    ) -> Result<MakeUserSigningKeysResponse, CryptoError> {
-        make_user_signing_keys_for_enrollment(&self.client)
+    ) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
+        make_v2_keys_for_v1_user(&self.client)
+    }
+
+    /// Creates a rotated set of account keys for the current state
+    pub fn get_v2_rotated_account_keys(
+        &self,
+    ) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
+        get_v2_rotated_account_keys(&self.client)
+    }
+
+    /// Create the data necessary to update the user's kdf settings. The user's encryption key is
+    /// re-encrypted for the password under the new kdf settings. This returns the re-encrypted
+    /// user key and the new password hash but does not update sdk state.
+    pub fn make_update_kdf(
+        &self,
+        password: String,
+        kdf: Kdf,
+    ) -> Result<UpdateKdfResponse, CryptoClientError> {
+        make_update_kdf(&self.client, &password, &kdf)
+    }
+
+    /// Protects the current user key with the provided PIN. The result can be stored and later
+    /// used to initialize another client instance by using the PIN and the PIN key with
+    /// `initialize_user_crypto`.
+    pub fn enroll_pin(&self, pin: String) -> Result<EnrollPinResponse, CryptoClientError> {
+        enroll_pin(&self.client, pin)
+    }
+
+    /// Protects the current user key with the provided PIN. The result can be stored and later
+    /// used to initialize another client instance by using the PIN and the PIN key with
+    /// `initialize_user_crypto`. The provided pin is encrypted with the user key.
+    pub fn enroll_pin_with_encrypted_pin(
+        &self,
+        // Note: This will be replaced by `EncString` with https://bitwarden.atlassian.net/browse/PM-24775
+        encrypted_pin: String,
+    ) -> Result<EnrollPinResponse, CryptoClientError> {
+        let encrypted_pin: EncString = encrypted_pin.parse()?;
+        let pin = encrypted_pin.decrypt(
+            &mut self.client.internal.get_key_store().context_mut(),
+            SymmetricKeyId::User,
+        )?;
+        enroll_pin(&self.client, pin)
+    }
+
+    /// Decrypts a `PasswordProtectedKeyEnvelope`, returning the user key, if successful.
+    /// This is a stop-gap solution, until initialization of the SDK is used.
+    #[cfg(any(feature = "wasm", test))]
+    pub fn unseal_password_protected_key_envelope(
+        &self,
+        pin: String,
+        envelope: PasswordProtectedKeyEnvelope,
+    ) -> Result<Vec<u8>, CryptoClientError> {
+        let mut ctx = self.client.internal.get_key_store().context_mut();
+        let key_slot = SymmetricKeyId::Local("unseal_password_protected_key_envelope");
+        envelope.unseal(key_slot, pin.as_str(), &mut ctx)?;
+        #[allow(deprecated)]
+        let key = ctx.dangerous_get_symmetric_key(key_slot)?;
+        Ok(key.to_encoded().to_vec())
     }
 }
 
 impl CryptoClient {
     /// Get the uses's decrypted encryption key. Note: It's very important
     /// to keep this key safe, as it can be used to decrypt all of the user's data
-    pub async fn get_user_encryption_key(&self) -> Result<String, CryptoClientError> {
+    pub async fn get_user_encryption_key(&self) -> Result<B64, CryptoClientError> {
         get_user_encryption_key(&self.client).await
     }
 
-    /// Update the user's password, which will re-encrypt the user's encryption key with the new
-    /// password. This returns the new encrypted user key and the new password hash.
-    pub fn update_password(
+    /// Create the data necessary to update the user's password. The user's encryption key is
+    /// re-encrypted with the new password. This returns the new encrypted user key and the new
+    /// password hash but does not update sdk state.
+    pub fn make_update_password(
         &self,
         new_password: String,
     ) -> Result<UpdatePasswordResponse, CryptoClientError> {
-        update_password(&self.client, new_password)
+        make_update_password(&self.client, new_password)
     }
 
     /// Generates a PIN protected user key from the provided PIN. The result can be stored and later
@@ -107,7 +176,7 @@ impl CryptoClient {
     /// the users [UserKey][bitwarden_crypto::UserKey] with the organization's public key.
     pub fn enroll_admin_password_reset(
         &self,
-        public_key: String,
+        public_key: B64,
     ) -> Result<UnsignedSharedKey, EnrollAdminPasswordResetError> {
         enroll_admin_password_reset(&self.client, public_key)
     }
@@ -116,7 +185,7 @@ impl CryptoClient {
     pub fn derive_key_connector(
         &self,
         request: DeriveKeyConnectorRequest,
-    ) -> Result<String, DeriveKeyConnectorError> {
+    ) -> Result<B64, DeriveKeyConnectorError> {
         derive_key_connector(request)
     }
 }
@@ -127,5 +196,42 @@ impl Client {
         CryptoClient {
             client: self.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bitwarden_crypto::{BitwardenLegacyKeyBytes, SymmetricCryptoKey};
+
+    use super::*;
+    use crate::client::test_accounts::test_bitwarden_com_account;
+
+    #[tokio::test]
+    async fn test_enroll_pin_envelope() {
+        // Initialize a test client with user crypto
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let user_key_initial =
+            SymmetricCryptoKey::try_from(client.crypto().get_user_encryption_key().await.unwrap())
+                .unwrap();
+
+        // Enroll with a PIN, then re-enroll
+        let pin = "1234";
+        let enroll_response = client.crypto().enroll_pin(pin.to_string()).unwrap();
+        let re_enroll_response = client
+            .crypto()
+            .enroll_pin_with_encrypted_pin(enroll_response.user_key_encrypted_pin.to_string())
+            .unwrap();
+
+        let secret = BitwardenLegacyKeyBytes::from(
+            client
+                .crypto()
+                .unseal_password_protected_key_envelope(
+                    pin.to_string(),
+                    re_enroll_response.pin_protected_user_key_envelope,
+                )
+                .unwrap(),
+        );
+        let user_key_final = SymmetricCryptoKey::try_from(&secret).unwrap();
+        assert_eq!(user_key_initial, user_key_final);
     }
 }

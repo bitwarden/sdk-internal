@@ -20,20 +20,29 @@ no-memory-hardening = [
     "bitwarden-crypto/no-memory-hardening"
 ] # Disable memory hardening features
 secrets = [] # Secrets manager API
-uniffi = ["bitwarden-crypto/uniffi", "dep:uniffi"] # Uniffi bindings
+uniffi = [
+    "internal",
+    "bitwarden-crypto/uniffi",
+    "bitwarden-encoding/uniffi",
+    "dep:uniffi"
+] # Uniffi bindings
 wasm = [
+    "bitwarden-encoding/wasm",
     "bitwarden-error/wasm",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
-    "dep:tsify-next"
+    "dep:tsify"
 ] # WASM support
 
 [dependencies]
-base64 = ">=0.22.1, <0.23"
+async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
 bitwarden-api-identity = { workspace = true }
 bitwarden-crypto = { workspace = true }
+bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-state = { workspace = true }
+bitwarden-uniffi-error = { workspace = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
 # We don't use this directly (it's used by rand), but we need it here to enable WASM support
@@ -43,11 +52,12 @@ rand = ">=0.8.5, <0.9"
 reqwest = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
+serde_bytes = { workspace = true }
 serde_json = { workspace = true }
 serde_qs = { workspace = true }
 serde_repr = { workspace = true }
 thiserror = { workspace = true }
-tsify-next = { workspace = true, optional = true }
+tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true, features = ["tokio"] }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
@@ -60,7 +70,7 @@ zxcvbn = { version = ">=3.0.1, <4.0", optional = true }
 # The only exception is WASM, as it just uses the browsers/node fetch
 reqwest = { workspace = true, features = ["rustls-tls-manual-roots"] }
 rustls = { version = "0.23.19", default-features = false }
-rustls-platform-verifier = "0.5.0"
+rustls-platform-verifier = "0.6.0"
 
 [dev-dependencies]
 rand_chacha = "0.3.1"

@@ -24,6 +24,13 @@ pub struct CollectionAccessDetailsResponseModel {
     pub name: Option<String>,
     #[serde(rename = "externalId", skip_serializing_if = "Option::is_none")]
     pub external_id: Option<String>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub r#type: Option<models::CollectionType>,
+    #[serde(
+        rename = "defaultUserCollectionEmail",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_user_collection_email: Option<String>,
     #[serde(rename = "groups", skip_serializing_if = "Option::is_none")]
     pub groups: Option<Vec<models::SelectionReadOnlyResponseModel>>,
     #[serde(rename = "users", skip_serializing_if = "Option::is_none")]
@@ -49,6 +56,8 @@ impl CollectionAccessDetailsResponseModel {
             organization_id: None,
             name: None,
             external_id: None,
+            r#type: None,
+            default_user_collection_email: None,
             groups: None,
             users: None,
             assigned: None,

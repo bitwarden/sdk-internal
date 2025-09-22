@@ -19,7 +19,7 @@ pub fn derive_shareable_key(
 ) -> Aes256CbcHmacKey {
     // Because all inputs are fixed size, we can unwrap all errors here without issue
     let res = Zeroizing::new(
-        PbkdfSha256Hmac::new_from_slice(format!("bitwarden-{}", name).as_bytes())
+        PbkdfSha256Hmac::new_from_slice(format!("bitwarden-{name}").as_bytes())
             .expect("hmac new_from_slice should not fail")
             .chain_update(secret)
             .finalize()
@@ -44,13 +44,13 @@ mod tests {
     #[test]
     fn test_derive_shareable_key() {
         let key = derive_shareable_key(Zeroizing::new(*b"&/$%F1a895g67HlX"), "test_key", None);
-        assert_eq!(SymmetricCryptoKey::Aes256CbcHmacKey(key).to_base64(), "4PV6+PcmF2w7YHRatvyMcVQtI7zvCyssv/wFWmzjiH6Iv9altjmDkuBD1aagLVaLezbthbSe+ktR+U6qswxNnQ==");
+        assert_eq!(SymmetricCryptoKey::Aes256CbcHmacKey(key).to_base64().to_string(), "4PV6+PcmF2w7YHRatvyMcVQtI7zvCyssv/wFWmzjiH6Iv9altjmDkuBD1aagLVaLezbthbSe+ktR+U6qswxNnQ==");
 
         let key = derive_shareable_key(
             Zeroizing::new(*b"67t9b5g67$%Dh89n"),
             "test_key",
             Some("test"),
         );
-        assert_eq!(SymmetricCryptoKey::Aes256CbcHmacKey(key).to_base64(), "F9jVQmrACGx9VUPjuzfMYDjr726JtL300Y3Yg+VYUnVQtQ1s8oImJ5xtp1KALC9h2nav04++1LDW4iFD+infng==");
+        assert_eq!(SymmetricCryptoKey::Aes256CbcHmacKey(key).to_base64().to_string(), "F9jVQmrACGx9VUPjuzfMYDjr726JtL300Y3Yg+VYUnVQtQ1s8oImJ5xtp1KALC9h2nav04++1LDW4iFD+infng==");
     }
 }

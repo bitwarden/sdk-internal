@@ -1,20 +1,20 @@
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
-use base64::{engine::general_purpose::STANDARD, Engine};
+use bitwarden_encoding::{FromStrVisitor, B64};
 use coset::CborSerializable;
 use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    error::{CryptoError, EncStringParseError, Result, UnsupportedOperation},
-    util::FromStrVisitor,
-    Aes256CbcHmacKey, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    error::{CryptoError, EncStringParseError, Result, UnsupportedOperationError},
+    Aes256CbcHmacKey, ContentFormat, KeyDecryptable, KeyEncryptable, KeyEncryptableWithContentType,
+    SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
 };
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type EncString = string;
+export type EncString = Tagged<string, "EncString">;
 "#;
 
 /// # Encrypted string primitive
@@ -186,8 +186,10 @@ impl EncString {
 impl ToString for EncString {
     fn to_string(&self) -> String {
         fn fmt_parts(enc_type: u8, parts: &[&[u8]]) -> String {
-            let encoded_parts: Vec<String> =
-                parts.iter().map(|part| STANDARD.encode(part)).collect();
+            let encoded_parts: Vec<String> = parts
+                .iter()
+                .map(|part| B64::from(*part).to_string())
+                .collect();
             format!("{}.{}", enc_type, encoded_parts.join("|"))
         }
 
@@ -209,8 +211,10 @@ impl std::fmt::Debug for EncString {
             enc_type: u8,
             parts: &[&[u8]],
         ) -> std::fmt::Result {
-            let encoded_parts: Vec<String> =
-                parts.iter().map(|part| STANDARD.encode(part)).collect();
+            let encoded_parts: Vec<String> = parts
+                .iter()
+                .map(|part| B64::from(*part).to_string())
+                .collect();
             write!(f, "{}.{}", enc_type, encoded_parts.join("|"))
         }
 
@@ -223,9 +227,9 @@ impl std::fmt::Debug for EncString {
             }
             EncString::Cose_Encrypt0_B64 { data } => {
                 let msg = coset::CoseEncrypt0::from_slice(data.as_slice())
-                    .map(|msg| format!("{:?}", msg))
+                    .map(|msg| format!("{msg:?}"))
                     .unwrap_or_else(|_| "INVALID_COSE".to_string());
-                write!(f, "{}.{}", enc_type, msg)
+                write!(f, "{enc_type}.{msg}")
             }
         }
     }
@@ -262,8 +266,9 @@ impl EncString {
     pub(crate) fn encrypt_xchacha20_poly1305(
         data_dec: &[u8],
         key: &XChaCha20Poly1305Key,
+        content_format: ContentFormat,
     ) -> Result<EncString> {
-        let data = crate::cose::encrypt_xchacha20_poly1305(data_dec, key)?;
+        let data = crate::cose::encrypt_xchacha20_poly1305(data_dec, key, content_format)?;
         Ok(EncString::Cose_Encrypt0_B64 { data })
     }
 
@@ -277,15 +282,19 @@ impl EncString {
     }
 }
 
-impl KeyEncryptable<SymmetricCryptoKey, EncString> for &[u8] {
-    fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
+impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
+    fn encrypt_with_key(
+        self,
+        key: &SymmetricCryptoKey,
+        content_format: ContentFormat,
+    ) -> Result<EncString> {
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(inner_key) => {
-                EncString::encrypt_xchacha20_poly1305(self, inner_key)
+                EncString::encrypt_xchacha20_poly1305(self, inner_key, content_format)
             }
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
-                UnsupportedOperation::EncryptionNotImplementedForKey,
+                UnsupportedOperationError::EncryptionNotImplementedForKey,
             )),
         }
     }
@@ -305,7 +314,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let decrypted_message =
+                let (decrypted_message, _) =
                     crate::cose::decrypt_xchacha20_poly1305(data.as_slice(), key)?;
                 Ok(decrypted_message)
             }
@@ -316,13 +325,13 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
 
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for String {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        self.as_bytes().encrypt_with_key(key)
+        Utf8Bytes::from(self).encrypt_with_key(key)
     }
 }
 
 impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
     fn encrypt_with_key(self, key: &SymmetricCryptoKey) -> Result<EncString> {
-        self.as_bytes().encrypt_with_key(key)
+        Utf8Bytes::from(self).encrypt_with_key(key)
     }
 }
 
@@ -336,11 +345,11 @@ impl KeyDecryptable<SymmetricCryptoKey, String> for EncString {
 /// Usually we wouldn't want to expose EncStrings in the API or the schemas.
 /// But during the transition phase we will expose endpoints using the EncString type.
 impl schemars::JsonSchema for EncString {
-    fn schema_name() -> String {
-        "EncString".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "EncString".into()
     }
 
-    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(generator: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
         generator.subschema_for::<String>()
     }
 }
@@ -354,6 +363,44 @@ mod tests {
         derive_symmetric_key, CryptoError, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
         KEY_ID_SIZE,
     };
+
+    fn encrypt_with_xchacha20(plaintext: &str) -> EncString {
+        let key_id = [0u8; KEY_ID_SIZE];
+        let enc_key = [0u8; 32];
+        let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
+            key_id,
+            enc_key: Box::pin(enc_key.into()),
+        });
+
+        plaintext.encrypt_with_key(&key).expect("encryption works")
+    }
+
+    /// XChaCha20Poly1305 encstrings should be padded in blocks of 32 bytes. This ensures that the
+    /// encstring length does not reveal more than the 32-byte range of lengths that the contained
+    /// string falls into.
+    #[test]
+    fn test_xchacha20_encstring_string_padding_block_sizes() {
+        let cases = [
+            ("", 32),              // empty string, padded to 32
+            (&"a".repeat(31), 32), // largest in first block
+            (&"a".repeat(32), 64), // smallest in second block
+            (&"a".repeat(63), 64), // largest in second block
+            (&"a".repeat(64), 96), // smallest in third block
+        ];
+
+        let ciphertext_lengths: Vec<_> = cases
+            .iter()
+            .map(|(plaintext, _)| encrypt_with_xchacha20(plaintext).to_string().len())
+            .collect();
+
+        // Block 1: 0-31 (same length)
+        assert_eq!(ciphertext_lengths[0], ciphertext_lengths[1]);
+        // Block 2: 32-63 (same length, different from block 1)
+        assert_ne!(ciphertext_lengths[1], ciphertext_lengths[2]);
+        assert_eq!(ciphertext_lengths[2], ciphertext_lengths[3]);
+        // Block 3: 64+ (different from block 2)
+        assert_ne!(ciphertext_lengths[3], ciphertext_lengths[4]);
+    }
 
     #[test]
     fn test_enc_roundtrip_xchacha20() {
@@ -375,7 +422,33 @@ mod tests {
         let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
 
         let test_string = "encrypted_test_string";
+        let cipher = test_string.to_string().encrypt_with_key(&key).unwrap();
+
+        let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
+        assert_eq!(decrypted_str, test_string);
+    }
+
+    #[test]
+    fn test_enc_roundtrip_xchacha20_empty() {
+        let key_id = [0u8; KEY_ID_SIZE];
+        let enc_key = [0u8; 32];
+        let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
+            key_id,
+            enc_key: Box::pin(enc_key.into()),
+        });
+
+        let test_string = "";
         let cipher = test_string.to_owned().encrypt_with_key(&key).unwrap();
+        let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
+        assert_eq!(decrypted_str, test_string);
+    }
+
+    #[test]
+    fn test_enc_string_roundtrip_empty() {
+        let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
+
+        let test_string = "";
+        let cipher = test_string.to_string().encrypt_with_key(&key).unwrap();
 
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);
@@ -385,8 +458,8 @@ mod tests {
     fn test_enc_string_ref_roundtrip() {
         let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
 
-        let test_string = "encrypted_test_string";
-        let cipher = test_string.encrypt_with_key(&key).unwrap();
+        let test_string: &'static str = "encrypted_test_string";
+        let cipher = test_string.to_string().encrypt_with_key(&key).unwrap();
 
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);
@@ -498,7 +571,7 @@ mod tests {
         let enc_str  = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
         let enc_string: EncString = enc_str.parse().unwrap();
 
-        let debug_string = format!("{:?}", enc_string);
+        let debug_string = format!("{enc_string:?}");
         assert_eq!(debug_string, enc_str);
     }
 
@@ -508,7 +581,7 @@ mod tests {
 
         assert_eq!(
             serde_json::to_string(&schema).unwrap(),
-            r#"{"$schema":"http://json-schema.org/draft-07/schema#","title":"EncString","type":"string"}"#
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"EncString","type":"string"}"#
         );
     }
 }

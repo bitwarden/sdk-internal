@@ -14,70 +14,176 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organizations_domain_sso_details_post`]
+/// struct for typed errors of method [`organization_domain_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsDomainSsoDetailsPostError {
+pub enum OrganizationDomainGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_domain_sso_verified_post`]
+/// struct for typed errors of method [`organization_domain_get_all`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsDomainSsoVerifiedPostError {
+pub enum OrganizationDomainGetAllError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_domain_get`]
+/// struct for typed errors of method [`organization_domain_get_org_domain_sso_details`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdDomainGetError {
+pub enum OrganizationDomainGetOrgDomainSsoDetailsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_domain_id_delete`]
+/// struct for typed errors of method [`organization_domain_get_verified_org_domain_sso_details`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdDomainIdDeleteError {
+pub enum OrganizationDomainGetVerifiedOrgDomainSsoDetailsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_domain_id_get`]
+/// struct for typed errors of method [`organization_domain_post`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdDomainIdGetError {
+pub enum OrganizationDomainPostError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_domain_id_remove_post`]
+/// struct for typed errors of method [`organization_domain_post_remove_domain`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdDomainIdRemovePostError {
+pub enum OrganizationDomainPostRemoveDomainError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_domain_id_verify_post`]
+/// struct for typed errors of method [`organization_domain_remove_domain`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdDomainIdVerifyPostError {
+pub enum OrganizationDomainRemoveDomainError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_domain_post`]
+/// struct for typed errors of method [`organization_domain_verify`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdDomainPostError {
+pub enum OrganizationDomainVerifyError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn organizations_domain_sso_details_post(
+pub async fn organization_domain_get(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<models::OrganizationDomainResponseModel, Error<OrganizationDomainGetError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/domain/{id}",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationDomainResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationDomainResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationDomainGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_domain_get_all(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+) -> Result<
+    models::OrganizationDomainResponseModelListResponseModel,
+    Error<OrganizationDomainGetAllError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/domain",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationDomainResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationDomainResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationDomainGetAllError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_domain_get_org_domain_sso_details(
     configuration: &configuration::Configuration,
     organization_domain_sso_details_request_model: Option<
         models::OrganizationDomainSsoDetailsRequestModel,
     >,
 ) -> Result<
     models::OrganizationDomainSsoDetailsResponseModel,
-    Error<OrganizationsDomainSsoDetailsPostError>,
+    Error<OrganizationDomainGetOrgDomainSsoDetailsError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_domain_sso_details_request_model =
@@ -119,7 +225,7 @@ pub async fn organizations_domain_sso_details_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsDomainSsoDetailsPostError> =
+        let entity: Option<OrganizationDomainGetOrgDomainSsoDetailsError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -129,14 +235,14 @@ pub async fn organizations_domain_sso_details_post(
     }
 }
 
-pub async fn organizations_domain_sso_verified_post(
+pub async fn organization_domain_get_verified_org_domain_sso_details(
     configuration: &configuration::Configuration,
     organization_domain_sso_details_request_model: Option<
         models::OrganizationDomainSsoDetailsRequestModel,
     >,
 ) -> Result<
     models::VerifiedOrganizationDomainSsoDetailsResponseModel,
-    Error<OrganizationsDomainSsoVerifiedPostError>,
+    Error<OrganizationDomainGetVerifiedOrgDomainSsoDetailsError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_domain_sso_details_request_model =
@@ -178,7 +284,7 @@ pub async fn organizations_domain_sso_verified_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsDomainSsoVerifiedPostError> =
+        let entity: Option<OrganizationDomainGetVerifiedOrgDomainSsoDetailsError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -188,265 +294,11 @@ pub async fn organizations_domain_sso_verified_post(
     }
 }
 
-pub async fn organizations_org_id_domain_get(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-) -> Result<
-    models::OrganizationDomainResponseModelListResponseModel,
-    Error<OrganizationsOrgIdDomainGetError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/domain",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationDomainResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationDomainResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdDomainGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_domain_id_delete(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdDomainIdDeleteError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/domain/{id}",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdDomainIdDeleteError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_domain_id_get(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<models::OrganizationDomainResponseModel, Error<OrganizationsOrgIdDomainIdGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/domain/{id}",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationDomainResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationDomainResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdDomainIdGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_domain_id_remove_post(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdDomainIdRemovePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/domain/{id}/remove",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdDomainIdRemovePostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_domain_id_verify_post(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<models::OrganizationDomainResponseModel, Error<OrganizationsOrgIdDomainIdVerifyPostError>>
-{
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/domain/{id}/verify",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationDomainResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationDomainResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdDomainIdVerifyPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_domain_post(
+pub async fn organization_domain_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     organization_domain_request_model: Option<models::OrganizationDomainRequestModel>,
-) -> Result<models::OrganizationDomainResponseModel, Error<OrganizationsOrgIdDomainPostError>> {
+) -> Result<models::OrganizationDomainResponseModel, Error<OrganizationDomainPostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_organization_domain_request_model = organization_domain_request_model;
@@ -488,7 +340,152 @@ pub async fn organizations_org_id_domain_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdDomainPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationDomainPostError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_domain_post_remove_domain(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationDomainPostRemoveDomainError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/domain/{id}/remove",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationDomainPostRemoveDomainError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_domain_remove_domain(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationDomainRemoveDomainError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/domain/{id}",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationDomainRemoveDomainError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_domain_verify(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<models::OrganizationDomainResponseModel, Error<OrganizationDomainVerifyError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/domain/{id}/verify",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationDomainResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationDomainResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationDomainVerifyError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

@@ -14,6 +14,20 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
+/// struct for typed errors of method [`collections_delete`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CollectionsDeleteError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`collections_delete_many`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CollectionsDeleteManyError {
+    UnknownValue(serde_json::Value),
+}
+
 /// struct for typed errors of method [`collections_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -21,179 +35,101 @@ pub enum CollectionsGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_collections_bulk_access_post`]
+/// struct for typed errors of method [`collections_get_all`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsBulkAccessPostError {
+pub enum CollectionsGetAllError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_collections_delete`]
+/// struct for typed errors of method [`collections_get_details`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsDeleteError {
+pub enum CollectionsGetDetailsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_collections_delete_post`]
+/// struct for typed errors of method [`collections_get_many_with_details`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsDeletePostError {
+pub enum CollectionsGetManyWithDetailsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_collections_details_get`]
+/// struct for typed errors of method [`collections_get_user`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsDetailsGetError {
+pub enum CollectionsGetUserError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_collections_get`]
+/// struct for typed errors of method [`collections_get_users`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsGetError {
+pub enum CollectionsGetUsersError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_collections_id_delete`]
+/// struct for typed errors of method [`collections_post`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsIdDeleteError {
+pub enum CollectionsPostError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_collections_id_delete_post`]
+/// struct for typed errors of method [`collections_post_bulk_collection_access`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsIdDeletePostError {
+pub enum CollectionsPostBulkCollectionAccessError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_org_id_collections_id_delete_user_org_user_id_post`]
+/// struct for typed errors of method [`collections_post_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsIdDeleteUserOrgUserIdPostError {
+pub enum CollectionsPostDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_collections_id_details_get`]
+/// struct for typed errors of method [`collections_post_delete_many`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsIdDetailsGetError {
+pub enum CollectionsPostDeleteManyError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_collections_id_get`]
+/// struct for typed errors of method [`collections_post_put`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsIdGetError {
+pub enum CollectionsPostPutError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_collections_id_post`]
+/// struct for typed errors of method [`collections_put`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsIdPostError {
+pub enum CollectionsPutError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_collections_id_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsIdPutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method
-/// [`organizations_org_id_collections_id_user_org_user_id_delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsIdUserOrgUserIdDeleteError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_org_id_collections_id_users_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsIdUsersGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_org_id_collections_id_users_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsIdUsersPutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_org_id_collections_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsOrgIdCollectionsPostError {
-    UnknownValue(serde_json::Value),
-}
-
-pub async fn collections_get(
-    configuration: &configuration::Configuration,
-) -> Result<models::CollectionDetailsResponseModelListResponseModel, Error<CollectionsGetError>> {
-    let uri_str = format!("{}/collections", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionDetailsResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CollectionDetailsResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<CollectionsGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_collections_bulk_access_post(
+pub async fn collections_delete(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
-    bulk_collection_access_request_model: Option<models::BulkCollectionAccessRequestModel>,
-) -> Result<(), Error<OrganizationsOrgIdCollectionsBulkAccessPostError>> {
+    id: uuid::Uuid,
+) -> Result<(), Error<CollectionsDeleteError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
-    let p_bulk_collection_access_request_model = bulk_collection_access_request_model;
+    let p_id = id;
 
     let uri_str = format!(
-        "{}/organizations/{orgId}/collections/bulk-access",
+        "{}/organizations/{orgId}/collections/{id}",
         configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
     let mut req_builder = configuration
         .client
-        .request(reqwest::Method::POST, &uri_str);
+        .request(reqwest::Method::DELETE, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -201,7 +137,6 @@ pub async fn organizations_org_id_collections_bulk_access_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_bulk_collection_access_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -212,8 +147,7 @@ pub async fn organizations_org_id_collections_bulk_access_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsBulkAccessPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<CollectionsDeleteError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -222,11 +156,11 @@ pub async fn organizations_org_id_collections_bulk_access_post(
     }
 }
 
-pub async fn organizations_org_id_collections_delete(
+pub async fn collections_delete_many(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     collection_bulk_delete_request_model: Option<models::CollectionBulkDeleteRequestModel>,
-) -> Result<(), Error<OrganizationsOrgIdCollectionsDeleteError>> {
+) -> Result<(), Error<CollectionsDeleteManyError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_collection_bulk_delete_request_model = collection_bulk_delete_request_model;
@@ -257,8 +191,7 @@ pub async fn organizations_org_id_collections_delete(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsDeleteError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<CollectionsDeleteManyError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -267,65 +200,20 @@ pub async fn organizations_org_id_collections_delete(
     }
 }
 
-pub async fn organizations_org_id_collections_delete_post(
+pub async fn collections_get(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
-    collection_bulk_delete_request_model: Option<models::CollectionBulkDeleteRequestModel>,
-) -> Result<(), Error<OrganizationsOrgIdCollectionsDeletePostError>> {
+    id: uuid::Uuid,
+) -> Result<models::CollectionResponseModel, Error<CollectionsGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
-    let p_collection_bulk_delete_request_model = collection_bulk_delete_request_model;
+    let p_id = id;
 
     let uri_str = format!(
-        "{}/organizations/{orgId}/collections/delete",
+        "{}/organizations/{orgId}/collections/{id}",
         configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_collection_bulk_delete_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsDeletePostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_collections_details_get(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-) -> Result<
-    models::CollectionAccessDetailsResponseModelListResponseModel,
-    Error<OrganizationsOrgIdCollectionsDetailsGetError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/collections/details",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
@@ -351,13 +239,12 @@ pub async fn organizations_org_id_collections_details_get(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionAccessDetailsResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CollectionAccessDetailsResponseModelListResponseModel`")))),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CollectionResponseModel`")))),
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsDetailsGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<CollectionsGetError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -366,13 +253,10 @@ pub async fn organizations_org_id_collections_details_get(
     }
 }
 
-pub async fn organizations_org_id_collections_get(
+pub async fn collections_get_all(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
-) -> Result<
-    models::CollectionResponseModelListResponseModel,
-    Error<OrganizationsOrgIdCollectionsGetError>,
-> {
+) -> Result<models::CollectionResponseModelListResponseModel, Error<CollectionsGetAllError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
 
@@ -410,8 +294,7 @@ pub async fn organizations_org_id_collections_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<CollectionsGetAllError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -420,152 +303,11 @@ pub async fn organizations_org_id_collections_get(
     }
 }
 
-pub async fn organizations_org_id_collections_id_delete(
+pub async fn collections_get_details(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdCollectionsIdDeleteError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/collections/{id}",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsIdDeleteError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_collections_id_delete_post(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdCollectionsIdDeletePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/collections/{id}/delete",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsIdDeletePostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_collections_id_delete_user_org_user_id_post(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-    org_user_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdCollectionsIdDeleteUserOrgUserIdPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-    let p_org_user_id = org_user_id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/collections/{id}/delete-user/{orgUserId}",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string()),
-        orgUserId = crate::apis::urlencode(p_org_user_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsIdDeleteUserOrgUserIdPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_collections_id_details_get(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<
-    models::CollectionAccessDetailsResponseModel,
-    Error<OrganizationsOrgIdCollectionsIdDetailsGetError>,
-> {
+) -> Result<models::CollectionAccessDetailsResponseModel, Error<CollectionsGetDetailsError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_id = id;
@@ -605,8 +347,7 @@ pub async fn organizations_org_id_collections_id_details_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsIdDetailsGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<CollectionsGetDetailsError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -615,20 +356,20 @@ pub async fn organizations_org_id_collections_id_details_get(
     }
 }
 
-pub async fn organizations_org_id_collections_id_get(
+pub async fn collections_get_many_with_details(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<models::CollectionResponseModel, Error<OrganizationsOrgIdCollectionsIdGetError>> {
+) -> Result<
+    models::CollectionAccessDetailsResponseModelListResponseModel,
+    Error<CollectionsGetManyWithDetailsError>,
+> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
-    let p_id = id;
 
     let uri_str = format!(
-        "{}/organizations/{orgId}/collections/{id}",
+        "{}/organizations/{orgId}/collections/details",
         configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
@@ -654,12 +395,12 @@ pub async fn organizations_org_id_collections_id_get(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CollectionResponseModel`")))),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionAccessDetailsResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CollectionAccessDetailsResponseModelListResponseModel`")))),
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsIdGetError> =
+        let entity: Option<CollectionsGetManyWithDetailsError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -669,26 +410,12 @@ pub async fn organizations_org_id_collections_id_get(
     }
 }
 
-pub async fn organizations_org_id_collections_id_post(
+pub async fn collections_get_user(
     configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-    collection_request_model: Option<models::CollectionRequestModel>,
-) -> Result<models::CollectionResponseModel, Error<OrganizationsOrgIdCollectionsIdPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-    let p_collection_request_model = collection_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/collections/{id}",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
+) -> Result<models::CollectionDetailsResponseModelListResponseModel, Error<CollectionsGetUserError>>
+{
+    let uri_str = format!("{}/collections", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -696,7 +423,6 @@ pub async fn organizations_org_id_collections_id_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_collection_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -713,13 +439,12 @@ pub async fn organizations_org_id_collections_id_post(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CollectionResponseModel`")))),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionDetailsResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CollectionDetailsResponseModelListResponseModel`")))),
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsIdPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<CollectionsGetUserError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -728,119 +453,11 @@ pub async fn organizations_org_id_collections_id_post(
     }
 }
 
-pub async fn organizations_org_id_collections_id_put(
+pub async fn collections_get_users(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     id: uuid::Uuid,
-    collection_request_model: Option<models::CollectionRequestModel>,
-) -> Result<models::CollectionResponseModel, Error<OrganizationsOrgIdCollectionsIdPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-    let p_collection_request_model = collection_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/collections/{id}",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_collection_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CollectionResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsIdPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_collections_id_user_org_user_id_delete(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-    org_user_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdCollectionsIdUserOrgUserIdDeleteError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-    let p_org_user_id = org_user_id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/collections/{id}/user/{orgUserId}",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string()),
-        orgUserId = crate::apis::urlencode(p_org_user_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsIdUserOrgUserIdDeleteError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_collections_id_users_get(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<
-    Vec<models::SelectionReadOnlyResponseModel>,
-    Error<OrganizationsOrgIdCollectionsIdUsersGetError>,
-> {
+) -> Result<Vec<models::SelectionReadOnlyResponseModel>, Error<CollectionsGetUsersError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_id = id;
@@ -880,8 +497,7 @@ pub async fn organizations_org_id_collections_id_users_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsIdUsersGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<CollectionsGetUsersError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -890,60 +506,14 @@ pub async fn organizations_org_id_collections_id_users_get(
     }
 }
 
-pub async fn organizations_org_id_collections_id_users_put(
+pub async fn collections_post(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
-    id: uuid::Uuid,
-    selection_read_only_request_model: Option<Vec<models::SelectionReadOnlyRequestModel>>,
-) -> Result<(), Error<OrganizationsOrgIdCollectionsIdUsersPutError>> {
+    create_collection_request_model: Option<models::CreateCollectionRequestModel>,
+) -> Result<models::CollectionResponseModel, Error<CollectionsPostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
-    let p_id = id;
-    let p_selection_read_only_request_model = selection_read_only_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/collections/{id}/users",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_selection_read_only_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsIdUsersPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_org_id_collections_post(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    collection_request_model: Option<models::CollectionRequestModel>,
-) -> Result<models::CollectionResponseModel, Error<OrganizationsOrgIdCollectionsPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_collection_request_model = collection_request_model;
+    let p_create_collection_request_model = create_collection_request_model;
 
     let uri_str = format!(
         "{}/organizations/{orgId}/collections",
@@ -960,7 +530,7 @@ pub async fn organizations_org_id_collections_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_collection_request_model);
+    req_builder = req_builder.json(&p_create_collection_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -982,8 +552,254 @@ pub async fn organizations_org_id_collections_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdCollectionsPostError> =
+        let entity: Option<CollectionsPostError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn collections_post_bulk_collection_access(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    bulk_collection_access_request_model: Option<models::BulkCollectionAccessRequestModel>,
+) -> Result<(), Error<CollectionsPostBulkCollectionAccessError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_bulk_collection_access_request_model = bulk_collection_access_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/collections/bulk-access",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_bulk_collection_access_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<CollectionsPostBulkCollectionAccessError> =
             serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn collections_post_delete(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<CollectionsPostDeleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/collections/{id}/delete",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<CollectionsPostDeleteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn collections_post_delete_many(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    collection_bulk_delete_request_model: Option<models::CollectionBulkDeleteRequestModel>,
+) -> Result<(), Error<CollectionsPostDeleteManyError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_collection_bulk_delete_request_model = collection_bulk_delete_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/collections/delete",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_collection_bulk_delete_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<CollectionsPostDeleteManyError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn collections_post_put(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+    update_collection_request_model: Option<models::UpdateCollectionRequestModel>,
+) -> Result<models::CollectionResponseModel, Error<CollectionsPostPutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+    let p_update_collection_request_model = update_collection_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/collections/{id}",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_collection_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CollectionResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<CollectionsPostPutError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn collections_put(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+    update_collection_request_model: Option<models::UpdateCollectionRequestModel>,
+) -> Result<models::CollectionResponseModel, Error<CollectionsPutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+    let p_update_collection_request_model = update_collection_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/collections/{id}",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_collection_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::CollectionResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<CollectionsPutError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

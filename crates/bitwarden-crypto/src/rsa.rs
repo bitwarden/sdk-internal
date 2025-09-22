@@ -1,4 +1,4 @@
-use base64::{engine::general_purpose::STANDARD, Engine};
+use bitwarden_encoding::B64;
 use rsa::{
     pkcs8::{EncodePrivateKey, EncodePublicKey},
     Oaep, RsaPrivateKey, RsaPublicKey,
@@ -6,7 +6,7 @@ use rsa::{
 use sha1::Sha1;
 
 use crate::{
-    error::{Result, RsaError, UnsupportedOperation},
+    error::{Result, RsaError, UnsupportedOperationError},
     CryptoError, EncString, SymmetricCryptoKey,
 };
 
@@ -16,7 +16,7 @@ use crate::{
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct RsaKeyPair {
     /// Base64 encoded DER representation of the public key
-    pub public: String,
+    pub public: B64,
     /// Encrypted PKCS8 private key
     pub private: EncString,
 }
@@ -32,7 +32,6 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
         .to_public_key_der()
         .map_err(|_| RsaError::CreatePublicKey)?;
 
-    let b64 = STANDARD.encode(spki.as_bytes());
     let pkcs = priv_key
         .to_pkcs8_der()
         .map_err(|_| RsaError::CreatePrivateKey)?;
@@ -42,15 +41,15 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
             EncString::encrypt_aes256_hmac(pkcs.as_bytes(), key)
         }
         SymmetricCryptoKey::XChaCha20Poly1305Key(_) => Err(CryptoError::OperationNotSupported(
-            UnsupportedOperation::EncryptionNotImplementedForKey,
+            UnsupportedOperationError::EncryptionNotImplementedForKey,
         )),
         SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
-            UnsupportedOperation::EncryptionNotImplementedForKey,
+            UnsupportedOperationError::EncryptionNotImplementedForKey,
         )),
     }?;
 
     Ok(RsaKeyPair {
-        public: b64,
+        public: spki.as_ref().into(),
         private: protected,
     })
 }
@@ -62,5 +61,5 @@ pub(super) fn encrypt_rsa2048_oaep_sha1(public_key: &RsaPublicKey, data: &[u8]) 
     let padding = Oaep::new::<Sha1>();
     public_key
         .encrypt(&mut rng, padding, data)
-        .map_err(|e| CryptoError::RsaError(e.into()))
+        .map_err(|e| CryptoError::Rsa(e.into()))
 }

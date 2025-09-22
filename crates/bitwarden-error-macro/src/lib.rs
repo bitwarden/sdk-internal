@@ -101,7 +101,7 @@ mod full;
 /// }
 /// ```
 ///
-/// will use tsify_next::Tsify to generate roughly the following TypeScript definition:
+/// will use tsify::Tsify to generate roughly the following TypeScript definition:
 ///
 /// ```typescript
 /// export type CryptoError =

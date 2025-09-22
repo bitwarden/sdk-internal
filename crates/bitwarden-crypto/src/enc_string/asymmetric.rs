@@ -1,6 +1,6 @@
-use std::{fmt::Display, str::FromStr};
+use std::{borrow::Cow, fmt::Display, str::FromStr};
 
-use base64::{engine::general_purpose::STANDARD, Engine};
+use bitwarden_encoding::{FromStrVisitor, B64};
 pub use internal::UnsignedSharedKey;
 use rsa::Oaep;
 use serde::Deserialize;
@@ -9,9 +9,8 @@ use super::{from_b64_vec, split_enc_string};
 use crate::{
     error::{CryptoError, EncStringParseError, Result},
     rsa::encrypt_rsa2048_oaep_sha1,
-    util::FromStrVisitor,
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, RawPrivateKey, RawPublicKey,
-    SymmetricCryptoKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, RawPrivateKey,
+    RawPublicKey, SymmetricCryptoKey,
 };
 // This module is a workaround to avoid deprecated warnings that come from the ZeroizeOnDrop
 // macro expansion
@@ -20,7 +19,7 @@ mod internal {
     #[cfg(feature = "wasm")]
     #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
     const TS_CUSTOM_TYPES: &'static str = r#"
-    export type UnsignedSharedKey = string;
+    export type UnsignedSharedKey = Tagged<string, "UnsignedSharedKey">;
     "#;
 
     /// # Encrypted string primitive
@@ -130,7 +129,10 @@ impl Display for UnsignedSharedKey {
             }
         };
 
-        let encoded_parts: Vec<String> = parts.iter().map(|part| STANDARD.encode(part)).collect();
+        let encoded_parts: Vec<String> = parts
+            .iter()
+            .map(|part| B64::from(*part).to_string())
+            .collect();
 
         write!(f, "{}.{}", self.enc_type(), encoded_parts.join("|"))?;
 
@@ -169,7 +171,7 @@ impl UnsignedSharedKey {
                 Ok(UnsignedSharedKey::Rsa2048_OaepSha1_B64 {
                     data: encrypt_rsa2048_oaep_sha1(
                         rsa_public_key,
-                        &encapsulated_key.to_encoded(),
+                        encapsulated_key.to_encoded().as_ref(),
                     )?,
                 })
             }
@@ -200,7 +202,7 @@ impl UnsignedSharedKey {
         match decapsulation_key.inner() {
             RawPrivateKey::RsaOaepSha1(rsa_private_key) => {
                 use UnsignedSharedKey::*;
-                let mut key_data = match self {
+                let key_data = match self {
                     Rsa2048_OaepSha256_B64 { data } => {
                         rsa_private_key.decrypt(Oaep::new::<sha2::Sha256>(), data)
                     }
@@ -217,7 +219,7 @@ impl UnsignedSharedKey {
                     }
                 }
                 .map_err(|_| CryptoError::KeyDecrypt)?;
-                SymmetricCryptoKey::try_from(key_data.as_mut_slice())
+                SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key_data))
             }
         }
     }
@@ -227,11 +229,11 @@ impl UnsignedSharedKey {
 /// But during the transition phase we will expose endpoints using the UnsignedSharedKey
 /// type.
 impl schemars::JsonSchema for UnsignedSharedKey {
-    fn schema_name() -> String {
-        "UnsignedSharedKey".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "UnsignedSharedKey".into()
     }
 
-    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(generator: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
         generator.subschema_for::<String>()
     }
 }
@@ -345,7 +347,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
         let enc_str: &str = "4.ZheRb3PCfAunyFdQYPfyrFqpuvmln9H9w5nDjt88i5A7ug1XE0LJdQHCIYJl0YOZ1gCOGkhFu/CRY2StiLmT3iRKrrVBbC1+qRMjNNyDvRcFi91LWsmRXhONVSPjywzrJJXglsztDqGkLO93dKXNhuKpcmtBLsvgkphk/aFvxbaOvJ/FHdK/iV0dMGNhc/9tbys8laTdwBlI5xIChpRcrfH+XpSFM88+Bu03uK67N9G6eU1UmET+pISJwJvMuIDMqH+qkT7OOzgL3t6I0H2LDj+CnsumnQmDsvQzDiNfTR0IgjpoE9YH2LvPXVP2wVUkiTwXD9cG/E7XeoiduHyHjw==";
         let enc_string: UnsignedSharedKey = enc_str.parse().unwrap();
 
-        let debug_string = format!("{:?}", enc_string);
+        let debug_string = format!("{enc_string:?}");
         assert_eq!(debug_string, "UnsignedSharedKey");
     }
 
@@ -355,7 +357,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
 
         assert_eq!(
             serde_json::to_string(&schema).unwrap(),
-            r#"{"$schema":"http://json-schema.org/draft-07/schema#","title":"UnsignedSharedKey","type":"string"}"#
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"UnsignedSharedKey","type":"string"}"#
         );
     }
 }

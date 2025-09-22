@@ -1,10 +1,10 @@
 use std::pin::Pin;
 
-use base64::{engine::general_purpose::STANDARD, Engine};
+use bitwarden_encoding::B64;
 use generic_array::GenericArray;
 use rand::Rng;
 use typenum::U32;
-use zeroize::{Zeroize, Zeroizing};
+use zeroize::Zeroize;
 
 use super::{
     kdf::{Kdf, KdfDerivedKeyMaterial},
@@ -12,7 +12,8 @@ use super::{
 };
 use crate::{
     util::{self},
-    CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey, UserKey,
+    BitwardenLegacyKeyBytes, CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey,
+    UserKey,
 };
 
 #[allow(missing_docs)]
@@ -61,10 +62,10 @@ impl MasterKey {
     }
 
     /// Derive the master key hash, used for local and remote password validation.
-    pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> Result<String> {
+    pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> B64 {
         let hash = util::pbkdf2(self.inner_bytes().as_slice(), password, purpose as u32);
 
-        Ok(STANDARD.encode(hash))
+        hash.as_slice().into()
     }
 
     /// Generate a new random user key and encrypt it with the master key.
@@ -83,8 +84,8 @@ impl MasterKey {
     }
 
     #[allow(missing_docs)]
-    pub fn to_base64(&self) -> String {
-        STANDARD.encode(self.inner_bytes().as_slice())
+    pub fn to_base64(&self) -> B64 {
+        B64::from(self.inner_bytes().as_slice())
     }
 }
 
@@ -129,8 +130,8 @@ pub(super) fn encrypt_user_key(
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
     let stretched_master_key = stretch_key(master_key)?;
-    let user_key_bytes = Zeroizing::new(user_key.to_encoded());
-    EncString::encrypt_aes256_hmac(&user_key_bytes, &stretched_master_key)
+    let user_key_bytes = user_key.to_encoded();
+    EncString::encrypt_aes256_hmac(user_key_bytes.as_ref(), &stretched_master_key)
 }
 
 /// Helper function to decrypt a user key with a master or pin key or key-connector-key.
@@ -138,7 +139,7 @@ pub(super) fn decrypt_user_key(
     key: &Pin<Box<GenericArray<u8, U32>>>,
     user_key: EncString,
 ) -> Result<SymmetricCryptoKey> {
-    let mut dec: Vec<u8> = match user_key {
+    let dec: Vec<u8> = match user_key {
         // Legacy. user_keys were encrypted using `Aes256Cbc_B64` a long time ago. We've since
         // moved to using `Aes256Cbc_HmacSha256_B64`. However, we still need to support
         // decrypting these old keys.
@@ -154,12 +155,12 @@ pub(super) fn decrypt_user_key(
         }
         EncString::Cose_Encrypt0_B64 { .. } => {
             return Err(CryptoError::OperationNotSupported(
-                crate::error::UnsupportedOperation::EncryptionNotImplementedForKey,
+                crate::error::UnsupportedOperationError::EncryptionNotImplementedForKey,
             ));
         }
     };
 
-    SymmetricCryptoKey::try_from(dec.as_mut_slice())
+    SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(dec))
 }
 
 /// Generate a new random user key and encrypt it with the master key.
@@ -208,9 +209,12 @@ mod tests {
 
             assert_eq!(
                 "wmyadRMyBZOH7P/a/ucTCbSghKgdzDpPqUnu/DAVtSw=",
-                master_key
-                    .derive_master_key_hash(password.as_bytes(), HashPurpose::ServerAuthorization)
-                    .unwrap(),
+                String::from(
+                    master_key.derive_master_key_hash(
+                        password.as_bytes(),
+                        HashPurpose::ServerAuthorization
+                    )
+                ),
             );
         }
     }
@@ -233,7 +237,7 @@ mod tests {
             "PR6UjYmjmppTYcdyTiNbAhPJuQQOmynKbdEl1oyi/iQ=",
             master_key
                 .derive_master_key_hash(password.as_bytes(), HashPurpose::ServerAuthorization)
-                .unwrap(),
+                .to_string(),
         );
     }
 

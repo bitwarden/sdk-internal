@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::SecretCreateRequestModel;
-use bitwarden_core::{key_management::SymmetricKeyId, Client};
-use bitwarden_crypto::Encryptable;
+use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId};
+use bitwarden_crypto::PrimitiveEncryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -36,7 +36,7 @@ pub(crate) async fn create_secret(
     input.validate()?;
 
     let key_store = client.internal.get_key_store();
-    let key = SymmetricKeyId::Organization(input.organization_id);
+    let key = SymmetricKeyId::Organization(OrganizationId::new(input.organization_id));
 
     let secret = {
         let mut ctx = key_store.context();
@@ -55,7 +55,7 @@ pub(crate) async fn create_secret(
     };
 
     let config = client.internal.get_api_configurations().await;
-    let res = bitwarden_api_api::apis::secrets_api::organizations_organization_id_secrets_post(
+    let res = bitwarden_api_api::apis::secrets_api::secrets_create(
         &config.api,
         input.organization_id,
         secret,

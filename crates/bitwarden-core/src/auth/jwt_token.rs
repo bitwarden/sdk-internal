@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use thiserror::Error;
 
 /// A Bitwarden secrets manager JWT Token.
@@ -31,7 +31,7 @@ pub enum JwtTokenParseError {
     #[error("JWT token parse error: {0}")]
     Parse(#[from] serde_json::Error),
     #[error("JWT token decode error: {0}")]
-    Decode(#[from] base64::DecodeError),
+    Decode(#[from] NotB64UrlEncodedError),
 
     #[error("JWT token has an invalid number of parts")]
     InvalidParts,
@@ -48,8 +48,8 @@ impl FromStr for JwtToken {
         if split.len() != 3 {
             return Err(Self::Err::InvalidParts);
         }
-        let decoded = URL_SAFE_NO_PAD.decode(split[1])?;
-        Ok(serde_json::from_slice(&decoded)?)
+        let decoded = B64Url::try_from(split[1])?;
+        Ok(serde_json::from_slice(decoded.as_bytes())?)
     }
 }
 
