@@ -11,7 +11,10 @@ use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
 use tsify::Tsify;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
