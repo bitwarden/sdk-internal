@@ -14,115 +14,17 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organizations_id_two_factor_disable_post`]
+/// struct for typed errors of method [`two_factor_delete_web_authn`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsIdTwoFactorDisablePostError {
+pub enum TwoFactorDeleteWebAuthnError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_id_two_factor_disable_put`]
+/// struct for typed errors of method [`two_factor_disable_authenticator`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsIdTwoFactorDisablePutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_two_factor_duo_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdTwoFactorDuoPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_two_factor_duo_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdTwoFactorDuoPutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_two_factor_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdTwoFactorGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_two_factor_get_duo_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdTwoFactorGetDuoPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`two_factor_authenticator_delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum TwoFactorAuthenticatorDeleteError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`two_factor_authenticator_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum TwoFactorAuthenticatorPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`two_factor_authenticator_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum TwoFactorAuthenticatorPutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`two_factor_device_verification_settings_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum TwoFactorDeviceVerificationSettingsPutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`two_factor_disable_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum TwoFactorDisablePostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`two_factor_disable_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum TwoFactorDisablePutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`two_factor_duo_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum TwoFactorDuoPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`two_factor_duo_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum TwoFactorDuoPutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`two_factor_email_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum TwoFactorEmailPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`two_factor_email_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum TwoFactorEmailPutError {
+pub enum TwoFactorDisableAuthenticatorError {
     UnknownValue(serde_json::Value),
 }
 
@@ -133,129 +35,213 @@ pub enum TwoFactorGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`two_factor_get_authenticator_post`]
+/// struct for typed errors of method [`two_factor_get_authenticator`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TwoFactorGetAuthenticatorPostError {
+pub enum TwoFactorGetAuthenticatorError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`two_factor_get_device_verification_settings_get`]
+/// struct for typed errors of method [`two_factor_get_device_verification_settings`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TwoFactorGetDeviceVerificationSettingsGetError {
+pub enum TwoFactorGetDeviceVerificationSettingsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`two_factor_get_duo_post`]
+/// struct for typed errors of method [`two_factor_get_duo`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TwoFactorGetDuoPostError {
+pub enum TwoFactorGetDuoError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`two_factor_get_email_post`]
+/// struct for typed errors of method [`two_factor_get_email`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TwoFactorGetEmailPostError {
+pub enum TwoFactorGetEmailError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`two_factor_get_recover_post`]
+/// struct for typed errors of method [`two_factor_get_organization`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TwoFactorGetRecoverPostError {
+pub enum TwoFactorGetOrganizationError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`two_factor_get_webauthn_post`]
+/// struct for typed errors of method [`two_factor_get_organization_duo`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TwoFactorGetWebauthnPostError {
+pub enum TwoFactorGetOrganizationDuoError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`two_factor_get_yubikey_post`]
+/// struct for typed errors of method [`two_factor_get_recover`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TwoFactorGetYubikeyPostError {
+pub enum TwoFactorGetRecoverError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`two_factor_recover_post`]
+/// struct for typed errors of method [`two_factor_get_web_authn`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TwoFactorRecoverPostError {
+pub enum TwoFactorGetWebAuthnError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`two_factor_send_email_login_post`]
+/// struct for typed errors of method [`two_factor_get_yubi_key`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TwoFactorSendEmailLoginPostError {
+pub enum TwoFactorGetYubiKeyError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`two_factor_send_email_post`]
+/// struct for typed errors of method [`two_factor_post_authenticator`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TwoFactorSendEmailPostError {
+pub enum TwoFactorPostAuthenticatorError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`two_factor_webauthn_delete`]
+/// struct for typed errors of method [`two_factor_post_disable`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TwoFactorWebauthnDeleteError {
+pub enum TwoFactorPostDisableError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`two_factor_webauthn_post`]
+/// struct for typed errors of method [`two_factor_post_duo`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TwoFactorWebauthnPostError {
+pub enum TwoFactorPostDuoError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`two_factor_webauthn_put`]
+/// struct for typed errors of method [`two_factor_post_email`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TwoFactorWebauthnPutError {
+pub enum TwoFactorPostEmailError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`two_factor_yubikey_post`]
+/// struct for typed errors of method [`two_factor_post_organization_disable`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TwoFactorYubikeyPostError {
+pub enum TwoFactorPostOrganizationDisableError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`two_factor_yubikey_put`]
+/// struct for typed errors of method [`two_factor_post_organization_duo`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TwoFactorYubikeyPutError {
+pub enum TwoFactorPostOrganizationDuoError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn organizations_id_two_factor_disable_post(
+/// struct for typed errors of method [`two_factor_post_web_authn`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TwoFactorPostWebAuthnError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`two_factor_post_yubi_key`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TwoFactorPostYubiKeyError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`two_factor_put_authenticator`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TwoFactorPutAuthenticatorError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`two_factor_put_device_verification_settings`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TwoFactorPutDeviceVerificationSettingsError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`two_factor_put_disable`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TwoFactorPutDisableError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`two_factor_put_duo`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TwoFactorPutDuoError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`two_factor_put_email`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TwoFactorPutEmailError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`two_factor_put_organization_disable`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TwoFactorPutOrganizationDisableError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`two_factor_put_organization_duo`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TwoFactorPutOrganizationDuoError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`two_factor_put_web_authn`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TwoFactorPutWebAuthnError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`two_factor_put_yubi_key`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TwoFactorPutYubiKeyError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`two_factor_send_email`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TwoFactorSendEmailError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`two_factor_send_email_login`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TwoFactorSendEmailLoginError {
+    UnknownValue(serde_json::Value),
+}
+
+pub async fn two_factor_delete_web_authn(
     configuration: &configuration::Configuration,
-    id: &str,
-    two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
-) -> Result<models::TwoFactorProviderResponseModel, Error<OrganizationsIdTwoFactorDisablePostError>>
-{
+    two_factor_web_authn_delete_request_model: Option<models::TwoFactorWebAuthnDeleteRequestModel>,
+) -> Result<models::TwoFactorWebAuthnResponseModel, Error<TwoFactorDeleteWebAuthnError>> {
     // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_two_factor_provider_request_model = two_factor_provider_request_model;
+    let p_two_factor_web_authn_delete_request_model = two_factor_web_authn_delete_request_model;
 
-    let uri_str = format!(
-        "{}/organizations/{id}/two-factor/disable",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
+    let uri_str = format!("{}/two-factor/webauthn", configuration.base_path);
     let mut req_builder = configuration
         .client
-        .request(reqwest::Method::POST, &uri_str);
+        .request(reqwest::Method::DELETE, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -263,7 +249,7 @@ pub async fn organizations_id_two_factor_disable_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_two_factor_provider_request_model);
+    req_builder = req_builder.json(&p_two_factor_web_authn_delete_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -280,13 +266,12 @@ pub async fn organizations_id_two_factor_disable_post(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`")))),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`")))),
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsIdTwoFactorDisablePostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<TwoFactorDeleteWebAuthnError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -295,286 +280,12 @@ pub async fn organizations_id_two_factor_disable_post(
     }
 }
 
-pub async fn organizations_id_two_factor_disable_put(
-    configuration: &configuration::Configuration,
-    id: &str,
-    two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
-) -> Result<models::TwoFactorProviderResponseModel, Error<OrganizationsIdTwoFactorDisablePutError>>
-{
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_two_factor_provider_request_model = two_factor_provider_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/two-factor/disable",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_two_factor_provider_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdTwoFactorDisablePutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_id_two_factor_duo_post(
-    configuration: &configuration::Configuration,
-    id: &str,
-    update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
-) -> Result<models::TwoFactorDuoResponseModel, Error<OrganizationsIdTwoFactorDuoPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_update_two_factor_duo_request_model = update_two_factor_duo_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/two-factor/duo",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_two_factor_duo_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdTwoFactorDuoPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_id_two_factor_duo_put(
-    configuration: &configuration::Configuration,
-    id: &str,
-    update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
-) -> Result<models::TwoFactorDuoResponseModel, Error<OrganizationsIdTwoFactorDuoPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_update_two_factor_duo_request_model = update_two_factor_duo_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/two-factor/duo",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_two_factor_duo_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdTwoFactorDuoPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_id_two_factor_get(
-    configuration: &configuration::Configuration,
-    id: &str,
-) -> Result<
-    models::TwoFactorProviderResponseModelListResponseModel,
-    Error<OrganizationsIdTwoFactorGetError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/two-factor",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdTwoFactorGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_id_two_factor_get_duo_post(
-    configuration: &configuration::Configuration,
-    id: &str,
-    secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<models::TwoFactorDuoResponseModel, Error<OrganizationsIdTwoFactorGetDuoPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_secret_verification_request_model = secret_verification_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/two-factor/get-duo",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_secret_verification_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdTwoFactorGetDuoPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn two_factor_authenticator_delete(
+pub async fn two_factor_disable_authenticator(
     configuration: &configuration::Configuration,
     two_factor_authenticator_disable_request_model: Option<
         models::TwoFactorAuthenticatorDisableRequestModel,
     >,
-) -> Result<models::TwoFactorProviderResponseModel, Error<TwoFactorAuthenticatorDeleteError>> {
+) -> Result<models::TwoFactorProviderResponseModel, Error<TwoFactorDisableAuthenticatorError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_two_factor_authenticator_disable_request_model =
         two_factor_authenticator_disable_request_model;
@@ -612,451 +323,8 @@ pub async fn two_factor_authenticator_delete(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<TwoFactorAuthenticatorDeleteError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn two_factor_authenticator_post(
-    configuration: &configuration::Configuration,
-    update_two_factor_authenticator_request_model: Option<
-        models::UpdateTwoFactorAuthenticatorRequestModel,
-    >,
-) -> Result<models::TwoFactorAuthenticatorResponseModel, Error<TwoFactorAuthenticatorPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_update_two_factor_authenticator_request_model =
-        update_two_factor_authenticator_request_model;
-
-    let uri_str = format!("{}/two-factor/authenticator", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_two_factor_authenticator_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TwoFactorAuthenticatorPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn two_factor_authenticator_put(
-    configuration: &configuration::Configuration,
-    update_two_factor_authenticator_request_model: Option<
-        models::UpdateTwoFactorAuthenticatorRequestModel,
-    >,
-) -> Result<models::TwoFactorAuthenticatorResponseModel, Error<TwoFactorAuthenticatorPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_update_two_factor_authenticator_request_model =
-        update_two_factor_authenticator_request_model;
-
-    let uri_str = format!("{}/two-factor/authenticator", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_two_factor_authenticator_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TwoFactorAuthenticatorPutError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn two_factor_device_verification_settings_put(
-    configuration: &configuration::Configuration,
-    device_verification_request_model: Option<models::DeviceVerificationRequestModel>,
-) -> Result<
-    models::DeviceVerificationResponseModel,
-    Error<TwoFactorDeviceVerificationSettingsPutError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_device_verification_request_model = device_verification_request_model;
-
-    let uri_str = format!(
-        "{}/two-factor/device-verification-settings",
-        configuration.base_path
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_device_verification_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeviceVerificationResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeviceVerificationResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TwoFactorDeviceVerificationSettingsPutError> =
+        let entity: Option<TwoFactorDisableAuthenticatorError> =
             serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn two_factor_disable_post(
-    configuration: &configuration::Configuration,
-    two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
-) -> Result<models::TwoFactorProviderResponseModel, Error<TwoFactorDisablePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_two_factor_provider_request_model = two_factor_provider_request_model;
-
-    let uri_str = format!("{}/two-factor/disable", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_two_factor_provider_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TwoFactorDisablePostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn two_factor_disable_put(
-    configuration: &configuration::Configuration,
-    two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
-) -> Result<models::TwoFactorProviderResponseModel, Error<TwoFactorDisablePutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_two_factor_provider_request_model = two_factor_provider_request_model;
-
-    let uri_str = format!("{}/two-factor/disable", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_two_factor_provider_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TwoFactorDisablePutError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn two_factor_duo_post(
-    configuration: &configuration::Configuration,
-    update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
-) -> Result<models::TwoFactorDuoResponseModel, Error<TwoFactorDuoPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_update_two_factor_duo_request_model = update_two_factor_duo_request_model;
-
-    let uri_str = format!("{}/two-factor/duo", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_two_factor_duo_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TwoFactorDuoPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn two_factor_duo_put(
-    configuration: &configuration::Configuration,
-    update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
-) -> Result<models::TwoFactorDuoResponseModel, Error<TwoFactorDuoPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_update_two_factor_duo_request_model = update_two_factor_duo_request_model;
-
-    let uri_str = format!("{}/two-factor/duo", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_two_factor_duo_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TwoFactorDuoPutError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn two_factor_email_post(
-    configuration: &configuration::Configuration,
-    update_two_factor_email_request_model: Option<models::UpdateTwoFactorEmailRequestModel>,
-) -> Result<models::TwoFactorEmailResponseModel, Error<TwoFactorEmailPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_update_two_factor_email_request_model = update_two_factor_email_request_model;
-
-    let uri_str = format!("{}/two-factor/email", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_two_factor_email_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TwoFactorEmailPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn two_factor_email_put(
-    configuration: &configuration::Configuration,
-    update_two_factor_email_request_model: Option<models::UpdateTwoFactorEmailRequestModel>,
-) -> Result<models::TwoFactorEmailResponseModel, Error<TwoFactorEmailPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_update_two_factor_email_request_model = update_two_factor_email_request_model;
-
-    let uri_str = format!("{}/two-factor/email", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_two_factor_email_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TwoFactorEmailPutError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1107,11 +375,10 @@ pub async fn two_factor_get(
     }
 }
 
-pub async fn two_factor_get_authenticator_post(
+pub async fn two_factor_get_authenticator(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<models::TwoFactorAuthenticatorResponseModel, Error<TwoFactorGetAuthenticatorPostError>>
-{
+) -> Result<models::TwoFactorAuthenticatorResponseModel, Error<TwoFactorGetAuthenticatorError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_secret_verification_request_model = secret_verification_request_model;
 
@@ -1148,8 +415,7 @@ pub async fn two_factor_get_authenticator_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<TwoFactorGetAuthenticatorPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<TwoFactorGetAuthenticatorError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1158,11 +424,11 @@ pub async fn two_factor_get_authenticator_post(
     }
 }
 
-pub async fn two_factor_get_device_verification_settings_get(
+pub async fn two_factor_get_device_verification_settings(
     configuration: &configuration::Configuration,
 ) -> Result<
     models::DeviceVerificationResponseModel,
-    Error<TwoFactorGetDeviceVerificationSettingsGetError>,
+    Error<TwoFactorGetDeviceVerificationSettingsError>,
 > {
     let uri_str = format!(
         "{}/two-factor/get-device-verification-settings",
@@ -1197,7 +463,7 @@ pub async fn two_factor_get_device_verification_settings_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<TwoFactorGetDeviceVerificationSettingsGetError> =
+        let entity: Option<TwoFactorGetDeviceVerificationSettingsError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -1207,10 +473,10 @@ pub async fn two_factor_get_device_verification_settings_get(
     }
 }
 
-pub async fn two_factor_get_duo_post(
+pub async fn two_factor_get_duo(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<models::TwoFactorDuoResponseModel, Error<TwoFactorGetDuoPostError>> {
+) -> Result<models::TwoFactorDuoResponseModel, Error<TwoFactorGetDuoError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_secret_verification_request_model = secret_verification_request_model;
 
@@ -1247,7 +513,7 @@ pub async fn two_factor_get_duo_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<TwoFactorGetDuoPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<TwoFactorGetDuoError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1256,10 +522,10 @@ pub async fn two_factor_get_duo_post(
     }
 }
 
-pub async fn two_factor_get_email_post(
+pub async fn two_factor_get_email(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<models::TwoFactorEmailResponseModel, Error<TwoFactorGetEmailPostError>> {
+) -> Result<models::TwoFactorEmailResponseModel, Error<TwoFactorGetEmailError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_secret_verification_request_model = secret_verification_request_model;
 
@@ -1296,7 +562,7 @@ pub async fn two_factor_get_email_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<TwoFactorGetEmailPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<TwoFactorGetEmailError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1305,10 +571,118 @@ pub async fn two_factor_get_email_post(
     }
 }
 
-pub async fn two_factor_get_recover_post(
+pub async fn two_factor_get_organization(
+    configuration: &configuration::Configuration,
+    id: &str,
+) -> Result<
+    models::TwoFactorProviderResponseModelListResponseModel,
+    Error<TwoFactorGetOrganizationError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/two-factor",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorGetOrganizationError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_get_organization_duo(
+    configuration: &configuration::Configuration,
+    id: &str,
+    secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
+) -> Result<models::TwoFactorDuoResponseModel, Error<TwoFactorGetOrganizationDuoError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_secret_verification_request_model = secret_verification_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/two-factor/get-duo",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_secret_verification_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorGetOrganizationDuoError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_get_recover(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<models::TwoFactorRecoverResponseModel, Error<TwoFactorGetRecoverPostError>> {
+) -> Result<models::TwoFactorRecoverResponseModel, Error<TwoFactorGetRecoverError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_secret_verification_request_model = secret_verification_request_model;
 
@@ -1345,7 +719,7 @@ pub async fn two_factor_get_recover_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<TwoFactorGetRecoverPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<TwoFactorGetRecoverError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1354,10 +728,10 @@ pub async fn two_factor_get_recover_post(
     }
 }
 
-pub async fn two_factor_get_webauthn_post(
+pub async fn two_factor_get_web_authn(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<models::TwoFactorWebAuthnResponseModel, Error<TwoFactorGetWebauthnPostError>> {
+) -> Result<models::TwoFactorWebAuthnResponseModel, Error<TwoFactorGetWebAuthnError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_secret_verification_request_model = secret_verification_request_model;
 
@@ -1394,7 +768,7 @@ pub async fn two_factor_get_webauthn_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<TwoFactorGetWebauthnPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<TwoFactorGetWebAuthnError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1403,10 +777,10 @@ pub async fn two_factor_get_webauthn_post(
     }
 }
 
-pub async fn two_factor_get_yubikey_post(
+pub async fn two_factor_get_yubi_key(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<models::TwoFactorYubiKeyResponseModel, Error<TwoFactorGetYubikeyPostError>> {
+) -> Result<models::TwoFactorYubiKeyResponseModel, Error<TwoFactorGetYubiKeyError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_secret_verification_request_model = secret_verification_request_model;
 
@@ -1443,7 +817,7 @@ pub async fn two_factor_get_yubikey_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<TwoFactorGetYubikeyPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<TwoFactorGetYubiKeyError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1452,14 +826,17 @@ pub async fn two_factor_get_yubikey_post(
     }
 }
 
-pub async fn two_factor_recover_post(
+pub async fn two_factor_post_authenticator(
     configuration: &configuration::Configuration,
-    two_factor_recovery_request_model: Option<models::TwoFactorRecoveryRequestModel>,
-) -> Result<(), Error<TwoFactorRecoverPostError>> {
+    update_two_factor_authenticator_request_model: Option<
+        models::UpdateTwoFactorAuthenticatorRequestModel,
+    >,
+) -> Result<models::TwoFactorAuthenticatorResponseModel, Error<TwoFactorPostAuthenticatorError>> {
     // add a prefix to parameters to efficiently prevent name collisions
-    let p_two_factor_recovery_request_model = two_factor_recovery_request_model;
+    let p_update_two_factor_authenticator_request_model =
+        update_two_factor_authenticator_request_model;
 
-    let uri_str = format!("{}/two-factor/recover", configuration.base_path);
+    let uri_str = format!("{}/two-factor/authenticator", configuration.base_path);
     let mut req_builder = configuration
         .client
         .request(reqwest::Method::POST, &uri_str);
@@ -1470,18 +847,29 @@ pub async fn two_factor_recover_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_two_factor_recovery_request_model);
+    req_builder = req_builder.json(&p_update_two_factor_authenticator_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
 
     let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
     if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`")))),
+        }
     } else {
         let content = resp.text().await?;
-        let entity: Option<TwoFactorRecoverPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<TwoFactorPostAuthenticatorError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1490,14 +878,14 @@ pub async fn two_factor_recover_post(
     }
 }
 
-pub async fn two_factor_send_email_login_post(
+pub async fn two_factor_post_disable(
     configuration: &configuration::Configuration,
-    two_factor_email_request_model: Option<models::TwoFactorEmailRequestModel>,
-) -> Result<(), Error<TwoFactorSendEmailLoginPostError>> {
+    two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
+) -> Result<models::TwoFactorProviderResponseModel, Error<TwoFactorPostDisableError>> {
     // add a prefix to parameters to efficiently prevent name collisions
-    let p_two_factor_email_request_model = two_factor_email_request_model;
+    let p_two_factor_provider_request_model = two_factor_provider_request_model;
 
-    let uri_str = format!("{}/two-factor/send-email-login", configuration.base_path);
+    let uri_str = format!("{}/two-factor/disable", configuration.base_path);
     let mut req_builder = configuration
         .client
         .request(reqwest::Method::POST, &uri_str);
@@ -1508,18 +896,29 @@ pub async fn two_factor_send_email_login_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_two_factor_email_request_model);
+    req_builder = req_builder.json(&p_two_factor_provider_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
 
     let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
     if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`")))),
+        }
     } else {
         let content = resp.text().await?;
-        let entity: Option<TwoFactorSendEmailLoginPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<TwoFactorPostDisableError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1528,10 +927,767 @@ pub async fn two_factor_send_email_login_post(
     }
 }
 
-pub async fn two_factor_send_email_post(
+pub async fn two_factor_post_duo(
+    configuration: &configuration::Configuration,
+    update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
+) -> Result<models::TwoFactorDuoResponseModel, Error<TwoFactorPostDuoError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_update_two_factor_duo_request_model = update_two_factor_duo_request_model;
+
+    let uri_str = format!("{}/two-factor/duo", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_two_factor_duo_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorPostDuoError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_post_email(
+    configuration: &configuration::Configuration,
+    update_two_factor_email_request_model: Option<models::UpdateTwoFactorEmailRequestModel>,
+) -> Result<models::TwoFactorEmailResponseModel, Error<TwoFactorPostEmailError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_update_two_factor_email_request_model = update_two_factor_email_request_model;
+
+    let uri_str = format!("{}/two-factor/email", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_two_factor_email_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorPostEmailError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_post_organization_disable(
+    configuration: &configuration::Configuration,
+    id: &str,
+    two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
+) -> Result<models::TwoFactorProviderResponseModel, Error<TwoFactorPostOrganizationDisableError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_two_factor_provider_request_model = two_factor_provider_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/two-factor/disable",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_two_factor_provider_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorPostOrganizationDisableError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_post_organization_duo(
+    configuration: &configuration::Configuration,
+    id: &str,
+    update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
+) -> Result<models::TwoFactorDuoResponseModel, Error<TwoFactorPostOrganizationDuoError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_update_two_factor_duo_request_model = update_two_factor_duo_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/two-factor/duo",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_two_factor_duo_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorPostOrganizationDuoError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_post_web_authn(
+    configuration: &configuration::Configuration,
+    two_factor_web_authn_request_model: Option<models::TwoFactorWebAuthnRequestModel>,
+) -> Result<models::TwoFactorWebAuthnResponseModel, Error<TwoFactorPostWebAuthnError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_two_factor_web_authn_request_model = two_factor_web_authn_request_model;
+
+    let uri_str = format!("{}/two-factor/webauthn", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_two_factor_web_authn_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorPostWebAuthnError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_post_yubi_key(
+    configuration: &configuration::Configuration,
+    update_two_factor_yubico_otp_request_model: Option<
+        models::UpdateTwoFactorYubicoOtpRequestModel,
+    >,
+) -> Result<models::TwoFactorYubiKeyResponseModel, Error<TwoFactorPostYubiKeyError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_update_two_factor_yubico_otp_request_model = update_two_factor_yubico_otp_request_model;
+
+    let uri_str = format!("{}/two-factor/yubikey", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_two_factor_yubico_otp_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorPostYubiKeyError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_put_authenticator(
+    configuration: &configuration::Configuration,
+    update_two_factor_authenticator_request_model: Option<
+        models::UpdateTwoFactorAuthenticatorRequestModel,
+    >,
+) -> Result<models::TwoFactorAuthenticatorResponseModel, Error<TwoFactorPutAuthenticatorError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_update_two_factor_authenticator_request_model =
+        update_two_factor_authenticator_request_model;
+
+    let uri_str = format!("{}/two-factor/authenticator", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_two_factor_authenticator_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorPutAuthenticatorError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_put_device_verification_settings(
+    configuration: &configuration::Configuration,
+    device_verification_request_model: Option<models::DeviceVerificationRequestModel>,
+) -> Result<
+    models::DeviceVerificationResponseModel,
+    Error<TwoFactorPutDeviceVerificationSettingsError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_device_verification_request_model = device_verification_request_model;
+
+    let uri_str = format!(
+        "{}/two-factor/device-verification-settings",
+        configuration.base_path
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_device_verification_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::DeviceVerificationResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::DeviceVerificationResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorPutDeviceVerificationSettingsError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_put_disable(
+    configuration: &configuration::Configuration,
+    two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
+) -> Result<models::TwoFactorProviderResponseModel, Error<TwoFactorPutDisableError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_two_factor_provider_request_model = two_factor_provider_request_model;
+
+    let uri_str = format!("{}/two-factor/disable", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_two_factor_provider_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorPutDisableError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_put_duo(
+    configuration: &configuration::Configuration,
+    update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
+) -> Result<models::TwoFactorDuoResponseModel, Error<TwoFactorPutDuoError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_update_two_factor_duo_request_model = update_two_factor_duo_request_model;
+
+    let uri_str = format!("{}/two-factor/duo", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_two_factor_duo_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorPutDuoError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_put_email(
+    configuration: &configuration::Configuration,
+    update_two_factor_email_request_model: Option<models::UpdateTwoFactorEmailRequestModel>,
+) -> Result<models::TwoFactorEmailResponseModel, Error<TwoFactorPutEmailError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_update_two_factor_email_request_model = update_two_factor_email_request_model;
+
+    let uri_str = format!("{}/two-factor/email", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_two_factor_email_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorPutEmailError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_put_organization_disable(
+    configuration: &configuration::Configuration,
+    id: &str,
+    two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
+) -> Result<models::TwoFactorProviderResponseModel, Error<TwoFactorPutOrganizationDisableError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_two_factor_provider_request_model = two_factor_provider_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/two-factor/disable",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_two_factor_provider_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorPutOrganizationDisableError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_put_organization_duo(
+    configuration: &configuration::Configuration,
+    id: &str,
+    update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
+) -> Result<models::TwoFactorDuoResponseModel, Error<TwoFactorPutOrganizationDuoError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_update_two_factor_duo_request_model = update_two_factor_duo_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/two-factor/duo",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_two_factor_duo_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorPutOrganizationDuoError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_put_web_authn(
+    configuration: &configuration::Configuration,
+    two_factor_web_authn_request_model: Option<models::TwoFactorWebAuthnRequestModel>,
+) -> Result<models::TwoFactorWebAuthnResponseModel, Error<TwoFactorPutWebAuthnError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_two_factor_web_authn_request_model = two_factor_web_authn_request_model;
+
+    let uri_str = format!("{}/two-factor/webauthn", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_two_factor_web_authn_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorPutWebAuthnError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_put_yubi_key(
+    configuration: &configuration::Configuration,
+    update_two_factor_yubico_otp_request_model: Option<
+        models::UpdateTwoFactorYubicoOtpRequestModel,
+    >,
+) -> Result<models::TwoFactorYubiKeyResponseModel, Error<TwoFactorPutYubiKeyError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_update_two_factor_yubico_otp_request_model = update_two_factor_yubico_otp_request_model;
+
+    let uri_str = format!("{}/two-factor/yubikey", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_two_factor_yubico_otp_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<TwoFactorPutYubiKeyError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn two_factor_send_email(
     configuration: &configuration::Configuration,
     two_factor_email_request_model: Option<models::TwoFactorEmailRequestModel>,
-) -> Result<(), Error<TwoFactorSendEmailPostError>> {
+) -> Result<(), Error<TwoFactorSendEmailError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_two_factor_email_request_model = two_factor_email_request_model;
 
@@ -1557,7 +1713,7 @@ pub async fn two_factor_send_email_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<TwoFactorSendEmailPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<TwoFactorSendEmailError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1566,63 +1722,14 @@ pub async fn two_factor_send_email_post(
     }
 }
 
-pub async fn two_factor_webauthn_delete(
+pub async fn two_factor_send_email_login(
     configuration: &configuration::Configuration,
-    two_factor_web_authn_delete_request_model: Option<models::TwoFactorWebAuthnDeleteRequestModel>,
-) -> Result<models::TwoFactorWebAuthnResponseModel, Error<TwoFactorWebauthnDeleteError>> {
+    two_factor_email_request_model: Option<models::TwoFactorEmailRequestModel>,
+) -> Result<(), Error<TwoFactorSendEmailLoginError>> {
     // add a prefix to parameters to efficiently prevent name collisions
-    let p_two_factor_web_authn_delete_request_model = two_factor_web_authn_delete_request_model;
+    let p_two_factor_email_request_model = two_factor_email_request_model;
 
-    let uri_str = format!("{}/two-factor/webauthn", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_two_factor_web_authn_delete_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TwoFactorWebauthnDeleteError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn two_factor_webauthn_post(
-    configuration: &configuration::Configuration,
-    two_factor_web_authn_request_model: Option<models::TwoFactorWebAuthnRequestModel>,
-) -> Result<models::TwoFactorWebAuthnResponseModel, Error<TwoFactorWebauthnPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_two_factor_web_authn_request_model = two_factor_web_authn_request_model;
-
-    let uri_str = format!("{}/two-factor/webauthn", configuration.base_path);
+    let uri_str = format!("{}/two-factor/send-email-login", configuration.base_path);
     let mut req_builder = configuration
         .client
         .request(reqwest::Method::POST, &uri_str);
@@ -1633,176 +1740,18 @@ pub async fn two_factor_webauthn_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_two_factor_web_authn_request_model);
+    req_builder = req_builder.json(&p_two_factor_email_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
 
     let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
 
     if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`")))),
-        }
+        Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<TwoFactorWebauthnPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn two_factor_webauthn_put(
-    configuration: &configuration::Configuration,
-    two_factor_web_authn_request_model: Option<models::TwoFactorWebAuthnRequestModel>,
-) -> Result<models::TwoFactorWebAuthnResponseModel, Error<TwoFactorWebauthnPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_two_factor_web_authn_request_model = two_factor_web_authn_request_model;
-
-    let uri_str = format!("{}/two-factor/webauthn", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_two_factor_web_authn_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TwoFactorWebauthnPutError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn two_factor_yubikey_post(
-    configuration: &configuration::Configuration,
-    update_two_factor_yubico_otp_request_model: Option<
-        models::UpdateTwoFactorYubicoOtpRequestModel,
-    >,
-) -> Result<models::TwoFactorYubiKeyResponseModel, Error<TwoFactorYubikeyPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_update_two_factor_yubico_otp_request_model = update_two_factor_yubico_otp_request_model;
-
-    let uri_str = format!("{}/two-factor/yubikey", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_two_factor_yubico_otp_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TwoFactorYubikeyPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn two_factor_yubikey_put(
-    configuration: &configuration::Configuration,
-    update_two_factor_yubico_otp_request_model: Option<
-        models::UpdateTwoFactorYubicoOtpRequestModel,
-    >,
-) -> Result<models::TwoFactorYubiKeyResponseModel, Error<TwoFactorYubikeyPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_update_two_factor_yubico_otp_request_model = update_two_factor_yubico_otp_request_model;
-
-    let uri_str = format!("{}/two-factor/yubikey", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_two_factor_yubico_otp_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TwoFactorYubikeyPutError> = serde_json::from_str(&content).ok();
+        let entity: Option<TwoFactorSendEmailLoginError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

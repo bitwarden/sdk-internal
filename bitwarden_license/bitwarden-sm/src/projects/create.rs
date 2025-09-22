@@ -40,7 +40,7 @@ pub(crate) async fn create_project(
     });
 
     let config = client.internal.get_api_configurations().await;
-    let res = bitwarden_api_api::apis::projects_api::organizations_organization_id_projects_post(
+    let res = bitwarden_api_api::apis::projects_api::projects_create(
         &config.api,
         input.organization_id,
         project,

@@ -95,5 +95,5 @@ pub enum BitwardenError {
     SshImport(#[from] bitwarden_ssh::error::SshKeyImportError),
 
     #[error("A conversion error occurred: {0}")]
-    ConversionError(String),
+    Conversion(String),
 }

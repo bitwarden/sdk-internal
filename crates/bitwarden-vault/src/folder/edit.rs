@@ -24,7 +24,7 @@ pub enum EditFolderError {
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
     #[error(transparent)]
-    RepositoryError(#[from] RepositoryError),
+    Repository(#[from] RepositoryError),
     #[error(transparent)]
     Uuid(#[from] uuid::Error),
 }
@@ -44,7 +44,7 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
 
     let folder_request = key_store.encrypt(request)?;
 
-    let resp = folders_api::folders_id_put(api_config, folder_id, Some(folder_request))
+    let resp = folders_api::folders_put(api_config, folder_id, Some(folder_request))
         .await
         .map_err(ApiError::from)?;
 

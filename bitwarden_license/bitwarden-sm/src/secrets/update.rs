@@ -55,7 +55,8 @@ pub(crate) async fn update_secret(
 
     let config = client.internal.get_api_configurations().await;
     let res =
-        bitwarden_api_api::apis::secrets_api::secrets_id_put(&config.api, input.id, secret).await?;
+        bitwarden_api_api::apis::secrets_api::secrets_update_secret(&config.api, input.id, secret)
+            .await?;
 
     SecretResponse::process_response(res, &mut key_store.context())
 }

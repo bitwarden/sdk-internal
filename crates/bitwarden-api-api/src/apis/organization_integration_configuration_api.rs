@@ -14,144 +14,67 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method
-/// [`organizations_organization_id_integrations_integration_id_configurations_configuration_id_delete`]
+/// struct for typed errors of method [`organization_integration_configuration_create`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsConfigurationIdDeleteError
-{
+pub enum OrganizationIntegrationConfigurationCreateError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_organization_id_integrations_integration_id_configurations_configuration_id_delete_post`]
+/// struct for typed errors of method [`organization_integration_configuration_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsConfigurationIdDeletePostError
-{
+pub enum OrganizationIntegrationConfigurationDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_organization_id_integrations_integration_id_configurations_configuration_id_put`]
+/// struct for typed errors of method [`organization_integration_configuration_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsConfigurationIdPutError {
+pub enum OrganizationIntegrationConfigurationGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_organization_id_integrations_integration_id_configurations_get`]
+/// struct for typed errors of method [`organization_integration_configuration_post_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsGetError {
+pub enum OrganizationIntegrationConfigurationPostDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_organization_id_integrations_integration_id_configurations_post`]
+/// struct for typed errors of method [`organization_integration_configuration_update`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsPostError {
+pub enum OrganizationIntegrationConfigurationUpdateError {
     UnknownValue(serde_json::Value),
 }
 
-
-pub async fn organizations_organization_id_integrations_integration_id_configurations_configuration_id_delete(configuration: &configuration::Configuration, organization_id: uuid::Uuid, integration_id: uuid::Uuid, configuration_id: uuid::Uuid) -> Result<(), Error<OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsConfigurationIdDeleteError>>{
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
-    let p_integration_id = integration_id;
-    let p_configuration_id = configuration_id;
-
-    let uri_str = format!("{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}", configuration.base_path, organizationId=crate::apis::urlencode(p_organization_id.to_string()), integrationId=crate::apis::urlencode(p_integration_id.to_string()), configurationId=crate::apis::urlencode(p_configuration_id.to_string()));
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsConfigurationIdDeleteError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_organization_id_integrations_integration_id_configurations_configuration_id_delete_post(configuration: &configuration::Configuration, organization_id: uuid::Uuid, integration_id: uuid::Uuid, configuration_id: uuid::Uuid) -> Result<(), Error<OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsConfigurationIdDeletePostError>>{
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
-    let p_integration_id = integration_id;
-    let p_configuration_id = configuration_id;
-
-    let uri_str = format!("{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}/delete", configuration.base_path, organizationId=crate::apis::urlencode(p_organization_id.to_string()), integrationId=crate::apis::urlencode(p_integration_id.to_string()), configurationId=crate::apis::urlencode(p_configuration_id.to_string()));
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsConfigurationIdDeletePostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_organization_id_integrations_integration_id_configurations_configuration_id_put(
+pub async fn organization_integration_configuration_create(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     integration_id: uuid::Uuid,
-    configuration_id: uuid::Uuid,
     organization_integration_configuration_request_model: Option<
         models::OrganizationIntegrationConfigurationRequestModel,
     >,
 ) -> Result<
     models::OrganizationIntegrationConfigurationResponseModel,
-    Error<
-        OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsConfigurationIdPutError,
-    >,
+    Error<OrganizationIntegrationConfigurationCreateError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_integration_id = integration_id;
-    let p_configuration_id = configuration_id;
     let p_organization_integration_configuration_request_model =
         organization_integration_configuration_request_model;
 
-    let uri_str = format!("{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}", configuration.base_path, organizationId=crate::apis::urlencode(p_organization_id.to_string()), integrationId=crate::apis::urlencode(p_integration_id.to_string()), configurationId=crate::apis::urlencode(p_configuration_id.to_string()));
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/integrations/{integrationId}/configurations",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string()),
+        integrationId = crate::apis::urlencode(p_integration_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -181,7 +104,8 @@ pub async fn organizations_organization_id_integrations_integration_id_configura
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsConfigurationIdPutError> = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationIntegrationConfigurationCreateError> =
+            serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -190,13 +114,55 @@ pub async fn organizations_organization_id_integrations_integration_id_configura
     }
 }
 
-pub async fn organizations_organization_id_integrations_integration_id_configurations_get(
+pub async fn organization_integration_configuration_delete(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    integration_id: uuid::Uuid,
+    configuration_id: uuid::Uuid,
+) -> Result<(), Error<OrganizationIntegrationConfigurationDeleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_integration_id = integration_id;
+    let p_configuration_id = configuration_id;
+
+    let uri_str = format!("{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}", configuration.base_path, organizationId=crate::apis::urlencode(p_organization_id.to_string()), integrationId=crate::apis::urlencode(p_integration_id.to_string()), configurationId=crate::apis::urlencode(p_configuration_id.to_string()));
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationIntegrationConfigurationDeleteError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_integration_configuration_get(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     integration_id: uuid::Uuid,
 ) -> Result<
     Vec<models::OrganizationIntegrationConfigurationResponseModel>,
-    Error<OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsGetError>,
+    Error<OrganizationIntegrationConfigurationGetError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
@@ -237,9 +203,8 @@ pub async fn organizations_organization_id_integrations_integration_id_configura
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<
-            OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsGetError,
-        > = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationIntegrationConfigurationGetError> =
+            serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -248,32 +213,69 @@ pub async fn organizations_organization_id_integrations_integration_id_configura
     }
 }
 
-pub async fn organizations_organization_id_integrations_integration_id_configurations_post(
+pub async fn organization_integration_configuration_post_delete(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     integration_id: uuid::Uuid,
+    configuration_id: uuid::Uuid,
+) -> Result<(), Error<OrganizationIntegrationConfigurationPostDeleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_integration_id = integration_id;
+    let p_configuration_id = configuration_id;
+
+    let uri_str = format!("{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}/delete", configuration.base_path, organizationId=crate::apis::urlencode(p_organization_id.to_string()), integrationId=crate::apis::urlencode(p_integration_id.to_string()), configurationId=crate::apis::urlencode(p_configuration_id.to_string()));
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationIntegrationConfigurationPostDeleteError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_integration_configuration_update(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    integration_id: uuid::Uuid,
+    configuration_id: uuid::Uuid,
     organization_integration_configuration_request_model: Option<
         models::OrganizationIntegrationConfigurationRequestModel,
     >,
 ) -> Result<
     models::OrganizationIntegrationConfigurationResponseModel,
-    Error<OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsPostError>,
+    Error<OrganizationIntegrationConfigurationUpdateError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_integration_id = integration_id;
+    let p_configuration_id = configuration_id;
     let p_organization_integration_configuration_request_model =
         organization_integration_configuration_request_model;
 
-    let uri_str = format!(
-        "{}/organizations/{organizationId}/integrations/{integrationId}/configurations",
-        configuration.base_path,
-        organizationId = crate::apis::urlencode(p_organization_id.to_string()),
-        integrationId = crate::apis::urlencode(p_integration_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
+    let uri_str = format!("{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}", configuration.base_path, organizationId=crate::apis::urlencode(p_organization_id.to_string()), integrationId=crate::apis::urlencode(p_integration_id.to_string()), configurationId=crate::apis::urlencode(p_configuration_id.to_string()));
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -303,9 +305,8 @@ pub async fn organizations_organization_id_integrations_integration_id_configura
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<
-            OrganizationsOrganizationIdIntegrationsIntegrationIdConfigurationsPostError,
-        > = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationIntegrationConfigurationUpdateError> =
+            serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

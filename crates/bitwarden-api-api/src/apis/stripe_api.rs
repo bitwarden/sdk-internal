@@ -14,30 +14,30 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`setup_intent_bank_account_post`]
+/// struct for typed errors of method [`stripe_create_setup_intent_for_bank_account`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SetupIntentBankAccountPostError {
+pub enum StripeCreateSetupIntentForBankAccountError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`setup_intent_card_post`]
+/// struct for typed errors of method [`stripe_create_setup_intent_for_card`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SetupIntentCardPostError {
+pub enum StripeCreateSetupIntentForCardError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`tax_is_country_supported_get`]
+/// struct for typed errors of method [`stripe_is_country_supported`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TaxIsCountrySupportedGetError {
+pub enum StripeIsCountrySupportedError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn setup_intent_bank_account_post(
+pub async fn stripe_create_setup_intent_for_bank_account(
     configuration: &configuration::Configuration,
-) -> Result<(), Error<SetupIntentBankAccountPostError>> {
+) -> Result<(), Error<StripeCreateSetupIntentForBankAccountError>> {
     let uri_str = format!("{}/setup-intent/bank-account", configuration.base_path);
     let mut req_builder = configuration
         .client
@@ -59,7 +59,8 @@ pub async fn setup_intent_bank_account_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<SetupIntentBankAccountPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<StripeCreateSetupIntentForBankAccountError> =
+            serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -68,9 +69,9 @@ pub async fn setup_intent_bank_account_post(
     }
 }
 
-pub async fn setup_intent_card_post(
+pub async fn stripe_create_setup_intent_for_card(
     configuration: &configuration::Configuration,
-) -> Result<(), Error<SetupIntentCardPostError>> {
+) -> Result<(), Error<StripeCreateSetupIntentForCardError>> {
     let uri_str = format!("{}/setup-intent/card", configuration.base_path);
     let mut req_builder = configuration
         .client
@@ -92,7 +93,8 @@ pub async fn setup_intent_card_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<SetupIntentCardPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<StripeCreateSetupIntentForCardError> =
+            serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -101,10 +103,10 @@ pub async fn setup_intent_card_post(
     }
 }
 
-pub async fn tax_is_country_supported_get(
+pub async fn stripe_is_country_supported(
     configuration: &configuration::Configuration,
     country: Option<&str>,
-) -> Result<(), Error<TaxIsCountrySupportedGetError>> {
+) -> Result<(), Error<StripeIsCountrySupportedError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_country = country;
 
@@ -130,7 +132,7 @@ pub async fn tax_is_country_supported_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<TaxIsCountrySupportedGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<StripeIsCountrySupportedError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
