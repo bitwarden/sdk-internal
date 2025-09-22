@@ -14,18 +14,17 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`hibp_breach_get`]
+/// struct for typed errors of method [`hibp_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum HibpBreachGetError {
+pub enum HibpGetError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Dirt/Controllers/HibpController.cs#L47`]
-pub async fn hibp_breach_get(
+pub async fn hibp_get(
     configuration: &configuration::Configuration,
     username: Option<&str>,
-) -> Result<(), Error<HibpBreachGetError>> {
+) -> Result<(), Error<HibpGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_username = username;
 
@@ -51,7 +50,7 @@ pub async fn hibp_breach_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<HibpBreachGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<HibpGetError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

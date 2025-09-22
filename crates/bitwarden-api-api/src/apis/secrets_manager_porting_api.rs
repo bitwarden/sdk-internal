@@ -14,25 +14,24 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`sm_organization_id_export_get`]
+/// struct for typed errors of method [`secrets_manager_porting_export`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SmOrganizationIdExportGetError {
+pub enum SecretsManagerPortingExportError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`sm_organization_id_import_post`]
+/// struct for typed errors of method [`secrets_manager_porting_import`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SmOrganizationIdImportPostError {
+pub enum SecretsManagerPortingImportError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/SecretsManagerPortingController.cs#L42`]
-pub async fn sm_organization_id_export_get(
+pub async fn secrets_manager_porting_export(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
-) -> Result<models::SmExportResponseModel, Error<SmOrganizationIdExportGetError>> {
+) -> Result<models::SmExportResponseModel, Error<SecretsManagerPortingExportError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
 
@@ -70,7 +69,7 @@ pub async fn sm_organization_id_export_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<SmOrganizationIdExportGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<SecretsManagerPortingExportError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -79,12 +78,11 @@ pub async fn sm_organization_id_export_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/SecretsManagerPortingController.cs#L62`]
-pub async fn sm_organization_id_import_post(
+pub async fn secrets_manager_porting_import(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     sm_import_request_model: Option<models::SmImportRequestModel>,
-) -> Result<(), Error<SmOrganizationIdImportPostError>> {
+) -> Result<(), Error<SecretsManagerPortingImportError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_sm_import_request_model = sm_import_request_model;
@@ -115,7 +113,7 @@ pub async fn sm_organization_id_import_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<SmOrganizationIdImportPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<SecretsManagerPortingImportError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

@@ -14,15 +14,14 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`sm_events_service_accounts_service_account_id_get`]
+/// struct for typed errors of method [`secrets_manager_events_get_service_account_events`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SmEventsServiceAccountsServiceAccountIdGetError {
+pub enum SecretsManagerEventsGetServiceAccountEventsError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/SecretsManagerEventsController.cs#L37`]
-pub async fn sm_events_service_accounts_service_account_id_get(
+pub async fn secrets_manager_events_get_service_account_events(
     configuration: &configuration::Configuration,
     service_account_id: uuid::Uuid,
     start: Option<String>,
@@ -30,7 +29,7 @@ pub async fn sm_events_service_accounts_service_account_id_get(
     continuation_token: Option<&str>,
 ) -> Result<
     models::EventResponseModelListResponseModel,
-    Error<SmEventsServiceAccountsServiceAccountIdGetError>,
+    Error<SecretsManagerEventsGetServiceAccountEventsError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_service_account_id = service_account_id;
@@ -81,7 +80,7 @@ pub async fn sm_events_service_accounts_service_account_id_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<SmEventsServiceAccountsServiceAccountIdGetError> =
+        let entity: Option<SecretsManagerEventsGetServiceAccountEventsError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

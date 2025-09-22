@@ -14,10 +14,31 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organizations_create_without_payment_post`]
+/// struct for typed errors of method [`organizations_api_key`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsCreateWithoutPaymentPostError {
+pub enum OrganizationsApiKeyError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_api_key_information`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsApiKeyInformationError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_create_without_payment`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsCreateWithoutPaymentError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_delete`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsDeleteError {
     UnknownValue(serde_json::Value),
 }
 
@@ -28,220 +49,73 @@ pub enum OrganizationsGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_id_api_key_information_type_get`]
+/// struct for typed errors of method [`organizations_get_auto_enroll_status`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsIdApiKeyInformationTypeGetError {
+pub enum OrganizationsGetAutoEnrollStatusError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_id_api_key_post`]
+/// struct for typed errors of method [`organizations_get_keys`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsIdApiKeyPostError {
+pub enum OrganizationsGetKeysError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_id_cancel_post`]
+/// struct for typed errors of method [`organizations_get_license`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsIdCancelPostError {
+pub enum OrganizationsGetLicenseError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_id_collection_management_put`]
+/// struct for typed errors of method [`organizations_get_plan_type`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsIdCollectionManagementPutError {
+pub enum OrganizationsGetPlanTypeError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_id_delete`]
+/// struct for typed errors of method [`organizations_get_public_key`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsIdDeleteError {
+pub enum OrganizationsGetPublicKeyError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_id_delete_post`]
+/// struct for typed errors of method [`organizations_get_sso`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsIdDeletePostError {
+pub enum OrganizationsGetSsoError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_id_delete_recover_token_post`]
+/// struct for typed errors of method [`organizations_get_subscription`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsIdDeleteRecoverTokenPostError {
+pub enum OrganizationsGetSubscriptionError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_id_get`]
+/// struct for typed errors of method [`organizations_get_tax_info`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsIdGetError {
+pub enum OrganizationsGetTaxInfoError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_id_keys_get`]
+/// struct for typed errors of method [`organizations_get_user`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsIdKeysGetError {
+pub enum OrganizationsGetUserError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_id_keys_post`]
+/// struct for typed errors of method [`organizations_leave`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsIdKeysPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_leave_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdLeavePostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_license_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdLicenseGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_plan_type_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdPlanTypeGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_public_key_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdPublicKeyGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdPutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_reinstate_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdReinstatePostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_rotate_api_key_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdRotateApiKeyPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_seat_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdSeatPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_sm_subscription_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdSmSubscriptionPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_sso_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdSsoGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_sso_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdSsoPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_storage_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdStoragePostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_subscribe_secrets_manager_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdSubscribeSecretsManagerPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_subscription_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdSubscriptionGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_subscription_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdSubscriptionPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_tax_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdTaxGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_tax_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdTaxPutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_upgrade_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdUpgradePostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_id_verify_bank_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdVerifyBankPostError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`organizations_identifier_auto_enroll_status_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationsIdentifierAutoEnrollStatusGetError {
+pub enum OrganizationsLeaveError {
     UnknownValue(serde_json::Value),
 }
 
@@ -252,163 +126,137 @@ pub enum OrganizationsPostError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L214`]
-pub async fn organizations_create_without_payment_post(
-    configuration: &configuration::Configuration,
-    organization_no_payment_create_request: Option<models::OrganizationNoPaymentCreateRequest>,
-) -> Result<models::OrganizationResponseModel, Error<OrganizationsCreateWithoutPaymentPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_no_payment_create_request = organization_no_payment_create_request;
-
-    let uri_str = format!(
-        "{}/organizations/create-without-payment",
-        configuration.base_path
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_no_payment_create_request);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsCreateWithoutPaymentPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
+/// struct for typed errors of method [`organizations_post_cancel`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPostCancelError {
+    UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L145`]
-pub async fn organizations_get(
-    configuration: &configuration::Configuration,
-) -> Result<models::ProfileOrganizationResponseModelListResponseModel, Error<OrganizationsGetError>>
-{
-    let uri_str = format!("{}/organizations", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileOrganizationResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileOrganizationResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
+/// struct for typed errors of method [`organizations_post_delete`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPostDeleteError {
+    UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L418`]
-pub async fn organizations_id_api_key_information_type_get(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-    r#type: models::OrganizationApiKeyType,
-) -> Result<
-    models::OrganizationApiKeyInformationListResponseModel,
-    Error<OrganizationsIdApiKeyInformationTypeGetError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_type = r#type;
-
-    let uri_str = format!("{}/organizations/{id}/api-key-information/{type}", configuration.base_path, id=crate::apis::urlencode(p_id.to_string()), type=p_type.to_string());
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationApiKeyInformationListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationApiKeyInformationListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdApiKeyInformationTypeGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
+/// struct for typed errors of method [`organizations_post_delete_recover_token`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPostDeleteRecoverTokenError {
+    UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L369`]
-pub async fn organizations_id_api_key_post(
+/// struct for typed errors of method [`organizations_post_keys`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPostKeysError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_post_put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPostPutError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_post_reinstate`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPostReinstateError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_post_seat`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPostSeatError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_post_sm_subscription`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPostSmSubscriptionError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_post_sso`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPostSsoError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_post_storage`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPostStorageError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_post_subscribe_secrets_manager`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPostSubscribeSecretsManagerError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_post_subscription`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPostSubscriptionError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_post_upgrade`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPostUpgradeError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_post_verify_bank`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPostVerifyBankError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPutError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_put_collection_management`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPutCollectionManagementError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_put_tax_info`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsPutTaxInfoError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`organizations_rotate_api_key`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationsRotateApiKeyError {
+    UnknownValue(serde_json::Value),
+}
+
+pub async fn organizations_api_key(
     configuration: &configuration::Configuration,
     id: &str,
     organization_api_key_request_model: Option<models::OrganizationApiKeyRequestModel>,
-) -> Result<models::ApiKeyResponseModel, Error<OrganizationsIdApiKeyPostError>> {
+) -> Result<models::ApiKeyResponseModel, Error<OrganizationsApiKeyError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
     let p_organization_api_key_request_model = organization_api_key_request_model;
@@ -450,7 +298,7 @@ pub async fn organizations_id_api_key_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsIdApiKeyPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationsApiKeyError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -459,20 +307,68 @@ pub async fn organizations_id_api_key_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationsController.cs#L228`]
-pub async fn organizations_id_cancel_post(
+pub async fn organizations_api_key_information(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-    subscription_cancellation_request_model: Option<models::SubscriptionCancellationRequestModel>,
-) -> Result<(), Error<OrganizationsIdCancelPostError>> {
+    r#type: models::OrganizationApiKeyType,
+) -> Result<
+    models::OrganizationApiKeyInformationListResponseModel,
+    Error<OrganizationsApiKeyInformationError>,
+> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
-    let p_subscription_cancellation_request_model = subscription_cancellation_request_model;
+    let p_type = r#type;
+
+    let uri_str = format!("{}/organizations/{id}/api-key-information/{type}", configuration.base_path, id=crate::apis::urlencode(p_id.to_string()), type=p_type.to_string());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationApiKeyInformationListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationApiKeyInformationListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsApiKeyInformationError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_create_without_payment(
+    configuration: &configuration::Configuration,
+    organization_no_payment_create_request: Option<models::OrganizationNoPaymentCreateRequest>,
+) -> Result<models::OrganizationResponseModel, Error<OrganizationsCreateWithoutPaymentError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_no_payment_create_request = organization_no_payment_create_request;
 
     let uri_str = format!(
-        "{}/organizations/{id}/cancel",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
+        "{}/organizations/create-without-payment",
+        configuration.base_path
     );
     let mut req_builder = configuration
         .client
@@ -484,53 +380,7 @@ pub async fn organizations_id_cancel_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_subscription_cancellation_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdCancelPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L556`]
-pub async fn organizations_id_collection_management_put(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-    organization_collection_management_update_request_model: Option<
-        models::OrganizationCollectionManagementUpdateRequestModel,
-    >,
-) -> Result<models::OrganizationResponseModel, Error<OrganizationsIdCollectionManagementPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_organization_collection_management_update_request_model =
-        organization_collection_management_update_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/collection-management",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_collection_management_update_request_model);
+    req_builder = req_builder.json(&p_organization_no_payment_create_request);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -552,7 +402,7 @@ pub async fn organizations_id_collection_management_put(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsIdCollectionManagementPutError> =
+        let entity: Option<OrganizationsCreateWithoutPaymentError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -562,12 +412,11 @@ pub async fn organizations_id_collection_management_put(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L296`]
-pub async fn organizations_id_delete(
+pub async fn organizations_delete(
     configuration: &configuration::Configuration,
     id: &str,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<(), Error<OrganizationsIdDeleteError>> {
+) -> Result<(), Error<OrganizationsDeleteError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
     let p_secret_verification_request_model = secret_verification_request_model;
@@ -598,7 +447,7 @@ pub async fn organizations_id_delete(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsIdDeleteError> = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationsDeleteError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -607,105 +456,10 @@ pub async fn organizations_id_delete(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L296`]
-pub async fn organizations_id_delete_post(
+pub async fn organizations_get(
     configuration: &configuration::Configuration,
     id: &str,
-    secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<(), Error<OrganizationsIdDeletePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_secret_verification_request_model = secret_verification_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/delete",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_secret_verification_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdDeletePostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L340`]
-pub async fn organizations_id_delete_recover_token_post(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-    organization_verify_delete_recover_request_model: Option<
-        models::OrganizationVerifyDeleteRecoverRequestModel,
-    >,
-) -> Result<(), Error<OrganizationsIdDeleteRecoverTokenPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_organization_verify_delete_recover_request_model =
-        organization_verify_delete_recover_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/delete-recover-token",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_verify_delete_recover_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdDeleteRecoverTokenPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L126`]
-pub async fn organizations_id_get(
-    configuration: &configuration::Configuration,
-    id: &str,
-) -> Result<models::OrganizationResponseModel, Error<OrganizationsIdGetError>> {
+) -> Result<models::OrganizationResponseModel, Error<OrganizationsGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -743,7 +497,7 @@ pub async fn organizations_id_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsIdGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationsGetError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -752,11 +506,64 @@ pub async fn organizations_id_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L493`]
-pub async fn organizations_id_keys_get(
+pub async fn organizations_get_auto_enroll_status(
+    configuration: &configuration::Configuration,
+    identifier: &str,
+) -> Result<
+    models::OrganizationAutoEnrollStatusResponseModel,
+    Error<OrganizationsGetAutoEnrollStatusError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_identifier = identifier;
+
+    let uri_str = format!(
+        "{}/organizations/{identifier}/auto-enroll-status",
+        configuration.base_path,
+        identifier = crate::apis::urlencode(p_identifier)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationAutoEnrollStatusResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationAutoEnrollStatusResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsGetAutoEnrollStatusError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_get_keys(
     configuration: &configuration::Configuration,
     id: &str,
-) -> Result<models::OrganizationPublicKeyResponseModel, Error<OrganizationsIdKeysGetError>> {
+) -> Result<models::OrganizationPublicKeyResponseModel, Error<OrganizationsGetKeysError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -794,7 +601,7 @@ pub async fn organizations_id_keys_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsIdKeysGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationsGetKeysError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -803,110 +610,11 @@ pub async fn organizations_id_keys_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L499`]
-pub async fn organizations_id_keys_post(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-    organization_keys_request_model: Option<models::OrganizationKeysRequestModel>,
-) -> Result<models::OrganizationKeysResponseModel, Error<OrganizationsIdKeysPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_organization_keys_request_model = organization_keys_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/keys",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_keys_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationKeysResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationKeysResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdKeysPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L271`]
-pub async fn organizations_id_leave_post(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsIdLeavePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/leave",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdLeavePostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationsController.cs#L94`]
-pub async fn organizations_id_license_get(
+pub async fn organizations_get_license(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
     installation_id: Option<uuid::Uuid>,
-) -> Result<models::OrganizationLicense, Error<OrganizationsIdLicenseGetError>> {
+) -> Result<models::OrganizationLicense, Error<OrganizationsGetLicenseError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
     let p_installation_id = installation_id;
@@ -948,7 +656,7 @@ pub async fn organizations_id_license_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsIdLicenseGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationsGetLicenseError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -957,11 +665,10 @@ pub async fn organizations_id_license_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L575`]
-pub async fn organizations_id_plan_type_get(
+pub async fn organizations_get_plan_type(
     configuration: &configuration::Configuration,
     id: &str,
-) -> Result<models::PlanType, Error<OrganizationsIdPlanTypeGetError>> {
+) -> Result<models::PlanType, Error<OrganizationsGetPlanTypeError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -999,7 +706,7 @@ pub async fn organizations_id_plan_type_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsIdPlanTypeGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationsGetPlanTypeError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1008,67 +715,10 @@ pub async fn organizations_id_plan_type_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L230`]
-pub async fn organizations_id_post(
+pub async fn organizations_get_public_key(
     configuration: &configuration::Configuration,
     id: &str,
-    organization_update_request_model: Option<models::OrganizationUpdateRequestModel>,
-) -> Result<models::OrganizationResponseModel, Error<OrganizationsIdPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_organization_update_request_model = organization_update_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_update_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L480`]
-pub async fn organizations_id_public_key_get(
-    configuration: &configuration::Configuration,
-    id: &str,
-) -> Result<models::OrganizationPublicKeyResponseModel, Error<OrganizationsIdPublicKeyGetError>> {
+) -> Result<models::OrganizationPublicKeyResponseModel, Error<OrganizationsGetPublicKeyError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -1106,7 +756,7 @@ pub async fn organizations_id_public_key_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsIdPublicKeyGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationsGetPublicKeyError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1115,281 +765,10 @@ pub async fn organizations_id_public_key_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L230`]
-pub async fn organizations_id_put(
-    configuration: &configuration::Configuration,
-    id: &str,
-    organization_update_request_model: Option<models::OrganizationUpdateRequestModel>,
-) -> Result<models::OrganizationResponseModel, Error<OrganizationsIdPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_organization_update_request_model = organization_update_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_update_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdPutError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationsController.cs#L254`]
-pub async fn organizations_id_reinstate_post(
+pub async fn organizations_get_sso(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsIdReinstatePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/reinstate",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdReinstatePostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L432`]
-pub async fn organizations_id_rotate_api_key_post(
-    configuration: &configuration::Configuration,
-    id: &str,
-    organization_api_key_request_model: Option<models::OrganizationApiKeyRequestModel>,
-) -> Result<models::ApiKeyResponseModel, Error<OrganizationsIdRotateApiKeyPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_organization_api_key_request_model = organization_api_key_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/rotate-api-key",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_api_key_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ApiKeyResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ApiKeyResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdRotateApiKeyPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationsController.cs#L204`]
-pub async fn organizations_id_seat_post(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-    organization_seat_request_model: Option<models::OrganizationSeatRequestModel>,
-) -> Result<models::PaymentResponseModel, Error<OrganizationsIdSeatPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_organization_seat_request_model = organization_seat_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/seat",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_seat_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PaymentResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PaymentResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdSeatPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationsController.cs#L136`]
-pub async fn organizations_id_sm_subscription_post(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-    secrets_manager_subscription_update_request_model: Option<
-        models::SecretsManagerSubscriptionUpdateRequestModel,
-    >,
-) -> Result<models::ProfileOrganizationResponseModel, Error<OrganizationsIdSmSubscriptionPostError>>
-{
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_secrets_manager_subscription_update_request_model =
-        secrets_manager_subscription_update_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/sm-subscription",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_secrets_manager_subscription_update_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdSmSubscriptionPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L513`]
-pub async fn organizations_id_sso_get(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-) -> Result<models::OrganizationSsoResponseModel, Error<OrganizationsIdSsoGetError>> {
+) -> Result<models::OrganizationSsoResponseModel, Error<OrganizationsGetSsoError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -1427,7 +806,7 @@ pub async fn organizations_id_sso_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsIdSsoGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationsGetSsoError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1436,183 +815,10 @@ pub async fn organizations_id_sso_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L532`]
-pub async fn organizations_id_sso_post(
+pub async fn organizations_get_subscription(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-    organization_sso_request_model: Option<models::OrganizationSsoRequestModel>,
-) -> Result<models::OrganizationSsoResponseModel, Error<OrganizationsIdSsoPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_organization_sso_request_model = organization_sso_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/sso",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_sso_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationSsoResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationSsoResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdSsoPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L258`]
-pub async fn organizations_id_storage_post(
-    configuration: &configuration::Configuration,
-    id: &str,
-    storage_request_model: Option<models::StorageRequestModel>,
-) -> Result<models::PaymentResponseModel, Error<OrganizationsIdStoragePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_storage_request_model = storage_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/storage",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_storage_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PaymentResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PaymentResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdStoragePostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationsController.cs#L179`]
-pub async fn organizations_id_subscribe_secrets_manager_post(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-    secrets_manager_subscribe_request_model: Option<models::SecretsManagerSubscribeRequestModel>,
-) -> Result<
-    models::ProfileOrganizationResponseModel,
-    Error<OrganizationsIdSubscribeSecretsManagerPostError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_secrets_manager_subscribe_request_model = secrets_manager_subscribe_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/subscribe-secrets-manager",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_secrets_manager_subscribe_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdSubscribeSecretsManagerPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationsController.cs#L55`]
-pub async fn organizations_id_subscription_get(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-) -> Result<models::OrganizationSubscriptionResponseModel, Error<OrganizationsIdSubscriptionGetError>>
+) -> Result<models::OrganizationSubscriptionResponseModel, Error<OrganizationsGetSubscriptionError>>
 {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
@@ -1651,8 +857,7 @@ pub async fn organizations_id_subscription_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsIdSubscriptionGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationsGetSubscriptionError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1661,71 +866,10 @@ pub async fn organizations_id_subscription_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationsController.cs#L163`]
-pub async fn organizations_id_subscription_post(
+pub async fn organizations_get_tax_info(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-    organization_subscription_update_request_model: Option<
-        models::OrganizationSubscriptionUpdateRequestModel,
-    >,
-) -> Result<models::ProfileOrganizationResponseModel, Error<OrganizationsIdSubscriptionPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_organization_subscription_update_request_model =
-        organization_subscription_update_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/subscription",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_subscription_update_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdSubscriptionPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationsController.cs#L266`]
-pub async fn organizations_id_tax_get(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-) -> Result<models::TaxInfoResponseModel, Error<OrganizationsIdTaxGetError>> {
+) -> Result<models::TaxInfoResponseModel, Error<OrganizationsGetTaxInfoError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -1763,7 +907,7 @@ pub async fn organizations_id_tax_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsIdTaxGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationsGetTaxInfoError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1772,167 +916,13 @@ pub async fn organizations_id_tax_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationsController.cs#L285`]
-pub async fn organizations_id_tax_put(
+pub async fn organizations_get_user(
     configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-    expanded_tax_info_update_request_model: Option<models::ExpandedTaxInfoUpdateRequestModel>,
-) -> Result<(), Error<OrganizationsIdTaxPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_expanded_tax_info_update_request_model = expanded_tax_info_update_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/tax",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_expanded_tax_info_update_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdTaxPutError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationsController.cs#L115`]
-pub async fn organizations_id_upgrade_post(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-    organization_upgrade_request_model: Option<models::OrganizationUpgradeRequestModel>,
-) -> Result<models::PaymentResponseModel, Error<OrganizationsIdUpgradePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_organization_upgrade_request_model = organization_upgrade_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/upgrade",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_upgrade_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PaymentResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PaymentResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdUpgradePostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationsController.cs#L217`]
-pub async fn organizations_id_verify_bank_post(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-    organization_verify_bank_request_model: Option<models::OrganizationVerifyBankRequestModel>,
-) -> Result<(), Error<OrganizationsIdVerifyBankPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_organization_verify_bank_request_model = organization_verify_bank_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/verify-bank",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_verify_bank_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdVerifyBankPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L159`]
-pub async fn organizations_identifier_auto_enroll_status_get(
-    configuration: &configuration::Configuration,
-    identifier: &str,
 ) -> Result<
-    models::OrganizationAutoEnrollStatusResponseModel,
-    Error<OrganizationsIdentifierAutoEnrollStatusGetError>,
+    models::ProfileOrganizationResponseModelListResponseModel,
+    Error<OrganizationsGetUserError>,
 > {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_identifier = identifier;
-
-    let uri_str = format!(
-        "{}/organizations/{identifier}/auto-enroll-status",
-        configuration.base_path,
-        identifier = crate::apis::urlencode(p_identifier)
-    );
+    let uri_str = format!("{}/organizations", configuration.base_path);
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
@@ -1957,13 +947,53 @@ pub async fn organizations_identifier_auto_enroll_status_get(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationAutoEnrollStatusResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationAutoEnrollStatusResponseModel`")))),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileOrganizationResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileOrganizationResponseModelListResponseModel`")))),
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsIdentifierAutoEnrollStatusGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationsGetUserError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_leave(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationsLeaveError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/leave",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsLeaveError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -2014,6 +1044,941 @@ pub async fn organizations_post(
     } else {
         let content = resp.text().await?;
         let entity: Option<OrganizationsPostError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_post_cancel(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    subscription_cancellation_request_model: Option<models::SubscriptionCancellationRequestModel>,
+) -> Result<(), Error<OrganizationsPostCancelError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_subscription_cancellation_request_model = subscription_cancellation_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/cancel",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_subscription_cancellation_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPostCancelError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_post_delete(
+    configuration: &configuration::Configuration,
+    id: &str,
+    secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
+) -> Result<(), Error<OrganizationsPostDeleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_secret_verification_request_model = secret_verification_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/delete",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_secret_verification_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPostDeleteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_post_delete_recover_token(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    organization_verify_delete_recover_request_model: Option<
+        models::OrganizationVerifyDeleteRecoverRequestModel,
+    >,
+) -> Result<(), Error<OrganizationsPostDeleteRecoverTokenError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_organization_verify_delete_recover_request_model =
+        organization_verify_delete_recover_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/delete-recover-token",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_verify_delete_recover_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPostDeleteRecoverTokenError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_post_keys(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    organization_keys_request_model: Option<models::OrganizationKeysRequestModel>,
+) -> Result<models::OrganizationKeysResponseModel, Error<OrganizationsPostKeysError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_organization_keys_request_model = organization_keys_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/keys",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_keys_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationKeysResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationKeysResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPostKeysError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_post_put(
+    configuration: &configuration::Configuration,
+    id: &str,
+    organization_update_request_model: Option<models::OrganizationUpdateRequestModel>,
+) -> Result<models::OrganizationResponseModel, Error<OrganizationsPostPutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_organization_update_request_model = organization_update_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_update_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPostPutError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_post_reinstate(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationsPostReinstateError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/reinstate",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPostReinstateError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_post_seat(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    organization_seat_request_model: Option<models::OrganizationSeatRequestModel>,
+) -> Result<models::PaymentResponseModel, Error<OrganizationsPostSeatError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_organization_seat_request_model = organization_seat_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/seat",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_seat_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PaymentResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PaymentResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPostSeatError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_post_sm_subscription(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    secrets_manager_subscription_update_request_model: Option<
+        models::SecretsManagerSubscriptionUpdateRequestModel,
+    >,
+) -> Result<models::ProfileOrganizationResponseModel, Error<OrganizationsPostSmSubscriptionError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_secrets_manager_subscription_update_request_model =
+        secrets_manager_subscription_update_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/sm-subscription",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_secrets_manager_subscription_update_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPostSmSubscriptionError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_post_sso(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    organization_sso_request_model: Option<models::OrganizationSsoRequestModel>,
+) -> Result<models::OrganizationSsoResponseModel, Error<OrganizationsPostSsoError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_organization_sso_request_model = organization_sso_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/sso",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_sso_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationSsoResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationSsoResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPostSsoError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_post_storage(
+    configuration: &configuration::Configuration,
+    id: &str,
+    storage_request_model: Option<models::StorageRequestModel>,
+) -> Result<models::PaymentResponseModel, Error<OrganizationsPostStorageError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_storage_request_model = storage_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/storage",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_storage_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PaymentResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PaymentResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPostStorageError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_post_subscribe_secrets_manager(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    secrets_manager_subscribe_request_model: Option<models::SecretsManagerSubscribeRequestModel>,
+) -> Result<
+    models::ProfileOrganizationResponseModel,
+    Error<OrganizationsPostSubscribeSecretsManagerError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_secrets_manager_subscribe_request_model = secrets_manager_subscribe_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/subscribe-secrets-manager",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_secrets_manager_subscribe_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPostSubscribeSecretsManagerError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_post_subscription(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    organization_subscription_update_request_model: Option<
+        models::OrganizationSubscriptionUpdateRequestModel,
+    >,
+) -> Result<models::ProfileOrganizationResponseModel, Error<OrganizationsPostSubscriptionError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_organization_subscription_update_request_model =
+        organization_subscription_update_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/subscription",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_subscription_update_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPostSubscriptionError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_post_upgrade(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    organization_upgrade_request_model: Option<models::OrganizationUpgradeRequestModel>,
+) -> Result<models::PaymentResponseModel, Error<OrganizationsPostUpgradeError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_organization_upgrade_request_model = organization_upgrade_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/upgrade",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_upgrade_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PaymentResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PaymentResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPostUpgradeError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_post_verify_bank(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    organization_verify_bank_request_model: Option<models::OrganizationVerifyBankRequestModel>,
+) -> Result<(), Error<OrganizationsPostVerifyBankError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_organization_verify_bank_request_model = organization_verify_bank_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/verify-bank",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_verify_bank_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPostVerifyBankError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_put(
+    configuration: &configuration::Configuration,
+    id: &str,
+    organization_update_request_model: Option<models::OrganizationUpdateRequestModel>,
+) -> Result<models::OrganizationResponseModel, Error<OrganizationsPutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_organization_update_request_model = organization_update_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_update_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPutError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_put_collection_management(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    organization_collection_management_update_request_model: Option<
+        models::OrganizationCollectionManagementUpdateRequestModel,
+    >,
+) -> Result<models::OrganizationResponseModel, Error<OrganizationsPutCollectionManagementError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_organization_collection_management_update_request_model =
+        organization_collection_management_update_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/collection-management",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_collection_management_update_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPutCollectionManagementError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_put_tax_info(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    expanded_tax_info_update_request_model: Option<models::ExpandedTaxInfoUpdateRequestModel>,
+) -> Result<(), Error<OrganizationsPutTaxInfoError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_expanded_tax_info_update_request_model = expanded_tax_info_update_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/tax",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_expanded_tax_info_update_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsPutTaxInfoError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organizations_rotate_api_key(
+    configuration: &configuration::Configuration,
+    id: &str,
+    organization_api_key_request_model: Option<models::OrganizationApiKeyRequestModel>,
+) -> Result<models::ApiKeyResponseModel, Error<OrganizationsRotateApiKeyError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_organization_api_key_request_model = organization_api_key_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/rotate-api-key",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_api_key_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ApiKeyResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ApiKeyResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationsRotateApiKeyError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

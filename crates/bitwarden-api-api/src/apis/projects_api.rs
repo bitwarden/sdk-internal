@@ -14,58 +14,52 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organizations_organization_id_projects_get`]
+/// struct for typed errors of method [`projects_bulk_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdProjectsGetError {
+pub enum ProjectsBulkDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_organization_id_projects_post`]
+/// struct for typed errors of method [`projects_create`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdProjectsPostError {
+pub enum ProjectsCreateError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`projects_delete_post`]
+/// struct for typed errors of method [`projects_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProjectsDeletePostError {
+pub enum ProjectsGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`projects_id_get`]
+/// struct for typed errors of method [`projects_list_by_organization`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProjectsIdGetError {
+pub enum ProjectsListByOrganizationError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`projects_id_put`]
+/// struct for typed errors of method [`projects_update`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProjectsIdPutError {
+pub enum ProjectsUpdateError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/ProjectsController.cs#L59`]
-pub async fn organizations_organization_id_projects_get(
+pub async fn projects_bulk_delete(
     configuration: &configuration::Configuration,
-    organization_id: uuid::Uuid,
-) -> Result<
-    models::ProjectResponseModelListResponseModel,
-    Error<OrganizationsOrganizationIdProjectsGetError>,
-> {
+    uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
+) -> Result<models::BulkDeleteResponseModelListResponseModel, Error<ProjectsBulkDeleteError>> {
     // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
+    let p_uuid_colon_colon_uuid = uuid_colon_colon_uuid;
 
-    let uri_str = format!(
-        "{}/organizations/{organizationId}/projects",
-        configuration.base_path,
-        organizationId = crate::apis::urlencode(p_organization_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+    let uri_str = format!("{}/projects/delete", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -73,6 +67,7 @@ pub async fn organizations_organization_id_projects_get(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
+    req_builder = req_builder.json(&p_uuid_colon_colon_uuid);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -89,13 +84,12 @@ pub async fn organizations_organization_id_projects_get(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProjectResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProjectResponseModelListResponseModel`")))),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`")))),
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdProjectsGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<ProjectsBulkDeleteError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -104,12 +98,11 @@ pub async fn organizations_organization_id_projects_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/ProjectsController.cs#L78`]
-pub async fn organizations_organization_id_projects_post(
+pub async fn projects_create(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     project_create_request_model: Option<models::ProjectCreateRequestModel>,
-) -> Result<models::ProjectResponseModel, Error<OrganizationsOrganizationIdProjectsPostError>> {
+) -> Result<models::ProjectResponseModel, Error<ProjectsCreateError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_project_create_request_model = project_create_request_model;
@@ -151,8 +144,7 @@ pub async fn organizations_organization_id_projects_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdProjectsPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<ProjectsCreateError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -161,61 +153,10 @@ pub async fn organizations_organization_id_projects_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/ProjectsController.cs#L160`]
-pub async fn projects_delete_post(
-    configuration: &configuration::Configuration,
-    uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-) -> Result<models::BulkDeleteResponseModelListResponseModel, Error<ProjectsDeletePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_uuid_colon_colon_uuid = uuid_colon_colon_uuid;
-
-    let uri_str = format!("{}/projects/delete", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_uuid_colon_colon_uuid);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProjectsDeletePostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/ProjectsController.cs#L129`]
-pub async fn projects_id_get(
+pub async fn projects_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-) -> Result<models::ProjectResponseModel, Error<ProjectsIdGetError>> {
+) -> Result<models::ProjectResponseModel, Error<ProjectsGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -253,7 +194,7 @@ pub async fn projects_id_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProjectsIdGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<ProjectsGetError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -262,12 +203,61 @@ pub async fn projects_id_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/ProjectsController.cs#L108`]
-pub async fn projects_id_put(
+pub async fn projects_list_by_organization(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+) -> Result<models::ProjectResponseModelListResponseModel, Error<ProjectsListByOrganizationError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/projects",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProjectResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProjectResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProjectsListByOrganizationError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn projects_update(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
     project_update_request_model: Option<models::ProjectUpdateRequestModel>,
-) -> Result<models::ProjectResponseModel, Error<ProjectsIdPutError>> {
+) -> Result<models::ProjectResponseModel, Error<ProjectsUpdateError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
     let p_project_update_request_model = project_update_request_model;
@@ -307,7 +297,7 @@ pub async fn projects_id_put(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProjectsIdPutError> = serde_json::from_str(&content).ok();
+        let entity: Option<ProjectsUpdateError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

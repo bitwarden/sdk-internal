@@ -1,0 +1,37 @@
+[package]
+name = "bitwarden-encoding"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[features]
+uniffi = ["dep:uniffi"]
+wasm = ["dep:tsify", "dep:wasm-bindgen"]
+
+[dependencies]
+bitwarden-uniffi-error = { workspace = true }
+data-encoding = { workspace = true }
+data-encoding-macro = "0.1.18"
+serde = { workspace = true }
+thiserror.workspace = true
+tsify = { workspace = true, optional = true }
+uniffi = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
+
+[dev-dependencies]
+serde-wasm-bindgen = { workspace = true }
+serde_json = { workspace = true }
+wasm-bindgen-test = { workspace = true }
+
+[lints]
+workspace = true

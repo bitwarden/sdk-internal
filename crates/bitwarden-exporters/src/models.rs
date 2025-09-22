@@ -1,8 +1,8 @@
 use bitwarden_core::{key_management::KeyIds, require, MissingFieldError};
 use bitwarden_crypto::KeyStore;
 use bitwarden_vault::{
-    CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldView, FolderView,
-    IdentityView, LoginUriView, SecureNoteType, SecureNoteView, SshKeyView,
+    CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldType, FieldView,
+    FolderView, IdentityView, LoginUriView, SecureNoteType, SecureNoteView, SshKeyView,
 };
 
 impl TryFrom<FolderView> for crate::Folder {
@@ -10,7 +10,7 @@ impl TryFrom<FolderView> for crate::Folder {
 
     fn try_from(value: FolderView) -> Result<Self, Self::Error> {
         Ok(Self {
-            id: require!(value.id),
+            id: require!(value.id).into(),
             name: value.name,
         })
     }
@@ -44,8 +44,8 @@ impl crate::Cipher {
         };
 
         Ok(Self {
-            id: require!(view.id),
-            folder_id: view.folder_id,
+            id: require!(view.id).into(),
+            folder_id: view.folder_id.map(|f| f.into()),
             name: view.name,
             notes: view.notes,
             r#type: r,
@@ -188,6 +188,17 @@ impl From<FieldView> for crate::Field {
     }
 }
 
+impl From<crate::Field> for FieldView {
+    fn from(value: crate::Field) -> Self {
+        Self {
+            name: value.name,
+            value: value.value,
+            r#type: value.r#type.try_into().unwrap_or(FieldType::Text),
+            linked_id: value.linked_id.and_then(|id| id.try_into().ok()),
+        }
+    }
+}
+
 impl From<SecureNoteType> for crate::SecureNoteType {
     fn from(value: SecureNoteType) -> Self {
         match value {
@@ -196,11 +207,19 @@ impl From<SecureNoteType> for crate::SecureNoteType {
     }
 }
 
+impl From<crate::SecureNoteType> for SecureNoteType {
+    fn from(value: crate::SecureNoteType) -> Self {
+        match value {
+            crate::SecureNoteType::Generic => SecureNoteType::Generic,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
     use bitwarden_crypto::SymmetricCryptoKey;
-    use bitwarden_vault::{CipherRepromptType, LoginView};
+    use bitwarden_vault::{CipherId, CipherRepromptType, FolderId, LoginView};
     use chrono::{DateTime, Utc};
 
     use super::*;
@@ -209,7 +228,7 @@ mod tests {
     fn test_try_from_folder_view() {
         let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         let view = FolderView {
-            id: Some(test_id),
+            id: Some(FolderId::new(test_id)),
             name: "test_name".to_string(),
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
         };
@@ -237,7 +256,7 @@ mod tests {
                 autofill_on_page_load: None,
                 fido2_credentials: None,
             }),
-            id: Some(test_id),
+            id: Some(CipherId::new(test_id)),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
@@ -261,7 +280,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            // version: None,
+            archived_date: None,
         };
 
         let login = from_login(&view, &key_store).unwrap();
@@ -289,7 +308,7 @@ mod tests {
                 autofill_on_page_load: None,
                 fido2_credentials: None,
             }),
-            id: Some(test_id),
+            id: Some(CipherId::new(test_id)),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
@@ -313,7 +332,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            // version: None,
+            archived_date: None,
         };
         let encrypted = key_store.encrypt(cipher_view).unwrap();
 

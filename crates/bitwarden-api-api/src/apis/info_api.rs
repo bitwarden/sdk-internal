@@ -14,31 +14,30 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`alive_get`]
+/// struct for typed errors of method [`info_get_alive`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AliveGetError {
+pub enum InfoGetAliveError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`now_get`]
+/// struct for typed errors of method [`info_get_now`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum NowGetError {
+pub enum InfoGetNowError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`version_get`]
+/// struct for typed errors of method [`info_get_version`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum VersionGetError {
+pub enum InfoGetVersionError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/InfoController.cs#L11`]
-pub async fn alive_get(
+pub async fn info_get_alive(
     configuration: &configuration::Configuration,
-) -> Result<String, Error<AliveGetError>> {
+) -> Result<String, Error<InfoGetAliveError>> {
     let uri_str = format!("{}/alive", configuration.base_path);
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
@@ -69,7 +68,7 @@ pub async fn alive_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<AliveGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<InfoGetAliveError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -78,10 +77,9 @@ pub async fn alive_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/InfoController.cs#L11`]
-pub async fn now_get(
+pub async fn info_get_now(
     configuration: &configuration::Configuration,
-) -> Result<String, Error<NowGetError>> {
+) -> Result<String, Error<InfoGetNowError>> {
     let uri_str = format!("{}/now", configuration.base_path);
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
@@ -112,7 +110,7 @@ pub async fn now_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<NowGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<InfoGetNowError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -121,10 +119,9 @@ pub async fn now_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/InfoController.cs#L17`]
-pub async fn version_get(
+pub async fn info_get_version(
     configuration: &configuration::Configuration,
-) -> Result<(), Error<VersionGetError>> {
+) -> Result<(), Error<InfoGetVersionError>> {
     let uri_str = format!("{}/version", configuration.base_path);
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
@@ -144,7 +141,7 @@ pub async fn version_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<VersionGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<InfoGetVersionError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

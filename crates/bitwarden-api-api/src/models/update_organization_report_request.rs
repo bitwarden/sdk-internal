@@ -13,33 +13,33 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct OrganizationReport {
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<uuid::Uuid>,
+pub struct UpdateOrganizationReportRequest {
+    #[serde(rename = "reportId", skip_serializing_if = "Option::is_none")]
+    pub report_id: Option<uuid::Uuid>,
     #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
     pub organization_id: Option<uuid::Uuid>,
-    #[serde(rename = "date", skip_serializing_if = "Option::is_none")]
-    pub date: Option<String>,
     #[serde(rename = "reportData", skip_serializing_if = "Option::is_none")]
     pub report_data: Option<String>,
-    #[serde(rename = "creationDate", skip_serializing_if = "Option::is_none")]
-    pub creation_date: Option<String>,
     #[serde(
         rename = "contentEncryptionKey",
         skip_serializing_if = "Option::is_none"
     )]
     pub content_encryption_key: Option<String>,
+    #[serde(rename = "summaryData", skip_serializing_if = "Option::is_none")]
+    pub summary_data: Option<String>,
+    #[serde(rename = "applicationData", skip_serializing_if = "Option::is_none")]
+    pub application_data: Option<String>,
 }
 
-impl OrganizationReport {
-    pub fn new() -> OrganizationReport {
-        OrganizationReport {
-            id: None,
+impl UpdateOrganizationReportRequest {
+    pub fn new() -> UpdateOrganizationReportRequest {
+        UpdateOrganizationReportRequest {
+            report_id: None,
             organization_id: None,
-            date: None,
             report_data: None,
-            creation_date: None,
             content_encryption_key: None,
+            summary_data: None,
+            application_data: None,
         }
     }
 }

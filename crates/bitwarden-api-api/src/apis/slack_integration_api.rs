@@ -14,27 +14,25 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`create_async`]
+/// struct for typed errors of method [`slack_integration_create`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum CreateAsyncError {
+pub enum SlackIntegrationCreateError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_organization_id_integrations_slack_redirect_get`]
+/// struct for typed errors of method [`slack_integration_redirect`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdIntegrationsSlackRedirectGetError {
+pub enum SlackIntegrationRedirectError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/SlackIntegrationController.cs#L51`]
-pub async fn create_async(
+pub async fn slack_integration_create(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     code: Option<&str>,
-) -> Result<(), Error<CreateAsyncError>> {
+) -> Result<(), Error<SlackIntegrationCreateError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_code = code;
@@ -65,7 +63,7 @@ pub async fn create_async(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<CreateAsyncError> = serde_json::from_str(&content).ok();
+        let entity: Option<SlackIntegrationCreateError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -74,11 +72,10 @@ pub async fn create_async(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/SlackIntegrationController.cs#L30`]
-pub async fn organizations_organization_id_integrations_slack_redirect_get(
+pub async fn slack_integration_redirect(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrganizationIdIntegrationsSlackRedirectGetError>> {
+) -> Result<(), Error<SlackIntegrationRedirectError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
 
@@ -105,8 +102,7 @@ pub async fn organizations_organization_id_integrations_slack_redirect_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdIntegrationsSlackRedirectGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<SlackIntegrationRedirectError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

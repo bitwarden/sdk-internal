@@ -14,81 +14,39 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`providers_provider_id_clients_addable_get`]
+/// struct for typed errors of method [`provider_clients_add_existing_organization`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdClientsAddableGetError {
+pub enum ProviderClientsAddExistingOrganizationError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_clients_existing_post`]
+/// struct for typed errors of method [`provider_clients_create`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdClientsExistingPostError {
+pub enum ProviderClientsCreateError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_clients_post`]
+/// struct for typed errors of method [`provider_clients_get_addable_organizations`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdClientsPostError {
+pub enum ProviderClientsGetAddableOrganizationsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_clients_provider_organization_id_put`]
+/// struct for typed errors of method [`provider_clients_update`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdClientsProviderOrganizationIdPutError {
+pub enum ProviderClientsUpdateError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/ProviderClientsController.cs#L143`]
-pub async fn providers_provider_id_clients_addable_get(
-    configuration: &configuration::Configuration,
-    provider_id: uuid::Uuid,
-) -> Result<(), Error<ProvidersProviderIdClientsAddableGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/clients/addable",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdClientsAddableGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/ProviderClientsController.cs#L169`]
-pub async fn providers_provider_id_clients_existing_post(
+pub async fn provider_clients_add_existing_organization(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
     add_existing_organization_request_body: Option<models::AddExistingOrganizationRequestBody>,
-) -> Result<(), Error<ProvidersProviderIdClientsExistingPostError>> {
+) -> Result<(), Error<ProviderClientsAddExistingOrganizationError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_provider_id = provider_id;
     let p_add_existing_organization_request_body = add_existing_organization_request_body;
@@ -119,7 +77,7 @@ pub async fn providers_provider_id_clients_existing_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdClientsExistingPostError> =
+        let entity: Option<ProviderClientsAddExistingOrganizationError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -129,12 +87,11 @@ pub async fn providers_provider_id_clients_existing_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/ProviderClientsController.cs#L37`]
-pub async fn providers_provider_id_clients_post(
+pub async fn provider_clients_create(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
     create_client_organization_request_body: Option<models::CreateClientOrganizationRequestBody>,
-) -> Result<(), Error<ProvidersProviderIdClientsPostError>> {
+) -> Result<(), Error<ProviderClientsCreateError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_provider_id = provider_id;
     let p_create_client_organization_request_body = create_client_organization_request_body;
@@ -165,7 +122,46 @@ pub async fn providers_provider_id_clients_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdClientsPostError> =
+        let entity: Option<ProviderClientsCreateError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_clients_get_addable_organizations(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+) -> Result<(), Error<ProviderClientsGetAddableOrganizationsError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/clients/addable",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderClientsGetAddableOrganizationsError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -175,13 +171,12 @@ pub async fn providers_provider_id_clients_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/ProviderClientsController.cs#L96`]
-pub async fn providers_provider_id_clients_provider_organization_id_put(
+pub async fn provider_clients_update(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
     provider_organization_id: uuid::Uuid,
     update_client_organization_request_body: Option<models::UpdateClientOrganizationRequestBody>,
-) -> Result<(), Error<ProvidersProviderIdClientsProviderOrganizationIdPutError>> {
+) -> Result<(), Error<ProviderClientsUpdateError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_provider_id = provider_id;
     let p_provider_organization_id = provider_organization_id;
@@ -212,8 +207,7 @@ pub async fn providers_provider_id_clients_provider_organization_id_put(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdClientsProviderOrganizationIdPutError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<ProviderClientsUpdateError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

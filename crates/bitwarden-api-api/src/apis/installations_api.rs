@@ -14,10 +14,10 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`installations_id_get`]
+/// struct for typed errors of method [`installations_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum InstallationsIdGetError {
+pub enum InstallationsGetError {
     UnknownValue(serde_json::Value),
 }
 
@@ -28,11 +28,10 @@ pub enum InstallationsPostError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Platform/Installations/Controllers/InstallationsController.cs#L33`]
-pub async fn installations_id_get(
+pub async fn installations_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-) -> Result<models::InstallationResponseModel, Error<InstallationsIdGetError>> {
+) -> Result<models::InstallationResponseModel, Error<InstallationsGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -70,7 +69,7 @@ pub async fn installations_id_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<InstallationsIdGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<InstallationsGetError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

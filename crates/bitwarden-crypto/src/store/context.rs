@@ -8,7 +8,7 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
+    derive_shareable_key, error::UnsupportedOperationError, signing, store::backend::StoreBackend,
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
     KeyIds, PublicKeyEncryptionAlgorithm, Result, RotatedUserKeys, Signature, SignatureAlgorithm,
     SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey,
@@ -236,7 +236,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 )
             }
             _ => Err(CryptoError::OperationNotSupported(
-                UnsupportedOperation::EncryptionNotImplementedForKey,
+                UnsupportedOperationError::EncryptionNotImplementedForKey,
             )),
         }
     }
@@ -304,6 +304,18 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Generate a new random symmetric key and store it in the context
     pub fn generate_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<Ids::Symmetric> {
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        #[allow(deprecated)]
+        self.set_symmetric_key(key_id, key)?;
+        Ok(key_id)
+    }
+
+    /// Generate a new random xchacha20-poly1305 symmetric key and store it in the context
+    #[cfg(test)]
+    pub(crate) fn make_cose_symmetric_key(
+        &mut self,
+        key_id: Ids::Symmetric,
+    ) -> Result<Ids::Symmetric> {
+        let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
         #[allow(deprecated)]
         self.set_symmetric_key(key_id, key)?;
         Ok(key_id)
@@ -491,7 +503,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let key = self.get_symmetric_key(key)?;
         match key {
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
-                UnsupportedOperation::EncryptionNotImplementedForKey,
+                UnsupportedOperationError::EncryptionNotImplementedForKey,
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {

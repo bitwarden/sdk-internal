@@ -14,56 +14,53 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`webauthn_assertion_options_post`]
+/// struct for typed errors of method [`web_authn_assertion_options`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum WebauthnAssertionOptionsPostError {
+pub enum WebAuthnAssertionOptionsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`webauthn_attestation_options_post`]
+/// struct for typed errors of method [`web_authn_attestation_options`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum WebauthnAttestationOptionsPostError {
+pub enum WebAuthnAttestationOptionsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`webauthn_get`]
+/// struct for typed errors of method [`web_authn_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum WebauthnGetError {
+pub enum WebAuthnDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`webauthn_id_delete_post`]
+/// struct for typed errors of method [`web_authn_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum WebauthnIdDeletePostError {
+pub enum WebAuthnGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`webauthn_post`]
+/// struct for typed errors of method [`web_authn_post`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum WebauthnPostError {
+pub enum WebAuthnPostError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`webauthn_put`]
+/// struct for typed errors of method [`web_authn_update_credential`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum WebauthnPutError {
+pub enum WebAuthnUpdateCredentialError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/WebAuthnController.cs#L92`]
-pub async fn webauthn_assertion_options_post(
+pub async fn web_authn_assertion_options(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<
-    models::WebAuthnLoginAssertionOptionsResponseModel,
-    Error<WebauthnAssertionOptionsPostError>,
-> {
+) -> Result<models::WebAuthnLoginAssertionOptionsResponseModel, Error<WebAuthnAssertionOptionsError>>
+{
     // add a prefix to parameters to efficiently prevent name collisions
     let p_secret_verification_request_model = secret_verification_request_model;
 
@@ -100,7 +97,7 @@ pub async fn webauthn_assertion_options_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<WebauthnAssertionOptionsPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<WebAuthnAssertionOptionsError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -109,13 +106,12 @@ pub async fn webauthn_assertion_options_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/WebAuthnController.cs#L75`]
-pub async fn webauthn_attestation_options_post(
+pub async fn web_authn_attestation_options(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
 ) -> Result<
     models::WebAuthnCredentialCreateOptionsResponseModel,
-    Error<WebauthnAttestationOptionsPostError>,
+    Error<WebAuthnAttestationOptionsError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_secret_verification_request_model = secret_verification_request_model;
@@ -153,8 +149,7 @@ pub async fn webauthn_attestation_options_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<WebauthnAttestationOptionsPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<WebAuthnAttestationOptionsError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -163,55 +158,11 @@ pub async fn webauthn_attestation_options_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/WebAuthnController.cs#L66`]
-pub async fn webauthn_get(
-    configuration: &configuration::Configuration,
-) -> Result<models::WebAuthnCredentialResponseModelListResponseModel, Error<WebauthnGetError>> {
-    let uri_str = format!("{}/webauthn", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::WebAuthnCredentialResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::WebAuthnCredentialResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<WebauthnGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/WebAuthnController.cs#L176`]
-pub async fn webauthn_id_delete_post(
+pub async fn web_authn_delete(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-) -> Result<(), Error<WebauthnIdDeletePostError>> {
+) -> Result<(), Error<WebAuthnDeleteError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
     let p_secret_verification_request_model = secret_verification_request_model;
@@ -242,7 +193,7 @@ pub async fn webauthn_id_delete_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<WebauthnIdDeletePostError> = serde_json::from_str(&content).ok();
+        let entity: Option<WebAuthnDeleteError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -251,13 +202,54 @@ pub async fn webauthn_id_delete_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/WebAuthnController.cs#L108`]
-pub async fn webauthn_post(
+pub async fn web_authn_get(
+    configuration: &configuration::Configuration,
+) -> Result<models::WebAuthnCredentialResponseModelListResponseModel, Error<WebAuthnGetError>> {
+    let uri_str = format!("{}/webauthn", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::WebAuthnCredentialResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::WebAuthnCredentialResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<WebAuthnGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn web_authn_post(
     configuration: &configuration::Configuration,
     web_authn_login_credential_create_request_model: Option<
         models::WebAuthnLoginCredentialCreateRequestModel,
     >,
-) -> Result<(), Error<WebauthnPostError>> {
+) -> Result<(), Error<WebAuthnPostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_web_authn_login_credential_create_request_model =
         web_authn_login_credential_create_request_model;
@@ -284,7 +276,7 @@ pub async fn webauthn_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<WebauthnPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<WebAuthnPostError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -293,13 +285,12 @@ pub async fn webauthn_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/WebAuthnController.cs#L153`]
-pub async fn webauthn_put(
+pub async fn web_authn_update_credential(
     configuration: &configuration::Configuration,
     web_authn_login_credential_update_request_model: Option<
         models::WebAuthnLoginCredentialUpdateRequestModel,
     >,
-) -> Result<(), Error<WebauthnPutError>> {
+) -> Result<(), Error<WebAuthnUpdateCredentialError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_web_authn_login_credential_update_request_model =
         web_authn_login_credential_update_request_model;
@@ -324,7 +315,7 @@ pub async fn webauthn_put(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<WebauthnPutError> = serde_json::from_str(&content).ok();
+        let entity: Option<WebAuthnUpdateCredentialError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

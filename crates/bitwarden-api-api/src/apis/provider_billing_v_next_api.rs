@@ -14,350 +14,56 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`providers_provider_id_billing_vnext_address_get`]
+/// struct for typed errors of method [`provider_billing_v_next_add_credit_via_bit_pay`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdBillingVnextAddressGetError {
+pub enum ProviderBillingVNextAddCreditViaBitPayError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_billing_vnext_address_put`]
+/// struct for typed errors of method [`provider_billing_v_next_get_billing_address`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdBillingVnextAddressPutError {
+pub enum ProviderBillingVNextGetBillingAddressError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_billing_vnext_credit_bitpay_post`]
+/// struct for typed errors of method [`provider_billing_v_next_get_credit`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdBillingVnextCreditBitpayPostError {
+pub enum ProviderBillingVNextGetCreditError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_billing_vnext_credit_get`]
+/// struct for typed errors of method [`provider_billing_v_next_get_payment_method`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdBillingVnextCreditGetError {
+pub enum ProviderBillingVNextGetPaymentMethodError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_billing_vnext_payment_method_get`]
+/// struct for typed errors of method [`provider_billing_v_next_get_warnings`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdBillingVnextPaymentMethodGetError {
+pub enum ProviderBillingVNextGetWarningsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_billing_vnext_payment_method_put`]
+/// struct for typed errors of method [`provider_billing_v_next_update_billing_address`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdBillingVnextPaymentMethodPutError {
+pub enum ProviderBillingVNextUpdateBillingAddressError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`providers_provider_id_billing_vnext_payment_method_verify_bank_account_post`]
+/// struct for typed errors of method [`provider_billing_v_next_update_payment_method`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdBillingVnextPaymentMethodVerifyBankAccountPostError {
+pub enum ProviderBillingVNextUpdatePaymentMethodError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_billing_vnext_warnings_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ProvidersProviderIdBillingVnextWarningsGetError {
-    UnknownValue(serde_json::Value),
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/VNext/ProviderBillingVNextController.cs#L33`]
-pub async fn providers_provider_id_billing_vnext_address_get(
-    configuration: &configuration::Configuration,
-    provider_id: &str,
-    id: Option<uuid::Uuid>,
-    name: Option<&str>,
-    business_name: Option<&str>,
-    business_address1: Option<&str>,
-    business_address2: Option<&str>,
-    business_address3: Option<&str>,
-    business_country: Option<&str>,
-    business_tax_number: Option<&str>,
-    billing_email: Option<&str>,
-    billing_phone: Option<&str>,
-    status: Option<models::ProviderStatusType>,
-    use_events: Option<bool>,
-    r#type: Option<models::ProviderType>,
-    enabled: Option<bool>,
-    creation_date: Option<String>,
-    revision_date: Option<String>,
-    gateway: Option<models::GatewayType>,
-    gateway_customer_id: Option<&str>,
-    gateway_subscription_id: Option<&str>,
-    discount_id: Option<&str>,
-) -> Result<(), Error<ProvidersProviderIdBillingVnextAddressGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_id = id;
-    let p_name = name;
-    let p_business_name = business_name;
-    let p_business_address1 = business_address1;
-    let p_business_address2 = business_address2;
-    let p_business_address3 = business_address3;
-    let p_business_country = business_country;
-    let p_business_tax_number = business_tax_number;
-    let p_billing_email = billing_email;
-    let p_billing_phone = billing_phone;
-    let p_status = status;
-    let p_use_events = use_events;
-    let p_type = r#type;
-    let p_enabled = enabled;
-    let p_creation_date = creation_date;
-    let p_revision_date = revision_date;
-    let p_gateway = gateway;
-    let p_gateway_customer_id = gateway_customer_id;
-    let p_gateway_subscription_id = gateway_subscription_id;
-    let p_discount_id = discount_id;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/billing/vnext/address",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref param_value) = p_id {
-        req_builder = req_builder.query(&[("id", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_name {
-        req_builder = req_builder.query(&[("name", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_name {
-        req_builder = req_builder.query(&[("businessName", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_address1 {
-        req_builder = req_builder.query(&[("businessAddress1", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_address2 {
-        req_builder = req_builder.query(&[("businessAddress2", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_address3 {
-        req_builder = req_builder.query(&[("businessAddress3", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_country {
-        req_builder = req_builder.query(&[("businessCountry", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_tax_number {
-        req_builder = req_builder.query(&[("businessTaxNumber", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_billing_email {
-        req_builder = req_builder.query(&[("billingEmail", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_billing_phone {
-        req_builder = req_builder.query(&[("billingPhone", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_status {
-        req_builder = req_builder.query(&[("status", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_use_events {
-        req_builder = req_builder.query(&[("useEvents", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_type {
-        req_builder = req_builder.query(&[("type", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_enabled {
-        req_builder = req_builder.query(&[("enabled", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_creation_date {
-        req_builder = req_builder.query(&[("creationDate", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_revision_date {
-        req_builder = req_builder.query(&[("revisionDate", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_gateway {
-        req_builder = req_builder.query(&[("gateway", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_gateway_customer_id {
-        req_builder = req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_gateway_subscription_id {
-        req_builder = req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_discount_id {
-        req_builder = req_builder.query(&[("discountId", &param_value.to_string())]);
-    }
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdBillingVnextAddressGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/VNext/ProviderBillingVNextController.cs#L43`]
-pub async fn providers_provider_id_billing_vnext_address_put(
-    configuration: &configuration::Configuration,
-    provider_id: &str,
-    id: Option<uuid::Uuid>,
-    name: Option<&str>,
-    business_name: Option<&str>,
-    business_address1: Option<&str>,
-    business_address2: Option<&str>,
-    business_address3: Option<&str>,
-    business_country: Option<&str>,
-    business_tax_number: Option<&str>,
-    billing_email: Option<&str>,
-    billing_phone: Option<&str>,
-    status: Option<models::ProviderStatusType>,
-    use_events: Option<bool>,
-    r#type: Option<models::ProviderType>,
-    enabled: Option<bool>,
-    creation_date: Option<String>,
-    revision_date: Option<String>,
-    gateway: Option<models::GatewayType>,
-    gateway_customer_id: Option<&str>,
-    gateway_subscription_id: Option<&str>,
-    discount_id: Option<&str>,
-    billing_address_request: Option<models::BillingAddressRequest>,
-) -> Result<(), Error<ProvidersProviderIdBillingVnextAddressPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_id = id;
-    let p_name = name;
-    let p_business_name = business_name;
-    let p_business_address1 = business_address1;
-    let p_business_address2 = business_address2;
-    let p_business_address3 = business_address3;
-    let p_business_country = business_country;
-    let p_business_tax_number = business_tax_number;
-    let p_billing_email = billing_email;
-    let p_billing_phone = billing_phone;
-    let p_status = status;
-    let p_use_events = use_events;
-    let p_type = r#type;
-    let p_enabled = enabled;
-    let p_creation_date = creation_date;
-    let p_revision_date = revision_date;
-    let p_gateway = gateway;
-    let p_gateway_customer_id = gateway_customer_id;
-    let p_gateway_subscription_id = gateway_subscription_id;
-    let p_discount_id = discount_id;
-    let p_billing_address_request = billing_address_request;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/billing/vnext/address",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref param_value) = p_id {
-        req_builder = req_builder.query(&[("id", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_name {
-        req_builder = req_builder.query(&[("name", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_name {
-        req_builder = req_builder.query(&[("businessName", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_address1 {
-        req_builder = req_builder.query(&[("businessAddress1", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_address2 {
-        req_builder = req_builder.query(&[("businessAddress2", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_address3 {
-        req_builder = req_builder.query(&[("businessAddress3", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_country {
-        req_builder = req_builder.query(&[("businessCountry", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_tax_number {
-        req_builder = req_builder.query(&[("businessTaxNumber", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_billing_email {
-        req_builder = req_builder.query(&[("billingEmail", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_billing_phone {
-        req_builder = req_builder.query(&[("billingPhone", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_status {
-        req_builder = req_builder.query(&[("status", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_use_events {
-        req_builder = req_builder.query(&[("useEvents", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_type {
-        req_builder = req_builder.query(&[("type", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_enabled {
-        req_builder = req_builder.query(&[("enabled", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_creation_date {
-        req_builder = req_builder.query(&[("creationDate", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_revision_date {
-        req_builder = req_builder.query(&[("revisionDate", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_gateway {
-        req_builder = req_builder.query(&[("gateway", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_gateway_customer_id {
-        req_builder = req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_gateway_subscription_id {
-        req_builder = req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_discount_id {
-        req_builder = req_builder.query(&[("discountId", &param_value.to_string())]);
-    }
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_billing_address_request);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdBillingVnextAddressPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/VNext/ProviderBillingVNextController.cs#L63`]
-pub async fn providers_provider_id_billing_vnext_credit_bitpay_post(
+pub async fn provider_billing_v_next_add_credit_via_bit_pay(
     configuration: &configuration::Configuration,
     provider_id: &str,
     id: Option<uuid::Uuid>,
@@ -381,7 +87,7 @@ pub async fn providers_provider_id_billing_vnext_credit_bitpay_post(
     gateway_subscription_id: Option<&str>,
     discount_id: Option<&str>,
     bit_pay_credit_request: Option<models::BitPayCreditRequest>,
-) -> Result<(), Error<ProvidersProviderIdBillingVnextCreditBitpayPostError>> {
+) -> Result<(), Error<ProviderBillingVNextAddCreditViaBitPayError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_provider_id = provider_id;
     let p_id = id;
@@ -492,7 +198,7 @@ pub async fn providers_provider_id_billing_vnext_credit_bitpay_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdBillingVnextCreditBitpayPostError> =
+        let entity: Option<ProviderBillingVNextAddCreditViaBitPayError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -502,8 +208,7 @@ pub async fn providers_provider_id_billing_vnext_credit_bitpay_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/VNext/ProviderBillingVNextController.cs#L53`]
-pub async fn providers_provider_id_billing_vnext_credit_get(
+pub async fn provider_billing_v_next_get_billing_address(
     configuration: &configuration::Configuration,
     provider_id: &str,
     id: Option<uuid::Uuid>,
@@ -526,7 +231,147 @@ pub async fn providers_provider_id_billing_vnext_credit_get(
     gateway_customer_id: Option<&str>,
     gateway_subscription_id: Option<&str>,
     discount_id: Option<&str>,
-) -> Result<(), Error<ProvidersProviderIdBillingVnextCreditGetError>> {
+) -> Result<(), Error<ProviderBillingVNextGetBillingAddressError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_id = id;
+    let p_name = name;
+    let p_business_name = business_name;
+    let p_business_address1 = business_address1;
+    let p_business_address2 = business_address2;
+    let p_business_address3 = business_address3;
+    let p_business_country = business_country;
+    let p_business_tax_number = business_tax_number;
+    let p_billing_email = billing_email;
+    let p_billing_phone = billing_phone;
+    let p_status = status;
+    let p_use_events = use_events;
+    let p_type = r#type;
+    let p_enabled = enabled;
+    let p_creation_date = creation_date;
+    let p_revision_date = revision_date;
+    let p_gateway = gateway;
+    let p_gateway_customer_id = gateway_customer_id;
+    let p_gateway_subscription_id = gateway_subscription_id;
+    let p_discount_id = discount_id;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/billing/vnext/address",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref param_value) = p_id {
+        req_builder = req_builder.query(&[("id", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_name {
+        req_builder = req_builder.query(&[("name", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_name {
+        req_builder = req_builder.query(&[("businessName", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_address1 {
+        req_builder = req_builder.query(&[("businessAddress1", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_address2 {
+        req_builder = req_builder.query(&[("businessAddress2", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_address3 {
+        req_builder = req_builder.query(&[("businessAddress3", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_country {
+        req_builder = req_builder.query(&[("businessCountry", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_tax_number {
+        req_builder = req_builder.query(&[("businessTaxNumber", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_billing_email {
+        req_builder = req_builder.query(&[("billingEmail", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_billing_phone {
+        req_builder = req_builder.query(&[("billingPhone", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_status {
+        req_builder = req_builder.query(&[("status", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_use_events {
+        req_builder = req_builder.query(&[("useEvents", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_type {
+        req_builder = req_builder.query(&[("type", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_enabled {
+        req_builder = req_builder.query(&[("enabled", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_creation_date {
+        req_builder = req_builder.query(&[("creationDate", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_revision_date {
+        req_builder = req_builder.query(&[("revisionDate", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_gateway {
+        req_builder = req_builder.query(&[("gateway", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_gateway_customer_id {
+        req_builder = req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_gateway_subscription_id {
+        req_builder = req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_discount_id {
+        req_builder = req_builder.query(&[("discountId", &param_value.to_string())]);
+    }
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderBillingVNextGetBillingAddressError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_billing_v_next_get_credit(
+    configuration: &configuration::Configuration,
+    provider_id: &str,
+    id: Option<uuid::Uuid>,
+    name: Option<&str>,
+    business_name: Option<&str>,
+    business_address1: Option<&str>,
+    business_address2: Option<&str>,
+    business_address3: Option<&str>,
+    business_country: Option<&str>,
+    business_tax_number: Option<&str>,
+    billing_email: Option<&str>,
+    billing_phone: Option<&str>,
+    status: Option<models::ProviderStatusType>,
+    use_events: Option<bool>,
+    r#type: Option<models::ProviderType>,
+    enabled: Option<bool>,
+    creation_date: Option<String>,
+    revision_date: Option<String>,
+    gateway: Option<models::GatewayType>,
+    gateway_customer_id: Option<&str>,
+    gateway_subscription_id: Option<&str>,
+    discount_id: Option<&str>,
+) -> Result<(), Error<ProviderBillingVNextGetCreditError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_provider_id = provider_id;
     let p_id = id;
@@ -633,7 +478,7 @@ pub async fn providers_provider_id_billing_vnext_credit_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdBillingVnextCreditGetError> =
+        let entity: Option<ProviderBillingVNextGetCreditError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -643,8 +488,7 @@ pub async fn providers_provider_id_billing_vnext_credit_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/VNext/ProviderBillingVNextController.cs#L75`]
-pub async fn providers_provider_id_billing_vnext_payment_method_get(
+pub async fn provider_billing_v_next_get_payment_method(
     configuration: &configuration::Configuration,
     provider_id: &str,
     id: Option<uuid::Uuid>,
@@ -667,7 +511,7 @@ pub async fn providers_provider_id_billing_vnext_payment_method_get(
     gateway_customer_id: Option<&str>,
     gateway_subscription_id: Option<&str>,
     discount_id: Option<&str>,
-) -> Result<(), Error<ProvidersProviderIdBillingVnextPaymentMethodGetError>> {
+) -> Result<(), Error<ProviderBillingVNextGetPaymentMethodError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_provider_id = provider_id;
     let p_id = id;
@@ -774,7 +618,7 @@ pub async fn providers_provider_id_billing_vnext_payment_method_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdBillingVnextPaymentMethodGetError> =
+        let entity: Option<ProviderBillingVNextGetPaymentMethodError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -784,8 +628,290 @@ pub async fn providers_provider_id_billing_vnext_payment_method_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/VNext/ProviderBillingVNextController.cs#L85`]
-pub async fn providers_provider_id_billing_vnext_payment_method_put(
+pub async fn provider_billing_v_next_get_warnings(
+    configuration: &configuration::Configuration,
+    provider_id: &str,
+    id: Option<uuid::Uuid>,
+    name: Option<&str>,
+    business_name: Option<&str>,
+    business_address1: Option<&str>,
+    business_address2: Option<&str>,
+    business_address3: Option<&str>,
+    business_country: Option<&str>,
+    business_tax_number: Option<&str>,
+    billing_email: Option<&str>,
+    billing_phone: Option<&str>,
+    status: Option<models::ProviderStatusType>,
+    use_events: Option<bool>,
+    r#type: Option<models::ProviderType>,
+    enabled: Option<bool>,
+    creation_date: Option<String>,
+    revision_date: Option<String>,
+    gateway: Option<models::GatewayType>,
+    gateway_customer_id: Option<&str>,
+    gateway_subscription_id: Option<&str>,
+    discount_id: Option<&str>,
+) -> Result<(), Error<ProviderBillingVNextGetWarningsError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_id = id;
+    let p_name = name;
+    let p_business_name = business_name;
+    let p_business_address1 = business_address1;
+    let p_business_address2 = business_address2;
+    let p_business_address3 = business_address3;
+    let p_business_country = business_country;
+    let p_business_tax_number = business_tax_number;
+    let p_billing_email = billing_email;
+    let p_billing_phone = billing_phone;
+    let p_status = status;
+    let p_use_events = use_events;
+    let p_type = r#type;
+    let p_enabled = enabled;
+    let p_creation_date = creation_date;
+    let p_revision_date = revision_date;
+    let p_gateway = gateway;
+    let p_gateway_customer_id = gateway_customer_id;
+    let p_gateway_subscription_id = gateway_subscription_id;
+    let p_discount_id = discount_id;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/billing/vnext/warnings",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref param_value) = p_id {
+        req_builder = req_builder.query(&[("id", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_name {
+        req_builder = req_builder.query(&[("name", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_name {
+        req_builder = req_builder.query(&[("businessName", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_address1 {
+        req_builder = req_builder.query(&[("businessAddress1", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_address2 {
+        req_builder = req_builder.query(&[("businessAddress2", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_address3 {
+        req_builder = req_builder.query(&[("businessAddress3", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_country {
+        req_builder = req_builder.query(&[("businessCountry", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_tax_number {
+        req_builder = req_builder.query(&[("businessTaxNumber", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_billing_email {
+        req_builder = req_builder.query(&[("billingEmail", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_billing_phone {
+        req_builder = req_builder.query(&[("billingPhone", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_status {
+        req_builder = req_builder.query(&[("status", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_use_events {
+        req_builder = req_builder.query(&[("useEvents", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_type {
+        req_builder = req_builder.query(&[("type", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_enabled {
+        req_builder = req_builder.query(&[("enabled", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_creation_date {
+        req_builder = req_builder.query(&[("creationDate", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_revision_date {
+        req_builder = req_builder.query(&[("revisionDate", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_gateway {
+        req_builder = req_builder.query(&[("gateway", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_gateway_customer_id {
+        req_builder = req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_gateway_subscription_id {
+        req_builder = req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_discount_id {
+        req_builder = req_builder.query(&[("discountId", &param_value.to_string())]);
+    }
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderBillingVNextGetWarningsError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_billing_v_next_update_billing_address(
+    configuration: &configuration::Configuration,
+    provider_id: &str,
+    id: Option<uuid::Uuid>,
+    name: Option<&str>,
+    business_name: Option<&str>,
+    business_address1: Option<&str>,
+    business_address2: Option<&str>,
+    business_address3: Option<&str>,
+    business_country: Option<&str>,
+    business_tax_number: Option<&str>,
+    billing_email: Option<&str>,
+    billing_phone: Option<&str>,
+    status: Option<models::ProviderStatusType>,
+    use_events: Option<bool>,
+    r#type: Option<models::ProviderType>,
+    enabled: Option<bool>,
+    creation_date: Option<String>,
+    revision_date: Option<String>,
+    gateway: Option<models::GatewayType>,
+    gateway_customer_id: Option<&str>,
+    gateway_subscription_id: Option<&str>,
+    discount_id: Option<&str>,
+    billing_address_request: Option<models::BillingAddressRequest>,
+) -> Result<(), Error<ProviderBillingVNextUpdateBillingAddressError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_id = id;
+    let p_name = name;
+    let p_business_name = business_name;
+    let p_business_address1 = business_address1;
+    let p_business_address2 = business_address2;
+    let p_business_address3 = business_address3;
+    let p_business_country = business_country;
+    let p_business_tax_number = business_tax_number;
+    let p_billing_email = billing_email;
+    let p_billing_phone = billing_phone;
+    let p_status = status;
+    let p_use_events = use_events;
+    let p_type = r#type;
+    let p_enabled = enabled;
+    let p_creation_date = creation_date;
+    let p_revision_date = revision_date;
+    let p_gateway = gateway;
+    let p_gateway_customer_id = gateway_customer_id;
+    let p_gateway_subscription_id = gateway_subscription_id;
+    let p_discount_id = discount_id;
+    let p_billing_address_request = billing_address_request;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/billing/vnext/address",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref param_value) = p_id {
+        req_builder = req_builder.query(&[("id", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_name {
+        req_builder = req_builder.query(&[("name", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_name {
+        req_builder = req_builder.query(&[("businessName", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_address1 {
+        req_builder = req_builder.query(&[("businessAddress1", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_address2 {
+        req_builder = req_builder.query(&[("businessAddress2", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_address3 {
+        req_builder = req_builder.query(&[("businessAddress3", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_country {
+        req_builder = req_builder.query(&[("businessCountry", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_business_tax_number {
+        req_builder = req_builder.query(&[("businessTaxNumber", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_billing_email {
+        req_builder = req_builder.query(&[("billingEmail", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_billing_phone {
+        req_builder = req_builder.query(&[("billingPhone", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_status {
+        req_builder = req_builder.query(&[("status", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_use_events {
+        req_builder = req_builder.query(&[("useEvents", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_type {
+        req_builder = req_builder.query(&[("type", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_enabled {
+        req_builder = req_builder.query(&[("enabled", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_creation_date {
+        req_builder = req_builder.query(&[("creationDate", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_revision_date {
+        req_builder = req_builder.query(&[("revisionDate", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_gateway {
+        req_builder = req_builder.query(&[("gateway", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_gateway_customer_id {
+        req_builder = req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_gateway_subscription_id {
+        req_builder = req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+    }
+    if let Some(ref param_value) = p_discount_id {
+        req_builder = req_builder.query(&[("discountId", &param_value.to_string())]);
+    }
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_billing_address_request);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderBillingVNextUpdateBillingAddressError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_billing_v_next_update_payment_method(
     configuration: &configuration::Configuration,
     provider_id: &str,
     id: Option<uuid::Uuid>,
@@ -809,7 +935,7 @@ pub async fn providers_provider_id_billing_vnext_payment_method_put(
     gateway_subscription_id: Option<&str>,
     discount_id: Option<&str>,
     tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
-) -> Result<(), Error<ProvidersProviderIdBillingVnextPaymentMethodPutError>> {
+) -> Result<(), Error<ProviderBillingVNextUpdatePaymentMethodError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_provider_id = provider_id;
     let p_id = id;
@@ -918,153 +1044,7 @@ pub async fn providers_provider_id_billing_vnext_payment_method_put(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdBillingVnextPaymentMethodPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/VNext/ProviderBillingVNextController.cs#L105`]
-pub async fn providers_provider_id_billing_vnext_payment_method_verify_bank_account_post(
-    configuration: &configuration::Configuration,
-    provider_id: &str,
-    id: Option<uuid::Uuid>,
-    name: Option<&str>,
-    business_name: Option<&str>,
-    business_address1: Option<&str>,
-    business_address2: Option<&str>,
-    business_address3: Option<&str>,
-    business_country: Option<&str>,
-    business_tax_number: Option<&str>,
-    billing_email: Option<&str>,
-    billing_phone: Option<&str>,
-    status: Option<models::ProviderStatusType>,
-    use_events: Option<bool>,
-    r#type: Option<models::ProviderType>,
-    enabled: Option<bool>,
-    creation_date: Option<String>,
-    revision_date: Option<String>,
-    gateway: Option<models::GatewayType>,
-    gateway_customer_id: Option<&str>,
-    gateway_subscription_id: Option<&str>,
-    discount_id: Option<&str>,
-    verify_bank_account_request: Option<models::VerifyBankAccountRequest>,
-) -> Result<(), Error<ProvidersProviderIdBillingVnextPaymentMethodVerifyBankAccountPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_id = id;
-    let p_name = name;
-    let p_business_name = business_name;
-    let p_business_address1 = business_address1;
-    let p_business_address2 = business_address2;
-    let p_business_address3 = business_address3;
-    let p_business_country = business_country;
-    let p_business_tax_number = business_tax_number;
-    let p_billing_email = billing_email;
-    let p_billing_phone = billing_phone;
-    let p_status = status;
-    let p_use_events = use_events;
-    let p_type = r#type;
-    let p_enabled = enabled;
-    let p_creation_date = creation_date;
-    let p_revision_date = revision_date;
-    let p_gateway = gateway;
-    let p_gateway_customer_id = gateway_customer_id;
-    let p_gateway_subscription_id = gateway_subscription_id;
-    let p_discount_id = discount_id;
-    let p_verify_bank_account_request = verify_bank_account_request;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/billing/vnext/payment-method/verify-bank-account",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref param_value) = p_id {
-        req_builder = req_builder.query(&[("id", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_name {
-        req_builder = req_builder.query(&[("name", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_name {
-        req_builder = req_builder.query(&[("businessName", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_address1 {
-        req_builder = req_builder.query(&[("businessAddress1", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_address2 {
-        req_builder = req_builder.query(&[("businessAddress2", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_address3 {
-        req_builder = req_builder.query(&[("businessAddress3", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_country {
-        req_builder = req_builder.query(&[("businessCountry", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_business_tax_number {
-        req_builder = req_builder.query(&[("businessTaxNumber", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_billing_email {
-        req_builder = req_builder.query(&[("billingEmail", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_billing_phone {
-        req_builder = req_builder.query(&[("billingPhone", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_status {
-        req_builder = req_builder.query(&[("status", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_use_events {
-        req_builder = req_builder.query(&[("useEvents", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_type {
-        req_builder = req_builder.query(&[("type", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_enabled {
-        req_builder = req_builder.query(&[("enabled", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_creation_date {
-        req_builder = req_builder.query(&[("creationDate", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_revision_date {
-        req_builder = req_builder.query(&[("revisionDate", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_gateway {
-        req_builder = req_builder.query(&[("gateway", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_gateway_customer_id {
-        req_builder = req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_gateway_subscription_id {
-        req_builder = req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
-    }
-    if let Some(ref param_value) = p_discount_id {
-        req_builder = req_builder.query(&[("discountId", &param_value.to_string())]);
-    }
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_verify_bank_account_request);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdBillingVnextPaymentMethodVerifyBankAccountPostError> =
+        let entity: Option<ProviderBillingVNextUpdatePaymentMethodError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

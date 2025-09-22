@@ -12,14 +12,14 @@ use bitwarden_error::bitwarden_error;
 #[cfg(feature = "internal")]
 use log::warn;
 use thiserror::Error;
-#[cfg(any(feature = "internal", feature = "secrets"))]
-use uuid::Uuid;
 
 #[cfg(feature = "internal")]
 use crate::key_management::{AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId};
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::key_management::{KeyIds, SymmetricKeyId};
-use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError, VaultLockedError};
+#[cfg(any(feature = "secrets", feature = "internal"))]
+use crate::OrganizationId;
+use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -27,12 +27,6 @@ use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError, VaultLockedErr
 pub enum EncryptionSettingsError {
     #[error("Cryptography error, {0}")]
     Crypto(#[from] bitwarden_crypto::CryptoError),
-
-    #[error(transparent)]
-    InvalidBase64(#[from] base64::DecodeError),
-
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
 
     #[error("Invalid private key")]
     InvalidPrivateKey,
@@ -47,7 +41,10 @@ pub enum EncryptionSettingsError {
     MissingPrivateKey(#[from] MissingPrivateKeyError),
 
     #[error(transparent)]
-    UserIdAlreadySetError(#[from] UserIdAlreadySetError),
+    UserIdAlreadySet(#[from] UserIdAlreadySetError),
+
+    #[error("Wrong Pin")]
+    WrongPin,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -190,7 +187,7 @@ impl EncryptionSettings {
     /// This is used only for logging in Secrets Manager with an access token
     #[cfg(feature = "secrets")]
     pub(crate) fn new_single_org_key(
-        organization_id: Uuid,
+        organization_id: OrganizationId,
         key: SymmetricCryptoKey,
         store: &KeyStore<KeyIds>,
     ) {
@@ -204,7 +201,7 @@ impl EncryptionSettings {
 
     #[cfg(feature = "internal")]
     pub(crate) fn set_org_keys(
-        org_enc_keys: Vec<(Uuid, UnsignedSharedKey)>,
+        org_enc_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
         use crate::key_management::AsymmetricKeyId;

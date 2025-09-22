@@ -1,6 +1,8 @@
 use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
+use bitwarden_encoding::B64;
+#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
@@ -62,9 +64,9 @@ impl CiphersClient {
     pub fn encrypt_cipher_for_rotation(
         &self,
         mut cipher_view: CipherView,
-        new_key_b64: String,
+        new_key: B64,
     ) -> Result<EncryptionContext, CipherError> {
-        let new_key = SymmetricCryptoKey::try_from(new_key_b64)?;
+        let new_key = SymmetricCryptoKey::try_from(new_key)?;
 
         let user_id = self
             .client
@@ -160,7 +162,7 @@ impl CiphersClient {
         organization_id: OrganizationId,
     ) -> Result<CipherView, CipherError> {
         let key_store = self.client.internal.get_key_store();
-        cipher_view.move_to_organization(&mut key_store.context(), organization_id.into())?;
+        cipher_view.move_to_organization(&mut key_store.context(), organization_id)?;
         Ok(cipher_view)
     }
 
@@ -261,13 +263,12 @@ mod tests {
             creation_date: "2024-05-31T11:20:58.4566667Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-05-31T11:20:58.4566667Z".parse().unwrap(),
-            // version: None,
-            data: None,
+            archived_date: None,
         }
     }
 
     fn test_cipher_view() -> CipherView {
-        let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
+        let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         CipherView {
             r#type: CipherType::Login,
             login: Some(LoginView {
@@ -303,7 +304,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            // version: None,
+            archived_date: None,
         }
     }
 
@@ -397,7 +398,7 @@ mod tests {
                 creation_date: "2024-05-31T09:35:55.12Z".parse().unwrap(),
                 deleted_date: None,
                 revision_date: "2024-05-31T09:35:55.12Z".parse().unwrap(),
-                data: None,
+                archived_date: None,
             }])
 
             .unwrap();

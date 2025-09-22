@@ -14,18 +14,17 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organizations_organization_id_export_get`]
+/// struct for typed errors of method [`organization_export_export`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdExportGetError {
+pub enum OrganizationExportExportError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Tools/Controllers/OrganizationExportController.cs#L40`]
-pub async fn organizations_organization_id_export_get(
+pub async fn organization_export_export(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrganizationIdExportGetError>> {
+) -> Result<(), Error<OrganizationExportExportError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
 
@@ -52,8 +51,7 @@ pub async fn organizations_organization_id_export_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdExportGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationExportExportError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

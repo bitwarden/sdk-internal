@@ -14,91 +14,82 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organizations_organization_id_service_accounts_get`]
+/// struct for typed errors of method [`service_accounts_bulk_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdServiceAccountsGetError {
+pub enum ServiceAccountsBulkDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_organization_id_service_accounts_post`]
+/// struct for typed errors of method [`service_accounts_create`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdServiceAccountsPostError {
+pub enum ServiceAccountsCreateError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`service_accounts_delete_post`]
+/// struct for typed errors of method [`service_accounts_create_access_token`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ServiceAccountsDeletePostError {
+pub enum ServiceAccountsCreateAccessTokenError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`service_accounts_id_access_tokens_get`]
+/// struct for typed errors of method [`service_accounts_get_access_tokens`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ServiceAccountsIdAccessTokensGetError {
+pub enum ServiceAccountsGetAccessTokensError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`service_accounts_id_access_tokens_post`]
+/// struct for typed errors of method [`service_accounts_get_by_service_account_id`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ServiceAccountsIdAccessTokensPostError {
+pub enum ServiceAccountsGetByServiceAccountIdError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`service_accounts_id_access_tokens_revoke_post`]
+/// struct for typed errors of method [`service_accounts_list_by_organization`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ServiceAccountsIdAccessTokensRevokePostError {
+pub enum ServiceAccountsListByOrganizationError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`service_accounts_id_get`]
+/// struct for typed errors of method [`service_accounts_revoke_access_tokens`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ServiceAccountsIdGetError {
+pub enum ServiceAccountsRevokeAccessTokensError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`service_accounts_id_put`]
+/// struct for typed errors of method [`service_accounts_update`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ServiceAccountsIdPutError {
+pub enum ServiceAccountsUpdateError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L83`]
-pub async fn organizations_organization_id_service_accounts_get(
+pub async fn service_accounts_bulk_delete(
     configuration: &configuration::Configuration,
-    organization_id: uuid::Uuid,
-    include_access_to_secrets: Option<bool>,
-) -> Result<
-    models::ServiceAccountSecretsDetailsResponseModelListResponseModel,
-    Error<OrganizationsOrganizationIdServiceAccountsGetError>,
-> {
+    uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
+) -> Result<models::BulkDeleteResponseModelListResponseModel, Error<ServiceAccountsBulkDeleteError>>
+{
     // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
-    let p_include_access_to_secrets = include_access_to_secrets;
+    let p_uuid_colon_colon_uuid = uuid_colon_colon_uuid;
 
-    let uri_str = format!(
-        "{}/organizations/{organizationId}/service-accounts",
-        configuration.base_path,
-        organizationId = crate::apis::urlencode(p_organization_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+    let uri_str = format!("{}/service-accounts/delete", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
 
-    if let Some(ref param_value) = p_include_access_to_secrets {
-        req_builder = req_builder.query(&[("includeAccessToSecrets", &param_value.to_string())]);
-    }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
+    req_builder = req_builder.json(&p_uuid_colon_colon_uuid);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -115,13 +106,12 @@ pub async fn organizations_organization_id_service_accounts_get(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ServiceAccountSecretsDetailsResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ServiceAccountSecretsDetailsResponseModelListResponseModel`")))),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`")))),
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdServiceAccountsGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<ServiceAccountsBulkDeleteError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -130,15 +120,11 @@ pub async fn organizations_organization_id_service_accounts_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L119`]
-pub async fn organizations_organization_id_service_accounts_post(
+pub async fn service_accounts_create(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     service_account_create_request_model: Option<models::ServiceAccountCreateRequestModel>,
-) -> Result<
-    models::ServiceAccountResponseModel,
-    Error<OrganizationsOrganizationIdServiceAccountsPostError>,
-> {
+) -> Result<models::ServiceAccountResponseModel, Error<ServiceAccountsCreateError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_service_account_create_request_model = service_account_create_request_model;
@@ -180,8 +166,7 @@ pub async fn organizations_organization_id_service_accounts_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdServiceAccountsPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<ServiceAccountsCreateError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -190,118 +175,11 @@ pub async fn organizations_organization_id_service_accounts_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L166`]
-pub async fn service_accounts_delete_post(
-    configuration: &configuration::Configuration,
-    uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-) -> Result<models::BulkDeleteResponseModelListResponseModel, Error<ServiceAccountsDeletePostError>>
-{
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_uuid_colon_colon_uuid = uuid_colon_colon_uuid;
-
-    let uri_str = format!("{}/service-accounts/delete", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_uuid_colon_colon_uuid);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ServiceAccountsDeletePostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L206`]
-pub async fn service_accounts_id_access_tokens_get(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-) -> Result<
-    models::AccessTokenResponseModelListResponseModel,
-    Error<ServiceAccountsIdAccessTokensGetError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/service-accounts/{id}/access-tokens",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::AccessTokenResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::AccessTokenResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ServiceAccountsIdAccessTokensGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L225`]
-pub async fn service_accounts_id_access_tokens_post(
+pub async fn service_accounts_create_access_token(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
     access_token_create_request_model: Option<models::AccessTokenCreateRequestModel>,
-) -> Result<models::AccessTokenCreationResponseModel, Error<ServiceAccountsIdAccessTokensPostError>>
+) -> Result<models::AccessTokenCreationResponseModel, Error<ServiceAccountsCreateAccessTokenError>>
 {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
@@ -344,7 +222,7 @@ pub async fn service_accounts_id_access_tokens_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ServiceAccountsIdAccessTokensPostError> =
+        let entity: Option<ServiceAccountsCreateAccessTokenError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -354,24 +232,22 @@ pub async fn service_accounts_id_access_tokens_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L242`]
-pub async fn service_accounts_id_access_tokens_revoke_post(
+pub async fn service_accounts_get_access_tokens(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-    revoke_access_tokens_request: Option<models::RevokeAccessTokensRequest>,
-) -> Result<(), Error<ServiceAccountsIdAccessTokensRevokePostError>> {
+) -> Result<
+    models::AccessTokenResponseModelListResponseModel,
+    Error<ServiceAccountsGetAccessTokensError>,
+> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
-    let p_revoke_access_tokens_request = revoke_access_tokens_request;
 
     let uri_str = format!(
-        "{}/service-accounts/{id}/access-tokens/revoke",
+        "{}/service-accounts/{id}/access-tokens",
         configuration.base_path,
         id = crate::apis::urlencode(p_id.to_string())
     );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -379,18 +255,28 @@ pub async fn service_accounts_id_access_tokens_revoke_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_revoke_access_tokens_request);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
 
     let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
 
     if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::AccessTokenResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::AccessTokenResponseModelListResponseModel`")))),
+        }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ServiceAccountsIdAccessTokensRevokePostError> =
+        let entity: Option<ServiceAccountsGetAccessTokensError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -400,11 +286,10 @@ pub async fn service_accounts_id_access_tokens_revoke_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L103`]
-pub async fn service_accounts_id_get(
+pub async fn service_accounts_get_by_service_account_id(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-) -> Result<models::ServiceAccountResponseModel, Error<ServiceAccountsIdGetError>> {
+) -> Result<models::ServiceAccountResponseModel, Error<ServiceAccountsGetByServiceAccountIdError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -442,7 +327,8 @@ pub async fn service_accounts_id_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ServiceAccountsIdGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<ServiceAccountsGetByServiceAccountIdError> =
+            serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -451,12 +337,115 @@ pub async fn service_accounts_id_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/ServiceAccountsController.cs#L150`]
-pub async fn service_accounts_id_put(
+pub async fn service_accounts_list_by_organization(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    include_access_to_secrets: Option<bool>,
+) -> Result<
+    models::ServiceAccountSecretsDetailsResponseModelListResponseModel,
+    Error<ServiceAccountsListByOrganizationError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_include_access_to_secrets = include_access_to_secrets;
+
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/service-accounts",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref param_value) = p_include_access_to_secrets {
+        req_builder = req_builder.query(&[("includeAccessToSecrets", &param_value.to_string())]);
+    }
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ServiceAccountSecretsDetailsResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ServiceAccountSecretsDetailsResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ServiceAccountsListByOrganizationError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn service_accounts_revoke_access_tokens(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    revoke_access_tokens_request: Option<models::RevokeAccessTokensRequest>,
+) -> Result<(), Error<ServiceAccountsRevokeAccessTokensError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_revoke_access_tokens_request = revoke_access_tokens_request;
+
+    let uri_str = format!(
+        "{}/service-accounts/{id}/access-tokens/revoke",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_revoke_access_tokens_request);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ServiceAccountsRevokeAccessTokensError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn service_accounts_update(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
     service_account_update_request_model: Option<models::ServiceAccountUpdateRequestModel>,
-) -> Result<models::ServiceAccountResponseModel, Error<ServiceAccountsIdPutError>> {
+) -> Result<models::ServiceAccountResponseModel, Error<ServiceAccountsUpdateError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
     let p_service_account_update_request_model = service_account_update_request_model;
@@ -496,7 +485,7 @@ pub async fn service_accounts_id_put(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ServiceAccountsIdPutError> = serde_json::from_str(&content).ok();
+        let entity: Option<ServiceAccountsUpdateError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

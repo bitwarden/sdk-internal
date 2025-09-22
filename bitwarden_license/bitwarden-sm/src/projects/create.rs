@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::ProjectCreateRequestModel;
-use bitwarden_core::{key_management::SymmetricKeyId, Client};
+use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId};
 use bitwarden_crypto::PrimitiveEncryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,7 @@ pub(crate) async fn create_project(
     input.validate()?;
 
     let key_store = client.internal.get_key_store();
-    let key = SymmetricKeyId::Organization(input.organization_id);
+    let key = SymmetricKeyId::Organization(OrganizationId::new(input.organization_id));
 
     let project = Some(ProjectCreateRequestModel {
         name: input
@@ -40,7 +40,7 @@ pub(crate) async fn create_project(
     });
 
     let config = client.internal.get_api_configurations().await;
-    let res = bitwarden_api_api::apis::projects_api::organizations_organization_id_projects_post(
+    let res = bitwarden_api_api::apis::projects_api::projects_create(
         &config.api,
         input.organization_id,
         project,

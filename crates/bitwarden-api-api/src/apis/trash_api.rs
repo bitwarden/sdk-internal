@@ -14,33 +14,32 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`secrets_organization_id_trash_empty_post`]
+/// struct for typed errors of method [`trash_empty_trash`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SecretsOrganizationIdTrashEmptyPostError {
+pub enum TrashEmptyTrashError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`secrets_organization_id_trash_get`]
+/// struct for typed errors of method [`trash_list_by_organization`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SecretsOrganizationIdTrashGetError {
+pub enum TrashListByOrganizationError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`secrets_organization_id_trash_restore_post`]
+/// struct for typed errors of method [`trash_restore_trash`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SecretsOrganizationIdTrashRestorePostError {
+pub enum TrashRestoreTrashError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/SecretsTrashController.cs#L60`]
-pub async fn secrets_organization_id_trash_empty_post(
+pub async fn trash_empty_trash(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-) -> Result<(), Error<SecretsOrganizationIdTrashEmptyPostError>> {
+) -> Result<(), Error<TrashEmptyTrashError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_uuid_colon_colon_uuid = uuid_colon_colon_uuid;
@@ -71,8 +70,7 @@ pub async fn secrets_organization_id_trash_empty_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<SecretsOrganizationIdTrashEmptyPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<TrashEmptyTrashError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -81,12 +79,10 @@ pub async fn secrets_organization_id_trash_empty_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/SecretsTrashController.cs#L43`]
-pub async fn secrets_organization_id_trash_get(
+pub async fn trash_list_by_organization(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
-) -> Result<models::SecretWithProjectsListResponseModel, Error<SecretsOrganizationIdTrashGetError>>
-{
+) -> Result<models::SecretWithProjectsListResponseModel, Error<TrashListByOrganizationError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
 
@@ -124,8 +120,7 @@ pub async fn secrets_organization_id_trash_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<SecretsOrganizationIdTrashGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<TrashListByOrganizationError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -134,12 +129,11 @@ pub async fn secrets_organization_id_trash_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/SecretsTrashController.cs#L78`]
-pub async fn secrets_organization_id_trash_restore_post(
+pub async fn trash_restore_trash(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-) -> Result<(), Error<SecretsOrganizationIdTrashRestorePostError>> {
+) -> Result<(), Error<TrashRestoreTrashError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_uuid_colon_colon_uuid = uuid_colon_colon_uuid;
@@ -170,8 +164,7 @@ pub async fn secrets_organization_id_trash_restore_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<SecretsOrganizationIdTrashRestorePostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<TrashRestoreTrashError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

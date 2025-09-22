@@ -10,8 +10,6 @@ use crate::CipherError;
 pub enum EncryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
-    #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLockedError),
     #[error("Client User Id has not been set")]
     MissingUserId,
 }
@@ -23,8 +21,6 @@ pub enum EncryptError {
 pub enum DecryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
-    #[error(transparent)]
-    VaultLocked(#[from] bitwarden_core::VaultLockedError),
 }
 
 #[allow(missing_docs)]
@@ -35,18 +31,5 @@ pub enum VaultParseError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
-    MissingFieldError(#[from] bitwarden_core::MissingFieldError),
-    #[error(transparent)]
-    SerdeJson(#[from] serde_json::Error),
-}
-
-impl From<VaultParseError> for CipherError {
-    fn from(e: VaultParseError) -> Self {
-        match e {
-            VaultParseError::Crypto(e) => Self::CryptoError(e),
-            VaultParseError::MissingFieldError(e) => Self::MissingFieldError(e),
-            VaultParseError::Chrono(e) => Self::Chrono(e),
-            VaultParseError::SerdeJson(e) => Self::SerdeJson(e),
-        }
-    }
+    MissingField(#[from] bitwarden_core::MissingFieldError),
 }

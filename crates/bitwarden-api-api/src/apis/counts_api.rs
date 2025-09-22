@@ -14,35 +14,31 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organizations_organization_id_sm_counts_get`]
+/// struct for typed errors of method [`counts_get_by_organization`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdSmCountsGetError {
+pub enum CountsGetByOrganizationError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`projects_project_id_sm_counts_get`]
+/// struct for typed errors of method [`counts_get_by_project`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProjectsProjectIdSmCountsGetError {
+pub enum CountsGetByProjectError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`service_accounts_service_account_id_sm_counts_get`]
+/// struct for typed errors of method [`counts_get_by_service_account`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ServiceAccountsServiceAccountIdSmCountsGetError {
+pub enum CountsGetByServiceAccountError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/CountsController.cs#L38`]
-pub async fn organizations_organization_id_sm_counts_get(
+pub async fn counts_get_by_organization(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
-) -> Result<
-    models::OrganizationCountsResponseModel,
-    Error<OrganizationsOrganizationIdSmCountsGetError>,
-> {
+) -> Result<models::OrganizationCountsResponseModel, Error<CountsGetByOrganizationError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
 
@@ -80,8 +76,7 @@ pub async fn organizations_organization_id_sm_counts_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdSmCountsGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<CountsGetByOrganizationError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -90,11 +85,10 @@ pub async fn organizations_organization_id_sm_counts_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/CountsController.cs#L63`]
-pub async fn projects_project_id_sm_counts_get(
+pub async fn counts_get_by_project(
     configuration: &configuration::Configuration,
     project_id: uuid::Uuid,
-) -> Result<models::ProjectCountsResponseModel, Error<ProjectsProjectIdSmCountsGetError>> {
+) -> Result<models::ProjectCountsResponseModel, Error<CountsGetByProjectError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_project_id = project_id;
 
@@ -132,7 +126,7 @@ pub async fn projects_project_id_sm_counts_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProjectsProjectIdSmCountsGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<CountsGetByProjectError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -141,14 +135,10 @@ pub async fn projects_project_id_sm_counts_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/CountsController.cs#L84`]
-pub async fn service_accounts_service_account_id_sm_counts_get(
+pub async fn counts_get_by_service_account(
     configuration: &configuration::Configuration,
     service_account_id: uuid::Uuid,
-) -> Result<
-    models::ServiceAccountCountsResponseModel,
-    Error<ServiceAccountsServiceAccountIdSmCountsGetError>,
-> {
+) -> Result<models::ServiceAccountCountsResponseModel, Error<CountsGetByServiceAccountError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_service_account_id = service_account_id;
 
@@ -186,8 +176,7 @@ pub async fn service_accounts_service_account_id_sm_counts_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ServiceAccountsServiceAccountIdSmCountsGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<CountsGetByServiceAccountError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

@@ -14,17 +14,16 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`config_get`]
+/// struct for typed errors of method [`config_get_configs`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ConfigGetError {
+pub enum ConfigGetConfigsError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/ConfigController.cs#L25`]
-pub async fn config_get(
+pub async fn config_get_configs(
     configuration: &configuration::Configuration,
-) -> Result<models::ConfigResponseModel, Error<ConfigGetError>> {
+) -> Result<models::ConfigResponseModel, Error<ConfigGetConfigsError>> {
     let uri_str = format!("{}/config", configuration.base_path);
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
@@ -55,7 +54,7 @@ pub async fn config_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ConfigGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<ConfigGetConfigsError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

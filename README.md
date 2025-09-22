@@ -63,20 +63,16 @@ are:
 
 ## API Bindings
 
-We autogenerate the server bindings
-using[openapi-generator](https://github.com/OpenAPITools/openapi-generator). To do this, we first
-need to build the internal swagger documentation.
+We autogenerate the server bindings using
+[openapi-generator](https://github.com/OpenAPITools/openapi-generator). To do this, we first need to
+build the internal swagger documentation.
 
 ### Swagger generation
 
-The first step is to generate the swagger documents from the server repository.
+The first step is to generate the swagger documents from the root of the server repository.
 
 ```bash
-# src/Api
-dotnet swagger tofile --output ../../api.json ./bin/Debug/net8.0/Api.dll internal
-
-# src/Identity
-ASPNETCORE_ENVIRONMENT=development dotnet swagger tofile --output ../../identity.json ./bin/Debug/net8.0/Identity.dll v1
+pwsh ./dev/generate_openapi_files.ps1
 ```
 
 ### OpenApi Generator
@@ -131,6 +127,7 @@ versions. Here are the cli tools we use:
 - Nightly [cargo fmt](https://github.com/rust-lang/rustfmt) and
   [cargo udeps](https://github.com/est31/cargo-udeps)
 - [rust clippy](https://github.com/rust-lang/rust-clippy)
+- [cargo dylint](https://github.com/trailofbits/dylint)
 - [cargo sort](https://github.com/DevinR528/cargo-sort)
 - [prettier](https://github.com/prettier/prettier)
 
@@ -144,6 +141,7 @@ export RUSTFLAGS="-D warnings"
 cargo +nightly fmt --check
 cargo +nightly udeps --workspace --all-features
 cargo clippy --all-features --all-targets
+cargo dylint --all -- --all-features --all-targets
 cargo sort --workspace --check
 npm run lint
 ```

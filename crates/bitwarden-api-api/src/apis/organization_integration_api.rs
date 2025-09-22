@@ -14,52 +14,148 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organizations_organization_id_integrations_get`]
+/// struct for typed errors of method [`organization_integration_create`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdIntegrationsGetError {
+pub enum OrganizationIntegrationCreateError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_organization_id_integrations_integration_id_delete`]
+/// struct for typed errors of method [`organization_integration_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdIntegrationsIntegrationIdDeleteError {
+pub enum OrganizationIntegrationDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_organization_id_integrations_integration_id_delete_post`]
+/// struct for typed errors of method [`organization_integration_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdIntegrationsIntegrationIdDeletePostError {
+pub enum OrganizationIntegrationGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_organization_id_integrations_integration_id_put`]
+/// struct for typed errors of method [`organization_integration_post_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdIntegrationsIntegrationIdPutError {
+pub enum OrganizationIntegrationPostDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_organization_id_integrations_post`]
+/// struct for typed errors of method [`organization_integration_update`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdIntegrationsPostError {
+pub enum OrganizationIntegrationUpdateError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationIntegrationController.cs#L24`]
-pub async fn organizations_organization_id_integrations_get(
+pub async fn organization_integration_create(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
-) -> Result<
-    Vec<models::OrganizationIntegrationResponseModel>,
-    Error<OrganizationsOrganizationIdIntegrationsGetError>,
-> {
+    organization_integration_request_model: Option<models::OrganizationIntegrationRequestModel>,
+) -> Result<models::OrganizationIntegrationResponseModel, Error<OrganizationIntegrationCreateError>>
+{
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_organization_integration_request_model = organization_integration_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/integrations",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_integration_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationIntegrationResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationIntegrationResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationIntegrationCreateError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_integration_delete(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    integration_id: uuid::Uuid,
+) -> Result<(), Error<OrganizationIntegrationDeleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_integration_id = integration_id;
+
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/integrations/{integrationId}",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string()),
+        integrationId = crate::apis::urlencode(p_integration_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationIntegrationDeleteError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_integration_get(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+) -> Result<Vec<models::OrganizationIntegrationResponseModel>, Error<OrganizationIntegrationGetError>>
+{
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
 
@@ -97,8 +193,7 @@ pub async fn organizations_organization_id_integrations_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdIntegrationsGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationIntegrationGetError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -107,58 +202,11 @@ pub async fn organizations_organization_id_integrations_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationIntegrationController.cs#L69`]
-pub async fn organizations_organization_id_integrations_integration_id_delete(
+pub async fn organization_integration_post_delete(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     integration_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrganizationIdIntegrationsIntegrationIdDeleteError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
-    let p_integration_id = integration_id;
-
-    let uri_str = format!(
-        "{}/organizations/{organizationId}/integrations/{integrationId}",
-        configuration.base_path,
-        organizationId = crate::apis::urlencode(p_organization_id.to_string()),
-        integrationId = crate::apis::urlencode(p_integration_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdIntegrationsIntegrationIdDeleteError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationIntegrationController.cs#L69`]
-pub async fn organizations_organization_id_integrations_integration_id_delete_post(
-    configuration: &configuration::Configuration,
-    organization_id: uuid::Uuid,
-    integration_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrganizationIdIntegrationsIntegrationIdDeletePostError>> {
+) -> Result<(), Error<OrganizationIntegrationPostDeleteError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_integration_id = integration_id;
@@ -189,7 +237,7 @@ pub async fn organizations_organization_id_integrations_integration_id_delete_po
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdIntegrationsIntegrationIdDeletePostError> =
+        let entity: Option<OrganizationIntegrationPostDeleteError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -199,16 +247,13 @@ pub async fn organizations_organization_id_integrations_integration_id_delete_po
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationIntegrationController.cs#L50`]
-pub async fn organizations_organization_id_integrations_integration_id_put(
+pub async fn organization_integration_update(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     integration_id: uuid::Uuid,
     organization_integration_request_model: Option<models::OrganizationIntegrationRequestModel>,
-) -> Result<
-    models::OrganizationIntegrationResponseModel,
-    Error<OrganizationsOrganizationIdIntegrationsIntegrationIdPutError>,
-> {
+) -> Result<models::OrganizationIntegrationResponseModel, Error<OrganizationIntegrationUpdateError>>
+{
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_integration_id = integration_id;
@@ -250,67 +295,7 @@ pub async fn organizations_organization_id_integrations_integration_id_put(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdIntegrationsIntegrationIdPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationIntegrationController.cs#L38`]
-pub async fn organizations_organization_id_integrations_post(
-    configuration: &configuration::Configuration,
-    organization_id: uuid::Uuid,
-    organization_integration_request_model: Option<models::OrganizationIntegrationRequestModel>,
-) -> Result<
-    models::OrganizationIntegrationResponseModel,
-    Error<OrganizationsOrganizationIdIntegrationsPostError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
-    let p_organization_integration_request_model = organization_integration_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{organizationId}/integrations",
-        configuration.base_path,
-        organizationId = crate::apis::urlencode(p_organization_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_integration_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationIntegrationResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationIntegrationResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdIntegrationsPostError> =
+        let entity: Option<OrganizationIntegrationUpdateError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

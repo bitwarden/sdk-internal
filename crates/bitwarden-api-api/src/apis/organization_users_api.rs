@@ -14,271 +14,267 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organizations_org_id_users_account_recovery_details_post`]
+/// struct for typed errors of method [`organization_users_accept`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersAccountRecoveryDetailsPostError {
+pub enum OrganizationUsersAcceptError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_confirm_post`]
+/// struct for typed errors of method [`organization_users_accept_init`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersConfirmPostError {
+pub enum OrganizationUsersAcceptInitError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_delete`]
+/// struct for typed errors of method [`organization_users_bulk_confirm`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersDeleteError {
+pub enum OrganizationUsersBulkConfirmError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_delete_account_delete`]
+/// struct for typed errors of method [`organization_users_bulk_delete_account`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersDeleteAccountDeleteError {
+pub enum OrganizationUsersBulkDeleteAccountError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_delete_account_post`]
+/// struct for typed errors of method [`organization_users_bulk_enable_secrets_manager`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersDeleteAccountPostError {
+pub enum OrganizationUsersBulkEnableSecretsManagerError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_enable_secrets_manager_patch`]
+/// struct for typed errors of method [`organization_users_bulk_reinvite`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersEnableSecretsManagerPatchError {
+pub enum OrganizationUsersBulkReinviteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_enable_secrets_manager_put`]
+/// struct for typed errors of method [`organization_users_bulk_remove`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersEnableSecretsManagerPutError {
+pub enum OrganizationUsersBulkRemoveError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_get`]
+/// struct for typed errors of method [`organization_users_bulk_restore`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersGetError {
+pub enum OrganizationUsersBulkRestoreError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_confirm_post`]
+/// struct for typed errors of method [`organization_users_bulk_revoke`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdConfirmPostError {
+pub enum OrganizationUsersBulkRevokeError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_delete`]
+/// struct for typed errors of method [`organization_users_confirm`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdDeleteError {
+pub enum OrganizationUsersConfirmError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_delete_account_delete`]
+/// struct for typed errors of method [`organization_users_delete_account`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdDeleteAccountDeleteError {
+pub enum OrganizationUsersDeleteAccountError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_delete_account_post`]
+/// struct for typed errors of method [`organization_users_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdDeleteAccountPostError {
+pub enum OrganizationUsersGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_get`]
+/// struct for typed errors of method [`organization_users_get_account_recovery_details`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdGetError {
+pub enum OrganizationUsersGetAccountRecoveryDetailsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_post`]
+/// struct for typed errors of method [`organization_users_get_all`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdPostError {
+pub enum OrganizationUsersGetAllError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_put`]
+/// struct for typed errors of method [`organization_users_get_mini_details`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdPutError {
+pub enum OrganizationUsersGetMiniDetailsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_reinvite_post`]
+/// struct for typed errors of method [`organization_users_get_reset_password_details`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdReinvitePostError {
+pub enum OrganizationUsersGetResetPasswordDetailsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_remove_post`]
+/// struct for typed errors of method [`organization_users_invite`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdRemovePostError {
+pub enum OrganizationUsersInviteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_reset_password_details_get`]
+/// struct for typed errors of method [`organization_users_patch_bulk_enable_secrets_manager`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdResetPasswordDetailsGetError {
+pub enum OrganizationUsersPatchBulkEnableSecretsManagerError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_reset_password_put`]
+/// struct for typed errors of method [`organization_users_patch_bulk_restore`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdResetPasswordPutError {
+pub enum OrganizationUsersPatchBulkRestoreError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_restore_patch`]
+/// struct for typed errors of method [`organization_users_patch_bulk_revoke`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdRestorePatchError {
+pub enum OrganizationUsersPatchBulkRevokeError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_restore_put`]
+/// struct for typed errors of method [`organization_users_patch_restore`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdRestorePutError {
+pub enum OrganizationUsersPatchRestoreError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_revoke_patch`]
+/// struct for typed errors of method [`organization_users_patch_revoke`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdRevokePatchError {
+pub enum OrganizationUsersPatchRevokeError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_id_revoke_put`]
+/// struct for typed errors of method [`organization_users_post_bulk_delete_account`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersIdRevokePutError {
+pub enum OrganizationUsersPostBulkDeleteAccountError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_invite_post`]
+/// struct for typed errors of method [`organization_users_post_bulk_remove`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersInvitePostError {
+pub enum OrganizationUsersPostBulkRemoveError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_mini_details_get`]
+/// struct for typed errors of method [`organization_users_post_delete_account`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersMiniDetailsGetError {
+pub enum OrganizationUsersPostDeleteAccountError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_org_id_users_organization_user_id_accept_init_post`]
+/// struct for typed errors of method [`organization_users_post_put`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersOrganizationUserIdAcceptInitPostError {
+pub enum OrganizationUsersPostPutError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_org_id_users_organization_user_id_accept_post`]
+/// struct for typed errors of method [`organization_users_post_remove`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersOrganizationUserIdAcceptPostError {
+pub enum OrganizationUsersPostRemoveError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_public_keys_post`]
+/// struct for typed errors of method [`organization_users_put`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersPublicKeysPostError {
+pub enum OrganizationUsersPutError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_reinvite_post`]
+/// struct for typed errors of method [`organization_users_put_reset_password`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersReinvitePostError {
+pub enum OrganizationUsersPutResetPasswordError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_remove_post`]
+/// struct for typed errors of method [`organization_users_put_reset_password_enrollment`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersRemovePostError {
+pub enum OrganizationUsersPutResetPasswordEnrollmentError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_restore_patch`]
+/// struct for typed errors of method [`organization_users_reinvite`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersRestorePatchError {
+pub enum OrganizationUsersReinviteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_restore_put`]
+/// struct for typed errors of method [`organization_users_remove`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersRestorePutError {
+pub enum OrganizationUsersRemoveError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_revoke_patch`]
+/// struct for typed errors of method [`organization_users_restore`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersRevokePatchError {
+pub enum OrganizationUsersRestoreError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_users_revoke_put`]
+/// struct for typed errors of method [`organization_users_revoke`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersRevokePutError {
+pub enum OrganizationUsersRevokeError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_org_id_users_user_id_reset_password_enrollment_put`]
+/// struct for typed errors of method [`organization_users_user_public_keys`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdUsersUserIdResetPasswordEnrollmentPutError {
+pub enum OrganizationUsersUserPublicKeysError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L231`]
-pub async fn organizations_org_id_users_account_recovery_details_post(
+pub async fn organization_users_accept(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
-    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-) -> Result<
-    models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel,
-    Error<OrganizationsOrgIdUsersAccountRecoveryDetailsPostError>,
-> {
+    organization_user_id: uuid::Uuid,
+    organization_user_accept_request_model: Option<models::OrganizationUserAcceptRequestModel>,
+) -> Result<(), Error<OrganizationUsersAcceptError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
-    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
+    let p_organization_user_id = organization_user_id;
+    let p_organization_user_accept_request_model = organization_user_accept_request_model;
 
     let uri_str = format!(
-        "{}/organizations/{orgId}/users/account-recovery-details",
+        "{}/organizations/{orgId}/users/{organizationUserId}/accept",
         configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        organizationUserId = crate::apis::urlencode(p_organization_user_id.to_string())
     );
     let mut req_builder = configuration
         .client
@@ -290,30 +286,18 @@ pub async fn organizations_org_id_users_account_recovery_details_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_accept_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
 
     let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
 
     if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel`")))),
-        }
+        Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersAccountRecoveryDetailsPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationUsersAcceptError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -322,8 +306,56 @@ pub async fn organizations_org_id_users_account_recovery_details_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L345`]
-pub async fn organizations_org_id_users_confirm_post(
+pub async fn organization_users_accept_init(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    organization_user_id: uuid::Uuid,
+    organization_user_accept_init_request_model: Option<
+        models::OrganizationUserAcceptInitRequestModel,
+    >,
+) -> Result<(), Error<OrganizationUsersAcceptInitError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_id = organization_user_id;
+    let p_organization_user_accept_init_request_model = organization_user_accept_init_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/{organizationUserId}/accept-init",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        organizationUserId = crate::apis::urlencode(p_organization_user_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_user_accept_init_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersAcceptInitError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_bulk_confirm(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     organization_user_bulk_confirm_request_model: Option<
@@ -331,7 +363,7 @@ pub async fn organizations_org_id_users_confirm_post(
     >,
 ) -> Result<
     models::OrganizationUserBulkResponseModelListResponseModel,
-    Error<OrganizationsOrgIdUsersConfirmPostError>,
+    Error<OrganizationUsersBulkConfirmError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
@@ -375,7 +407,65 @@ pub async fn organizations_org_id_users_confirm_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersConfirmPostError> =
+        let entity: Option<OrganizationUsersBulkConfirmError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_bulk_delete_account(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
+) -> Result<
+    models::OrganizationUserBulkResponseModelListResponseModel,
+    Error<OrganizationUsersBulkDeleteAccountError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/delete-account",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersBulkDeleteAccountError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -385,14 +475,115 @@ pub async fn organizations_org_id_users_confirm_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L507`]
-pub async fn organizations_org_id_users_delete(
+pub async fn organization_users_bulk_enable_secrets_manager(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
+) -> Result<(), Error<OrganizationUsersBulkEnableSecretsManagerError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/enable-secrets-manager",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersBulkEnableSecretsManagerError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_bulk_reinvite(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
 ) -> Result<
     models::OrganizationUserBulkResponseModelListResponseModel,
-    Error<OrganizationsOrgIdUsersDeleteError>,
+    Error<OrganizationUsersBulkReinviteError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/reinvite",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersBulkReinviteError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_bulk_remove(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
+) -> Result<
+    models::OrganizationUserBulkResponseModelListResponseModel,
+    Error<OrganizationUsersBulkRemoveError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
@@ -435,8 +626,7 @@ pub async fn organizations_org_id_users_delete(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersDeleteError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationUsersBulkRemoveError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -445,27 +635,24 @@ pub async fn organizations_org_id_users_delete(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L532`]
-pub async fn organizations_org_id_users_delete_account_delete(
+pub async fn organization_users_bulk_restore(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
 ) -> Result<
     models::OrganizationUserBulkResponseModelListResponseModel,
-    Error<OrganizationsOrgIdUsersDeleteAccountDeleteError>,
+    Error<OrganizationUsersBulkRestoreError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
     let uri_str = format!(
-        "{}/organizations/{orgId}/users/delete-account",
+        "{}/organizations/{orgId}/users/restore",
         configuration.base_path,
         orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -495,7 +682,154 @@ pub async fn organizations_org_id_users_delete_account_delete(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersDeleteAccountDeleteError> =
+        let entity: Option<OrganizationUsersBulkRestoreError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_bulk_revoke(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
+) -> Result<
+    models::OrganizationUserBulkResponseModelListResponseModel,
+    Error<OrganizationUsersBulkRevokeError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/revoke",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersBulkRevokeError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_confirm(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+    organization_user_confirm_request_model: Option<models::OrganizationUserConfirmRequestModel>,
+) -> Result<(), Error<OrganizationUsersConfirmError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+    let p_organization_user_confirm_request_model = organization_user_confirm_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/{id}/confirm",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_user_confirm_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersConfirmError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_delete_account(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationUsersDeleteAccountError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/{id}/delete-account",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersDeleteAccountError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -505,21 +839,78 @@ pub async fn organizations_org_id_users_delete_account_delete(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L532`]
-pub async fn organizations_org_id_users_delete_account_post(
+pub async fn organization_users_get(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+    include_groups: Option<bool>,
+) -> Result<models::OrganizationUserDetailsResponseModel, Error<OrganizationUsersGetError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+    let p_include_groups = include_groups;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/{id}",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref param_value) = p_include_groups {
+        req_builder = req_builder.query(&[("includeGroups", &param_value.to_string())]);
+    }
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserDetailsResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserDetailsResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_get_account_recovery_details(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
 ) -> Result<
-    models::OrganizationUserBulkResponseModelListResponseModel,
-    Error<OrganizationsOrgIdUsersDeleteAccountPostError>,
+    models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel,
+    Error<OrganizationUsersGetAccountRecoveryDetailsError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
     let uri_str = format!(
-        "{}/organizations/{orgId}/users/delete-account",
+        "{}/organizations/{orgId}/users/account-recovery-details",
         configuration.base_path,
         orgId = crate::apis::urlencode(p_org_id.to_string())
     );
@@ -550,12 +941,12 @@ pub async fn organizations_org_id_users_delete_account_post(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel`")))),
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersDeleteAccountPostError> =
+        let entity: Option<OrganizationUsersGetAccountRecoveryDetailsError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -565,105 +956,14 @@ pub async fn organizations_org_id_users_delete_account_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L582`]
-pub async fn organizations_org_id_users_enable_secrets_manager_patch(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-) -> Result<(), Error<OrganizationsOrgIdUsersEnableSecretsManagerPatchError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/enable-secrets-manager",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::PATCH, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersEnableSecretsManagerPatchError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L582`]
-pub async fn organizations_org_id_users_enable_secrets_manager_put(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-) -> Result<(), Error<OrganizationsOrgIdUsersEnableSecretsManagerPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/enable-secrets-manager",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersEnableSecretsManagerPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L171`]
-pub async fn organizations_org_id_users_get(
+pub async fn organization_users_get_all(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     include_groups: Option<bool>,
     include_collections: Option<bool>,
 ) -> Result<
     models::OrganizationUserUserDetailsResponseModelListResponseModel,
-    Error<OrganizationsOrgIdUsersGetError>,
+    Error<OrganizationUsersGetAllError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
@@ -710,7 +1010,7 @@ pub async fn organizations_org_id_users_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationUsersGetAllError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -719,217 +1019,23 @@ pub async fn organizations_org_id_users_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L336`]
-pub async fn organizations_org_id_users_id_confirm_post(
+pub async fn organization_users_get_mini_details(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
-    id: uuid::Uuid,
-    organization_user_confirm_request_model: Option<models::OrganizationUserConfirmRequestModel>,
-) -> Result<(), Error<OrganizationsOrgIdUsersIdConfirmPostError>> {
+) -> Result<
+    models::OrganizationUserUserMiniDetailsResponseModelListResponseModel,
+    Error<OrganizationUsersGetMiniDetailsError>,
+> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
-    let p_id = id;
-    let p_organization_user_confirm_request_model = organization_user_confirm_request_model;
 
     let uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}/confirm",
+        "{}/organizations/{orgId}/users/mini-details",
         configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_user_confirm_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdConfirmPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L498`]
-pub async fn organizations_org_id_users_id_delete(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdUsersIdDeleteError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdDeleteError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L518`]
-pub async fn organizations_org_id_users_id_delete_account_delete(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdUsersIdDeleteAccountDeleteError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}/delete-account",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdDeleteAccountDeleteError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L518`]
-pub async fn organizations_org_id_users_id_delete_account_post(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdUsersIdDeleteAccountPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}/delete-account",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdDeleteAccountPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L132`]
-pub async fn organizations_org_id_users_id_get(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-    include_groups: Option<bool>,
-) -> Result<models::OrganizationUserDetailsResponseModel, Error<OrganizationsOrgIdUsersIdGetError>>
-{
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-    let p_include_groups = include_groups;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
+        orgId = crate::apis::urlencode(p_org_id.to_string())
     );
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
-    if let Some(ref param_value) = p_include_groups {
-        req_builder = req_builder.query(&[("includeGroups", &param_value.to_string())]);
-    }
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
@@ -952,60 +1058,12 @@ pub async fn organizations_org_id_users_id_get(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserDetailsResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserDetailsResponseModel`")))),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserUserMiniDetailsResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserUserMiniDetailsResponseModelListResponseModel`")))),
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L366`]
-pub async fn organizations_org_id_users_id_post(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-    organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
-) -> Result<(), Error<OrganizationsOrgIdUsersIdPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-    let p_organization_user_update_request_model = organization_user_update_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_user_update_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdPostError> =
+        let entity: Option<OrganizationUsersGetMiniDetailsError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -1015,152 +1073,13 @@ pub async fn organizations_org_id_users_id_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L366`]
-pub async fn organizations_org_id_users_id_put(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-    organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
-) -> Result<(), Error<OrganizationsOrgIdUsersIdPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-    let p_organization_user_update_request_model = organization_user_update_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_user_update_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdPutError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L271`]
-pub async fn organizations_org_id_users_id_reinvite_post(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdUsersIdReinvitePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}/reinvite",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdReinvitePostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L498`]
-pub async fn organizations_org_id_users_id_remove_post(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdUsersIdRemovePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}/remove",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdRemovePostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L203`]
-pub async fn organizations_org_id_users_id_reset_password_details_get(
+pub async fn organization_users_get_reset_password_details(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     id: uuid::Uuid,
 ) -> Result<
     models::OrganizationUserResetPasswordDetailsResponseModel,
-    Error<OrganizationsOrgIdUsersIdResetPasswordDetailsGetError>,
+    Error<OrganizationUsersGetResetPasswordDetailsError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
@@ -1201,7 +1120,7 @@ pub async fn organizations_org_id_users_id_reset_password_details_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdResetPasswordDetailsGetError> =
+        let entity: Option<OrganizationUsersGetResetPasswordDetailsError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -1211,242 +1130,11 @@ pub async fn organizations_org_id_users_id_reset_password_details_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L469`]
-pub async fn organizations_org_id_users_id_reset_password_put(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-    organization_user_reset_password_request_model: Option<
-        models::OrganizationUserResetPasswordRequestModel,
-    >,
-) -> Result<(), Error<OrganizationsOrgIdUsersIdResetPasswordPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-    let p_organization_user_reset_password_request_model =
-        organization_user_reset_password_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}/reset-password",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_user_reset_password_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdResetPasswordPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L565`]
-pub async fn organizations_org_id_users_id_restore_patch(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdUsersIdRestorePatchError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}/restore",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::PATCH, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdRestorePatchError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L565`]
-pub async fn organizations_org_id_users_id_restore_put(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdUsersIdRestorePutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}/restore",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdRestorePutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L549`]
-pub async fn organizations_org_id_users_id_revoke_patch(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdUsersIdRevokePatchError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}/revoke",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::PATCH, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdRevokePatchError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L549`]
-pub async fn organizations_org_id_users_id_revoke_put(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrgIdUsersIdRevokePutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{id}/revoke",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersIdRevokePutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L239`]
-pub async fn organizations_org_id_users_invite_post(
+pub async fn organization_users_invite(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     organization_user_invite_request_model: Option<models::OrganizationUserInviteRequestModel>,
-) -> Result<(), Error<OrganizationsOrgIdUsersInvitePostError>> {
+) -> Result<(), Error<OrganizationUsersInviteError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_organization_user_invite_request_model = organization_user_invite_request_model;
@@ -1477,8 +1165,7 @@ pub async fn organizations_org_id_users_invite_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersInvitePostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationUsersInviteError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1487,84 +1174,23 @@ pub async fn organizations_org_id_users_invite_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L163`]
-pub async fn organizations_org_id_users_mini_details_get(
+pub async fn organization_users_patch_bulk_enable_secrets_manager(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
-) -> Result<
-    models::OrganizationUserUserMiniDetailsResponseModelListResponseModel,
-    Error<OrganizationsOrgIdUsersMiniDetailsGetError>,
-> {
+    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
+) -> Result<(), Error<OrganizationUsersPatchBulkEnableSecretsManagerError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
     let uri_str = format!(
-        "{}/organizations/{orgId}/users/mini-details",
+        "{}/organizations/{orgId}/users/enable-secrets-manager",
         configuration.base_path,
         orgId = crate::apis::urlencode(p_org_id.to_string())
     );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserUserMiniDetailsResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserUserMiniDetailsResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersMiniDetailsGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L278`]
-pub async fn organizations_org_id_users_organization_user_id_accept_init_post(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    organization_user_id: uuid::Uuid,
-    organization_user_accept_init_request_model: Option<
-        models::OrganizationUserAcceptInitRequestModel,
-    >,
-) -> Result<(), Error<OrganizationsOrgIdUsersOrganizationUserIdAcceptInitPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_organization_user_id = organization_user_id;
-    let p_organization_user_accept_init_request_model = organization_user_accept_init_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{organizationUserId}/accept-init",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        organizationUserId = crate::apis::urlencode(p_organization_user_id.to_string())
-    );
     let mut req_builder = configuration
         .client
-        .request(reqwest::Method::POST, &uri_str);
+        .request(reqwest::Method::PATCH, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -1572,7 +1198,7 @@ pub async fn organizations_org_id_users_organization_user_id_accept_init_post(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_organization_user_accept_init_request_model);
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
@@ -1583,7 +1209,7 @@ pub async fn organizations_org_id_users_organization_user_id_accept_init_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersOrganizationUserIdAcceptInitPostError> =
+        let entity: Option<OrganizationUsersPatchBulkEnableSecretsManagerError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -1593,76 +1219,26 @@ pub async fn organizations_org_id_users_organization_user_id_accept_init_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L292`]
-pub async fn organizations_org_id_users_organization_user_id_accept_post(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    organization_user_id: uuid::Uuid,
-    organization_user_accept_request_model: Option<models::OrganizationUserAcceptRequestModel>,
-) -> Result<(), Error<OrganizationsOrgIdUsersOrganizationUserIdAcceptPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_organization_user_id = organization_user_id;
-    let p_organization_user_accept_request_model = organization_user_accept_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/{organizationUserId}/accept",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string()),
-        organizationUserId = crate::apis::urlencode(p_organization_user_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_user_accept_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersOrganizationUserIdAcceptPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L356`]
-pub async fn organizations_org_id_users_public_keys_post(
+pub async fn organization_users_patch_bulk_restore(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
 ) -> Result<
-    models::OrganizationUserPublicKeyResponseModelListResponseModel,
-    Error<OrganizationsOrgIdUsersPublicKeysPostError>,
+    models::OrganizationUserBulkResponseModelListResponseModel,
+    Error<OrganizationUsersPatchBulkRestoreError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
     let uri_str = format!(
-        "{}/organizations/{orgId}/users/public-keys",
+        "{}/organizations/{orgId}/users/restore",
         configuration.base_path,
         orgId = crate::apis::urlencode(p_org_id.to_string())
     );
     let mut req_builder = configuration
         .client
-        .request(reqwest::Method::POST, &uri_str);
+        .request(reqwest::Method::PATCH, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -1687,12 +1263,12 @@ pub async fn organizations_org_id_users_public_keys_post(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserPublicKeyResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserPublicKeyResponseModelListResponseModel`")))),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersPublicKeysPostError> =
+        let entity: Option<OrganizationUsersPatchBulkRestoreError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -1702,21 +1278,168 @@ pub async fn organizations_org_id_users_public_keys_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L261`]
-pub async fn organizations_org_id_users_reinvite_post(
+pub async fn organization_users_patch_bulk_revoke(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
 ) -> Result<
     models::OrganizationUserBulkResponseModelListResponseModel,
-    Error<OrganizationsOrgIdUsersReinvitePostError>,
+    Error<OrganizationUsersPatchBulkRevokeError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
 
     let uri_str = format!(
-        "{}/organizations/{orgId}/users/reinvite",
+        "{}/organizations/{orgId}/users/revoke",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::PATCH, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersPatchBulkRevokeError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_patch_restore(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationUsersPatchRestoreError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/{id}/restore",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::PATCH, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersPatchRestoreError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_patch_revoke(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationUsersPatchRevokeError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/{id}/revoke",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::PATCH, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersPatchRevokeError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_post_bulk_delete_account(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
+) -> Result<
+    models::OrganizationUserBulkResponseModelListResponseModel,
+    Error<OrganizationUsersPostBulkDeleteAccountError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/delete-account",
         configuration.base_path,
         orgId = crate::apis::urlencode(p_org_id.to_string())
     );
@@ -1752,7 +1475,7 @@ pub async fn organizations_org_id_users_reinvite_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersReinvitePostError> =
+        let entity: Option<OrganizationUsersPostBulkDeleteAccountError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -1762,14 +1485,13 @@ pub async fn organizations_org_id_users_reinvite_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L507`]
-pub async fn organizations_org_id_users_remove_post(
+pub async fn organization_users_post_bulk_remove(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
 ) -> Result<
     models::OrganizationUserBulkResponseModelListResponseModel,
-    Error<OrganizationsOrgIdUsersRemovePostError>,
+    Error<OrganizationUsersPostBulkRemoveError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
@@ -1812,7 +1534,7 @@ pub async fn organizations_org_id_users_remove_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersRemovePostError> =
+        let entity: Option<OrganizationUsersPostBulkRemoveError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -1822,27 +1544,24 @@ pub async fn organizations_org_id_users_remove_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L573`]
-pub async fn organizations_org_id_users_restore_patch(
+pub async fn organization_users_post_delete_account(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
-    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-) -> Result<
-    models::OrganizationUserBulkResponseModelListResponseModel,
-    Error<OrganizationsOrgIdUsersRestorePatchError>,
-> {
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationUsersPostDeleteAccountError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
-    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
+    let p_id = id;
 
     let uri_str = format!(
-        "{}/organizations/{orgId}/users/restore",
+        "{}/organizations/{orgId}/users/{id}/delete-account",
         configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
     let mut req_builder = configuration
         .client
-        .request(reqwest::Method::PATCH, &uri_str);
+        .request(reqwest::Method::POST, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -1850,29 +1569,17 @@ pub async fn organizations_org_id_users_restore_patch(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
 
     let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
 
     if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
-        }
+        Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersRestorePatchError> =
+        let entity: Option<OrganizationUsersPostDeleteAccountError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -1882,23 +1589,113 @@ pub async fn organizations_org_id_users_restore_patch(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L573`]
-pub async fn organizations_org_id_users_restore_put(
+pub async fn organization_users_post_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
-    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-) -> Result<
-    models::OrganizationUserBulkResponseModelListResponseModel,
-    Error<OrganizationsOrgIdUsersRestorePutError>,
-> {
+    id: uuid::Uuid,
+    organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
+) -> Result<(), Error<OrganizationUsersPostPutError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
-    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
+    let p_id = id;
+    let p_organization_user_update_request_model = organization_user_update_request_model;
 
     let uri_str = format!(
-        "{}/organizations/{orgId}/users/restore",
+        "{}/organizations/{orgId}/users/{id}",
         configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_user_update_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersPostPutError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_post_remove(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationUsersPostRemoveError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/{id}/remove",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersPostRemoveError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_put(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+    organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
+) -> Result<(), Error<OrganizationUsersPutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+    let p_organization_user_update_request_model = organization_user_update_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/{id}",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
     let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
@@ -1908,30 +1705,18 @@ pub async fn organizations_org_id_users_restore_put(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_update_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
 
     let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
 
     if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
-        }
+        Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersRestorePutError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<OrganizationUsersPutError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -1940,83 +1725,25 @@ pub async fn organizations_org_id_users_restore_put(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L557`]
-pub async fn organizations_org_id_users_revoke_patch(
+pub async fn organization_users_put_reset_password(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
-    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-) -> Result<
-    models::OrganizationUserBulkResponseModelListResponseModel,
-    Error<OrganizationsOrgIdUsersRevokePatchError>,
-> {
+    id: uuid::Uuid,
+    organization_user_reset_password_request_model: Option<
+        models::OrganizationUserResetPasswordRequestModel,
+    >,
+) -> Result<(), Error<OrganizationUsersPutResetPasswordError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
-    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
+    let p_id = id;
+    let p_organization_user_reset_password_request_model =
+        organization_user_reset_password_request_model;
 
     let uri_str = format!(
-        "{}/organizations/{orgId}/users/revoke",
+        "{}/organizations/{orgId}/users/{id}/reset-password",
         configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::PATCH, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersRevokePatchError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L557`]
-pub async fn organizations_org_id_users_revoke_put(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-) -> Result<
-    models::OrganizationUserBulkResponseModelListResponseModel,
-    Error<OrganizationsOrgIdUsersRevokePutError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/users/revoke",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
     );
     let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
@@ -2026,29 +1753,18 @@ pub async fn organizations_org_id_users_revoke_put(
     if let Some(ref token) = configuration.oauth_access_token {
         req_builder = req_builder.bearer_auth(token.to_owned());
     };
-    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
+    req_builder = req_builder.json(&p_organization_user_reset_password_request_model);
 
     let req = req_builder.build()?;
     let resp = configuration.client.execute(req).await?;
 
     let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
 
     if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`")))),
-        }
+        Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersRevokePutError> =
+        let entity: Option<OrganizationUsersPutResetPasswordError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -2058,15 +1774,14 @@ pub async fn organizations_org_id_users_revoke_put(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationUsersController.cs#L441`]
-pub async fn organizations_org_id_users_user_id_reset_password_enrollment_put(
+pub async fn organization_users_put_reset_password_enrollment(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     user_id: uuid::Uuid,
     organization_user_reset_password_enrollment_request_model: Option<
         models::OrganizationUserResetPasswordEnrollmentRequestModel,
     >,
-) -> Result<(), Error<OrganizationsOrgIdUsersUserIdResetPasswordEnrollmentPutError>> {
+) -> Result<(), Error<OrganizationUsersPutResetPasswordEnrollmentError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_user_id = user_id;
@@ -2098,7 +1813,238 @@ pub async fn organizations_org_id_users_user_id_reset_password_enrollment_put(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdUsersUserIdResetPasswordEnrollmentPutError> =
+        let entity: Option<OrganizationUsersPutResetPasswordEnrollmentError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_reinvite(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationUsersReinviteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/{id}/reinvite",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersReinviteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_remove(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationUsersRemoveError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/{id}",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersRemoveError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_restore(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationUsersRestoreError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/{id}/restore",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersRestoreError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_revoke(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<OrganizationUsersRevokeError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/{id}/revoke",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersRevokeError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_users_user_public_keys(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
+) -> Result<
+    models::OrganizationUserPublicKeyResponseModelListResponseModel,
+    Error<OrganizationUsersUserPublicKeysError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_organization_user_bulk_request_model = organization_user_bulk_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/users/public-keys",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_user_bulk_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationUserPublicKeyResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationUserPublicKeyResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationUsersUserPublicKeysError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

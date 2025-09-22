@@ -2,18 +2,18 @@
 //! identity, which is provided by a signature keypair. This is done by signing the public key, and
 //! requiring consumers to verify the public key before consumption by using unwrap_and_verify.
 
-use std::str::FromStr;
+use std::{borrow::Cow, str::FromStr};
 
-use base64::{engine::general_purpose::STANDARD, Engine};
+use bitwarden_encoding::{FromStrVisitor, B64};
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::AsymmetricPublicCryptoKey;
 use crate::{
-    cose::CoseSerializable, error::EncodingError, util::FromStrVisitor, CoseSign1Bytes,
-    CryptoError, PublicKeyEncryptionAlgorithm, RawPublicKey, SignedObject, SigningKey,
-    SigningNamespace, SpkiPublicKeyBytes, VerifyingKey,
+    cose::CoseSerializable, error::EncodingError, CoseSign1Bytes, CryptoError,
+    PublicKeyEncryptionAlgorithm, RawPublicKey, SignedObject, SigningKey, SigningNamespace,
+    SpkiPublicKeyBytes, VerifyingKey,
 };
 
 #[cfg(feature = "wasm")]
@@ -93,7 +93,7 @@ impl TryFrom<CoseSign1Bytes> for SignedPublicKey {
 impl From<SignedPublicKey> for String {
     fn from(val: SignedPublicKey) -> Self {
         let bytes: CoseSign1Bytes = val.into();
-        STANDARD.encode(&bytes)
+        B64::from(bytes.as_ref()).to_string()
     }
 }
 
@@ -125,10 +125,8 @@ impl FromStr for SignedPublicKey {
     type Err = EncodingError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let bytes = STANDARD
-            .decode(s)
-            .map_err(|_| EncodingError::InvalidCborSerialization)?;
-        Self::try_from(CoseSign1Bytes::from(bytes))
+        let bytes = B64::try_from(s).map_err(|_| EncodingError::InvalidCborSerialization)?;
+        Self::try_from(CoseSign1Bytes::from(&bytes))
     }
 }
 
@@ -152,11 +150,11 @@ impl serde::Serialize for SignedPublicKey {
 }
 
 impl schemars::JsonSchema for SignedPublicKey {
-    fn schema_name() -> String {
-        "SignedPublicKey".to_string()
+    fn schema_name() -> Cow<'static, str> {
+        "SignedPublicKey".into()
     }
 
-    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(generator: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
         generator.subschema_for::<String>()
     }
 }

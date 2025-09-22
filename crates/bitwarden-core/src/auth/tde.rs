@@ -1,8 +1,8 @@
-use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     AsymmetricPublicCryptoKey, DeviceKey, EncString, Kdf, SpkiPublicKeyBytes, SymmetricCryptoKey,
     TrustDeviceResponse, UnsignedSharedKey, UserKey,
 };
+use bitwarden_encoding::B64;
 
 use crate::{
     client::{encryption_settings::EncryptionSettingsError, internal::UserKeyState},
@@ -15,12 +15,11 @@ use crate::{
 pub(super) fn make_register_tde_keys(
     client: &Client,
     email: String,
-    org_public_key: String,
+    org_public_key: B64,
     remember_device: bool,
 ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
-    let public_key = AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
-        STANDARD.decode(org_public_key)?,
-    ))?;
+    let public_key =
+        AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))?;
 
     let user_key = UserKey::new(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
     let key_pair = user_key.make_key_pair()?;
@@ -66,7 +65,7 @@ pub(super) fn make_register_tde_keys(
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct RegisterTdeKeyResponse {
     pub private_key: EncString,
-    pub public_key: String,
+    pub public_key: B64,
 
     pub admin_reset: UnsignedSharedKey,
     pub device_key: Option<TrustDeviceResponse>,

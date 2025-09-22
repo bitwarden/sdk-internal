@@ -14,98 +14,49 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`tasks_get`]
+/// struct for typed errors of method [`security_task_bulk_create_tasks`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TasksGetError {
+pub enum SecurityTaskBulkCreateTasksError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`tasks_org_id_bulk_create_post`]
+/// struct for typed errors of method [`security_task_complete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TasksOrgIdBulkCreatePostError {
+pub enum SecurityTaskCompleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`tasks_organization_get`]
+/// struct for typed errors of method [`security_task_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TasksOrganizationGetError {
+pub enum SecurityTaskGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`tasks_organization_id_metrics_get`]
+/// struct for typed errors of method [`security_task_get_task_metrics_for_organization`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TasksOrganizationIdMetricsGetError {
+pub enum SecurityTaskGetTaskMetricsForOrganizationError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`tasks_task_id_complete_patch`]
+/// struct for typed errors of method [`security_task_list_for_organization`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum TasksTaskIdCompletePatchError {
+pub enum SecurityTaskListForOrganizationError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Vault/Controllers/SecurityTaskController.cs#L54`]
-pub async fn tasks_get(
-    configuration: &configuration::Configuration,
-    status: Option<models::SecurityTaskStatus>,
-) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<TasksGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_status = status;
-
-    let uri_str = format!("{}/tasks", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref param_value) = p_status {
-        req_builder = req_builder.query(&[("status", &param_value.to_string())]);
-    }
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::SecurityTasksResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::SecurityTasksResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TasksGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Vault/Controllers/SecurityTaskController.cs#L107`]
-pub async fn tasks_org_id_bulk_create_post(
+pub async fn security_task_bulk_create_tasks(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     bulk_create_security_tasks_request_model: Option<models::BulkCreateSecurityTasksRequestModel>,
-) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<TasksOrgIdBulkCreatePostError>>
-{
+) -> Result<
+    models::SecurityTasksResponseModelListResponseModel,
+    Error<SecurityTaskBulkCreateTasksError>,
+> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_bulk_create_security_tasks_request_model = bulk_create_security_tasks_request_model;
@@ -147,7 +98,7 @@ pub async fn tasks_org_id_bulk_create_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<TasksOrgIdBulkCreatePostError> = serde_json::from_str(&content).ok();
+        let entity: Option<SecurityTaskBulkCreateTasksError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -156,12 +107,158 @@ pub async fn tasks_org_id_bulk_create_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Vault/Controllers/SecurityTaskController.cs#L80`]
-pub async fn tasks_organization_get(
+pub async fn security_task_complete(
+    configuration: &configuration::Configuration,
+    task_id: uuid::Uuid,
+) -> Result<(), Error<SecurityTaskCompleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_task_id = task_id;
+
+    let uri_str = format!(
+        "{}/tasks/{taskId}/complete",
+        configuration.base_path,
+        taskId = crate::apis::urlencode(p_task_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::PATCH, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<SecurityTaskCompleteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn security_task_get(
+    configuration: &configuration::Configuration,
+    status: Option<models::SecurityTaskStatus>,
+) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<SecurityTaskGetError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_status = status;
+
+    let uri_str = format!("{}/tasks", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref param_value) = p_status {
+        req_builder = req_builder.query(&[("status", &param_value.to_string())]);
+    }
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::SecurityTasksResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::SecurityTasksResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<SecurityTaskGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn security_task_get_task_metrics_for_organization(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+) -> Result<
+    models::SecurityTaskMetricsResponseModel,
+    Error<SecurityTaskGetTaskMetricsForOrganizationError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+
+    let uri_str = format!(
+        "{}/tasks/{organizationId}/metrics",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::SecurityTaskMetricsResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::SecurityTaskMetricsResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<SecurityTaskGetTaskMetricsForOrganizationError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn security_task_list_for_organization(
     configuration: &configuration::Configuration,
     organization_id: Option<uuid::Uuid>,
     status: Option<models::SecurityTaskStatus>,
-) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<TasksOrganizationGetError>> {
+) -> Result<
+    models::SecurityTasksResponseModelListResponseModel,
+    Error<SecurityTaskListForOrganizationError>,
+> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_status = status;
@@ -202,101 +299,8 @@ pub async fn tasks_organization_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<TasksOrganizationGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Vault/Controllers/SecurityTaskController.cs#L92`]
-pub async fn tasks_organization_id_metrics_get(
-    configuration: &configuration::Configuration,
-    organization_id: uuid::Uuid,
-) -> Result<models::SecurityTaskMetricsResponseModel, Error<TasksOrganizationIdMetricsGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
-
-    let uri_str = format!(
-        "{}/tasks/{organizationId}/metrics",
-        configuration.base_path,
-        organizationId = crate::apis::urlencode(p_organization_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::SecurityTaskMetricsResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::SecurityTaskMetricsResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TasksOrganizationIdMetricsGetError> =
+        let entity: Option<SecurityTaskListForOrganizationError> =
             serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Vault/Controllers/SecurityTaskController.cs#L67`]
-pub async fn tasks_task_id_complete_patch(
-    configuration: &configuration::Configuration,
-    task_id: uuid::Uuid,
-) -> Result<(), Error<TasksTaskIdCompletePatchError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_task_id = task_id;
-
-    let uri_str = format!(
-        "{}/tasks/{taskId}/complete",
-        configuration.base_path,
-        taskId = crate::apis::urlencode(p_task_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::PATCH, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<TasksTaskIdCompletePatchError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

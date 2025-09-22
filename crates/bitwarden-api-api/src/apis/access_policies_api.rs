@@ -14,100 +14,98 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method
-/// [`organizations_id_access_policies_people_potential_grantees_get`]
+/// struct for typed errors of method [`access_policies_get_people_potential_grantees`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsIdAccessPoliciesPeoplePotentialGranteesGetError {
+pub enum AccessPoliciesGetPeoplePotentialGranteesError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`access_policies_get_project_people_access_policies`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AccessPoliciesGetProjectPeopleAccessPoliciesError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`access_policies_get_project_potential_grantees`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AccessPoliciesGetProjectPotentialGranteesError {
     UnknownValue(serde_json::Value),
 }
 
 /// struct for typed errors of method
-/// [`organizations_id_access_policies_projects_potential_grantees_get`]
+/// [`access_policies_get_project_service_accounts_access_policies`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsIdAccessPoliciesProjectsPotentialGranteesGetError {
+pub enum AccessPoliciesGetProjectServiceAccountsAccessPoliciesError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`access_policies_get_secret_access_policies`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AccessPoliciesGetSecretAccessPoliciesError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`access_policies_get_service_account_granted_policies`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AccessPoliciesGetServiceAccountGrantedPoliciesError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`access_policies_get_service_account_people_access_policies`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AccessPoliciesGetServiceAccountPeopleAccessPoliciesError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`access_policies_get_service_accounts_potential_grantees`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AccessPoliciesGetServiceAccountsPotentialGranteesError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`access_policies_put_project_people_access_policies`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AccessPoliciesPutProjectPeopleAccessPoliciesError {
     UnknownValue(serde_json::Value),
 }
 
 /// struct for typed errors of method
-/// [`organizations_id_access_policies_service_accounts_potential_grantees_get`]
+/// [`access_policies_put_project_service_accounts_access_policies`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsIdAccessPoliciesServiceAccountsPotentialGranteesGetError {
+pub enum AccessPoliciesPutProjectServiceAccountsAccessPoliciesError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`projects_id_access_policies_people_get`]
+/// struct for typed errors of method [`access_policies_put_service_account_granted_policies`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProjectsIdAccessPoliciesPeopleGetError {
+pub enum AccessPoliciesPutServiceAccountGrantedPoliciesError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`projects_id_access_policies_people_put`]
+/// struct for typed errors of method [`access_policies_put_service_account_people_access_policies`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProjectsIdAccessPoliciesPeoplePutError {
+pub enum AccessPoliciesPutServiceAccountPeopleAccessPoliciesError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`projects_id_access_policies_service_accounts_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ProjectsIdAccessPoliciesServiceAccountsGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`projects_id_access_policies_service_accounts_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ProjectsIdAccessPoliciesServiceAccountsPutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`secrets_secret_id_access_policies_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum SecretsSecretIdAccessPoliciesGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`service_accounts_id_access_policies_people_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ServiceAccountsIdAccessPoliciesPeopleGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`service_accounts_id_access_policies_people_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ServiceAccountsIdAccessPoliciesPeoplePutError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`service_accounts_id_granted_policies_get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ServiceAccountsIdGrantedPoliciesGetError {
-    UnknownValue(serde_json::Value),
-}
-
-/// struct for typed errors of method [`service_accounts_id_granted_policies_put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ServiceAccountsIdGrantedPoliciesPutError {
-    UnknownValue(serde_json::Value),
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L69`]
-pub async fn organizations_id_access_policies_people_potential_grantees_get(
+pub async fn access_policies_get_people_potential_grantees(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
 ) -> Result<
     models::PotentialGranteeResponseModelListResponseModel,
-    Error<OrganizationsIdAccessPoliciesPeoplePotentialGranteesGetError>,
+    Error<AccessPoliciesGetPeoplePotentialGranteesError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
@@ -146,7 +144,7 @@ pub async fn organizations_id_access_policies_people_potential_grantees_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsIdAccessPoliciesPeoplePotentialGranteesGetError> =
+        let entity: Option<AccessPoliciesGetPeoplePotentialGranteesError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -156,123 +154,12 @@ pub async fn organizations_id_access_policies_people_potential_grantees_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L107`]
-pub async fn organizations_id_access_policies_projects_potential_grantees_get(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-) -> Result<
-    models::PotentialGranteeResponseModelListResponseModel,
-    Error<OrganizationsIdAccessPoliciesProjectsPotentialGranteesGetError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/access-policies/projects/potential-grantees",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PotentialGranteeResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PotentialGranteeResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdAccessPoliciesProjectsPotentialGranteesGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L86`]
-pub async fn organizations_id_access_policies_service_accounts_potential_grantees_get(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-) -> Result<
-    models::PotentialGranteeResponseModelListResponseModel,
-    Error<OrganizationsIdAccessPoliciesServiceAccountsPotentialGranteesGetError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{id}/access-policies/service-accounts/potential-grantees",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PotentialGranteeResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PotentialGranteeResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsIdAccessPoliciesServiceAccountsPotentialGranteesGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L127`]
-pub async fn projects_id_access_policies_people_get(
+pub async fn access_policies_get_project_people_access_policies(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
 ) -> Result<
     models::ProjectPeopleAccessPoliciesResponseModel,
-    Error<ProjectsIdAccessPoliciesPeopleGetError>,
+    Error<AccessPoliciesGetProjectPeopleAccessPoliciesError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
@@ -311,7 +198,7 @@ pub async fn projects_id_access_policies_people_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProjectsIdAccessPoliciesPeopleGetError> =
+        let entity: Option<AccessPoliciesGetProjectPeopleAccessPoliciesError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -321,14 +208,337 @@ pub async fn projects_id_access_policies_people_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L137`]
-pub async fn projects_id_access_policies_people_put(
+pub async fn access_policies_get_project_potential_grantees(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+) -> Result<
+    models::PotentialGranteeResponseModelListResponseModel,
+    Error<AccessPoliciesGetProjectPotentialGranteesError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/access-policies/projects/potential-grantees",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PotentialGranteeResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PotentialGranteeResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccessPoliciesGetProjectPotentialGranteesError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn access_policies_get_project_service_accounts_access_policies(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+) -> Result<
+    models::ProjectServiceAccountsAccessPoliciesResponseModel,
+    Error<AccessPoliciesGetProjectServiceAccountsAccessPoliciesError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/projects/{id}/access-policies/service-accounts",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProjectServiceAccountsAccessPoliciesResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProjectServiceAccountsAccessPoliciesResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccessPoliciesGetProjectServiceAccountsAccessPoliciesError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn access_policies_get_secret_access_policies(
+    configuration: &configuration::Configuration,
+    secret_id: uuid::Uuid,
+) -> Result<
+    models::SecretAccessPoliciesResponseModel,
+    Error<AccessPoliciesGetSecretAccessPoliciesError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_secret_id = secret_id;
+
+    let uri_str = format!(
+        "{}/secrets/{secretId}/access-policies",
+        configuration.base_path,
+        secretId = crate::apis::urlencode(p_secret_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::SecretAccessPoliciesResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::SecretAccessPoliciesResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccessPoliciesGetSecretAccessPoliciesError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn access_policies_get_service_account_granted_policies(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+) -> Result<
+    models::ServiceAccountGrantedPoliciesPermissionDetailsResponseModel,
+    Error<AccessPoliciesGetServiceAccountGrantedPoliciesError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/service-accounts/{id}/granted-policies",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ServiceAccountGrantedPoliciesPermissionDetailsResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ServiceAccountGrantedPoliciesPermissionDetailsResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccessPoliciesGetServiceAccountGrantedPoliciesError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn access_policies_get_service_account_people_access_policies(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+) -> Result<
+    models::ServiceAccountPeopleAccessPoliciesResponseModel,
+    Error<AccessPoliciesGetServiceAccountPeopleAccessPoliciesError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/service-accounts/{id}/access-policies/people",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ServiceAccountPeopleAccessPoliciesResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ServiceAccountPeopleAccessPoliciesResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccessPoliciesGetServiceAccountPeopleAccessPoliciesError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn access_policies_get_service_accounts_potential_grantees(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+) -> Result<
+    models::PotentialGranteeResponseModelListResponseModel,
+    Error<AccessPoliciesGetServiceAccountsPotentialGranteesError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{id}/access-policies/service-accounts/potential-grantees",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::PotentialGranteeResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::PotentialGranteeResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccessPoliciesGetServiceAccountsPotentialGranteesError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn access_policies_put_project_people_access_policies(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
     people_access_policies_request_model: Option<models::PeopleAccessPoliciesRequestModel>,
 ) -> Result<
     models::ProjectPeopleAccessPoliciesResponseModel,
-    Error<ProjectsIdAccessPoliciesPeoplePutError>,
+    Error<AccessPoliciesPutProjectPeopleAccessPoliciesError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
@@ -369,7 +579,7 @@ pub async fn projects_id_access_policies_people_put(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProjectsIdAccessPoliciesPeoplePutError> =
+        let entity: Option<AccessPoliciesPutProjectPeopleAccessPoliciesError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -379,63 +589,7 @@ pub async fn projects_id_access_policies_people_put(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L234`]
-pub async fn projects_id_access_policies_service_accounts_get(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-) -> Result<
-    models::ProjectServiceAccountsAccessPoliciesResponseModel,
-    Error<ProjectsIdAccessPoliciesServiceAccountsGetError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/projects/{id}/access-policies/service-accounts",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProjectServiceAccountsAccessPoliciesResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProjectServiceAccountsAccessPoliciesResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProjectsIdAccessPoliciesServiceAccountsGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L246`]
-pub async fn projects_id_access_policies_service_accounts_put(
+pub async fn access_policies_put_project_service_accounts_access_policies(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
     project_service_accounts_access_policies_request_model: Option<
@@ -443,7 +597,7 @@ pub async fn projects_id_access_policies_service_accounts_put(
     >,
 ) -> Result<
     models::ProjectServiceAccountsAccessPoliciesResponseModel,
-    Error<ProjectsIdAccessPoliciesServiceAccountsPutError>,
+    Error<AccessPoliciesPutProjectServiceAccountsAccessPoliciesError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
@@ -485,7 +639,7 @@ pub async fn projects_id_access_policies_service_accounts_put(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProjectsIdAccessPoliciesServiceAccountsPutError> =
+        let entity: Option<AccessPoliciesPutProjectServiceAccountsAccessPoliciesError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -495,229 +649,7 @@ pub async fn projects_id_access_policies_service_accounts_put(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L267`]
-pub async fn secrets_secret_id_access_policies_get(
-    configuration: &configuration::Configuration,
-    secret_id: uuid::Uuid,
-) -> Result<models::SecretAccessPoliciesResponseModel, Error<SecretsSecretIdAccessPoliciesGetError>>
-{
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_secret_id = secret_id;
-
-    let uri_str = format!(
-        "{}/secrets/{secretId}/access-policies",
-        configuration.base_path,
-        secretId = crate::apis::urlencode(p_secret_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::SecretAccessPoliciesResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::SecretAccessPoliciesResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<SecretsSecretIdAccessPoliciesGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L161`]
-pub async fn service_accounts_id_access_policies_people_get(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-) -> Result<
-    models::ServiceAccountPeopleAccessPoliciesResponseModel,
-    Error<ServiceAccountsIdAccessPoliciesPeopleGetError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/service-accounts/{id}/access-policies/people",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ServiceAccountPeopleAccessPoliciesResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ServiceAccountPeopleAccessPoliciesResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ServiceAccountsIdAccessPoliciesPeopleGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L172`]
-pub async fn service_accounts_id_access_policies_people_put(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-    people_access_policies_request_model: Option<models::PeopleAccessPoliciesRequestModel>,
-) -> Result<
-    models::ServiceAccountPeopleAccessPoliciesResponseModel,
-    Error<ServiceAccountsIdAccessPoliciesPeoplePutError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_people_access_policies_request_model = people_access_policies_request_model;
-
-    let uri_str = format!(
-        "{}/service-accounts/{id}/access-policies/people",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_people_access_policies_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ServiceAccountPeopleAccessPoliciesResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ServiceAccountPeopleAccessPoliciesResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ServiceAccountsIdAccessPoliciesPeoplePutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L196`]
-pub async fn service_accounts_id_granted_policies_get(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-) -> Result<
-    models::ServiceAccountGrantedPoliciesPermissionDetailsResponseModel,
-    Error<ServiceAccountsIdGrantedPoliciesGetError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/service-accounts/{id}/granted-policies",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ServiceAccountGrantedPoliciesPermissionDetailsResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ServiceAccountGrantedPoliciesPermissionDetailsResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ServiceAccountsIdGrantedPoliciesGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/AccessPoliciesController.cs#L214`]
-pub async fn service_accounts_id_granted_policies_put(
+pub async fn access_policies_put_service_account_granted_policies(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
     service_account_granted_policies_request_model: Option<
@@ -725,7 +657,7 @@ pub async fn service_accounts_id_granted_policies_put(
     >,
 ) -> Result<
     models::ServiceAccountGrantedPoliciesPermissionDetailsResponseModel,
-    Error<ServiceAccountsIdGrantedPoliciesPutError>,
+    Error<AccessPoliciesPutServiceAccountGrantedPoliciesError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
@@ -767,7 +699,64 @@ pub async fn service_accounts_id_granted_policies_put(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ServiceAccountsIdGrantedPoliciesPutError> =
+        let entity: Option<AccessPoliciesPutServiceAccountGrantedPoliciesError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn access_policies_put_service_account_people_access_policies(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    people_access_policies_request_model: Option<models::PeopleAccessPoliciesRequestModel>,
+) -> Result<
+    models::ServiceAccountPeopleAccessPoliciesResponseModel,
+    Error<AccessPoliciesPutServiceAccountPeopleAccessPoliciesError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_people_access_policies_request_model = people_access_policies_request_model;
+
+    let uri_str = format!(
+        "{}/service-accounts/{id}/access-policies/people",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_people_access_policies_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ServiceAccountPeopleAccessPoliciesResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ServiceAccountPeopleAccessPoliciesResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccessPoliciesPutServiceAccountPeopleAccessPoliciesError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

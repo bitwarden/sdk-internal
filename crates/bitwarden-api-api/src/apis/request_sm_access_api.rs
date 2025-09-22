@@ -14,18 +14,17 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`request_access_request_sm_access_post`]
+/// struct for typed errors of method [`request_sm_access_request_sm_access_from_admins`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum RequestAccessRequestSmAccessPostError {
+pub enum RequestSmAccessRequestSmAccessFromAdminsError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/SecretsManager/Controllers/RequestSMAccessController.cs#L34`]
-pub async fn request_access_request_sm_access_post(
+pub async fn request_sm_access_request_sm_access_from_admins(
     configuration: &configuration::Configuration,
     request_sm_access_request_model: Option<models::RequestSmAccessRequestModel>,
-) -> Result<(), Error<RequestAccessRequestSmAccessPostError>> {
+) -> Result<(), Error<RequestSmAccessRequestSmAccessFromAdminsError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_request_sm_access_request_model = request_sm_access_request_model;
 
@@ -54,7 +53,7 @@ pub async fn request_access_request_sm_access_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<RequestAccessRequestSmAccessPostError> =
+        let entity: Option<RequestSmAccessRequestSmAccessFromAdminsError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

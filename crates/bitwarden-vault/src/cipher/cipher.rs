@@ -1,20 +1,21 @@
 use bitwarden_api_api::models::CipherDetailsResponseModel;
+use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
-    require, MissingFieldError, VaultLockedError,
+    require, MissingFieldError, OrganizationId, UserId,
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
     PrimitiveEncryptable,
 };
 use bitwarden_error::bitwarden_error;
+use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
-use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -28,25 +29,22 @@ use super::{
     secure_note, ssh_key,
 };
 use crate::{
-    password_history, EncryptError, Fido2CredentialFullView, Fido2CredentialView, Login, LoginView,
-    VaultParseError,
+    password_history, EncryptError, Fido2CredentialFullView, Fido2CredentialView, FolderId, Login,
+    LoginView, VaultParseError,
 };
 
-// Version constant
-pub const CURRENT_CIPHER_VERSION: u32 = 3;
+uuid_newtype!(pub CipherId);
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CipherError {
     #[error(transparent)]
-    MissingFieldError(#[from] MissingFieldError),
+    MissingField(#[from] MissingFieldError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
+    Crypto(#[from] CryptoError),
     #[error(transparent)]
-    CryptoError(#[from] CryptoError),
-    #[error(transparent)]
-    EncryptError(#[from] EncryptError),
+    Encrypt(#[from] EncryptError),
     #[error("This cipher contains attachments without keys. Those attachments will need to be reuploaded to complete the operation")]
     AttachmentsWithoutKeys,
     // POC - Cipher versioning
@@ -104,7 +102,7 @@ pub enum CipherRepromptType {
 pub struct EncryptionContext {
     /// The Id of the user that encrypted the cipher. It should always represent a UserId, even for
     /// Organization-owned ciphers
-    pub encrypted_for: Uuid,
+    pub encrypted_for: UserId,
     pub cipher: Cipher,
 }
 
@@ -114,10 +112,11 @@ pub struct EncryptionContext {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Cipher {
-    pub id: Option<Uuid>,
-    pub organization_id: Option<Uuid>,
-    pub folder_id: Option<Uuid>,
-    pub collection_ids: Vec<Uuid>,
+    pub id: Option<CipherId>,
+    pub organization_id: Option<OrganizationId>,
+    pub folder_id: Option<FolderId>,
+    pub collection_ids: Vec<CollectionId>,
+
     /// More recent ciphers uses individual encryption keys to encrypt the other fields of the
     /// Cipher.
     pub key: Option<EncString>,
@@ -147,9 +146,7 @@ pub struct Cipher {
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
-
-    // pub version: Option<u32>,
-    pub data: Option<String>,
+    pub archived_date: Option<DateTime<Utc>>,
 }
 
 bitwarden_state::register_repository_item!(Cipher, "Cipher");
@@ -160,10 +157,10 @@ bitwarden_state::register_repository_item!(Cipher, "Cipher");
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherView {
-    pub id: Option<Uuid>,
-    pub organization_id: Option<Uuid>,
-    pub folder_id: Option<Uuid>,
-    pub collection_ids: Vec<Uuid>,
+    pub id: Option<CipherId>,
+    pub organization_id: Option<OrganizationId>,
+    pub folder_id: Option<FolderId>,
+    pub collection_ids: Vec<CollectionId>,
 
     /// Temporary, required to support re-encrypting existing items.
     pub key: Option<EncString>,
@@ -193,7 +190,7 @@ pub struct CipherView {
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
-    // pub version: Option<u32>,
+    pub archived_date: Option<DateTime<Utc>>,
 }
 
 #[allow(missing_docs)]
@@ -233,10 +230,10 @@ pub enum CopyableCipherFields {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherListView {
-    pub id: Option<Uuid>,
-    pub organization_id: Option<Uuid>,
-    pub folder_id: Option<Uuid>,
-    pub collection_ids: Vec<Uuid>,
+    pub id: Option<CipherId>,
+    pub organization_id: Option<OrganizationId>,
+    pub folder_id: Option<FolderId>,
+    pub collection_ids: Vec<CollectionId>,
 
     /// Temporary, required to support calculating TOTP from CipherListView.
     pub key: Option<EncString>,
@@ -262,6 +259,7 @@ pub struct CipherListView {
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
+    pub archived_date: Option<DateTime<Utc>>,
 
     /// Hints for the presentation layer for which fields can be copied.
     pub copyable_fields: Vec<CopyableCipherFields>,
@@ -348,8 +346,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             deleted_date: cipher_view.deleted_date,
             revision_date: cipher_view.revision_date,
             permissions: cipher_view.permissions,
-            // version: cipher_view.version,
-            data: None,
+            archived_date: cipher_view.archived_date,
         })
     }
 }
@@ -393,7 +390,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
-            // version: self.version,
+            archived_date: self.archived_date,
         };
 
         // For compatibility we only remove URLs with invalid checksums if the cipher has a key
@@ -578,7 +575,7 @@ impl CipherView {
     pub fn move_to_organization(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
-        organization_id: Uuid,
+        organization_id: OrganizationId,
     ) -> Result<(), CipherError> {
         let new_key = SymmetricKeyId::Organization(organization_id);
 
@@ -722,6 +719,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             revision_date: self.revision_date,
             copyable_fields: self.get_copyable_fields(),
             local_data: self.local_data.decrypt(ctx, ciphers_key)?,
+            archived_date: self.archived_date,
         })
     }
 }
@@ -758,10 +756,15 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
 
     fn try_from(cipher: CipherDetailsResponseModel) -> Result<Self, Self::Error> {
         Ok(Self {
-            id: cipher.id,
-            organization_id: cipher.organization_id,
-            folder_id: cipher.folder_id,
-            collection_ids: cipher.collection_ids.unwrap_or_default(),
+            id: cipher.id.map(CipherId::new),
+            organization_id: cipher.organization_id.map(OrganizationId::new),
+            folder_id: cipher.folder_id.map(FolderId::new),
+            collection_ids: cipher
+                .collection_ids
+                .unwrap_or_default()
+                .into_iter()
+                .map(CollectionId::new)
+                .collect(),
             name: require!(EncString::try_from_optional(cipher.name)?),
             notes: EncString::try_from_optional(cipher.notes)?,
             r#type: require!(cipher.r#type).into(),
@@ -769,8 +772,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             identity: cipher.identity.map(|i| (*i).try_into()).transpose()?,
             card: cipher.card.map(|c| (*c).try_into()).transpose()?,
             secure_note: cipher.secure_note.map(|s| (*s).try_into()).transpose()?,
-            // TODO: add ssh_key when api bindings have been updated
-            ssh_key: None,
+            ssh_key: cipher.ssh_key.map(|s| (*s).try_into()).transpose()?,
             favorite: cipher.favorite.unwrap_or(false),
             reprompt: cipher
                 .reprompt
@@ -778,8 +780,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
                 .unwrap_or(CipherRepromptType::None),
             organization_use_totp: cipher.organization_use_totp.unwrap_or(true),
             edit: cipher.edit.unwrap_or(true),
-            // TODO: add permissions when api bindings have been updated
-            permissions: None,
+            permissions: cipher.permissions.map(|p| (*p).try_into()).transpose()?,
             view_password: cipher.view_password.unwrap_or(true),
             local_data: None, // Not sent from server
             attachments: cipher
@@ -798,8 +799,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             deleted_date: cipher.deleted_date.map(|d| d.parse()).transpose()?,
             revision_date: require!(cipher.revision_date).parse()?,
             key: EncString::try_from_optional(cipher.key)?,
-            // version: cipher.version.map(|v| v as u32),
-            data: cipher.data,
+            archived_date: cipher.archived_date.map(|d| d.parse()).transpose()?,
         })
     }
 }
@@ -838,7 +838,7 @@ mod tests {
     use crate::{login::Fido2CredentialListView, Fido2Credential};
 
     fn generate_cipher() -> CipherView {
-        let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
+        let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         CipherView {
             r#type: CipherType::Login,
             login: Some(LoginView {
@@ -874,7 +874,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            // version: None,
+            archived_date: None,
         }
     }
 
@@ -939,8 +939,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
-            // version: None,
-            data: None,
+            archived_date: None,
         };
 
         let view: CipherListView = key_store.decrypt(&cipher).unwrap();
@@ -962,6 +961,7 @@ mod tests {
                         user_handle: None,
                         user_name: None,
                         user_display_name: None,
+                        counter: "123".to_string(),
                     }]),
                     has_fido2: true,
                     username: Some("test_username".to_string()),
@@ -985,6 +985,7 @@ mod tests {
                     CopyableCipherFields::LoginTotp
                 ],
                 local_data: None,
+                archived_date: cipher.archived_date,
             }
         )
     }
@@ -1114,7 +1115,7 @@ mod tests {
 
     #[test]
     fn test_move_user_cipher_to_org() {
-        let org = uuid::Uuid::new_v4();
+        let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
@@ -1139,7 +1140,7 @@ mod tests {
 
     #[test]
     fn test_move_user_cipher_to_org_manually() {
-        let org = uuid::Uuid::new_v4();
+        let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
@@ -1159,7 +1160,7 @@ mod tests {
 
     #[test]
     fn test_move_user_cipher_with_attachment_without_key_to_org() {
-        let org = uuid::Uuid::new_v4();
+        let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
@@ -1184,7 +1185,7 @@ mod tests {
 
     #[test]
     fn test_move_user_cipher_with_attachment_with_key_to_org() {
-        let org = uuid::Uuid::new_v4();
+        let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
@@ -1261,7 +1262,7 @@ mod tests {
 
     #[test]
     fn test_move_user_cipher_with_key_with_attachment_with_key_to_org() {
-        let org = uuid::Uuid::new_v4();
+        let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);

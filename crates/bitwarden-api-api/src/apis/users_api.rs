@@ -14,18 +14,17 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`users_id_public_key_get`]
+/// struct for typed errors of method [`users_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum UsersIdPublicKeyGetError {
+pub enum UsersGetError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/UsersController.cs#L23`]
-pub async fn users_id_public_key_get(
+pub async fn users_get(
     configuration: &configuration::Configuration,
     id: &str,
-) -> Result<models::UserKeyResponseModel, Error<UsersIdPublicKeyGetError>> {
+) -> Result<models::UserKeyResponseModel, Error<UsersGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -63,7 +62,7 @@ pub async fn users_id_public_key_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<UsersIdPublicKeyGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<UsersGetError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["bitwarden_license/*", "crates/*"]
+exclude = ["support/lints"]
 
 # Global settings for all crates should be defined here
 [workspace.package]
@@ -26,18 +27,22 @@ bitwarden-cli = { path = "crates/bitwarden-cli", version = "=1.0.0" }
 bitwarden-collections = { path = "crates/bitwarden-collections", version = "=1.0.0" }
 bitwarden-core = { path = "crates/bitwarden-core", version = "=1.0.0" }
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=1.0.0" }
+bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=1.0.0" }
 bitwarden-error = { path = "crates/bitwarden-error", version = "=1.0.0" }
 bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=1.0.0" }
 bitwarden-exporters = { path = "crates/bitwarden-exporters", version = "=1.0.0" }
 bitwarden-fido = { path = "crates/bitwarden-fido", version = "=1.0.0" }
 bitwarden-generators = { path = "crates/bitwarden-generators", version = "=1.0.0" }
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=1.0.0" }
+bitwarden-pm = { path = "crates/bitwarden-pm", version = "=1.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=1.0.0" }
 bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=1.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=1.0.0" }
 bitwarden-state = { path = "crates/bitwarden-state", version = "=1.0.0" }
+bitwarden-state-migrations = { path = "crates/bitwarden-state-migrations", version = "=1.0.0" }
 bitwarden-test = { path = "crates/bitwarden-test", version = "=1.0.0" }
 bitwarden-threading = { path = "crates/bitwarden-threading", version = "=1.0.0" }
+bitwarden-uniffi-error = { path = "crates/bitwarden-uniffi-error", version = "=1.0.0" }
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=1.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=1.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=1.0.0" }
@@ -49,6 +54,8 @@ chrono = { version = ">=0.4.26, <0.5", features = [
     "serde",
     "std",
 ], default-features = false }
+data-encoding = ">=2.0, <3"
+ed25519-dalek = { version = ">=2.1.1, <=2.2.0" }
 js-sys = { version = ">=0.3.72, <0.4" }
 log = ">=0.4.18, <0.5"
 proc-macro2 = ">=1.0.89, <2"
@@ -58,7 +65,7 @@ reqwest = { version = ">=0.12.5, <0.13", features = [
     "multipart",
     "http2",
 ], default-features = false }
-schemars = { version = ">=0.8.9, <0.9", features = ["uuid1", "chrono"] }
+schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "chrono04"] }
 serde = { version = ">=1.0, <2.0", features = ["derive"] }
 serde_bytes = { version = ">=0.11.17, <0.12.0" }
 serde_json = ">=1.0.96, <2.0"
@@ -92,6 +99,9 @@ string_slice = "warn"
 
 [workspace.lints.rust]
 missing_docs = "warn"
+
+[workspace.metadata.dylint]
+libraries = [{ path = "support/lints" }]
 
 # Compile all dependencies with some optimizations when building this crate on debug
 # This slows down clean builds by about 50%, but the resulting binaries can be orders of magnitude faster

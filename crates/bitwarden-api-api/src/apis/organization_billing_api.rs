@@ -14,107 +14,102 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method
-/// [`organizations_organization_id_billing_change_frequency_post`]
+/// struct for typed errors of method [`organization_billing_change_plan_subscription_frequency`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingChangeFrequencyPostError {
+pub enum OrganizationBillingChangePlanSubscriptionFrequencyError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_organization_id_billing_get`]
+/// struct for typed errors of method [`organization_billing_get_billing`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingGetError {
+pub enum OrganizationBillingGetBillingError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_organization_id_billing_history_get`]
+/// struct for typed errors of method [`organization_billing_get_history`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingHistoryGetError {
+pub enum OrganizationBillingGetHistoryError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_organization_id_billing_invoices_get`]
+/// struct for typed errors of method [`organization_billing_get_invoices`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingInvoicesGetError {
+pub enum OrganizationBillingGetInvoicesError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_organization_id_billing_metadata_get`]
+/// struct for typed errors of method [`organization_billing_get_metadata`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingMetadataGetError {
+pub enum OrganizationBillingGetMetadataError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_organization_id_billing_payment_method_get`]
+/// struct for typed errors of method [`organization_billing_get_payment_method`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingPaymentMethodGetError {
+pub enum OrganizationBillingGetPaymentMethodError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_organization_id_billing_payment_method_put`]
+/// struct for typed errors of method [`organization_billing_get_tax_information`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingPaymentMethodPutError {
+pub enum OrganizationBillingGetTaxInformationError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_organization_id_billing_payment_method_verify_bank_account_post`]
+/// struct for typed errors of method [`organization_billing_get_transactions`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingPaymentMethodVerifyBankAccountPostError {
+pub enum OrganizationBillingGetTransactionsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_organization_id_billing_restart_subscription_post`]
+/// struct for typed errors of method [`organization_billing_restart_subscription`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingRestartSubscriptionPostError {
+pub enum OrganizationBillingRestartSubscriptionError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_organization_id_billing_setup_business_unit_post`]
+/// struct for typed errors of method [`organization_billing_setup_business_unit`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingSetupBusinessUnitPostError {
+pub enum OrganizationBillingSetupBusinessUnitError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_organization_id_billing_tax_information_get`]
+/// struct for typed errors of method [`organization_billing_update_payment_method`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingTaxInformationGetError {
+pub enum OrganizationBillingUpdatePaymentMethodError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_organization_id_billing_tax_information_put`]
+/// struct for typed errors of method [`organization_billing_update_tax_information`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingTaxInformationPutError {
+pub enum OrganizationBillingUpdateTaxInformationError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_organization_id_billing_transactions_get`]
+/// struct for typed errors of method [`organization_billing_verify_bank_account`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrganizationIdBillingTransactionsGetError {
+pub enum OrganizationBillingVerifyBankAccountError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationBillingController.cs#L365`]
-pub async fn organizations_organization_id_billing_change_frequency_post(
+pub async fn organization_billing_change_plan_subscription_frequency(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     change_plan_frequency_request: Option<models::ChangePlanFrequencyRequest>,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingChangeFrequencyPostError>> {
+) -> Result<(), Error<OrganizationBillingChangePlanSubscriptionFrequencyError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_change_plan_frequency_request = change_plan_frequency_request;
@@ -145,7 +140,7 @@ pub async fn organizations_organization_id_billing_change_frequency_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdBillingChangeFrequencyPostError> =
+        let entity: Option<OrganizationBillingChangePlanSubscriptionFrequencyError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -155,11 +150,10 @@ pub async fn organizations_organization_id_billing_change_frequency_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationBillingController.cs#L126`]
-pub async fn organizations_organization_id_billing_get(
+pub async fn organization_billing_get_billing(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingGetError>> {
+) -> Result<(), Error<OrganizationBillingGetBillingError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
 
@@ -186,7 +180,7 @@ pub async fn organizations_organization_id_billing_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdBillingGetError> =
+        let entity: Option<OrganizationBillingGetBillingError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -196,11 +190,10 @@ pub async fn organizations_organization_id_billing_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationBillingController.cs#L58`]
-pub async fn organizations_organization_id_billing_history_get(
+pub async fn organization_billing_get_history(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingHistoryGetError>> {
+) -> Result<(), Error<OrganizationBillingGetHistoryError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
 
@@ -227,7 +220,7 @@ pub async fn organizations_organization_id_billing_history_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdBillingHistoryGetError> =
+        let entity: Option<OrganizationBillingGetHistoryError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -237,13 +230,12 @@ pub async fn organizations_organization_id_billing_history_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationBillingController.cs#L78`]
-pub async fn organizations_organization_id_billing_invoices_get(
+pub async fn organization_billing_get_invoices(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     status: Option<&str>,
     start_after: Option<&str>,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingInvoicesGetError>> {
+) -> Result<(), Error<OrganizationBillingGetInvoicesError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_status = status;
@@ -278,7 +270,7 @@ pub async fn organizations_organization_id_billing_invoices_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdBillingInvoicesGetError> =
+        let entity: Option<OrganizationBillingGetInvoicesError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -288,11 +280,10 @@ pub async fn organizations_organization_id_billing_invoices_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationBillingController.cs#L38`]
-pub async fn organizations_organization_id_billing_metadata_get(
+pub async fn organization_billing_get_metadata(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingMetadataGetError>> {
+) -> Result<(), Error<OrganizationBillingGetMetadataError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
 
@@ -319,7 +310,7 @@ pub async fn organizations_organization_id_billing_metadata_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdBillingMetadataGetError> =
+        let entity: Option<OrganizationBillingGetMetadataError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -329,11 +320,10 @@ pub async fn organizations_organization_id_billing_metadata_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationBillingController.cs#L148`]
-pub async fn organizations_organization_id_billing_payment_method_get(
+pub async fn organization_billing_get_payment_method(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingPaymentMethodGetError>> {
+) -> Result<(), Error<OrganizationBillingGetPaymentMethodError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
 
@@ -360,7 +350,7 @@ pub async fn organizations_organization_id_billing_payment_method_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdBillingPaymentMethodGetError> =
+        let entity: Option<OrganizationBillingGetPaymentMethodError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -370,194 +360,10 @@ pub async fn organizations_organization_id_billing_payment_method_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationBillingController.cs#L172`]
-pub async fn organizations_organization_id_billing_payment_method_put(
+pub async fn organization_billing_get_tax_information(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
-    update_payment_method_request_body: Option<models::UpdatePaymentMethodRequestBody>,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingPaymentMethodPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
-    let p_update_payment_method_request_body = update_payment_method_request_body;
-
-    let uri_str = format!(
-        "{}/organizations/{organizationId}/billing/payment-method",
-        configuration.base_path,
-        organizationId = crate::apis::urlencode(p_organization_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_update_payment_method_request_body);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdBillingPaymentMethodPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationBillingController.cs#L198`]
-pub async fn organizations_organization_id_billing_payment_method_verify_bank_account_post(
-    configuration: &configuration::Configuration,
-    organization_id: uuid::Uuid,
-    verify_bank_account_request_body: Option<models::VerifyBankAccountRequestBody>,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingPaymentMethodVerifyBankAccountPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
-    let p_verify_bank_account_request_body = verify_bank_account_request_body;
-
-    let uri_str = format!(
-        "{}/organizations/{organizationId}/billing/payment-method/verify-bank-account",
-        configuration.base_path,
-        organizationId = crate::apis::urlencode(p_organization_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_verify_bank_account_request_body);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<
-            OrganizationsOrganizationIdBillingPaymentMethodVerifyBankAccountPostError,
-        > = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationBillingController.cs#L270`]
-pub async fn organizations_organization_id_billing_restart_subscription_post(
-    configuration: &configuration::Configuration,
-    organization_id: uuid::Uuid,
-    organization_create_request_model: Option<models::OrganizationCreateRequestModel>,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingRestartSubscriptionPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
-    let p_organization_create_request_model = organization_create_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{organizationId}/billing/restart-subscription",
-        configuration.base_path,
-        organizationId = crate::apis::urlencode(p_organization_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_create_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdBillingRestartSubscriptionPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationBillingController.cs#L337`]
-pub async fn organizations_organization_id_billing_setup_business_unit_post(
-    configuration: &configuration::Configuration,
-    organization_id: uuid::Uuid,
-    setup_business_unit_request_body: Option<models::SetupBusinessUnitRequestBody>,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingSetupBusinessUnitPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
-    let p_setup_business_unit_request_body = setup_business_unit_request_body;
-
-    let uri_str = format!(
-        "{}/organizations/{organizationId}/billing/setup-business-unit",
-        configuration.base_path,
-        organizationId = crate::apis::urlencode(p_organization_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_setup_business_unit_request_body);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdBillingSetupBusinessUnitPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationBillingController.cs#L223`]
-pub async fn organizations_organization_id_billing_tax_information_get(
-    configuration: &configuration::Configuration,
-    organization_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingTaxInformationGetError>> {
+) -> Result<(), Error<OrganizationBillingGetTaxInformationError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
 
@@ -584,7 +390,7 @@ pub async fn organizations_organization_id_billing_tax_information_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdBillingTaxInformationGetError> =
+        let entity: Option<OrganizationBillingGetTaxInformationError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -594,56 +400,11 @@ pub async fn organizations_organization_id_billing_tax_information_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationBillingController.cs#L247`]
-pub async fn organizations_organization_id_billing_tax_information_put(
-    configuration: &configuration::Configuration,
-    organization_id: uuid::Uuid,
-    tax_information_request_body: Option<models::TaxInformationRequestBody>,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingTaxInformationPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
-    let p_tax_information_request_body = tax_information_request_body;
-
-    let uri_str = format!(
-        "{}/organizations/{organizationId}/billing/tax-information",
-        configuration.base_path,
-        organizationId = crate::apis::urlencode(p_organization_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_tax_information_request_body);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdBillingTaxInformationPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Billing/Controllers/OrganizationBillingController.cs#L102`]
-pub async fn organizations_organization_id_billing_transactions_get(
+pub async fn organization_billing_get_transactions(
     configuration: &configuration::Configuration,
     organization_id: uuid::Uuid,
     start_after: Option<String>,
-) -> Result<(), Error<OrganizationsOrganizationIdBillingTransactionsGetError>> {
+) -> Result<(), Error<OrganizationBillingGetTransactionsError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_id = organization_id;
     let p_start_after = start_after;
@@ -674,7 +435,228 @@ pub async fn organizations_organization_id_billing_transactions_get(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrganizationIdBillingTransactionsGetError> =
+        let entity: Option<OrganizationBillingGetTransactionsError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_billing_restart_subscription(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    organization_create_request_model: Option<models::OrganizationCreateRequestModel>,
+) -> Result<(), Error<OrganizationBillingRestartSubscriptionError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_organization_create_request_model = organization_create_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/billing/restart-subscription",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_create_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationBillingRestartSubscriptionError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_billing_setup_business_unit(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    setup_business_unit_request_body: Option<models::SetupBusinessUnitRequestBody>,
+) -> Result<(), Error<OrganizationBillingSetupBusinessUnitError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_setup_business_unit_request_body = setup_business_unit_request_body;
+
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/billing/setup-business-unit",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_setup_business_unit_request_body);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationBillingSetupBusinessUnitError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_billing_update_payment_method(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    update_payment_method_request_body: Option<models::UpdatePaymentMethodRequestBody>,
+) -> Result<(), Error<OrganizationBillingUpdatePaymentMethodError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_update_payment_method_request_body = update_payment_method_request_body;
+
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/billing/payment-method",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_update_payment_method_request_body);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationBillingUpdatePaymentMethodError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_billing_update_tax_information(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    tax_information_request_body: Option<models::TaxInformationRequestBody>,
+) -> Result<(), Error<OrganizationBillingUpdateTaxInformationError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_tax_information_request_body = tax_information_request_body;
+
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/billing/tax-information",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_tax_information_request_body);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationBillingUpdateTaxInformationError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_billing_verify_bank_account(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    verify_bank_account_request_body: Option<models::VerifyBankAccountRequestBody>,
+) -> Result<(), Error<OrganizationBillingVerifyBankAccountError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_verify_bank_account_request_body = verify_bank_account_request_body;
+
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/billing/payment-method/verify-bank-account",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_verify_bank_account_request_body);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationBillingVerifyBankAccountError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

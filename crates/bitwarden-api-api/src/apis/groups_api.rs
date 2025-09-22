@@ -14,111 +14,109 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organizations_org_id_groups_delete`]
+/// struct for typed errors of method [`groups_bulk_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdGroupsDeleteError {
+pub enum GroupsBulkDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_groups_delete_post`]
+/// struct for typed errors of method [`groups_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdGroupsDeletePostError {
+pub enum GroupsDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_groups_details_get`]
+/// struct for typed errors of method [`groups_delete_user`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdGroupsDetailsGetError {
+pub enum GroupsDeleteUserError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_groups_get`]
+/// struct for typed errors of method [`groups_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdGroupsGetError {
+pub enum GroupsGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_groups_id_delete`]
+/// struct for typed errors of method [`groups_get_details`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdGroupsIdDeleteError {
+pub enum GroupsGetDetailsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_groups_id_delete_post`]
+/// struct for typed errors of method [`groups_get_organization_group_details`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdGroupsIdDeletePostError {
+pub enum GroupsGetOrganizationGroupDetailsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_org_id_groups_id_delete_user_org_user_id_post`]
+/// struct for typed errors of method [`groups_get_organization_groups`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdGroupsIdDeleteUserOrgUserIdPostError {
+pub enum GroupsGetOrganizationGroupsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_groups_id_details_get`]
+/// struct for typed errors of method [`groups_get_users`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdGroupsIdDetailsGetError {
+pub enum GroupsGetUsersError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_groups_id_get`]
+/// struct for typed errors of method [`groups_post`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdGroupsIdGetError {
+pub enum GroupsPostError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_groups_id_post`]
+/// struct for typed errors of method [`groups_post_bulk_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdGroupsIdPostError {
+pub enum GroupsPostBulkDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_groups_id_put`]
+/// struct for typed errors of method [`groups_post_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdGroupsIdPutError {
+pub enum GroupsPostDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_groups_id_user_org_user_id_delete`]
+/// struct for typed errors of method [`groups_post_delete_user`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdGroupsIdUserOrgUserIdDeleteError {
+pub enum GroupsPostDeleteUserError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_groups_id_users_get`]
+/// struct for typed errors of method [`groups_post_put`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdGroupsIdUsersGetError {
+pub enum GroupsPostPutError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_org_id_groups_post`]
+/// struct for typed errors of method [`groups_put`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsOrgIdGroupsPostError {
+pub enum GroupsPutError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/GroupsController.cs#L256`]
-pub async fn organizations_org_id_groups_delete(
+pub async fn groups_bulk_delete(
     configuration: &configuration::Configuration,
     org_id: &str,
     group_bulk_request_model: Option<models::GroupBulkRequestModel>,
-) -> Result<(), Error<OrganizationsOrgIdGroupsDeleteError>> {
+) -> Result<(), Error<GroupsBulkDeleteError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_group_bulk_request_model = group_bulk_request_model;
@@ -149,8 +147,7 @@ pub async fn organizations_org_id_groups_delete(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdGroupsDeleteError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<GroupsBulkDeleteError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -159,164 +156,11 @@ pub async fn organizations_org_id_groups_delete(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/GroupsController.cs#L256`]
-pub async fn organizations_org_id_groups_delete_post(
-    configuration: &configuration::Configuration,
-    org_id: &str,
-    group_bulk_request_model: Option<models::GroupBulkRequestModel>,
-) -> Result<(), Error<OrganizationsOrgIdGroupsDeletePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_group_bulk_request_model = group_bulk_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/groups/delete",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_group_bulk_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdGroupsDeletePostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/GroupsController.cs#L110`]
-pub async fn organizations_org_id_groups_details_get(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-) -> Result<
-    models::GroupDetailsResponseModelListResponseModel,
-    Error<OrganizationsOrgIdGroupsDetailsGetError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/groups/details",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::GroupDetailsResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::GroupDetailsResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdGroupsDetailsGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/GroupsController.cs#L96`]
-pub async fn organizations_org_id_groups_get(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-) -> Result<models::GroupResponseModelListResponseModel, Error<OrganizationsOrgIdGroupsGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/groups",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::GroupResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::GroupResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdGroupsGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/GroupsController.cs#L243`]
-pub async fn organizations_org_id_groups_id_delete(
+pub async fn groups_delete(
     configuration: &configuration::Configuration,
     org_id: &str,
     id: &str,
-) -> Result<(), Error<OrganizationsOrgIdGroupsIdDeleteError>> {
+) -> Result<(), Error<GroupsDeleteError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_id = id;
@@ -347,8 +191,7 @@ pub async fn organizations_org_id_groups_id_delete(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdGroupsIdDeleteError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<GroupsDeleteError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -357,66 +200,19 @@ pub async fn organizations_org_id_groups_id_delete(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/GroupsController.cs#L243`]
-pub async fn organizations_org_id_groups_id_delete_post(
-    configuration: &configuration::Configuration,
-    org_id: &str,
-    id: &str,
-) -> Result<(), Error<OrganizationsOrgIdGroupsIdDeletePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/groups/{id}/delete",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id),
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdGroupsIdDeletePostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/GroupsController.cs#L273`]
-pub async fn organizations_org_id_groups_id_delete_user_org_user_id_post(
+pub async fn groups_delete_user(
     configuration: &configuration::Configuration,
     org_id: &str,
     id: &str,
     org_user_id: &str,
-) -> Result<(), Error<OrganizationsOrgIdGroupsIdDeleteUserOrgUserIdPostError>> {
+) -> Result<(), Error<GroupsDeleteUserError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_id = id;
     let p_org_user_id = org_user_id;
 
     let uri_str = format!(
-        "{}/organizations/{orgId}/groups/{id}/delete-user/{orgUserId}",
+        "{}/organizations/{orgId}/groups/{id}/user/{orgUserId}",
         configuration.base_path,
         orgId = crate::apis::urlencode(p_org_id),
         id = crate::apis::urlencode(p_id),
@@ -424,7 +220,7 @@ pub async fn organizations_org_id_groups_id_delete_user_org_user_id_post(
     );
     let mut req_builder = configuration
         .client
-        .request(reqwest::Method::POST, &uri_str);
+        .request(reqwest::Method::DELETE, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
         req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
@@ -442,8 +238,7 @@ pub async fn organizations_org_id_groups_id_delete_user_org_user_id_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdGroupsIdDeleteUserOrgUserIdPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<GroupsDeleteUserError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -452,67 +247,11 @@ pub async fn organizations_org_id_groups_id_delete_user_org_user_id_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/GroupsController.cs#L84`]
-pub async fn organizations_org_id_groups_id_details_get(
+pub async fn groups_get(
     configuration: &configuration::Configuration,
     org_id: &str,
     id: &str,
-) -> Result<models::GroupDetailsResponseModel, Error<OrganizationsOrgIdGroupsIdDetailsGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/groups/{id}/details",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id),
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::GroupDetailsResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::GroupDetailsResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdGroupsIdDetailsGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/GroupsController.cs#L72`]
-pub async fn organizations_org_id_groups_id_get(
-    configuration: &configuration::Configuration,
-    org_id: &str,
-    id: &str,
-) -> Result<models::GroupResponseModel, Error<OrganizationsOrgIdGroupsIdGetError>> {
+) -> Result<models::GroupResponseModel, Error<GroupsGetError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_id = id;
@@ -552,7 +291,113 @@ pub async fn organizations_org_id_groups_id_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdGroupsIdGetError> =
+        let entity: Option<GroupsGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn groups_get_details(
+    configuration: &configuration::Configuration,
+    org_id: &str,
+    id: &str,
+) -> Result<models::GroupDetailsResponseModel, Error<GroupsGetDetailsError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/groups/{id}/details",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id),
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::GroupDetailsResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::GroupDetailsResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<GroupsGetDetailsError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn groups_get_organization_group_details(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+) -> Result<
+    models::GroupDetailsResponseModelListResponseModel,
+    Error<GroupsGetOrganizationGroupDetailsError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/groups/details",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::GroupDetailsResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::GroupDetailsResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<GroupsGetOrganizationGroupDetailsError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -562,13 +407,305 @@ pub async fn organizations_org_id_groups_id_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/GroupsController.cs#L168`]
-pub async fn organizations_org_id_groups_id_post(
+pub async fn groups_get_organization_groups(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+) -> Result<models::GroupResponseModelListResponseModel, Error<GroupsGetOrganizationGroupsError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/groups",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::GroupResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::GroupResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<GroupsGetOrganizationGroupsError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn groups_get_users(
+    configuration: &configuration::Configuration,
+    org_id: &str,
+    id: &str,
+) -> Result<Vec<uuid::Uuid>, Error<GroupsGetUsersError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/groups/{id}/users",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id),
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `Vec&lt;uuid::Uuid&gt;`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `Vec&lt;uuid::Uuid&gt;`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<GroupsGetUsersError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn groups_post(
+    configuration: &configuration::Configuration,
+    org_id: uuid::Uuid,
+    group_request_model: Option<models::GroupRequestModel>,
+) -> Result<models::GroupResponseModel, Error<GroupsPostError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_group_request_model = group_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/groups",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_group_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::GroupResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::GroupResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<GroupsPostError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn groups_post_bulk_delete(
+    configuration: &configuration::Configuration,
+    org_id: &str,
+    group_bulk_request_model: Option<models::GroupBulkRequestModel>,
+) -> Result<(), Error<GroupsPostBulkDeleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_group_bulk_request_model = group_bulk_request_model;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/groups/delete",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_group_bulk_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<GroupsPostBulkDeleteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn groups_post_delete(
+    configuration: &configuration::Configuration,
+    org_id: &str,
+    id: &str,
+) -> Result<(), Error<GroupsPostDeleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/groups/{id}/delete",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id),
+        id = crate::apis::urlencode(p_id)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<GroupsPostDeleteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn groups_post_delete_user(
+    configuration: &configuration::Configuration,
+    org_id: &str,
+    id: &str,
+    org_user_id: &str,
+) -> Result<(), Error<GroupsPostDeleteUserError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_org_id = org_id;
+    let p_id = id;
+    let p_org_user_id = org_user_id;
+
+    let uri_str = format!(
+        "{}/organizations/{orgId}/groups/{id}/delete-user/{orgUserId}",
+        configuration.base_path,
+        orgId = crate::apis::urlencode(p_org_id),
+        id = crate::apis::urlencode(p_id),
+        orgUserId = crate::apis::urlencode(p_org_user_id)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<GroupsPostDeleteUserError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn groups_post_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     id: uuid::Uuid,
     group_request_model: Option<models::GroupRequestModel>,
-) -> Result<models::GroupResponseModel, Error<OrganizationsOrgIdGroupsIdPostError>> {
+) -> Result<models::GroupResponseModel, Error<GroupsPostPutError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_id = id;
@@ -612,8 +749,7 @@ pub async fn organizations_org_id_groups_id_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdGroupsIdPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<GroupsPostPutError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -622,13 +758,12 @@ pub async fn organizations_org_id_groups_id_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/GroupsController.cs#L168`]
-pub async fn organizations_org_id_groups_id_put(
+pub async fn groups_put(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
     id: uuid::Uuid,
     group_request_model: Option<models::GroupRequestModel>,
-) -> Result<models::GroupResponseModel, Error<OrganizationsOrgIdGroupsIdPutError>> {
+) -> Result<models::GroupResponseModel, Error<GroupsPutError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
     let p_id = id;
@@ -670,168 +805,7 @@ pub async fn organizations_org_id_groups_id_put(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdGroupsIdPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/GroupsController.cs#L273`]
-pub async fn organizations_org_id_groups_id_user_org_user_id_delete(
-    configuration: &configuration::Configuration,
-    org_id: &str,
-    id: &str,
-    org_user_id: &str,
-) -> Result<(), Error<OrganizationsOrgIdGroupsIdUserOrgUserIdDeleteError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-    let p_org_user_id = org_user_id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/groups/{id}/user/{orgUserId}",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id),
-        id = crate::apis::urlencode(p_id),
-        orgUserId = crate::apis::urlencode(p_org_user_id)
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdGroupsIdUserOrgUserIdDeleteError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/GroupsController.cs#L125`]
-pub async fn organizations_org_id_groups_id_users_get(
-    configuration: &configuration::Configuration,
-    org_id: &str,
-    id: &str,
-) -> Result<Vec<uuid::Uuid>, Error<OrganizationsOrgIdGroupsIdUsersGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/groups/{id}/users",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id),
-        id = crate::apis::urlencode(p_id)
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `Vec&lt;uuid::Uuid&gt;`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `Vec&lt;uuid::Uuid&gt;`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdGroupsIdUsersGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/GroupsController.cs#L139`]
-pub async fn organizations_org_id_groups_post(
-    configuration: &configuration::Configuration,
-    org_id: uuid::Uuid,
-    group_request_model: Option<models::GroupRequestModel>,
-) -> Result<models::GroupResponseModel, Error<OrganizationsOrgIdGroupsPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_org_id = org_id;
-    let p_group_request_model = group_request_model;
-
-    let uri_str = format!(
-        "{}/organizations/{orgId}/groups",
-        configuration.base_path,
-        orgId = crate::apis::urlencode(p_org_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_group_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::GroupResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::GroupResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsOrgIdGroupsPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<GroupsPutError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

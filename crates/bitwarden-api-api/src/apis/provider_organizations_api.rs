@@ -14,47 +14,46 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`providers_provider_id_organizations_add_post`]
+/// struct for typed errors of method [`provider_organizations_add`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdOrganizationsAddPostError {
+pub enum ProviderOrganizationsAddError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_organizations_get`]
+/// struct for typed errors of method [`provider_organizations_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdOrganizationsGetError {
+pub enum ProviderOrganizationsDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_organizations_id_delete`]
+/// struct for typed errors of method [`provider_organizations_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdOrganizationsIdDeleteError {
+pub enum ProviderOrganizationsGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_organizations_id_delete_post`]
+/// struct for typed errors of method [`provider_organizations_post`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdOrganizationsIdDeletePostError {
+pub enum ProviderOrganizationsPostError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_organizations_post`]
+/// struct for typed errors of method [`provider_organizations_post_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdOrganizationsPostError {
+pub enum ProviderOrganizationsPostDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/ProviderOrganizationsController.cs#L65`]
-pub async fn providers_provider_id_organizations_add_post(
+pub async fn provider_organizations_add(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
     provider_organization_add_request_model: Option<models::ProviderOrganizationAddRequestModel>,
-) -> Result<(), Error<ProvidersProviderIdOrganizationsAddPostError>> {
+) -> Result<(), Error<ProviderOrganizationsAddError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_provider_id = provider_id;
     let p_provider_organization_add_request_model = provider_organization_add_request_model;
@@ -85,8 +84,7 @@ pub async fn providers_provider_id_organizations_add_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdOrganizationsAddPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<ProviderOrganizationsAddError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -95,13 +93,56 @@ pub async fn providers_provider_id_organizations_add_post(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/ProviderOrganizationsController.cs#L52`]
-pub async fn providers_provider_id_organizations_get(
+pub async fn provider_organizations_delete(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<ProviderOrganizationsDeleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/organizations/{id}",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderOrganizationsDeleteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_organizations_get(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
 ) -> Result<
     models::ProviderOrganizationOrganizationDetailsResponseModelListResponseModel,
-    Error<ProvidersProviderIdOrganizationsGetError>,
+    Error<ProviderOrganizationsGetError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_provider_id = provider_id;
@@ -140,8 +181,7 @@ pub async fn providers_provider_id_organizations_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdOrganizationsGetError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<ProviderOrganizationsGetError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -150,109 +190,13 @@ pub async fn providers_provider_id_organizations_get(
     }
 }
 
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/ProviderOrganizationsController.cs#L98`]
-pub async fn providers_provider_id_organizations_id_delete(
-    configuration: &configuration::Configuration,
-    provider_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<ProvidersProviderIdOrganizationsIdDeleteError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/organizations/{id}",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdOrganizationsIdDeleteError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/ProviderOrganizationsController.cs#L98`]
-pub async fn providers_provider_id_organizations_id_delete_post(
-    configuration: &configuration::Configuration,
-    provider_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<ProvidersProviderIdOrganizationsIdDeletePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/organizations/{id}/delete",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdOrganizationsIdDeletePostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/ProviderOrganizationsController.cs#L77`]
-pub async fn providers_provider_id_organizations_post(
+pub async fn provider_organizations_post(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
     provider_organization_create_request_model: Option<
         models::ProviderOrganizationCreateRequestModel,
     >,
-) -> Result<
-    models::ProviderOrganizationResponseModel,
-    Error<ProvidersProviderIdOrganizationsPostError>,
-> {
+) -> Result<models::ProviderOrganizationResponseModel, Error<ProviderOrganizationsPostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_provider_id = provider_id;
     let p_provider_organization_create_request_model = provider_organization_create_request_model;
@@ -294,7 +238,51 @@ pub async fn providers_provider_id_organizations_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdOrganizationsPostError> =
+        let entity: Option<ProviderOrganizationsPostError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_organizations_post_delete(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<ProviderOrganizationsPostDeleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/organizations/{id}/delete",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderOrganizationsPostDeleteError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

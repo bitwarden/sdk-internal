@@ -87,10 +87,16 @@ jobs:
         run: cargo sort --workspace --check
 
       - name: Install cargo-udeps
-        run: cargo install cargo-udeps --version 0.1.53 --locked
+        run: cargo install cargo-udeps --version 0.1.57 --locked
 
       - name: Cargo udeps
         run: cargo +"${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}" udeps --workspace --all-features
+
+      - name: Install cargo-dylint
+        run: cargo install cargo-dylint dylint-link --version 4.1.0 --locked
+
+      - name: Cargo dylint
+        run: cargo dylint --all -- --all-features --all-targets
 
       - name: Set up Node
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
