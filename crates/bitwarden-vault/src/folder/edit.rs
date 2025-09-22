@@ -7,7 +7,9 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{Folder, FolderAddEditRequest, FolderView, ItemNotFoundError, VaultParseError};
+use crate::{
+    Folder, FolderAddEditRequest, FolderId, FolderView, ItemNotFoundError, VaultParseError,
+};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -33,28 +35,25 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
     key_store: &KeyStore<KeyIds>,
     api_config: &bitwarden_api_api::apis::configuration::Configuration,
     repository: &R,
-    folder_id: &str,
+    folder_id: FolderId,
     request: FolderAddEditRequest,
 ) -> Result<FolderView, EditFolderError> {
+    let id = folder_id.to_string();
+
     // Verify the folder we're updating exists
-    repository
-        .get(folder_id.to_owned())
-        .await?
-        .ok_or(ItemNotFoundError)?;
+    repository.get(id.clone()).await?.ok_or(ItemNotFoundError)?;
 
     let folder_request = key_store.encrypt(request)?;
 
-    let resp = folders_api::folders_put(api_config, folder_id, Some(folder_request))
+    let resp = folders_api::folders_put(api_config, &id, Some(folder_request))
         .await
         .map_err(ApiError::from)?;
 
     let folder: Folder = resp.try_into()?;
 
-    debug_assert!(folder.id.unwrap_or_default().to_string() == folder_id);
+    debug_assert!(folder.id.unwrap_or_default() == folder_id);
 
-    repository
-        .set(folder_id.to_string(), folder.clone())
-        .await?;
+    repository.set(id, folder.clone()).await?;
 
     Ok(key_store.decrypt(&folder)?)
 }
@@ -129,7 +128,7 @@ mod tests {
             &store,
             &api_config,
             &repository,
-            &folder_id.to_string(),
+            folder_id,
             FolderAddEditRequest {
                 name: "test".to_string(),
             },
@@ -152,13 +151,13 @@ mod tests {
         let store: KeyStore<KeyIds> = KeyStore::default();
 
         let repository = MemoryRepository::<Folder>::default();
-        let folder_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
+        let folder_id = FolderId::new(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1"));
 
         let result = edit_folder(
             &store,
             &Configuration::default(),
             &repository,
-            &folder_id.to_string(),
+            folder_id,
             FolderAddEditRequest {
                 name: "test".to_string(),
             },
@@ -197,7 +196,7 @@ mod tests {
             &store,
             &api_config,
             &repository,
-            &folder_id.to_string(),
+            folder_id,
             FolderAddEditRequest {
                 name: "test".to_string(),
             },
