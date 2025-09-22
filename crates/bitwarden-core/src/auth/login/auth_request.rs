@@ -12,7 +12,10 @@ use crate::{
         api::{request::AuthRequestTokenRequest, response::IdentityTokenResponse},
         auth_request::new_auth_request,
     },
-    key_management::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
+    key_management::{
+        crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
+        UserDecryptionData,
+    },
     require, ApiError, Client,
 };
 
@@ -104,12 +107,27 @@ pub(crate) async fn complete_auth_request(
             },
         };
 
+        let master_password_unlock = r
+            .user_decryption_options
+            .as_ref()
+            .map(UserDecryptionData::try_from)
+            .transpose()?
+            .and_then(|user_decryption| user_decryption.master_password_unlock);
+        let kdf = master_password_unlock
+            .as_ref()
+            .map(|mpu| mpu.kdf.clone())
+            .unwrap_or_else(Kdf::default);
+        let salt = master_password_unlock
+            .as_ref()
+            .map(|mpu| mpu.salt.clone())
+            .unwrap_or_else(|| auth_req.email.clone());
+
         client
             .crypto()
             .initialize_user_crypto(InitUserCryptoRequest {
                 user_id: None,
-                kdf_params: Kdf::default(),
-                email: auth_req.email.clone(),
+                kdf_params: kdf,
+                email: salt,
                 private_key: require!(r.private_key).parse()?,
                 signing_key: None,
                 security_state: None,
