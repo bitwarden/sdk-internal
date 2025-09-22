@@ -21,6 +21,7 @@ pub enum PlansGetError {
     UnknownValue(serde_json::Value),
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/PlansController.cs#L16`]
 pub async fn plans_get(
     configuration: &configuration::Configuration,
 ) -> Result<models::PlanResponseModelListResponseModel, Error<PlansGetError>> {

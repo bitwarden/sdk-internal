@@ -355,6 +355,7 @@ pub async fn sends_get_send_file_download_data(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Tools/Controllers/SendsController.cs#L205`]
 pub async fn sends_post(
     configuration: &configuration::Configuration,
     send_request_model: Option<models::SendRequestModel>,

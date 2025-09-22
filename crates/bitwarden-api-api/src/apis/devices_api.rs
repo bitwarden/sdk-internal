@@ -507,6 +507,7 @@ pub async fn devices_get_device_keys(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Controllers/DevicesController.cs#L93`]
 pub async fn devices_post(
     configuration: &configuration::Configuration,
     device_request_model: Option<models::DeviceRequestModel>,

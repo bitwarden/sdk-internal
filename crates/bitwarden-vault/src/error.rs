@@ -1,6 +1,8 @@
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
+use crate::CipherError;
+
 /// Generic error type for vault encryption errors.
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]

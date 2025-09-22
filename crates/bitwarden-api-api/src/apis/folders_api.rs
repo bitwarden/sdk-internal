@@ -144,6 +144,7 @@ pub async fn folders_delete_all(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Vault/Controllers/FoldersController.cs#L49`]
 pub async fn folders_get(
     configuration: &configuration::Configuration,
     id: &str,
@@ -236,6 +237,7 @@ pub async fn folders_get_all(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Vault/Controllers/FoldersController.cs#L58`]
 pub async fn folders_post(
     configuration: &configuration::Configuration,
     folder_request_model: Option<models::FolderRequestModel>,

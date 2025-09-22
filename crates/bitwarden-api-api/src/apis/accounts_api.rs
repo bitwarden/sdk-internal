@@ -364,6 +364,7 @@ pub async fn accounts_api_key(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/AccountsController.cs#L435`]
 pub async fn accounts_delete(
     configuration: &configuration::Configuration,
     secret_verification_request_model: Option<models::SecretVerificationRequestModel>,

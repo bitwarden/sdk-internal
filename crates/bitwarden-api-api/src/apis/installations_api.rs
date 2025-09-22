@@ -78,6 +78,7 @@ pub async fn installations_get(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Platform/Installations/Controllers/InstallationsController.cs#L46`]
 pub async fn installations_post(
     configuration: &configuration::Configuration,
     installation_request_model: Option<models::InstallationRequestModel>,

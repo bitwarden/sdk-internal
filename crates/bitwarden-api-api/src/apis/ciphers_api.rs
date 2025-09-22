@@ -759,6 +759,7 @@ pub async fn ciphers_delete_many_admin(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Vault/Controllers/CiphersController.cs#L129`]
 pub async fn ciphers_get(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,

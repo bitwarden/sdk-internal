@@ -10,6 +10,7 @@ pub(crate) mod identity;
 pub(crate) mod linked_id;
 pub(crate) mod local_data;
 pub(crate) mod login;
+pub(crate) mod migrations;
 pub(crate) mod secure_note;
 pub(crate) mod ssh_key;
 

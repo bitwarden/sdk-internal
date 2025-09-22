@@ -256,6 +256,7 @@ pub async fn auth_requests_get_response(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/Auth/Controllers/AuthRequestsController.cs#L83`]
 pub async fn auth_requests_post(
     configuration: &configuration::Configuration,
     auth_request_create_request_model: Option<models::AuthRequestCreateRequestModel>,

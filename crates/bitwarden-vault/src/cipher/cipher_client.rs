@@ -7,8 +7,10 @@ use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
 use crate::{
-    cipher::cipher::DecryptCipherListResult, Cipher, CipherError, CipherListView, CipherView,
-    DecryptError, EncryptError, Fido2CredentialFullView,
+    cipher::cipher::{DecryptCipherListResult, CURRENT_CIPHER_VERSION},
+    migrations::registry::MigrationRegistry,
+    Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
+    Fido2CredentialFullView,
 };
 
 #[allow(missing_docs)]
@@ -174,6 +176,46 @@ impl CiphersClient {
         let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
         Ok(decrypted_key)
     }
+
+    #[allow(missing_docs)]
+    pub fn migrate(&self, mut ciphers: Vec<Cipher>) -> Result<Vec<Cipher>, CipherError> {
+        let registry = MigrationRegistry::new();
+        for cipher in &mut ciphers {
+            let key = cipher.key_identifier();
+            let key_store = self.client.internal.get_key_store();
+            let mut ctx = key_store.context();
+            let cipher_key = Cipher::decrypt_cipher_key(&mut ctx, key, &cipher.key)
+                .map_err(CipherError::CryptoError)?;
+
+            if let Some(data_str) = &mut cipher.data {
+                let mut data_json: serde_json::Value = serde_json::from_str(data_str)
+                    .map_err(|e| CipherError::MigrationFailed(e.to_string()))?;
+
+                let response_version = data_json
+                    .get("version")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(1) as u32;
+
+                if response_version < CURRENT_CIPHER_VERSION {
+                    registry.migrate(
+                        &mut data_json,
+                        response_version,
+                        CURRENT_CIPHER_VERSION,
+                        Some(&mut ctx),
+                        Some(cipher_key),
+                    )?;
+
+                    data_json["version"] = serde_json::json!(CURRENT_CIPHER_VERSION);
+
+                    *data_str = serde_json::to_string(&data_json)
+                        .map_err(|e| CipherError::MigrationFailed(e.to_string()))?;
+                }
+                cipher.populate_cipher_types()?;
+            }
+        }
+
+        Ok(ciphers)
+    }
 }
 
 #[cfg(test)]
@@ -286,6 +328,37 @@ mod tests {
             size: Some("65".to_string()),
             size_name: Some("65 Bytes".to_string()),
         }
+    }
+
+    fn test_cipher_v1() -> Cipher {
+        let mut cipher = test_cipher();
+        cipher.data = Some(
+            serde_json::to_string(&serde_json::json!({
+                "Username": "2.PE7g9afvjh9N57ORdUlCDQ==|d8C4kLo0CYAKfa9Gjp4mqg==|YmgGDxGWXtIzW+TJsjDW3CoS0k+U4NZSAwygzq6zV/0=",
+                "Password": "2.sGpXvg4a6BPFOPN3ePxZaQ==|ChseXEroqhbB11sBk+hH4Q==|SVz2WMGDvZSJwTivSnCFCCfQmmnuiHHPEgw4gzr09pQ=",
+                "Uris": [],
+                "Totp": null,
+                "version": 1
+            }))
+            .unwrap()
+        );
+        cipher
+    }
+
+    fn test_cipher_v2() -> Cipher {
+        let mut cipher = test_cipher();
+        cipher.data = Some(
+            serde_json::to_string(&serde_json::json!({
+                "Username": "2.PE7g9afvjh9N57ORdUlCDQ==|d8C4kLo0CYAKfa9Gjp4mqg==|YmgGDxGWXtIzW+TJsjDW3CoS0k+U4NZSAwygzq6zV/0=",
+                "Password": "2.sGpXvg4a6BPFOPN3ePxZaQ==|ChseXEroqhbB11sBk+hH4Q==|SVz2WMGDvZSJwTivSnCFCCfQmmnuiHHPEgw4gzr09pQ=",
+                "Uris": [],
+                "Totp": null,
+                "SecurityQuestions": [],
+                "version": CURRENT_CIPHER_VERSION
+            }))
+            .unwrap()
+        );
+        cipher
     }
 
     #[tokio::test]
@@ -537,5 +610,39 @@ mod tests {
             client.vault().ciphers().decrypt(ctx.cipher).err(),
             Some(DecryptError::Crypto(CryptoError::InvalidMac))
         ));
+    }
+
+    #[tokio::test]
+    async fn test_migrate_core_v1_login_adds_security_questions() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let ciphers = vec![test_cipher_v1(), test_cipher_v2()];
+        let migrated = client.vault().ciphers().migrate(ciphers).unwrap();
+
+        assert_eq!(migrated.len(), 2);
+
+        // Test first cipher (v1 should be migrated to v2)
+        let first_cipher = &migrated[0];
+        if let Some(data_str) = &first_cipher.data {
+            let data: serde_json::Value = serde_json::from_str(data_str).unwrap();
+            // Version should be updated inside the JSON
+            assert_eq!(
+                data.get("version").and_then(|v| v.as_u64()),
+                Some(CURRENT_CIPHER_VERSION as u64)
+            );
+            assert!(data.get("SecurityQuestions").is_some());
+            assert_eq!(data["SecurityQuestions"], serde_json::Value::Array(vec![]));
+        }
+
+        // Test second cipher (v2 should remain unchanged)
+        let second_cipher = &migrated[1];
+        if let Some(data_str) = &second_cipher.data {
+            let data: serde_json::Value = serde_json::from_str(data_str).unwrap();
+            assert_eq!(
+                data.get("version").and_then(|v| v.as_u64()),
+                Some(CURRENT_CIPHER_VERSION as u64)
+            );
+            assert!(data.get("SecurityQuestions").is_some());
+        }
     }
 }

@@ -1002,6 +1002,7 @@ pub async fn organizations_leave(
     }
 }
 
+///  This operation is defined on: [`https://github.com/bitwarden/server/blob/22420f595f2f50dd2fc0061743841285258aed22/src/Api/AdminConsole/Controllers/OrganizationsController.cs#L198`]
 pub async fn organizations_post(
     configuration: &configuration::Configuration,
     organization_create_request_model: Option<models::OrganizationCreateRequestModel>,
