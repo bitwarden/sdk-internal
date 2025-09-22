@@ -1,4 +1,5 @@
 use bitwarden_core::Client;
+use bitwarden_state::DatabaseConfiguration;
 use bitwarden_vault::{Cipher, Folder};
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
@@ -50,15 +51,43 @@ impl StateClient {
 repository::create_wasm_repository!(CipherRepository, Cipher, "Repository<Cipher>");
 repository::create_wasm_repository!(FolderRepository, Folder, "Repository<Folder>");
 
+#[derive(Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct IndexedDbConfiguration {
+    pub db_name: String,
+}
+
 #[wasm_bindgen]
 impl StateClient {
-    pub fn register_cipher_repository(&self, store: CipherRepository) {
-        let store = store.into_channel_impl();
-        self.0.platform().state().register_client_managed(store)
+    pub fn register_cipher_repository(&self, cipher_repository: CipherRepository) {
+        let cipher = cipher_repository.into_channel_impl();
+        self.0.platform().state().register_client_managed(cipher);
     }
 
     pub fn register_folder_repository(&self, store: FolderRepository) {
         let store = store.into_channel_impl();
         self.0.platform().state().register_client_managed(store)
+    }
+
+    /// Initialize the database for SDK managed repositories.
+    pub async fn initialize_state(
+        &self,
+        configuration: IndexedDbConfiguration,
+    ) -> Result<(), bitwarden_state::registry::StateRegistryError> {
+        let sdk_managed_repositories = bitwarden_state_migrations::get_sdk_managed_migrations();
+
+        self.0
+            .platform()
+            .state()
+            .initialize_database(configuration.into(), sdk_managed_repositories)
+            .await
+    }
+}
+
+impl From<IndexedDbConfiguration> for DatabaseConfiguration {
+    fn from(config: IndexedDbConfiguration) -> Self {
+        bitwarden_state::DatabaseConfiguration::IndexedDb {
+            db_name: config.db_name,
+        }
     }
 }

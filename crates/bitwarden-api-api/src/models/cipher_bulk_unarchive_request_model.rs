@@ -13,13 +13,13 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct VerifyBankAccountRequest {
-    #[serde(rename = "descriptorCode")]
-    pub descriptor_code: String,
+pub struct CipherBulkUnarchiveRequestModel {
+    #[serde(rename = "ids")]
+    pub ids: Vec<uuid::Uuid>,
 }
 
-impl VerifyBankAccountRequest {
-    pub fn new(descriptor_code: String) -> VerifyBankAccountRequest {
-        VerifyBankAccountRequest { descriptor_code }
+impl CipherBulkUnarchiveRequestModel {
+    pub fn new(ids: Vec<uuid::Uuid>) -> CipherBulkUnarchiveRequestModel {
+        CipherBulkUnarchiveRequestModel { ids }
     }
 }

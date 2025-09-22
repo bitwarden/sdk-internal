@@ -14,118 +14,165 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`providers_provider_id_users_confirm_post`]
+/// struct for typed errors of method [`provider_users_accept`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdUsersConfirmPostError {
+pub enum ProviderUsersAcceptError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_users_delete`]
+/// struct for typed errors of method [`provider_users_bulk_confirm`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdUsersDeleteError {
+pub enum ProviderUsersBulkConfirmError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_users_delete_post`]
+/// struct for typed errors of method [`provider_users_bulk_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdUsersDeletePostError {
+pub enum ProviderUsersBulkDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_users_get`]
+/// struct for typed errors of method [`provider_users_bulk_reinvite`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdUsersGetError {
+pub enum ProviderUsersBulkReinviteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_users_id_accept_post`]
+/// struct for typed errors of method [`provider_users_confirm`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdUsersIdAcceptPostError {
+pub enum ProviderUsersConfirmError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_users_id_confirm_post`]
+/// struct for typed errors of method [`provider_users_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdUsersIdConfirmPostError {
+pub enum ProviderUsersDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_users_id_delete`]
+/// struct for typed errors of method [`provider_users_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdUsersIdDeleteError {
+pub enum ProviderUsersGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_users_id_delete_post`]
+/// struct for typed errors of method [`provider_users_get_all`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdUsersIdDeletePostError {
+pub enum ProviderUsersGetAllError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_users_id_get`]
+/// struct for typed errors of method [`provider_users_invite`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdUsersIdGetError {
+pub enum ProviderUsersInviteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_users_id_post`]
+/// struct for typed errors of method [`provider_users_post_bulk_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdUsersIdPostError {
+pub enum ProviderUsersPostBulkDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_users_id_put`]
+/// struct for typed errors of method [`provider_users_post_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdUsersIdPutError {
+pub enum ProviderUsersPostDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_users_id_reinvite_post`]
+/// struct for typed errors of method [`provider_users_post_put`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdUsersIdReinvitePostError {
+pub enum ProviderUsersPostPutError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_users_invite_post`]
+/// struct for typed errors of method [`provider_users_put`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdUsersInvitePostError {
+pub enum ProviderUsersPutError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_users_public_keys_post`]
+/// struct for typed errors of method [`provider_users_reinvite`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdUsersPublicKeysPostError {
+pub enum ProviderUsersReinviteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`providers_provider_id_users_reinvite_post`]
+/// struct for typed errors of method [`provider_users_user_public_keys`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ProvidersProviderIdUsersReinvitePostError {
+pub enum ProviderUsersUserPublicKeysError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn providers_provider_id_users_confirm_post(
+pub async fn provider_users_accept(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+    id: uuid::Uuid,
+    provider_user_accept_request_model: Option<models::ProviderUserAcceptRequestModel>,
+) -> Result<(), Error<ProviderUsersAcceptError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_id = id;
+    let p_provider_user_accept_request_model = provider_user_accept_request_model;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/users/{id}/accept",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_provider_user_accept_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderUsersAcceptError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_users_bulk_confirm(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
     provider_user_bulk_confirm_request_model: Option<models::ProviderUserBulkConfirmRequestModel>,
 ) -> Result<
     models::ProviderUserBulkResponseModelListResponseModel,
-    Error<ProvidersProviderIdUsersConfirmPostError>,
+    Error<ProviderUsersBulkConfirmError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_provider_id = provider_id;
@@ -168,8 +215,7 @@ pub async fn providers_provider_id_users_confirm_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdUsersConfirmPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<ProviderUsersBulkConfirmError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -178,13 +224,13 @@ pub async fn providers_provider_id_users_confirm_post(
     }
 }
 
-pub async fn providers_provider_id_users_delete(
+pub async fn provider_users_bulk_delete(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
     provider_user_bulk_request_model: Option<models::ProviderUserBulkRequestModel>,
 ) -> Result<
     models::ProviderUserBulkResponseModelListResponseModel,
-    Error<ProvidersProviderIdUsersDeleteError>,
+    Error<ProviderUsersBulkDeleteError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_provider_id = provider_id;
@@ -227,8 +273,7 @@ pub async fn providers_provider_id_users_delete(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdUsersDeleteError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<ProviderUsersBulkDeleteError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -237,608 +282,13 @@ pub async fn providers_provider_id_users_delete(
     }
 }
 
-pub async fn providers_provider_id_users_delete_post(
+pub async fn provider_users_bulk_reinvite(
     configuration: &configuration::Configuration,
     provider_id: uuid::Uuid,
     provider_user_bulk_request_model: Option<models::ProviderUserBulkRequestModel>,
 ) -> Result<
     models::ProviderUserBulkResponseModelListResponseModel,
-    Error<ProvidersProviderIdUsersDeletePostError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_provider_user_bulk_request_model = provider_user_bulk_request_model;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/users/delete",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_provider_user_bulk_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProviderUserBulkResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProviderUserBulkResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdUsersDeletePostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn providers_provider_id_users_get(
-    configuration: &configuration::Configuration,
-    provider_id: uuid::Uuid,
-) -> Result<
-    models::ProviderUserUserDetailsResponseModelListResponseModel,
-    Error<ProvidersProviderIdUsersGetError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/users",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProviderUserUserDetailsResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProviderUserUserDetailsResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdUsersGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn providers_provider_id_users_id_accept_post(
-    configuration: &configuration::Configuration,
-    provider_id: uuid::Uuid,
-    id: uuid::Uuid,
-    provider_user_accept_request_model: Option<models::ProviderUserAcceptRequestModel>,
-) -> Result<(), Error<ProvidersProviderIdUsersIdAcceptPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_id = id;
-    let p_provider_user_accept_request_model = provider_user_accept_request_model;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/users/{id}/accept",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_provider_user_accept_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdUsersIdAcceptPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn providers_provider_id_users_id_confirm_post(
-    configuration: &configuration::Configuration,
-    provider_id: uuid::Uuid,
-    id: uuid::Uuid,
-    provider_user_confirm_request_model: Option<models::ProviderUserConfirmRequestModel>,
-) -> Result<(), Error<ProvidersProviderIdUsersIdConfirmPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_id = id;
-    let p_provider_user_confirm_request_model = provider_user_confirm_request_model;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/users/{id}/confirm",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_provider_user_confirm_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdUsersIdConfirmPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn providers_provider_id_users_id_delete(
-    configuration: &configuration::Configuration,
-    provider_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<ProvidersProviderIdUsersIdDeleteError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/users/{id}",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdUsersIdDeleteError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn providers_provider_id_users_id_delete_post(
-    configuration: &configuration::Configuration,
-    provider_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<ProvidersProviderIdUsersIdDeletePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/users/{id}/delete",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdUsersIdDeletePostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn providers_provider_id_users_id_get(
-    configuration: &configuration::Configuration,
-    provider_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<models::ProviderUserResponseModel, Error<ProvidersProviderIdUsersIdGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/users/{id}",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProviderUserResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProviderUserResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdUsersIdGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn providers_provider_id_users_id_post(
-    configuration: &configuration::Configuration,
-    provider_id: uuid::Uuid,
-    id: uuid::Uuid,
-    provider_user_update_request_model: Option<models::ProviderUserUpdateRequestModel>,
-) -> Result<(), Error<ProvidersProviderIdUsersIdPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_id = id;
-    let p_provider_user_update_request_model = provider_user_update_request_model;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/users/{id}",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_provider_user_update_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdUsersIdPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn providers_provider_id_users_id_put(
-    configuration: &configuration::Configuration,
-    provider_id: uuid::Uuid,
-    id: uuid::Uuid,
-    provider_user_update_request_model: Option<models::ProviderUserUpdateRequestModel>,
-) -> Result<(), Error<ProvidersProviderIdUsersIdPutError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_id = id;
-    let p_provider_user_update_request_model = provider_user_update_request_model;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/users/{id}",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_provider_user_update_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdUsersIdPutError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn providers_provider_id_users_id_reinvite_post(
-    configuration: &configuration::Configuration,
-    provider_id: uuid::Uuid,
-    id: uuid::Uuid,
-) -> Result<(), Error<ProvidersProviderIdUsersIdReinvitePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/users/{id}/reinvite",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id.to_string()),
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdUsersIdReinvitePostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn providers_provider_id_users_invite_post(
-    configuration: &configuration::Configuration,
-    provider_id: uuid::Uuid,
-    provider_user_invite_request_model: Option<models::ProviderUserInviteRequestModel>,
-) -> Result<(), Error<ProvidersProviderIdUsersInvitePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_provider_user_invite_request_model = provider_user_invite_request_model;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/users/invite",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_provider_user_invite_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdUsersInvitePostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn providers_provider_id_users_public_keys_post(
-    configuration: &configuration::Configuration,
-    provider_id: uuid::Uuid,
-    provider_user_bulk_request_model: Option<models::ProviderUserBulkRequestModel>,
-) -> Result<
-    models::ProviderUserPublicKeyResponseModelListResponseModel,
-    Error<ProvidersProviderIdUsersPublicKeysPostError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_provider_id = provider_id;
-    let p_provider_user_bulk_request_model = provider_user_bulk_request_model;
-
-    let uri_str = format!(
-        "{}/providers/{providerId}/users/public-keys",
-        configuration.base_path,
-        providerId = crate::apis::urlencode(p_provider_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_provider_user_bulk_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProviderUserPublicKeyResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProviderUserPublicKeyResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdUsersPublicKeysPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn providers_provider_id_users_reinvite_post(
-    configuration: &configuration::Configuration,
-    provider_id: uuid::Uuid,
-    provider_user_bulk_request_model: Option<models::ProviderUserBulkRequestModel>,
-) -> Result<
-    models::ProviderUserBulkResponseModelListResponseModel,
-    Error<ProvidersProviderIdUsersReinvitePostError>,
+    Error<ProviderUsersBulkReinviteError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_provider_id = provider_id;
@@ -881,8 +331,544 @@ pub async fn providers_provider_id_users_reinvite_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<ProvidersProviderIdUsersReinvitePostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<ProviderUsersBulkReinviteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_users_confirm(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+    id: uuid::Uuid,
+    provider_user_confirm_request_model: Option<models::ProviderUserConfirmRequestModel>,
+) -> Result<(), Error<ProviderUsersConfirmError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_id = id;
+    let p_provider_user_confirm_request_model = provider_user_confirm_request_model;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/users/{id}/confirm",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_provider_user_confirm_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderUsersConfirmError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_users_delete(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<ProviderUsersDeleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/users/{id}",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderUsersDeleteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_users_get(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<models::ProviderUserResponseModel, Error<ProviderUsersGetError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/users/{id}",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProviderUserResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProviderUserResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderUsersGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_users_get_all(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+) -> Result<
+    models::ProviderUserUserDetailsResponseModelListResponseModel,
+    Error<ProviderUsersGetAllError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/users",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProviderUserUserDetailsResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProviderUserUserDetailsResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderUsersGetAllError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_users_invite(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+    provider_user_invite_request_model: Option<models::ProviderUserInviteRequestModel>,
+) -> Result<(), Error<ProviderUsersInviteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_provider_user_invite_request_model = provider_user_invite_request_model;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/users/invite",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_provider_user_invite_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderUsersInviteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_users_post_bulk_delete(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+    provider_user_bulk_request_model: Option<models::ProviderUserBulkRequestModel>,
+) -> Result<
+    models::ProviderUserBulkResponseModelListResponseModel,
+    Error<ProviderUsersPostBulkDeleteError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_provider_user_bulk_request_model = provider_user_bulk_request_model;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/users/delete",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_provider_user_bulk_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProviderUserBulkResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProviderUserBulkResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderUsersPostBulkDeleteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_users_post_delete(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<ProviderUsersPostDeleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/users/{id}/delete",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderUsersPostDeleteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_users_post_put(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+    id: uuid::Uuid,
+    provider_user_update_request_model: Option<models::ProviderUserUpdateRequestModel>,
+) -> Result<(), Error<ProviderUsersPostPutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_id = id;
+    let p_provider_user_update_request_model = provider_user_update_request_model;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/users/{id}",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_provider_user_update_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderUsersPostPutError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_users_put(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+    id: uuid::Uuid,
+    provider_user_update_request_model: Option<models::ProviderUserUpdateRequestModel>,
+) -> Result<(), Error<ProviderUsersPutError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_id = id;
+    let p_provider_user_update_request_model = provider_user_update_request_model;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/users/{id}",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_provider_user_update_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderUsersPutError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_users_reinvite(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+    id: uuid::Uuid,
+) -> Result<(), Error<ProviderUsersReinviteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/users/{id}/reinvite",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string()),
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderUsersReinviteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn provider_users_user_public_keys(
+    configuration: &configuration::Configuration,
+    provider_id: uuid::Uuid,
+    provider_user_bulk_request_model: Option<models::ProviderUserBulkRequestModel>,
+) -> Result<
+    models::ProviderUserPublicKeyResponseModelListResponseModel,
+    Error<ProviderUsersUserPublicKeysError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_provider_id = provider_id;
+    let p_provider_user_bulk_request_model = provider_user_bulk_request_model;
+
+    let uri_str = format!(
+        "{}/providers/{providerId}/users/public-keys",
+        configuration.base_path,
+        providerId = crate::apis::urlencode(p_provider_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_provider_user_bulk_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProviderUserPublicKeyResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProviderUserPublicKeyResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<ProviderUsersUserPublicKeysError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

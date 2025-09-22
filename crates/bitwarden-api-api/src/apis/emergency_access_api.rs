@@ -14,189 +14,144 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`emergency_access_granted_get`]
+/// struct for typed errors of method [`emergency_access_accept`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessGrantedGetError {
+pub enum EmergencyAccessAcceptError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_accept_post`]
+/// struct for typed errors of method [`emergency_access_approve`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdAcceptPostError {
+pub enum EmergencyAccessApproveError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_approve_post`]
+/// struct for typed errors of method [`emergency_access_confirm`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdApprovePostError {
+pub enum EmergencyAccessConfirmError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_cipher_id_attachment_attachment_id_get`]
+/// struct for typed errors of method [`emergency_access_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdCipherIdAttachmentAttachmentIdGetError {
+pub enum EmergencyAccessDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_confirm_post`]
+/// struct for typed errors of method [`emergency_access_get`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdConfirmPostError {
+pub enum EmergencyAccessGetError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_delete`]
+/// struct for typed errors of method [`emergency_access_get_attachment_data`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdDeleteError {
+pub enum EmergencyAccessGetAttachmentDataError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_delete_post`]
+/// struct for typed errors of method [`emergency_access_get_contacts`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdDeletePostError {
+pub enum EmergencyAccessGetContactsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_get`]
+/// struct for typed errors of method [`emergency_access_get_grantees`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdGetError {
+pub enum EmergencyAccessGetGranteesError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_initiate_post`]
+/// struct for typed errors of method [`emergency_access_initiate`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdInitiatePostError {
+pub enum EmergencyAccessInitiateError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_password_post`]
+/// struct for typed errors of method [`emergency_access_invite`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdPasswordPostError {
+pub enum EmergencyAccessInviteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_policies_get`]
+/// struct for typed errors of method [`emergency_access_password`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdPoliciesGetError {
+pub enum EmergencyAccessPasswordError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_post`]
+/// struct for typed errors of method [`emergency_access_policies`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdPostError {
+pub enum EmergencyAccessPoliciesError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_put`]
+/// struct for typed errors of method [`emergency_access_post`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdPutError {
+pub enum EmergencyAccessPostError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_reinvite_post`]
+/// struct for typed errors of method [`emergency_access_post_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdReinvitePostError {
+pub enum EmergencyAccessPostDeleteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_reject_post`]
+/// struct for typed errors of method [`emergency_access_put`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdRejectPostError {
+pub enum EmergencyAccessPutError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_takeover_post`]
+/// struct for typed errors of method [`emergency_access_reinvite`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdTakeoverPostError {
+pub enum EmergencyAccessReinviteError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_id_view_post`]
+/// struct for typed errors of method [`emergency_access_reject`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessIdViewPostError {
+pub enum EmergencyAccessRejectError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_invite_post`]
+/// struct for typed errors of method [`emergency_access_takeover`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessInvitePostError {
+pub enum EmergencyAccessTakeoverError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`emergency_access_trusted_get`]
+/// struct for typed errors of method [`emergency_access_view_ciphers`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum EmergencyAccessTrustedGetError {
+pub enum EmergencyAccessViewCiphersError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn emergency_access_granted_get(
-    configuration: &configuration::Configuration,
-) -> Result<
-    models::EmergencyAccessGrantorDetailsResponseModelListResponseModel,
-    Error<EmergencyAccessGrantedGetError>,
-> {
-    let uri_str = format!("{}/emergency-access/granted", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::EmergencyAccessGrantorDetailsResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::EmergencyAccessGrantorDetailsResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<EmergencyAccessGrantedGetError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn emergency_access_id_accept_post(
+pub async fn emergency_access_accept(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
     organization_user_accept_request_model: Option<models::OrganizationUserAcceptRequestModel>,
-) -> Result<(), Error<EmergencyAccessIdAcceptPostError>> {
+) -> Result<(), Error<EmergencyAccessAcceptError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
     let p_organization_user_accept_request_model = organization_user_accept_request_model;
@@ -227,7 +182,7 @@ pub async fn emergency_access_id_accept_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdAcceptPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<EmergencyAccessAcceptError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -236,10 +191,10 @@ pub async fn emergency_access_id_accept_post(
     }
 }
 
-pub async fn emergency_access_id_approve_post(
+pub async fn emergency_access_approve(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-) -> Result<(), Error<EmergencyAccessIdApprovePostError>> {
+) -> Result<(), Error<EmergencyAccessApproveError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -268,7 +223,7 @@ pub async fn emergency_access_id_approve_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdApprovePostError> = serde_json::from_str(&content).ok();
+        let entity: Option<EmergencyAccessApproveError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -277,15 +232,147 @@ pub async fn emergency_access_id_approve_post(
     }
 }
 
-pub async fn emergency_access_id_cipher_id_attachment_attachment_id_get(
+pub async fn emergency_access_confirm(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+    organization_user_confirm_request_model: Option<models::OrganizationUserConfirmRequestModel>,
+) -> Result<(), Error<EmergencyAccessConfirmError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+    let p_organization_user_confirm_request_model = organization_user_confirm_request_model;
+
+    let uri_str = format!(
+        "{}/emergency-access/{id}/confirm",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_user_confirm_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<EmergencyAccessConfirmError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn emergency_access_delete(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+) -> Result<(), Error<EmergencyAccessDeleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/emergency-access/{id}",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<EmergencyAccessDeleteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn emergency_access_get(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+) -> Result<models::EmergencyAccessGranteeDetailsResponseModel, Error<EmergencyAccessGetError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/emergency-access/{id}",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::EmergencyAccessGranteeDetailsResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::EmergencyAccessGranteeDetailsResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<EmergencyAccessGetError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn emergency_access_get_attachment_data(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
     cipher_id: uuid::Uuid,
     attachment_id: &str,
-) -> Result<
-    models::AttachmentResponseModel,
-    Error<EmergencyAccessIdCipherIdAttachmentAttachmentIdGetError>,
-> {
+) -> Result<models::AttachmentResponseModel, Error<EmergencyAccessGetAttachmentDataError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
     let p_cipher_id = cipher_id;
@@ -327,7 +414,7 @@ pub async fn emergency_access_id_cipher_id_attachment_attachment_id_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdCipherIdAttachmentAttachmentIdGetError> =
+        let entity: Option<EmergencyAccessGetAttachmentDataError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -337,144 +424,13 @@ pub async fn emergency_access_id_cipher_id_attachment_attachment_id_get(
     }
 }
 
-pub async fn emergency_access_id_confirm_post(
+pub async fn emergency_access_get_contacts(
     configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-    organization_user_confirm_request_model: Option<models::OrganizationUserConfirmRequestModel>,
-) -> Result<(), Error<EmergencyAccessIdConfirmPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-    let p_organization_user_confirm_request_model = organization_user_confirm_request_model;
-
-    let uri_str = format!(
-        "{}/emergency-access/{id}/confirm",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_user_confirm_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdConfirmPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn emergency_access_id_delete(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-) -> Result<(), Error<EmergencyAccessIdDeleteError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/emergency-access/{id}",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdDeleteError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn emergency_access_id_delete_post(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-) -> Result<(), Error<EmergencyAccessIdDeletePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/emergency-access/{id}/delete",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdDeletePostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn emergency_access_id_get(
-    configuration: &configuration::Configuration,
-    id: uuid::Uuid,
-) -> Result<models::EmergencyAccessGranteeDetailsResponseModel, Error<EmergencyAccessIdGetError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_id = id;
-
-    let uri_str = format!(
-        "{}/emergency-access/{id}",
-        configuration.base_path,
-        id = crate::apis::urlencode(p_id.to_string())
-    );
+) -> Result<
+    models::EmergencyAccessGranteeDetailsResponseModelListResponseModel,
+    Error<EmergencyAccessGetContactsError>,
+> {
+    let uri_str = format!("{}/emergency-access/trusted", configuration.base_path);
     let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
@@ -499,12 +455,12 @@ pub async fn emergency_access_id_get(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::EmergencyAccessGranteeDetailsResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::EmergencyAccessGranteeDetailsResponseModel`")))),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::EmergencyAccessGranteeDetailsResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::EmergencyAccessGranteeDetailsResponseModelListResponseModel`")))),
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<EmergencyAccessGetContactsError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -513,10 +469,55 @@ pub async fn emergency_access_id_get(
     }
 }
 
-pub async fn emergency_access_id_initiate_post(
+pub async fn emergency_access_get_grantees(
+    configuration: &configuration::Configuration,
+) -> Result<
+    models::EmergencyAccessGrantorDetailsResponseModelListResponseModel,
+    Error<EmergencyAccessGetGranteesError>,
+> {
+    let uri_str = format!("{}/emergency-access/granted", configuration.base_path);
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::EmergencyAccessGrantorDetailsResponseModelListResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::EmergencyAccessGrantorDetailsResponseModelListResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<EmergencyAccessGetGranteesError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn emergency_access_initiate(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-) -> Result<(), Error<EmergencyAccessIdInitiatePostError>> {
+) -> Result<(), Error<EmergencyAccessInitiateError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -545,8 +546,7 @@ pub async fn emergency_access_id_initiate_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdInitiatePostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<EmergencyAccessInitiateError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -555,11 +555,49 @@ pub async fn emergency_access_id_initiate_post(
     }
 }
 
-pub async fn emergency_access_id_password_post(
+pub async fn emergency_access_invite(
+    configuration: &configuration::Configuration,
+    emergency_access_invite_request_model: Option<models::EmergencyAccessInviteRequestModel>,
+) -> Result<(), Error<EmergencyAccessInviteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_emergency_access_invite_request_model = emergency_access_invite_request_model;
+
+    let uri_str = format!("{}/emergency-access/invite", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_emergency_access_invite_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<EmergencyAccessInviteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn emergency_access_password(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
     emergency_access_password_request_model: Option<models::EmergencyAccessPasswordRequestModel>,
-) -> Result<(), Error<EmergencyAccessIdPasswordPostError>> {
+) -> Result<(), Error<EmergencyAccessPasswordError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
     let p_emergency_access_password_request_model = emergency_access_password_request_model;
@@ -590,8 +628,7 @@ pub async fn emergency_access_id_password_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdPasswordPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<EmergencyAccessPasswordError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -600,11 +637,10 @@ pub async fn emergency_access_id_password_post(
     }
 }
 
-pub async fn emergency_access_id_policies_get(
+pub async fn emergency_access_policies(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-) -> Result<models::PolicyResponseModelListResponseModel, Error<EmergencyAccessIdPoliciesGetError>>
-{
+) -> Result<models::PolicyResponseModelListResponseModel, Error<EmergencyAccessPoliciesError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -642,7 +678,7 @@ pub async fn emergency_access_id_policies_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdPoliciesGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<EmergencyAccessPoliciesError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -651,11 +687,11 @@ pub async fn emergency_access_id_policies_get(
     }
 }
 
-pub async fn emergency_access_id_post(
+pub async fn emergency_access_post(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
     emergency_access_update_request_model: Option<models::EmergencyAccessUpdateRequestModel>,
-) -> Result<(), Error<EmergencyAccessIdPostError>> {
+) -> Result<(), Error<EmergencyAccessPostError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
     let p_emergency_access_update_request_model = emergency_access_update_request_model;
@@ -686,7 +722,7 @@ pub async fn emergency_access_id_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<EmergencyAccessPostError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -695,11 +731,52 @@ pub async fn emergency_access_id_post(
     }
 }
 
-pub async fn emergency_access_id_put(
+pub async fn emergency_access_post_delete(
+    configuration: &configuration::Configuration,
+    id: uuid::Uuid,
+) -> Result<(), Error<EmergencyAccessPostDeleteError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_id = id;
+
+    let uri_str = format!(
+        "{}/emergency-access/{id}/delete",
+        configuration.base_path,
+        id = crate::apis::urlencode(p_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<EmergencyAccessPostDeleteError> = serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn emergency_access_put(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
     emergency_access_update_request_model: Option<models::EmergencyAccessUpdateRequestModel>,
-) -> Result<(), Error<EmergencyAccessIdPutError>> {
+) -> Result<(), Error<EmergencyAccessPutError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
     let p_emergency_access_update_request_model = emergency_access_update_request_model;
@@ -728,7 +805,7 @@ pub async fn emergency_access_id_put(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdPutError> = serde_json::from_str(&content).ok();
+        let entity: Option<EmergencyAccessPutError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -737,10 +814,10 @@ pub async fn emergency_access_id_put(
     }
 }
 
-pub async fn emergency_access_id_reinvite_post(
+pub async fn emergency_access_reinvite(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-) -> Result<(), Error<EmergencyAccessIdReinvitePostError>> {
+) -> Result<(), Error<EmergencyAccessReinviteError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -769,8 +846,7 @@ pub async fn emergency_access_id_reinvite_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdReinvitePostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<EmergencyAccessReinviteError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -779,10 +855,10 @@ pub async fn emergency_access_id_reinvite_post(
     }
 }
 
-pub async fn emergency_access_id_reject_post(
+pub async fn emergency_access_reject(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-) -> Result<(), Error<EmergencyAccessIdRejectPostError>> {
+) -> Result<(), Error<EmergencyAccessRejectError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -811,7 +887,7 @@ pub async fn emergency_access_id_reject_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdRejectPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<EmergencyAccessRejectError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -820,11 +896,10 @@ pub async fn emergency_access_id_reject_post(
     }
 }
 
-pub async fn emergency_access_id_takeover_post(
+pub async fn emergency_access_takeover(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-) -> Result<models::EmergencyAccessTakeoverResponseModel, Error<EmergencyAccessIdTakeoverPostError>>
-{
+) -> Result<models::EmergencyAccessTakeoverResponseModel, Error<EmergencyAccessTakeoverError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -864,8 +939,7 @@ pub async fn emergency_access_id_takeover_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdTakeoverPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<EmergencyAccessTakeoverError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -874,10 +948,10 @@ pub async fn emergency_access_id_takeover_post(
     }
 }
 
-pub async fn emergency_access_id_view_post(
+pub async fn emergency_access_view_ciphers(
     configuration: &configuration::Configuration,
     id: uuid::Uuid,
-) -> Result<models::EmergencyAccessViewResponseModel, Error<EmergencyAccessIdViewPostError>> {
+) -> Result<models::EmergencyAccessViewResponseModel, Error<EmergencyAccessViewCiphersError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_id = id;
 
@@ -917,90 +991,7 @@ pub async fn emergency_access_id_view_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<EmergencyAccessIdViewPostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn emergency_access_invite_post(
-    configuration: &configuration::Configuration,
-    emergency_access_invite_request_model: Option<models::EmergencyAccessInviteRequestModel>,
-) -> Result<(), Error<EmergencyAccessInvitePostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_emergency_access_invite_request_model = emergency_access_invite_request_model;
-
-    let uri_str = format!("{}/emergency-access/invite", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_emergency_access_invite_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<EmergencyAccessInvitePostError> = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn emergency_access_trusted_get(
-    configuration: &configuration::Configuration,
-) -> Result<
-    models::EmergencyAccessGranteeDetailsResponseModelListResponseModel,
-    Error<EmergencyAccessTrustedGetError>,
-> {
-    let uri_str = format!("{}/emergency-access/trusted", configuration.base_path);
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::EmergencyAccessGranteeDetailsResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::EmergencyAccessGranteeDetailsResponseModelListResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<EmergencyAccessTrustedGetError> = serde_json::from_str(&content).ok();
+        let entity: Option<EmergencyAccessViewCiphersError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

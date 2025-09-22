@@ -8,7 +8,7 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
+    derive_shareable_key, error::UnsupportedOperationError, signing, store::backend::StoreBackend,
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
     KeyIds, LocalId, PublicKeyEncryptionAlgorithm, Result, RotatedUserKeys, Signature,
     SignatureAlgorithm, SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey,
@@ -241,7 +241,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 )
             }
             _ => Err(CryptoError::OperationNotSupported(
-                UnsupportedOperation::EncryptionNotImplementedForKey,
+                UnsupportedOperationError::EncryptionNotImplementedForKey,
             )),
         }
     }
@@ -524,7 +524,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let key = self.get_symmetric_key(key)?;
         match key {
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
-                UnsupportedOperation::EncryptionNotImplementedForKey,
+                UnsupportedOperationError::EncryptionNotImplementedForKey,
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {

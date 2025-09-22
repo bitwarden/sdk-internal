@@ -20,8 +20,14 @@ no-memory-hardening = [
     "bitwarden-crypto/no-memory-hardening"
 ] # Disable memory hardening features
 secrets = [] # Secrets manager API
-uniffi = ["bitwarden-crypto/uniffi", "dep:uniffi"] # Uniffi bindings
+uniffi = [
+    "internal",
+    "bitwarden-crypto/uniffi",
+    "bitwarden-encoding/uniffi",
+    "dep:uniffi"
+] # Uniffi bindings
 wasm = [
+    "bitwarden-encoding/wasm",
     "bitwarden-error/wasm",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
@@ -30,12 +36,13 @@ wasm = [
 
 [dependencies]
 async-trait = { workspace = true }
-base64 = ">=0.22.1, <0.23"
 bitwarden-api-api = { workspace = true }
 bitwarden-api-identity = { workspace = true }
 bitwarden-crypto = { workspace = true }
+bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-state = { workspace = true }
+bitwarden-uniffi-error = { workspace = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
 # We don't use this directly (it's used by rand), but we need it here to enable WASM support

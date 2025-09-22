@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use bitwarden_core::{Client, VaultLockedError};
+use bitwarden_core::Client;
 use bitwarden_crypto::CryptoError;
 use bitwarden_vault::{CipherError, CipherView, EncryptionContext};
 use itertools::Itertools;
@@ -16,11 +16,11 @@ use thiserror::Error;
 
 use super::{
     try_from_credential_new_view, types::*, CheckUserOptions, CipherViewContainer,
-    Fido2CredentialStore, Fido2UserInterface, SelectedCredential, UnknownEnum, AAGUID,
+    Fido2CredentialStore, Fido2UserInterface, SelectedCredential, UnknownEnumError, AAGUID,
 };
 use crate::{
     fill_with_credential, string_to_guid_bytes, try_from_credential_full, Fido2CallbackError,
-    FillCredentialError, InvalidGuid,
+    FillCredentialError, InvalidGuidError,
 };
 
 #[derive(Debug, Error)]
@@ -31,18 +31,16 @@ pub enum GetSelectedCredentialError {
     NoCredentialFound,
 
     #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
-    #[error(transparent)]
-    CryptoError(#[from] CryptoError),
+    Crypto(#[from] CryptoError),
 }
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum MakeCredentialError {
     #[error(transparent)]
-    PublicKeyCredentialParametersError(#[from] PublicKeyCredentialParametersError),
+    PublicKeyCredentialParameters(#[from] PublicKeyCredentialParametersError),
     #[error(transparent)]
-    UnknownEnum(#[from] UnknownEnum),
+    UnknownEnum(#[from] UnknownEnumError),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error("Missing attested_credential_data")]
@@ -55,13 +53,13 @@ pub enum MakeCredentialError {
 #[derive(Debug, Error)]
 pub enum GetAssertionError {
     #[error(transparent)]
-    UnknownEnum(#[from] UnknownEnum),
+    UnknownEnum(#[from] UnknownEnumError),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
-    GetSelectedCredentialError(#[from] GetSelectedCredentialError),
+    GetSelectedCredential(#[from] GetSelectedCredentialError),
     #[error(transparent)]
-    InvalidGuid(#[from] InvalidGuid),
+    InvalidGuid(#[from] InvalidGuidError),
     #[error("missing user")]
     MissingUser,
     #[error("get_assertion error: {0}")]
@@ -72,30 +70,26 @@ pub enum GetAssertionError {
 #[derive(Debug, Error)]
 pub enum SilentlyDiscoverCredentialsError {
     #[error(transparent)]
-    CipherError(#[from] CipherError),
+    Cipher(#[from] CipherError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
+    InvalidGuid(#[from] InvalidGuidError),
     #[error(transparent)]
-    InvalidGuid(#[from] InvalidGuid),
+    Fido2Callback(#[from] Fido2CallbackError),
     #[error(transparent)]
-    Fido2CallbackError(#[from] Fido2CallbackError),
-    #[error(transparent)]
-    FromCipherViewError(#[from] Fido2CredentialAutofillViewError),
+    FromCipherView(#[from] Fido2CredentialAutofillViewError),
 }
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum CredentialsForAutofillError {
     #[error(transparent)]
-    CipherError(#[from] CipherError),
+    Cipher(#[from] CipherError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
+    InvalidGuid(#[from] InvalidGuidError),
     #[error(transparent)]
-    InvalidGuid(#[from] InvalidGuid),
+    Fido2Callback(#[from] Fido2CallbackError),
     #[error(transparent)]
-    Fido2CallbackError(#[from] Fido2CallbackError),
-    #[error(transparent)]
-    FromCipherViewError(#[from] Fido2CredentialAutofillViewError),
+    FromCipherView(#[from] Fido2CredentialAutofillViewError),
 }
 
 #[allow(missing_docs)]
@@ -294,7 +288,7 @@ impl<'a> Fido2Authenticator<'a> {
     pub(super) fn get_authenticator(
         &self,
         create_credential: bool,
-    ) -> Authenticator<CredentialStoreImpl, UserValidationMethodImpl> {
+    ) -> Authenticator<CredentialStoreImpl<'_>, UserValidationMethodImpl<'_>> {
         Authenticator::new(
             AAGUID,
             CredentialStoreImpl {
@@ -359,13 +353,11 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         #[derive(Debug, Error)]
         enum InnerError {
             #[error(transparent)]
-            VaultLocked(#[from] VaultLockedError),
+            Cipher(#[from] CipherError),
             #[error(transparent)]
-            CipherError(#[from] CipherError),
+            Crypto(#[from] CryptoError),
             #[error(transparent)]
-            CryptoError(#[from] CryptoError),
-            #[error(transparent)]
-            Fido2CallbackError(#[from] Fido2CallbackError),
+            Fido2Callback(#[from] Fido2CallbackError),
         }
 
         // This is just a wrapper around the actual implementation to allow for ? error handling
@@ -443,15 +435,13 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             #[error("Client User Id has not been set")]
             MissingUserId,
             #[error(transparent)]
-            VaultLocked(#[from] VaultLockedError),
+            FillCredential(#[from] FillCredentialError),
             #[error(transparent)]
-            FillCredentialError(#[from] FillCredentialError),
+            Cipher(#[from] CipherError),
             #[error(transparent)]
-            CipherError(#[from] CipherError),
+            Crypto(#[from] CryptoError),
             #[error(transparent)]
-            CryptoError(#[from] CryptoError),
-            #[error(transparent)]
-            Fido2CallbackError(#[from] Fido2CallbackError),
+            Fido2Callback(#[from] Fido2CallbackError),
 
             #[error("No selected credential available")]
             NoSelectedCredential,
@@ -521,21 +511,19 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             #[error("Client User Id has not been set")]
             MissingUserId,
             #[error(transparent)]
-            VaultLocked(#[from] VaultLockedError),
-            #[error(transparent)]
-            InvalidGuid(#[from] InvalidGuid),
+            InvalidGuid(#[from] InvalidGuidError),
             #[error("Credential ID does not match selected credential")]
             CredentialIdMismatch,
             #[error(transparent)]
-            FillCredentialError(#[from] FillCredentialError),
+            FillCredential(#[from] FillCredentialError),
             #[error(transparent)]
-            CipherError(#[from] CipherError),
+            Cipher(#[from] CipherError),
             #[error(transparent)]
-            CryptoError(#[from] CryptoError),
+            Crypto(#[from] CryptoError),
             #[error(transparent)]
-            Fido2CallbackError(#[from] Fido2CallbackError),
+            Fido2Callback(#[from] Fido2CallbackError),
             #[error(transparent)]
-            GetSelectedCredentialError(#[from] GetSelectedCredentialError),
+            GetSelectedCredential(#[from] GetSelectedCredentialError),
         }
 
         // This is just a wrapper around the actual implementation to allow for ? error handling

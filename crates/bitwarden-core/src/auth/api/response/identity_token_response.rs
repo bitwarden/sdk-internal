@@ -13,14 +13,14 @@ use crate::{
 };
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub enum IdentityTokenResponse {
+pub(crate) enum IdentityTokenResponse {
     Authenticated(IdentityTokenSuccessResponse),
     Payload(IdentityTokenPayloadResponse),
     Refreshed(IdentityTokenRefreshResponse),
     TwoFactorRequired(Box<IdentityTwoFactorResponse>),
 }
 
-pub fn parse_identity_response(
+pub(crate) fn parse_identity_response(
     status: StatusCode,
     response: String,
 ) -> Result<IdentityTokenResponse, LoginError> {

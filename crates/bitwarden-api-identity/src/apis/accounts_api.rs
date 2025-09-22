@@ -14,52 +14,98 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`accounts_prelogin_post`]
+/// struct for typed errors of method [`accounts_get_web_authn_login_assertion_options`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsPreloginPostError {
+pub enum AccountsGetWebAuthnLoginAssertionOptionsError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_register_finish_post`]
+/// struct for typed errors of method [`accounts_post_prelogin`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsRegisterFinishPostError {
+pub enum AccountsPostPreloginError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_register_send_verification_email_post`]
+/// struct for typed errors of method [`accounts_post_register_finish`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsRegisterSendVerificationEmailPostError {
+pub enum AccountsPostRegisterFinishError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_register_verification_email_clicked_post`]
+/// struct for typed errors of method [`accounts_post_register_send_verification_email`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsRegisterVerificationEmailClickedPostError {
+pub enum AccountsPostRegisterSendVerificationEmailError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_trial_send_verification_email_post`]
+/// struct for typed errors of method [`accounts_post_register_verification_email_clicked`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsTrialSendVerificationEmailPostError {
+pub enum AccountsPostRegisterVerificationEmailClickedError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`accounts_webauthn_assertion_options_get`]
+/// struct for typed errors of method [`accounts_post_trial_initiation_send_verification_email`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AccountsWebauthnAssertionOptionsGetError {
+pub enum AccountsPostTrialInitiationSendVerificationEmailError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn accounts_prelogin_post(
+pub async fn accounts_get_web_authn_login_assertion_options(
+    configuration: &configuration::Configuration,
+) -> Result<
+    models::WebAuthnLoginAssertionOptionsResponseModel,
+    Error<AccountsGetWebAuthnLoginAssertionOptionsError>,
+> {
+    let uri_str = format!(
+        "{}/accounts/webauthn/assertion-options",
+        configuration.base_path
+    );
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::WebAuthnLoginAssertionOptionsResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::WebAuthnLoginAssertionOptionsResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<AccountsGetWebAuthnLoginAssertionOptionsError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn accounts_post_prelogin(
     configuration: &configuration::Configuration,
     prelogin_request_model: Option<models::PreloginRequestModel>,
-) -> Result<models::PreloginResponseModel, Error<AccountsPreloginPostError>> {
+) -> Result<models::PreloginResponseModel, Error<AccountsPostPreloginError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_prelogin_request_model = prelogin_request_model;
 
@@ -93,7 +139,7 @@ pub async fn accounts_prelogin_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsPreloginPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostPreloginError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -102,10 +148,10 @@ pub async fn accounts_prelogin_post(
     }
 }
 
-pub async fn accounts_register_finish_post(
+pub async fn accounts_post_register_finish(
     configuration: &configuration::Configuration,
     register_finish_request_model: Option<models::RegisterFinishRequestModel>,
-) -> Result<models::RegisterFinishResponseModel, Error<AccountsRegisterFinishPostError>> {
+) -> Result<models::RegisterFinishResponseModel, Error<AccountsPostRegisterFinishError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_register_finish_request_model = register_finish_request_model;
 
@@ -139,7 +185,7 @@ pub async fn accounts_register_finish_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsRegisterFinishPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<AccountsPostRegisterFinishError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -148,12 +194,12 @@ pub async fn accounts_register_finish_post(
     }
 }
 
-pub async fn accounts_register_send_verification_email_post(
+pub async fn accounts_post_register_send_verification_email(
     configuration: &configuration::Configuration,
     register_send_verification_email_request_model: Option<
         models::RegisterSendVerificationEmailRequestModel,
     >,
-) -> Result<(), Error<AccountsRegisterSendVerificationEmailPostError>> {
+) -> Result<(), Error<AccountsPostRegisterSendVerificationEmailError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_register_send_verification_email_request_model =
         register_send_verification_email_request_model;
@@ -180,7 +226,7 @@ pub async fn accounts_register_send_verification_email_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsRegisterSendVerificationEmailPostError> =
+        let entity: Option<AccountsPostRegisterSendVerificationEmailError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -190,12 +236,12 @@ pub async fn accounts_register_send_verification_email_post(
     }
 }
 
-pub async fn accounts_register_verification_email_clicked_post(
+pub async fn accounts_post_register_verification_email_clicked(
     configuration: &configuration::Configuration,
     register_verification_email_clicked_request_model: Option<
         models::RegisterVerificationEmailClickedRequestModel,
     >,
-) -> Result<(), Error<AccountsRegisterVerificationEmailClickedPostError>> {
+) -> Result<(), Error<AccountsPostRegisterVerificationEmailClickedError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_register_verification_email_clicked_request_model =
         register_verification_email_clicked_request_model;
@@ -222,7 +268,7 @@ pub async fn accounts_register_verification_email_clicked_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsRegisterVerificationEmailClickedPostError> =
+        let entity: Option<AccountsPostRegisterVerificationEmailClickedError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -232,12 +278,12 @@ pub async fn accounts_register_verification_email_clicked_post(
     }
 }
 
-pub async fn accounts_trial_send_verification_email_post(
+pub async fn accounts_post_trial_initiation_send_verification_email(
     configuration: &configuration::Configuration,
     trial_send_verification_email_request_model: Option<
         models::TrialSendVerificationEmailRequestModel,
     >,
-) -> Result<(), Error<AccountsTrialSendVerificationEmailPostError>> {
+) -> Result<(), Error<AccountsPostTrialInitiationSendVerificationEmailError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_trial_send_verification_email_request_model = trial_send_verification_email_request_model;
 
@@ -263,53 +309,7 @@ pub async fn accounts_trial_send_verification_email_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<AccountsTrialSendVerificationEmailPostError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn accounts_webauthn_assertion_options_get(
-    configuration: &configuration::Configuration,
-) -> Result<
-    models::WebAuthnLoginAssertionOptionsResponseModel,
-    Error<AccountsWebauthnAssertionOptionsGetError>,
-> {
-    let uri_str = format!(
-        "{}/accounts/webauthn/assertion-options",
-        configuration.base_path
-    );
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::WebAuthnLoginAssertionOptionsResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::WebAuthnLoginAssertionOptionsResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<AccountsWebauthnAssertionOptionsGetError> =
+        let entity: Option<AccountsPostTrialInitiationSendVerificationEmailError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,

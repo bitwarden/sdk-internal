@@ -1,6 +1,10 @@
-use bitwarden_ssh::{error::SshKeyImportError, import::import_pkcs8_der_key};
+use bitwarden_ssh::{
+    error::{SshKeyExportError, SshKeyImportError},
+    export_pkcs8_der_key,
+    import::import_pkcs8_der_key,
+};
 use bitwarden_vault::FieldType;
-use credential_exchange_format::SshKeyCredential;
+use credential_exchange_format::{B64Url, Credential, SshKeyCredential};
 
 use crate::{cxf::editable_field::create_field, Field, SshKey};
 
@@ -28,21 +32,56 @@ pub(super) fn to_ssh(
         credential
             .creation_date
             .as_ref()
-            .map(|date| create_field("Creation Date", date)),
+            .map(|date| create_field(date, Some("Creation Date"))),
         credential
             .expiry_date
             .as_ref()
-            .map(|date| create_field("Expiry Date", date)),
+            .map(|date| create_field(date, Some("Expiry Date"))),
         credential
             .key_generation_source
             .as_ref()
-            .map(|source| create_field("Key Generation Source", source)),
+            .map(|source| create_field(source, Some("Key Generation Source"))),
     ]
     .into_iter()
     .flatten()
     .collect();
 
     Ok((ssh, fields))
+}
+
+impl TryFrom<SshKey> for Vec<Credential> {
+    type Error = SshKeyExportError;
+
+    fn try_from(ssh_key: SshKey) -> Result<Self, Self::Error> {
+        let der_bytes = export_pkcs8_der_key(&ssh_key.private_key)?;
+
+        let private_key = B64Url::from(der_bytes);
+
+        // Extract key type from public key
+        let key_type = extract_key_type(&ssh_key.public_key)?;
+
+        let ssh_credential = SshKeyCredential {
+            key_type,
+            private_key,
+            key_comment: None,
+            creation_date: None,
+            expiry_date: None,
+            key_generation_source: None,
+        };
+
+        Ok(vec![Credential::SshKey(Box::new(ssh_credential))])
+    }
+}
+
+/// Extract the key type from an SSH public key
+fn extract_key_type(public_key: &str) -> Result<String, SshKeyExportError> {
+    // SSH public keys start with the key type (ssh-rsa, ssh-ed25519, etc.)
+    let key_type = public_key
+        .split_whitespace()
+        .next()
+        .ok_or(SshKeyExportError::KeyConversion)?;
+
+    Ok(key_type.to_string())
 }
 
 #[cfg(test)]
@@ -95,5 +134,40 @@ mod tests {
         assert_eq!(fields[1].value.as_deref(), Some("2023-01-01"));
         assert_eq!(fields[2].value.as_deref(), Some("2025-01-01"));
         assert_eq!(fields[3].value.as_deref(), Some("Generated using OpenSSH"));
+    }
+
+    #[test]
+    fn test_try_into_credentials() {
+        let ssh = SshKey {
+            private_key: "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACAyQo22TXXNqvF+L8jUSSNeu8UqrsDjvf9pwIwDC9ML6gAAAJDSHpL60h6S\n+gAAAAtzc2gtZWQyNTUxOQAAACAyQo22TXXNqvF+L8jUSSNeu8UqrsDjvf9pwIwDC9ML6g\nAAAECLdlFLIJbEiFo/f0ROdXMNZAPHGPNhvbbftaPsUZEjaDJCjbZNdc2q8X4vyNRJI167\nxSquwOO9/2nAjAML0wvqAAAAB3Rlc3RrZXkBAgMEBQY=\n-----END OPENSSH PRIVATE KEY-----\n".to_string(),
+            public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDJCjbZNdc2q8X4vyNRJI167xSquwOO9/2nAjAML0wvq testkey".to_string(),
+            fingerprint: "SHA256:oaEiIEZe8SyB9Dh+eHD/SRkUj8enzP39H/sctgzbDb8".to_string(),
+        };
+
+        let credentials: Vec<Credential> = ssh.try_into().unwrap();
+
+        if let Credential::SshKey(ssh_credential) = credentials.first().unwrap() {
+            // Verify key type is extracted correctly
+            assert_eq!(ssh_credential.key_type, "ssh-ed25519");
+
+            // Verify optional fields are None
+            assert_eq!(ssh_credential.key_comment, None);
+            assert_eq!(ssh_credential.creation_date, None);
+            assert_eq!(ssh_credential.expiry_date, None);
+            assert_eq!(ssh_credential.key_generation_source, None);
+
+            // Verify roundtrip conversion works
+            let (ssh_converted, _) = to_ssh(ssh_credential).unwrap();
+            assert_eq!(
+                "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDJCjbZNdc2q8X4vyNRJI167xSquwOO9/2nAjAML0wvq",
+                ssh_converted.public_key
+            );
+            assert_eq!(
+                "SHA256:oaEiIEZe8SyB9Dh+eHD/SRkUj8enzP39H/sctgzbDb8",
+                ssh_converted.fingerprint
+            );
+        } else {
+            panic!("Expected Credential::SshKey");
+        }
     }
 }

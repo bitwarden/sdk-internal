@@ -14,19 +14,19 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`invoices_preview_organization_post`]
+/// struct for typed errors of method [`invoices_preview_invoice`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum InvoicesPreviewOrganizationPostError {
+pub enum InvoicesPreviewInvoiceError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn invoices_preview_organization_post(
+pub async fn invoices_preview_invoice(
     configuration: &configuration::Configuration,
     preview_organization_invoice_request_body: Option<
         models::PreviewOrganizationInvoiceRequestBody,
     >,
-) -> Result<(), Error<InvoicesPreviewOrganizationPostError>> {
+) -> Result<(), Error<InvoicesPreviewInvoiceError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_preview_organization_invoice_request_body = preview_organization_invoice_request_body;
 
@@ -52,8 +52,7 @@ pub async fn invoices_preview_organization_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<InvoicesPreviewOrganizationPostError> =
-            serde_json::from_str(&content).ok();
+        let entity: Option<InvoicesPreviewInvoiceError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

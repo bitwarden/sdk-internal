@@ -3,14 +3,13 @@
 //! Handles conversion between internal [Login] and credential exchange [BasicAuthCredential] and
 //! [PasskeyCredential].
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::MissingFieldError;
-use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
+use bitwarden_fido::{string_to_guid_bytes, InvalidGuidError};
 use bitwarden_vault::{FieldType, Totp, TotpAlgorithm};
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
-    AndroidAppIdCredential, BasicAuthCredential, CredentialScope, OTPHashAlgorithm,
-    PasskeyCredential, TotpCredential,
+    AndroidAppIdCredential, B64Url, BasicAuthCredential, CredentialScope, NotB64UrlEncoded,
+    OTPHashAlgorithm, PasskeyCredential, TotpCredential,
 };
 use thiserror::Error;
 
@@ -56,10 +55,25 @@ pub(super) fn to_login(
     totp: Option<&TotpCredential>,
     scope: Option<&CredentialScope>,
 ) -> Login {
+    // Use basic_auth username first, fallback to non-empty passkey username
+    let username = basic_auth
+        .and_then(|v| v.username.clone().map(Into::into))
+        .or_else(|| {
+            passkey
+                .filter(|p| !p.username.is_empty())
+                .map(|p| p.username.clone())
+        });
+
+    // Use scope URIs first, fallback to passkey rp_id
+    let login_uris = scope
+        .map(to_uris)
+        .or_else(|| passkey.map(|p| vec![passkey_rp_id_to_uri(&p.rp_id)]))
+        .unwrap_or_default();
+
     Login {
-        username: basic_auth.and_then(|v| v.username.clone().map(|v| v.into())),
+        username,
         password: basic_auth.and_then(|v| v.password.clone().map(|u| u.into())),
-        login_uris: scope.map(to_uris).unwrap_or_default(),
+        login_uris,
         totp: totp.map(|t| totp_credential_to_totp(t).to_string()),
         fido2_credentials: passkey.map(|p| {
             vec![Fido2Credential {
@@ -67,7 +81,7 @@ pub(super) fn to_login(
                 key_type: "public-key".to_string(),
                 key_algorithm: "ECDSA".to_string(),
                 key_curve: "P-256".to_string(),
-                key_value: URL_SAFE_NO_PAD.encode(&p.key),
+                key_value: p.key.to_string(),
                 rp_id: p.rp_id.clone(),
                 user_handle: Some(p.user_handle.to_string()),
                 user_name: Some(p.username.clone()),
@@ -81,19 +95,34 @@ pub(super) fn to_login(
     }
 }
 
+/// Creates a LoginUri from a URL string
+fn create_login_uri(uri: String) -> LoginUri {
+    LoginUri {
+        uri: Some(uri),
+        r#match: None,
+    }
+}
+
+/// Creates URIs from a passkey's rp_id, adding https:// prefix for domain-like strings
+fn passkey_rp_id_to_uri(rp_id: &str) -> LoginUri {
+    let uri = if rp_id.contains('.') && !rp_id.starts_with("http") {
+        format!("https://{rp_id}")
+    } else {
+        rp_id.to_string()
+    };
+    create_login_uri(uri)
+}
+
 /// Converts a `CredentialScope` to a vector of `LoginUri` objects.
 ///
 /// This is used for login credentials.
 fn to_uris(scope: &CredentialScope) -> Vec<LoginUri> {
-    let urls = scope.urls.iter().map(|u| LoginUri {
-        uri: Some(u.clone()),
-        r#match: None,
-    });
+    let urls = scope.urls.iter().map(|u| create_login_uri(u.clone()));
 
-    let android_apps = scope.android_apps.iter().map(|a| LoginUri {
-        uri: Some(format!("{ANDROID_APP_SCHEME}{}", a.bundle_id)),
-        r#match: None,
-    });
+    let android_apps = scope
+        .android_apps
+        .iter()
+        .map(|a| create_login_uri(format!("{ANDROID_APP_SCHEME}{}", a.bundle_id)));
 
     urls.chain(android_apps).collect()
 }
@@ -158,11 +187,11 @@ pub enum PasskeyError {
     #[error("Counter is not zero")]
     CounterNotZero,
     #[error(transparent)]
-    InvalidGuid(InvalidGuid),
+    InvalidGuid(InvalidGuidError),
     #[error(transparent)]
     MissingField(MissingFieldError),
-    #[error(transparent)]
-    InvalidBase64(#[from] base64::DecodeError),
+    #[error("Data isn't base64url encoded")]
+    InvalidBase64(NotB64UrlEncoded),
 }
 
 impl TryFrom<Fido2Credential> for PasskeyCredential {
@@ -182,11 +211,11 @@ impl TryFrom<Fido2Credential> for PasskeyCredential {
             user_display_name: value.user_display_name.unwrap_or_default(),
             user_handle: value
                 .user_handle
-                .map(|v| URL_SAFE_NO_PAD.decode(v))
-                .transpose()?
-                .map(|v| v.into())
+                .map(|v| B64Url::try_from(v.as_str()))
+                .transpose()
+                .map_err(PasskeyError::InvalidBase64)?
                 .ok_or(PasskeyError::MissingField(MissingFieldError("user_handle")))?,
-            key: URL_SAFE_NO_PAD.decode(value.key_value)?.into(),
+            key: B64Url::try_from(value.key_value.as_str()).map_err(PasskeyError::InvalidBase64)?,
             fido2_extensions: None,
         })
     }
@@ -601,5 +630,34 @@ mod tests {
         // Test steam with whitespace (will not match)
         let result = convert_otp_algorithm(&OTPHashAlgorithm::Unknown(" steam ".to_string()));
         assert_eq!(result, TotpAlgorithm::Sha1); // will default to SHA1
+    }
+
+    // Tests for the new helper functions
+    #[test]
+    fn test_passkey_rp_id_to_uri_with_domain() {
+        let uri = passkey_rp_id_to_uri("example.com");
+        assert_eq!(uri.uri, Some("https://example.com".to_string()));
+        assert_eq!(uri.r#match, None);
+    }
+
+    #[test]
+    fn test_passkey_rp_id_to_uri_with_https() {
+        let uri = passkey_rp_id_to_uri("https://example.com");
+        assert_eq!(uri.uri, Some("https://example.com".to_string()));
+        assert_eq!(uri.r#match, None);
+    }
+
+    #[test]
+    fn test_passkey_rp_id_to_uri_without_domain() {
+        let uri = passkey_rp_id_to_uri("localhost");
+        assert_eq!(uri.uri, Some("localhost".to_string()));
+        assert_eq!(uri.r#match, None);
+    }
+
+    #[test]
+    fn test_create_login_uri() {
+        let uri = create_login_uri("https://test.example".to_string());
+        assert_eq!(uri.uri, Some("https://test.example".to_string()));
+        assert_eq!(uri.r#match, None);
     }
 }

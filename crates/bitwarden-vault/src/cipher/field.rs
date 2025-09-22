@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::CipherFieldModel;
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
-    require,
+    require, MissingFieldError,
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
@@ -18,7 +18,7 @@ use super::linked_id::LinkedIdType;
 use crate::VaultParseError;
 
 /// Represents the type of a [FieldView].
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug)]
+#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq, Eq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -31,6 +31,20 @@ pub enum FieldType {
     Boolean = 2,
     /// Linked field
     Linked = 3,
+}
+
+impl TryFrom<u8> for FieldType {
+    type Error = MissingFieldError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(FieldType::Text),
+            1 => Ok(FieldType::Hidden),
+            2 => Ok(FieldType::Boolean),
+            3 => Ok(FieldType::Linked),
+            _ => Err(MissingFieldError("FieldType")),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -112,5 +126,24 @@ impl From<bitwarden_api_api::models::FieldType> for FieldType {
             bitwarden_api_api::models::FieldType::Boolean => FieldType::Boolean,
             bitwarden_api_api::models::FieldType::Linked => FieldType::Linked,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_field_type_try_from_u8_valid() {
+        assert_eq!(FieldType::try_from(0).unwrap(), FieldType::Text);
+        assert_eq!(FieldType::try_from(1).unwrap(), FieldType::Hidden);
+        assert_eq!(FieldType::try_from(2).unwrap(), FieldType::Boolean);
+        assert_eq!(FieldType::try_from(3).unwrap(), FieldType::Linked);
+    }
+
+    #[test]
+    fn test_field_type_try_from_u8_invalid() {
+        assert!(FieldType::try_from(4).is_err());
+        assert!(FieldType::try_from(255).is_err());
     }
 }

@@ -14,53 +14,51 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organizations_connections_enabled_get`]
+/// struct for typed errors of method [`organization_connections_connections_enabled`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsConnectionsEnabledGetError {
+pub enum OrganizationConnectionsConnectionsEnabledError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_connections_organization_connection_id_delete`]
+/// struct for typed errors of method [`organization_connections_create_connection`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsConnectionsOrganizationConnectionIdDeleteError {
+pub enum OrganizationConnectionsCreateConnectionError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organizations_connections_organization_connection_id_delete_post`]
+/// struct for typed errors of method [`organization_connections_delete_connection`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsConnectionsOrganizationConnectionIdDeletePostError {
+pub enum OrganizationConnectionsDeleteConnectionError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_connections_organization_connection_id_put`]
+/// struct for typed errors of method [`organization_connections_get_connection`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsConnectionsOrganizationConnectionIdPutError {
+pub enum OrganizationConnectionsGetConnectionError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_connections_organization_id_type_get`]
+/// struct for typed errors of method [`organization_connections_post_delete_connection`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsConnectionsOrganizationIdTypeGetError {
+pub enum OrganizationConnectionsPostDeleteConnectionError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`organizations_connections_post`]
+/// struct for typed errors of method [`organization_connections_update_connection`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationsConnectionsPostError {
+pub enum OrganizationConnectionsUpdateConnectionError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn organizations_connections_enabled_get(
+pub async fn organization_connections_connections_enabled(
     configuration: &configuration::Configuration,
-) -> Result<bool, Error<OrganizationsConnectionsEnabledGetError>> {
+) -> Result<bool, Error<OrganizationConnectionsConnectionsEnabledError>> {
     let uri_str = format!(
         "{}/organizations/connections/enabled",
         configuration.base_path
@@ -94,7 +92,7 @@ pub async fn organizations_connections_enabled_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsConnectionsEnabledGetError> =
+        let entity: Option<OrganizationConnectionsConnectionsEnabledError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -104,10 +102,63 @@ pub async fn organizations_connections_enabled_get(
     }
 }
 
-pub async fn organizations_connections_organization_connection_id_delete(
+pub async fn organization_connections_create_connection(
+    configuration: &configuration::Configuration,
+    organization_connection_request_model: Option<models::OrganizationConnectionRequestModel>,
+) -> Result<
+    models::OrganizationConnectionResponseModel,
+    Error<OrganizationConnectionsCreateConnectionError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_connection_request_model = organization_connection_request_model;
+
+    let uri_str = format!("{}/organizations/connections", configuration.base_path);
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_connection_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationConnectionResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationConnectionResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationConnectionsCreateConnectionError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_connections_delete_connection(
     configuration: &configuration::Configuration,
     organization_connection_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsConnectionsOrganizationConnectionIdDeleteError>> {
+) -> Result<(), Error<OrganizationConnectionsDeleteConnectionError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_connection_id = organization_connection_id;
 
@@ -136,7 +187,7 @@ pub async fn organizations_connections_organization_connection_id_delete(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsConnectionsOrganizationConnectionIdDeleteError> =
+        let entity: Option<OrganizationConnectionsDeleteConnectionError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -146,10 +197,62 @@ pub async fn organizations_connections_organization_connection_id_delete(
     }
 }
 
-pub async fn organizations_connections_organization_connection_id_delete_post(
+pub async fn organization_connections_get_connection(
+    configuration: &configuration::Configuration,
+    organization_id: uuid::Uuid,
+    r#type: models::OrganizationConnectionType,
+) -> Result<
+    models::OrganizationConnectionResponseModel,
+    Error<OrganizationConnectionsGetConnectionError>,
+> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_organization_id = organization_id;
+    let p_type = r#type;
+
+    let uri_str = format!("{}/organizations/connections/{organizationId}/{type}", configuration.base_path, organizationId=crate::apis::urlencode(p_organization_id.to_string()), type=p_type.to_string());
+    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let content_type = super::ContentType::from(content_type);
+
+    if !status.is_client_error() && !status.is_server_error() {
+        let content = resp.text().await?;
+        match content_type {
+            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
+            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationConnectionResponseModel`"))),
+            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationConnectionResponseModel`")))),
+        }
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<OrganizationConnectionsGetConnectionError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn organization_connections_post_delete_connection(
     configuration: &configuration::Configuration,
     organization_connection_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationsConnectionsOrganizationConnectionIdDeletePostError>> {
+) -> Result<(), Error<OrganizationConnectionsPostDeleteConnectionError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_connection_id = organization_connection_id;
 
@@ -178,7 +281,7 @@ pub async fn organizations_connections_organization_connection_id_delete_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsConnectionsOrganizationConnectionIdDeletePostError> =
+        let entity: Option<OrganizationConnectionsPostDeleteConnectionError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -188,13 +291,13 @@ pub async fn organizations_connections_organization_connection_id_delete_post(
     }
 }
 
-pub async fn organizations_connections_organization_connection_id_put(
+pub async fn organization_connections_update_connection(
     configuration: &configuration::Configuration,
     organization_connection_id: uuid::Uuid,
     organization_connection_request_model: Option<models::OrganizationConnectionRequestModel>,
 ) -> Result<
     models::OrganizationConnectionResponseModel,
-    Error<OrganizationsConnectionsOrganizationConnectionIdPutError>,
+    Error<OrganizationConnectionsUpdateConnectionError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_organization_connection_id = organization_connection_id;
@@ -235,109 +338,8 @@ pub async fn organizations_connections_organization_connection_id_put(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationsConnectionsOrganizationConnectionIdPutError> =
+        let entity: Option<OrganizationConnectionsUpdateConnectionError> =
             serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_connections_organization_id_type_get(
-    configuration: &configuration::Configuration,
-    organization_id: uuid::Uuid,
-    r#type: models::OrganizationConnectionType,
-) -> Result<
-    models::OrganizationConnectionResponseModel,
-    Error<OrganizationsConnectionsOrganizationIdTypeGetError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_id = organization_id;
-    let p_type = r#type;
-
-    let uri_str = format!("{}/organizations/connections/{organizationId}/{type}", configuration.base_path, organizationId=crate::apis::urlencode(p_organization_id.to_string()), type=p_type.to_string());
-    let mut req_builder = configuration.client.request(reqwest::Method::GET, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationConnectionResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationConnectionResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsConnectionsOrganizationIdTypeGetError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organizations_connections_post(
-    configuration: &configuration::Configuration,
-    organization_connection_request_model: Option<models::OrganizationConnectionRequestModel>,
-) -> Result<models::OrganizationConnectionResponseModel, Error<OrganizationsConnectionsPostError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_organization_connection_request_model = organization_connection_request_model;
-
-    let uri_str = format!("{}/organizations/connections", configuration.base_path);
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_connection_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let content_type = super::ContentType::from(content_type);
-
-    if !status.is_client_error() && !status.is_server_error() {
-        let content = resp.text().await?;
-        match content_type {
-            ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationConnectionResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationConnectionResponseModel`")))),
-        }
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationsConnectionsPostError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct PasswordTokenRequest {
+pub(crate) struct PasswordTokenRequest {
     scope: String,
     client_id: String,
     #[serde(rename = "deviceType")]
@@ -35,7 +35,7 @@ pub struct PasswordTokenRequest {
 }
 
 impl PasswordTokenRequest {
-    pub fn new(
+    pub(crate) fn new(
         email: &str,
         password_hash: &str,
         device_type: DeviceType,
