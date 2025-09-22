@@ -1,9 +1,11 @@
 use bitwarden_api_api::{apis::ciphers_api, models::CipherRequestModel};
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
-    require, ApiError, MissingFieldError, UserId,
+    require, ApiError, MissingFieldError, OrganizationId, UserId,
 };
-use bitwarden_crypto::{CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext};
+use bitwarden_crypto::{
+    CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, PrimitiveEncryptable,
+};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use serde::{Deserialize, Serialize};
@@ -14,7 +16,10 @@ use tsify::Tsify;
 use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
-use crate::{Cipher, CipherView, VaultParseError};
+use crate::{
+    CardView, Cipher, CipherRepromptType, CipherType, CipherView, FieldView, FolderId,
+    IdentityView, LoginView, SecureNoteView, SshKeyView, VaultParseError,
+};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -37,61 +42,89 @@ pub enum CreateCipherError {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct CipherAddEditRequest {
-    /// The cipher view data to be added or edited.
-    pub cipher: CipherView,
-    /// The user ID for whom this cipher is encrypted (internal use only).
+pub struct CipherCreateRequest {
     pub encrypted_for: Option<UserId>,
+    pub organization_id: Option<OrganizationId>,
+    pub folder_id: Option<FolderId>,
+    pub name: String,
+    pub notes: Option<String>,
+    pub r#type: CipherType,
+    pub favorite: bool,
+    pub reprompt: CipherRepromptType,
+    pub login: Option<LoginView>,
+    pub identity: Option<IdentityView>,
+    pub card: Option<CardView>,
+    pub secure_note: Option<SecureNoteView>,
+    pub ssh_key: Option<SshKeyView>,
+    pub fields: Option<Vec<FieldView>>,
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for CipherAddEditRequest {
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for CipherCreateRequest {
     fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<CipherRequestModel, CryptoError> {
-        let encrypted_cipher = self.cipher.encrypt_composite(ctx, key)?;
-
         let cipher_request = CipherRequestModel {
             encrypted_for: self.encrypted_for.map(|id| id.into()),
-            r#type: Some(encrypted_cipher.r#type.into()),
-            organization_id: encrypted_cipher.organization_id.map(|id| id.to_string()),
-            folder_id: encrypted_cipher.folder_id.map(|id| id.to_string()),
-            favorite: Some(encrypted_cipher.favorite),
-            reprompt: Some(encrypted_cipher.reprompt.into()),
-            key: encrypted_cipher.key.map(|k| k.to_string()),
-            name: encrypted_cipher.name.to_string(),
-            notes: encrypted_cipher.notes.map(|n| n.to_string()),
-            fields: encrypted_cipher
-                .fields
-                .map(|f| f.into_iter().map(|f| f.into()).collect()),
-            password_history: encrypted_cipher
-                .password_history
-                .map(|ph| ph.into_iter().map(|ph| ph.into()).collect()),
-            attachments: None,
-            attachments2: encrypted_cipher.attachments.map(|a| {
-                a.into_iter()
-                    .filter_map(|a| {
-                        a.id.map(|id| {
-                            (
-                                id,
-                                bitwarden_api_api::models::CipherAttachmentModel {
-                                    file_name: a.file_name.map(|n| n.to_string()),
-                                    key: a.key.map(|k| k.to_string()),
-                                },
-                            )
-                        })
-                    })
-                    .collect()
-            }),
-            login: encrypted_cipher.login.map(|l| Box::new(l.into())),
-            card: encrypted_cipher.card.map(|c| Box::new(c.into())),
-            identity: encrypted_cipher.identity.map(|i| Box::new(i.into())),
-            secure_note: encrypted_cipher
+            r#type: Some(self.r#type.into()),
+            organization_id: self.organization_id.map(|id| id.to_string()),
+            folder_id: self.folder_id.map(|id| id.to_string()),
+            favorite: Some(self.favorite),
+            reprompt: Some(self.reprompt.into()),
+            key: None,
+            name: self.name.encrypt(ctx, key)?.to_string(),
+            notes: self
+                .notes
+                .as_ref()
+                .map(|n| n.encrypt(ctx, key))
+                .transpose()?
+                .map(|n| n.to_string()),
+            login: self
+                .login
+                .as_ref()
+                .map(|l| l.encrypt_composite(ctx, key))
+                .transpose()?
+                .map(|l| Box::new(l.into())),
+            card: self
+                .card
+                .as_ref()
+                .map(|c| c.encrypt_composite(ctx, key))
+                .transpose()?
+                .map(|c| Box::new(c.into())),
+            identity: self
+                .identity
+                .as_ref()
+                .map(|i| i.encrypt_composite(ctx, key))
+                .transpose()?
+                .map(|i| Box::new(i.into())),
+            secure_note: self
                 .secure_note
-                .map(|note| Box::new(note.into())),
-            ssh_key: encrypted_cipher.ssh_key.map(|key| Box::new(key.into())),
-            last_known_revision_date: Some(encrypted_cipher.revision_date.to_rfc3339()),
+                .as_ref()
+                .map(|s| s.encrypt_composite(ctx, key))
+                .transpose()?
+                .map(|s| Box::new(s.into())),
+            ssh_key: self
+                .ssh_key
+                .as_ref()
+                .map(|s| s.encrypt_composite(ctx, key))
+                .transpose()?
+                .map(|s| Box::new(s.into())),
+            fields: self
+                .fields
+                .as_ref()
+                .map(|fields| {
+                    fields
+                        .iter()
+                        .map(|f| f.encrypt_composite(ctx, key))
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .transpose()?
+                .map(|f| f.into_iter().map(|f| f.into()).collect()),
+            password_history: None,
+            attachments: None,
+            attachments2: None,
+            last_known_revision_date: None,
             archived_date: None,
         };
 
@@ -99,9 +132,12 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for CipherAddEditRequest {
+impl IdentifyKey<SymmetricKeyId> for CipherCreateRequest {
     fn key_identifier(&self) -> SymmetricKeyId {
-        self.cipher.key_identifier()
+        match self.organization_id {
+            Some(organization_id) => SymmetricKeyId::Organization(organization_id),
+            None => SymmetricKeyId::User,
+        }
     }
 }
 
@@ -109,19 +145,16 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     key_store: &KeyStore<KeyIds>,
     api_config: &bitwarden_api_api::apis::configuration::Configuration,
     repository: &R,
-    request: CipherAddEditRequest,
+    request: CipherCreateRequest,
 ) -> Result<CipherView, CreateCipherError> {
     let cipher_request = key_store.encrypt(request)?;
     let resp = ciphers_api::ciphers_post(api_config, Some(cipher_request))
         .await
         .map_err(ApiError::from)?;
-
     let cipher: Cipher = resp.try_into()?;
-
     repository
         .set(require!(cipher.id).to_string(), cipher.clone())
         .await?;
-
     Ok(key_store.decrypt(&cipher)?)
 }
 
@@ -129,14 +162,13 @@ impl CiphersClient {
     /// Create a new [Cipher] and save it to the server.
     pub async fn create(
         &self,
-        mut request: CipherAddEditRequest,
+        mut request: CipherCreateRequest,
     ) -> Result<CipherView, CreateCipherError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
         let repository = self.get_repository()?;
 
         request.encrypted_for = self.client.internal.get_user_id();
-
         create_cipher(key_store, &config.api, repository.as_ref(), request).await
     }
 }
@@ -152,18 +184,17 @@ mod tests {
     use crate::{CipherId, CipherRepromptType, CipherType, LoginView};
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
-    const TEST_USER_ID: &str = "550e8400-e29b-41d4-a716-446655440000";
 
-    fn generate_test_cipher() -> CipherView {
-        CipherView {
-            id: None,
+    fn generate_test_cipher_create_request() -> CipherCreateRequest {
+        CipherCreateRequest {
+            encrypted_for: None,
             organization_id: None,
             folder_id: None,
-            collection_ids: vec![],
-            key: None,
             name: "Test Login".to_string(),
             notes: Some("Test notes".to_string()),
             r#type: CipherType::Login,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
             login: Some(LoginView {
                 username: Some("test@example.com".to_string()),
                 password: Some("password123".to_string()),
@@ -177,20 +208,7 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
-            favorite: false,
-            reprompt: CipherRepromptType::None,
-            organization_use_totp: true,
-            edit: true,
-            permissions: None,
-            view_password: true,
-            local_data: None,
-            attachments: None,
             fields: None,
-            password_history: None,
-            creation_date: "2025-01-01T00:00:00Z".parse().unwrap(),
-            deleted_date: None,
-            revision_date: "2025-01-01T00:00:00Z".parse().unwrap(),
-            archived_date: None,
         }
     }
 
@@ -204,7 +222,6 @@ mod tests {
         );
 
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let user_id: UserId = TEST_USER_ID.parse().unwrap();
 
         let (_server, api_config) = start_api_mock(vec![Mock::given(matchers::path("/ciphers"))
             .respond_with(move |req: &Request| {
@@ -249,12 +266,7 @@ mod tests {
         .await;
 
         let repository = MemoryRepository::<Cipher>::default();
-        let cipher_view = generate_test_cipher();
-
-        let request = CipherAddEditRequest {
-            cipher: cipher_view.clone(),
-            encrypted_for: Some(user_id),
-        };
+        let request = generate_test_cipher_create_request();
 
         let result = create_cipher(&store, &api_config, &repository, request)
             .await
@@ -285,7 +297,6 @@ mod tests {
                     .unwrap(),
             )
             .unwrap();
-
         assert_eq!(stored_cipher_view.id, result.id);
         assert_eq!(stored_cipher_view.name, result.name);
         assert_eq!(stored_cipher_view.r#type, result.r#type);
@@ -301,19 +312,13 @@ mod tests {
             SymmetricKeyId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
-
         let (_server, api_config) = start_api_mock(vec![
             Mock::given(matchers::path("/ciphers")).respond_with(ResponseTemplate::new(500))
         ])
         .await;
-
         let repository = MemoryRepository::<Cipher>::default();
-        let cipher_view = generate_test_cipher();
 
-        let request = CipherAddEditRequest {
-            cipher: cipher_view,
-            encrypted_for: None,
-        };
+        let request = generate_test_cipher_create_request();
 
         let result = create_cipher(&store, &api_config, &repository, request).await;
 
