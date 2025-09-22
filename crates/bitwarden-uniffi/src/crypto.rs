@@ -1,6 +1,6 @@
 use bitwarden_core::key_management::crypto::{
     DeriveKeyConnectorRequest, DerivePinKeyResponse, EnrollPinResponse, InitOrgCryptoRequest,
-    InitUserCryptoRequest, UpdateKdfResponse, UpdatePasswordResponse,
+    InitUserCryptoRequest, RotateableKeySet, UpdateKdfResponse, UpdatePasswordResponse,
 };
 use bitwarden_crypto::{EncString, Kdf, UnsignedSharedKey};
 use bitwarden_encoding::B64;
@@ -65,6 +65,10 @@ impl CryptoClient {
     /// `initialize_user_crypto`.
     pub fn enroll_pin(&self, pin: String) -> Result<EnrollPinResponse> {
         Ok(self.0.enroll_pin(pin)?)
+    }
+
+    pub fn derive_prf_key(&self, prf: B64) -> Result<RotateableKeySet> {
+        Ok(self.0.derive_prf_key(prf)?)
     }
 
     /// Protects the current user key with the provided PIN. The result can be stored and later

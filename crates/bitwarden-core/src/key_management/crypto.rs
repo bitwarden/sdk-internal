@@ -10,7 +10,8 @@ use bitwarden_crypto::{
     AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
     KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, SignatureAlgorithm,
     SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
-    UserKey, dangerous_get_v2_rotated_account_keys, safe::PasswordProtectedKeyEnvelopeError,
+    UserKey, dangerous_get_v2_rotated_account_keys, derive_symmetric_key_from_prf,
+    safe::PasswordProtectedKeyEnvelopeError,
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
@@ -498,6 +499,14 @@ fn derive_pin_protected_user_key(
     Ok(derived_key.encrypt_user_key(user_key)?)
 }
 
+pub(super) fn derive_prf_key(
+    client: &Client,
+    prf: B64,
+) -> Result<RotateableKeySet, CryptoClientError> {
+    let prf_key = derive_symmetric_key_from_prf(prf.as_bytes())?;
+    create_rotateable_key_set(client, prf_key)
+}
+
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
@@ -594,8 +603,8 @@ pub(super) fn make_key_pair(user_key: B64) -> Result<MakeKeyPairResponse, Crypto
 /// and the `PublicKey` is protected by the `UserKey`. This setup allows:
 ///
 ///   - Access to `UserKey` by knowing the `ExternalKey`
-///   - Rotation to a `NewUserKey` by knowing the current `UserKey`,
-///     without needing access to the `ExternalKey`
+///   - Rotation to a `NewUserKey` by knowing the current `UserKey`, without needing access to the
+///     `ExternalKey`
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
