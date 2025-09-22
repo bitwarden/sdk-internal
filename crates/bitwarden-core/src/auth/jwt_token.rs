@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use bitwarden_encoding::{B64Url, NotB64UrlEncoded};
+use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use thiserror::Error;
 
 /// A Bitwarden secrets manager JWT Token.
@@ -31,7 +31,7 @@ pub enum JwtTokenParseError {
     #[error("JWT token parse error: {0}")]
     Parse(#[from] serde_json::Error),
     #[error("JWT token decode error: {0}")]
-    Decode(#[from] NotB64UrlEncoded),
+    Decode(#[from] NotB64UrlEncodedError),
 
     #[error("JWT token has an invalid number of parts")]
     InvalidParts,

@@ -611,6 +611,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-pm"
+version = "1.0.0"
+dependencies = [
+ "bitwarden-auth",
+ "bitwarden-core",
+ "bitwarden-exporters",
+ "bitwarden-fido",
+ "bitwarden-generators",
+ "bitwarden-send",
+ "bitwarden-vault",
+ "thiserror 1.0.69",
+ "tsify",
+ "uniffi",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-send"
 version = "1.0.0"
 dependencies = [
@@ -737,6 +755,7 @@ dependencies = [
  "bitwarden-exporters",
  "bitwarden-fido",
  "bitwarden-generators",
+ "bitwarden-pm",
  "bitwarden-send",
  "bitwarden-ssh",
  "bitwarden-state",
@@ -821,13 +840,11 @@ name = "bitwarden-wasm-internal"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "bitwarden-auth",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
- "bitwarden-exporters",
- "bitwarden-generators",
  "bitwarden-ipc",
+ "bitwarden-pm",
  "bitwarden-ssh",
  "bitwarden-state",
  "bitwarden-state-migrations",

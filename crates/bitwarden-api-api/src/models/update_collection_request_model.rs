@@ -13,24 +13,24 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct CollectionRequestModel {
-    #[serde(rename = "name")]
-    pub name: String,
+pub struct UpdateCollectionRequestModel {
     #[serde(rename = "externalId", skip_serializing_if = "Option::is_none")]
     pub external_id: Option<String>,
     #[serde(rename = "groups", skip_serializing_if = "Option::is_none")]
     pub groups: Option<Vec<models::SelectionReadOnlyRequestModel>>,
     #[serde(rename = "users", skip_serializing_if = "Option::is_none")]
     pub users: Option<Vec<models::SelectionReadOnlyRequestModel>>,
+    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
-impl CollectionRequestModel {
-    pub fn new(name: String) -> CollectionRequestModel {
-        CollectionRequestModel {
-            name,
+impl UpdateCollectionRequestModel {
+    pub fn new() -> UpdateCollectionRequestModel {
+        UpdateCollectionRequestModel {
             external_id: None,
             groups: None,
             users: None,
+            name: None,
         }
     }
 }

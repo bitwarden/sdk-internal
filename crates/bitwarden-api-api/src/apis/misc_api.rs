@@ -14,24 +14,24 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`bitpay_invoice_post`]
+/// struct for typed errors of method [`misc_post_bit_pay_invoice`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum BitpayInvoicePostError {
+pub enum MiscPostBitPayInvoiceError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method [`setup_payment_post`]
+/// struct for typed errors of method [`misc_post_setup_payment`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SetupPaymentPostError {
+pub enum MiscPostSetupPaymentError {
     UnknownValue(serde_json::Value),
 }
 
-pub async fn bitpay_invoice_post(
+pub async fn misc_post_bit_pay_invoice(
     configuration: &configuration::Configuration,
     bit_pay_invoice_request_model: Option<models::BitPayInvoiceRequestModel>,
-) -> Result<String, Error<BitpayInvoicePostError>> {
+) -> Result<String, Error<MiscPostBitPayInvoiceError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_bit_pay_invoice_request_model = bit_pay_invoice_request_model;
 
@@ -68,7 +68,7 @@ pub async fn bitpay_invoice_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<BitpayInvoicePostError> = serde_json::from_str(&content).ok();
+        let entity: Option<MiscPostBitPayInvoiceError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
@@ -77,9 +77,9 @@ pub async fn bitpay_invoice_post(
     }
 }
 
-pub async fn setup_payment_post(
+pub async fn misc_post_setup_payment(
     configuration: &configuration::Configuration,
-) -> Result<String, Error<SetupPaymentPostError>> {
+) -> Result<String, Error<MiscPostSetupPaymentError>> {
     let uri_str = format!("{}/setup-payment", configuration.base_path);
     let mut req_builder = configuration
         .client
@@ -112,7 +112,7 @@ pub async fn setup_payment_post(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<SetupPaymentPostError> = serde_json::from_str(&content).ok();
+        let entity: Option<MiscPostSetupPaymentError> = serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,

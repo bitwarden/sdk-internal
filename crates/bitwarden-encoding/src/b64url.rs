@@ -61,7 +61,7 @@ impl std::fmt::Display for B64Url {
 /// An error returned when a string is not base64 decodable.
 #[derive(Debug, Error)]
 #[error("Data isn't base64url encoded")]
-pub struct NotB64UrlEncoded;
+pub struct NotB64UrlEncodedError;
 
 const BASE64URL_PERMISSIVE: data_encoding::Encoding = data_encoding_macro::new_encoding! {
     symbols: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
@@ -71,7 +71,7 @@ const BASE64URL_PERMISSIVE: data_encoding::Encoding = data_encoding_macro::new_e
 const BASE64URL_PADDING: &str = "=";
 
 impl TryFrom<String> for B64Url {
-    type Error = NotB64UrlEncoded;
+    type Error = NotB64UrlEncodedError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::try_from(value.as_str())
@@ -79,19 +79,19 @@ impl TryFrom<String> for B64Url {
 }
 
 impl TryFrom<&str> for B64Url {
-    type Error = NotB64UrlEncoded;
+    type Error = NotB64UrlEncodedError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let sane_string = value.trim_end_matches(BASE64URL_PADDING);
         BASE64URL_PERMISSIVE
             .decode(sane_string.as_bytes())
             .map(Self)
-            .map_err(|_| NotB64UrlEncoded)
+            .map_err(|_| NotB64UrlEncodedError)
     }
 }
 
 impl FromStr for B64Url {
-    type Err = NotB64UrlEncoded;
+    type Err = NotB64UrlEncodedError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::try_from(s)
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn test_not_b64url_encoded_error_display() {
-        let error = NotB64UrlEncoded;
+        let error = NotB64UrlEncodedError;
         assert_eq!(error.to_string(), "Data isn't base64url encoded");
     }
 

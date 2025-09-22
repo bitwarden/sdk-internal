@@ -14,51 +14,143 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use super::{configuration, ContentType, Error};
 use crate::{apis::ResponseContent, models};
 
-/// struct for typed errors of method [`organization_sponsorship_self_hosted_org_id_sponsored_get`]
+/// struct for typed errors of method
+/// [`self_hosted_organization_sponsorships_admin_initiated_revoke_sponsorship`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationSponsorshipSelfHostedOrgIdSponsoredGetError {
+pub enum SelfHostedOrganizationSponsorshipsAdminInitiatedRevokeSponsorshipError {
+    UnknownValue(serde_json::Value),
+}
+
+/// struct for typed errors of method [`self_hosted_organization_sponsorships_create_sponsorship`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SelfHostedOrganizationSponsorshipsCreateSponsorshipError {
     UnknownValue(serde_json::Value),
 }
 
 /// struct for typed errors of method
-/// [`organization_sponsorship_self_hosted_sponsoring_org_id_delete`]
+/// [`self_hosted_organization_sponsorships_get_sponsored_organizations`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationSponsorshipSelfHostedSponsoringOrgIdDeleteError {
+pub enum SelfHostedOrganizationSponsorshipsGetSponsoredOrganizationsError {
     UnknownValue(serde_json::Value),
 }
 
 /// struct for typed errors of method
-/// [`organization_sponsorship_self_hosted_sponsoring_org_id_delete_post`]
+/// [`self_hosted_organization_sponsorships_post_revoke_sponsorship`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationSponsorshipSelfHostedSponsoringOrgIdDeletePostError {
+pub enum SelfHostedOrganizationSponsorshipsPostRevokeSponsorshipError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organization_sponsorship_self_hosted_sponsoring_org_id_families_for_enterprise_post`]
+/// struct for typed errors of method [`self_hosted_organization_sponsorships_revoke_sponsorship`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrganizationSponsorshipSelfHostedSponsoringOrgIdFamiliesForEnterprisePostError {
+pub enum SelfHostedOrganizationSponsorshipsRevokeSponsorshipError {
     UnknownValue(serde_json::Value),
 }
 
-/// struct for typed errors of method
-/// [`organization_sponsorship_self_hosted_sponsoring_org_id_sponsored_friendly_name_revoke_delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationSponsorshipSelfHostedSponsoringOrgIdSponsoredFriendlyNameRevokeDeleteError {
-    UnknownValue(serde_json::Value),
+pub async fn self_hosted_organization_sponsorships_admin_initiated_revoke_sponsorship(
+    configuration: &configuration::Configuration,
+    sponsoring_org_id: uuid::Uuid,
+    sponsored_friendly_name: &str,
+) -> Result<(), Error<SelfHostedOrganizationSponsorshipsAdminInitiatedRevokeSponsorshipError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_sponsoring_org_id = sponsoring_org_id;
+    let p_sponsored_friendly_name = sponsored_friendly_name;
+
+    let uri_str = format!(
+        "{}/organization/sponsorship/self-hosted/{sponsoringOrgId}/{sponsoredFriendlyName}/revoke",
+        configuration.base_path,
+        sponsoringOrgId = crate::apis::urlencode(p_sponsoring_org_id.to_string()),
+        sponsoredFriendlyName = crate::apis::urlencode(p_sponsored_friendly_name)
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::DELETE, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<SelfHostedOrganizationSponsorshipsAdminInitiatedRevokeSponsorshipError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
 }
 
-pub async fn organization_sponsorship_self_hosted_org_id_sponsored_get(
+pub async fn self_hosted_organization_sponsorships_create_sponsorship(
+    configuration: &configuration::Configuration,
+    sponsoring_org_id: uuid::Uuid,
+    organization_sponsorship_create_request_model: Option<
+        models::OrganizationSponsorshipCreateRequestModel,
+    >,
+) -> Result<(), Error<SelfHostedOrganizationSponsorshipsCreateSponsorshipError>> {
+    // add a prefix to parameters to efficiently prevent name collisions
+    let p_sponsoring_org_id = sponsoring_org_id;
+    let p_organization_sponsorship_create_request_model =
+        organization_sponsorship_create_request_model;
+
+    let uri_str = format!(
+        "{}/organization/sponsorship/self-hosted/{sponsoringOrgId}/families-for-enterprise",
+        configuration.base_path,
+        sponsoringOrgId = crate::apis::urlencode(p_sponsoring_org_id.to_string())
+    );
+    let mut req_builder = configuration
+        .client
+        .request(reqwest::Method::POST, &uri_str);
+
+    if let Some(ref user_agent) = configuration.user_agent {
+        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref token) = configuration.oauth_access_token {
+        req_builder = req_builder.bearer_auth(token.to_owned());
+    };
+    req_builder = req_builder.json(&p_organization_sponsorship_create_request_model);
+
+    let req = req_builder.build()?;
+    let resp = configuration.client.execute(req).await?;
+
+    let status = resp.status();
+
+    if !status.is_client_error() && !status.is_server_error() {
+        Ok(())
+    } else {
+        let content = resp.text().await?;
+        let entity: Option<SelfHostedOrganizationSponsorshipsCreateSponsorshipError> =
+            serde_json::from_str(&content).ok();
+        Err(Error::ResponseError(ResponseContent {
+            status,
+            content,
+            entity,
+        }))
+    }
+}
+
+pub async fn self_hosted_organization_sponsorships_get_sponsored_organizations(
     configuration: &configuration::Configuration,
     org_id: uuid::Uuid,
 ) -> Result<
     models::OrganizationSponsorshipInvitesResponseModelListResponseModel,
-    Error<OrganizationSponsorshipSelfHostedOrgIdSponsoredGetError>,
+    Error<SelfHostedOrganizationSponsorshipsGetSponsoredOrganizationsError>,
 > {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_org_id = org_id;
@@ -97,7 +189,7 @@ pub async fn organization_sponsorship_self_hosted_org_id_sponsored_get(
         }
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationSponsorshipSelfHostedOrgIdSponsoredGetError> =
+        let entity: Option<SelfHostedOrganizationSponsorshipsGetSponsoredOrganizationsError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -107,52 +199,10 @@ pub async fn organization_sponsorship_self_hosted_org_id_sponsored_get(
     }
 }
 
-pub async fn organization_sponsorship_self_hosted_sponsoring_org_id_delete(
+pub async fn self_hosted_organization_sponsorships_post_revoke_sponsorship(
     configuration: &configuration::Configuration,
     sponsoring_org_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationSponsorshipSelfHostedSponsoringOrgIdDeleteError>> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_sponsoring_org_id = sponsoring_org_id;
-
-    let uri_str = format!(
-        "{}/organization/sponsorship/self-hosted/{sponsoringOrgId}",
-        configuration.base_path,
-        sponsoringOrgId = crate::apis::urlencode(p_sponsoring_org_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::DELETE, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<OrganizationSponsorshipSelfHostedSponsoringOrgIdDeleteError> =
-            serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organization_sponsorship_self_hosted_sponsoring_org_id_delete_post(
-    configuration: &configuration::Configuration,
-    sponsoring_org_id: uuid::Uuid,
-) -> Result<(), Error<OrganizationSponsorshipSelfHostedSponsoringOrgIdDeletePostError>> {
+) -> Result<(), Error<SelfHostedOrganizationSponsorshipsPostRevokeSponsorshipError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_sponsoring_org_id = sponsoring_org_id;
 
@@ -181,7 +231,7 @@ pub async fn organization_sponsorship_self_hosted_sponsoring_org_id_delete_post(
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<OrganizationSponsorshipSelfHostedSponsoringOrgIdDeletePostError> =
+        let entity: Option<SelfHostedOrganizationSponsorshipsPostRevokeSponsorshipError> =
             serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
@@ -191,73 +241,17 @@ pub async fn organization_sponsorship_self_hosted_sponsoring_org_id_delete_post(
     }
 }
 
-pub async fn organization_sponsorship_self_hosted_sponsoring_org_id_families_for_enterprise_post(
+pub async fn self_hosted_organization_sponsorships_revoke_sponsorship(
     configuration: &configuration::Configuration,
     sponsoring_org_id: uuid::Uuid,
-    organization_sponsorship_create_request_model: Option<
-        models::OrganizationSponsorshipCreateRequestModel,
-    >,
-) -> Result<(), Error<OrganizationSponsorshipSelfHostedSponsoringOrgIdFamiliesForEnterprisePostError>>
-{
+) -> Result<(), Error<SelfHostedOrganizationSponsorshipsRevokeSponsorshipError>> {
     // add a prefix to parameters to efficiently prevent name collisions
     let p_sponsoring_org_id = sponsoring_org_id;
-    let p_organization_sponsorship_create_request_model =
-        organization_sponsorship_create_request_model;
 
     let uri_str = format!(
-        "{}/organization/sponsorship/self-hosted/{sponsoringOrgId}/families-for-enterprise",
+        "{}/organization/sponsorship/self-hosted/{sponsoringOrgId}",
         configuration.base_path,
         sponsoringOrgId = crate::apis::urlencode(p_sponsoring_org_id.to_string())
-    );
-    let mut req_builder = configuration
-        .client
-        .request(reqwest::Method::POST, &uri_str);
-
-    if let Some(ref user_agent) = configuration.user_agent {
-        req_builder = req_builder.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-    if let Some(ref token) = configuration.oauth_access_token {
-        req_builder = req_builder.bearer_auth(token.to_owned());
-    };
-    req_builder = req_builder.json(&p_organization_sponsorship_create_request_model);
-
-    let req = req_builder.build()?;
-    let resp = configuration.client.execute(req).await?;
-
-    let status = resp.status();
-
-    if !status.is_client_error() && !status.is_server_error() {
-        Ok(())
-    } else {
-        let content = resp.text().await?;
-        let entity: Option<
-            OrganizationSponsorshipSelfHostedSponsoringOrgIdFamiliesForEnterprisePostError,
-        > = serde_json::from_str(&content).ok();
-        Err(Error::ResponseError(ResponseContent {
-            status,
-            content,
-            entity,
-        }))
-    }
-}
-
-pub async fn organization_sponsorship_self_hosted_sponsoring_org_id_sponsored_friendly_name_revoke_delete(
-    configuration: &configuration::Configuration,
-    sponsoring_org_id: uuid::Uuid,
-    sponsored_friendly_name: &str,
-) -> Result<
-    (),
-    Error<OrganizationSponsorshipSelfHostedSponsoringOrgIdSponsoredFriendlyNameRevokeDeleteError>,
-> {
-    // add a prefix to parameters to efficiently prevent name collisions
-    let p_sponsoring_org_id = sponsoring_org_id;
-    let p_sponsored_friendly_name = sponsored_friendly_name;
-
-    let uri_str = format!(
-        "{}/organization/sponsorship/self-hosted/{sponsoringOrgId}/{sponsoredFriendlyName}/revoke",
-        configuration.base_path,
-        sponsoringOrgId = crate::apis::urlencode(p_sponsoring_org_id.to_string()),
-        sponsoredFriendlyName = crate::apis::urlencode(p_sponsored_friendly_name)
     );
     let mut req_builder = configuration
         .client
@@ -279,9 +273,8 @@ pub async fn organization_sponsorship_self_hosted_sponsoring_org_id_sponsored_fr
         Ok(())
     } else {
         let content = resp.text().await?;
-        let entity: Option<
-            OrganizationSponsorshipSelfHostedSponsoringOrgIdSponsoredFriendlyNameRevokeDeleteError,
-        > = serde_json::from_str(&content).ok();
+        let entity: Option<SelfHostedOrganizationSponsorshipsRevokeSponsorshipError> =
+            serde_json::from_str(&content).ok();
         Err(Error::ResponseError(ResponseContent {
             status,
             content,
