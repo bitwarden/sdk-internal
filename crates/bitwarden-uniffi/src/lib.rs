@@ -99,7 +99,7 @@ impl Client {
             .await
             .map_err(|e| Error::Api(e.into()))?;
 
-        Ok(res.text().await.map_err(|e| Error::Api(e.into()))?)
+        res.text().await.map_err(|e| Error::Api(e.into()))
     }
 }
 
@@ -125,6 +125,6 @@ fn init_logger() {
 /// Check [`bitwarden_uniffi_error`] for more details
 fn setup_error_converter() {
     bitwarden_uniffi_error::set_error_to_uniffi_error(|e| {
-        crate::error::BitwardenError::Conversion(e).into()
+        crate::error::BitwardenError::Conversion(e.to_string()).into()
     });
 }
