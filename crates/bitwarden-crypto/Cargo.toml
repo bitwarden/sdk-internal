@@ -26,6 +26,7 @@ wasm = ["dep:tsify", "dep:wasm-bindgen"] # WASM support
 
 [dependencies]
 aes = { version = ">=0.8.2, <0.9", features = ["zeroize"] }
+allocator-api2 = ">=0.2.21, <0.3"
 argon2 = { version = ">=0.5.0, <0.6", features = [
     "std",
     "zeroize",
@@ -39,6 +40,7 @@ ciborium = { version = ">=0.2.2, <0.3" }
 coset = { version = ">=0.3.8, <0.4" }
 ed25519-dalek = { workspace = true, features = ["rand_core"] }
 generic-array = { version = ">=0.14.7, <1.0", features = ["zeroize"] }
+hashbrown = ">=0.16.0, <0.17"
 hkdf = ">=0.12.3, <0.13"
 hmac = ">=0.12.1, <0.13"
 num-bigint = ">=0.4, <0.5"
@@ -64,6 +66,9 @@ wasm-bindgen = { workspace = true, optional = true }
 zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
 zeroizing-alloc = ">=0.1.0, <0.2"
 
+[target.'cfg(all(not(target_arch = "wasm32"), not(windows)))'.dependencies]
+memsec = { version = ">=0.7.0, <0.8", features = ["alloc_ext"] }
+
 [dev-dependencies]
 criterion = "0.6.0"
 rand_chacha = "0.3.1"
@@ -81,3 +86,7 @@ required-features = ["no-memory-hardening"]
 
 [lints]
 workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+# This is unused when using --all-features, as that disables memory-hardening
+normal = ["memsec"]
