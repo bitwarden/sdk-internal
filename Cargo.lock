@@ -660,7 +660,6 @@ dependencies = [
  "bitwarden-generators",
  "bitwarden-send",
  "bitwarden-vault",
- "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "wasm-bindgen",

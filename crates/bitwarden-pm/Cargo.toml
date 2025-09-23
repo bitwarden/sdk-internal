@@ -47,7 +47,6 @@ bitwarden-generators = { workspace = true }
 bitwarden-send = { workspace = true }
 bitwarden-vault = { workspace = true }
 
-thiserror = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true, features = ["tokio"] }
 wasm-bindgen = { workspace = true, optional = true }
