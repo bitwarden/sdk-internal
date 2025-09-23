@@ -19,7 +19,6 @@ no-memory-hardening = [
     "bitwarden-core/no-memory-hardening"
 ] # Disable memory hardening features
 uniffi = [
-    "bitwarden-auth/uniffi",
     "bitwarden-core/uniffi",
     "bitwarden-exporters/uniffi",
     "bitwarden-fido/uniffi",
