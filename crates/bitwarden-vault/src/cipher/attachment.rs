@@ -78,7 +78,6 @@ pub struct AttachmentFileView<'a> {
     pub attachment: AttachmentView,
     pub contents: &'a [u8],
 }
-const ATTACHMENT_KEY: SymmetricKeyId = SymmetricKeyId::Local("attachment_key");
 
 impl IdentifyKey<SymmetricKeyId> for AttachmentFileView<'_> {
     fn key_identifier(&self) -> SymmetricKeyId {
@@ -105,7 +104,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult>
 
         // Because this is a new attachment, we have to generate a key for it, encrypt the contents
         // with it, and then encrypt the key with the cipher key
-        let attachment_key = ctx.generate_symmetric_key(ATTACHMENT_KEY)?;
+        let attachment_key = ctx.generate_symmetric_key()?;
         let encrypted_contents =
             OctetStreamBytes::from(self.contents).encrypt(ctx, attachment_key)?;
         attachment.key = Some(ctx.wrap_symmetric_key(ciphers_key, attachment_key)?);
@@ -143,8 +142,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, Vec<u8>> for AttachmentFile {
 
         // Version 2 or 3, `AttachmentKey` or `CipherKey(AttachmentKey)`
         if let Some(attachment_key) = &self.attachment.key {
-            let content_key =
-                ctx.unwrap_symmetric_key(ciphers_key, ATTACHMENT_KEY, attachment_key)?;
+            let content_key = ctx.unwrap_symmetric_key(ciphers_key, attachment_key)?;
             self.contents.decrypt(ctx, content_key)
         } else {
             // Legacy attachment version 1, use user/org key
@@ -178,7 +176,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
     ) -> Result<AttachmentView, CryptoError> {
         #[cfg(feature = "wasm")]
         let decrypted_key = if let Some(attachment_key) = &self.key {
-            let content_key_id = ctx.unwrap_symmetric_key(key, ATTACHMENT_KEY, attachment_key)?;
+            let content_key_id = ctx.unwrap_symmetric_key(key, attachment_key)?;
 
             #[allow(deprecated)]
             let actual_key = ctx.dangerous_get_symmetric_key(content_key_id)?;
