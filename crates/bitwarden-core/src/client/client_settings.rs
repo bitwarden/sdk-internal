@@ -95,13 +95,16 @@ pub(crate) enum ClientName {
     Web,
     Browser,
     Desktop,
+    Mobile,
     Cli,
 }
 
 impl From<DeviceType> for Option<ClientName> {
     fn from(device_type: DeviceType) -> Self {
         match device_type {
-            DeviceType::Android | DeviceType::AndroidAmazon | DeviceType::iOS => None,
+            DeviceType::Android | DeviceType::AndroidAmazon | DeviceType::iOS => {
+                Some(ClientName::Mobile)
+            }
 
             DeviceType::ChromeBrowser
             | DeviceType::FirefoxBrowser
@@ -140,6 +143,7 @@ impl fmt::Display for ClientName {
             ClientName::Web => "web",
             ClientName::Browser => "browser",
             ClientName::Desktop => "desktop",
+            ClientName::Mobile => "mobile",
             ClientName::Cli => "cli",
         };
         write!(f, "{}", s)
