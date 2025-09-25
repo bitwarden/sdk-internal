@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+#[cfg(feature = "uniffi")]
+uniffi::setup_scaffolding!();
+
 /// This module provides a generic repository interface for storing and retrieving items.
 pub mod repository;
 
