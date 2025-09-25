@@ -34,3 +34,6 @@ pub use kdf::{
 };
 pub(crate) use key_id::{KeyId, KEY_ID_SIZE};
 pub(crate) mod utils;
+
+mod prf;
+pub use prf::{derive_symmetric_key_from_prf, Prf};
