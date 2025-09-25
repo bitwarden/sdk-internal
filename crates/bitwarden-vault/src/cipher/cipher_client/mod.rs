@@ -14,9 +14,9 @@ use crate::{
     DecryptError, EncryptError, Fido2CredentialFullView,
 };
 
-pub mod create;
-pub mod edit;
-pub mod get;
+mod create;
+mod edit;
+mod get;
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]

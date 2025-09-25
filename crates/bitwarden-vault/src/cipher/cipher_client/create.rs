@@ -37,13 +37,15 @@ pub enum CreateCipherError {
     Repository(#[from] RepositoryError),
 }
 
-/// Request to add or edit a cipher.
-#[derive(Serialize, Deserialize, Debug)]
+/// Request to add a cipher.
+#[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherCreateRequest {
-    pub encrypted_for: Option<UserId>,
+    /// The ID of the user that is encrypting the cipher - this should always match the user
+    /// calling the API.
+    pub encrypted_for: UserId,
     pub organization_id: Option<OrganizationId>,
     pub folder_id: Option<FolderId>,
     pub name: String,
@@ -56,7 +58,7 @@ pub struct CipherCreateRequest {
     pub card: Option<CardView>,
     pub secure_note: Option<SecureNoteView>,
     pub ssh_key: Option<SshKeyView>,
-    pub fields: Option<Vec<FieldView>>,
+    pub fields: Vec<FieldView>,
 }
 
 impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for CipherCreateRequest {
@@ -66,7 +68,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
         key: SymmetricKeyId,
     ) -> Result<CipherRequestModel, CryptoError> {
         let cipher_request = CipherRequestModel {
-            encrypted_for: self.encrypted_for.map(|id| id.into()),
+            encrypted_for: Some(self.encrypted_for.into()),
             r#type: Some(self.r#type.into()),
             organization_id: self.organization_id.map(|id| id.to_string()),
             folder_id: self.folder_id.map(|id| id.to_string()),
@@ -110,17 +112,13 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
                 .map(|s| s.encrypt_composite(ctx, key))
                 .transpose()?
                 .map(|s| Box::new(s.into())),
-            fields: self
-                .fields
-                .as_ref()
-                .map(|fields| {
-                    fields
-                        .iter()
-                        .map(|f| f.encrypt_composite(ctx, key))
-                        .collect::<Result<Vec<_>, _>>()
-                })
-                .transpose()?
-                .map(|f| f.into_iter().map(|f| f.into()).collect()),
+            fields: Some(
+                self.fields
+                    .iter()
+                    .map(|f| f.encrypt_composite(ctx, key))
+                    .map(|f| f.map(|f| f.into()))
+                    .collect::<Result<Vec<_>, _>>()?,
+            ),
             password_history: None,
             attachments: None,
             attachments2: None,
@@ -168,7 +166,13 @@ impl CiphersClient {
         let config = self.client.internal.get_api_configurations().await;
         let repository = self.get_repository()?;
 
-        request.encrypted_for = self.client.internal.get_user_id();
+        request.encrypted_for =
+            self.client
+                .internal
+                .get_user_id()
+                .ok_or(RepositoryError::Internal(
+                    "No user ID was found".to_string(),
+                ))?;
         create_cipher(key_store, &config.api, repository.as_ref(), request).await
     }
 }
@@ -181,20 +185,15 @@ mod tests {
     use wiremock::{matchers, Mock, Request, ResponseTemplate};
 
     use super::*;
-    use crate::{CipherId, CipherRepromptType, CipherType, LoginView};
+    use crate::{CipherId, CipherType, LoginView};
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
 
     fn generate_test_cipher_create_request() -> CipherCreateRequest {
         CipherCreateRequest {
-            encrypted_for: None,
-            organization_id: None,
-            folder_id: None,
             name: "Test Login".to_string(),
             notes: Some("Test notes".to_string()),
             r#type: CipherType::Login,
-            favorite: false,
-            reprompt: CipherRepromptType::None,
             login: Some(LoginView {
                 username: Some("test@example.com".to_string()),
                 password: Some("password123".to_string()),
@@ -204,11 +203,7 @@ mod tests {
                 autofill_on_page_load: None,
                 fido2_credentials: None,
             }),
-            identity: None,
-            card: None,
-            secure_note: None,
-            ssh_key: None,
-            fields: None,
+            ..Default::default()
         }
     }
 

@@ -63,11 +63,12 @@ pub(super) trait CipherKind {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
+#[derive(Default, Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum CipherType {
+    #[default]
     Login = 1,
     SecureNote = 2,
     Card = 3,
@@ -76,11 +77,12 @@ pub enum CipherType {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
+#[derive(Clone, Copy, Default, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum CipherRepromptType {
+    #[default]
     None = 0,
     Password = 1,
 }
@@ -832,7 +834,7 @@ impl TryFrom<CipherResponseModel> for Cipher {
             organization_id: cipher.organization_id.map(OrganizationId::new),
             folder_id: cipher.folder_id.map(FolderId::new),
             collection_ids: vec![], // CipherResponseModel doesn't include collection_ids
-            name: require!(EncString::try_from_optional(cipher.name)?),
+            name: require!(cipher.name).parse()?,
             notes: EncString::try_from_optional(cipher.notes)?,
             r#type: require!(cipher.r#type).into(),
             login: cipher.login.map(|l| (*l).try_into()).transpose()?,

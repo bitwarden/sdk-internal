@@ -19,7 +19,7 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     password_history::PasswordChange, Cipher, CipherId, CipherType, CipherView, FieldType,
-    FieldView, ItemNotFoundError, PasswordHistoryView, VaultParseError,
+    FieldView, ItemNotFoundError, VaultParseError,
 };
 
 /// Maximum number of password history entries to retain
@@ -59,21 +59,16 @@ pub struct CipherEditRequest {
 
 impl CipherEditRequest {
     pub fn update_password_history(&mut self, original_cipher: &CipherView) {
-        let mut history = original_cipher.password_history.clone().unwrap_or_default();
-
-        let mut changes = Vec::new();
-
-        if let Some(login_changes) = self.detect_login_password_changes(original_cipher) {
-            changes.extend(login_changes);
-        }
-
-        changes.extend(self.detect_hidden_field_changes(original_cipher));
-
-        for change in changes.into_iter().rev() {
-            history.insert(0, change.into_history_entry());
-        }
-
-        Self::limit_history_length(&mut history);
+        let changes = self
+            .detect_login_password_changes(original_cipher)
+            .into_iter()
+            .chain(self.detect_hidden_field_changes(original_cipher));
+        let history: Vec<_> = changes
+            .rev()
+            .map(|change| change.into_history_entry())
+            .chain(original_cipher.password_history.iter().flatten().cloned())
+            .take(MAX_PASSWORD_HISTORY_ENTRIES)
+            .collect();
 
         self.cipher.password_history = (!history.is_empty()).then_some(history);
     }
@@ -81,13 +76,16 @@ impl CipherEditRequest {
     fn detect_login_password_changes(
         &mut self,
         original_cipher: &CipherView,
-    ) -> Option<Vec<PasswordChange>> {
+    ) -> Vec<PasswordChange> {
         if self.cipher.r#type != CipherType::Login || original_cipher.r#type != CipherType::Login {
-            return None;
+            return Default::default();
         }
 
-        let original_login = original_cipher.login.as_ref()?;
-        let current_login = self.cipher.login.as_mut()?;
+        let (Some(original_login), Some(current_login)) =
+            (original_cipher.login.as_ref(), self.cipher.login.as_mut())
+        else {
+            return Default::default();
+        };
 
         let original_password = original_login.password.as_deref().unwrap_or("");
         let current_password = current_login.password.as_deref().unwrap_or("");
@@ -97,15 +95,15 @@ impl CipherEditRequest {
             if !current_password.is_empty() {
                 current_login.password_revision_date = Some(Utc::now());
             }
-            None
+            Default::default()
         } else if original_password == current_password {
             // Password unchanged - preserve original revision date
             current_login.password_revision_date = original_login.password_revision_date;
-            None
+            Default::default()
         } else {
             // Password changed - update revision date and track change
             current_login.password_revision_date = Some(Utc::now());
-            Some(vec![PasswordChange::new_password(original_password)])
+            vec![PasswordChange::new_password(original_password)]
         }
     }
 
@@ -128,27 +126,17 @@ impl CipherEditRequest {
 
     fn extract_hidden_fields(fields: &Option<Vec<FieldView>>) -> HashMap<String, String> {
         fields
-            .as_ref()
-            .map(|field_vec| {
-                field_vec
-                    .iter()
-                    .filter_map(|f| match (&f.r#type, &f.name, &f.value) {
-                        (FieldType::Hidden, Some(name), Some(value))
-                            if !name.is_empty() && !value.is_empty() =>
-                        {
-                            Some((name.clone(), value.clone()))
-                        }
-                        _ => None,
-                    })
-                    .collect()
+            .iter()
+            .flatten()
+            .filter_map(|f| match (&f.r#type, &f.name, &f.value) {
+                (FieldType::Hidden, Some(name), Some(value))
+                    if !name.is_empty() && !value.is_empty() =>
+                {
+                    Some((name.clone(), value.clone()))
+                }
+                _ => None,
             })
-            .unwrap_or_default()
-    }
-
-    fn limit_history_length(history: &mut Vec<PasswordHistoryView>) {
-        if history.len() > MAX_PASSWORD_HISTORY_ENTRIES {
-            history.truncate(MAX_PASSWORD_HISTORY_ENTRIES);
-        }
+            .collect()
     }
 }
 
@@ -158,7 +146,9 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<CipherRequestModel, CryptoError> {
-        let encrypted_cipher = self.cipher.encrypt_composite(ctx, key)?;
+        let mut cipher_view = self.cipher.clone();
+        cipher_view.generate_checksums();
+        let encrypted_cipher = cipher_view.encrypt_composite(ctx, key)?;
 
         let cipher_request = CipherRequestModel {
             encrypted_for: self.encrypted_for.map(|id| id.into()),
@@ -283,7 +273,9 @@ mod tests {
     use wiremock::{matchers, Mock, Request, ResponseTemplate};
 
     use super::*;
-    use crate::{Cipher, CipherId, CipherRepromptType, CipherType, Login, LoginView};
+    use crate::{
+        Cipher, CipherId, CipherRepromptType, CipherType, Login, LoginView, PasswordHistoryView,
+    };
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_USER_ID: &str = "550e8400-e29b-41d4-a716-446655440000";
