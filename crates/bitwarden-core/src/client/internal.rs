@@ -65,6 +65,7 @@ pub(crate) enum Tokens {
 }
 
 /// Access tokens managed by client applications, such as the web or mobile apps.
+#[cfg_attr(feature = "uniffi", uniffi::export(with_foreign))]
 #[async_trait::async_trait]
 pub trait ClientManagedTokens: std::fmt::Debug + Send + Sync {
     /// Returns the access token, if available.
