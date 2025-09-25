@@ -17,8 +17,8 @@ use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
-    CardView, Cipher, CipherRepromptType, CipherType, CipherView, FieldView, FolderId,
-    IdentityView, LoginView, SecureNoteView, SshKeyView, VaultParseError,
+    cipher_view_type::{CipherViewType, CipherViewTypeExt},
+    Cipher, CipherRepromptType, CipherType, CipherView, FieldView, FolderId, VaultParseError,
 };
 
 #[allow(missing_docs)]
@@ -55,11 +55,7 @@ pub struct CipherCreateRequest {
     pub r#type: CipherType,
     pub favorite: bool,
     pub reprompt: CipherRepromptType,
-    pub login: Option<LoginView>,
-    pub identity: Option<IdentityView>,
-    pub card: Option<CardView>,
-    pub secure_note: Option<SecureNoteView>,
-    pub ssh_key: Option<SshKeyView>,
+    pub type_data: Option<CipherViewType>,
     pub fields: Vec<FieldView>,
 }
 
@@ -85,31 +81,36 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
                 .transpose()?
                 .map(|n| n.to_string()),
             login: self
-                .login
+                .type_data
+                .as_login_view()
                 .as_ref()
                 .map(|l| l.encrypt_composite(ctx, key))
                 .transpose()?
                 .map(|l| Box::new(l.into())),
             card: self
-                .card
+                .type_data
+                .as_card_view()
                 .as_ref()
                 .map(|c| c.encrypt_composite(ctx, key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
             identity: self
-                .identity
+                .type_data
+                .as_identity_view()
                 .as_ref()
                 .map(|i| i.encrypt_composite(ctx, key))
                 .transpose()?
                 .map(|i| Box::new(i.into())),
             secure_note: self
-                .secure_note
+                .type_data
+                .as_secure_note_view()
                 .as_ref()
                 .map(|s| s.encrypt_composite(ctx, key))
                 .transpose()?
                 .map(|s| Box::new(s.into())),
             ssh_key: self
-                .ssh_key
+                .type_data
+                .as_ssh_key_view()
                 .as_ref()
                 .map(|s| s.encrypt_composite(ctx, key))
                 .transpose()?
@@ -194,7 +195,7 @@ mod tests {
             name: "Test Login".to_string(),
             notes: Some("Test notes".to_string()),
             r#type: CipherType::Login,
-            login: Some(LoginView {
+            type_data: Some(CipherViewType::Login(LoginView {
                 username: Some("test@example.com".to_string()),
                 password: Some("password123".to_string()),
                 password_revision_date: None,
@@ -202,7 +203,7 @@ mod tests {
                 totp: None,
                 autofill_on_page_load: None,
                 fido2_credentials: None,
-            }),
+            })),
             ..Default::default()
         }
     }
