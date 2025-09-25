@@ -21,9 +21,10 @@ use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
-    password_history::PasswordChange, AttachmentView, CardView, Cipher, CipherId,
-    CipherRepromptType, CipherType, CipherView, FieldType, FieldView, FolderId, IdentityView,
-    ItemNotFoundError, LoginView, PasswordHistoryView, SecureNoteView, SshKeyView, VaultParseError,
+    cipher_view_type::{CipherViewType, CipherViewTypeExt},
+    password_history::PasswordChange,
+    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldType,
+    FieldView, FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
 };
 
 /// Maximum number of password history entries to retain
@@ -71,11 +72,7 @@ pub struct CipherEditRequest {
     pub password_history: Option<Vec<PasswordHistoryView>>,
     pub attachments: Option<Vec<AttachmentView>>,
 
-    pub login: Option<LoginView>,
-    pub identity: Option<IdentityView>,
-    pub card: Option<CardView>,
-    pub secure_note: Option<SecureNoteView>,
-    pub ssh_key: Option<SshKeyView>,
+    pub type_data: Option<CipherViewType>,
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
 }
@@ -84,6 +81,13 @@ impl TryFrom<CipherView> for CipherEditRequest {
     type Error = MissingFieldError;
 
     fn try_from(value: CipherView) -> Result<Self, Self::Error> {
+        let type_data = match value.r#type {
+            CipherType::Login => value.login.map(CipherViewType::Login),
+            CipherType::SecureNote => value.secure_note.map(CipherViewType::SecureNote),
+            CipherType::Card => value.card.map(CipherViewType::Card),
+            CipherType::Identity => value.identity.map(CipherViewType::Identity),
+            CipherType::SshKey => value.ssh_key.map(CipherViewType::SshKey),
+        };
         Ok(Self {
             id: value.id.ok_or(MissingFieldError("id"))?,
             r#type: value.r#type,
@@ -97,12 +101,7 @@ impl TryFrom<CipherView> for CipherEditRequest {
             fields: value.fields.unwrap_or_default(),
             password_history: value.password_history,
             attachments: value.attachments,
-
-            login: value.login,
-            identity: value.identity,
-            card: value.card,
-            secure_note: value.secure_note,
-            ssh_key: value.ssh_key,
+            type_data,
             revision_date: value.revision_date,
             archived_date: value.archived_date,
         })
@@ -133,9 +132,10 @@ impl CipherEditRequest {
             return Default::default();
         }
 
-        let (Some(original_login), Some(current_login)) =
-            (original_cipher.login.as_ref(), self.login.as_mut())
-        else {
+        let (Some(original_login), Some(current_login)) = (
+            original_cipher.login.as_ref(),
+            self.type_data.as_login_view_mut(),
+        ) else {
             return Default::default();
         };
 
@@ -192,7 +192,7 @@ impl CipherEditRequest {
     }
 
     fn generate_checksums(&mut self) {
-        if let Some(login) = &mut self.login {
+        if let Some(login) = &mut self.type_data.as_login_view_mut() {
             login.generate_checksums();
         }
     }
@@ -263,28 +263,33 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
                     .collect(),
             ),
             login: cipher_data
-                .login
+                .type_data
+                .as_login_view()
                 .map(|l| l.encrypt_composite(ctx, key))
                 .transpose()?
                 .map(|l| Box::new(l.into())),
             card: cipher_data
-                .card
+                .type_data
+                .as_card_view()
                 .map(|c| c.encrypt_composite(ctx, key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
             identity: cipher_data
-                .identity
+                .type_data
+                .as_identity_view()
                 .map(|i| i.encrypt_composite(ctx, key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
 
             secure_note: cipher_data
-                .secure_note
+                .type_data
+                .as_secure_note_view()
                 .map(|i| i.encrypt_composite(ctx, key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
             ssh_key: cipher_data
-                .ssh_key
+                .type_data
+                .as_ssh_key_view()
                 .map(|i| i.encrypt_composite(ctx, key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
