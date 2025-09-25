@@ -8,12 +8,9 @@ use reqwest::header::{self, HeaderValue};
 use super::internal::InternalClient;
 #[cfg(feature = "internal")]
 use crate::client::flags::Flags;
-use crate::{
-    client::{
-        client_settings::{ClientName, ClientSettings},
-        internal::{ApiConfigurations, ClientManagedTokens, SdkManagedTokens, Tokens},
-    },
-    DeviceType,
+use crate::client::{
+    client_settings::{ClientName, ClientSettings},
+    internal::{ApiConfigurations, ClientManagedTokens, SdkManagedTokens, Tokens},
 };
 
 /// The main struct to interact with the Bitwarden SDK.
@@ -76,11 +73,10 @@ impl Client {
                 .expect("All numbers are valid ASCII"),
         );
 
-        let client_name: Option<ClientName> = settings.device_type.into();
-        if let Some(device_type) = client_name {
+        if let Some(client_type) = Into::<Option<ClientName>>::into(settings.device_type) {
             headers.append(
                 "Bitwarden-Client-Name",
-                HeaderValue::from_str(&device_type.to_string())
+                HeaderValue::from_str(&client_type.to_string())
                     .expect("All ASCII strings are valid header values"),
             );
         }
