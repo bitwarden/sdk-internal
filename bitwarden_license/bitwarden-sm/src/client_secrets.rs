@@ -138,6 +138,7 @@ mod tests {
             api_url: format!("http://{}/api", server.address()),
             user_agent: "Bitwarden Rust-SDK [TEST]".into(),
             device_type: DeviceType::SDK,
+            bitwarden_client_version: None,
         };
 
         (server, Client::new(Some(settings)))
