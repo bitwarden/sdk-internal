@@ -1,7 +1,7 @@
 use bitwarden_api_api::{apis::ciphers_api, models::CipherRequestModel};
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
-    require, ApiError, MissingFieldError, OrganizationId, UserId,
+    require, ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, PrimitiveEncryptable,
@@ -33,6 +33,8 @@ pub enum CreateCipherError {
     VaultParse(#[from] VaultParseError),
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
+    #[error(transparent)]
+    NotAuthenticated(#[from] NotAuthenticatedError),
     #[error(transparent)]
     Repository(#[from] RepositoryError),
 }
@@ -166,13 +168,11 @@ impl CiphersClient {
         let config = self.client.internal.get_api_configurations().await;
         let repository = self.get_repository()?;
 
-        request.encrypted_for =
-            self.client
-                .internal
-                .get_user_id()
-                .ok_or(RepositoryError::Internal(
-                    "No user ID was found".to_string(),
-                ))?;
+        request.encrypted_for = self
+            .client
+            .internal
+            .get_user_id()
+            .ok_or(NotAuthenticatedError)?;
         create_cipher(key_store, &config.api, repository.as_ref(), request).await
     }
 }

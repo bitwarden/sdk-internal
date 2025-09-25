@@ -313,6 +313,17 @@ pub struct LoginView {
     pub fido2_credentials: Option<Vec<Fido2Credential>>,
 }
 
+impl LoginView {
+    /// Generate checksums for all URIs in the login view
+    pub fn generate_checksums(&mut self) {
+        if let Some(uris) = &mut self.uris {
+            for uri in uris {
+                uri.generate_checksum();
+            }
+        }
+    }
+}
+
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

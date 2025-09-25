@@ -3,12 +3,15 @@ use std::collections::HashMap;
 use bitwarden_api_api::{apis::ciphers_api, models::CipherRequestModel};
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
-    ApiError, MissingFieldError, UserId,
+    ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
 };
-use bitwarden_crypto::{CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext};
+use bitwarden_crypto::{
+    CompositeEncryptable, CryptoError, EncString, IdentifyKey, KeyStore, KeyStoreContext,
+    PrimitiveEncryptable,
+};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -18,8 +21,9 @@ use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
-    password_history::PasswordChange, Cipher, CipherId, CipherType, CipherView, FieldType,
-    FieldView, ItemNotFoundError, VaultParseError,
+    password_history::PasswordChange, AttachmentView, CardView, Cipher, CipherId,
+    CipherRepromptType, CipherType, CipherView, FieldType, FieldView, FolderId, IdentityView,
+    ItemNotFoundError, LoginView, PasswordHistoryView, SecureNoteView, SshKeyView, VaultParseError,
 };
 
 /// Maximum number of password history entries to retain
@@ -40,25 +44,73 @@ pub enum EditCipherError {
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
     #[error(transparent)]
+    NotAuthenticated(#[from] NotAuthenticatedError),
+    #[error(transparent)]
     Repository(#[from] RepositoryError),
     #[error(transparent)]
     Uuid(#[from] uuid::Error),
 }
 
 /// Request to edit a cipher.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherEditRequest {
-    /// The cipher view data to be added or edited.
-    pub cipher: CipherView,
-    /// The user ID for whom this cipher is encrypted (internal use only).
-    pub encrypted_for: Option<UserId>,
+    pub id: CipherId,
+
+    pub r#type: CipherType,
+    pub organization_id: Option<OrganizationId>,
+    pub folder_id: Option<FolderId>,
+    pub favorite: bool,
+    pub reprompt: CipherRepromptType,
+    pub key: Option<EncString>,
+    pub name: String,
+    pub notes: Option<String>,
+    pub fields: Vec<FieldView>,
+    pub password_history: Option<Vec<PasswordHistoryView>>,
+    pub attachments: Option<Vec<AttachmentView>>,
+
+    pub login: Option<LoginView>,
+    pub identity: Option<IdentityView>,
+    pub card: Option<CardView>,
+    pub secure_note: Option<SecureNoteView>,
+    pub ssh_key: Option<SshKeyView>,
+    pub revision_date: DateTime<Utc>,
+    pub archived_date: Option<DateTime<Utc>>,
+}
+
+impl TryFrom<CipherView> for CipherEditRequest {
+    type Error = MissingFieldError;
+
+    fn try_from(value: CipherView) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: value.id.ok_or(MissingFieldError("id"))?,
+            r#type: value.r#type,
+            organization_id: value.organization_id,
+            folder_id: value.folder_id,
+            favorite: value.favorite,
+            reprompt: value.reprompt,
+            key: value.key,
+            name: value.name,
+            notes: value.notes,
+            fields: value.fields.unwrap_or_default(),
+            password_history: value.password_history,
+            attachments: value.attachments,
+
+            login: value.login,
+            identity: value.identity,
+            card: value.card,
+            secure_note: value.secure_note,
+            ssh_key: value.ssh_key,
+            revision_date: value.revision_date,
+            archived_date: value.archived_date,
+        })
+    }
 }
 
 impl CipherEditRequest {
-    pub fn update_password_history(&mut self, original_cipher: &CipherView) {
+    fn update_password_history(&mut self, original_cipher: &CipherView) {
         let changes = self
             .detect_login_password_changes(original_cipher)
             .into_iter()
@@ -70,19 +122,19 @@ impl CipherEditRequest {
             .take(MAX_PASSWORD_HISTORY_ENTRIES)
             .collect();
 
-        self.cipher.password_history = (!history.is_empty()).then_some(history);
+        self.password_history = (!history.is_empty()).then_some(history);
     }
 
     fn detect_login_password_changes(
         &mut self,
         original_cipher: &CipherView,
     ) -> Vec<PasswordChange> {
-        if self.cipher.r#type != CipherType::Login || original_cipher.r#type != CipherType::Login {
+        if self.r#type != CipherType::Login || original_cipher.r#type != CipherType::Login {
             return Default::default();
         }
 
         let (Some(original_login), Some(current_login)) =
-            (original_cipher.login.as_ref(), self.cipher.login.as_mut())
+            (original_cipher.login.as_ref(), self.login.as_mut())
         else {
             return Default::default();
         };
@@ -108,8 +160,9 @@ impl CipherEditRequest {
     }
 
     fn detect_hidden_field_changes(&self, original_cipher: &CipherView) -> Vec<PasswordChange> {
-        let original_fields = Self::extract_hidden_fields(&original_cipher.fields);
-        let current_fields = Self::extract_hidden_fields(&self.cipher.fields);
+        let original_fields =
+            Self::extract_hidden_fields(original_cipher.fields.as_ref().unwrap_or(&vec![]));
+        let current_fields = Self::extract_hidden_fields(&self.fields);
 
         original_fields
             .into_iter()
@@ -124,10 +177,9 @@ impl CipherEditRequest {
             .collect()
     }
 
-    fn extract_hidden_fields(fields: &Option<Vec<FieldView>>) -> HashMap<String, String> {
+    fn extract_hidden_fields(fields: &Vec<FieldView>) -> HashMap<String, String> {
         fields
             .iter()
-            .flatten()
             .filter_map(|f| match (&f.r#type, &f.name, &f.value) {
                 (FieldType::Hidden, Some(name), Some(value))
                     if !name.is_empty() && !value.is_empty() =>
@@ -138,6 +190,12 @@ impl CipherEditRequest {
             })
             .collect()
     }
+
+    fn generate_checksums(&mut self) {
+        if let Some(login) = &mut self.login {
+            login.generate_checksums();
+        }
+    }
 }
 
 impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for CipherEditRequest {
@@ -146,29 +204,51 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<CipherRequestModel, CryptoError> {
-        let mut cipher_view = self.cipher.clone();
-        cipher_view.generate_checksums();
-        let encrypted_cipher = cipher_view.encrypt_composite(ctx, key)?;
+        let mut cipher_data = (*self).clone();
+        cipher_data.generate_checksums();
 
+        let key = key; // TODO: Swap key for cipher key if available
+
+        // let encrypted_cipher = cipher_view.encrypt_composite(ctx, key)?;
         let cipher_request = CipherRequestModel {
-            encrypted_for: self.encrypted_for.map(|id| id.into()),
-            r#type: Some(encrypted_cipher.r#type.into()),
-            organization_id: encrypted_cipher.organization_id.map(|id| id.to_string()),
-            folder_id: encrypted_cipher.folder_id.map(|id| id.to_string()),
-            favorite: Some(encrypted_cipher.favorite),
-            reprompt: Some(encrypted_cipher.reprompt.into()),
-            key: encrypted_cipher.key.map(|k| k.to_string()),
-            name: encrypted_cipher.name.to_string(),
-            notes: encrypted_cipher.notes.map(|n| n.to_string()),
-            fields: encrypted_cipher
-                .fields
-                .map(|f| f.into_iter().map(|f| f.into()).collect()),
-            password_history: encrypted_cipher
-                .password_history
-                .map(|ph| ph.into_iter().map(|ph| ph.into()).collect()),
+            encrypted_for: None,
+            r#type: Some(cipher_data.r#type.into()),
+            organization_id: cipher_data.organization_id.map(|id| id.to_string()),
+            folder_id: cipher_data.folder_id.map(|id| id.to_string()),
+            favorite: Some(cipher_data.favorite),
+            reprompt: Some(cipher_data.reprompt.into()),
+            key: cipher_data.key.map(|k| k.to_string()),
+            name: cipher_data.name.encrypt(ctx, key)?.to_string(),
+            notes: cipher_data
+                .notes
+                .as_ref()
+                .map(|n| n.encrypt(ctx, key))
+                .transpose()?
+                .map(|n| n.to_string()),
+            fields: Some(
+                cipher_data
+                    .fields
+                    .encrypt_composite(ctx, key)?
+                    .into_iter()
+                    .map(|f| f.into())
+                    .collect(),
+            ),
+            password_history: Some(
+                cipher_data
+                    .password_history
+                    .encrypt_composite(ctx, key)?
+                    .into_iter()
+                    .flatten()
+                    .map(|ph| ph.into())
+                    .collect(),
+            ),
             attachments: None,
-            attachments2: encrypted_cipher.attachments.map(|a| {
-                a.into_iter()
+            attachments2: Some(
+                cipher_data
+                    .attachments
+                    .encrypt_composite(ctx, key)?
+                    .into_iter()
+                    .flatten()
                     .filter_map(|a| {
                         a.id.map(|id| {
                             (
@@ -180,17 +260,37 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
                             )
                         })
                     })
-                    .collect()
-            }),
-            login: encrypted_cipher.login.map(|l| Box::new(l.into())),
-            card: encrypted_cipher.card.map(|c| Box::new(c.into())),
-            identity: encrypted_cipher.identity.map(|i| Box::new(i.into())),
-            secure_note: encrypted_cipher
+                    .collect(),
+            ),
+            login: cipher_data
+                .login
+                .map(|l| l.encrypt_composite(ctx, key))
+                .transpose()?
+                .map(|l| Box::new(l.into())),
+            card: cipher_data
+                .card
+                .map(|c| c.encrypt_composite(ctx, key))
+                .transpose()?
+                .map(|c| Box::new(c.into())),
+            identity: cipher_data
+                .identity
+                .map(|i| i.encrypt_composite(ctx, key))
+                .transpose()?
+                .map(|c| Box::new(c.into())),
+
+            secure_note: cipher_data
                 .secure_note
-                .map(|note| Box::new(note.into())),
-            ssh_key: encrypted_cipher.ssh_key.map(|key| Box::new(key.into())),
-            last_known_revision_date: Some(encrypted_cipher.revision_date.to_rfc3339()),
-            archived_date: None,
+                .map(|i| i.encrypt_composite(ctx, key))
+                .transpose()?
+                .map(|c| Box::new(c.into())),
+            ssh_key: cipher_data
+                .ssh_key
+                .map(|i| i.encrypt_composite(ctx, key))
+                .transpose()?
+                .map(|c| Box::new(c.into())),
+
+            last_known_revision_date: Some(cipher_data.revision_date.to_rfc3339()),
+            archived_date: cipher_data.archived_date.map(|d| d.to_rfc3339()),
         };
 
         Ok(cipher_request)
@@ -199,7 +299,10 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
 
 impl IdentifyKey<SymmetricKeyId> for CipherEditRequest {
     fn key_identifier(&self) -> SymmetricKeyId {
-        self.cipher.key_identifier()
+        match self.organization_id {
+            Some(organization_id) => SymmetricKeyId::Organization(organization_id),
+            None => SymmetricKeyId::User,
+        }
     }
 }
 
@@ -207,22 +310,24 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     key_store: &KeyStore<KeyIds>,
     api_config: &bitwarden_api_api::apis::configuration::Configuration,
     repository: &R,
-    cipher_id: CipherId,
+    encrypted_for: UserId,
     mut request: CipherEditRequest,
 ) -> Result<CipherView, EditCipherError> {
-    let id = cipher_id.to_string();
-    repository.get(id.clone()).await?.ok_or(ItemNotFoundError)?;
+    let cipher_id = request.id;
 
-    let original_cipher = repository.get(id.clone()).await?.ok_or(ItemNotFoundError)?;
+    let original_cipher = repository
+        .get(cipher_id.to_string())
+        .await?
+        .ok_or(ItemNotFoundError)?;
     let original_cipher_view: CipherView = key_store.decrypt(&original_cipher)?;
 
     // Update password history
     request.update_password_history(&original_cipher_view);
 
-    let cipher_request = key_store.encrypt(request)?;
+    let mut cipher_request = key_store.encrypt(request)?;
+    cipher_request.encrypted_for = Some(encrypted_for.into());
 
-    let parsed_cipher_id = uuid::Uuid::parse_str(&id)?;
-    let response = ciphers_api::ciphers_put(api_config, parsed_cipher_id, Some(cipher_request))
+    let response = ciphers_api::ciphers_put(api_config, cipher_id.into(), Some(cipher_request))
         .await
         .map_err(ApiError::from)?;
 
@@ -239,22 +344,22 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
 
 impl CiphersClient {
     /// Edit an existing [Cipher] and save it to the server.
-    pub async fn edit(
-        &self,
-        cipher_id: CipherId,
-        mut request: CipherEditRequest,
-    ) -> Result<CipherView, EditCipherError> {
+    pub async fn edit(&self, request: CipherEditRequest) -> Result<CipherView, EditCipherError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
         let repository = self.get_repository()?;
 
-        request.encrypted_for = self.client.internal.get_user_id();
+        let user_id = self
+            .client
+            .internal
+            .get_user_id()
+            .ok_or(NotAuthenticatedError)?;
 
         edit_cipher(
             key_store,
             &config.api,
             repository.as_ref(),
-            cipher_id,
+            user_id,
             request,
         )
         .await
@@ -267,7 +372,7 @@ mod tests {
         apis::configuration::Configuration,
         models::{CipherRequestModel, CipherResponseModel},
     };
-    use bitwarden_core::{key_management::SymmetricKeyId, UserId};
+    use bitwarden_core::key_management::SymmetricKeyId;
     use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
     use bitwarden_test::{start_api_mock, MemoryRepository};
     use wiremock::{matchers, Mock, Request, ResponseTemplate};
@@ -282,7 +387,7 @@ mod tests {
 
     fn generate_test_cipher() -> CipherView {
         CipherView {
-            id: None,
+            id: Some(TEST_CIPHER_ID.parse().unwrap()),
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
@@ -397,7 +502,6 @@ mod tests {
         );
 
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let user_id: UserId = TEST_USER_ID.parse().unwrap();
 
         let (_server, api_config) = start_api_mock(vec![Mock::given(matchers::path(format!(
             "/ciphers/{}",
@@ -448,14 +552,17 @@ mod tests {
         repository_add_cipher(&repository, &store, cipher_id, "old_name").await;
         let cipher_view = generate_test_cipher();
 
-        let request = CipherEditRequest {
-            cipher: cipher_view.clone(),
-            encrypted_for: Some(user_id),
-        };
+        let request = cipher_view.try_into().unwrap();
 
-        let result = edit_cipher(&store, &api_config, &repository, cipher_id, request)
-            .await
-            .unwrap();
+        let result = edit_cipher(
+            &store,
+            &api_config,
+            &repository,
+            TEST_USER_ID.parse().unwrap(),
+            request,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(result.id, Some(cipher_id));
         assert_eq!(result.name, "Test Login");
@@ -466,20 +573,16 @@ mod tests {
         let store: KeyStore<KeyIds> = KeyStore::default();
 
         let repository = MemoryRepository::<Cipher>::default();
-        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
 
         let cipher_view = generate_test_cipher();
 
-        let request = CipherEditRequest {
-            cipher: cipher_view.clone(),
-            encrypted_for: None,
-        };
+        let request = cipher_view.try_into().unwrap();
 
         let result = edit_cipher(
             &store,
             &Configuration::default(),
             &repository,
-            cipher_id,
+            TEST_USER_ID.parse().unwrap(),
             request,
         )
         .await;
@@ -513,12 +616,16 @@ mod tests {
         repository_add_cipher(&repository, &store, cipher_id, "old_name").await;
         let cipher_view = generate_test_cipher();
 
-        let request = CipherEditRequest {
-            cipher: cipher_view.clone(),
-            encrypted_for: None,
-        };
+        let request = cipher_view.try_into().unwrap();
 
-        let result = edit_cipher(&store, &api_config, &repository, cipher_id, request).await;
+        let result = edit_cipher(
+            &store,
+            &api_config,
+            &repository,
+            TEST_USER_ID.parse().unwrap(),
+            request,
+        )
+        .await;
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), EditCipherError::Api(_)));
@@ -527,14 +634,12 @@ mod tests {
     #[test]
     fn test_password_history_on_password_change() {
         let original_cipher = create_test_login_cipher("old_password");
-        let mut edit_request = CipherEditRequest {
-            cipher: create_test_login_cipher("new_password"),
-            encrypted_for: None,
-        };
+        let mut edit_request =
+            CipherEditRequest::try_from(create_test_login_cipher("new_password")).unwrap();
 
         edit_request.update_password_history(&original_cipher);
 
-        let history = edit_request.cipher.password_history.unwrap();
+        let history = edit_request.password_history.unwrap();
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].password, "old_password");
     }
@@ -542,14 +647,12 @@ mod tests {
     #[test]
     fn test_password_history_on_unchanged_password() {
         let original_cipher = create_test_login_cipher("same_password");
-        let mut edit_request = CipherEditRequest {
-            cipher: create_test_login_cipher("same_password"),
-            encrypted_for: None,
-        };
+        let mut edit_request =
+            CipherEditRequest::try_from(create_test_login_cipher("same_password")).unwrap();
 
         edit_request.update_password_history(&original_cipher);
 
-        assert!(edit_request.cipher.password_history.is_none());
+        assert!(edit_request.password_history.is_none());
     }
 
     #[test]
@@ -570,14 +673,11 @@ mod tests {
             linked_id: None,
         }]);
 
-        let mut edit_request = CipherEditRequest {
-            cipher: new_cipher,
-            encrypted_for: None,
-        };
+        let mut edit_request = CipherEditRequest::try_from(new_cipher).unwrap();
 
         edit_request.update_password_history(&original_cipher);
 
-        let history = edit_request.cipher.password_history.unwrap();
+        let history = edit_request.password_history.unwrap();
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].password, "Secret Key: old_secret_value");
     }
@@ -595,14 +695,12 @@ mod tests {
         );
 
         // Create edit request with new password (no existing history)
-        let mut edit_request = CipherEditRequest {
-            cipher: create_test_login_cipher("new_password"),
-            encrypted_for: None,
-        };
+        let mut edit_request =
+            CipherEditRequest::try_from(create_test_login_cipher("new_password")).unwrap();
 
         edit_request.update_password_history(&original_cipher);
 
-        let history = edit_request.cipher.password_history.unwrap();
+        let history = edit_request.password_history.unwrap();
         assert_eq!(history.len(), MAX_PASSWORD_HISTORY_ENTRIES);
         // Most recent change (original password) should be first
         assert_eq!(history[0].password, "password");
