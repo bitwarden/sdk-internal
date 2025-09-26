@@ -32,15 +32,6 @@ async fn get_cipher(
     Ok(store.decrypt(&cipher)?)
 }
 
-async fn list_ciphers(
-    store: &KeyStore<KeyIds>,
-    repository: &dyn Repository<Cipher>,
-) -> Result<Vec<CipherView>, GetCipherError> {
-    let ciphers = repository.list().await?;
-    let views = store.decrypt_list(&ciphers)?;
-    Ok(views)
-}
-
 async fn list_ciphers_with_failures(
     store: &KeyStore<KeyIds>,
     repository: &dyn Repository<Cipher>,
@@ -54,14 +45,6 @@ async fn list_ciphers_with_failures(
 }
 
 impl CiphersClient {
-    /// Get all ciphers from state and decrypt them to a list of [CipherView].
-    pub async fn list(&self) -> Result<Vec<CipherView>, GetCipherError> {
-        let key_store = self.client.internal.get_key_store();
-        let repository = self.get_repository()?;
-
-        list_ciphers(key_store, repository.as_ref()).await
-    }
-
     /// Get all ciphers from state and decrypt them, returning both successes and failures.
     /// This method will not fail when some ciphers fail to decrypt, allowing for graceful
     /// handling of corrupted or problematic cipher data.
